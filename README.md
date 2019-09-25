@@ -8,3 +8,4 @@ A C++ version of hotpocket designed for production envrionments, original protot
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
 * Websockets - Boost|Beast https://github.com/boostorg/beast
+* Config - https://hyperrealm.github.io/libconfig/
