@@ -4,59 +4,135 @@
 #include <fstream>
 #include <libconfig.h++>
 #include "base64.h"
+#include "lib/rapidjson/document.h"
+#include "conf.h"
 
 using namespace std;
 using namespace libconfig;
+using namespace rapidjson;
+
+namespace keys
+{
 
 static const char CFG_FILE[] = "keys.cfg";
 static const char KEY_PUBLIC[] = "public";
 static const char KEY_PRIVATE[] = "private";
 
-int init_keys()
+//Struct used for storing in JSON
+struct KeyPairB64
 {
-    bool keysInitialized = false;
+    const char *publicKey;
+    const char *privateKey;
+};
 
-    Config cfg;
+//Struct used for crypto operations
+struct KeyPairCrypto
+{
+    BYTE *publicKey;
+    BYTE *privateKey;
+};
 
-    try
+static KeyPairB64 b64KeyPair;
+static KeyPairCrypto cryptoKeyPair;
+
+void load_keys_b64()
+{
+    Document d;
+    conf::load(CFG_FILE, d);
+    if (!d.IsNull())
     {
-        //Attempt to read keys from the config file.
-        cfg.readFile(CFG_FILE);
-
-        string filePublicKey = cfg.lookup(KEY_PUBLIC);
-        string filePrivateKey = cfg.lookup(KEY_PRIVATE);
-
-        //TODO: Make the keys available via a global variable or helper func.
-
-        keysInitialized = true;
+        b64KeyPair.publicKey = d["public"].GetString();
+        b64KeyPair.privateKey = d["private"].GetString();
     }
-    catch (const SettingNotFoundException &nfex)
+    else
     {
-        cerr << "Keys not found in configuration file." << endl;
-    }
-    catch (const FileIOException &fioex)
-    {
-        cerr << "Keys file not found." << endl;
-    }
-
-    //If for some reason we couldn't load the keys, we regenerate the keys.
-    if (!keysInitialized)
-    {
-        cout << "Generating keys" << endl;
-
-        //Initialize new keys
-        unsigned char publickey[crypto_box_PUBLICKEYBYTES];
-        unsigned char privatekey[crypto_box_SECRETKEYBYTES];
-        crypto_box_keypair(publickey, privatekey);
-
-        //Create the file if not exists.
-        ofstream file{CFG_FILE};
-
-        //Write the keys into the file.
-        cfg.readFile(CFG_FILE);
-        Setting &root = cfg.getRoot();
-        root.add(KEY_PUBLIC, Setting::TypeString) = base64_encode(publickey, crypto_box_PUBLICKEYBYTES);
-        root.add(KEY_PRIVATE, Setting::TypeString) = base64_encode(privatekey, crypto_box_SECRETKEYBYTES);
-        cfg.writeFile(CFG_FILE);
+        b64KeyPair.publicKey = NULL;
+        b64KeyPair.privateKey = NULL;
     }
 }
+
+void save_keys_b64()
+{
+    Document d;
+    d.SetObject();
+
+    Document::AllocatorType &allocator = d.GetAllocator();
+    d.AddMember("public", StringRef(b64KeyPair.publicKey), allocator);
+    d.AddMember("private", StringRef(b64KeyPair.privateKey), allocator);
+    conf::save(CFG_FILE, d);
+}
+
+void cryptopair_to_b64()
+{
+    string b64PubKey = base64_encode(cryptoKeyPair.publicKey, crypto_sign_PUBLICKEYBYTES);
+    string b64PrivKey = base64_encode(cryptoKeyPair.publicKey, crypto_sign_SECRETKEYBYTES);
+
+    char *b64PubKeyChar = (char *)malloc(b64PubKey.size() + 1);
+    char *b64PrivKeyChar = (char *)malloc(b64PrivKey.size() + 1);
+
+    strcpy(b64PubKeyChar, &b64PubKey[0]);
+    strcpy(b64PrivKeyChar, &b64PrivKey[0]);
+
+    b64KeyPair.publicKey = b64PubKeyChar;
+    b64KeyPair.privateKey = b64PrivKeyChar;
+}
+
+void b64pair_to_crypto()
+{
+    vector<BYTE> pubDecoded = base64_decode(b64KeyPair.publicKey);
+    vector<BYTE> privDecoded = base64_decode(b64KeyPair.privateKey);
+
+    BYTE *pubDecodedBytes = (BYTE *)malloc(pubDecoded.size());
+    BYTE *privDecodedBytes = (BYTE *)malloc(privDecoded.size());
+
+    for (size_t i = 0; i < pubDecoded.size(); ++i)
+    {
+        pubDecodedBytes[i] = pubDecoded[i];
+    }
+    for (size_t i = 0; i < privDecoded.size(); ++i)
+    {
+        privDecodedBytes[i] = privDecoded[i];
+    }
+
+    cryptoKeyPair.publicKey = pubDecodedBytes;
+    cryptoKeyPair.privateKey = privDecodedBytes;
+}
+
+void generate_crypto_keys()
+{
+    BYTE *pubKey = (BYTE *)malloc(crypto_sign_PUBLICKEYBYTES);
+    BYTE *privKey = (BYTE *)malloc(crypto_sign_SECRETKEYBYTES);
+    crypto_sign_keypair(pubKey, privKey);
+
+    cryptoKeyPair.publicKey = pubKey;
+    cryptoKeyPair.privateKey = privKey;
+}
+
+int init()
+{
+    if (sodium_init() < 0)
+    {
+        cerr << "sodium_init failed.\n";
+        return 0;
+    }
+
+    load_keys_b64();
+
+    //If any keys are missing generate a new pair and save to file.
+    if (!b64KeyPair.publicKey || !b64KeyPair.privateKey)
+    {
+        cout << "Keys not found. Generating.\n";
+        generate_crypto_keys();
+        cryptopair_to_b64();
+        save_keys_b64();
+    }
+    else
+    {
+        b64pair_to_crypto();
+        cout << "Keys loaded from file.\n";
+    }
+
+    return 1;
+}
+
+} // namespace keys

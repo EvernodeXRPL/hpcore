@@ -4,21 +4,20 @@
 
 #include <cstdio>
 #include <iostream>
-#include <sodium.h>
+#include "conf.h"
 #include "keys.h"
 
 using namespace std;
 
 int main(int argc, char **argv)
 {
-    if (sodium_init() < 0)
+    if (!conf::init() || !keys::init())
     {
-        cout << "sodium_init failed.\n";
-        return 1;
+        cerr << "Init error\n";
+        return -1;
     }
-
-    init_keys();
 
     cout << "exited normally\n";
     return 0;
 }
+
