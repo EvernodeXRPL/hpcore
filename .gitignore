@@ -3,3 +3,5 @@
 *.swo
 .*.sw?
 .DS_Store
+build/**
+.vscode/**

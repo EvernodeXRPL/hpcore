@@ -8,5 +8,5 @@ A C++ version of hotpocket designed for production envrionments, original protot
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
 * Websockets - Boost|Beast https://github.com/boostorg/beast
+* RapidJSON - http://rapidjson.org
 * Protocol - https://github.com/protocolbuffers/protobuf
-* Json - https://github.com/nlohmann/json
