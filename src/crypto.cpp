@@ -78,7 +78,7 @@ void save_keys_b64()
 void cryptopair_to_b64()
 {
     string b64PubKey = base64_encode(cryptoKeyPair.publicKey, crypto_sign_PUBLICKEYBYTES);
-    string b64PrivKey = base64_encode(cryptoKeyPair.publicKey, crypto_sign_SECRETKEYBYTES);
+    string b64PrivKey = base64_encode(cryptoKeyPair.privateKey, crypto_sign_SECRETKEYBYTES);
 
     char *b64PubKeyChar = (char *)malloc(b64PubKey.size() + 1);
     char *b64PrivKeyChar = (char *)malloc(b64PrivKey.size() + 1);

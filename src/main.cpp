@@ -23,6 +23,10 @@ int main(int argc, char **argv)
     crypto::sign(msg, 10, sig);
 
     bool isValid = crypto::verify(msg, 10, sig);
+    if (isValid)
+        cout << "Signature verified.\n";
+    else
+        cout << "Invalid signature.\n";
 
     cout << "exited normally\n";
     return 0;
