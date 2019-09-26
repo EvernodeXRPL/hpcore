@@ -2,21 +2,18 @@
 #include <iostream>
 #include <sodium.h>
 #include <fstream>
-#include <libconfig.h++>
 #include "base64.h"
 #include "lib/rapidjson/document.h"
 #include "conf.h"
+#include "crypto.h"
 
 using namespace std;
-using namespace libconfig;
 using namespace rapidjson;
 
-namespace keys
+namespace crypto
 {
 
 static const char CFG_FILE[] = "keys.cfg";
-static const char KEY_PUBLIC[] = "public";
-static const char KEY_PRIVATE[] = "private";
 
 //Struct used for storing in JSON
 struct KeyPairB64
@@ -28,12 +25,28 @@ struct KeyPairB64
 //Struct used for crypto operations
 struct KeyPairCrypto
 {
-    BYTE *publicKey;
-    BYTE *privateKey;
+    unsigned char *publicKey;
+    unsigned char *privateKey;
 };
 
 static KeyPairB64 b64KeyPair;
 static KeyPairCrypto cryptoKeyPair;
+
+unsigned long long get_sig_len()
+{
+    return crypto_sign_BYTES;
+}
+
+void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *sig)
+{
+    crypto_sign_detached(sig, NULL, msg, msg_len, cryptoKeyPair.privateKey);
+}
+
+bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned char *sig)
+{
+    int result = crypto_sign_verify_detached(sig, msg, msg_len, cryptoKeyPair.publicKey);
+    return result == 0;
+}
 
 void load_keys_b64()
 {
@@ -79,11 +92,11 @@ void cryptopair_to_b64()
 
 void b64pair_to_crypto()
 {
-    vector<BYTE> pubDecoded = base64_decode(b64KeyPair.publicKey);
-    vector<BYTE> privDecoded = base64_decode(b64KeyPair.privateKey);
+    vector<unsigned char> pubDecoded = base64_decode(b64KeyPair.publicKey);
+    vector<unsigned char> privDecoded = base64_decode(b64KeyPair.privateKey);
 
-    BYTE *pubDecodedBytes = (BYTE *)malloc(pubDecoded.size());
-    BYTE *privDecodedBytes = (BYTE *)malloc(privDecoded.size());
+    unsigned char *pubDecodedBytes = (unsigned char *)malloc(pubDecoded.size());
+    unsigned char *privDecodedBytes = (unsigned char *)malloc(privDecoded.size());
 
     for (size_t i = 0; i < pubDecoded.size(); ++i)
     {
@@ -100,8 +113,8 @@ void b64pair_to_crypto()
 
 void generate_crypto_keys()
 {
-    BYTE *pubKey = (BYTE *)malloc(crypto_sign_PUBLICKEYBYTES);
-    BYTE *privKey = (BYTE *)malloc(crypto_sign_SECRETKEYBYTES);
+    unsigned char *pubKey = (unsigned char *)malloc(crypto_sign_PUBLICKEYBYTES);
+    unsigned char *privKey = (unsigned char *)malloc(crypto_sign_SECRETKEYBYTES);
     crypto_sign_keypair(pubKey, privKey);
 
     cryptoKeyPair.publicKey = pubKey;
@@ -135,4 +148,4 @@ int init()
     return 1;
 }
 
-} // namespace keys
+} // namespace crypto

@@ -6,6 +6,7 @@
 #include "lib/rapidjson/istreamwrapper.h"
 #include "lib/rapidjson/ostreamwrapper.h"
 #include "lib/rapidjson/writer.h"
+#include "conf.h"
 
 using namespace std;
 using namespace rapidjson;

@@ -8,9 +8,11 @@ using namespace rapidjson;
 
 namespace conf
 {
+
 int init();
 void load(const char *filename, Document &d);
 void save(const char *filename, Document &d);
+
 } // namespace conf
 
 #endif
