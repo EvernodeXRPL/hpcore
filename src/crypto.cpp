@@ -15,14 +15,37 @@ unsigned long long get_sig_len()
     return crypto_sign_BYTES;
 }
 
-void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *sig, const unsigned char *seckey)
+void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *sig)
 {
-    crypto_sign_detached(sig, NULL, msg, msg_len, seckey);
+    crypto_sign_detached(sig, NULL, msg, msg_len, conf::cfg.seckey);
+}
+
+string sign_b64(string msg)
+{
+    unsigned char sig[crypto_sign_BYTES];
+    crypto_sign_detached(sig, NULL, (unsigned char *)msg.c_str(), msg.size() + 1, conf::cfg.seckey);
+    return base64_encode(sig, crypto_sign_BYTES);
 }
 
 bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned char *sig, const unsigned char *pubkey)
 {
     int result = crypto_sign_verify_detached(sig, msg, msg_len, pubkey);
+    return result == 0;
+}
+
+bool verify_b64(string msg, string sigb64, string pubkeyb64)
+{
+    vector<unsigned char> sigVector = base64_decode(sigb64);
+    unsigned char sig[sigVector.size()];
+    for (int i = 0; i < sigVector.size(); i++)
+        sig[i] = sigVector[i];
+
+    vector<unsigned char> pubkeyVector = base64_decode(pubkeyb64);
+    unsigned char pubkey[pubkeyVector.size()];
+    for (int i = 0; i < pubkeyVector.size(); i++)
+        pubkey[i] = pubkeyVector[i];
+
+    int result = crypto_sign_verify_detached(sig, (unsigned char *)msg.c_str(), msg.size() + 1, pubkey);
     return result == 0;
 }
 
@@ -41,13 +64,10 @@ void b64pair_to_crypto()
     unsigned char *privDecodedBytes = (unsigned char *)malloc(privDecoded.size());
 
     for (size_t i = 0; i < pubDecoded.size(); ++i)
-    {
         pubDecodedBytes[i] = pubDecoded[i];
-    }
+
     for (size_t i = 0; i < privDecoded.size(); ++i)
-    {
         privDecodedBytes[i] = privDecoded[i];
-    }
 
     if (conf::cfg.pubkey != NULL)
         free(conf::cfg.pubkey);

@@ -18,11 +18,12 @@ int main(int argc, char **argv)
     }
 
     //Example sign and verification.
-    unsigned char msg[10] = "hotpocket";
-    unsigned char *sig = new unsigned char[crypto::get_sig_len()];
-    crypto::sign(msg, 10, sig, conf::cfg.seckey);
+    string msg = "hotpocket";
+    string sigb64 = crypto::sign_b64(msg);
+    cout << "Message: " << msg << endl;
+    cout << "Signature: " << sigb64 << endl;
 
-    bool isValid = crypto::verify(msg, 10, sig, conf::cfg.pubkey);
+    bool isValid = crypto::verify_b64(msg, sigb64, conf::cfg.pubkeyb64);
     if (isValid)
         cout << "Signature verified.\n";
     else
