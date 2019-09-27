@@ -11,7 +11,7 @@ using namespace std;
 
 int main(int argc, char **argv)
 {
-    if (!conf::init() || !crypto::init())
+    if (!(conf::init(argc, argv) && crypto::init()))
     {
         cerr << "Init error\n";
         return -1;
@@ -20,9 +20,9 @@ int main(int argc, char **argv)
     //Example sign and verification.
     unsigned char msg[10] = "hotpocket";
     unsigned char *sig = new unsigned char[crypto::get_sig_len()];
-    crypto::sign(msg, 10, sig);
+    crypto::sign(msg, 10, sig, conf::cfg.seckey);
 
-    bool isValid = crypto::verify(msg, 10, sig);
+    bool isValid = crypto::verify(msg, 10, sig, conf::cfg.pubkey);
     if (isValid)
         cout << "Signature verified.\n";
     else
@@ -31,4 +31,3 @@ int main(int argc, char **argv)
     cout << "exited normally\n";
     return 0;
 }
-
