@@ -1,7 +1,7 @@
 #ifndef _HP_CONF_H_
 #define _HP_CONF_H_
 
-#include "lib/rapidjson/document.h"
+#include <rapidjson/document.h>
 #include <vector>
 
 using namespace std;

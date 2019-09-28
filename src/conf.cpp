@@ -4,12 +4,12 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "lib/rapidjson/document.h"
-#include "lib/rapidjson/istreamwrapper.h"
-#include "lib/rapidjson/ostreamwrapper.h"
-#include "lib/rapidjson/prettywriter.h"
-#include "conf.h"
+#include <rapidjson/document.h>
+#include <rapidjson/istreamwrapper.h>
+#include <rapidjson/ostreamwrapper.h>
+#include <rapidjson/prettywriter.h>
 #include <boost/filesystem.hpp>
+#include "conf.h"
 
 using namespace std;
 using namespace rapidjson;
