@@ -9,26 +9,61 @@
 
 using namespace std;
 
+int parse_cmd(int argc, char **argv);
+
 int main(int argc, char **argv)
 {
-    if (!(conf::init(argc, argv) && crypto::init()))
-    {
-        cerr << "Init error\n";
+    if (!parse_cmd(argc, argv))
         return -1;
+
+    if (conf::ctx.command == "version")
+    {
+        cout << _HP_VERSION_ << endl;
+    }
+    else
+    {
+        bool initSuccess = conf::init(argc, argv) && crypto::init();
+        if (!initSuccess)
+        {
+            cerr << "Init error\n";
+            return -1;
+        }
     }
 
-    //Example sign and verification.
-    string msg = "hotpocket";
-    string sigb64 = crypto::sign_b64(msg);
-    cout << "Message: " << msg << endl;
-    cout << "Signature: " << sigb64 << endl;
-
-    bool isValid = crypto::verify_b64(msg, sigb64, conf::cfg.pubkeyb64);
-    if (isValid)
-        cout << "Signature verified.\n";
-    else
-        cout << "Invalid signature.\n";
-
     cout << "exited normally\n";
+    return 0;
+}
+
+int parse_cmd(int argc, char **argv)
+{
+    if (argc > 1) //We get working dir as an arg anyway. So we need to check for >1 args.
+    {
+        string command = argv[1];
+        conf::ctx.command = command;
+        if (command == "run" || command == "new" || command == "rekey")
+        {
+            if (argc != 3)
+            {
+                cerr << "Contract directory not specified.\n";
+            }
+            else
+            {
+                conf::set_contract_dir_paths(argv[2]);
+                return 1;
+            }
+        }
+        else if (command == "version")
+        {
+            if (argc == 2)
+                return 1;
+        }
+    }
+
+    cerr << "Arguments mismatch.\n";
+    cout << "Usage:\n";
+    cout << "hpcore version\n";
+    cout << "hpcore <command> <contract dir> (command = run | new | rekey)\n";
+    cout << "Example: hpcore run ~/mycontract\n";
+
     return 0;
 }
