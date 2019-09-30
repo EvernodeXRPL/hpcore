@@ -1,3 +1,6 @@
+#ifndef _SOCK_SERVER_LISTENER_H_
+#define _SOCK_SERVER_LISTENER_H_
+
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
@@ -105,3 +108,5 @@ private:
     }
 };
 } // namespace sock
+
+#endif

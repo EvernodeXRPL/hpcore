@@ -1,3 +1,6 @@
+#ifndef _SOCK_CLIENT_SESSION_H_
+#define _SOCK_CLIENT_SESSION_H_
+
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
@@ -168,3 +171,5 @@ public:
     }
 };
 } // namespace sock
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef _SOCK_SERVER_SESSION_H_
+#define _SOCK_SERVER_SESSION_H_
+
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
@@ -58,7 +61,7 @@ public:
         // Accept the websocket handshake
         ws_.async_accept(
             beast::bind_front_handler(
-                &session::on_accept,
+                &ServerSession::on_accept,
                 shared_from_this()));
     }
 
@@ -79,7 +82,7 @@ public:
         ws_.async_read(
             buffer_,
             beast::bind_front_handler(
-                &session::on_read,
+                &ServerSession::on_read,
                 shared_from_this()));
     }
 
@@ -102,7 +105,7 @@ public:
         ws_.async_write(
             buffer_.data(),
             beast::bind_front_handler(
-                &session::on_write,
+                &ServerSession::on_write,
                 shared_from_this()));
     }
 
@@ -124,3 +127,5 @@ public:
     }
 };
 } // namespace sock
+
+#endif
