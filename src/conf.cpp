@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <rapidjson/document.h>
+#include <rapidjson/schema.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
@@ -16,6 +17,34 @@ namespace conf
 
 ContractCtx ctx;
 ContractConfig cfg;
+
+const char *cfg_schema =
+    "{"
+    "\"type\": \"object\","
+    "\"required\": [ \"version\", \"pubkeyb64\", \"seckeyb64\", \"binary\", \"binargs\", \"listenip\""
+    ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\" ],"
+    "\"properties\": {"
+    "\"version\": { \"type\": \"string\" },"
+    "\"pubkeyb64\": { \"type\": \"string\" },"
+    "\"seckeyb64\": { \"type\": \"string\" },"
+    "\"binary\": { \"type\": \"string\" },"
+    "\"binargs\": { \"type\": \"string\" },"
+    "\"listenip\": { \"type\": \"string\" },"
+    "\"peers\": {"
+    "\"type\": \"array\","
+    "\"items\": { \"type\": \"string\" }"
+    "},"
+    "\"unl\": {"
+    "\"type\": \"array\","
+    "\"items\": { \"type\": \"string\" }"
+    "},"
+    "\"peerport\": { \"type\": \"integer\" },"
+    "\"roundtime\": { \"type\": \"integer\" },"
+    "\"pubport\": { \"type\": \"integer\" },"
+    "\"pubmaxsize\": { \"type\": \"integer\" },"
+    "\"pubmaxcpm\": { \"type\": \"integer\" }"
+    "}"
+    "}";
 
 //   v1 <  v2  -> -1
 //   v1 == v2  ->  0
@@ -49,13 +78,32 @@ int version_compare(std::string v1, std::string v2)
     return 0;
 }
 
+bool is_schema_valid(Document &d)
+{
+    Document sd;
+    sd.Parse(cfg_schema);
+    SchemaDocument schema(sd);
+
+    SchemaValidator validator(schema);
+    return d.Accept(validator);
+}
+
 int load_config()
 {
     ifstream ifs(ctx.configFile);
     IStreamWrapper isw(ifs);
 
     Document d;
-    d.ParseStream(isw);
+    if (d.ParseStream(isw).HasParseError())
+    {
+        cerr << "Invalid config file format. Parser error at position " << d.GetErrorOffset() << endl;
+        return 0;
+    }
+    else if (!is_schema_valid(d))
+    {
+        cerr << "Invalid config file format.\n";
+        return 0;
+    }
 
     //Check contract version.
     string cfgVersion = d["version"].GetString();

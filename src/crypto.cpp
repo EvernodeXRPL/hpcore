@@ -100,17 +100,34 @@ int init()
         return 0;
     }
 
-    //If any keys are missing generate a new pair and save to file.
-    if (conf::cfg.pubkeyb64.empty() || conf::cfg.seckeyb64.empty())
+    if (conf::ctx.command == "new" || conf::ctx.command == "rekey")
     {
         cout << "Generating new keys.\n";
         generate_crypto_keys();
         cryptopair_to_b64();
         conf::save_config();
     }
-    else
+    else if (conf::ctx.command == "run")
     {
-        b64pair_to_crypto();
+        if (conf::cfg.pubkeyb64.empty() || conf::cfg.seckeyb64.empty())
+        {
+            cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
+            return 0;
+        }
+        else
+        {
+            //Decode b64 keys into bytes and store in memory.
+            b64pair_to_crypto();
+
+            //Sign and verify a sample to ensure we have a matching key pair.
+            string msg = "hotpocket";
+            string sigb64 = sign_b64(msg);
+            if (!verify_b64(msg, sigb64, conf::cfg.pubkeyb64))
+            {
+                cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
+                return 0;
+            }
+        }
     }
 
     return 1;

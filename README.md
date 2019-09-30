@@ -13,6 +13,15 @@ A C++ version of hotpocket designed for production envrionments, original protot
 
 ## Steps to setup Hot Pocket
 
+### Install Libsodium
+Instructions are based on [this](https://libsodium.gitbook.io/doc/installation).
+
+1. Download and extract Libsodium 1.0.18 from [here](https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable.tar.gz).
+2. Navigate to the extracted libsodium directory in a terminal.
+3. Run `./configure`
+4. Run `make && make check`
+5. Run `sudo make install`
+
 #### Install Boost
 Following Instructions are based on Boost [getting started](https://www.boost.org/doc/libs/1_71_0/more/getting_started/unix-variants.html#prepare-to-use-a-boost-library-binary)
 
@@ -36,5 +45,5 @@ This will update your library cache and avoid potential issues when running your
 2. Run `make`
 3. Run `./build/hpcore new ~/mycontract`. This will initialize a new contract directory `mycontract` in your home directory.
 4. Take a look at `~/mycontract/cfg/hp.cfg`. This is your new contract config file. You can modify it according to your contract hosting requirements.
-5. Run `./build/hpcore rekey ~/mycontract` to generate new public/private key pair.
+5. Optional: Run `./build/hpcore rekey ~/mycontract` to generate new public/private key pair.
 6. Run `./build/hpcore run ~/mycontract` to run your smart contract (to do).
