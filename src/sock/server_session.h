@@ -26,14 +26,14 @@ void fail(beast::error_code ec, char const *what)
 }
 
 // Echoes back all received WebSocket messages
-class session : public std::enable_shared_from_this<session>
+class ServerSession : public std::enable_shared_from_this<ServerSession>
 {
     websocket::stream<beast::tcp_stream> ws_;
     beast::flat_buffer buffer_;
 
 public:
     // Take ownership of the socket
-    explicit session(tcp::socket &&socket)
+    explicit ServerSession(tcp::socket &&socket)
         : ws_(std::move(socket))
     {
     }

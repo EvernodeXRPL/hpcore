@@ -9,7 +9,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include "session.h"
+#include "server_session.h"
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -20,14 +20,14 @@ using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 namespace sock
 {
 
-// Accepts incoming connections and launches the sessions
-class listener : public std::enable_shared_from_this<listener>
+// Accepts incoming connections and launches the ServerSessions
+class ServerListener : public std::enable_shared_from_this<ServerListener>
 {
     net::io_context &ioc_;
     tcp::acceptor acceptor_;
 
 public:
-    listener(
+    ServerListener(
         net::io_context &ioc,
         tcp::endpoint endpoint)
         : ioc_(ioc), acceptor_(ioc)
@@ -83,7 +83,7 @@ private:
         acceptor_.async_accept(
             net::make_strand(ioc_),
             beast::bind_front_handler(
-                &listener::on_accept,
+                &ServerListener::on_accept,
                 shared_from_this()));
     }
 
@@ -96,8 +96,8 @@ private:
         }
         else
         {
-            // Create the session and run it
-            std::make_shared<session>(std::move(socket))->run();
+            // Create the ServerSession and run it
+            std::make_shared<ServerSession>(std::move(socket))->run();
         }
 
         // Accept another connection
