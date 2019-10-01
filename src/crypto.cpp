@@ -1,7 +1,6 @@
 #include <cstdio>
 #include <iostream>
 #include <sodium.h>
-#include "base64.h"
 #include "conf.h"
 #include "crypto.h"
 
@@ -10,10 +9,12 @@ using namespace rapidjson;
 
 namespace crypto
 {
-unsigned long long get_sig_len()
-{
-    return crypto_sign_BYTES;
-}
+
+void generate_crypto_keys();
+string base64_encode(unsigned char *bin, size_t bin_len);
+int base64_decode(string base64_str, unsigned char *decoded, size_t decoded_len);
+void binpair_to_b64();
+int b64pair_to_bin();
 
 void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *sig)
 {
@@ -23,7 +24,7 @@ void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *s
 string sign_b64(string msg)
 {
     unsigned char sig[crypto_sign_BYTES];
-    crypto_sign_detached(sig, NULL, (unsigned char *)msg.c_str(), msg.size() + 1, conf::cfg.seckey);
+    crypto_sign_detached(sig, NULL, (unsigned char *)msg.data(), msg.size() + 1, conf::cfg.seckey);
     return base64_encode(sig, crypto_sign_BYTES);
 }
 
@@ -35,48 +36,57 @@ bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned
 
 bool verify_b64(string msg, string sigb64, string pubkeyb64)
 {
-    vector<unsigned char> sigVector = base64_decode(sigb64);
-    unsigned char sig[sigVector.size()];
-    for (int i = 0; i < sigVector.size(); i++)
-        sig[i] = sigVector[i];
+    unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
+    base64_decode(pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
 
-    vector<unsigned char> pubkeyVector = base64_decode(pubkeyb64);
-    unsigned char pubkey[pubkeyVector.size()];
-    for (int i = 0; i < pubkeyVector.size(); i++)
-        pubkey[i] = pubkeyVector[i];
+    unsigned char decoded_sig[crypto_sign_BYTES];
+    base64_decode(sigb64, decoded_sig, crypto_sign_BYTES);
 
-    int result = crypto_sign_verify_detached(sig, (unsigned char *)msg.c_str(), msg.size() + 1, pubkey);
+    int result = crypto_sign_verify_detached(decoded_sig, (unsigned char *)msg.data(), msg.size() + 1, decoded_pubkey);
     return result == 0;
 }
 
-void cryptopair_to_b64()
+int init()
 {
-    conf::cfg.pubkeyb64 = base64_encode(conf::cfg.pubkey, crypto_sign_PUBLICKEYBYTES);
-    conf::cfg.seckeyb64 = base64_encode(conf::cfg.seckey, crypto_sign_SECRETKEYBYTES);
-}
+    if (sodium_init() < 0)
+    {
+        cerr << "sodium_init failed.\n";
+        return 0;
+    }
 
-void b64pair_to_crypto()
-{
-    vector<unsigned char> pubDecoded = base64_decode(conf::cfg.pubkeyb64);
-    vector<unsigned char> privDecoded = base64_decode(conf::cfg.seckeyb64);
+    if (conf::ctx.command == "new" || conf::ctx.command == "rekey")
+    {
+        cout << "Generating new keys.\n";
+        generate_crypto_keys();
+        binpair_to_b64();
 
-    unsigned char *pubDecodedBytes = (unsigned char *)malloc(pubDecoded.size());
-    unsigned char *privDecodedBytes = (unsigned char *)malloc(privDecoded.size());
+        conf::save_config();
+    }
+    else if (conf::ctx.command == "run")
+    {
+        if (conf::cfg.pubkeyb64.empty() || conf::cfg.seckeyb64.empty())
+        {
+            cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
+            return 0;
+        }
+        else
+        {
+            //Decode b64 keys into bytes and store in memory.
+            if (!b64pair_to_bin())
+                return 0;
 
-    for (size_t i = 0; i < pubDecoded.size(); ++i)
-        pubDecodedBytes[i] = pubDecoded[i];
+            //Sign and verify a sample to ensure we have a matching key pair.
+            string msg = "hotpocket";
+            string sigb64 = sign_b64(msg);
+            if (!verify_b64(msg, sigb64, conf::cfg.pubkeyb64))
+            {
+                cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
+                return 0;
+            }
+        }
+    }
 
-    for (size_t i = 0; i < privDecoded.size(); ++i)
-        privDecodedBytes[i] = privDecoded[i];
-
-    if (conf::cfg.pubkey != NULL)
-        free(conf::cfg.pubkey);
-
-    if (conf::cfg.seckey != NULL)
-        free(conf::cfg.seckey);
-
-    conf::cfg.pubkey = pubDecodedBytes;
-    conf::cfg.seckey = privDecodedBytes;
+    return 1;
 }
 
 void generate_crypto_keys()
@@ -92,44 +102,70 @@ void generate_crypto_keys()
     crypto_sign_keypair(conf::cfg.pubkey, conf::cfg.seckey);
 }
 
-int init()
+string base64_encode(unsigned char *bin, size_t bin_len)
 {
-    if (sodium_init() < 0)
+    const size_t base64_max_len = sodium_base64_encoded_len(bin_len, sodium_base64_VARIANT_ORIGINAL);
+    char base64_str[base64_max_len];
+
+    char *encoded_str_char = sodium_bin2base64(
+        base64_str, base64_max_len,
+        bin, bin_len,
+        sodium_base64_VARIANT_ORIGINAL);
+
+    if (encoded_str_char == NULL)
+        throw "Base64 Error: Failed to encode string";
+
+    string s(base64_str);
+    return s;
+}
+
+int base64_decode(string base64_str, unsigned char *decoded, size_t decoded_len)
+{
+    const char *b64_end;
+    size_t bin_len;
+    if (sodium_base642bin(
+            decoded, decoded_len,
+            base64_str.data(), base64_str.size() + 1,
+            "", &bin_len, &b64_end,
+            sodium_base64_VARIANT_ORIGINAL))
     {
-        cerr << "sodium_init failed.\n";
         return 0;
     }
 
-    if (conf::ctx.command == "new" || conf::ctx.command == "rekey")
-    {
-        cout << "Generating new keys.\n";
-        generate_crypto_keys();
-        cryptopair_to_b64();
-        conf::save_config();
-    }
-    else if (conf::ctx.command == "run")
-    {
-        if (conf::cfg.pubkeyb64.empty() || conf::cfg.seckeyb64.empty())
-        {
-            cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
-            return 0;
-        }
-        else
-        {
-            //Decode b64 keys into bytes and store in memory.
-            b64pair_to_crypto();
+    return 1;
+}
 
-            //Sign and verify a sample to ensure we have a matching key pair.
-            string msg = "hotpocket";
-            string sigb64 = sign_b64(msg);
-            if (!verify_b64(msg, sigb64, conf::cfg.pubkeyb64))
-            {
-                cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
-                return 0;
-            }
-        }
+void binpair_to_b64()
+{
+    conf::cfg.pubkeyb64 = base64_encode(conf::cfg.pubkey, crypto_sign_PUBLICKEYBYTES);
+    conf::cfg.seckeyb64 = base64_encode(conf::cfg.seckey, crypto_sign_SECRETKEYBYTES);
+}
+
+int b64pair_to_bin()
+{
+    unsigned char *decoded_pubkey = (unsigned char *)malloc(crypto_sign_PUBLICKEYBYTES);
+    unsigned char *decoded_seckey = (unsigned char *)malloc(crypto_sign_SECRETKEYBYTES);
+
+    if (!base64_decode(conf::cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES))
+    {
+        cerr << "Error decoding public key.\n";
+        return 0;
     }
 
+    if (!base64_decode(conf::cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES))
+    {
+        cerr << "Error decoding secret key.\n";
+        return 0;
+    }
+
+    if (conf::cfg.pubkey != NULL)
+        free(conf::cfg.pubkey);
+
+    if (conf::cfg.seckey != NULL)
+        free(conf::cfg.seckey);
+
+    conf::cfg.pubkey = decoded_pubkey;
+    conf::cfg.seckey = decoded_seckey;
     return 1;
 }
 

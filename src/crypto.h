@@ -9,11 +9,6 @@ namespace crypto
 int init();
 
 /**
- * Returns the length of the singature generated using crypto library.
- */
-unsigned long long get_sig_len();
-
-/**
  * Generates the signature for the given message using the contract's secret key.
  */
 void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *sig);

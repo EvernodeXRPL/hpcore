@@ -144,18 +144,18 @@ void save_config()
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", StringRef(_HP_VERSION_), allocator);
-    d.AddMember("pubkeyb64", StringRef(cfg.pubkeyb64.c_str()), allocator);
-    d.AddMember("seckeyb64", StringRef(cfg.seckeyb64.c_str()), allocator);
-    d.AddMember("binary", StringRef(cfg.binary.c_str()), allocator);
-    d.AddMember("binargs", StringRef(cfg.binargs.c_str()), allocator);
-    d.AddMember("listenip", StringRef(cfg.listenip.c_str()), allocator);
+    d.AddMember("pubkeyb64", StringRef(cfg.pubkeyb64.data()), allocator);
+    d.AddMember("seckeyb64", StringRef(cfg.seckeyb64.data()), allocator);
+    d.AddMember("binary", StringRef(cfg.binary.data()), allocator);
+    d.AddMember("binargs", StringRef(cfg.binargs.data()), allocator);
+    d.AddMember("listenip", StringRef(cfg.listenip.data()), allocator);
 
     Value peers(kArrayType);
     d.AddMember("peers", peers, allocator);
     for (int i = 0; i < cfg.peers.size(); i++)
     {
         Value v;
-        v.SetString(StringRef(cfg.peers[i].c_str()), allocator);
+        v.SetString(StringRef(cfg.peers[i].data()), allocator);
         peers.PushBack(v, allocator);
     }
 
@@ -164,7 +164,7 @@ void save_config()
     for (int i = 0; i < cfg.unl.size(); i++)
     {
         Value v;
-        v.SetString(StringRef(cfg.unl[i].c_str()), allocator);
+        v.SetString(StringRef(cfg.unl[i].data()), allocator);
         unl.PushBack(v, allocator);
     }
 
