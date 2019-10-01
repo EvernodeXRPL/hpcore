@@ -4,8 +4,10 @@
 
 #include <cstdio>
 #include <iostream>
+#include <unistd.h>
 #include "conf.h"
 #include "crypto.h"
+#include "proc.h"
 
 using namespace std;
 
@@ -27,6 +29,17 @@ int main(int argc, char **argv)
         {
             cerr << "Init error\n";
             return -1;
+        }
+
+        if (conf::ctx.command == "run")
+        {
+            proc::exec_contract();
+
+            while (true)
+            {
+                sleep(1);
+                proc::read_contract_outputs();
+            };
         }
     }
 
