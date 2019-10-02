@@ -6,6 +6,9 @@
 #include <iostream>
 #include "conf.h"
 #include "crypto.h"
+#include "sock/server_session.h"
+#include "sock/server_listener.h"
+#include "sock/shared_state.h"
 
 using namespace std;
 
@@ -28,6 +31,15 @@ int main(int argc, char **argv)
             cerr << "Init error\n";
             return -1;
         }
+
+        auto address = net::ip::make_address(conf::cfg.listenip);
+        net::io_context ioc;
+        std::make_shared<server_listener>(
+            ioc,
+            tcp::endpoint{address, conf::cfg.peerport},
+            std::make_shared<shared_state>())
+            ->run();
+        ioc.run();
     }
 
     cout << "exited normally\n";

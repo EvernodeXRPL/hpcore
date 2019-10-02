@@ -18,12 +18,6 @@ using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 namespace sock
 {
-// Report a failure
-void fail(beast::error_code ec, char const *what)
-{
-    std::cerr << what << ": " << ec.message() << "\n";
-}
-
 // Sends a WebSocket message and prints the response
 class ClientSession : public std::enable_shared_from_this<ClientSession>
 {
@@ -66,7 +60,7 @@ public:
         tcp::resolver::results_type results)
     {
         if (ec)
-            return fail(ec, "resolve");
+            return ;//fail(ec, "resolve");
 
         // Set the timeout for the operation
         beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
@@ -83,7 +77,7 @@ public:
     on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type)
     {
         if (ec)
-            return fail(ec, "connect");
+            return;// fail(ec, "connect");
 
         // Turn off the timeout on the tcp_stream, because
         // the websocket stream has its own timeout system.
@@ -113,7 +107,7 @@ public:
     on_handshake(beast::error_code ec)
     {
         if (ec)
-            return fail(ec, "handshake");
+            return ;//fail(ec, "handshake");
 
         // Send the message
         ws_.async_write(
@@ -131,7 +125,7 @@ public:
         boost::ignore_unused(bytes_transferred);
 
         if (ec)
-            return fail(ec, "write");
+            return;// fail(ec, "write");
 
         // Read a message into our buffer
         ws_.async_read(
@@ -149,7 +143,7 @@ public:
         boost::ignore_unused(bytes_transferred);
 
         if (ec)
-            return fail(ec, "read");
+            return;// fail(ec, "read");
 
         // Close the WebSocket connection
         ws_.async_close(websocket::close_code::normal,
@@ -162,7 +156,7 @@ public:
     on_close(beast::error_code ec)
     {
         if (ec)
-            return fail(ec, "close");
+            return;// fail(ec, "close");
 
         // If we get here then the connection is closed gracefully
 
