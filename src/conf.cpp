@@ -151,22 +151,22 @@ void save_config()
     d.AddMember("listenip", StringRef(cfg.listenip.data()), allocator);
 
     Value peers(kArrayType);
-    d.AddMember("peers", peers, allocator);
-    for (int i = 0; i < cfg.peers.size(); i++)
+    for (string peer : cfg.peers)
     {
         Value v;
-        v.SetString(StringRef(cfg.peers[i].data()), allocator);
+        v.SetString(StringRef(peer.data()), allocator);
         peers.PushBack(v, allocator);
     }
+    d.AddMember("peers", peers, allocator);
 
     Value unl(kArrayType);
-    d.AddMember("unl", unl, allocator);
-    for (int i = 0; i < cfg.unl.size(); i++)
+    for (string node : cfg.unl)
     {
         Value v;
-        v.SetString(StringRef(cfg.unl[i].data()), allocator);
+        v.SetString(StringRef(node.data()), allocator);
         unl.PushBack(v, allocator);
     }
+    d.AddMember("unl", unl, allocator);
 
     d.AddMember("peerport", cfg.peerport, allocator);
     d.AddMember("roundtime", cfg.roundtime, allocator);
@@ -240,10 +240,6 @@ int init(int argc, char **argv)
     {
         //Clear the keys. crpyto::init will automatically init the keys.
         clear_keys();
-    }
-    else if (ctx.command == "run")
-    {
-        //TO DO: Contract run logic.
     }
 
     return 1;

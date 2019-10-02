@@ -10,27 +10,26 @@ using namespace std;
 namespace proc
 {
 
-struct ProcInfo
-{
-    int requestpipe[2];
-    int replypipe[2];
-};
-
-extern map<int, ProcInfo> pidmap;
-
 struct ContractUser
 {
-    int fdin;
-    int fdout;
+    string pubkeyb64;
+    int inpipe[2]; //from User to Contract
+    int outpipe[2]; //from Contract to User
 };
 
 struct ContractInputMsg
 {
-    string hpversion;
     vector<ContractUser> users;
 };
 
-int exec_contract();
+struct ProcInfo
+{
+    vector<ContractUser> users;
+};
+
+extern map<int, ProcInfo> pidmap;
+
+int exec_contract(ContractInputMsg &msg);
 void read_contract_outputs();
 
 } // namespace proc

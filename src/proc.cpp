@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <rapidjson/document.h>
+#include "rapidjson/stringbuffer.h"
+#include <rapidjson/writer.h>
 #include "proc.h"
 #include "conf.h"
 
@@ -13,94 +16,91 @@ namespace proc
 
 map<int, ProcInfo> pidmap;
 
-void write_to_stdin(string str);
+void write_to_stdin(ContractInputMsg &msg);
 
-int exec_contract()
+int exec_contract(ContractInputMsg &msg)
 {
-    int requestpipe[2];
-    int replypipe[2];
-
-    if (pipe(requestpipe) != 0 || pipe(replypipe) != 0)
-    {
-        cerr << "Error opening pipes.\n";
-        return 0;
-    }
-
     int pid = fork();
     if (pid > 0)
     {
-        //Close the fds the hotpocket process doesn't need.
-        close(requestpipe[0]);
-        close(replypipe[1]);
-
         ProcInfo procinfo;
-        procinfo.requestpipe[0] = requestpipe[0]; //Request read fd - Read by contract proc.
-        procinfo.requestpipe[1] = requestpipe[1]; //Request write fd - Written by hp proc.
-        procinfo.replypipe[0] = replypipe[0];     //Reply read fd - Read by hp proc.
-        procinfo.replypipe[1] = replypipe[1];     //Reply write fd - Written by contract proc.
+        procinfo.users = msg.users;
         pidmap.insert(pair<int, ProcInfo>(pid, procinfo));
-
-        write(requestpipe[1], "MsgfromHP", 10);
     }
-    else
+    else if (pid == 0)
     {
-        //In this block, we are inside the contract process.
-        //We will setup the process environment, and then call execv()
-        //to overlay the process with the actual contract binary program code.
-
-        //Close the fds the contract process doesn't need.
-        close(requestpipe[1]);
-        close(replypipe[0]);
-        
         //Set the contract process working directory.
         chdir(conf::ctx.contractDir.data());
 
         //Write the contract input to the stdin (0) of the contract process.
-        string input = to_string(requestpipe[0]) + "|" + to_string(replypipe[1]);
-        write_to_stdin(input);
+        write_to_stdin(msg);
 
-        char *args[] =
-            {conf::cfg.binary.data(),
-             conf::cfg.binargs.data(),
-             NULL};
+        char *args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
 
         execv(args[0], args);
     }
+    else
+    {
+        cerr << "fork() failed.\n";
+        return 0;
+    }
+
+    return 1;
 }
 
-void write_to_stdin(string str)
+void write_to_stdin(ContractInputMsg &msg)
 {
+    Document d;
+    d.SetObject();
+    Document::AllocatorType &allocator = d.GetAllocator();
+    d.AddMember("version", StringRef(_HP_VERSION_), allocator);
+
+    Value users(kArrayType);
+    for (ContractUser user : msg.users)
+    {
+        Value v;
+        v.SetObject();
+        v.AddMember("fdin", user.inpipe[0], allocator);
+        v.AddMember("fdout", user.outpipe[1], allocator);
+        users.PushBack(v, allocator);
+    }
+    d.AddMember("users", users, allocator);
+
+    StringBuffer buffer;
+    Writer<StringBuffer> writer(buffer);
+    d.Accept(writer);
+    const char *json = buffer.GetString();
+
     int stdinpipe[2];
     pipe(stdinpipe);
     dup2(stdinpipe[0], STDIN_FILENO);
     close(stdinpipe[0]);
 
-    write(stdinpipe[1], str.data(), str.size() + 1);
+    write(stdinpipe[1], json, strlen(json));
     close(stdinpipe[1]);
 }
 
-//Read outputs from all running contracts.
+//Read per-user outputs from all running contract processes.
 void read_contract_outputs()
 {
     for (pair<int, ProcInfo> p : pidmap)
     {
         int pid = p.first;
         ProcInfo &procinfo = p.second;
-        int replyfd = procinfo.replypipe[0];
 
-        int bytes_available = 0;
-        ioctl(replyfd, FIONREAD, &bytes_available);
-
-        if (bytes_available > 0)
+        for (ContractUser user : procinfo.users)
         {
-            char data[bytes_available];
-            read(replyfd, data, bytes_available);
-            cout << "pid:" << pid << " data: " << data << endl;
-        }
-        else
-        {
-            cout << "pid:" << pid << " data: NULL" << endl;
+            int fdout = user.outpipe[0];
+            int bytes_available = 0;
+            ioctl(fdout, FIONREAD, &bytes_available);
 
+            if (bytes_available > 0)
+            {
+                char data[bytes_available];
+                read(fdout, data, bytes_available);
+                cout << "pid:" << pid << " user:" << user.pubkeyb64
+                     << " reply: '" << data << "'" << endl;
+            }
         }
     }
 }
