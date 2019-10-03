@@ -49,9 +49,9 @@ struct ContractConfig
     string listenip;
     vector<string> peers;
     vector<string> unl;
-    int peerport;
+    unsigned short peerport;
     int roundtime;
-    int pubport;
+    unsigned short pubport;
     int pubmaxsize;
     int pubmaxcpm;
 };

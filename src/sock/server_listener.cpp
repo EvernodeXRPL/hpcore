@@ -69,7 +69,6 @@ run()
             self->on_accept(ec);
         });
     
-    std::cerr << "Server Running";
 }
 
 // Report a failure
@@ -90,11 +89,11 @@ on_accept(error_code ec)
 {
     if(ec)
         return fail(ec, "accept");
-    // else
+    else
     //     // Launch a new session for this connection
-    //     std::make_shared<http_session>(
-    //         std::move(socket_),
-    //         state_)->run();
+        std::make_shared<server_session>(
+            std::move(socket_),
+            state_)->run();
 
     // Accept another connection
     acceptor_.async_accept(

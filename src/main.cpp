@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include <boost/thread/thread.hpp>
 #include "conf.h"
 #include "crypto.h"
 #include "sock/server_session.h"
@@ -13,6 +14,7 @@
 using namespace std;
 
 int parse_cmd(int argc, char **argv);
+void open_listen();
 
 int main(int argc, char **argv)
 {
@@ -32,14 +34,7 @@ int main(int argc, char **argv)
             return -1;
         }
 
-        auto address = net::ip::make_address(conf::cfg.listenip);
-        net::io_context ioc;
-        std::make_shared<server_listener>(
-            ioc,
-            tcp::endpoint{address, conf::cfg.peerport},
-            std::make_shared<shared_state>())
-            ->run();
-        ioc.run();
+        open_listen();
     }
 
     cout << "exited normally\n";
@@ -78,4 +73,24 @@ int parse_cmd(int argc, char **argv)
     cout << "Example: hpcore run ~/mycontract\n";
 
     return 0;
+}
+
+void open_listen()
+{
+
+    auto address = net::ip::make_address(conf::cfg.listenip);
+    net::io_context ioc;
+    std::make_shared<server_listener>(
+        ioc,
+        tcp::endpoint{address, conf::cfg.peerport},
+        std::make_shared<shared_state>())
+        ->run();
+
+    std::make_shared<server_listener>(
+        ioc,
+        tcp::endpoint{address, conf::cfg.pubport},
+        std::make_shared<shared_state>())
+        ->run();
+    
+    std::thread run_thread([&]{ ioc.run(); });
 }
