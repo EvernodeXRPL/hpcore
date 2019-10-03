@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <rapidjson/document.h>
 #include "rapidjson/stringbuffer.h"
 #include <rapidjson/writer.h>
@@ -14,25 +16,35 @@ using namespace std;
 namespace proc
 {
 
-map<int, ProcInfo> pidmap;
+/**
+ * Keeps the currently executing contract process id (if any)
+ */
+int contract_pid;
 
-void write_to_stdin(ContractInputMsg &msg);
+void write_to_stdin(ContractExecArgs &msg);
+bool is_contract_running();
+int exec_contract(ContractExecArgs &msg);
+int read_contract_outputs(vector<ContractUser> users);
 
-int exec_contract(ContractInputMsg &msg)
+int exec_contract(ContractExecArgs &msg)
 {
+    if (is_contract_running())
+    {
+        cerr << "Contract process still running.\n";
+        return 0;
+    }
+
     int pid = fork();
     if (pid > 0)
     {
-        ProcInfo procinfo;
-        procinfo.users = msg.users;
-        pidmap.insert(pair<int, ProcInfo>(pid, procinfo));
+        contract_pid = pid;
     }
     else if (pid == 0)
     {
         //Set the contract process working directory.
         chdir(conf::ctx.contractDir.data());
 
-        //Write the contract input to the stdin (0) of the contract process.
+        //Write the contract args to the stdin (0) of the contract process.
         write_to_stdin(msg);
 
         char *args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
@@ -48,7 +60,33 @@ int exec_contract(ContractInputMsg &msg)
     return 1;
 }
 
-void write_to_stdin(ContractInputMsg &msg)
+//Read per-user outputs produced by the contract process.
+int read_contract_outputs(vector<ContractUser> users)
+{
+    if (is_contract_running())
+    {
+        cerr << "Contract process still running.\n";
+        return 0;
+    }
+    
+    for (ContractUser user : users)
+    {
+        int fdout = user.outpipe[0];
+        int bytes_available = 0;
+        ioctl(fdout, FIONREAD, &bytes_available);
+
+        if (bytes_available > 0)
+        {
+            char data[bytes_available];
+            read(fdout, data, bytes_available);
+            cout << "user:" << user.pubkeyb64 << " reply: '" << data << "'" << endl;
+        }
+    }
+
+    return 1;
+}
+
+void write_to_stdin(ContractExecArgs &msg)
 {
     Document d;
     d.SetObject();
@@ -80,29 +118,17 @@ void write_to_stdin(ContractInputMsg &msg)
     close(stdinpipe[1]);
 }
 
-//Read per-user outputs from all running contract processes.
-void read_contract_outputs()
+bool is_contract_running()
 {
-    for (pair<int, ProcInfo> p : pidmap)
+    if (contract_pid > 0)
     {
-        int pid = p.first;
-        ProcInfo &procinfo = p.second;
-
-        for (ContractUser user : procinfo.users)
-        {
-            int fdout = user.outpipe[0];
-            int bytes_available = 0;
-            ioctl(fdout, FIONREAD, &bytes_available);
-
-            if (bytes_available > 0)
-            {
-                char data[bytes_available];
-                read(fdout, data, bytes_available);
-                cout << "pid:" << pid << " user:" << user.pubkeyb64
-                     << " reply: '" << data << "'" << endl;
-            }
-        }
+        int status = 0;
+        if (!waitpid(contract_pid, &status, WNOHANG))
+            return true;
     }
+
+    contract_pid = 0;
+    return false;
 }
 
 } // namespace proc

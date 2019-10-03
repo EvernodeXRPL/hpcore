@@ -33,13 +33,7 @@ int main(int argc, char **argv)
 
         if (conf::ctx.command == "run")
         {
-            proc::exec_contract();
-
-            while (true)
-            {
-                sleep(1);
-                proc::read_contract_outputs();
-            };
+            //TODO
         }
     }
 

@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <vector>
-#include <map>
 
 using namespace std;
 
@@ -13,24 +12,18 @@ namespace proc
 struct ContractUser
 {
     string pubkeyb64;
-    int inpipe[2]; //from User to Contract
+    int inpipe[2];  //from User to Contract
     int outpipe[2]; //from Contract to User
 };
 
-struct ContractInputMsg
+struct ContractExecArgs
 {
     vector<ContractUser> users;
 };
 
-struct ProcInfo
-{
-    vector<ContractUser> users;
-};
-
-extern map<int, ProcInfo> pidmap;
-
-int exec_contract(ContractInputMsg &msg);
-void read_contract_outputs();
+int exec_contract(ContractExecArgs &msg);
+int read_contract_outputs(vector<ContractUser> users);
+bool is_contract_running();
 
 } // namespace proc
 
