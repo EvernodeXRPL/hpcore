@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include "conf.h"
 #include "crypto.h"
-#include "usr.h"
+#include "usr/usr.h"
 #include "proc.h"
 
 using namespace std;

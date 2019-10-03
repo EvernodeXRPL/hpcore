@@ -3,10 +3,11 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include "proc.h"
+#include "../shared.h"
 #include "usr.h"
 
 using namespace std;
+using namespace shared;
 
 namespace usr
 {
@@ -52,12 +53,6 @@ void remove_user(string pubkeyb64)
 //Read per-user outputs produced by the contract process.
 int read_contract_user_outputs()
 {
-    if (proc::is_contract_running())
-    {
-        cerr << "Contract process still running.\n";
-        return 0;
-    }
-
     for (auto& [pk, user] : users)
     {
         int fdout = user.outpipe[0];

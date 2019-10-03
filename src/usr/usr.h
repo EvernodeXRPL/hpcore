@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <vector>
 #include <map>
-#include "shared.h"
+#include "../shared.h"
 
 using namespace std;
 using namespace shared;

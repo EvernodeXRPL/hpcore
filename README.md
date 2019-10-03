@@ -13,7 +13,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 
 ## Steps to setup Hot Pocket
 
-### Install Libsodium
+#### Install Libsodium
 Instructions are based on [this](https://libsodium.gitbook.io/doc/installation).
 
 1. Download and extract Libsodium 1.0.18 from [here](https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable.tar.gz).
@@ -47,3 +47,30 @@ This will update your library cache and avoid potential issues when running your
 4. Take a look at `~/mycontract/cfg/hp.cfg`. This is your new contract config file. You can modify it according to your contract hosting requirements.
 5. Optional: Run `./build/hpcore rekey ~/mycontract` to generate new public/private key pair.
 6. Run `./build/hpcore run ~/mycontract` to run your smart contract (to do).
+
+## Code structure
+Code is divided into subsystems via namespaces. Some subsystems mentioned here are yet to be introduced.
+
+#### conf
+Handles contract configuration. Loads and holds the central configuration object. Used by most of the subsystems.
+
+#### crypto
+Handles cryptographic activities. Wraps libsodium and offers convinience functions.
+
+#### proc
+Handles contract process execution.
+
+#### usr
+Handles user connections and processing of user I/O with the smart contract. Makes use of **crypto** and **sock**.
+
+#### ntn
+Handles node-to-node connections and message exchange between nodes. Also handles smart contract node-party-line (npl) I/O. Makes use of **crypto** and **sock**.
+
+#### cons
+Handles consensus and proposal rounds. Makes use of **usr**, **ntn** and **proc**
+
+#### sock
+Handles generic web sockets functionality. Mainly acts as a wrapper for boost/beast.
+
+#### shared
+Contains shared data structures/helper functions used by multiple subsystems. Used by most of the subsystems.

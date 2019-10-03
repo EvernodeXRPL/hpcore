@@ -3,6 +3,7 @@
 #include <sodium.h>
 #include "conf.h"
 #include "crypto.h"
+#include "shared.h"
 
 using namespace std;
 using namespace rapidjson;
@@ -11,8 +12,6 @@ namespace crypto
 {
 
 void generate_crypto_keys();
-string base64_encode(unsigned char *bin, size_t bin_len);
-int base64_decode(string base64_str, unsigned char *decoded, size_t decoded_len);
 void binpair_to_b64();
 int b64pair_to_bin();
 
@@ -25,7 +24,7 @@ string sign_b64(string msg)
 {
     unsigned char sig[crypto_sign_BYTES];
     crypto_sign_detached(sig, NULL, (unsigned char *)msg.data(), msg.size() + 1, conf::cfg.seckey);
-    return base64_encode(sig, crypto_sign_BYTES);
+    return shared::base64_encode(sig, crypto_sign_BYTES);
 }
 
 bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned char *sig, const unsigned char *pubkey)
@@ -37,10 +36,10 @@ bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned
 bool verify_b64(string msg, string sigb64, string pubkeyb64)
 {
     unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
-    base64_decode(pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
+    shared::base64_decode(pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
 
     unsigned char decoded_sig[crypto_sign_BYTES];
-    base64_decode(sigb64, decoded_sig, crypto_sign_BYTES);
+    shared::base64_decode(sigb64, decoded_sig, crypto_sign_BYTES);
 
     int result = crypto_sign_verify_detached(decoded_sig, (unsigned char *)msg.data(), msg.size() + 1, decoded_pubkey);
     return result == 0;
@@ -102,43 +101,10 @@ void generate_crypto_keys()
     crypto_sign_keypair(conf::cfg.pubkey, conf::cfg.seckey);
 }
 
-string base64_encode(unsigned char *bin, size_t bin_len)
-{
-    const size_t base64_max_len = sodium_base64_encoded_len(bin_len, sodium_base64_VARIANT_ORIGINAL);
-    char base64_str[base64_max_len];
-
-    char *encoded_str_char = sodium_bin2base64(
-        base64_str, base64_max_len,
-        bin, bin_len,
-        sodium_base64_VARIANT_ORIGINAL);
-
-    if (encoded_str_char == NULL)
-        throw "Base64 Error: Failed to encode string";
-
-    string s(base64_str);
-    return s;
-}
-
-int base64_decode(string base64_str, unsigned char *decoded, size_t decoded_len)
-{
-    const char *b64_end;
-    size_t bin_len;
-    if (sodium_base642bin(
-            decoded, decoded_len,
-            base64_str.data(), base64_str.size() + 1,
-            "", &bin_len, &b64_end,
-            sodium_base64_VARIANT_ORIGINAL))
-    {
-        return 0;
-    }
-
-    return 1;
-}
-
 void binpair_to_b64()
 {
-    conf::cfg.pubkeyb64 = base64_encode(conf::cfg.pubkey, crypto_sign_PUBLICKEYBYTES);
-    conf::cfg.seckeyb64 = base64_encode(conf::cfg.seckey, crypto_sign_SECRETKEYBYTES);
+    conf::cfg.pubkeyb64 = shared::base64_encode(conf::cfg.pubkey, crypto_sign_PUBLICKEYBYTES);
+    conf::cfg.seckeyb64 = shared::base64_encode(conf::cfg.seckey, crypto_sign_SECRETKEYBYTES);
 }
 
 int b64pair_to_bin()
@@ -146,13 +112,13 @@ int b64pair_to_bin()
     unsigned char *decoded_pubkey = (unsigned char *)malloc(crypto_sign_PUBLICKEYBYTES);
     unsigned char *decoded_seckey = (unsigned char *)malloc(crypto_sign_SECRETKEYBYTES);
 
-    if (!base64_decode(conf::cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES))
+    if (!shared::base64_decode(conf::cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES))
     {
         cerr << "Error decoding public key.\n";
         return 0;
     }
 
-    if (!base64_decode(conf::cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES))
+    if (!shared::base64_decode(conf::cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES))
     {
         cerr << "Error decoding secret key.\n";
         return 0;
