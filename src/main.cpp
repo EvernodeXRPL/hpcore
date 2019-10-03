@@ -7,9 +7,11 @@
 #include <unistd.h>
 #include "conf.h"
 #include "crypto.h"
+#include "usr.h"
 #include "proc.h"
 
 using namespace std;
+using namespace shared;
 
 int parse_cmd(int argc, char **argv);
 
@@ -34,6 +36,15 @@ int main(int argc, char **argv)
         if (conf::ctx.command == "run")
         {
             //TODO
+            
+            usr::add_user("pku1");
+            usr::add_user("pku2");
+            usr::add_user("pku3");
+
+            proc::ContractExecArgs ctargs;
+            ctargs.users = &usr::users;
+
+            proc::exec_contract(ctargs);
         }
     }
 

@@ -2,7 +2,6 @@
 #include <iostream>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <rapidjson/document.h>
@@ -12,6 +11,7 @@
 #include "conf.h"
 
 using namespace std;
+using namespace shared;
 
 namespace proc
 {
@@ -21,12 +21,11 @@ namespace proc
  */
 int contract_pid;
 
-void write_to_stdin(ContractExecArgs &msg);
+void write_to_stdin(ContractExecArgs &args);
 bool is_contract_running();
-int exec_contract(ContractExecArgs &msg);
-int read_contract_outputs(vector<ContractUser> users);
+int exec_contract(ContractExecArgs &args);
 
-int exec_contract(ContractExecArgs &msg)
+int exec_contract(ContractExecArgs &args)
 {
     if (is_contract_running())
     {
@@ -45,7 +44,7 @@ int exec_contract(ContractExecArgs &msg)
         chdir(conf::ctx.contractDir.data());
 
         //Write the contract args to the stdin (0) of the contract process.
-        write_to_stdin(msg);
+        write_to_stdin(args);
 
         char *args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
 
@@ -60,49 +59,29 @@ int exec_contract(ContractExecArgs &msg)
     return 1;
 }
 
-//Read per-user outputs produced by the contract process.
-int read_contract_outputs(vector<ContractUser> users)
-{
-    if (is_contract_running())
-    {
-        cerr << "Contract process still running.\n";
-        return 0;
-    }
-    
-    for (ContractUser user : users)
-    {
-        int fdout = user.outpipe[0];
-        int bytes_available = 0;
-        ioctl(fdout, FIONREAD, &bytes_available);
-
-        if (bytes_available > 0)
-        {
-            char data[bytes_available];
-            read(fdout, data, bytes_available);
-            cout << "user:" << user.pubkeyb64 << " reply: '" << data << "'" << endl;
-        }
-    }
-
-    return 1;
-}
-
-void write_to_stdin(ContractExecArgs &msg)
+/**
+ * Passes the input in the format:
+ * {
+ *   "version":"0.1",
+ *   "usrfd":{ "pk1":[fd0, fd1], "pk2":[fd0, fd1] }
+ * }
+ */ 
+void write_to_stdin(ContractExecArgs &args)
 {
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", StringRef(_HP_VERSION_), allocator);
 
-    Value users(kArrayType);
-    for (ContractUser user : msg.users)
+    Value users(kObjectType);
+    for (auto& [pk, user] : (*args.users))
     {
-        Value v;
-        v.SetObject();
-        v.AddMember("fdin", user.inpipe[0], allocator);
-        v.AddMember("fdout", user.outpipe[1], allocator);
-        users.PushBack(v, allocator);
+        Value fdlist(kArrayType);
+        fdlist.PushBack(user.inpipe[0], allocator);
+        fdlist.PushBack(user.outpipe[1], allocator);
+        users.AddMember(StringRef(user.pubkeyb64.data()), fdlist, allocator);
     }
-    d.AddMember("users", users, allocator);
+    d.AddMember("usrfd", users, allocator);
 
     StringBuffer buffer;
     Writer<StringBuffer> writer(buffer);
