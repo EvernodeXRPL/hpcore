@@ -97,22 +97,28 @@ int load_config()
     if (d.ParseStream(isw).HasParseError())
     {
         cerr << "Invalid config file format. Parser error at position " << d.GetErrorOffset() << endl;
-        return 0;
+        return -1;
     }
     else if (!is_schema_valid(d))
     {
         cerr << "Invalid config file format.\n";
-        return 0;
+        return -1;
     }
 
     //Check contract version.
     string cfgVersion = d["version"].GetString();
+    if (cfgVersion.empty())
+    {
+        cerr << "Contract config version missing.\n";
+        return -1;
+    }
+
     if (version_compare(cfgVersion, _HP_MIN_CONTRACT_VERSION_) == -1)
     {
         cerr << "Contract version too old. Minimum "
              << _HP_MIN_CONTRACT_VERSION_ << " required. "
              << cfgVersion << " found.\n";
-        return 0;
+        return -1;
     }
 
     cfg.pubkeyb64 = d["pubkeyb64"].GetString();
@@ -135,7 +141,7 @@ int load_config()
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
 
-    return 1;
+    return 0;
 }
 
 void save_config()
@@ -191,19 +197,33 @@ void set_contract_dir_paths(string basedir)
     ctx.configFile = ctx.configDir + "/hp.cfg";
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
-    ctx.binDir = basedir + "/bin";
+}
+
+bool validate_contract_dir_paths()
+{
+    string dirs[4] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir};
+
+    for (string dir : dirs)
+    {
+        if (!boost::filesystem::exists(dir))
+        {
+            cerr << dir << " does not exist.\n";
+            return false;
+        }
+    }
+
+    return true;
 }
 
 int create_contract()
 {
     if (boost::filesystem::exists(ctx.contractDir))
     {
-        cerr << "Contract dir already exists.\n";
-        return 0;
+        cerr << "Contract dir already exists. Cannot create contract at the same location.\n";
+        return -1;
     }
 
     boost::filesystem::create_directories(ctx.configDir);
-    boost::filesystem::create_directories(ctx.binDir);
     boost::filesystem::create_directories(ctx.histDir);
     boost::filesystem::create_directories(ctx.stateDir);
 
@@ -215,7 +235,13 @@ int create_contract()
     cfg.pubmaxsize = 65536;
     cfg.pubmaxcpm = 100;
     save_config();
-    return 1;
+
+    cout << "Contract directory created at " << ctx.contractDir << endl;
+
+    if (load_config() != 0)
+        return -1;
+
+    return 0;
 }
 
 int clear_keys()
@@ -223,26 +249,32 @@ int clear_keys()
     cfg.pubkeyb64 = "";
     cfg.seckeyb64 = "";
     save_config();
+    return 0;
 }
 
-int init(int argc, char **argv)
+bool validate_config()
 {
-    if (ctx.command == "new")
+    if (cfg.pubkeyb64.empty() || cfg.seckeyb64.empty() || cfg.binary.empty() || cfg.listenip.empty() ||
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0)
     {
-        if (!create_contract())
-            return 0;
+        cerr << "Required configuration fields missing.\n";
+        return false;
     }
 
-    if (!load_config())
-        return 0;
-
-    if (ctx.command == "rekey")
+    if (!boost::filesystem::exists(cfg.binary))
     {
-        //Clear the keys. crpyto::init will automatically init the keys.
-        clear_keys();
+        cerr << "Contract binary does not exist: " << cfg.binary << endl;
+        return false;
     }
 
-    return 1;
+    return true;
+}
+
+int init()
+{
+    if (!validate_contract_dir_paths() || load_config() != 0 || !validate_config())
+        return -1;
+    return 0;
 }
 
 } // namespace conf

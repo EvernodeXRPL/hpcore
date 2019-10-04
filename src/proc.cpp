@@ -30,7 +30,7 @@ int exec_contract(ContractExecArgs &args)
     if (is_contract_running())
     {
         cerr << "Contract process still running.\n";
-        return 0;
+        return -1;
     }
 
     int pid = fork();
@@ -53,10 +53,10 @@ int exec_contract(ContractExecArgs &args)
     else
     {
         cerr << "fork() failed.\n";
-        return 0;
+        return -1;
     }
 
-    return 1;
+    return 0;
 }
 
 /**

@@ -28,7 +28,7 @@ void create_user_challenge(string &msg, string &challenge)
     unsigned char challenge_bytes[USER_CHALLENGE_LEN];
     randombytes_buf(challenge_bytes, USER_CHALLENGE_LEN);
 
-    challenge = base64_encode(challenge_bytes, USER_CHALLENGE_LEN);
+    base64_encode(challenge_bytes, USER_CHALLENGE_LEN, challenge);
 
     Document d;
     d.SetObject();
@@ -142,7 +142,7 @@ int read_contract_user_outputs()
         }
     }
 
-    return 1;
+    return 0;
 }
 
 int init()

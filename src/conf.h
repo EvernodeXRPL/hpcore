@@ -24,7 +24,6 @@ struct ContractCtx
     string contractDir;
     string histDir;
     string stateDir;
-    string binDir;
     string configDir;
     string configFile;
 };
@@ -58,7 +57,10 @@ struct ContractConfig
 
 extern ContractCtx ctx;
 extern ContractConfig cfg;
-int init(int argc, char **argv);
+int init();
+int create_contract();
+int load_config();
+int clear_keys();
 void set_contract_dir_paths(string basedir);
 void save_config();
 

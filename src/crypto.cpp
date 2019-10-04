@@ -24,7 +24,9 @@ string sign_b64(string &msg)
 {
     unsigned char sig[crypto_sign_BYTES];
     crypto_sign_detached(sig, NULL, (unsigned char *)msg.data(), msg.size() + 1, conf::cfg.seckey);
-    return shared::base64_encode(sig, crypto_sign_BYTES);
+    string sigb64;
+    shared::base64_encode(sig, crypto_sign_BYTES, sigb64);
+    return sigb64;
 }
 
 bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned char *sig, const unsigned char *pubkey)
@@ -66,13 +68,13 @@ int init()
         if (conf::cfg.pubkeyb64.empty() || conf::cfg.seckeyb64.empty())
         {
             cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
-            return 0;
+            return -1;
         }
         else
         {
             //Decode b64 keys into bytes and store in memory.
-            if (!b64pair_to_bin())
-                return 0;
+            if (b64pair_to_bin() != 0)
+                return -1;
 
             //Sign and verify a sample to ensure we have a matching key pair.
             string msg = "hotpocket";
@@ -80,12 +82,12 @@ int init()
             if (!verify_b64(msg, sigb64, conf::cfg.pubkeyb64))
             {
                 cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
-                return 0;
+                return -1;
             }
         }
     }
 
-    return 1;
+    return 0;
 }
 
 void generate_crypto_keys()
@@ -103,8 +105,8 @@ void generate_crypto_keys()
 
 void binpair_to_b64()
 {
-    conf::cfg.pubkeyb64 = shared::base64_encode(conf::cfg.pubkey, crypto_sign_PUBLICKEYBYTES);
-    conf::cfg.seckeyb64 = shared::base64_encode(conf::cfg.seckey, crypto_sign_SECRETKEYBYTES);
+    shared::base64_encode(conf::cfg.pubkey, crypto_sign_PUBLICKEYBYTES, conf::cfg.pubkeyb64);
+    shared::base64_encode(conf::cfg.seckey, crypto_sign_SECRETKEYBYTES, conf::cfg.seckeyb64);
 }
 
 int b64pair_to_bin()
@@ -112,16 +114,16 @@ int b64pair_to_bin()
     unsigned char *decoded_pubkey = (unsigned char *)malloc(crypto_sign_PUBLICKEYBYTES);
     unsigned char *decoded_seckey = (unsigned char *)malloc(crypto_sign_SECRETKEYBYTES);
 
-    if (!shared::base64_decode(conf::cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES))
+    if (shared::base64_decode(conf::cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES) != 0)
     {
         cerr << "Error decoding public key.\n";
-        return 0;
+        return -1;
     }
 
-    if (!shared::base64_decode(conf::cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES))
+    if (shared::base64_decode(conf::cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES) != 0)
     {
         cerr << "Error decoding secret key.\n";
-        return 0;
+        return -1;
     }
 
     if (conf::cfg.pubkey != NULL)
@@ -132,7 +134,7 @@ int b64pair_to_bin()
 
     conf::cfg.pubkey = decoded_pubkey;
     conf::cfg.seckey = decoded_seckey;
-    return 1;
+    return 0;
 }
 
 } // namespace crypto

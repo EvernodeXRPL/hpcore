@@ -6,7 +6,7 @@ using namespace std;
 namespace shared
 {
 
-string base64_encode(unsigned char *bin, size_t bin_len)
+int base64_encode(unsigned char *bin, size_t bin_len, string &encoded_string)
 {
     const size_t base64_max_len = sodium_base64_encoded_len(bin_len, sodium_base64_VARIANT_ORIGINAL);
     char base64_str[base64_max_len];
@@ -17,10 +17,11 @@ string base64_encode(unsigned char *bin, size_t bin_len)
         sodium_base64_VARIANT_ORIGINAL);
 
     if (encoded_str_char == NULL)
-        throw "Base64 Error: Failed to encode string";
+        return -1;
 
-    string s(base64_str);
-    return s;
+    encoded_string.clear();
+    encoded_string.append(base64_str, base64_max_len);
+    return 0;
 }
 
 int base64_decode(string base64_str, unsigned char *decoded, size_t decoded_len)
@@ -33,10 +34,10 @@ int base64_decode(string base64_str, unsigned char *decoded, size_t decoded_len)
             "", &bin_len, &b64_end,
             sodium_base64_VARIANT_ORIGINAL))
     {
-        return 0;
+        return -1;
     }
 
-    return 1;
+    return 0;
 }
 
-}
+} // namespace shared
