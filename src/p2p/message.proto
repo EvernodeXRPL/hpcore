@@ -1,0 +1,69 @@
+syntax = "proto2";
+
+package p2p;
+
+message Message {
+  optional string version = 1;
+  optional bytes publicKey = 2;
+  optional int32 timestamp = 3;
+  optional bytes signature = 4;
+
+  enum Messagetype {
+    PROPOSAL = 0;
+    NPL = 1;
+    STATE_REQUEST = 2;
+    STATE_RESPONSE = 3;
+    HISTORY_REQUEST = 4;
+    HISTORY_RESPONSE = 5;
+  }
+
+  optional Messagetype type = 5;
+  optional bytes content = 6;
+}
+
+message StateDifference {
+map<string, string> created = 1; 
+map<string, string> updated = 2; 
+map<string, string> deleted = 3; 
+}
+
+message State {
+optional bytes previous = 1;
+optional bytes current = 2;
+optional StateDifference difference = 3;
+map<string, string> patch = 4;
+}
+
+
+message Proposal {
+  repeated string connections = 1;
+  repeated string inputs = 2;
+  repeated string outputs = 3;
+  optional int32 stage = 4;
+  optional int32 time = 5;
+  optional State state = 6;
+  optional bytes lcl = 7;
+}
+
+message NPL {
+  optional bytes data = 1;
+  optional bytes lcl = 2;
+}
+
+message StateRequest {
+
+}
+
+message StateResponse {
+ 
+}
+
+message HistoryRequest {
+
+}
+
+message HistoryResponse {
+  
+}
+
+
