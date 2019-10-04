@@ -20,7 +20,7 @@ void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *s
     crypto_sign_detached(sig, NULL, msg, msg_len, conf::cfg.seckey);
 }
 
-string sign_b64(string msg)
+string sign_b64(string &msg)
 {
     unsigned char sig[crypto_sign_BYTES];
     crypto_sign_detached(sig, NULL, (unsigned char *)msg.data(), msg.size() + 1, conf::cfg.seckey);
@@ -33,7 +33,7 @@ bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned
     return result == 0;
 }
 
-bool verify_b64(string msg, string sigb64, string pubkeyb64)
+bool verify_b64(string &msg, string &sigb64, string &pubkeyb64)
 {
     unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
     shared::base64_decode(pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES);

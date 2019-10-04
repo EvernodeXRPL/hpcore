@@ -16,7 +16,7 @@ void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *s
 /**
  * Returns the base64 signature for the given message using the contract's secret key.
  */
-string sign_b64(string msg);
+string sign_b64(string &msg);
 
 /**
  * Verifies the given signature with the message using the provided public key.
@@ -26,7 +26,7 @@ bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned
 /**
  * Verifies the given base64 signature with the message using the provided base64 public key.
  */
-bool verify_b64(string msg, string sigb64, string pubkeyb64);
+bool verify_b64(string &msg, string &sigb64, string &pubkeyb64);
 
 } // namespace crypto
 

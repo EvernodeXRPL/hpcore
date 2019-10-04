@@ -35,16 +35,7 @@ int main(int argc, char **argv)
 
         if (conf::ctx.command == "run")
         {
-            //TODO
-            
-            usr::add_user("pku1");
-            usr::add_user("pku2");
-            usr::add_user("pku3");
-
-            proc::ContractExecArgs ctargs;
-            ctargs.users = &usr::users;
-
-            proc::exec_contract(ctargs);
+            usr::init();
         }
     }
 

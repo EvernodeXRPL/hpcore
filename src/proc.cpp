@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <rapidjson/document.h>
-#include "rapidjson/stringbuffer.h"
+#include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include "proc.h"
 #include "conf.h"
@@ -65,7 +65,7 @@ int exec_contract(ContractExecArgs &args)
  *   "version":"0.1",
  *   "usrfd":{ "pk1":[fd0, fd1], "pk2":[fd0, fd1] }
  * }
- */ 
+ */
 void write_to_stdin(ContractExecArgs &args)
 {
     Document d;
@@ -74,7 +74,7 @@ void write_to_stdin(ContractExecArgs &args)
     d.AddMember("version", StringRef(_HP_VERSION_), allocator);
 
     Value users(kObjectType);
-    for (auto& [pk, user] : (*args.users))
+    for (auto &[pk, user] : (*args.users))
     {
         Value fdlist(kArrayType);
         fdlist.PushBack(user.inpipe[0], allocator);
@@ -104,9 +104,9 @@ bool is_contract_running()
         int status = 0;
         if (!waitpid(contract_pid, &status, WNOHANG))
             return true;
+        contract_pid = 0;
     }
 
-    contract_pid = 0;
     return false;
 }
 
