@@ -22,26 +22,28 @@ int main(int argc, char **argv)
     {
         cout << _HP_VERSION_ << endl;
     }
-    else if (conf::ctx.command == "new")
-    {
-        if (conf::create_contract() != 0 || crypto::init() != 0)
-            return -1;
-    }
     else
     {
-        if (conf::init() != 0)
+        if (crypto::init() != 0)
             return -1;
 
-        if (conf::ctx.command == "rekey")
+        if (conf::ctx.command == "new")
         {
-            //Clear the keys. crpyto::init will init the keys.
-            if (conf::clear_keys() != 0 || crypto::init() != 0)
+            if (conf::create_contract() != 0)
                 return -1;
         }
-        else if (conf::ctx.command == "run")
+        else
         {
-            if (crypto::init() != 0 || usr::init() != 0)
-                return -1;
+            if (conf::ctx.command == "rekey")
+            {
+                if (conf::rekey() != 0)
+                    return -1;
+            }
+            else if (conf::ctx.command == "run")
+            {
+                if (conf::init() != 0 || usr::init() != 0)
+                    return -1;
+            }
         }
     }
 

@@ -27,7 +27,9 @@ struct ContractUser
 };
 
 int base64_encode(unsigned char *bin, size_t bin_len, string &encoded_string);
-int base64_decode(string base64_str, unsigned char *decoded, size_t decoded_len);
+int base64_decode(string &base64_str, unsigned char *decoded, size_t decoded_len);
+void replace_string_contents(string &str, const char* bytes, size_t bytes_len);
+int version_compare(string &v1, string &v2);
 
 } // namespace usr
 

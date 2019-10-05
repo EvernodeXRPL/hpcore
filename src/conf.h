@@ -34,9 +34,9 @@ struct ContractConfig
     Config elements which are only initialized in memory (these are not loaded from the config file)
     */
     //public key bytes
-    unsigned char *pubkey;
+    string pubkey;
     //secret key bytes
-    unsigned char *seckey;
+    string seckey;
 
     /*
     Config elements which are loaded from the config file.
@@ -58,10 +58,10 @@ struct ContractConfig
 extern ContractCtx ctx;
 extern ContractConfig cfg;
 int init();
+int rekey();
 int create_contract();
-int load_config();
-int clear_keys();
 void set_contract_dir_paths(string basedir);
+int load_config();
 void save_config();
 
 } // namespace conf
