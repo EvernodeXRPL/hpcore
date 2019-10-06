@@ -14,8 +14,8 @@ namespace proc
 struct ContractExecArgs
 {
     map<string, ContractUser> *users;
-
-    //ContractExecArgs(map<string, ContractUser> &_users)
+    map<string, PeerNode> *peers;
+    uint64_t timestamp;
 };
 
 int exec_contract(ContractExecArgs &args);

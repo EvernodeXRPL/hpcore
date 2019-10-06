@@ -131,12 +131,11 @@ int read_contract_user_outputs()
 
         if (bytes_available > 0)
         {
-            unsigned char data[bytes_available];
+            char data[bytes_available];
             read(fdout, data, bytes_available);
 
-            //Replace the existing user buffer with new buffer
-            vector<unsigned char> buffer(data, data + bytes_available);
-            user.outbuffer.swap(buffer);
+            //Populate the user output buffer with new data
+            shared::replace_string_contents(user.outbuffer, data, bytes_available);
 
             cout << "Read " + to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << endl;
         }

@@ -21,9 +21,8 @@ namespace proc
  */
 int contract_pid;
 
-void write_to_stdin(ContractExecArgs &args);
+int write_to_stdin(ContractExecArgs &args);
 bool is_contract_running();
-int exec_contract(ContractExecArgs &args);
 
 int exec_contract(ContractExecArgs &args)
 {
@@ -36,19 +35,23 @@ int exec_contract(ContractExecArgs &args)
     int pid = fork();
     if (pid > 0)
     {
+        //HotPocket process.
+
         contract_pid = pid;
     }
     else if (pid == 0)
     {
+        //Contract process.
+        //Set up the process environment and overlay the contract binary program with execv().
+
         //Set the contract process working directory.
         chdir(conf::ctx.contractDir.data());
 
-        //Write the contract args to the stdin (0) of the contract process.
+        //Write the contract input message from HotPocket to the stdin (0) of the contract process.
         write_to_stdin(args);
 
-        char *args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
-
-        execv(args[0], args);
+        char *execv_args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
+        execv(execv_args[0], execv_args);
     }
     else
     {
@@ -60,18 +63,26 @@ int exec_contract(ContractExecArgs &args)
 }
 
 /**
- * Passes the input in the format:
+ * Writes the contract input message into the stdin of the contract process.
+ * Input format:
  * {
- *   "version":"0.1",
- *   "usrfd":{ "pk1":[fd0, fd1], "pk2":[fd0, fd1] }
+ *   "version":"<hp version>",
+ *   "pubkey": "<this node's base64 public key>",
+ *   "ts": <this node's timestamp (unix milliseconds)>,
+ *   "usrfd":{ "pkb64":[fd0, fd1], ... },
+ *   "nplfd":{ "pkb64":[fd0, fd1], ... },
+ *   "unl":[ "pkb64", ... ]
  * }
  */
-void write_to_stdin(ContractExecArgs &args)
+int write_to_stdin(ContractExecArgs &args)
 {
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
+
     d.AddMember("version", StringRef(_HP_VERSION_), allocator);
+    d.AddMember("pubkey", StringRef(conf::cfg.pubkeyb64.data()), allocator);
+    d.AddMember("ts", args.timestamp, allocator);
 
     Value users(kObjectType);
     for (auto &[pk, user] : (*args.users))
@@ -83,18 +94,40 @@ void write_to_stdin(ContractExecArgs &args)
     }
     d.AddMember("usrfd", users, allocator);
 
+    Value peers(kObjectType);
+    for (auto &[pk, peer] : (*args.peers))
+    {
+        Value fdlist(kArrayType);
+        fdlist.PushBack(peer.inpipe[0], allocator);
+        fdlist.PushBack(peer.outpipe[1], allocator);
+        peers.AddMember(StringRef(peer.pubkeyb64.data()), fdlist, allocator);
+    }
+    d.AddMember("nplfd", peers, allocator);
+
+    Value unl(kArrayType);
+    for (string &node : conf::cfg.unl)
+        unl.PushBack(StringRef(node.data()), allocator);
+    d.AddMember("unl", peers, allocator);     
+
     StringBuffer buffer;
     Writer<StringBuffer> writer(buffer);
     d.Accept(writer);
     const char *json = buffer.GetString();
 
     int stdinpipe[2];
-    pipe(stdinpipe);
+    if (pipe(stdinpipe) != 0)
+    {
+        cerr << "Failed to create pipe to the contract process.\n";
+        return -1;
+    }
+
     dup2(stdinpipe[0], STDIN_FILENO);
     close(stdinpipe[0]);
 
-    write(stdinpipe[1], json, strlen(json));
+    write(stdinpipe[1], json, buffer.GetSize());
     close(stdinpipe[1]);
+
+    return 0;
 }
 
 bool is_contract_running()

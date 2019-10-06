@@ -31,8 +31,9 @@ bool is_schema_valid(Document &d);
 
 int init()
 {
-    if (!validate_contract_dir_paths() || load_config() != 0 || validate_config() != 0)
+    if (!validate_contract_dir_paths() || load_config() != 0 || !validate_config())
         return -1;
+
     return 0;
 }
 
@@ -105,7 +106,8 @@ int load_config()
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
 
-    b64pair_to_bin();
+    if (b64pair_to_bin() != 0)
+        return -1;
 
     return 0;
 }
@@ -123,7 +125,7 @@ void save_config()
     d.AddMember("listenip", StringRef(cfg.listenip.data()), allocator);
 
     Value peers(kArrayType);
-    for (string peer : cfg.peers)
+    for (string &peer : cfg.peers)
     {
         Value v;
         v.SetString(StringRef(peer.data()), allocator);
@@ -132,7 +134,7 @@ void save_config()
     d.AddMember("peers", peers, allocator);
 
     Value unl(kArrayType);
-    for (string node : cfg.unl)
+    for (string &node : cfg.unl)
     {
         Value v;
         v.SetString(StringRef(node.data()), allocator);
@@ -263,7 +265,7 @@ bool validate_contract_dir_paths()
 {
     string dirs[4] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir};
 
-    for (string dir : dirs)
+    for (string &dir : dirs)
     {
         if (!boost::filesystem::exists(dir))
         {
