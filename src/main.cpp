@@ -4,7 +4,6 @@
 
 #include <cstdio>
 #include <iostream>
-#include <unistd.h>
 #include "conf.h"
 #include "crypto.h"
 #include "usr/usr.h"
