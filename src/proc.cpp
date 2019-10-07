@@ -85,7 +85,7 @@ int write_to_stdin(ContractExecArgs &args)
     d.AddMember("ts", args.timestamp, allocator);
 
     Value users(kObjectType);
-    for (auto &[pk, user] : (*args.users))
+    for (auto &[pk, user] : args.users)
     {
         Value fdlist(kArrayType);
         fdlist.PushBack(user.inpipe[0], allocator);
@@ -95,7 +95,7 @@ int write_to_stdin(ContractExecArgs &args)
     d.AddMember("usrfd", users, allocator);
 
     Value peers(kObjectType);
-    for (auto &[pk, peer] : (*args.peers))
+    for (auto &[pk, peer] : args.peers)
     {
         Value fdlist(kArrayType);
         fdlist.PushBack(peer.inpipe[0], allocator);
@@ -107,7 +107,7 @@ int write_to_stdin(ContractExecArgs &args)
     Value unl(kArrayType);
     for (string &node : conf::cfg.unl)
         unl.PushBack(StringRef(node.data()), allocator);
-    d.AddMember("unl", peers, allocator);     
+    d.AddMember("unl", unl, allocator);     
 
     StringBuffer buffer;
     Writer<StringBuffer> writer(buffer);
