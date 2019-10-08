@@ -40,13 +40,18 @@ Following Instructions are based on Boost [getting started](https://www.boost.or
 
 This will update your library cache and avoid potential issues when running your compiled C++ program which links to newly installed libraries.
 
+#### Install CMAKE
+If you use apt, run `sudo apt install cmake`
+Or follow [this](https://cmake.org/install/)
+
 #### Build and run Hot Pocket
 1. navigate to hotpocket repo root.
-2. Run `make`
-3. Run `./build/hpcore new ~/mycontract`. This will initialize a new contract directory `mycontract` in your home directory.
-4. Take a look at `~/mycontract/cfg/hp.cfg`. This is your new contract config file. You can modify it according to your contract hosting requirements.
-5. Optional: Run `./build/hpcore rekey ~/mycontract` to generate new public/private key pair.
-6. Run `./build/hpcore run ~/mycontract` to run your smart contract (to do).
+1. Run `cmake .` (You only have to do this once)
+1. Run `make`
+1. Run `./build/hpcore new ~/mycontract`. This will initialize a new contract directory `mycontract` in your home directory.
+1. Take a look at `~/mycontract/cfg/hp.cfg`. This is your new contract config file. You can modify it according to your contract hosting requirements.
+1. Optional: Run `./build/hpcore rekey ~/mycontract` to generate new public/private key pair.
+1. Run `./build/hpcore run ~/mycontract` to run your smart contract (to do).
 
 ## Code structure
 Code is divided into subsystems via namespaces. Some subsystems mentioned here are yet to be introduced.
