@@ -8,6 +8,7 @@
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include "socket_session.h"
+#include "socket_session_handler.h"
 
 namespace beast = boost::beast;
 namespace net = boost::asio;
@@ -27,7 +28,7 @@ class socket_client : public std::enable_shared_from_this<socket_client>
     websocket::stream<beast::tcp_stream> ws_;
     beast::flat_buffer buffer_;
     std::string host_;
-    std::shared_ptr<socket_session> const& sess_;
+    socket_session_handler &sess_handler_;
     
 
     void on_resolve(error ec, tcp::resolver::results_type results);
@@ -38,9 +39,7 @@ class socket_client : public std::enable_shared_from_this<socket_client>
 
 public:
     // Resolver and socket require an io_context
-    socket_client(net::io_context &ioc, std::shared_ptr<socket_session> const& session);
-
-    ~socket_client();
+    socket_client(net::io_context &ioc, socket_session_handler &session_handler);
 
     void
     run(char const *host, char const *port);

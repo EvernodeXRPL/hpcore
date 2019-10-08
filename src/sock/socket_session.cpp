@@ -32,8 +32,12 @@ void socket_session::
 }
 
 void socket_session::
-    client_run()
+    client_run(error ec)
 {
+    sess_handler_.on_connect(this, ec);
+    if (ec)
+        return fail(ec, "handshake");
+
     ws_.async_read(
         buffer_,
         [sp = shared_from_this()](
@@ -56,7 +60,7 @@ void socket_session::
 void socket_session::
     on_accept(error_code ec)
 {
-    sess_handler_.on_connect(*this, ec);
+    sess_handler_.on_connect(this, ec);
 
     // Handle the error, if any
     if (ec)
@@ -75,7 +79,7 @@ void socket_session::
     on_read(error_code ec, std::size_t)
 {
     auto const string_message = std::make_shared<std::string const>(std::move(beast::buffers_to_string(buffer_.data())));
-    sess_handler_.on_message(*this, string_message, ec);
+    sess_handler_.on_message(this, string_message, ec);
 
     // Handle the error, if any
     if (ec)

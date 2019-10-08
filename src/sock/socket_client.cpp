@@ -3,6 +3,7 @@
 #include <boost/beast/websocket.hpp>
 #include "../sock/socket_client.h"
 #include "../sock/socket_session.h"
+#include "socket_session_handler.h"
 
 using tcp = net::ip::tcp;
 using error = boost::system::error_code;
@@ -11,8 +12,8 @@ namespace sock
 {
 
 socket_client::
-    socket_client(net::io_context &ioc, std::shared_ptr<socket_session> const& session)
-    : resolver_(net::make_strand(ioc)), ws_(net::make_strand(ioc)), socket_(ioc), sess_(session)
+    socket_client(net::io_context &ioc, socket_session_handler &session_handler)
+    : resolver_(net::make_strand(ioc)), ws_(net::make_strand(ioc)), socket_(ioc), sess_handler_(session_handler)
 {
 }
 
@@ -59,14 +60,6 @@ void socket_client::
         websocket::stream_base::timeout::suggested(
             beast::role_type::client));
 
-    // // Set a decorator to change the User-Agent of the handshake
-    // ws_.set_option(websocket::stream_base::decorator(
-    //     [](websocket::request_type &req) {
-    //         req.set(http::field::user_agent,
-    //                 std::string(BOOST_BEAST_VERSION_STRING) +
-    //                     " websocket-client-async");
-    //     }));
-
     // Perform the websocket handshake
     ws_.async_handshake(host_, "/",
                         [self = shared_from_this()](error ec) {
@@ -77,17 +70,9 @@ void socket_client::
 void socket_client::
     on_handshake(error ec)
 {
-    if (ec)
-        socket_client_fail(ec, "socket_client_handshake");
-    else
-        sess_->client_run();
+       std::make_shared<socket_session>(
+            std::move(socket_), sess_handler_)->client_run(ec);
 
-    // Send the message
-    // ws_.async_write(
-    //     net::buffer(text_),
-    //     [self = shared_from_this()](error ec, std::size_t bytes) {
-    //         self->on_write(ec, bytes);
-    //     });
 }
 
 void socket_client::

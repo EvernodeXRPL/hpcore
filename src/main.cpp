@@ -86,19 +86,19 @@ void open_listen()
     auto address = net::ip::make_address(conf::cfg.listenip);
     net::io_context ioc;
 
-    std::make_shared<sock::socket_server>(
-        ioc,
-        tcp::endpoint{address, conf::cfg.peerport},
-        peer_session_manager)
-        ->run();
+    // std::make_shared<sock::socket_server>(
+    //     ioc,
+    //     tcp::endpoint{address, conf::cfg.peerport},
+    //     peer_session_manager)
+    //     ->run();
 
-    std::make_shared<sock::socket_server>(
-        ioc,
-        tcp::endpoint{address, conf::cfg.pubport},
-        public_session_manager)
-        ->run();
+    // std::make_shared<sock::socket_server>(
+    //     ioc,
+    //     tcp::endpoint{address, conf::cfg.pubport},
+    //     public_session_manager)
+    //     ->run();
 
-    //  std::make_shared<sock::client_session>(ioc)->run(host, port, text);
+    std::make_shared<sock::socket_client>(ioc, peer_session_manager)->run((conf::cfg.listenip).c_str(), "23000");
 
     std::thread run_thread([&] { ioc.run(); });
     int t;

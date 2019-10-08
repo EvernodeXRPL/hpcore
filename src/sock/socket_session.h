@@ -36,7 +36,6 @@ class socket_session : public std::enable_shared_from_this<socket_session>
     void on_accept(error ec);
     void on_read(error ec, std::size_t bytes_transferred);
     void on_write(error ec, std::size_t bytes_transferred);
-    void send(std::shared_ptr<std::string const> const &ss);
 
 public:
     socket_session(
@@ -44,7 +43,9 @@ public:
         socket_session_handler &sess_handler);
 
     void server_run();
-    void client_run();
+    void client_run(error ec);
+
+    void send(std::shared_ptr<std::string const> const &ss);
 
 };
 }

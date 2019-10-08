@@ -17,9 +17,9 @@ class socket_session;
 class socket_session_handler
 {
 public:
-    virtual void on_connect(const socket_session &session, error ec) = 0;
-    virtual void on_message(const socket_session &session, std::shared_ptr<std::string const> const &message, error ec) = 0;
-    virtual void on_close(const socket_session &session) = 0;
+    virtual void on_connect(socket_session *session, error ec) = 0;
+    virtual void on_message(socket_session *session, std::shared_ptr<std::string const> const &message, error ec) = 0;
+    virtual void on_close(socket_session *session) = 0;
 };
 } // namespace sock
 
