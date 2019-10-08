@@ -3,29 +3,29 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
-#include "../sock/server_listener.h"
-#include "../sock/server_session.h"
-#include "../sock/shared_state.h"
+#include "../sock/socket_server.h"
+#include "../sock/socket_session.h"
 
-namespace net = boost::asio;                    // namespace asio
+namespace net = boost::asio; // namespace asio
 
-using tcp = net::ip::tcp; 
+using tcp = net::ip::tcp;
 using error_code = boost::system::error_code;
 
-server_listener::
-server_listener(
-    net::io_context& ioc,
-    tcp::endpoint endpoint,
-    std::shared_ptr<shared_state> const& state)
-    : acceptor_(ioc)
-    , socket_(ioc)
-    , state_(state)
+namespace sock
+{
+
+socket_server::
+    socket_server(
+        net::io_context &ioc,
+        tcp::endpoint endpoint,
+        socket_session_handler &session_handler)
+    : acceptor_(ioc), socket_(ioc), sess_handler_(session_handler)
 {
     error_code ec;
 
     // Open the acceptor
     acceptor_.open(endpoint.protocol(), ec);
-    if(ec)
+    if (ec)
     {
         fail(ec, "open");
         return;
@@ -33,7 +33,7 @@ server_listener(
 
     // Allow address reuse
     acceptor_.set_option(net::socket_base::reuse_address(true));
-    if(ec)
+    if (ec)
     {
         fail(ec, "set_option");
         return;
@@ -41,7 +41,7 @@ server_listener(
 
     // Bind to the server address
     acceptor_.bind(endpoint, ec);
-    if(ec)
+    if (ec)
     {
         fail(ec, "bind");
         return;
@@ -50,56 +50,50 @@ server_listener(
     // Start listening for connections
     acceptor_.listen(
         net::socket_base::max_listen_connections, ec);
-    if(ec)
+    if (ec)
     {
         fail(ec, "listen");
         return;
     }
 }
 
-void
-server_listener::
-run()
+void socket_server::
+    run()
 {
     // Start accepting a connection
     acceptor_.async_accept(
         socket_,
-        [self = shared_from_this()](error_code ec)
-        {
+        [self = shared_from_this()](error_code ec) {
             self->on_accept(ec);
         });
-    
 }
 
 // Report a failure
-void
-server_listener::
-fail(error_code ec, char const* what)
+void socket_server::
+    fail(error_code ec, char const *what)
 {
     // Don't report on canceled operations
-    if(ec == net::error::operation_aborted)
+    if (ec == net::error::operation_aborted)
         return;
     std::cerr << what << ": " << ec.message() << "\n";
 }
 
 // Handle a connection
-void
-server_listener::
-on_accept(error_code ec)
+void socket_server::
+    on_accept(error_code ec)
 {
-    if(ec)
+    if (ec)
         return fail(ec, "accept");
     else
-    //     // Launch a new session for this connection
-        std::make_shared<server_session>(
-            std::move(socket_),
-            state_)->run();
+        // Launch a new session for this connection
+        std::make_shared<socket_session>(
+            std::move(socket_), sess_handler_)->server_run();
 
     // Accept another connection
     acceptor_.async_accept(
         socket_,
-        [self = shared_from_this()](error_code ec)
-        {
+        [self = shared_from_this()](error_code ec) {
             self->on_accept(ec);
         });
 }
+} // namespace sock

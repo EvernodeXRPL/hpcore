@@ -2,28 +2,26 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
-#include "../sock/server_session.h"
-#include "../sock/shared_state.h"
+#include "../sock/socket_session.h"
+#include "../sock/socket_session_handler.h"
 
+namespace net = boost::asio;
+
+using tcp = net::ip::tcp;
 using error_code = boost::system::error_code;
 
-server_session::
-    server_session(
+namespace sock
+{
+socket_session::
+    socket_session(
         tcp::socket socket,
-        std::shared_ptr<shared_state> const &state)
-    : ws_(std::move(socket)), state_(state)
+        socket_session_handler &sess_handler)
+    : ws_(std::move(socket)), sess_handler_(sess_handler)
 {
 }
 
-server_session::
-    ~server_session()
-{
-    // Remove this session from the list of active sessions
-    state_->leave(*this);
-}
-
-void server_session::
-    run()
+void socket_session::
+    server_run()
 {
     // Accept the websocket handshake
     ws_.async_accept(
@@ -33,7 +31,18 @@ void server_session::
         });
 }
 
-void server_session::
+void socket_session::
+    client_run()
+{
+    ws_.async_read(
+        buffer_,
+        [sp = shared_from_this()](
+            error_code ec, std::size_t bytes) {
+            sp->on_read(ec, bytes);
+        });
+}
+
+void socket_session::
     fail(error_code ec, char const *what)
 {
     // Don't report these
@@ -44,15 +53,14 @@ void server_session::
     std::cerr << what << ": " << ec.message() << "\n";
 }
 
-void server_session::
+void socket_session::
     on_accept(error_code ec)
 {
+    sess_handler_.on_connect(*this, ec);
+
     // Handle the error, if any
     if (ec)
         return fail(ec, "accept");
-
-    // Add this session to the list of active sessions
-    state_->join(*this);
 
     // Read a message
     ws_.async_read(
@@ -63,17 +71,15 @@ void server_session::
         });
 }
 
-void server_session::
+void socket_session::
     on_read(error_code ec, std::size_t)
 {
+    auto const string_message = std::make_shared<std::string const>(std::move(beast::buffers_to_string(buffer_.data())));
+    sess_handler_.on_message(*this, string_message, ec);
+
     // Handle the error, if any
     if (ec)
         return fail(ec, "read");
-
-    std::cout << beast::make_printable(buffer_.data()) << std::endl;
-    
-    // Send to all connections
-    state_->send(beast::buffers_to_string(buffer_.data()));
 
     // Clear the buffer
     buffer_.consume(buffer_.size());
@@ -87,7 +93,7 @@ void server_session::
         });
 }
 
-void server_session::
+void socket_session::
     send(std::shared_ptr<std::string const> const &ss)
 {
     // Always add to queue
@@ -106,7 +112,7 @@ void server_session::
         });
 }
 
-void server_session::
+void socket_session::
     on_write(error_code ec, std::size_t)
 {
     // Handle the error, if any
@@ -115,6 +121,8 @@ void server_session::
 
     // Remove the string from the queue
     queue_.erase(queue_.begin());
+
+    //   session_->on_write();
 
     // Send the next message if any
     if (!queue_.empty())
@@ -125,3 +133,4 @@ void server_session::
                 sp->on_write(ec, bytes);
             });
 }
+} // namespace sock

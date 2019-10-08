@@ -7,11 +7,16 @@
 #include <boost/thread/thread.hpp>
 #include "conf.h"
 #include "crypto.h"
-#include "sock/server_session.h"
-#include "sock/server_listener.h"
-#include "sock/shared_state.h"
+#include "sock/socket_server.h"
+#include "sock/socket_client.h"
+#include "sock/socket_session_handler.h"
+#include "peer_session_handler.h"
+#include "public_session_handler.h"
 
 using namespace std;
+
+peer_session_handler peer_session_manager;
+public_session_handler public_session_manager;
 
 int parse_cmd(int argc, char **argv);
 void open_listen();
@@ -80,17 +85,22 @@ void open_listen()
 
     auto address = net::ip::make_address(conf::cfg.listenip);
     net::io_context ioc;
-    std::make_shared<server_listener>(
+
+    std::make_shared<sock::socket_server>(
         ioc,
         tcp::endpoint{address, conf::cfg.peerport},
-        std::make_shared<shared_state>())
+        peer_session_manager)
         ->run();
 
-    std::make_shared<server_listener>(
+    std::make_shared<sock::socket_server>(
         ioc,
         tcp::endpoint{address, conf::cfg.pubport},
-        std::make_shared<shared_state>())
+        public_session_manager)
         ->run();
-    
-    std::thread run_thread([&]{ ioc.run(); });
+
+    //  std::make_shared<sock::client_session>(ioc)->run(host, port, text);
+
+    std::thread run_thread([&] { ioc.run(); });
+    int t;
+    std::cin >> t;
 }
