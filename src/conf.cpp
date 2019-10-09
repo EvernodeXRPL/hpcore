@@ -8,9 +8,9 @@
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
 #include <boost/filesystem.hpp>
-#include "conf.h"
-#include "crypto.h"
-#include "shared.h"
+#include "conf.hpp"
+#include "crypto.hpp"
+#include "util.hpp"
 
 using namespace std;
 using namespace rapidjson;
@@ -18,20 +18,25 @@ using namespace rapidjson;
 namespace conf
 {
 
-ContractCtx ctx;
-ContractConfig cfg;
+contract_ctx ctx;
+contract_config cfg;
 
-bool validate_config();
 int load_config();
-void save_config();
-void binpair_to_b64();
+int save_config();
+int validate_config();
+int validate_contract_dir_paths();
+int is_schema_valid(Document &d);
+int binpair_to_b64();
 int b64pair_to_bin();
-bool validate_contract_dir_paths();
-bool is_schema_valid(Document &d);
 
 int init()
 {
-    if (!validate_contract_dir_paths() || load_config() != 0 || !validate_config())
+    // The validations/loading needs to be in this order.
+    // 1. Validate contract directories
+    // 2. Read and load the contract config into memory
+    // 3. Validate the loaded config values
+
+    if (validate_contract_dir_paths() != 0 || load_config() != 0 || validate_config() != 0)
         return -1;
 
     return 0;
@@ -39,21 +44,83 @@ int init()
 
 int rekey()
 {
+    // Load the contract config and re-save with the newly generated keys.
+
     if (load_config() != 0)
         return -1;
 
     crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-    binpair_to_b64();
+    if (binpair_to_b64() != 0)
+        return -1;
 
-    save_config();
+    if (save_config() != 0)
+        return -1;
 
     cout << "New signing keys generated at " << ctx.configFile << endl;
 
     return 0;
 }
 
+int create_contract()
+{
+    if (boost::filesystem::exists(ctx.contractDir))
+    {
+        cerr << "Contract dir already exists. Cannot create contract at the same location.\n";
+        return -1;
+    }
+
+    boost::filesystem::create_directories(ctx.configDir);
+    boost::filesystem::create_directories(ctx.histDir);
+    boost::filesystem::create_directories(ctx.stateDir);
+
+    //Create config file with default settings.
+
+    //We populate the in-memory struct with default settings and then save it to the file.
+
+    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
+    if (binpair_to_b64() != 0)
+        return -1;
+
+    cfg.listenip = "0.0.0.0";
+    cfg.peerport = 22860;
+    cfg.roundtime = 1000;
+    cfg.pubport = 8080;
+    cfg.pubmaxsize = 65536;
+    cfg.pubmaxcpm = 100;
+
+    //Save the default settings into the config file.
+    if (save_config() != 0)
+        return -1;
+
+    cout << "Contract directory created at " << ctx.contractDir << endl;
+
+    return 0;
+}
+
+void set_contract_dir_paths(string basedir)
+{
+    if (basedir[basedir.size() - 1] == '/')
+        basedir = basedir.substr(0, basedir.size() - 1);
+
+    ctx.contractDir = basedir;
+    ctx.configDir = basedir + "/cfg";
+    ctx.configFile = ctx.configDir + "/hp.cfg";
+    ctx.histDir = basedir + "/hist";
+    ctx.stateDir = basedir + "/state";
+}
+
+
+//------Private functions for this namespace (not exposed via header).
+
+/**
+ * Reads the config file on disk and populates the in-memory 'cfg' struct.
+ * 
+ * @return 0 for successful loading of config. -1 for failure.
+ */
 int load_config()
 {
+    // Read the file into json document object.
+
     ifstream ifs(ctx.configFile);
     IStreamWrapper isw(ifs);
 
@@ -63,13 +130,14 @@ int load_config()
         cerr << "Invalid config file format. Parser error at position " << d.GetErrorOffset() << endl;
         return -1;
     }
-    else if (!is_schema_valid(d))
+    else if (is_schema_valid(d) != 0)
     {
         cerr << "Invalid config file format.\n";
         return -1;
     }
+    ifs.close();
 
-    //Check contract version.
+    // Check whether the contract version is specified.
     string cfgversion = d["version"].GetString();
     if (cfgversion.empty())
     {
@@ -77,14 +145,17 @@ int load_config()
         return -1;
     }
 
+    // Check whether this contract complies with the min version requirement.
     string minversion = string(_HP_MIN_CONTRACT_VERSION_);
-    if (shared::version_compare(cfgversion, minversion) == -1)
+    if (util::version_compare(cfgversion, minversion) == -1)
     {
         cerr << "Contract version too old. Minimum "
              << _HP_MIN_CONTRACT_VERSION_ << " required. "
              << cfgversion << " found.\n";
         return -1;
     }
+
+    // Load up the values into the struct.
 
     cfg.pubkeyb64 = d["pubkeyb64"].GetString();
     cfg.seckeyb64 = d["seckeyb64"].GetString();
@@ -106,14 +177,22 @@ int load_config()
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
 
+    // Convert the b64 keys to binary and keep for later use.
     if (b64pair_to_bin() != 0)
         return -1;
 
     return 0;
 }
 
-void save_config()
+/**
+ * Saves the current values of the 'cfg' struct into the config file.
+ * 
+ * @return 0 for successful save. -1 for failure.
+ */
+int save_config()
 {
+    // Popualte json document with 'cfg' values.
+
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
@@ -148,120 +227,121 @@ void save_config()
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
 
+
+    // Write the json doc to file.
+
     ofstream ofs(ctx.configFile);
     OStreamWrapper osw(ofs);
 
     PrettyWriter<OStreamWrapper> writer(osw);
-    d.Accept(writer);
-}
-
-int create_contract()
-{
-    if (boost::filesystem::exists(ctx.contractDir))
+    if (!d.Accept(writer))
     {
-        cerr << "Contract dir already exists. Cannot create contract at the same location.\n";
+        cerr << "Writing to config file failed. " << ctx.configFile << endl;
         return -1;
     }
-
-    boost::filesystem::create_directories(ctx.configDir);
-    boost::filesystem::create_directories(ctx.histDir);
-    boost::filesystem::create_directories(ctx.stateDir);
-
-    //Create config file with default settings.
-
-    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-    binpair_to_b64();
-
-    cfg.listenip = "0.0.0.0";
-    cfg.peerport = 22860;
-    cfg.roundtime = 1000;
-    cfg.pubport = 8080;
-    cfg.pubmaxsize = 65536;
-    cfg.pubmaxcpm = 100;
-    save_config();
-
-    cout << "Contract directory created at " << ctx.contractDir << endl;
-
-    if (load_config() != 0)
-        return -1;
+    ofs.close();
 
     return 0;
 }
 
-void binpair_to_b64()
+/**
+ * Decode current binary keys in 'cfg' and populate the it with base64 keys.
+ * 
+ * @return 0 for successful conversion. -1 for failure.
+ */
+int binpair_to_b64()
 {
-    shared::base64_encode((unsigned char *)cfg.pubkey.data(), crypto_sign_PUBLICKEYBYTES, cfg.pubkeyb64);
-    shared::base64_encode((unsigned char *)cfg.seckey.data(), crypto_sign_SECRETKEYBYTES, cfg.seckeyb64);
+    if (util::base64_encode((unsigned char *)cfg.pubkey.data(), crypto_sign_PUBLICKEYBYTES, cfg.pubkeyb64) != 0)
+    {
+        cerr << "Error encoding public key bytes.\n";
+        return -1;
+    }
+
+    if (util::base64_encode((unsigned char *)cfg.seckey.data(), crypto_sign_SECRETKEYBYTES, cfg.seckeyb64) != 0)
+    {
+        cerr << "Error encoding secret key bytes.\n";
+        return -1;
+    }
+
+    return 0;
 }
 
+/**
+ * Decode current base64 keys in 'cfg' and populate the it with binary keys.
+ * 
+ * @return 0 for successful conversion. -1 for failure.
+ */
 int b64pair_to_bin()
 {
     unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
     unsigned char decoded_seckey[crypto_sign_SECRETKEYBYTES];
 
-    if (shared::base64_decode(cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES) != 0)
+    if (util::base64_decode(cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES) != 0)
     {
         cerr << "Error decoding base64 public key.\n";
         return -1;
     }
 
-    if (shared::base64_decode(cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES) != 0)
+    if (util::base64_decode(cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES) != 0)
     {
         cerr << "Error decoding base64 secret key.\n";
         return -1;
     }
 
-    shared::replace_string_contents(cfg.pubkey, (char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
-    shared::replace_string_contents(cfg.seckey, (char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
+    // Assign the cfg pubkey/seckey fields with the decoded strings.
+    util::replace_string_contents(cfg.pubkey, (char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
+    util::replace_string_contents(cfg.seckey, (char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
     return 0;
 }
 
-bool validate_config()
+/**
+ * Validates the 'cfg' struct for invalid values.
+ * 
+ * @return 0 for successful validation. -1 for failure.
+ */
+int validate_config()
 {
+    // Check for non-empty signing keys.
+    // We also check for key pair validity as well in the below code.
     if (cfg.pubkeyb64.empty() || cfg.seckeyb64.empty())
     {
         cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
-        return false;
+        return -1;
     }
 
+    // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
         cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0)
     {
         cerr << "Required configuration fields missing at " << ctx.configFile << endl;
-        return false;
+        return -1;
     }
 
+    // Check whether the contract binary actually exists.
     if (!boost::filesystem::exists(cfg.binary))
     {
         cerr << "Contract binary does not exist: " << cfg.binary << endl;
-        return false;
+        return -1;
     }
 
-    //Sign and verify a sample to ensure we have a matching signing key pair.
+    //Sign and verify a sample message to ensure we have a matching signing key pair.
     string msg = "hotpocket";
     string sigb64 = crypto::sign_b64(msg, cfg.seckeyb64);
-    if (!crypto::verify_b64(msg, sigb64, cfg.pubkeyb64))
+    if (crypto::verify_b64(msg, sigb64, cfg.pubkeyb64) != 0)
     {
         cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
-        return false;
+        return -1;
     }
 
-    return true;
+    return 0;
 }
 
-void set_contract_dir_paths(string basedir)
-{
-    if (basedir[basedir.size() - 1] == '/')
-        basedir = basedir.substr(0, basedir.size() - 1);
-
-    ctx.contractDir = basedir;
-    ctx.configDir = basedir + "/cfg";
-    ctx.configFile = ctx.configDir + "/hp.cfg";
-    ctx.histDir = basedir + "/hist";
-    ctx.stateDir = basedir + "/state";
-}
-
-bool validate_contract_dir_paths()
+/**
+ * Checks for the existence of all contract sub directories.
+ * 
+ * @return 0 for successful validation. -1 for failure.
+ */
+int validate_contract_dir_paths()
 {
     string dirs[4] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir};
 
@@ -270,14 +350,19 @@ bool validate_contract_dir_paths()
         if (!boost::filesystem::exists(dir))
         {
             cerr << dir << " does not exist.\n";
-            return false;
+            return -1;
         }
     }
 
-    return true;
+    return 0;
 }
 
-bool is_schema_valid(Document &d)
+/**
+ * Validates the config json document schema.
+ * 
+ * @return 0 for successful validation. -1 for failure.
+ */
+int is_schema_valid(Document &d)
 {
     const char *cfg_schema =
         "{"
@@ -312,7 +397,10 @@ bool is_schema_valid(Document &d)
     SchemaDocument schema(sd);
 
     SchemaValidator validator(schema);
-    return d.Accept(validator);
+    if (!d.Accept(validator))
+        return -1;
+    
+    return 0;
 }
 
 } // namespace conf

@@ -5,7 +5,7 @@
 #include <vector>
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
-#include "socket_session_handler.h"
+#include "socket_session_handler.hpp"
 
 namespace beast = boost::beast;
 namespace net = boost::asio;

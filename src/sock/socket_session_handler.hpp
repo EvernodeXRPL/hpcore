@@ -1,7 +1,7 @@
 #ifndef _SOCK_SESSION_HANDLER_H_
 #define _SOCK_SESSION_HANDLER_H_
 
-#include "socket_session.h"
+#include "socket_session.hpp"
 #include <boost/beast/core.hpp>
 
 using error = boost::system::error_code;

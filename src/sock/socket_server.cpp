@@ -4,7 +4,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
-#include "socket_server.h"
+#include "socket_server.hpp"
 
 namespace net = boost::asio; // namespace asio
 

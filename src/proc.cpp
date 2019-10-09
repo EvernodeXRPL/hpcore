@@ -7,11 +7,11 @@
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include "proc.h"
-#include "conf.h"
+#include "proc.hpp"
+#include "conf.hpp"
 
 using namespace std;
-using namespace shared;
+using namespace util;
 
 namespace proc
 {
@@ -22,7 +22,6 @@ namespace proc
 int contract_pid;
 
 int write_to_stdin(ContractExecArgs &args);
-bool is_contract_running();
 
 int exec_contract(ContractExecArgs &args)
 {
@@ -35,19 +34,19 @@ int exec_contract(ContractExecArgs &args)
     int pid = fork();
     if (pid > 0)
     {
-        //HotPocket process.
+        // HotPocket process.
 
         contract_pid = pid;
     }
     else if (pid == 0)
     {
-        //Contract process.
-        //Set up the process environment and overlay the contract binary program with execv().
+        // Contract process.
+        // Set up the process environment and overlay the contract binary program with execv().
 
-        //Set the contract process working directory.
+        // Set the contract process working directory.
         chdir(conf::ctx.contractDir.data());
 
-        //Write the contract input message from HotPocket to the stdin (0) of the contract process.
+        // Write the contract input message from HotPocket to the stdin (0) of the contract process.
         write_to_stdin(args);
 
         char *execv_args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
@@ -76,6 +75,8 @@ int exec_contract(ContractExecArgs &args)
  */
 int write_to_stdin(ContractExecArgs &args)
 {
+    //Populate the json document with contract args.
+
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
@@ -107,13 +108,16 @@ int write_to_stdin(ContractExecArgs &args)
     Value unl(kArrayType);
     for (string &node : conf::cfg.unl)
         unl.PushBack(StringRef(node.data()), allocator);
-    d.AddMember("unl", unl, allocator);     
+    d.AddMember("unl", unl, allocator);
 
     StringBuffer buffer;
     Writer<StringBuffer> writer(buffer);
     d.Accept(writer);
+
+    // Get the json string that should be written to contract input pipe.
     const char *json = buffer.GetString();
 
+    // Establish contract input pipe.
     int stdinpipe[2];
     if (pipe(stdinpipe) != 0)
     {
@@ -121,9 +125,12 @@ int write_to_stdin(ContractExecArgs &args)
         return -1;
     }
 
+    // Redirect pipe read-end to the contract std input so the
+    // contract process can read from our pipe.
     dup2(stdinpipe[0], STDIN_FILENO);
     close(stdinpipe[0]);
 
+    // Write the json message and close write fd.
     write(stdinpipe[1], json, buffer.GetSize());
     close(stdinpipe[1]);
 

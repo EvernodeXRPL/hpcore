@@ -4,9 +4,9 @@
 
 #include <cstdio>
 #include <iostream>
-#include "conf.h"
-#include "crypto.h"
-#include "usr/usr.h"
+#include "conf.hpp"
+#include "crypto.hpp"
+#include "usr/usr.hpp"
 
 #include "peer_session_handler.h"
 #include "sock/socket_client.h"
@@ -90,7 +90,7 @@ int parse_cmd(int argc, char **argv)
     cout << "hpcore <command> <contract dir> (command = run | new | rekey)\n";
     cout << "Example: hpcore run ~/mycontract\n";
 
-    return 0;
+    return -1;
 }
 
 void open_listen()

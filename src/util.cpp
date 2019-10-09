@@ -3,17 +3,24 @@
 
 using namespace std;
 
-namespace shared
+namespace util
 {
 
-void replace_string_contents(string &str, const char *bytes, size_t bytes_len);
-
-int base64_encode(unsigned char *bin, size_t bin_len, string &encoded_string)
+void replace_string_contents(string &str, const char *bytes, size_t bytes_len)
 {
+    if (str.length() > 0)
+        str.clear();
+    str.append(bytes, bytes_len);
+}
+
+int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_string)
+{
+    // Get length of encoded result from sodium.
     const size_t base64_len = sodium_base64_encoded_len(bin_len, sodium_base64_VARIANT_ORIGINAL);
     char base64chars[base64_len];
 
-    char *encoded_str_char = sodium_bin2base64(
+    // Get encoded string.
+    const char *encoded_str_char = sodium_bin2base64(
         base64chars, base64_len,
         bin, bin_len,
         sodium_base64_VARIANT_ORIGINAL);
@@ -21,11 +28,12 @@ int base64_encode(unsigned char *bin, size_t bin_len, string &encoded_string)
     if (encoded_str_char == NULL)
         return -1;
 
+    // Assign the encoded char* onto the provided string reference.
     replace_string_contents(encoded_string, base64chars, base64_len);
     return 0;
 }
 
-int base64_decode(string &base64_str, unsigned char *decoded, size_t decoded_len)
+int base64_decode(const string &base64_str, unsigned char *decoded, size_t decoded_len)
 {
     const char *b64_end;
     size_t bin_len;
@@ -41,17 +49,10 @@ int base64_decode(string &base64_str, unsigned char *decoded, size_t decoded_len
     return 0;
 }
 
-void replace_string_contents(string &str, const char *bytes, size_t bytes_len)
-{
-    if (str.length() > 0)
-        str.clear();
-    str.append(bytes, bytes_len);
-}
-
 //   v1 <  v2  -> -1
 //   v1 == v2  ->  0
 //   v1 >  v2  -> +1
-int version_compare(string &v1, string &v2)
+int version_compare(const string &v1, const string &v2)
 {
     size_t i = 0, j = 0;
     while (i < v1.length() || j < v2.length())
@@ -80,4 +81,4 @@ int version_compare(string &v1, string &v2)
     return 0;
 }
 
-} // namespace shared
+} // namespace util
