@@ -14,7 +14,8 @@ using error = boost::system::error_code;
 
 void peer_session_handler::on_connect(sock::socket_session *session, error ec)
 {
-    //session->send("connected successfully");
+    auto const message = std::make_shared<std::string const>("Connected successfully");
+    session->send(message);
 }
 
 void peer_session_handler::on_message(sock::socket_session *session, std::shared_ptr<std::string const> const &message, error ec)
