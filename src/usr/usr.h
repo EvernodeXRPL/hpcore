@@ -1,13 +1,13 @@
 #ifndef _HP_USR_H_
 #define _HP_USR_H_
 
-//Length of user random challenge bytes.
+// Length of user random challenge bytes.
 #define USER_CHALLENGE_LEN 16
 
-//Message type for the user challenge.
+// Message type for the user challenge.
 #define MSG_PUBLIC_CHALLENGE "public_challenge"
 
-//Message type for the user challenge response.
+// Message type for the user challenge response.
 #define MSG_CHALLENGE_RESP "challenge_response"
 
 #include <cstdio>
@@ -31,6 +31,7 @@ extern map<string, ContractUser> users;
 
 /**
  * Initializes the usr subsystem. Must be called once during application startup.
+ * @return 0 for successful initialization. -1 for failure.
  */
 int init();
 
