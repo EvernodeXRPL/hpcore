@@ -38,7 +38,7 @@ Following Instructions are based on Boost [getting started](https://www.boost.or
 #### Install Protocol buffers
 Instructions are based on [this](https://github.com/protocolbuffers/protobuf/tree/master/src).
 
-1. Download and extract Protobuf 3.10.0 from [here](https://github.com/protocolbuffers/protobuf/releases/tag/v3.10.0).
+1. Download and extract Protobuf 3.10.0 from [here](https://github.com/protocolbuffers/protobuf/releases/download/v3.10.0/protobuf-cpp-3.10.0.tar.gz).
 2. Navigate to the extracted Protobuf directory in a terminal.
 3. Run `./configure`
 4. Run `make && make check`
@@ -82,8 +82,8 @@ Handles contract process execution.
 #### usr
 Handles user connections and processing of user I/O with the smart contract. Makes use of **crypto** and **sock**.
 
-#### ntn
-Handles node-to-node connections and message exchange between nodes. Also handles smart contract node-party-line (npl) I/O. Makes use of **crypto** and **sock**.
+#### p2p
+Handles peer-to-peer connections and message exchange between nodes. Also handles smart contract node-party-line (npl) I/O. Makes use of **crypto** and **sock**.
 
 #### cons
 Handles consensus and proposal rounds. Makes use of **usr**, **ntn** and **proc**

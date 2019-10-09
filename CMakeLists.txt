@@ -9,9 +9,8 @@ add_executable(hpcore
     src/conf.cpp
     src/crypto.cpp
     src/proc.cpp
-    src/shared.cpp
     src/usr/usr.cpp
-    src/shared.cpp
+    src/util.cpp
     src/p2p/message.pb.cc
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
