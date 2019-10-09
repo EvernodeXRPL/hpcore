@@ -22,16 +22,16 @@ message Message {
 }
 
 message StateDifference {
-map<string, string> created = 1; 
-map<string, string> updated = 2; 
-map<string, string> deleted = 3; 
+  map<string, string> created = 1; 
+  map<string, string> updated = 2; 
+  map<string, string> deleted = 3; 
 }
 
 message State {
-optional bytes previous = 1;
-optional bytes current = 2;
-optional StateDifference difference = 3;
-map<string, string> patch = 4;
+  optional bytes previous = 1;
+  optional bytes current = 2;
+  optional StateDifference difference = 3;
+  map<string, string> patch = 4;
 }
 
 
