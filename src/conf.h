@@ -3,9 +3,11 @@
 
 //Hot Pocket version. Displayed on 'hotpocket version' and written to new contract configs.
 #define _HP_VERSION_ "0.1"
-//minimum compatible contract config version (this will be used to validate contract configs)
+
+//Minimum compatible contract config version (this will be used to validate contract configs)
 #define _HP_MIN_CONTRACT_VERSION_ "0.1"
-//minimum compatible peer message version (this will be used to accept/reject incoming peer connections)
+
+//Minimum compatible peer message version (this will be used to accept/reject incoming peer connections)
 //(Keeping this as int for effcient msg payload and comparison)
 #define _HP_MIN_PEERMSG_VERSION_ 1
 
@@ -18,7 +20,10 @@ using namespace rapidjson;
 namespace conf
 {
 
-struct ContractCtx
+/**
+ * Holds contextual information of the currently loaded contract.
+ */
+struct contract_ctx
 {
     string command;
     string contractDir;
@@ -28,19 +33,19 @@ struct ContractCtx
     string configFile;
 };
 
-struct ContractConfig
+
+struct contract_config
 {
-    /*
-    Config elements which are only initialized in memory (these are not loaded from the config file)
-    */
+    //Config elements which are only initialized in memory (these are not loaded from the config file)
+    
     //public key bytes
     string pubkey;
     //secret key bytes
     string seckey;
 
-    /*
-    Config elements which are loaded from the config file.
-    */
+
+    //Config elements which are loaded from the config file.
+
     string pubkeyb64;
     string seckeyb64;
     string binary;
@@ -55,8 +60,8 @@ struct ContractConfig
     int pubmaxcpm;
 };
 
-extern ContractCtx ctx;
-extern ContractConfig cfg;
+extern contract_ctx ctx;
+extern contract_config cfg;
 int init();
 int rekey();
 int create_contract();

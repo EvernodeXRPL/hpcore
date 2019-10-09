@@ -8,34 +8,67 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sodium.h>
-#include "../shared.h"
+#include "../util.h"
 #include "../conf.h"
 #include "../crypto.h"
 #include "usr.h"
 
 using namespace std;
-using namespace shared;
+using namespace util;
 using namespace rapidjson;
 
 namespace usr
 {
 
+/**
+ * Global user list. (Exposed to other sub systems)
+ */
 map<string, ContractUser> users;
+
+/**
+ * Json schema doc used for user challenge-response json validation.
+ */
 Document challenge_response_schemadoc;
 
-void create_user_challenge(string &msg, string &challenge)
+int init()
 {
+    //We initialize the response schema doc from this json string so we can
+    //use the schema repeatedly for all challenge-response validations.
+
+    const char *challenge_response_schema =
+        "{"
+        "\"type\": \"object\","
+        "\"required\": [ \"type\", \"challenge\", \"sig\", \"pubkey\" ],"
+        "\"properties\": {"
+        "\"type\": { \"type\": \"string\" },"
+        "\"challenge\": { \"type\": \"string\" },"
+        "\"sig\": { \"type\": \"string\" },"
+        "\"pubkey\": { \"type\": \"string\" }"
+        "}"
+        "}";
+    challenge_response_schemadoc.Parse(challenge_response_schema);
+
+    return 0;
+}
+
+void create_user_challenge(string &msg, string &challengeb64)
+{
+    //Use libsodium to generate the random challenge bytes.
     unsigned char challenge_bytes[USER_CHALLENGE_LEN];
     randombytes_buf(challenge_bytes, USER_CHALLENGE_LEN);
 
-    base64_encode(challenge_bytes, USER_CHALLENGE_LEN, challenge);
+    //We pass the b64 challenge string separately to the caller even though
+    //we also include it in the challenge msg as well.
 
+    base64_encode(challenge_bytes, USER_CHALLENGE_LEN, challengeb64);
+
+    //Construct the challenge msg json.
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", StringRef(_HP_VERSION_), allocator);
-    d.AddMember("type", "public_challenge", allocator);
-    d.AddMember("challenge", StringRef(challenge.data()), allocator);
+    d.AddMember("type", MSG_PUBLIC_CHALLENGE, allocator);
+    d.AddMember("challenge", StringRef(challengeb64.data()), allocator);
 
     StringBuffer buffer;
     Writer<StringBuffer> writer(buffer);
@@ -43,86 +76,117 @@ void create_user_challenge(string &msg, string &challenge)
     msg = buffer.GetString();
 }
 
-bool verify_user_challenge_response(string &response, string &original_challenge, string &extracted_pubkeyb64)
+int verify_user_challenge_response(const string &response, const string &original_challenge, string &extracted_pubkeyb64)
 {
+    //We load response raw bytes into json document and validate the schema.
     Document d;
     d.Parse(response.data());
 
+    //Validate json scheme.
+    //This has a cost. But we have to do this first. Otherwise field value
+    //extraction will fail in subsequent steps if the message is malformed.
     SchemaDocument schema(challenge_response_schemadoc);
     SchemaValidator validator(schema);
     if (!d.Accept(validator))
     {
         cerr << "User challenge resposne schema invalid.\n";
-        return false;
+        return -1;
     }
 
+    //Validate msg type.
     string type = d["type"].GetString();
-    if (type != "challenge_response")
+    if (type != MSG_CHALLENGE_RESP)
     {
         cerr << "User challenge response type invalid. 'challenge_response' expeced.\n";
-        return false;
+        return -1;
     }
 
+    //Compare the response challenge string with the original issued challenge.
     string challenge = d["challenge"].GetString();
-    string sigb64 = d["sig"].GetString();
-    string pubkeyb64 = d["pubkey"].GetString();
-
     if (challenge != original_challenge)
     {
         cerr << "User challenge resposne: challenge mismatch.\n";
-        return false;
+        return -1;
     }
 
-    if (!crypto::verify_b64(original_challenge, sigb64, pubkeyb64))
+    //Verify the challenge signature. We do this last due to signature verification cost.
+    string sigb64 = d["sig"].GetString();
+    extracted_pubkeyb64 = d["pubkey"].GetString();
+    if (crypto::verify_b64(original_challenge, sigb64, extracted_pubkeyb64) != 0)
     {
         cerr << "User challenge response signature verification failed.\n";
-        return false;
+        return -1;
     }
 
-    extracted_pubkeyb64 = pubkeyb64;
-    return true;
+    return 0;
 }
 
-void add_user(string &pubkeyb64)
+int add_user(const string &pubkeyb64)
 {
     if (users.count(pubkeyb64) == 1)
     {
         cerr << pubkeyb64 << " already exist. Cannot add user.\n";
-        return;
+        return -1;
     }
 
+    //Establish the I/O pipes for [User <--> SC] channel.
+
+    //inpipe: User will write input to this and contract will read user-input from this.
     int inpipe[2];
-    int outpipe[2];
-    if (pipe(inpipe) != 0 || pipe(outpipe) != 0)
+    if (pipe(inpipe) != 0)
     {
-        cerr << "User pipe creation failed. pubkey:" << pubkeyb64 << endl;
-        return;
+        cerr << "User in pipe creation failed. pubkey:" << pubkeyb64 << endl;
+        return -1;
+    }
+
+    //outpipe: Contract will write output for the user to this and user will read from this.
+    int outpipe[2];
+    if (pipe(outpipe) != 0)
+    {
+        cerr << "User out pipe creation failed. pubkey:" << pubkeyb64 << endl;
+
+        //We need to close 'inpipe' in case outpipe failed.
+        close(inpipe[0]);
+        close(inpipe[1]);
+
+        return -1;
     }
 
     users.insert(pair<string, ContractUser>(pubkeyb64, ContractUser(pubkeyb64, inpipe, outpipe)));
+    return 0;
 }
 
-void remove_user(string &pubkeyb64)
+int remove_user(const string &pubkeyb64)
 {
     if (users.count(pubkeyb64) == 0)
     {
         cerr << pubkeyb64 << " does not exist. Cannot remove user.\n";
-        return;
+        return -1;
     }
 
     auto itr = users.find(pubkeyb64);
     ContractUser user = itr->second;
+
+    //Close the User <--> SC I/O pipes.
     close(user.inpipe[0]);
     close(user.inpipe[1]);
     close(user.outpipe[0]);
     close(user.outpipe[1]);
 
     users.erase(itr);
+    return 0;
 }
 
-//Read per-user outputs produced by the contract process.
 int read_contract_user_outputs()
 {
+    //Read any outputs that has been written by the contract process
+    //from all the user outpipes and store in the outbuffer of each user.
+    //User outbuffer will be read by the consensus process later when it wishes so.
+
+    //Future optmization: Read and populate user buffers parallely.
+    //Currently this is sequential for simplicity which will not scale well
+    //when there are large number of users connected to the same HP node.
+
     for (auto &[pk, user] : users)
     {
         int fdout = user.outpipe[0];
@@ -135,30 +199,11 @@ int read_contract_user_outputs()
             read(fdout, data, bytes_available);
 
             //Populate the user output buffer with new data
-            shared::replace_string_contents(user.outbuffer, data, bytes_available);
+            util::replace_string_contents(user.outbuffer, data, bytes_available);
 
             cout << "Read " + to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << endl;
         }
     }
-
-    return 0;
-}
-
-int init()
-{
-    const char *challenge_response_schema =
-        "{"
-        "\"type\": \"object\","
-        "\"required\": [ \"type\", \"challenge\", \"sig\", \"pubkey\" ],"
-        "\"properties\": {"
-        "\"type\": { \"type\": \"string\" },"
-        "\"challenge\": { \"type\": \"string\" },"
-        "\"sig\": { \"type\": \"string\" },"
-        "\"pubkey\": { \"type\": \"string\" }"
-        "}"
-        "}";
-
-    challenge_response_schemadoc.Parse(challenge_response_schema);
 
     return 0;
 }

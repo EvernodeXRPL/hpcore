@@ -9,9 +9,8 @@ add_executable(hpcore
     src/conf.cpp
     src/crypto.cpp
     src/proc.cpp
-    src/shared.cpp
     src/usr/usr.cpp
-    src/shared.cpp
+    src/util.cpp
 )
 
 target_link_libraries(hpcore

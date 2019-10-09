@@ -1,12 +1,12 @@
-#ifndef _HP_SHARED_H_
-#define _HP_SHARED_H_
+#ifndef _HP_UTIL_H_
+#define _HP_UTIL_H_
 
 #include <string>
 #include <vector>
 
 using namespace std;
 
-namespace shared
+namespace util
 {
 
 struct ContractUser
@@ -42,10 +42,10 @@ struct PeerNode
     }
 };
 
-int base64_encode(unsigned char *bin, size_t bin_len, string &encoded_string);
-int base64_decode(string &base64_str, unsigned char *decoded, size_t decoded_len);
+int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_string);
+int base64_decode(const string &base64_str, unsigned char *decoded, size_t decoded_len);
 void replace_string_contents(string &str, const char* bytes, size_t bytes_len);
-int version_compare(string &v1, string &v2);
+int version_compare(const string &v1, const string &v2);
 
 } // namespace usr
 

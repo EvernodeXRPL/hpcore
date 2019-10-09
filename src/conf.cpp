@@ -10,7 +10,7 @@
 #include <boost/filesystem.hpp>
 #include "conf.h"
 #include "crypto.h"
-#include "shared.h"
+#include "util.h"
 
 using namespace std;
 using namespace rapidjson;
@@ -18,8 +18,8 @@ using namespace rapidjson;
 namespace conf
 {
 
-ContractCtx ctx;
-ContractConfig cfg;
+contract_ctx ctx;
+contract_config cfg;
 
 bool validate_config();
 int load_config();
@@ -78,7 +78,7 @@ int load_config()
     }
 
     string minversion = string(_HP_MIN_CONTRACT_VERSION_);
-    if (shared::version_compare(cfgversion, minversion) == -1)
+    if (util::version_compare(cfgversion, minversion) == -1)
     {
         cerr << "Contract version too old. Minimum "
              << _HP_MIN_CONTRACT_VERSION_ << " required. "
@@ -190,8 +190,8 @@ int create_contract()
 
 void binpair_to_b64()
 {
-    shared::base64_encode((unsigned char *)cfg.pubkey.data(), crypto_sign_PUBLICKEYBYTES, cfg.pubkeyb64);
-    shared::base64_encode((unsigned char *)cfg.seckey.data(), crypto_sign_SECRETKEYBYTES, cfg.seckeyb64);
+    util::base64_encode((unsigned char *)cfg.pubkey.data(), crypto_sign_PUBLICKEYBYTES, cfg.pubkeyb64);
+    util::base64_encode((unsigned char *)cfg.seckey.data(), crypto_sign_SECRETKEYBYTES, cfg.seckeyb64);
 }
 
 int b64pair_to_bin()
@@ -199,20 +199,20 @@ int b64pair_to_bin()
     unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
     unsigned char decoded_seckey[crypto_sign_SECRETKEYBYTES];
 
-    if (shared::base64_decode(cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES) != 0)
+    if (util::base64_decode(cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES) != 0)
     {
         cerr << "Error decoding base64 public key.\n";
         return -1;
     }
 
-    if (shared::base64_decode(cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES) != 0)
+    if (util::base64_decode(cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES) != 0)
     {
         cerr << "Error decoding base64 secret key.\n";
         return -1;
     }
 
-    shared::replace_string_contents(cfg.pubkey, (char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
-    shared::replace_string_contents(cfg.seckey, (char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
+    util::replace_string_contents(cfg.pubkey, (char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
+    util::replace_string_contents(cfg.seckey, (char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
     return 0;
 }
 
@@ -240,7 +240,7 @@ bool validate_config()
     //Sign and verify a sample to ensure we have a matching signing key pair.
     string msg = "hotpocket";
     string sigb64 = crypto::sign_b64(msg, cfg.seckeyb64);
-    if (!crypto::verify_b64(msg, sigb64, cfg.pubkeyb64))
+    if (crypto::verify_b64(msg, sigb64, cfg.pubkeyb64) != 0)
     {
         cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
         return false;
