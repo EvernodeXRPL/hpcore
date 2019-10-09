@@ -53,8 +53,7 @@ socket_server::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socke
     }
 }
 
-void socket_server::
-    run()
+void socket_server::run()
 {
     // Start accepting a connection
     acceptor_.async_accept(

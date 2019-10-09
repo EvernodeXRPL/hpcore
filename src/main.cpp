@@ -4,13 +4,9 @@
 
 #include <cstdio>
 #include <iostream>
-#include <boost/thread/thread.hpp>
 #include "conf.h"
 #include "crypto.h"
 #include "usr/usr.h"
-#include "sock/socket_server.h"
-#include "sock/socket_client.h"
-#include "sock/socket_session_handler.h"
 
 using namespace std;
 

@@ -13,7 +13,7 @@ namespace sock
 class socket_session;
 
 /** 
- * Represents a WebSocket sessions handler. Can inherit from this class and access events (read, write)
+ * Represents a WebSocket sessions handler. Can inherit from this class and access websocket events
 */
 class socket_session_handler
 {

@@ -22,7 +22,7 @@ namespace sock
 class socket_session_handler;
 
 /** 
- * Represents an active WebSocket peer to peer connection
+ * Represents an active WebSocket connection
 */
 class socket_session : public std::enable_shared_from_this<socket_session>
 {
