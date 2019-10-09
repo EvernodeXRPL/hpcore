@@ -4,8 +4,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
-#include "../sock/socket_server.h"
-#include "../sock/socket_session.h"
+#include "socket_server.h"
 
 namespace net = boost::asio; // namespace asio
 
@@ -15,11 +14,7 @@ using error_code = boost::system::error_code;
 namespace sock
 {
 
-socket_server::
-    socket_server(
-        net::io_context &ioc,
-        tcp::endpoint endpoint,
-        socket_session_handler &session_handler)
+socket_server::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler &session_handler)
     : acceptor_(ioc), socket_(ioc), sess_handler_(session_handler)
 {
     error_code ec;
@@ -70,8 +65,7 @@ void socket_server::
 }
 
 // Report a failure
-void socket_server::
-    fail(error_code ec, char const *what)
+void socket_server::fail(error_code ec, char const *what)
 {
     // Don't report on canceled operations
     if (ec == net::error::operation_aborted)
@@ -80,8 +74,7 @@ void socket_server::
 }
 
 // Handle a connection
-void socket_server::
-    on_accept(error_code ec)
+void socket_server::on_accept(error_code ec)
 {
     if (ec)
     {
@@ -91,7 +84,7 @@ void socket_server::
     {
         unsigned short port = socket_.remote_endpoint().port();
         std::string address = socket_.remote_endpoint().address().to_string();
-        
+
         // Launch a new session for this connection
         std::make_shared<socket_session>(
             std::move(socket_), sess_handler_)

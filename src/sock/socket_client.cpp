@@ -1,9 +1,5 @@
 #include <iostream>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include "../sock/socket_client.h"
-#include "../sock/socket_session.h"
-#include "socket_session_handler.h"
+#include "socket_client.h"
 
 using tcp = net::ip::tcp;
 using error = boost::system::error_code;
@@ -11,14 +7,12 @@ using error = boost::system::error_code;
 namespace sock
 {
 
-socket_client::
-    socket_client(net::io_context &ioc, socket_session_handler &session_handler)
+socket_client::socket_client(net::io_context &ioc, socket_session_handler &session_handler)
     : resolver_(net::make_strand(ioc)), ws_(net::make_strand(ioc)), socket_(ioc), sess_handler_(session_handler)
 {
 }
 
-void socket_client::
-    run(char const *host, char const *port)
+void socket_client::run(char const *host, char const *port)
 {
     host_ = host;
     port_ = (unsigned short)std::strtoul(port, NULL, 0);
@@ -32,8 +26,7 @@ void socket_client::
         });
 }
 
-void socket_client::
-    on_resolve(error ec, tcp::resolver::results_type results)
+void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
 {
     if (ec)
         socket_client_fail(ec, "socket_client_resolve");
@@ -46,8 +39,7 @@ void socket_client::
         });
 }
 
-void socket_client::
-    on_connect(error ec, tcp::resolver::results_type::endpoint_type)
+void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_type)
 {
     if (ec)
         socket_client_fail(ec, "socket_client_connect");
@@ -68,17 +60,14 @@ void socket_client::
                         });
 }
 
-//On completion of handshake
-void socket_client::
-    on_handshake(error ec)
+void socket_client::on_handshake(error ec)
 {
-       std::make_shared<socket_session>(
-            std::move(socket_), sess_handler_)->client_run(port_, host_, ec);
-
+    std::make_shared<socket_session>(
+        std::move(socket_), sess_handler_)
+        ->client_run(port_, host_, ec);
 }
 
-void socket_client::
-    socket_client_fail(beast::error_code ec, char const *what)
+void socket_client::socket_client_fail(beast::error_code ec, char const *what)
 {
     std::cerr << what << ": " << ec.message() << "\n";
 }

@@ -1,8 +1,6 @@
 #ifndef _SOCK_SERVER_SESSION_H_
 #define _SOCK_SERVER_SESSION_H_
 
-#include <cstdlib>
-#include <memory>
 #include <string>
 #include <vector>
 #include <boost/asio.hpp>
@@ -23,7 +21,8 @@ namespace sock
 //Forward Declaration
 class socket_session_handler;
 
-/** Represents an active WebSocket peer to peer connection
+/** 
+ * Represents an active WebSocket peer to peer connection
 */
 class socket_session : public std::enable_shared_from_this<socket_session>
 {
@@ -33,14 +32,15 @@ class socket_session : public std::enable_shared_from_this<socket_session>
     socket_session_handler &sess_handler_;
 
     void fail(error ec, char const *what);
+
     void on_accept(error ec);
+
     void on_read(error ec, std::size_t bytes_transferred);
+
     void on_write(error ec, std::size_t bytes_transferred);
 
 public:
-    socket_session(
-        tcp::socket socket,
-        socket_session_handler &sess_handler);
+    socket_session(tcp::socket socket, socket_session_handler &sess_handler);
 
     unsigned short port_;
     std::string address_;

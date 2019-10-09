@@ -15,7 +15,6 @@
 using namespace std;
 
 int parse_cmd(int argc, char **argv);
-void open_listen();
 
 int main(int argc, char **argv)
 {
@@ -89,4 +88,3 @@ int parse_cmd(int argc, char **argv)
 
     return 0;
 }
-

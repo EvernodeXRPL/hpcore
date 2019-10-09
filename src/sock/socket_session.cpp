@@ -1,9 +1,7 @@
 #include <iostream>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include <boost/asio/strand.hpp>
-#include "../sock/socket_session.h"
-#include "../sock/socket_session_handler.h"
+#include "socket_session.h"
 
 namespace net = boost::asio;
 
@@ -12,16 +10,13 @@ using error_code = boost::system::error_code;
 
 namespace sock
 {
-socket_session::
-    socket_session(
-        tcp::socket socket,
-        socket_session_handler &sess_handler)
+
+socket_session::socket_session(tcp::socket socket, socket_session_handler &sess_handler)
     : ws_(std::move(socket)), sess_handler_(sess_handler)
 {
 }
 
-void socket_session::
-    server_run(const unsigned short &port, const std::string &address)
+void socket_session::server_run(const unsigned short &port, const std::string &address)
 {
     port_ = port;
     address_ = address;
@@ -34,12 +29,11 @@ void socket_session::
         });
 }
 
-void socket_session::
-    client_run(const unsigned short &port, const std::string &address, error ec)
+void socket_session::client_run(const unsigned short &port, const std::string &address, error ec)
 {
     port_ = port;
     address_ = address;
-    
+
     sess_handler_.on_connect(this, ec);
     if (ec)
         return fail(ec, "handshake");
@@ -52,8 +46,7 @@ void socket_session::
         });
 }
 
-void socket_session::
-    fail(error_code ec, char const *what)
+void socket_session::fail(error_code ec, char const *what)
 {
     // Don't report these
     if (ec == net::error::operation_aborted ||
@@ -63,8 +56,7 @@ void socket_session::
     std::cerr << what << ": " << ec.message() << "\n";
 }
 
-void socket_session::
-    on_accept(error_code ec)
+void socket_session::on_accept(error_code ec)
 {
     sess_handler_.on_connect(this, ec);
 
@@ -81,8 +73,7 @@ void socket_session::
         });
 }
 
-void socket_session::
-    on_read(error_code ec, std::size_t)
+void socket_session::on_read(error_code ec, std::size_t)
 {
     auto const string_message = std::make_shared<std::string const>(std::move(beast::buffers_to_string(buffer_.data())));
     sess_handler_.on_message(this, string_message, ec);
@@ -103,8 +94,7 @@ void socket_session::
         });
 }
 
-void socket_session::
-    send(std::shared_ptr<std::string const> const &ss)
+void socket_session::send(std::shared_ptr<std::string const> const &ss)
 {
     // Always add to queue
     queue_.push_back(ss);
@@ -122,8 +112,7 @@ void socket_session::
         });
 }
 
-void socket_session::
-    on_write(error_code ec, std::size_t)
+void socket_session::on_write(error_code ec, std::size_t)
 {
     // Handle the error, if any
     if (ec)
@@ -131,8 +120,6 @@ void socket_session::
 
     // Remove the string from the queue
     queue_.erase(queue_.begin());
-
-    //   session_->on_write();
 
     // Send the next message if any
     if (!queue_.empty())
