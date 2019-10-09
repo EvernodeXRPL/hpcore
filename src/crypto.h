@@ -8,30 +8,27 @@ namespace crypto
 
 int init();
 
-/**
- * Returns the length of the singature generated using crypto library.
- */
-unsigned long long get_sig_len();
+void generate_signing_keys(string &pubkey, string &seckey);
 
 /**
- * Generates the signature for the given message using the contract's secret key.
+ * Returns the signature bytes for the given message bytes using the provided secret key bytes.
  */
-void sign(const unsigned char *msg, unsigned long long msg_len, unsigned char *sig);
+string sign(string &msg, string &seckey);
 
 /**
- * Returns the base64 signature for the given message using the contract's secret key.
+ * Returns the base64 signature for the given message bytes using the provided base64 secret key.
  */
-string sign_b64(string msg);
+string sign_b64(string &msg, string &seckeyb64);
 
 /**
- * Verifies the given signature with the message using the provided public key.
+ * Verifies the given signature bytes for the message bytes using the provided public key bytes.
  */
-bool verify(const unsigned char *msg, unsigned long long msg_len, const unsigned char *sig, const unsigned char *pubkey);
+bool verify(string &msg, string &sig, string &pubkey);
 
 /**
- * Verifies the given base64 signature with the message using the provided base64 public key.
+ * Verifies the given base64 signature with the message bytes using the provided base64 public key.
  */
-bool verify_b64(string msg, string sigb64, string pubkeyb64);
+bool verify_b64(string &msg, string &sigb64, string &pubkeyb64);
 
 } // namespace crypto
 

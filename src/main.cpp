@@ -7,6 +7,7 @@
 #include <boost/thread/thread.hpp>
 #include "conf.h"
 #include "crypto.h"
+#include "usr/usr.h"
 #include "sock/socket_server.h"
 #include "sock/socket_client.h"
 #include "sock/socket_session_handler.h"
@@ -23,7 +24,7 @@ void open_listen();
 
 int main(int argc, char **argv)
 {
-    if (!parse_cmd(argc, argv))
+    if (parse_cmd(argc, argv) != 0)
         return -1;
 
     if (conf::ctx.command == "version")
@@ -32,11 +33,26 @@ int main(int argc, char **argv)
     }
     else
     {
-        bool initSuccess = conf::init(argc, argv) && crypto::init();
-        if (!initSuccess)
-        {
-            cerr << "Init error\n";
+        if (crypto::init() != 0)
             return -1;
+
+        if (conf::ctx.command == "new")
+        {
+            if (conf::create_contract() != 0)
+                return -1;
+        }
+        else
+        {
+            if (conf::ctx.command == "rekey")
+            {
+                if (conf::rekey() != 0)
+                    return -1;
+            }
+            else if (conf::ctx.command == "run")
+            {
+                if (conf::init() != 0 || usr::init() != 0)
+                    return -1;
+            }
         }
 
         open_listen();
@@ -61,13 +77,14 @@ int parse_cmd(int argc, char **argv)
             else
             {
                 conf::set_contract_dir_paths(argv[2]);
-                return 1;
+
+                return 0;
             }
         }
         else if (command == "version")
         {
             if (argc == 2)
-                return 1;
+                return 0;
         }
     }
 
