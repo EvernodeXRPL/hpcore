@@ -12,10 +12,14 @@ add_executable(hpcore
     src/shared.cpp
     src/usr/usr.cpp
     src/shared.cpp
+    src/sock/socket_client.cpp
+    src/sock/socket_server.cpp
+    src/sock/socket_session.cpp
 )
 
 target_link_libraries(hpcore
     libsodium.a
     libboost_system.a
     libboost_filesystem.a
+    pthread
 )

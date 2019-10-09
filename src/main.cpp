@@ -82,5 +82,5 @@ int parse_cmd(int argc, char **argv)
     cout << "hpcore <command> <contract dir> (command = run | new | rekey)\n";
     cout << "Example: hpcore run ~/mycontract\n";
 
-    return -1;
+    return 0;
 }
