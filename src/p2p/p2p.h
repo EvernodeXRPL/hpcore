@@ -21,10 +21,10 @@ Need to improve and add additional functionality once started to use.
 void set_message(Message &message, int timestamp, string version, string publicKey, string signature, p2p::Message::Messagetype type, string content);
 
 // Serialize the message and store it in the given string.  All message
-// fields must be set. 
+// fields must be set. Consensus rounds need all fileds.
 bool message_serialize_to_string(Message& message,  string* output);
 
-// Parsing the message from binary string to given message.
+// Parsing the message from binary message string to given message.
 bool message_parse_from_string(Message& message, const string& dataString);
 
 //Set proposal inputs from given string vector.
@@ -36,11 +36,11 @@ void set_proposal_outputs(Proposal& proposal, vector<string> outputs);
 //Set proposal connections from given string vector.
 void set_proposal_connections(Proposal& proposal, vector<string> connections);
 
-//Set proposal state patches from given map. Both keys and value of map should be strings.
+//Set proposal state patches from given map of patches.
 void set_state_patch(State& state, map<string, string> patches);
 
 // Serialize the proposal message and store it in the given string.  All propsal message
-// fields must be set. 
+// fields must be set. Consensus rounds need all fileds.
 bool proposal_serialize_to_string(Proposal& proposal, string* output);
 
 // Parsing the proposal message from binary string to given message.
