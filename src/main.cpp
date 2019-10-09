@@ -6,6 +6,7 @@
 #include <iostream>
 #include "conf.h"
 #include "crypto.h"
+#include "usr/usr.h"
 
 using namespace std;
 
@@ -13,7 +14,7 @@ int parse_cmd(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
-    if (!parse_cmd(argc, argv))
+    if (parse_cmd(argc, argv) != 0)
         return -1;
 
     if (conf::ctx.command == "version")
@@ -22,11 +23,26 @@ int main(int argc, char **argv)
     }
     else
     {
-        bool initSuccess = conf::init(argc, argv) && crypto::init();
-        if (!initSuccess)
-        {
-            cerr << "Init error\n";
+        if (crypto::init() != 0)
             return -1;
+
+        if (conf::ctx.command == "new")
+        {
+            if (conf::create_contract() != 0)
+                return -1;
+        }
+        else
+        {
+            if (conf::ctx.command == "rekey")
+            {
+                if (conf::rekey() != 0)
+                    return -1;
+            }
+            else if (conf::ctx.command == "run")
+            {
+                if (conf::init() != 0 || usr::init() != 0)
+                    return -1;
+            }
         }
     }
 
@@ -49,13 +65,14 @@ int parse_cmd(int argc, char **argv)
             else
             {
                 conf::set_contract_dir_paths(argv[2]);
-                return 1;
+
+                return 0;
             }
         }
         else if (command == "version")
         {
             if (argc == 2)
-                return 1;
+                return 0;
         }
     }
 
@@ -65,5 +82,5 @@ int parse_cmd(int argc, char **argv)
     cout << "hpcore <command> <contract dir> (command = run | new | rekey)\n";
     cout << "Example: hpcore run ~/mycontract\n";
 
-    return 0;
+    return -1;
 }
