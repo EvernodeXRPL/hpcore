@@ -27,7 +27,7 @@ class socket_session_handler;
 class socket_session : public std::enable_shared_from_this<socket_session>
 {
     beast::flat_buffer buffer_;
-    websocket::stream<tcp::socket> ws_;
+    websocket::stream<beast::tcp_stream> ws_;
     std::vector<std::shared_ptr<std::string const>> queue_;
     socket_session_handler &sess_handler_;
 
@@ -40,7 +40,7 @@ class socket_session : public std::enable_shared_from_this<socket_session>
     void on_write(error ec, std::size_t bytes_transferred);
 
 public:
-    socket_session(tcp::socket socket, socket_session_handler &sess_handler);
+    socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler);
 
     unsigned short port_;
     std::string address_;
