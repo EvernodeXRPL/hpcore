@@ -12,10 +12,13 @@ add_executable(hpcore
     src/shared.cpp
     src/usr/usr.cpp
     src/shared.cpp
+    src/p2p/message.pb.cc
 )
 
 target_link_libraries(hpcore
     libsodium.a
     libboost_system.a
     libboost_filesystem.a
+    pthread
+    protobuf.a
 )

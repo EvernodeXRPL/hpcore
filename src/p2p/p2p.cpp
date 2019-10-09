@@ -19,6 +19,7 @@ void set_message(Message &message, int timestamp, string version, string publicK
 
 bool message_serialize_to_string(Message& message,  string* output)
 {
+    //check all fields are set in message 
     if(message.has_publickey() 
         && message.has_signature() 
         && message.has_timestamp() 
@@ -58,11 +59,13 @@ void set_proposal_connections(Proposal& proposal, vector<string> connections)
 void set_state_patch(State& state, map<string, string> patches)
 {
     //state.mutable_patch().Reserve(patches.size()); 
+    //reserve memory need to optimise copy 
     *state.mutable_patch() = {patches.begin(), patches.end()};
 }
 
 bool proposal_serialize_to_string(Proposal& proposal, string* output)
 {
+    //check all fields are set in the proposal 
     if(proposal.has_stage() 
         && proposal.has_lcl()
         && proposal.has_state()
@@ -82,6 +85,9 @@ bool proposal_parse_from_string(Proposal& proposal, const string& dataString)
 
 bool npl_serialize_to_string(NPL& npl, string* output)
 {
+    //check all fields are set in the proposal
+    //not sure npl messages need both data or lcl have to be set.
+    //may be only one needed. need to deal with this when processing npl messages 
      if(npl.has_data() 
         && npl.has_lcl())
 
