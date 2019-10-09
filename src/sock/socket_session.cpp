@@ -21,8 +21,11 @@ socket_session::
 }
 
 void socket_session::
-    server_run()
+    server_run(const unsigned short &port, const std::string &address)
 {
+    port_ = port;
+    address_ = address;
+
     // Accept the websocket handshake
     ws_.async_accept(
         [sp = shared_from_this()](
@@ -32,8 +35,11 @@ void socket_session::
 }
 
 void socket_session::
-    client_run(error ec)
+    client_run(const unsigned short &port, const std::string &address, error ec)
 {
+    port_ = port;
+    address_ = address;
+    
     sess_handler_.on_connect(this, ec);
     if (ec)
         return fail(ec, "handshake");

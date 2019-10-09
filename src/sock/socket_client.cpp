@@ -21,6 +21,7 @@ void socket_client::
     run(char const *host, char const *port)
 {
     host_ = host;
+    port_ = (unsigned short)std::strtoul(port, NULL, 0);
 
     // Look up the domain name
     resolver_.async_resolve(
@@ -67,11 +68,12 @@ void socket_client::
                         });
 }
 
+//On completion of handshake
 void socket_client::
     on_handshake(error ec)
 {
        std::make_shared<socket_session>(
-            std::move(socket_), sess_handler_)->client_run(ec);
+            std::move(socket_), sess_handler_)->client_run(port_, host_, ec);
 
 }
 

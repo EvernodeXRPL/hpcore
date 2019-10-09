@@ -12,7 +12,8 @@ using error = boost::system::error_code; // from <boost/system/error_code.hpp>
 namespace sock
 {
 
-// Accepts incoming connections and launches the sessions
+/** Represents an active WebSocket server connection
+*/
 class socket_server : public std::enable_shared_from_this<socket_server>
 {
     tcp::acceptor acceptor_;

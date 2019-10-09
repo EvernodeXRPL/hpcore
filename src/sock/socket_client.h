@@ -21,15 +21,16 @@ using error = boost::system::error_code;
 namespace sock
 {
 
+/** Represents an active WebSocket client connection
+*/
 class socket_client : public std::enable_shared_from_this<socket_client>
 {
     tcp::resolver resolver_;
     tcp::socket socket_;
     websocket::stream<beast::tcp_stream> ws_;
-    beast::flat_buffer buffer_;
     std::string host_;
+    unsigned short port_;
     socket_session_handler &sess_handler_;
-    
 
     void on_resolve(error ec, tcp::resolver::results_type results);
     void on_connect(error ec, tcp::resolver::results_type::endpoint_type);
@@ -41,6 +42,7 @@ public:
     // Resolver and socket require an io_context
     socket_client(net::io_context &ioc, socket_session_handler &session_handler);
 
+    //Entry point to the client which requires an active host and port
     void
     run(char const *host, char const *port);
 };

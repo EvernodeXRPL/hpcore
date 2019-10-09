@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <string>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
@@ -83,11 +84,19 @@ void socket_server::
     on_accept(error_code ec)
 {
     if (ec)
+    {
         return fail(ec, "accept");
+    }
     else
+    {
+        unsigned short port = socket_.remote_endpoint().port();
+        std::string address = socket_.remote_endpoint().address().to_string();
+        
         // Launch a new session for this connection
         std::make_shared<socket_session>(
-            std::move(socket_), sess_handler_)->server_run();
+            std::move(socket_), sess_handler_)
+            ->server_run(port, address);
+    }
 
     // Accept another connection
     acceptor_.async_accept(
