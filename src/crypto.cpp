@@ -1,8 +1,8 @@
 #include <cstdio>
 #include <iostream>
 #include <sodium.h>
-#include "crypto.h"
-#include "util.h"
+#include "crypto.hpp"
+#include "util.hpp"
 
 using namespace std;
 

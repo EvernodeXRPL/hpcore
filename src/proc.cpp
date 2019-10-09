@@ -7,8 +7,8 @@
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include "proc.h"
-#include "conf.h"
+#include "proc.hpp"
+#include "conf.hpp"
 
 using namespace std;
 using namespace util;

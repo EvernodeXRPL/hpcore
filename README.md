@@ -38,7 +38,7 @@ Following Instructions are based on Boost [getting started](https://www.boost.or
 #### Install Protocol buffers
 Instructions are based on [this](https://github.com/protocolbuffers/protobuf/tree/master/src).
 
-1. Download and extract Protobuf 3.10.0 from [here](https://github.com/protocolbuffers/protobuf/releases/tag/v3.10.0).
+1. Download and extract Protobuf 3.10.0 from [here](https://github.com/protocolbuffers/protobuf/releases/download/v3.10.0/protobuf-cpp-3.10.0.tar.gz).
 2. Navigate to the extracted Protobuf directory in a terminal.
 3. Run `./configure`
 4. Run `make && make check`

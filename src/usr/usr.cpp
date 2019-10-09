@@ -8,10 +8,10 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sodium.h>
-#include "../util.h"
-#include "../conf.h"
-#include "../crypto.h"
-#include "usr.h"
+#include "../util.hpp"
+#include "../conf.hpp"
+#include "../crypto.hpp"
+#include "usr.hpp"
 
 using namespace std;
 using namespace util;

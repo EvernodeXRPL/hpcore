@@ -8,9 +8,9 @@
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
 #include <boost/filesystem.hpp>
-#include "conf.h"
-#include "crypto.h"
-#include "util.h"
+#include "conf.hpp"
+#include "crypto.hpp"
+#include "util.hpp"
 
 using namespace std;
 using namespace rapidjson;
