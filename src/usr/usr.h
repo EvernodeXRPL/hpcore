@@ -27,7 +27,7 @@ namespace usr
 /**
  * Global authenticated (challenge-verified) user list.
  */
-extern map<string, ContractUser> users;
+extern map<string, contract_user> users;
 
 /**
  * Initializes the usr subsystem. Must be called once during application startup.

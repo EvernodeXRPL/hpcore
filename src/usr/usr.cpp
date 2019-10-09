@@ -23,7 +23,7 @@ namespace usr
 /**
  * Global user list. (Exposed to other sub systems)
  */
-map<string, ContractUser> users;
+map<string, contract_user> users;
 
 /**
  * Json schema doc used for user challenge-response json validation.
@@ -152,7 +152,7 @@ int add_user(const string &pubkeyb64)
         return -1;
     }
 
-    users.insert(pair<string, ContractUser>(pubkeyb64, ContractUser(pubkeyb64, inpipe, outpipe)));
+    users.insert(pair<string, contract_user>(pubkeyb64, contract_user(pubkeyb64, inpipe, outpipe)));
     return 0;
 }
 
@@ -165,7 +165,7 @@ int remove_user(const string &pubkeyb64)
     }
 
     auto itr = users.find(pubkeyb64);
-    ContractUser user = itr->second;
+    contract_user user = itr->second;
 
     //Close the User <--> SC I/O pipes.
     close(user.inpipe[0]);
