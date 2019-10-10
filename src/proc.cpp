@@ -19,11 +19,14 @@ namespace proc
 /**
  * Keeps the currently executing contract process id (if any)
  */
-int contract_pid;
+int contract_pid = 0;
 
-int write_to_stdin(ContractExecArgs &args);
-
-int exec_contract(ContractExecArgs &args)
+/**
+ * Executes the contract process and passes the specified arguments.
+ * 
+ * @return 0 on successful process creation. -1 on failure or contract process is already running.
+ */
+int exec_contract(const ContractExecArgs &args)
 {
     if (is_contract_running())
     {
@@ -73,7 +76,7 @@ int exec_contract(ContractExecArgs &args)
  *   "unl":[ "pkb64", ... ]
  * }
  */
-int write_to_stdin(ContractExecArgs &args)
+int write_to_stdin(const ContractExecArgs &args)
 {
     //Populate the json document with contract args.
 
@@ -81,7 +84,7 @@ int write_to_stdin(ContractExecArgs &args)
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
 
-    d.AddMember("version", StringRef(_HP_VERSION_), allocator);
+    d.AddMember("version", StringRef(util::hp_version), allocator);
     d.AddMember("pubkey", StringRef(conf::cfg.pubkeyb64.data()), allocator);
     d.AddMember("ts", args.timestamp, allocator);
 
@@ -137,6 +140,9 @@ int write_to_stdin(ContractExecArgs &args)
     return 0;
 }
 
+/**
+ * Checks whether the contract process is running at this moment.
+ */
 bool is_contract_running()
 {
     if (contract_pid > 0)

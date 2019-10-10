@@ -24,7 +24,6 @@ namespace sock
 class socket_client : public std::enable_shared_from_this<socket_client>
 {
     tcp::resolver resolver_;
-    tcp::socket socket_;
     websocket::stream<beast::tcp_stream> ws_;
     std::string host_;
     unsigned short port_;
@@ -39,6 +38,8 @@ class socket_client : public std::enable_shared_from_this<socket_client>
     void on_close(error ec);
 
     void socket_client_fail(beast::error_code ec, char const *what);
+
+    void on_write(error ec, std::size_t);
 
 public:
     // Resolver and socket require an io_context

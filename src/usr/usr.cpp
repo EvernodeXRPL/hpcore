@@ -39,8 +39,10 @@ Document challenge_response_schemadoc;
  */
 usr::usr_session_handler global_usr_session_handler;
 
-void start_listening();
-
+/**
+ * Initializes the usr subsystem. Must be called once during application startup.
+ * @return 0 for successful initialization. -1 for failure.
+ */
 int init()
 {
     //We initialize the response schema doc from this json string so we can
@@ -65,23 +67,37 @@ int init()
     return 0;
 }
 
+/**
+ * Constructs user challenge message json and the challenge string required for
+ * initial user challenge handshake. This gets called when a user gets establishes
+ * a web sockets connection to HP.
+ * 
+ * @param msg String reference to copy the generated json message string into.
+ *            Message format:
+ *            {
+ *              "version": "<HP version>",
+ *              "type": "public_challenge",
+ *              "challenge": "<base64 challenge string>"
+ *            }
+ * @param challenge String reference to copy the generated base64 challenge string into.
+ */
 void create_user_challenge(string &msg, string &challengeb64)
 {
     //Use libsodium to generate the random challenge bytes.
-    unsigned char challenge_bytes[USER_CHALLENGE_LEN];
-    randombytes_buf(challenge_bytes, USER_CHALLENGE_LEN);
+    unsigned char challenge_bytes[user_challenge_len];
+    randombytes_buf(challenge_bytes, user_challenge_len);
 
     //We pass the b64 challenge string separately to the caller even though
     //we also include it in the challenge msg as well.
 
-    base64_encode(challenge_bytes, USER_CHALLENGE_LEN, challengeb64);
+    base64_encode(challenge_bytes, user_challenge_len, challengeb64);
 
     //Construct the challenge msg json.
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
-    d.AddMember("version", StringRef(_HP_VERSION_), allocator);
-    d.AddMember("type", MSG_PUBLIC_CHALLENGE, allocator);
+    d.AddMember("version", StringRef(util::hp_version), allocator);
+    d.AddMember("type", StringRef(msg_public_challenge), allocator);
     d.AddMember("challenge", StringRef(challengeb64.data()), allocator);
 
     StringBuffer buffer;
@@ -90,6 +106,21 @@ void create_user_challenge(string &msg, string &challengeb64)
     msg = buffer.GetString();
 }
 
+/**
+ * Verifies the user challenge response with the original challenge issued to the user
+ * and the user public contained in the response.
+ * 
+ * @param response The response bytes to verify. This will be parsed as json.
+ *                 Accepted response format:
+ *                 {
+ *                   "type": "challenge_response",
+ *                   "challenge": "<original base64 challenge the user received>",
+ *                   "sig": "<Base64 signature of the challenge>",
+ *                   "pubkey": "<Base64 public key of the user>"
+ *                 }
+ * @param original_challenge The original base64 challenge string issued to the user.
+ * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
+ */
 int verify_user_challenge_response(const string &response, const string &original_challenge, string &extracted_pubkeyb64)
 {
     //We load response raw bytes into json document and validate the schema.
@@ -108,16 +139,14 @@ int verify_user_challenge_response(const string &response, const string &origina
     }
 
     //Validate msg type.
-    string type = d["type"].GetString();
-    if (type != MSG_CHALLENGE_RESP)
+    if (d["type"] != msg_challenge_resp)
     {
         cerr << "User challenge response type invalid. 'challenge_response' expeced.\n";
         return -1;
     }
 
     //Compare the response challenge string with the original issued challenge.
-    string challenge = d["challenge"].GetString();
-    if (challenge != original_challenge)
+    if (d["challenge"] != original_challenge.data())
     {
         cerr << "User challenge resposne: challenge mismatch.\n";
         return -1;
@@ -135,6 +164,12 @@ int verify_user_challenge_response(const string &response, const string &origina
     return 0;
 }
 
+/**
+ * Adds the specified public key into the global user list.
+ * This should get called after the challenge handshake is verified.
+ * 
+ * @return 0 on successful additions. -1 on failure.
+ */
 int add_user(const string &pubkeyb64)
 {
     if (users.count(pubkeyb64) == 1)
@@ -170,6 +205,12 @@ int add_user(const string &pubkeyb64)
     return 0;
 }
 
+/**
+ * Removes the specified public key from the global user list.
+ * This must get called when a user disconnects from HP.
+ * 
+ * @return 0 on successful removals. -1 on failure.
+ */
 int remove_user(const string &pubkeyb64)
 {
     if (users.count(pubkeyb64) == 0)
@@ -191,6 +232,12 @@ int remove_user(const string &pubkeyb64)
     return 0;
 }
 
+/**
+ * Read all per-user outputs produced by the contract process and store them in
+ * the user buffer for later processing.
+ * 
+ * @return 0 on success. -1 on failure.
+ */
 int read_contract_user_outputs()
 {
     //Read any outputs that has been written by the contract process
@@ -213,7 +260,7 @@ int read_contract_user_outputs()
             read(fdout, data, bytes_available);
 
             //Populate the user output buffer with new data
-            util::replace_string_contents(user.outbuffer, data, bytes_available);
+            user.outbuffer = string(data, bytes_available);
 
             cout << "Read " + to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << endl;
         }

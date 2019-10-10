@@ -11,8 +11,8 @@ using error_code = boost::system::error_code;
 namespace sock
 {
 
-socket_session::socket_session(tcp::socket socket, socket_session_handler &sess_handler)
-    : ws_(std::move(socket)), sess_handler_(sess_handler)
+socket_session::socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler)
+    : ws_(std::move(websocket)), sess_handler_(sess_handler)
 {
 }
 

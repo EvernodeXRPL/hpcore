@@ -8,7 +8,7 @@ namespace sock
 {
 
 socket_client::socket_client(net::io_context &ioc, socket_session_handler &session_handler)
-    : resolver_(net::make_strand(ioc)), ws_(net::make_strand(ioc)), socket_(ioc), sess_handler_(session_handler)
+    : resolver_(net::make_strand(ioc)), ws_(net::make_strand(ioc)), sess_handler_(session_handler)
 {
 }
 
@@ -16,7 +16,7 @@ void socket_client::run(char const *host, char const *port)
 {
     host_ = host;
     port_ = (unsigned short)std::strtoul(port, NULL, 0);
-
+    
     // Look up the domain name
     resolver_.async_resolve(
         host,
@@ -63,7 +63,7 @@ void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_t
 void socket_client::on_handshake(error ec)
 {
     std::make_shared<socket_session>(
-        std::move(socket_), sess_handler_)
+        ws_, sess_handler_)
         ->client_run(port_, host_, ec);
 }
 
