@@ -38,6 +38,7 @@ struct contract_config
 
     string pubkeyb64;        // Contract base64 public key
     string seckeyb64;        // Contract base64 secret key
+    string keytype;          // Key generation algorithm used by libsodium
     string binary;           // Full path to the contract binary
     string binargs;          // CLI arguments to pass to the contract binary
     string listenip;         // The IPs to listen on for incoming connections
