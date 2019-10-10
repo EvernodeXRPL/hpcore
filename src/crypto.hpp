@@ -12,7 +12,7 @@ namespace crypto
 
 int init();
 
-void generate_signing_keys(string &pubkey, string &seckey);
+void generate_signing_keys(string &pubkey, string &seckey, string &keytype);
 
 string sign(const string &msg, const string &seckey);
 
