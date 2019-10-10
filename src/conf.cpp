@@ -51,7 +51,7 @@ int rekey()
     if (load_config() != 0)
         return -1;
 
-    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
+    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
     if (binpair_to_b64() != 0)
         return -1;
 
@@ -84,7 +84,7 @@ int create_contract()
 
     //We populate the in-memory struct with default settings and then save it to the file.
 
-    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
+    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
     if (binpair_to_b64() != 0)
         return -1;
 
@@ -172,6 +172,7 @@ int load_config()
 
     cfg.pubkeyb64 = d["pubkeyb64"].GetString();
     cfg.seckeyb64 = d["seckeyb64"].GetString();
+    cfg.keytype = d["keytype"].GetString();
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
     cfg.listenip = d["listenip"].GetString();
@@ -212,6 +213,7 @@ int save_config()
     d.AddMember("version", StringRef(util::hp_version), allocator);
     d.AddMember("pubkeyb64", StringRef(cfg.pubkeyb64.data()), allocator);
     d.AddMember("seckeyb64", StringRef(cfg.seckeyb64.data()), allocator);
+    d.AddMember("keytype", StringRef(cfg.keytype.data()), allocator);
     d.AddMember("binary", StringRef(cfg.binary.data()), allocator);
     d.AddMember("binargs", StringRef(cfg.binargs.data()), allocator);
     d.AddMember("listenip", StringRef(cfg.listenip.data()), allocator);

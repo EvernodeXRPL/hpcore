@@ -27,7 +27,7 @@ int init()
 /**
  * Generates a signing key pair using libsodium and assigns them to the provided strings.
  */
-void generate_signing_keys(string &pubkey, string &seckey)
+void generate_signing_keys(string &pubkey, string &seckey, string &keytype)
 {
     //Generate key pair using libsodium default algorithm. (Currently using ed25519)
 
@@ -37,6 +37,7 @@ void generate_signing_keys(string &pubkey, string &seckey)
 
     pubkey = string((char *)pubkeychars, crypto_sign_PUBLICKEYBYTES);
     seckey = string((char *)seckeychars, crypto_sign_SECRETKEYBYTES);
+    keytype = crypto_sign_primitive();
 }
 
 /**
