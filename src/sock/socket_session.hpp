@@ -42,8 +42,12 @@ class socket_session : public std::enable_shared_from_this<socket_session>
 public:
     socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler);
 
+    // The port of the remote party.
     unsigned short port_;
+    // The IP address of the remote party.
     std::string address_;
+    // The unique identifier of the remote party (format <ip>:<port>).
+    std::string uniqueid_;
 
     void server_run(const unsigned short &port, const std::string &address);
     void client_run(const unsigned short &port, const std::string &address, error ec);

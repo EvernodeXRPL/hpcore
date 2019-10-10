@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include <thread>
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
@@ -101,6 +102,17 @@ int main(int argc, char **argv)
 
                 // This will start hosting the contract and start consensus rounds.
                 // TODO
+
+                cout << "started..\n";
+                int age;
+                cin >> age;
+                //Fake conensus round time
+                while (true)
+                {
+                    chrono::milliseconds timespan(2000);
+                    this_thread::sleep_for(timespan);
+                    cout << "loop...\n";
+                }
             }
         }
     }

@@ -15,7 +15,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "usr.hpp"
-#include "usr_session_handler.hpp"
+#include "user_session_handler.hpp"
 
 using namespace std;
 using namespace util;
@@ -26,8 +26,15 @@ namespace usr
 
 /**
  * Global user list. (Exposed to other sub systems)
+ * Map key: User socket session id (<ip:port>)
  */
 map<string, contract_user> users;
+
+/**
+ * Keep track of verification-pending challenges issued to newly connected users.
+ * Map key: User socket session id (<ip:port>)
+ */
+map<string, string> pending_challenges;
 
 /**
  * Json schema doc used for user challenge-response json validation.
@@ -37,7 +44,13 @@ Document challenge_response_schemadoc;
 /**
  * User session handler instance. This instance's methods will be fired for any user socket activity.
  */
-usr::usr_session_handler global_usr_session_handler;
+user_session_handler global_usr_session_handler;
+
+// The IO context used by the websocket listener.
+net::io_context ioc;
+
+// The thread the websocket lsitener is running on.
+thread listener_thread;
 
 /**
  * Initializes the usr subsystem. Must be called once during application startup.
@@ -61,7 +74,7 @@ int init()
         "}";
     challenge_response_schemadoc.Parse(challenge_response_schema);
 
-    // Start listning for user connections.
+    // Start listening for incoming user connections.
     start_listening();
 
     return 0;
@@ -165,16 +178,18 @@ int verify_user_challenge_response(const string &response, const string &origina
 }
 
 /**
- * Adds the specified public key into the global user list.
+ * Adds the user denoted by specified session id and public key to the global authed user list.
  * This should get called after the challenge handshake is verified.
  * 
+ * @param sessionid User socket session id.
+ * @param pubkeyb64 User's base64 public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(const string &pubkeyb64)
+int add_user(const string &sessionid, const string &pubkeyb64)
 {
-    if (users.count(pubkeyb64) == 1)
+    if (users.count(sessionid) == 1)
     {
-        cerr << pubkeyb64 << " already exist. Cannot add user.\n";
+        cerr << sessionid << " already exist. Cannot add user.\n";
         return -1;
     }
 
@@ -184,7 +199,7 @@ int add_user(const string &pubkeyb64)
     int inpipe[2];
     if (pipe(inpipe) != 0)
     {
-        cerr << "User in pipe creation failed. pubkey:" << pubkeyb64 << endl;
+        cerr << "User in pipe creation failed. sessionid:" << sessionid << endl;
         return -1;
     }
 
@@ -192,7 +207,7 @@ int add_user(const string &pubkeyb64)
     int outpipe[2];
     if (pipe(outpipe) != 0)
     {
-        cerr << "User out pipe creation failed. pubkey:" << pubkeyb64 << endl;
+        cerr << "User out pipe creation failed. sessionid:" << sessionid << endl;
 
         //We need to close 'inpipe' in case outpipe failed.
         close(inpipe[0]);
@@ -201,7 +216,7 @@ int add_user(const string &pubkeyb64)
         return -1;
     }
 
-    users.insert(pair<string, contract_user>(pubkeyb64, contract_user(pubkeyb64, inpipe, outpipe)));
+    users.emplace(sessionid, contract_user(pubkeyb64, inpipe, outpipe));
     return 0;
 }
 
@@ -211,16 +226,17 @@ int add_user(const string &pubkeyb64)
  * 
  * @return 0 on successful removals. -1 on failure.
  */
-int remove_user(const string &pubkeyb64)
+int remove_user(const string &sessionid)
 {
-    if (users.count(pubkeyb64) == 0)
+    auto itr = users.find(sessionid);
+
+    if (itr == users.end())
     {
-        cerr << pubkeyb64 << " does not exist. Cannot remove user.\n";
+        cerr << sessionid << " does not exist. Cannot remove user.\n";
         return -1;
     }
 
-    auto itr = users.find(pubkeyb64);
-    contract_user user = itr->second;
+    const contract_user &user = itr->second;
 
     //Close the User <--> SC I/O pipes.
     close(user.inpipe[0]);
@@ -248,7 +264,7 @@ int read_contract_user_outputs()
     //Currently this is sequential for simplicity which will not scale well
     //when there are large number of users connected to the same HP node.
 
-    for (auto &[pk, user] : users)
+    for (auto &[sid, user] : users)
     {
         int fdout = user.outpipe[0];
         int bytes_available = 0;
@@ -269,18 +285,21 @@ int read_contract_user_outputs()
     return 0;
 }
 
+/**
+ * Starts listening for incoming user websocket connections.
+ */
 void start_listening()
 {
-    auto address = net::ip::make_address(conf::cfg.listenip);
-    net::io_context ioc;
+    
 
+    auto address = net::ip::make_address(conf::cfg.listenip);
     make_shared<sock::socket_server>(
         ioc,
         tcp::endpoint{address, conf::cfg.pubport},
         global_usr_session_handler)
         ->run();
 
-    thread run_thread([&] { ioc.run(); });
+    listener_thread = thread([&] { ioc.run(); });
 }
 
 } // namespace usr

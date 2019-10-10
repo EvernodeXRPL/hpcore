@@ -7,7 +7,7 @@ using error = boost::system::error_code;
 namespace usr
 {
 
-class usr_session_handler : public sock::socket_session_handler
+class user_session_handler : public sock::socket_session_handler
 {
 public:
     void on_connect(sock::socket_session *session, error ec);

@@ -21,6 +21,10 @@ void socket_session::server_run(const unsigned short &port, const std::string &a
     port_ = port;
     address_ = address;
 
+    // Create a unique id for the session combining ip and port.
+    uniqueid_ = address + ":";
+    uniqueid_.append(std::to_string(port));
+
     // Accept the websocket handshake
     ws_.async_accept(
         [sp = shared_from_this()](
@@ -33,6 +37,10 @@ void socket_session::client_run(const unsigned short &port, const std::string &a
 {
     port_ = port;
     address_ = address;
+
+    // Create a unique id for the session combining ip and port.
+    uniqueid_ = address + ":";
+    uniqueid_.append(std::to_string(port));
 
     sess_handler_.on_connect(this, ec);
     if (ec)
