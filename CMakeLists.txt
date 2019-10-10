@@ -15,7 +15,6 @@ add_executable(hpcore
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
     src/sock/socket_session.cpp
-    src/peer_session_handler.cpp
 )
 
 target_link_libraries(hpcore

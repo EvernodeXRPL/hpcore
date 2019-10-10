@@ -8,52 +8,43 @@
 #include "crypto.hpp"
 #include "usr/usr.hpp"
 
-#include "peer_session_handler.h"
-#include "sock/socket_client.h"
-#include "sock/socket_server.h"
-#include <boost/asio.hpp>
-
 using namespace std;
-namespace net = boost::asio;
 
-peer_session_handler peer_session_manager;
 int parse_cmd(int argc, char **argv);
-void open_listen();
 
 int main(int argc, char **argv)
 {
-    // if (parse_cmd(argc, argv) != 0)
-    //     return -1;
+    if (parse_cmd(argc, argv) != 0)
+        return -1;
 
-    // if (conf::ctx.command == "version")
-    // {
-    //     cout << _HP_VERSION_ << endl;
-    // }
-    // else
-    // {
-    //     if (crypto::init() != 0)
-    //         return -1;
+    if (conf::ctx.command == "version")
+    {
+        cout << _HP_VERSION_ << endl;
+    }
+    else
+    {
+        if (crypto::init() != 0)
+            return -1;
 
-    //     if (conf::ctx.command == "new")
-    //     {
-    //         if (conf::create_contract() != 0)
-    //             return -1;
-    //     }
-    //     else
-    //     {
-    //         if (conf::ctx.command == "rekey")
-    //         {
-    //             if (conf::rekey() != 0)
-    //                 return -1;
-    //         }
-    //         else if (conf::ctx.command == "run")
-    //         {
-    //             if (conf::init() != 0 || usr::init() != 0)
-    //                 return -1;
-    //         }
-    //     }
-    // }
-    open_listen();
+        if (conf::ctx.command == "new")
+        {
+            if (conf::create_contract() != 0)
+                return -1;
+        }
+        else
+        {
+            if (conf::ctx.command == "rekey")
+            {
+                if (conf::rekey() != 0)
+                    return -1;
+            }
+            else if (conf::ctx.command == "run")
+            {
+                if (conf::init() != 0 || usr::init() != 0)
+                    return -1;
+            }
+        }
+    }
     cout << "exited normally\n";
     return 0;
 }
@@ -91,29 +82,4 @@ int parse_cmd(int argc, char **argv)
     cout << "Example: hpcore run ~/mycontract\n";
 
     return -1;
-}
-
-void open_listen()
-{
-
-    auto address = net::ip::make_address("0.0.0.0");
-    net::io_context ioc;
-
-    std::make_shared<sock::socket_server>(
-        ioc,
-        tcp::endpoint{address, 22860},
-        peer_session_manager)
-        ->run();
-
-    // std::make_shared<sock::socket_server>(
-    //     ioc,
-    //     tcp::endpoint{address, conf::cfg.pubport},
-    //     public_session_manager)
-    //     ->run();
-
-    //  std::make_shared<sock::socket_client>(ioc, peer_session_manager)->run((conf::cfg.listenip).c_str(), "23000");
-
-    std::thread run_thread([&] { ioc.run(); });
-    int t;
-    std::cin >> t;
 }
