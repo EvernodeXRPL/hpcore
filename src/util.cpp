@@ -30,7 +30,9 @@ int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_stri
         return -1;
 
     // Assign the encoded char* onto the provided string reference.
-    encoded_string = string(base64chars, base64_len);
+    // "base64_len - 1" because sodium include '\0' in the calculated base64 length.
+    //      Therefore we need to omit it when initializing the std::string.
+    encoded_string = string(base64chars, base64_len - 1);
     return 0;
 }
 

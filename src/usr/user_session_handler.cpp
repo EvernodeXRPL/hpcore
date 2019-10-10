@@ -74,7 +74,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::shared
     else
     {
         string userpubkey;
-        const string &original_challenge = itr->first;
+        const string &original_challenge = itr->second;
         if (usr::verify_user_challenge_response(*message, original_challenge, userpubkey) != 0)
         {
             //TODO: Drop the connection

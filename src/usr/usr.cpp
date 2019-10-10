@@ -158,20 +158,21 @@ int verify_user_challenge_response(const string &response, const string &origina
     //Validate msg type.
     if (d["type"] != msg_challenge_resp)
     {
-        cerr << "User challenge response type invalid. 'challenge_response' expeced.\n";
+        cerr << "User challenge response type invalid. 'challenge_response' expected.\n";
         return -1;
     }
 
     //Compare the response challenge string with the original issued challenge.
     if (d["challenge"] != original_challenge.data())
     {
-        cerr << "User challenge resposne: challenge mismatch.\n";
+        cerr << "User challenge response challenge mismatch.\n";
         return -1;
     }
 
     //Verify the challenge signature. We do this last due to signature verification cost.
     string sigb64 = d["sig"].GetString();
     extracted_pubkeyb64 = d["pubkey"].GetString();
+
     if (crypto::verify_b64(original_challenge, sigb64, extracted_pubkeyb64) != 0)
     {
         cerr << "User challenge response signature verification failed.\n";
