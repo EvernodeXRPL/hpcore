@@ -1,17 +1,11 @@
 #include <string>
 #include <sodium.h>
+#include <sstream>
 
 using namespace std;
 
 namespace util
 {
-
-void replace_string_contents(string &str, const char *bytes, size_t bytes_len)
-{
-    if (str.length() > 0)
-        str.clear();
-    str.append(bytes, bytes_len);
-}
 
 int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_string)
 {
@@ -29,7 +23,7 @@ int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_stri
         return -1;
 
     // Assign the encoded char* onto the provided string reference.
-    replace_string_contents(encoded_string, base64chars, base64_len);
+    encoded_string = string(base64chars, base64_len);
     return 0;
 }
 
@@ -49,35 +43,34 @@ int base64_decode(const string &base64_str, unsigned char *decoded, size_t decod
     return 0;
 }
 
-//   v1 <  v2  -> -1
-//   v1 == v2  ->  0
-//   v1 >  v2  -> +1
-int version_compare(const string &v1, const string &v2)
+/**
+ * Compare two version strings in the format of "1.12.3".
+ * v1 <  v2  -> returns -1
+ * v1 == v2  -> returns  0
+ * v1 >  v2  -> returns +1
+ * Error     -> returns -2
+ */
+int version_compare(const string &x, const string &y)
 {
-    size_t i = 0, j = 0;
-    while (i < v1.length() || j < v2.length())
+    istringstream ix(x), iy(y);
+    while (ix.good() || iy.good())
     {
-        int acc1 = 0, acc2 = 0;
+        int cx = 0, cy = 0;
+        ix >> cx;
+        iy >> cy;
 
-        while (i < v1.length() && v1[i] != '.')
-        {
-            acc1 = acc1 * 10 + (v1[i] - '0');
-            i++;
-        }
-        while (j < v2.length() && v2[j] != '.')
-        {
-            acc2 = acc2 * 10 + (v2[j] - '0');
-            j++;
-        }
+        if ((!ix.eof() && !ix.good()) || (!iy.eof() && !iy.good()))
+            return -2;
 
-        if (acc1 < acc2)
+        if (cx > cy)
+            return 1;
+        if (cx < cy)
             return -1;
-        if (acc1 > acc2)
-            return +1;
 
-        ++i;
-        ++j;
+        ix.ignore();
+        iy.ignore();
     }
+
     return 0;
 }
 

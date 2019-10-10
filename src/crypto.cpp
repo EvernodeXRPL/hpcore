@@ -28,8 +28,8 @@ void generate_signing_keys(string &pubkey, string &seckey)
     unsigned char seckeychars[crypto_sign_SECRETKEYBYTES];
     crypto_sign_keypair(pubkeychars, seckeychars);
 
-    util::replace_string_contents(pubkey, (char *)pubkeychars, crypto_sign_PUBLICKEYBYTES);
-    util::replace_string_contents(seckey, (char *)seckeychars, crypto_sign_SECRETKEYBYTES);
+    pubkey = string((char *)pubkeychars, crypto_sign_PUBLICKEYBYTES);
+    seckey = string((char *)seckeychars, crypto_sign_SECRETKEYBYTES);
 }
 
 string sign(const string &msg, const string &seckey)

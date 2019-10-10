@@ -94,16 +94,14 @@ int verify_user_challenge_response(const string &response, const string &origina
     }
 
     //Validate msg type.
-    string type = d["type"].GetString();
-    if (type != MSG_CHALLENGE_RESP)
+    if (d["type"] != MSG_CHALLENGE_RESP)
     {
         cerr << "User challenge response type invalid. 'challenge_response' expeced.\n";
         return -1;
     }
 
     //Compare the response challenge string with the original issued challenge.
-    string challenge = d["challenge"].GetString();
-    if (challenge != original_challenge)
+    if (d["challenge"] != original_challenge)
     {
         cerr << "User challenge resposne: challenge mismatch.\n";
         return -1;
@@ -199,7 +197,7 @@ int read_contract_user_outputs()
             read(fdout, data, bytes_available);
 
             //Populate the user output buffer with new data
-            util::replace_string_contents(user.outbuffer, data, bytes_available);
+            user.outbuffer = string(data, bytes_available);
 
             cout << "Read " + to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << endl;
         }

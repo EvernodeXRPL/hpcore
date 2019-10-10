@@ -147,11 +147,17 @@ int load_config()
 
     // Check whether this contract complies with the min version requirement.
     string minversion = string(_HP_MIN_CONTRACT_VERSION_);
-    if (util::version_compare(cfgversion, minversion) == -1)
+    int verresult = util::version_compare(cfgversion, minversion);
+    if (verresult == -1)
     {
         cerr << "Contract version too old. Minimum "
              << _HP_MIN_CONTRACT_VERSION_ << " required. "
              << cfgversion << " found.\n";
+        return -1;
+    }
+    else if (verresult == -2)
+    {
+        cerr << "Malformed version string.\n";
         return -1;
     }
 
@@ -289,8 +295,8 @@ int b64pair_to_bin()
     }
 
     // Assign the cfg pubkey/seckey fields with the decoded strings.
-    util::replace_string_contents(cfg.pubkey, (char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
-    util::replace_string_contents(cfg.seckey, (char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
+    cfg.pubkey = string((char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
+    cfg.seckey = string((char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
     return 0;
 }
 

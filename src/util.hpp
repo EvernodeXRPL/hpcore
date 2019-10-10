@@ -67,21 +67,6 @@ int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_stri
  */
 int base64_decode(const string &base64_str, unsigned char *decoded, size_t decoded_len);
 
-/**
- * Replaces contents of the given string with provided bytes.
- * 
- * @param str String reference to replace contents.
- * @param bytes Bytes to write into the string.
- * @param bytes_len Bytes length.
- */
-void replace_string_contents(string &str, const char* bytes, size_t bytes_len);
-
-/**
- * Compare two version strings in the format of "1.12.3".
- * v1 <  v2  -> returns -1
- * v1 == v2  -> returns  0
- * v1 >  v2  -> returns +1
- */
 int version_compare(const string &v1, const string &v2);
 
 } // namespace usr
