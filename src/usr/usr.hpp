@@ -1,15 +1,6 @@
 #ifndef _HP_USR_H_
 #define _HP_USR_H_
 
-// Length of user random challenge bytes.
-#define USER_CHALLENGE_LEN 16
-
-// Message type for the user challenge.
-#define MSG_PUBLIC_CHALLENGE "public_challenge"
-
-// Message type for the user challenge response.
-#define MSG_CHALLENGE_RESP "challenge_response"
-
 #include <cstdio>
 #include <vector>
 #include <map>
@@ -23,6 +14,15 @@ using namespace util;
  */
 namespace usr
 {
+
+// Length of user random challenge bytes.
+static const int user_challenge_len = 16;
+
+// Message type for the user challenge.
+static const char *msg_public_challenge = "public_challenge";
+
+// Message type for the user challenge response.
+static const char *msg_challenge_resp = "challenge_response";
 
 /**
  * Global authenticated (challenge-verified) user list.
@@ -48,7 +48,7 @@ int init();
  *              "challenge": "<base64 challenge string>"
  *            }
  * @param challenge String reference to copy the generated base64 challenge string into.
- */ 
+ */
 void create_user_challenge(string &msg, string &challengeb64);
 
 /**

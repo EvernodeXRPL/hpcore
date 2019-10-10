@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "usr/usr.hpp"
@@ -19,7 +20,7 @@ int main(int argc, char **argv)
 
     if (conf::ctx.command == "version")
     {
-        cout << _HP_VERSION_ << endl;
+        cout << util::hp_version << endl;
     }
     else
     {

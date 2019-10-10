@@ -54,20 +54,20 @@ int init()
 void create_user_challenge(string &msg, string &challengeb64)
 {
     //Use libsodium to generate the random challenge bytes.
-    unsigned char challenge_bytes[USER_CHALLENGE_LEN];
-    randombytes_buf(challenge_bytes, USER_CHALLENGE_LEN);
+    unsigned char challenge_bytes[user_challenge_len];
+    randombytes_buf(challenge_bytes, user_challenge_len);
 
     //We pass the b64 challenge string separately to the caller even though
     //we also include it in the challenge msg as well.
 
-    base64_encode(challenge_bytes, USER_CHALLENGE_LEN, challengeb64);
+    base64_encode(challenge_bytes, user_challenge_len, challengeb64);
 
     //Construct the challenge msg json.
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
-    d.AddMember("version", StringRef(_HP_VERSION_), allocator);
-    d.AddMember("type", MSG_PUBLIC_CHALLENGE, allocator);
+    d.AddMember("version", StringRef(util::hp_version), allocator);
+    d.AddMember("type", StringRef(msg_public_challenge), allocator);
     d.AddMember("challenge", StringRef(challengeb64.data()), allocator);
 
     StringBuffer buffer;
@@ -94,14 +94,14 @@ int verify_user_challenge_response(const string &response, const string &origina
     }
 
     //Validate msg type.
-    if (d["type"] != MSG_CHALLENGE_RESP)
+    if (d["type"] != msg_challenge_resp)
     {
         cerr << "User challenge response type invalid. 'challenge_response' expeced.\n";
         return -1;
     }
 
     //Compare the response challenge string with the original issued challenge.
-    if (d["challenge"] != original_challenge)
+    if (d["challenge"] != original_challenge.data())
     {
         cerr << "User challenge resposne: challenge mismatch.\n";
         return -1;

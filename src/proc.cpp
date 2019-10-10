@@ -81,7 +81,7 @@ int write_to_stdin(ContractExecArgs &args)
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
 
-    d.AddMember("version", StringRef(_HP_VERSION_), allocator);
+    d.AddMember("version", StringRef(util::hp_version), allocator);
     d.AddMember("pubkey", StringRef(conf::cfg.pubkeyb64.data()), allocator);
     d.AddMember("ts", args.timestamp, allocator);
 

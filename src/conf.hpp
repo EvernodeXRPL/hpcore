@@ -1,16 +1,6 @@
 #ifndef _HP_CONF_H_
 #define _HP_CONF_H_
 
-// Hot Pocket version. Displayed on 'hotpocket version' and written to new contract configs.
-#define _HP_VERSION_ "0.1"
-
-// Minimum compatible contract config version (this will be used to validate contract configs)
-#define _HP_MIN_CONTRACT_VERSION_ "0.1"
-
-// Minimum compatible peer message version (this will be used to accept/reject incoming peer connections)
-// (Keeping this as int for effcient msg payload and comparison)
-#define _HP_MIN_PEERMSG_VERSION_ 1
-
 #include <rapidjson/document.h>
 #include <vector>
 
