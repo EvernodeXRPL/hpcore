@@ -7,6 +7,13 @@ using namespace std;
 namespace util
 {
 
+/**
+ * Encodes provided bytes to base64 string.
+ * 
+ * @param bin Bytes to encode.
+ * @param bin_len Bytes length.
+ * @param encoded_string String reference to assign the base64 encoded output.
+ */
 int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_string)
 {
     // Get length of encoded result from sodium.
@@ -27,6 +34,13 @@ int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_stri
     return 0;
 }
 
+/**
+ * Decodes provided base64 string into bytes.
+ * 
+ * @param base64_str Base64 string to decode.
+ * @param decoded Decoded bytes.
+ * @param decoded_len Decoded bytes length.
+ */
 int base64_decode(const string &base64_str, unsigned char *decoded, size_t decoded_len)
 {
     const char *b64_end;

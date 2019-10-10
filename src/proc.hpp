@@ -8,6 +8,9 @@
 using namespace std;
 using namespace util;
 
+/**
+ * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
+ */
 namespace proc
 {
 
@@ -16,9 +19,9 @@ namespace proc
  */
 struct ContractExecArgs
 {
-    map<string, contract_user> &users;      // Map of authenticated contract users indexed by user pubkey.
-    map<string, peer_node> &peers;          // Map of connected peers indexed by node pubkey.
-    uint64_t timestamp;                     // Current HotPocket timestamp.
+    map<string, contract_user> &users; // Map of authenticated contract users indexed by user pubkey.
+    map<string, peer_node> &peers;     // Map of connected peers indexed by node pubkey.
+    uint64_t timestamp;                // Current HotPocket timestamp.
 
     ContractExecArgs(map<string, contract_user> &_users, map<string, peer_node> &_peers, uint64_t _timestamp)
         : users(_users), peers(_peers)
@@ -27,17 +30,13 @@ struct ContractExecArgs
     }
 };
 
-/**
- * Executes the contract process and passes the specified arguments.
- * 
- * @return 0 on successful process creation. -1 on failure or contract process is already running.
- */
-int exec_contract(ContractExecArgs &args);
+int exec_contract(const ContractExecArgs &args);
 
-/**
- * Checks whether the contract process is running at this moment.
- */
 bool is_contract_running();
+
+//------Internal-use functions for this namespace.
+
+int write_to_stdin(const ContractExecArgs &args);
 
 } // namespace proc
 
