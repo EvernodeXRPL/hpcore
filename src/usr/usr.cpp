@@ -8,10 +8,14 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sodium.h>
+#include <boost/thread/thread.hpp>
+#include "../sock/socket_server.hpp"
+#include "../sock/socket_session_handler.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "usr.hpp"
+#include "usr_session_handler.hpp"
 
 using namespace std;
 using namespace util;
@@ -30,6 +34,13 @@ map<string, contract_user> users;
  */
 Document challenge_response_schemadoc;
 
+/**
+ * User session handler instance. This instance's methods will be fired for any user socket activity.
+ */
+usr::usr_session_handler global_usr_session_handler;
+
+void start_listening();
+
 int init()
 {
     //We initialize the response schema doc from this json string so we can
@@ -47,6 +58,9 @@ int init()
         "}"
         "}";
     challenge_response_schemadoc.Parse(challenge_response_schema);
+
+    // Start listning for user connections.
+    start_listening();
 
     return 0;
 }
@@ -206,6 +220,20 @@ int read_contract_user_outputs()
     }
 
     return 0;
+}
+
+void start_listening()
+{
+    auto address = net::ip::make_address(conf::cfg.listenip);
+    net::io_context ioc;
+
+    make_shared<sock::socket_server>(
+        ioc,
+        tcp::endpoint{address, conf::cfg.pubport},
+        global_usr_session_handler)
+        ->run();
+
+    thread run_thread([&] { ioc.run(); });
 }
 
 } // namespace usr
