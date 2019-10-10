@@ -18,17 +18,16 @@ using namespace rapidjson;
 namespace conf
 {
 
+// Global contract context struct exposed to the application.
 contract_ctx ctx;
+
+// Global configuration struct exposed to the application.
 contract_config cfg;
 
-int load_config();
-int save_config();
-int validate_config();
-int validate_contract_dir_paths();
-int is_schema_valid(Document &d);
-int binpair_to_b64();
-int b64pair_to_bin();
-
+/**
+ * Loads and initializes the contract config for execution. Must be called once during application startup.
+ * @return 0 for success. -1 for failure.
+ */
 int init()
 {
     // The validations/loading needs to be in this order.
@@ -42,6 +41,9 @@ int init()
     return 0;
 }
 
+/**
+ * Generates and saves new signing keys in the contract config.
+ */
 int rekey()
 {
     // Load the contract config and re-save with the newly generated keys.
@@ -61,6 +63,11 @@ int rekey()
     return 0;
 }
 
+/**
+ * Creates a new contract directory with the default contract config.
+ * By the time this gets called, the 'ctx' struct must be populated.
+ * This function makes use of the paths populated in the ctx.
+ */
 int create_contract()
 {
     if (boost::filesystem::exists(ctx.contractDir))
@@ -97,6 +104,10 @@ int create_contract()
     return 0;
 }
 
+/**
+ * Updates the contract context with directory paths based on provided base directory.
+ * This is called after parsing HP command line arg in order to populate the ctx.
+ */
 void set_contract_dir_paths(string basedir)
 {
     if (basedir[basedir.size() - 1] == '/')
@@ -108,9 +119,6 @@ void set_contract_dir_paths(string basedir)
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
 }
-
-
-//------Private functions for this namespace (not exposed via header).
 
 /**
  * Reads the config file on disk and populates the in-memory 'cfg' struct.
@@ -146,12 +154,17 @@ int load_config()
     }
 
     // Check whether this contract complies with the min version requirement.
-    string minversion = string(_HP_MIN_CONTRACT_VERSION_);
-    if (util::version_compare(cfgversion, minversion) == -1)
+    int verresult = util::version_compare(cfgversion, string(util::min_contract_version));
+    if (verresult == -1)
     {
         cerr << "Contract version too old. Minimum "
-             << _HP_MIN_CONTRACT_VERSION_ << " required. "
+             << util::min_contract_version << " required. "
              << cfgversion << " found.\n";
+        return -1;
+    }
+    else if (verresult == -2)
+    {
+        cerr << "Malformed version string.\n";
         return -1;
     }
 
@@ -196,7 +209,7 @@ int save_config()
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
-    d.AddMember("version", StringRef(_HP_VERSION_), allocator);
+    d.AddMember("version", StringRef(util::hp_version), allocator);
     d.AddMember("pubkeyb64", StringRef(cfg.pubkeyb64.data()), allocator);
     d.AddMember("seckeyb64", StringRef(cfg.seckeyb64.data()), allocator);
     d.AddMember("binary", StringRef(cfg.binary.data()), allocator);
@@ -289,8 +302,8 @@ int b64pair_to_bin()
     }
 
     // Assign the cfg pubkey/seckey fields with the decoded strings.
-    util::replace_string_contents(cfg.pubkey, (char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
-    util::replace_string_contents(cfg.seckey, (char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
+    cfg.pubkey = string((char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
+    cfg.seckey = string((char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
     return 0;
 }
 

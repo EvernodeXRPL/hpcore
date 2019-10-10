@@ -74,7 +74,7 @@ Code is divided into subsystems via namespaces. Some subsystems mentioned here a
 Handles contract configuration. Loads and holds the central configuration object. Used by most of the subsystems.
 
 #### crypto
-Handles cryptographic activities. Wraps libsodium and offers convinience functions.
+Handles cryptographic activities. Wraps libsodium and offers convenience functions.
 
 #### proc
 Handles contract process execution.
