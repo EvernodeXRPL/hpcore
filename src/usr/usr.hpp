@@ -34,6 +34,11 @@ extern map<string, contract_user> users;
  */
 extern map<string, string> pending_challenges;
 
+/**
+ * Keep track of verification-pending challenges issued to newly connected users.
+ */
+extern map<string, string> pending_challenges;
+
 int init();
 
 void create_user_challenge(string &msg, string &challengeb64);

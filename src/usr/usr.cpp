@@ -46,10 +46,14 @@ Document challenge_response_schemadoc;
  */
 user_session_handler global_usr_session_handler;
 
-// The IO context used by the websocket listener.
+/**
+ * The IO context used by the websocket listener. (not exposed out of this namespace)
+ */
 net::io_context ioc;
 
-// The thread the websocket lsitener is running on.
+/**
+ * The thread the websocket lsitener is running on. (not exposed out of this namespace)
+ */
 thread listener_thread;
 
 /**
@@ -290,8 +294,6 @@ int read_contract_user_outputs()
  */
 void start_listening()
 {
-    
-
     auto address = net::ip::make_address(conf::cfg.listenip);
     make_shared<sock::socket_server>(
         ioc,
@@ -300,6 +302,8 @@ void start_listening()
         ->run();
 
     listener_thread = thread([&] { ioc.run(); });
+
+    cout << "Started listening for incoming user connections...\n";
 }
 
 } // namespace usr
