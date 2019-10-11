@@ -4,8 +4,6 @@
 #include "crypto.hpp"
 #include "util.hpp"
 
-using namespace std;
-
 namespace crypto
 {
 
@@ -17,7 +15,7 @@ int init()
 {
     if (sodium_init() < 0)
     {
-        cerr << "sodium_init failed.\n";
+        std::cerr << "sodium_init failed.\n";
         return -1;
     }
 
@@ -27,7 +25,7 @@ int init()
 /**
  * Generates a signing key pair using libsodium and assigns them to the provided strings.
  */
-void generate_signing_keys(string &pubkey, string &seckey, string &keytype)
+void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string &keytype)
 {
     //Generate key pair using libsodium default algorithm. (Currently using ed25519)
 
@@ -35,8 +33,8 @@ void generate_signing_keys(string &pubkey, string &seckey, string &keytype)
     unsigned char seckeychars[crypto_sign_SECRETKEYBYTES];
     crypto_sign_keypair(pubkeychars, seckeychars);
 
-    pubkey = string((char *)pubkeychars, crypto_sign_PUBLICKEYBYTES);
-    seckey = string((char *)seckeychars, crypto_sign_SECRETKEYBYTES);
+    pubkey = std::string((char *)pubkeychars, crypto_sign_PUBLICKEYBYTES);
+    seckey = std::string((char *)seckeychars, crypto_sign_SECRETKEYBYTES);
     keytype = crypto_sign_primitive();
 }
 
@@ -47,13 +45,13 @@ void generate_signing_keys(string &pubkey, string &seckey, string &keytype)
  * @param seckey Secret key bytes.
  * @return Signature bytes.
  */
-string sign(const string &msg, const string &seckey)
+std::string sign(const std::string &msg, const std::string &seckey)
 {
     //Generate the signature using libsodium.
 
     unsigned char sigchars[crypto_sign_BYTES];
     crypto_sign_detached(sigchars, NULL, (unsigned char *)msg.data(), msg.length(), (unsigned char *)seckey.data());
-    string sig((char *)sigchars, crypto_sign_BYTES);
+    std::string sig((char *)sigchars, crypto_sign_BYTES);
     return sig;
 }
 
@@ -64,7 +62,7 @@ string sign(const string &msg, const string &seckey)
  * @param seckeyb64 Base64 secret key string.
  * @return Base64 signature string.
  */
-string sign_b64(const string &msg, const string &seckeyb64)
+std::string sign_b64(const std::string &msg, const std::string &seckeyb64)
 {
     //Decode b64 string and generate the signature using libsodium.
 
@@ -74,7 +72,7 @@ string sign_b64(const string &msg, const string &seckeyb64)
     unsigned char sig[crypto_sign_BYTES];
     crypto_sign_detached(sig, NULL, (unsigned char *)msg.data(), msg.length(), seckey);
 
-    string sigb64;
+    std::string sigb64;
     util::base64_encode(sig, crypto_sign_BYTES, sigb64);
     return sigb64;
 }
@@ -87,7 +85,7 @@ string sign_b64(const string &msg, const string &seckeyb64)
  * @param pubkey Public key bytes.
  * @return 0 for successful verification. -1 for failure.
  */
-int verify(const string &msg, const string &sig, const string &pubkey)
+int verify(const std::string &msg, const std::string &sig, const std::string &pubkey)
 {
     return crypto_sign_verify_detached(
         (unsigned char *)sig.data(), (unsigned char *)msg.data(), msg.length(), (unsigned char *)pubkey.data());
@@ -101,7 +99,7 @@ int verify(const string &msg, const string &sig, const string &pubkey)
  * @param pubkeyb64 Base64 secret key.
  * @return 0 for successful verification. -1 for failure.
  */
-int verify_b64(const string &msg, const string &sigb64, const string &pubkeyb64)
+int verify_b64(const std::string &msg, const std::string &sigb64, const std::string &pubkeyb64)
 {
     //Decode b64 string and verify the signature using libsodium.
 

@@ -16,10 +16,6 @@
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
-using namespace std;
-using namespace util;
-using namespace rapidjson;
-
 namespace usr
 {
 
@@ -27,18 +23,18 @@ namespace usr
  * Global user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
  */
-map<string, contract_user> users;
+std::map<std::string, util::contract_user> users;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  * Map key: User socket session id (<ip:port>)
  */
-map<string, string> pending_challenges;
+std::map<std::string, std::string> pending_challenges;
 
 /**
  * User session handler instance. This instance's methods will be fired for any user socket activity.
  */
-user_session_handler global_usr_session_handler;
+usr::user_session_handler global_usr_session_handler;
 
 /**
  * The IO context used by the websocket listener. (not exposed out of this namespace)
@@ -48,7 +44,7 @@ net::io_context ioc;
 /**
  * The thread the websocket lsitener is running on. (not exposed out of this namespace)
  */
-thread listener_thread;
+std::thread listener_thread;
 
 // Challenge response fields.
 // These fields are used on challenge response validation.
@@ -90,7 +86,7 @@ int init()
  *            }
  * @param challenge String reference to copy the generated base64 challenge string into.
  */
-void create_user_challenge(string &msg, string &challengeb64)
+void create_user_challenge(std::string &msg, std::string &challengeb64)
 {
     //Use libsodium to generate the random challenge bytes.
     unsigned char challenge_bytes[CHALLENGE_LEN];
@@ -99,7 +95,7 @@ void create_user_challenge(string &msg, string &challengeb64)
     //We pass the b64 challenge string separately to the caller even though
     //we also include it in the challenge msg as well.
 
-    base64_encode(challenge_bytes, CHALLENGE_LEN, challengeb64);
+    util::base64_encode(challenge_bytes, CHALLENGE_LEN, challengeb64);
 
     //Construct the challenge msg json.
     // We do not use RapidJson here in favour of performance because this is a simple json message.
@@ -131,52 +127,52 @@ void create_user_challenge(string &msg, string &challengeb64)
  * @param extracted_pubkeyb64 The public key extracted from the response.
  * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
  */
-int verify_user_challenge_response(const string &response, const string &original_challenge, string &extracted_pubkeyb64)
+int verify_user_challenge_response(const std::string &response, const std::string &original_challenge, std::string &extracted_pubkeyb64)
 {
     // We load response raw bytes into json document.
-    Document d;
+    rapidjson::Document d;
     d.Parse(response.data());
     if (d.HasParseError())
     {
-        cerr << "Challenge response json parser error.\n";
+        std::cerr << "Challenge response json parser error.\n";
         return -1;
     }
 
     // Validate msg type.
     if (!d.HasMember(CHALLENGE_RESP_TYPE) || d[CHALLENGE_RESP_TYPE] != CHALLENGE_RESP_MSGTYPE)
     {
-        cerr << "User challenge response type invalid. 'challenge_response' expected.\n";
+        std::cerr << "User challenge response type invalid. 'challenge_response' expected.\n";
         return -1;
     }
 
     // Compare the response challenge string with the original issued challenge.
     if (!d.HasMember(CHALLENGE_RESP_CHALLENGE) || d[CHALLENGE_RESP_CHALLENGE] != original_challenge.data())
     {
-        cerr << "User challenge response challenge invalid.\n";
+        std::cerr << "User challenge response challenge invalid.\n";
         return -1;
     }
 
     // Check for the 'sig' field existence.
     if (!d.HasMember(CHALLENGE_RESP_SIG) || !d[CHALLENGE_RESP_SIG].IsString())
     {
-        cerr << "User challenge response signature invalid.\n";
+        std::cerr << "User challenge response signature invalid.\n";
         return -1;
     }
 
     // Check for the 'pubkey' field existence.
     if (!d.HasMember(CHALLENGE_RESP_PUBKEY) || !d[CHALLENGE_RESP_PUBKEY].IsString())
     {
-        cerr << "User challenge response public key invalid.\n";
+        std::cerr << "User challenge response public key invalid.\n";
         return -1;
     }
 
     // Verify the challenge signature. We do this last due to signature verification cost.
-    string sigb64 = d[CHALLENGE_RESP_SIG].GetString();
+    std::string sigb64 = d[CHALLENGE_RESP_SIG].GetString();
     extracted_pubkeyb64 = d[CHALLENGE_RESP_PUBKEY].GetString();
 
     if (crypto::verify_b64(original_challenge, sigb64, extracted_pubkeyb64) != 0)
     {
-        cerr << "User challenge response signature verification failed.\n";
+        std::cerr << "User challenge response signature verification failed.\n";
         return -1;
     }
 
@@ -191,11 +187,11 @@ int verify_user_challenge_response(const string &response, const string &origina
  * @param pubkeyb64 User's base64 public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(const string &sessionid, const string &pubkeyb64)
+int add_user(const std::string &sessionid, const std::string &pubkeyb64)
 {
     if (users.count(sessionid) == 1)
     {
-        cerr << sessionid << " already exist. Cannot add user.\n";
+        std::cerr << sessionid << " already exist. Cannot add user.\n";
         return -1;
     }
 
@@ -205,7 +201,7 @@ int add_user(const string &sessionid, const string &pubkeyb64)
     int inpipe[2];
     if (pipe(inpipe) != 0)
     {
-        cerr << "User in pipe creation failed. sessionid:" << sessionid << endl;
+        std::cerr << "User in pipe creation failed. sessionid:" << sessionid << std::endl;
         return -1;
     }
 
@@ -213,7 +209,7 @@ int add_user(const string &sessionid, const string &pubkeyb64)
     int outpipe[2];
     if (pipe(outpipe) != 0)
     {
-        cerr << "User out pipe creation failed. sessionid:" << sessionid << endl;
+        std::cerr << "User out pipe creation failed. sessionid:" << sessionid << std::endl;
 
         //We need to close 'inpipe' in case outpipe failed.
         close(inpipe[0]);
@@ -222,7 +218,7 @@ int add_user(const string &sessionid, const string &pubkeyb64)
         return -1;
     }
 
-    users.emplace(sessionid, contract_user(pubkeyb64, inpipe, outpipe));
+    users.emplace(sessionid, util::contract_user(pubkeyb64, inpipe, outpipe));
     return 0;
 }
 
@@ -232,17 +228,17 @@ int add_user(const string &sessionid, const string &pubkeyb64)
  * 
  * @return 0 on successful removals. -1 on failure.
  */
-int remove_user(const string &sessionid)
+int remove_user(const std::string &sessionid)
 {
     auto itr = users.find(sessionid);
 
     if (itr == users.end())
     {
-        cerr << sessionid << " does not exist. Cannot remove user.\n";
+        std::cerr << sessionid << " does not exist. Cannot remove user.\n";
         return -1;
     }
 
-    const contract_user &user = itr->second;
+    const util::contract_user &user = itr->second;
 
     //Close the User <--> SC I/O pipes.
     close(user.inpipe[0]);
@@ -282,9 +278,9 @@ int read_contract_user_outputs()
             read(fdout, data, bytes_available);
 
             //Populate the user output buffer with new data
-            user.outbuffer = string(data, bytes_available);
+            user.outbuffer = std::string(data, bytes_available);
 
-            cout << "Read " + to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << endl;
+            std::cout << "Read " + std::to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << std::endl;
         }
     }
 
@@ -297,15 +293,15 @@ int read_contract_user_outputs()
 void start_listening()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
-    make_shared<sock::socket_server>(
+    std::make_shared<sock::socket_server>(
         ioc,
         tcp::endpoint{address, conf::cfg.pubport},
         global_usr_session_handler)
         ->run();
 
-    listener_thread = thread([&] { ioc.run(); });
+    listener_thread = std::thread([&] { ioc.run(); });
 
-    cout << "Started listening for incoming user connections...\n";
+    std::cout << "Started listening for incoming user connections...\n";
 }
 
 } // namespace usr

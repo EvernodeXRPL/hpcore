@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
 /**
  * Contains helper functions and data structures used by multiple other subsystems.
  */
@@ -39,12 +37,12 @@ enum SESSION_FLAG
  */
 struct contract_user
 {
-    string pubkeyb64; // Base64 user public key
+    std::string pubkeyb64; // Base64 user public key
     int inpipe[2];    // Pipe to receive user input
     int outpipe[2];   // Pipe to receive output produced by the contract
-    string outbuffer; // Holds the contract output to be processed by consensus rounds
+    std::string outbuffer; // Holds the contract output to be processed by consensus rounds
 
-    contract_user(const string &_pubkeyb64, int _inpipe[2], int _outpipe[2])
+    contract_user(const std::string &_pubkeyb64, int _inpipe[2], int _outpipe[2])
     {
         pubkeyb64 = _pubkeyb64;
         inpipe[0] = _inpipe[0];
@@ -59,11 +57,11 @@ struct contract_user
  */
 struct peer_node
 {
-    string pubkeyb64; // Base64 peer public key
+    std::string pubkeyb64; // Base64 peer public key
     int inpipe[2];    // NPL pipe from HP to SC
     int outpipe[2];   // NPL pipe from SC to HP
 
-    peer_node(const string &_pubkeyb64, int _inpipe[2], int _outpipe[2])
+    peer_node(const std::string &_pubkeyb64, int _inpipe[2], int _outpipe[2])
     {
         pubkeyb64 = _pubkeyb64;
         inpipe[0] = _inpipe[0];
@@ -73,11 +71,11 @@ struct peer_node
     }
 };
 
-int base64_encode(const unsigned char *bin, size_t bin_len, string &encoded_string);
+int base64_encode(const unsigned char *bin, size_t bin_len, std::string &encoded_string);
 
-int base64_decode(const string &base64_str, unsigned char *decoded, size_t decoded_len);
+int base64_decode(const std::string &base64_str, unsigned char *decoded, size_t decoded_len);
 
-int version_compare(const string &v1, const string &v2);
+int version_compare(const std::string &v1, const std::string &v2);
 
 } // namespace util
 

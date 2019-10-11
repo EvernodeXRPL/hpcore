@@ -4,9 +4,6 @@
 #include <rapidjson/document.h>
 #include <vector>
 
-using namespace std;
-using namespace rapidjson;
-
 /**
  * Manages the central contract config and context structs.
  * Contains functions to contract config operations such as create/rekey/load.
@@ -17,13 +14,13 @@ namespace conf
 // Holds contextual information about the currently loaded contract.
 struct contract_ctx
 {
-    string command; // The CLI command issued to launch HotPocket
+    std::string command; // The CLI command issued to launch HotPocket
 
-    string contractDir; // Contract base directory
-    string histDir;     // Contract history dir
-    string stateDir;    // Contract state dir
-    string configDir;   // Contract config dir
-    string configFile;  // Full path to the contract config file
+    std::string contractDir; // Contract base directory
+    std::string histDir;     // Contract history dir
+    std::string stateDir;    // Contract state dir
+    std::string configDir;   // Contract config dir
+    std::string configFile;  // Full path to the contract config file
 };
 
 // Holds all the contract config values.
@@ -31,19 +28,19 @@ struct contract_config
 {
     // Config elements which are initialized in memory (these are not directly loaded from the config file)
 
-    string pubkey; // Contract public key bytes
-    string seckey; // Contract secret key bytes
+    std::string pubkey; // Contract public key bytes
+    std::string seckey; // Contract secret key bytes
 
     // Config elements which are loaded from the config file.
 
-    string pubkeyb64;        // Contract base64 public key
-    string seckeyb64;        // Contract base64 secret key
-    string keytype;          // Key generation algorithm used by libsodium
-    string binary;           // Full path to the contract binary
-    string binargs;          // CLI arguments to pass to the contract binary
-    string listenip;         // The IPs to listen on for incoming connections
-    vector<string> peers;    // List of peers in the format "<ip address>:<port>"
-    vector<string> unl;      // Unique node list (list of base64 public keys)
+    std::string pubkeyb64;        // Contract base64 public key
+    std::string seckeyb64;        // Contract base64 secret key
+    std::string keytype;          // Key generation algorithm used by libsodium
+    std::string binary;           // Full path to the contract binary
+    std::string binargs;          // CLI arguments to pass to the contract binary
+    std::string listenip;         // The IPs to listen on for incoming connections
+    std::vector<std::string> peers;    // List of peers in the format "<ip address>:<port>"
+    std::vector<std::string> unl;      // Unique node list (list of base64 public keys)
     unsigned short peerport; // Listening port for peer connections
     int roundtime;           // Consensus round time in ms
     unsigned short pubport;  // Listening port for public user connections
@@ -65,7 +62,7 @@ int rekey();
 
 int create_contract();
 
-void set_contract_dir_paths(string basedir);
+void set_contract_dir_paths(std::string basedir);
 
 //------Internal-use functions for this namespace.
 
@@ -77,7 +74,7 @@ int validate_config();
 
 int validate_contract_dir_paths();
 
-int is_schema_valid(Document &d);
+int is_schema_valid(rapidjson::Document &d);
 
 int binpair_to_b64();
 
