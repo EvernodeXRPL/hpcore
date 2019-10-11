@@ -23,6 +23,17 @@ static const char *min_contract_version = "0.1";
 static const int min_peermsg_version = 1;
 
 /**
+ * Set of flags used to mark status information on the session.
+ * usr and p2p subsystems makes use of this to mark status information of user and peer sessions.
+ * Set flags are stored in 'flags_' bitset.
+ */
+enum SESSION_FLAG
+{
+    USER_CHALLENGE_ISSUED = 0,
+    USER_AUTHED = 1
+};
+
+/**
  * Holds information about an authenticated (challenge-verified) user
  * connected to the HotPocket node.
  */

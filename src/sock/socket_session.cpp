@@ -22,11 +22,6 @@ void socket_session::server_run(const std::uint16_t port, const std::string &add
     port_ = port;
     address_ = address;
 
-    // Create a unique id for the session combining ip and port.
-    // We prepare this appended string here because we need to use it for finding elemends from the maps
-    // for validation purposes whenever a message is received.
-    uniqueid_.append(address_).append(":").append(std::to_string(port));
-
     // Accept the websocket handshake
     ws_.async_accept(
         [sp = shared_from_this()](
@@ -168,4 +163,14 @@ void socket_session::on_close(error_code ec, std::int8_t type)
     if (ec)
         return fail(ec, "close");
 }
+
+// When called, initializes the unique id string for this session.
+void socket_session::init_uniqueid()
+{
+    // Create a unique id for the session combining ip and port.
+    // We prepare this appended string here because we need to use it for finding elemends from the maps
+    // for validation purposes whenever a message is received.
+    uniqueid_.append(address_).append(":").append(std::to_string(port_));
+}
+
 } // namespace sock

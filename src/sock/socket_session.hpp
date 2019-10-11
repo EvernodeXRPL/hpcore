@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <bitset>
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include "socket_session_handler.hpp"
@@ -46,16 +47,26 @@ public:
 
     // The port of the remote party.
     std::uint16_t port_;
+
     // The IP address of the remote party.
     std::string address_;
+
     // The unique identifier of the remote party (format <ip>:<port>).
     std::string uniqueid_;
+
+    // The set of util::SESSION_FLAG enum flags that will be set by user-code of this calss.
+    // We mainly use this to store contexual information about this session based on the use case.
+    // Setting and reading flags to this is completely managed by user-code.
+    std::bitset<8> flags_;
 
     void server_run(const std::uint16_t port, const std::string &address);
     void client_run(const std::uint16_t port, const std::string &address, error ec);
 
-    //Used to send message through an active websocket connection
+    // Used to send message through an active websocket connection.
     void send(std::shared_ptr<std::string const> const &ss);
+
+    // When called, initializes the unique id string for this session.
+    void init_uniqueid();
 
     void close();
 };
