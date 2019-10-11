@@ -1,6 +1,6 @@
 #include <string>
 #include "message.pb.h"
-#include "p2p.h"
+#include "p2p.hpp"
 
 using namespace std;
 

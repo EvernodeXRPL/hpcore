@@ -10,8 +10,6 @@
 #include "crypto.hpp"
 #include "usr/usr.hpp"
 
-using namespace std;
-
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
  * HP command line accepts command and the contract directory(optional)
@@ -29,7 +27,7 @@ int parse_cmd(int argc, char **argv)
         {
             if (argc != 3)
             {
-                cerr << "Contract directory not specified.\n";
+                std::cerr << "Contract directory not specified.\n";
             }
             else
             {
@@ -49,11 +47,11 @@ int parse_cmd(int argc, char **argv)
 
     // If all extractions fail display help message.
 
-    cerr << "Arguments mismatch.\n";
-    cout << "Usage:\n";
-    cout << "hpcore version\n";
-    cout << "hpcore <command> <contract dir> (command = run | new | rekey)\n";
-    cout << "Example: hpcore run ~/mycontract\n";
+    std::cerr << "Arguments mismatch.\n";
+    std::cout << "Usage:\n";
+    std::cout << "hpcore version\n";
+    std::cout << "hpcore <command> <contract dir> (command = run | new | rekey)\n";
+    std::cout << "Example: hpcore run ~/mycontract\n";
 
     return -1;
 }
@@ -68,7 +66,7 @@ int main(int argc, char **argv)
     if (conf::ctx.command == "version")
     {
         // Print the version
-        cout << util::HP_VERSION << endl;
+        std::cout << util::HP_VERSION << std::endl;
     }
     else
     {
@@ -104,11 +102,11 @@ int main(int argc, char **argv)
                 // TODO
 
                 // Temp code to avoid exiting.
-                string s;
-                cin >> s;
+                std::string s;
+                std::cin >> s;
             }
         }
     }
-    cout << "exited normally\n";
+    std::cout << "exited normally\n";
     return 0;
 }

@@ -14,8 +14,6 @@ namespace beast = boost::beast;
 using tcp = net::ip::tcp;
 using error = boost::system::error_code;
 
-using namespace std;
-
 namespace usr
 {
 
@@ -24,13 +22,13 @@ namespace usr
  */
 void user_session_handler::on_connect(sock::socket_session *session)
 {
-    cout << "User client connected " << session->address_ << ":" << session->port_ << endl;
+    std::cout << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
 
     // As a soon as a user conntects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
 
-    string msg;
-    string challengeb64;
+    std::string msg;
+    std::string challengeb64;
     usr::create_user_challenge(msg, challengeb64);
 
     // We init the session unique id to associate with the challenge.
@@ -40,7 +38,7 @@ void user_session_handler::on_connect(sock::socket_session *session)
     usr::pending_challenges[session->uniqueid_] = challengeb64;
 
     // TODO: This needs to be reviewed to optimise passing the message.
-    session->send(make_shared<string>(msg));
+    session->send(std::make_shared<std::string>(msg));
 
     // Set the challenge-issued flag to help later checks in on_message.
     session->flags_.set(util::SESSION_FLAG::USER_CHALLENGE_ISSUED);
@@ -59,9 +57,9 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
         auto itr = usr::pending_challenges.find(session->uniqueid_);
         if (itr != usr::pending_challenges.end())
         {
-            string userpubkey;
-            const string &original_challenge = itr->second;
-            if (usr::verify_user_challenge_response(message, original_challenge, userpubkey) == 0)
+            std::string userpubkey;
+            const std::string &original_challenge = itr->second;
+            if (usr::verify_user_challenge_response(userpubkey, message, original_challenge) == 0)
             {
                 // Challenge verification successful.
                 // Promote the connection from pending-challenges to authenticated users.
@@ -71,12 +69,12 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
                 usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
                 usr::add_user(session->uniqueid_, userpubkey);                    // Add the user to the global authed user list
 
-                cout << "User connection " << session->uniqueid_ << " authenticated.\n";
+                std::cout << "User connection " << session->uniqueid_ << " authenticated.\n";
                 return;
             }
             else
             {
-                cout << "Challenge verification failed " << session->uniqueid_ << endl;
+                std::cout << "Challenge verification failed " << session->uniqueid_ << std::endl;
             }
         }
     }
@@ -91,16 +89,16 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
         {
             // This is an authed user.
             // Write the message to the user input pipe. SC will read from this pipe when it executes.
-            const contract_user &user = itr->second;
+            const util::contract_user &user = itr->second;
             write(user.inpipe[1], message.data(), message.length());
-            cout << "User " << user.pubkeyb64 << " wrote " << message.length() << " bytes to contract input.\n";
+            std::cout << "User " << user.pubkeyb64 << " wrote " << message.length() << " bytes to contract input.\n";
             return;
         }
     }
 
     // If for any reason we reach this point, we should drop the connection.
     session->close();
-    cout << "Dropped the user connection " << session->address_ << ":" << session->port_ << endl;
+    std::cout << "Dropped the user connection " << session->address_ << ":" << session->port_ << std::endl;
 }
 
 /**
@@ -121,7 +119,7 @@ void user_session_handler::on_close(sock::socket_session *session)
         usr::remove_user(session->uniqueid_);
     }
 
-    cout << "User disconnected " << session->uniqueid_ << endl;
+    std::cout << "User disconnected " << session->uniqueid_ << std::endl;
 }
 
 } // namespace usr

@@ -10,9 +10,6 @@
 #include "proc.hpp"
 #include "conf.hpp"
 
-using namespace std;
-using namespace util;
-
 namespace proc
 {
 
@@ -30,7 +27,7 @@ int exec_contract(const ContractExecArgs &args)
 {
     if (is_contract_running())
     {
-        cerr << "Contract process still running.\n";
+        std::cerr << "Contract process still running.\n";
         return -1;
     }
 
@@ -57,7 +54,7 @@ int exec_contract(const ContractExecArgs &args)
     }
     else
     {
-        cerr << "fork() failed.\n";
+        std::cerr << "fork() failed.\n";
         return -1;
     }
 
@@ -80,41 +77,41 @@ int write_to_stdin(const ContractExecArgs &args)
 {
     //Populate the json document with contract args.
 
-    Document d;
+    rapidjson::Document d;
     d.SetObject();
-    Document::AllocatorType &allocator = d.GetAllocator();
+    rapidjson::Document::AllocatorType &allocator = d.GetAllocator();
 
-    d.AddMember("version", StringRef(util::HP_VERSION), allocator);
-    d.AddMember("pubkey", StringRef(conf::cfg.pubkeyb64.data()), allocator);
+    d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
+    d.AddMember("pubkey", rapidjson::StringRef(conf::cfg.pubkeyb64.data()), allocator);
     d.AddMember("ts", args.timestamp, allocator);
 
-    Value users(kObjectType);
+    rapidjson::Value users(rapidjson::kObjectType);
     for (auto &[sid, user] : args.users)
     {
-        Value fdlist(kArrayType);
+        rapidjson::Value fdlist(rapidjson::kArrayType);
         fdlist.PushBack(user.inpipe[0], allocator);
         fdlist.PushBack(user.outpipe[1], allocator);
-        users.AddMember(StringRef(user.pubkeyb64.data()), fdlist, allocator);
+        users.AddMember(rapidjson::StringRef(user.pubkeyb64.data()), fdlist, allocator);
     }
     d.AddMember("usrfd", users, allocator);
 
-    Value peers(kObjectType);
+    rapidjson::Value peers(rapidjson::kObjectType);
     for (auto &[sid, peer] : args.peers)
     {
-        Value fdlist(kArrayType);
+        rapidjson::Value fdlist(rapidjson::kArrayType);
         fdlist.PushBack(peer.inpipe[0], allocator);
         fdlist.PushBack(peer.outpipe[1], allocator);
-        peers.AddMember(StringRef(peer.pubkeyb64.data()), fdlist, allocator);
+        peers.AddMember(rapidjson::StringRef(peer.pubkeyb64.data()), fdlist, allocator);
     }
     d.AddMember("nplfd", peers, allocator);
 
-    Value unl(kArrayType);
-    for (string &node : conf::cfg.unl)
-        unl.PushBack(StringRef(node.data()), allocator);
+    rapidjson::Value unl(rapidjson::kArrayType);
+    for (std::string &node : conf::cfg.unl)
+        unl.PushBack(rapidjson::StringRef(node.data()), allocator);
     d.AddMember("unl", unl, allocator);
 
-    StringBuffer buffer;
-    Writer<StringBuffer> writer(buffer);
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     d.Accept(writer);
 
     // Get the json string that should be written to contract input pipe.
@@ -124,7 +121,7 @@ int write_to_stdin(const ContractExecArgs &args)
     int stdinpipe[2];
     if (pipe(stdinpipe) != 0)
     {
-        cerr << "Failed to create pipe to the contract process.\n";
+        std::cerr << "Failed to create pipe to the contract process.\n";
         return -1;
     }
 
