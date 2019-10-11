@@ -47,8 +47,8 @@ public:
     std::uint16_t port_;
     std::string address_;
 
-    void server_run(const std::uint16_t &port, const std::string &address);
-    void client_run(const std::uint16_t &port, const std::string &address, error ec);
+    void server_run(const std::uint16_t port, const std::string &address);
+    void client_run(const std::uint16_t port, const std::string &address, error ec);
 
     //Used to send message through an active websocket connection
     void send(std::shared_ptr<std::string const> const &ss);
