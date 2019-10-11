@@ -21,7 +21,7 @@ namespace usr
 /**
  * This gets hit every time a client connects to HP via the public port (configured in contract config).
  */
-void user_session_handler::on_connect(sock::socket_session *session, error ec)
+void user_session_handler::on_connect(sock::socket_session *session)
 {
     cout << "User client connected " << session->uniqueid_ << endl;
 
@@ -35,13 +35,14 @@ void user_session_handler::on_connect(sock::socket_session *session, error ec)
     // Create an entry in pending_challenges for later tracking upon challenge response.
     usr::pending_challenges[session->uniqueid_] = challengeb64;
 
+    // TODO: This needs to be reviewed to optimise passing the message.
     session->send(make_shared<string>(msg));
 }
 
 /**
  * This gets hit every time we receive some data from a client connected to the HP public port.
  */
-void user_session_handler::on_message(sock::socket_session *session, std::shared_ptr<std::string const> const &message, error ec)
+void user_session_handler::on_message(sock::socket_session *session, const std::string &message)
 {
     // First check whether this session is among pending_challenges.
     // Meaning we have previously issued a challenge to the client,
@@ -60,25 +61,25 @@ void user_session_handler::on_message(sock::socket_session *session, std::shared
             // and drops the connection if the challenge fails. so There's no room to receive
             // a message from an untracked anonymous user. But just to be safe we drop the connection
             // in this impossible scenario as well.
-
-            // TODO: Drop the connection
+            session->close();
         }
         else
         {
             // This is an authed user.
             // Write the message to the user input pipe. SC will read from this pipe when it executes.
             const contract_user &user = itr->second;
-            write(user.inpipe[1], message->data(), message->length());
-            cout << "User " << user.pubkeyb64 << " wrote " << message->length() << " bytes to contract input.\n";
+            write(user.inpipe[1], message.data(), message.length());
+            cout << "User " << user.pubkeyb64 << " wrote " << message.length() << " bytes to contract input.\n";
         }
     }
     else
     {
         string userpubkey;
         const string &original_challenge = itr->second;
-        if (usr::verify_user_challenge_response(*message, original_challenge, userpubkey) != 0)
+        if (usr::verify_user_challenge_response(message, original_challenge, userpubkey) != 0)
         {
-            //TODO: Drop the connection
+            // Drop the connection
+            session->close();
             cout << "User connection " << session->uniqueid_ << " authentication failed. Dropped the connection.\n";
         }
         else
