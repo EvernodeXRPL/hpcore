@@ -39,17 +39,21 @@ class socket_session : public std::enable_shared_from_this<socket_session>
 
     void on_write(error ec, std::size_t bytes_transferred);
 
+    void on_close(error ec, std::int8_t type);
+
 public:
     socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler);
 
-    unsigned short port_;
+    std::uint16_t port_;
     std::string address_;
 
-    void server_run(const unsigned short &port, const std::string &address);
-    void client_run(const unsigned short &port, const std::string &address, error ec);
+    void server_run(const std::uint16_t &port, const std::string &address);
+    void client_run(const std::uint16_t &port, const std::string &address, error ec);
 
     //Used to send message through an active websocket connection
     void send(std::shared_ptr<std::string const> const &ss);
+
+    void close();
 };
 } // namespace sock
 #endif
