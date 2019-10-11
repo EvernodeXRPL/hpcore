@@ -7,6 +7,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "usr/usr.hpp"
+#include "p2p/peer_session_handler.hpp"
 
 using namespace std;
 
@@ -45,6 +46,9 @@ int main(int argc, char **argv)
             }
         }
     }
+
+    //start listen to peers
+    p2p::open_listen();
 
     cout << "exited normally\n";
     return 0;
