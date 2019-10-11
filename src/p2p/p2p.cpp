@@ -15,7 +15,8 @@ namespace p2p
 
 namespace protobuf = google::protobuf;
 
-void set_message(Message &message, int timestamp, const string &version, const string &publicKey, const string &signature, p2p::Message::Messagetype type, const string &content)
+//set all fields of given message.
+void set_message(Message &message, const int timestamp, const string &version, const string &publicKey, const string &signature, p2p::Message::Messagetype type, const string &content)
 {
     message.set_version(version);
     message.set_timestamp(timestamp);
@@ -25,6 +26,8 @@ void set_message(Message &message, int timestamp, const string &version, const s
     message.set_content(content);
 }
 
+// Serialize the message and store it in the given string.  All message
+// fields must be set. Consensus rounds need all fileds.
 bool message_serialize_to_string(Message &message, string &output)
 {
     //check all fields are set in message
@@ -36,11 +39,13 @@ bool message_serialize_to_string(Message &message, string &output)
         return false;
 }
 
+// Parsing the message from binary message string to given message.
 bool message_parse_from_string(Message &message, const string &dataString)
 {
     return message.ParseFromString(dataString);
 }
 
+//Set proposal inputs from given string vector.
 void set_proposal_inputs(Proposal &proposal, const vector<string> &inputs)
 {
     protobuf::RepeatedPtrField<std::string>* proposal_inputs = proposal.mutable_outputs();
@@ -48,6 +53,7 @@ void set_proposal_inputs(Proposal &proposal, const vector<string> &inputs)
     *proposal_inputs = {inputs.begin(), inputs.end()};
 }
 
+//Set proposal outputs from given string vector.
 void set_proposal_outputs(Proposal &proposal, const vector<string> &outputs)
 {
     google::protobuf::RepeatedPtrField<std::string>* proposal_outputs = proposal.mutable_outputs();
@@ -55,6 +61,7 @@ void set_proposal_outputs(Proposal &proposal, const vector<string> &outputs)
     *proposal_outputs = {outputs.begin(), outputs.end()};
 }
 
+//Set proposal connections from given string vector.
 void set_proposal_connections(Proposal &proposal, const vector<string> &connections)
 {
     protobuf::RepeatedPtrField<std::string>* proposal_connections = proposal.mutable_inputs();
@@ -62,11 +69,14 @@ void set_proposal_connections(Proposal &proposal, const vector<string> &connecti
     (*proposal_connections) = {connections.begin(), connections.end()};
 }
 
+//Set proposal state patches from given map of patches.
 void set_state_patch(State &state, const map<string, string>& patches)
 {
     *state.mutable_patch() = {patches.begin(), patches.end()};
 }
 
+// Serialize the proposal message and store it in the given string.  All propsal message
+// fields must be set. Consensus rounds need all fileds.
 bool proposal_serialize_to_string(Proposal &proposal, string &output)
 {
     //check all fields are set in the proposal
@@ -77,11 +87,14 @@ bool proposal_serialize_to_string(Proposal &proposal, string &output)
         return false;
 }
 
+// Parsing the proposal message from binary string to given message.
 bool proposal_parse_from_string(Proposal &proposal, const string &dataString)
 {
     return proposal.ParseFromString(dataString);
 }
 
+// Serialize the npl message and store it in the given string.  All npl message
+// fields must be set.
 bool npl_serialize_to_string(NPL &npl, string &output)
 {
     //check all fields are set in the proposal
@@ -95,6 +108,7 @@ bool npl_serialize_to_string(NPL &npl, string &output)
         return false;
 }
 
+// Parsing the npl message from binary string to given message.
 bool npl_parse_from_string(NPL &npl, const string &dataString)
 {
     return npl.ParseFromString(dataString);

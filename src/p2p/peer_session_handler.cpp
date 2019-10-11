@@ -18,19 +18,24 @@ namespace p2p
 peer_session_handler peer_session_manager;
 std::time_t timestamp = std::time(nullptr);
 
+//peer session on connect callback method
 void peer_session_handler::on_connect(sock::socket_session *session, error ec)
 {
     std::cout << "Sending message" << std::endl;
     auto const message = std::make_shared<std::string const>("Connected successfully");
-    // session->send(message);
+    //session->send(message);
+    //todo:check connected peer is in peer list.
 }
 
+//peer session on message callback method
+//validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session *session, std::shared_ptr<std::string const> const &message, error ec)
 {
     std::cout << "on-message : " << *message << std::endl;
     session->send(message);
 }
 
+//peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session *session)
 {
     std::cout << "on_close";
@@ -58,7 +63,7 @@ void open_listen()
 
 bool validate_peer_message(const Message &peer_message)
 {
-    //check pubkey in unl list
+    //todo:check pubkey in unl list. need to change unl list to a map.
 
     //check message timestamp < timestamp now - 4* round time
     if (peer_message.timestamp() < (timestamp - conf::cfg.roundtime * 4))
