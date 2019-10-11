@@ -19,7 +19,7 @@ namespace proc
 /**
  * Keeps the currently executing contract process id (if any)
  */
-int contract_pid = 0;
+__pid_t contract_pid = 0;
 
 /**
  * Executes the contract process and passes the specified arguments.
@@ -34,7 +34,7 @@ int exec_contract(const ContractExecArgs &args)
         return -1;
     }
 
-    int pid = fork();
+    __pid_t pid = fork();
     if (pid > 0)
     {
         // HotPocket process.
@@ -84,12 +84,12 @@ int write_to_stdin(const ContractExecArgs &args)
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
 
-    d.AddMember("version", StringRef(util::hp_version), allocator);
+    d.AddMember("version", StringRef(util::HP_VERSION), allocator);
     d.AddMember("pubkey", StringRef(conf::cfg.pubkeyb64.data()), allocator);
     d.AddMember("ts", args.timestamp, allocator);
 
     Value users(kObjectType);
-    for (auto &[pk, user] : args.users)
+    for (auto &[sid, user] : args.users)
     {
         Value fdlist(kArrayType);
         fdlist.PushBack(user.inpipe[0], allocator);
@@ -99,7 +99,7 @@ int write_to_stdin(const ContractExecArgs &args)
     d.AddMember("usrfd", users, allocator);
 
     Value peers(kObjectType);
-    for (auto &[pk, peer] : args.peers)
+    for (auto &[sid, peer] : args.peers)
     {
         Value fdlist(kArrayType);
         fdlist.PushBack(peer.inpipe[0], allocator);

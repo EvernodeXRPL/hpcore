@@ -154,11 +154,11 @@ int load_config()
     }
 
     // Check whether this contract complies with the min version requirement.
-    int verresult = util::version_compare(cfgversion, string(util::min_contract_version));
+    int verresult = util::version_compare(cfgversion, string(util::MIN_CONTRACT_VERSION));
     if (verresult == -1)
     {
         cerr << "Contract version too old. Minimum "
-             << util::min_contract_version << " required. "
+             << util::MIN_CONTRACT_VERSION << " required. "
              << cfgversion << " found.\n";
         return -1;
     }
@@ -210,7 +210,7 @@ int save_config()
     Document d;
     d.SetObject();
     Document::AllocatorType &allocator = d.GetAllocator();
-    d.AddMember("version", StringRef(util::hp_version), allocator);
+    d.AddMember("version", StringRef(util::HP_VERSION), allocator);
     d.AddMember("pubkeyb64", StringRef(cfg.pubkeyb64.data()), allocator);
     d.AddMember("seckeyb64", StringRef(cfg.seckeyb64.data()), allocator);
     d.AddMember("keytype", StringRef(cfg.keytype.data()), allocator);
@@ -382,12 +382,13 @@ int is_schema_valid(Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"version\", \"pubkeyb64\", \"seckeyb64\", \"binary\", \"binargs\", \"listenip\""
+        "\"required\": [ \"version\", \"pubkeyb64\", \"seckeyb64\", \"keytype\", \"binary\", \"binargs\", \"listenip\""
         ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyb64\": { \"type\": \"string\" },"
         "\"seckeyb64\": { \"type\": \"string\" },"
+        "\"keytype\": { \"type\": \"string\" },"
         "\"binary\": { \"type\": \"string\" },"
         "\"binargs\": { \"type\": \"string\" },"
         "\"listenip\": { \"type\": \"string\" },"

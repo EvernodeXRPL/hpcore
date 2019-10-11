@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include <thread>
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
@@ -67,7 +68,7 @@ int main(int argc, char **argv)
     if (conf::ctx.command == "version")
     {
         // Print the version
-        cout << util::hp_version << endl;
+        cout << util::HP_VERSION << endl;
     }
     else
     {
@@ -101,6 +102,10 @@ int main(int argc, char **argv)
 
                 // This will start hosting the contract and start consensus rounds.
                 // TODO
+
+                // Temp code to avoid exiting.
+                string s;
+                cin >> s;
             }
         }
     }

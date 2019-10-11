@@ -60,8 +60,8 @@ string sign(const string &msg, const string &seckey)
 /**
  * Returns the base64 signature string for a message.
  * 
- * @param msg Base64 message string to sign.
- * @param seckey Base64 secret key string.
+ * @param msg Message bytes to sign.
+ * @param seckeyb64 Base64 secret key string.
  * @return Base64 signature string.
  */
 string sign_b64(const string &msg, const string &seckeyb64)
@@ -97,8 +97,8 @@ int verify(const string &msg, const string &sig, const string &pubkey)
  * Verifies the given base64 signature for the message.
  * 
  * @param msg Base64 message string.
- * @param sig Base64 signature string.
- * @param pubkey Base64 secret key.
+ * @param sigb64 Base64 signature string.
+ * @param pubkeyb64 Base64 secret key.
  * @return 0 for successful verification. -1 for failure.
  */
 int verify_b64(const string &msg, const string &sigb64, const string &pubkeyb64)
