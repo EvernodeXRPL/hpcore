@@ -55,12 +55,12 @@ void socket_session::client_run(const std::uint16_t port, const std::string &add
 
 void socket_session::fail(error_code ec, char const *what)
 {
+    // std::cerr << what << ": " << ec.message() << std::endl;
+
     // Don't report these
     if (ec == net::error::operation_aborted ||
         ec == websocket::error::closed)
         return;
-
-    // std::cerr << what << ": " << ec.message() << "\n";
 }
 
 void socket_session::on_accept(error_code ec)
@@ -82,10 +82,15 @@ void socket_session::on_accept(error_code ec)
 
 void socket_session::on_read(error_code ec, std::size_t)
 {
+    // read may get called when operation_aborted as well.
+    // We don't need to process read operation in that case.
+    if (ec == net::error::operation_aborted)
+        return;
+
     // Handle the error, if any
     if (ec)
     {
-        //if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
+        // if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
         on_close(ec, 1);
         return fail(ec, "read");
     }

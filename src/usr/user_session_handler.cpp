@@ -33,15 +33,17 @@ void user_session_handler::on_connect(sock::socket_session *session)
     string challengeb64;
     usr::create_user_challenge(msg, challengeb64);
 
+    // We init the session unique id to associate with the challenge.
+    session->init_uniqueid();
+
     // Create an entry in pending_challenges for later tracking upon challenge response.
     usr::pending_challenges[session->uniqueid_] = challengeb64;
 
     // TODO: This needs to be reviewed to optimise passing the message.
     session->send(make_shared<string>(msg));
 
-    // Set the challenge-issued flag and session uniqueid to help later checks in on_message.
+    // Set the challenge-issued flag to help later checks in on_message.
     session->flags_.set(util::SESSION_FLAG::USER_CHALLENGE_ISSUED);
-    session->init_uniqueid();
 }
 
 /**
@@ -54,7 +56,6 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
     if (session->flags_[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
         // The received message must be the challenge response. We need to verify it.
-
         auto itr = usr::pending_challenges.find(session->uniqueid_);
         if (itr != usr::pending_challenges.end())
         {
@@ -72,6 +73,10 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
 
                 cout << "User connection " << session->uniqueid_ << " authenticated.\n";
                 return;
+            }
+            else
+            {
+                cout << "Challenge verification failed " << session->uniqueid_ << endl;
             }
         }
     }
@@ -95,7 +100,7 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
 
     // If for any reason we reach this point, we should drop the connection.
     session->close();
-    cout << "Drop the connection " << session->address_ << ":" << session->port_ << endl;
+    cout << "Dropped the user connection " << session->address_ << ":" << session->port_ << endl;
 }
 
 /**
