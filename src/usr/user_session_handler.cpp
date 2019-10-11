@@ -59,7 +59,7 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
         {
             std::string userpubkey;
             const std::string &original_challenge = itr->second;
-            if (usr::verify_user_challenge_response(message, original_challenge, userpubkey) == 0)
+            if (usr::verify_user_challenge_response(userpubkey, message, original_challenge) == 0)
             {
                 // Challenge verification successful.
                 // Promote the connection from pending-challenges to authenticated users.

@@ -71,9 +71,9 @@ struct peer_node
     }
 };
 
-int base64_encode(const unsigned char *bin, size_t bin_len, std::string &encoded_string);
+int base64_encode(std::string &encoded_string, const unsigned char *bin, size_t bin_len);
 
-int base64_decode(const std::string &base64_str, unsigned char *decoded, size_t decoded_len);
+int base64_decode(unsigned char *decoded, size_t decoded_len, const std::string &base64_str);
 
 int version_compare(const std::string &v1, const std::string &v2);
 

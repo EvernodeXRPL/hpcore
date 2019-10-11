@@ -155,8 +155,8 @@ int load_config()
     if (verresult == -1)
     {
         std::cerr << "Contract version too old. Minimum "
-             << util::MIN_CONTRACT_VERSION << " required. "
-             << cfgversion << " found.\n";
+                  << util::MIN_CONTRACT_VERSION << " required. "
+                  << cfgversion << " found.\n";
         return -1;
     }
     else if (verresult == -2)
@@ -239,7 +239,6 @@ int save_config()
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
 
-
     // Write the json doc to file.
 
     std::ofstream ofs(ctx.configFile);
@@ -263,13 +262,13 @@ int save_config()
  */
 int binpair_to_b64()
 {
-    if (util::base64_encode((unsigned char *)cfg.pubkey.data(), crypto_sign_PUBLICKEYBYTES, cfg.pubkeyb64) != 0)
+    if (util::base64_encode(cfg.pubkeyb64, (unsigned char *)cfg.pubkey.data(), crypto_sign_PUBLICKEYBYTES) != 0)
     {
         std::cerr << "Error encoding public key bytes.\n";
         return -1;
     }
 
-    if (util::base64_encode((unsigned char *)cfg.seckey.data(), crypto_sign_SECRETKEYBYTES, cfg.seckeyb64) != 0)
+    if (util::base64_encode(cfg.seckeyb64, (unsigned char *)cfg.seckey.data(), crypto_sign_SECRETKEYBYTES) != 0)
     {
         std::cerr << "Error encoding secret key bytes.\n";
         return -1;
@@ -286,15 +285,14 @@ int binpair_to_b64()
 int b64pair_to_bin()
 {
     unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
-    unsigned char decoded_seckey[crypto_sign_SECRETKEYBYTES];
-
-    if (util::base64_decode(cfg.pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES) != 0)
+    if (util::base64_decode(decoded_pubkey, crypto_sign_PUBLICKEYBYTES, cfg.pubkeyb64) != 0)
     {
         std::cerr << "Error decoding base64 public key.\n";
         return -1;
     }
 
-    if (util::base64_decode(cfg.seckeyb64, decoded_seckey, crypto_sign_SECRETKEYBYTES) != 0)
+    unsigned char decoded_seckey[crypto_sign_SECRETKEYBYTES];
+    if (util::base64_decode(decoded_seckey, crypto_sign_SECRETKEYBYTES, cfg.seckeyb64) != 0)
     {
         std::cerr << "Error decoding base64 secret key.\n";
         return -1;
@@ -412,7 +410,7 @@ int is_schema_valid(rapidjson::Document &d)
     rapidjson::SchemaValidator validator(schema);
     if (!d.Accept(validator))
         return -1;
-    
+
     return 0;
 }
 

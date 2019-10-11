@@ -95,7 +95,7 @@ void create_user_challenge(std::string &msg, std::string &challengeb64)
     //We pass the b64 challenge string separately to the caller even though
     //we also include it in the challenge msg as well.
 
-    util::base64_encode(challenge_bytes, CHALLENGE_LEN, challengeb64);
+    util::base64_encode(challengeb64, challenge_bytes, CHALLENGE_LEN);
 
     //Construct the challenge msg json.
     // We do not use RapidJson here in favour of performance because this is a simple json message.
@@ -115,6 +115,7 @@ void create_user_challenge(std::string &msg, std::string &challengeb64)
  * Verifies the user challenge response with the original challenge issued to the user
  * and the user public key contained in the response.
  * 
+ * @param extracted_pubkeyb64 The base64 public key extracted from the response. 
  * @param response The response bytes to verify. This will be parsed as json.
  *                 Accepted response format:
  *                 {
@@ -124,10 +125,9 @@ void create_user_challenge(std::string &msg, std::string &challengeb64)
  *                   "pubkey": "<Base64 public key of the user>"
  *                 }
  * @param original_challenge The original base64 challenge string issued to the user.
- * @param extracted_pubkeyb64 The public key extracted from the response.
  * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
  */
-int verify_user_challenge_response(const std::string &response, const std::string &original_challenge, std::string &extracted_pubkeyb64)
+int verify_user_challenge_response(std::string &extracted_pubkeyb64, const std::string &response, const std::string &original_challenge)
 {
     // We load response raw bytes into json document.
     rapidjson::Document d;

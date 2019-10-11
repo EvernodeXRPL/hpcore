@@ -31,7 +31,7 @@ int init();
 
 void create_user_challenge(std::string &msg, std::string &challengeb64);
 
-int verify_user_challenge_response(const std::string &response, const std::string &original_challenge, std::string &extracted_pubkey);
+int verify_user_challenge_response(std::string &extracted_pubkeyb64, const std::string &response, const std::string &original_challenge);
 
 int add_user(const std::string &sessionid, const std::string &pubkeyb64);
 

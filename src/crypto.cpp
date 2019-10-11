@@ -67,13 +67,13 @@ std::string sign_b64(const std::string &msg, const std::string &seckeyb64)
     //Decode b64 string and generate the signature using libsodium.
 
     unsigned char seckey[crypto_sign_SECRETKEYBYTES];
-    util::base64_decode(seckeyb64, seckey, crypto_sign_SECRETKEYBYTES);
+    util::base64_decode(seckey, crypto_sign_SECRETKEYBYTES, seckeyb64);
 
     unsigned char sig[crypto_sign_BYTES];
     crypto_sign_detached(sig, NULL, (unsigned char *)msg.data(), msg.length(), seckey);
 
     std::string sigb64;
-    util::base64_encode(sig, crypto_sign_BYTES, sigb64);
+    util::base64_encode(sigb64, sig, crypto_sign_BYTES);
     return sigb64;
 }
 
@@ -104,10 +104,10 @@ int verify_b64(const std::string &msg, const std::string &sigb64, const std::str
     //Decode b64 string and verify the signature using libsodium.
 
     unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
-    util::base64_decode(pubkeyb64, decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
+    util::base64_decode(decoded_pubkey, crypto_sign_PUBLICKEYBYTES, pubkeyb64);
 
     unsigned char decoded_sig[crypto_sign_BYTES];
-    util::base64_decode(sigb64, decoded_sig, crypto_sign_BYTES);
+    util::base64_decode(decoded_sig, crypto_sign_BYTES, sigb64);
 
     return crypto_sign_verify_detached(decoded_sig, (unsigned char *)msg.data(), msg.length(), decoded_pubkey);
 }

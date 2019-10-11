@@ -8,11 +8,11 @@ namespace util
 /**
  * Encodes provided bytes to base64 string.
  * 
+ * @param encoded_string String reference to assign the base64 encoded output. 
  * @param bin Bytes to encode.
  * @param bin_len Bytes length.
- * @param encoded_string String reference to assign the base64 encoded output.
  */
-int base64_encode(const unsigned char *bin, size_t bin_len, std::string &encoded_string)
+int base64_encode(std::string &encoded_string, const unsigned char *bin, size_t bin_len)
 {
     // Get length of encoded result from sodium.
     const size_t base64_len = sodium_base64_encoded_len(bin_len, sodium_base64_VARIANT_ORIGINAL);
@@ -37,16 +37,16 @@ int base64_encode(const unsigned char *bin, size_t bin_len, std::string &encoded
 /**
  * Decodes provided base64 string into bytes.
  * 
+ * @param decodedbuf Buffer to assign decoded bytes.
+ * @param decodedbuf_len Decoded buffer size.
  * @param base64_str Base64 string to decode.
- * @param decoded Decoded bytes.
- * @param decoded_len Decoded bytes length.
  */
-int base64_decode(const std::string &base64_str, unsigned char *decoded, size_t decoded_len)
+int base64_decode(unsigned char *decodedbuf, size_t decodedbuf_len, const std::string &base64_str)
 {
     const char *b64_end;
     size_t bin_len;
     if (sodium_base642bin(
-            decoded, decoded_len,
+            decodedbuf, decodedbuf_len,
             base64_str.data(), base64_str.size() + 1,
             "", &bin_len, &b64_end,
             sodium_base64_VARIANT_ORIGINAL))
