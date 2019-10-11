@@ -69,6 +69,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::shared
             // Write the message to the user input pipe. SC will read from this pipe when it executes.
             const contract_user &user = itr->second;
             write(user.inpipe[1], message->data(), message->length());
+            cout << "User " << user.pubkeyb64 << " wrote " << message->length() << " bytes to contract input.\n";
         }
     }
     else
