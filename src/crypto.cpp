@@ -33,8 +33,8 @@ void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string
     unsigned char seckeychars[crypto_sign_SECRETKEYBYTES];
     crypto_sign_keypair(pubkeychars, seckeychars);
 
-    pubkey = std::string((char *)pubkeychars, crypto_sign_PUBLICKEYBYTES);
-    seckey = std::string((char *)seckeychars, crypto_sign_SECRETKEYBYTES);
+    pubkey = std::string(reinterpret_cast<char *>(pubkeychars), crypto_sign_PUBLICKEYBYTES);
+    seckey = std::string(reinterpret_cast<char *>(seckeychars), crypto_sign_SECRETKEYBYTES);
     keytype = crypto_sign_primitive();
 }
 
@@ -50,8 +50,14 @@ std::string sign(const std::string &msg, const std::string &seckey)
     //Generate the signature using libsodium.
 
     unsigned char sigchars[crypto_sign_BYTES];
-    crypto_sign_detached(sigchars, NULL, (unsigned char *)msg.data(), msg.length(), (unsigned char *)seckey.data());
-    std::string sig((char *)sigchars, crypto_sign_BYTES);
+    crypto_sign_detached(
+        sigchars,
+        NULL,
+        reinterpret_cast<const unsigned char *>(msg.data()),
+        msg.length(),
+        reinterpret_cast<const unsigned char *>(seckey.data()));
+
+    std::string sig(reinterpret_cast<char *>(sigchars), crypto_sign_BYTES);
     return sig;
 }
 
@@ -70,7 +76,12 @@ std::string sign_b64(const std::string &msg, const std::string &seckeyb64)
     util::base64_decode(seckey, crypto_sign_SECRETKEYBYTES, seckeyb64);
 
     unsigned char sig[crypto_sign_BYTES];
-    crypto_sign_detached(sig, NULL, (unsigned char *)msg.data(), msg.length(), seckey);
+    crypto_sign_detached(
+        sig,
+        NULL,
+        reinterpret_cast<const unsigned char *>(msg.data()),
+        msg.length(),
+        seckey);
 
     std::string sigb64;
     util::base64_encode(sigb64, sig, crypto_sign_BYTES);
@@ -88,7 +99,10 @@ std::string sign_b64(const std::string &msg, const std::string &seckeyb64)
 int verify(const std::string &msg, const std::string &sig, const std::string &pubkey)
 {
     return crypto_sign_verify_detached(
-        (unsigned char *)sig.data(), (unsigned char *)msg.data(), msg.length(), (unsigned char *)pubkey.data());
+        reinterpret_cast<const unsigned char *>(sig.data()),
+        reinterpret_cast<const unsigned char *>(msg.data()),
+        msg.length(),
+        reinterpret_cast<const unsigned char *>(pubkey.data()));
 }
 
 /**
@@ -109,7 +123,11 @@ int verify_b64(const std::string &msg, const std::string &sigb64, const std::str
     unsigned char decoded_sig[crypto_sign_BYTES];
     util::base64_decode(decoded_sig, crypto_sign_BYTES, sigb64);
 
-    return crypto_sign_verify_detached(decoded_sig, (unsigned char *)msg.data(), msg.length(), decoded_pubkey);
+    return crypto_sign_verify_detached(
+        decoded_sig,
+        reinterpret_cast<const unsigned char *>(msg.data()),
+        msg.length(),
+        decoded_pubkey);
 }
 
 } // namespace crypto

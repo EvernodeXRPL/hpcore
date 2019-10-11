@@ -262,13 +262,19 @@ int save_config()
  */
 int binpair_to_b64()
 {
-    if (util::base64_encode(cfg.pubkeyb64, (unsigned char *)cfg.pubkey.data(), crypto_sign_PUBLICKEYBYTES) != 0)
+    if (util::base64_encode(
+        cfg.pubkeyb64,
+        reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
+        crypto_sign_PUBLICKEYBYTES) != 0)
     {
         std::cerr << "Error encoding public key bytes.\n";
         return -1;
     }
 
-    if (util::base64_encode(cfg.seckeyb64, (unsigned char *)cfg.seckey.data(), crypto_sign_SECRETKEYBYTES) != 0)
+    if (util::base64_encode(
+            cfg.seckeyb64,
+            reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
+            crypto_sign_SECRETKEYBYTES) != 0)
     {
         std::cerr << "Error encoding secret key bytes.\n";
         return -1;
@@ -299,8 +305,11 @@ int b64pair_to_bin()
     }
 
     // Assign the cfg pubkey/seckey fields with the decoded strings.
-    cfg.pubkey = std::string((char *)decoded_pubkey, crypto_sign_PUBLICKEYBYTES);
-    cfg.seckey = std::string((char *)decoded_seckey, crypto_sign_SECRETKEYBYTES);
+
+    cfg.pubkey = std::string(reinterpret_cast<char *>(decoded_pubkey), crypto_sign_PUBLICKEYBYTES);
+
+    cfg.seckey = std::string(reinterpret_cast<char *>(decoded_seckey), crypto_sign_SECRETKEYBYTES);
+
     return 0;
 }
 
