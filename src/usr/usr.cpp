@@ -125,7 +125,7 @@ void create_user_challenge(string &msg, string &challengeb64)
 
 /**
  * Verifies the user challenge response with the original challenge issued to the user
- * and the user public contained in the response.
+ * and the user public key contained in the response.
  * 
  * @param response The response bytes to verify. This will be parsed as json.
  *                 Accepted response format:
@@ -136,6 +136,7 @@ void create_user_challenge(string &msg, string &challengeb64)
  *                   "pubkey": "<Base64 public key of the user>"
  *                 }
  * @param original_challenge The original base64 challenge string issued to the user.
+ * @param extracted_pubkeyb64 The public key extracted from the response.
  * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
  */
 int verify_user_challenge_response(const string &response, const string &original_challenge, string &extracted_pubkeyb64)

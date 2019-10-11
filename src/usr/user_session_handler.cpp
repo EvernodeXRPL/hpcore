@@ -43,20 +43,19 @@ void user_session_handler::on_connect(sock::socket_session *session, error ec)
  */
 void user_session_handler::on_message(sock::socket_session *session, std::shared_ptr<std::string const> const &message, error ec)
 {
-    if (message->length() == 0)
-        return;
-
     // First check whether this session is among pending_challenges.
+    // Meaning we have previously issued a challenge to the client,
+    // and the received message is the challenge response.
+
     auto itr = usr::pending_challenges.find(session->uniqueid_);
-    if (itr == usr::pending_challenges.end()) // Does not exist
+    if (itr == usr::pending_challenges.end()) // Challenge does not exist (means this must be an already authed user)
     {
         // Check whether this user is among authenticated users
         // and perform authenticated msg processing.
 
         auto itr = usr::users.find(session->uniqueid_);
-        if (itr == usr::users.end())
+        if (itr == usr::users.end()) // Matching user not found.
         {
-            // Matching user not found.
             // Ideally this code would never get hit. We issue a challenge as soon as a user connects
             // and drops the connection if the challenge fails. so There's no room to receive
             // a message from an untracked anonymous user. But just to be safe we drop the connection
@@ -66,6 +65,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::shared
         }
         else
         {
+            // This is an authed user.
             // Write the message to the user input pipe. SC will read from this pipe when it executes.
             const contract_user &user = itr->second;
             write(user.inpipe[1], message->data(), message->length());
