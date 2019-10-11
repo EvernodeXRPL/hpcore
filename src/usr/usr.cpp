@@ -4,7 +4,6 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <rapidjson/document.h>
-#include <rapidjson/schema.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sodium.h>
@@ -37,11 +36,6 @@ map<string, contract_user> users;
 map<string, string> pending_challenges;
 
 /**
- * Json schema doc used for user challenge-response json validation.
- */
-Document challenge_response_schemadoc;
-
-/**
  * User session handler instance. This instance's methods will be fired for any user socket activity.
  */
 user_session_handler global_usr_session_handler;
@@ -56,28 +50,19 @@ net::io_context ioc;
  */
 thread listener_thread;
 
+// Challenge response fields.
+// These fields are used on challenge response validation.
+static const char* CHALLENGE_RESP_TYPE = "type";
+static const char* CHALLENGE_RESP_CHALLENGE = "challenge";
+static const char* CHALLENGE_RESP_SIG = "sig";
+static const char* CHALLENGE_RESP_PUBKEY = "pubkey";
+
 /**
  * Initializes the usr subsystem. Must be called once during application startup.
  * @return 0 for successful initialization. -1 for failure.
  */
 int init()
 {
-    //We initialize the response schema doc from this json string so we can
-    //use the schema repeatedly for all challenge-response validations.
-
-    const char *challenge_response_schema =
-        "{"
-        "\"type\": \"object\","
-        "\"required\": [ \"type\", \"challenge\", \"sig\", \"pubkey\" ],"
-        "\"properties\": {"
-        "\"type\": { \"type\": \"string\" },"
-        "\"challenge\": { \"type\": \"string\" },"
-        "\"sig\": { \"type\": \"string\" },"
-        "\"pubkey\": { \"type\": \"string\" }"
-        "}"
-        "}";
-    challenge_response_schemadoc.Parse(challenge_response_schema);
-
     // Start listening for incoming user connections.
     start_listening();
 
@@ -110,17 +95,17 @@ void create_user_challenge(string &msg, string &challengeb64)
     base64_encode(challenge_bytes, user_challenge_len, challengeb64);
 
     //Construct the challenge msg json.
-    Document d;
-    d.SetObject();
-    Document::AllocatorType &allocator = d.GetAllocator();
-    d.AddMember("version", StringRef(util::hp_version), allocator);
-    d.AddMember("type", StringRef(msg_public_challenge), allocator);
-    d.AddMember("challenge", StringRef(challengeb64.data()), allocator);
+    // We do not use RapidJson here in favour of performance because this is a simple json message.
 
-    StringBuffer buffer;
-    Writer<StringBuffer> writer(buffer);
-    d.Accept(writer);
-    msg = buffer.GetString();
+    // Since we know the rough size of the challenge massage we reserve adequate amount for the holder.
+    // Only Hot Pocket version number is variable length. Therefore message size is roughly 95 bytes
+    // so allocating 128bits for heap padding.
+    msg.reserve(128);
+    msg.append("{\"version\":\"")
+        .append(util::hp_version)
+        .append("\",\"type\":\"public_challenge\",\"challenge\":\"")
+        .append(challengeb64)
+        .append("\"}");
 }
 
 /**
@@ -141,38 +126,46 @@ void create_user_challenge(string &msg, string &challengeb64)
  */
 int verify_user_challenge_response(const string &response, const string &original_challenge, string &extracted_pubkeyb64)
 {
-    //We load response raw bytes into json document and validate the schema.
+    // We load response raw bytes into json document.
     Document d;
     d.Parse(response.data());
-
-    //Validate json scheme.
-    //This has a cost. But we have to do this first. Otherwise field value
-    //extraction will fail in subsequent steps if the message is malformed.
-    SchemaDocument schema(challenge_response_schemadoc);
-    SchemaValidator validator(schema);
-    if (!d.Accept(validator))
+    if (d.HasParseError())
     {
-        cerr << "User challenge resposne schema invalid.\n";
+        cerr << "Challenge response json parser error.\n";
         return -1;
     }
 
-    //Validate msg type.
-    if (d["type"] != msg_challenge_resp)
+    // Validate msg type.
+    if (!d.HasMember(CHALLENGE_RESP_TYPE) || d[CHALLENGE_RESP_TYPE] != msg_challenge_resp)
     {
         cerr << "User challenge response type invalid. 'challenge_response' expected.\n";
         return -1;
     }
 
-    //Compare the response challenge string with the original issued challenge.
-    if (d["challenge"] != original_challenge.data())
+    // Compare the response challenge string with the original issued challenge.
+    if (!d.HasMember(CHALLENGE_RESP_CHALLENGE) || d[CHALLENGE_RESP_CHALLENGE] != original_challenge.data())
     {
-        cerr << "User challenge response challenge mismatch.\n";
+        cerr << "User challenge response challenge invalid.\n";
         return -1;
     }
 
-    //Verify the challenge signature. We do this last due to signature verification cost.
-    string sigb64 = d["sig"].GetString();
-    extracted_pubkeyb64 = d["pubkey"].GetString();
+    // Check for the 'sig' field existence.
+    if (!d.HasMember(CHALLENGE_RESP_SIG) || !d[CHALLENGE_RESP_SIG].IsString())
+    {
+        cerr << "User challenge response signature invalid.\n";
+        return -1;
+    }
+
+    // Check for the 'pubkey' field existence.
+    if (!d.HasMember(CHALLENGE_RESP_PUBKEY) || !d[CHALLENGE_RESP_PUBKEY].IsString())
+    {
+        cerr << "User challenge response public key invalid.\n";
+        return -1;
+    }
+
+    // Verify the challenge signature. We do this last due to signature verification cost.
+    string sigb64 = d[CHALLENGE_RESP_SIG].GetString();
+    extracted_pubkeyb64 = d[CHALLENGE_RESP_PUBKEY].GetString();
 
     if (crypto::verify_b64(original_challenge, sigb64, extracted_pubkeyb64) != 0)
     {
