@@ -13,14 +13,14 @@ namespace util
 {
 
 // Hot Pocket version. Displayed on 'hotpocket version' and written to new contract configs.
-static const char *hp_version = "0.1";
+static const char *HP_VERSION = "0.1";
 
 // Minimum compatible contract config version (this will be used to validate contract configs)
-static const char *min_contract_version = "0.1";
+static const char *MIN_CONTRACT_VERSION = "0.1";
 
 // Minimum compatible peer message version (this will be used to accept/reject incoming peer connections)
 // (Keeping this as int for effcient msg payload and comparison)
-static const int min_peermsg_version = 1;
+static const int MIN_PEERMSG_VERSION = 1;
 
 /**
  * Set of flags used to mark status information on the session.

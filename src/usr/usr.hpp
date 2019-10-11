@@ -15,15 +15,6 @@ using namespace util;
 namespace usr
 {
 
-// Length of user random challenge bytes.
-static const int user_challenge_len = 16;
-
-// Message type for the user challenge.
-static const char *msg_public_challenge = "public_challenge";
-
-// Message type for the user challenge response.
-static const char *msg_challenge_resp = "challenge_response";
-
 /**
  * Global authenticated (challenge-verified) user list.
  */

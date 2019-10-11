@@ -68,7 +68,7 @@ int main(int argc, char **argv)
     if (conf::ctx.command == "version")
     {
         // Print the version
-        cout << util::hp_version << endl;
+        cout << util::HP_VERSION << endl;
     }
     else
     {

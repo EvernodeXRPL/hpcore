@@ -57,6 +57,13 @@ static const char* CHALLENGE_RESP_CHALLENGE = "challenge";
 static const char* CHALLENGE_RESP_SIG = "sig";
 static const char* CHALLENGE_RESP_PUBKEY = "pubkey";
 
+// Message type for the user challenge.
+static const char *CHALLENGE_MSGTYPE = "public_challenge";
+// Message type for the user challenge response.
+static const char *CHALLENGE_RESP_MSGTYPE = "challenge_response";
+// Length of user random challenge bytes.
+static const int CHALLENGE_LEN = 16;
+
 /**
  * Initializes the usr subsystem. Must be called once during application startup.
  * @return 0 for successful initialization. -1 for failure.
@@ -86,13 +93,13 @@ int init()
 void create_user_challenge(string &msg, string &challengeb64)
 {
     //Use libsodium to generate the random challenge bytes.
-    unsigned char challenge_bytes[user_challenge_len];
-    randombytes_buf(challenge_bytes, user_challenge_len);
+    unsigned char challenge_bytes[CHALLENGE_LEN];
+    randombytes_buf(challenge_bytes, CHALLENGE_LEN);
 
     //We pass the b64 challenge string separately to the caller even though
     //we also include it in the challenge msg as well.
 
-    base64_encode(challenge_bytes, user_challenge_len, challengeb64);
+    base64_encode(challenge_bytes, CHALLENGE_LEN, challengeb64);
 
     //Construct the challenge msg json.
     // We do not use RapidJson here in favour of performance because this is a simple json message.
@@ -102,7 +109,7 @@ void create_user_challenge(string &msg, string &challengeb64)
     // so allocating 128bits for heap padding.
     msg.reserve(128);
     msg.append("{\"version\":\"")
-        .append(util::hp_version)
+        .append(util::HP_VERSION)
         .append("\",\"type\":\"public_challenge\",\"challenge\":\"")
         .append(challengeb64)
         .append("\"}");
@@ -136,7 +143,7 @@ int verify_user_challenge_response(const string &response, const string &origina
     }
 
     // Validate msg type.
-    if (!d.HasMember(CHALLENGE_RESP_TYPE) || d[CHALLENGE_RESP_TYPE] != msg_challenge_resp)
+    if (!d.HasMember(CHALLENGE_RESP_TYPE) || d[CHALLENGE_RESP_TYPE] != CHALLENGE_RESP_MSGTYPE)
     {
         cerr << "User challenge response type invalid. 'challenge_response' expected.\n";
         return -1;
