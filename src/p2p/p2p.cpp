@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio.hpp>
@@ -8,8 +7,6 @@
 #include "p2p.hpp"
 #include "../conf.hpp"
 
-using namespace std;
-
 namespace p2p
 {
 
@@ -17,7 +14,7 @@ namespace protobuf = google::protobuf;
 peer_context peer_ctx;
 
 //set all fields of given message.
-void set_message(Message &message, const int timestamp, const string &version, const string &publicKey, const string &signature, p2p::Message::Messagetype type, const string &content)
+void set_message(Message &message, const int timestamp, const std::string &version, const std::string &publicKey, const std::string &signature, p2p::Message::Messagetype type, const std::string &content)
 {
     message.set_version(version);
     message.set_timestamp(timestamp);
@@ -29,7 +26,7 @@ void set_message(Message &message, const int timestamp, const string &version, c
 
 // Serialize the message and store it in the given string.  All message
 // fields must be set. Consensus rounds need all fileds.
-bool message_serialize_to_string(Message &message, string &output)
+bool message_serialize_to_string(Message &message, std::string &output)
 {
     //check all fields are set in message
     if (message.has_publickey() && message.has_signature() && message.has_timestamp() && message.has_type() && message.has_version() && message.has_content())
@@ -41,13 +38,13 @@ bool message_serialize_to_string(Message &message, string &output)
 }
 
 // Parsing the message from binary message string to given message.
-bool message_parse_from_string(Message &message, const string &dataString)
+bool message_parse_from_string(Message &message, const std::string &dataString)
 {
     return message.ParseFromString(dataString);
 }
 
 //Set proposal inputs from given string vector.
-void set_proposal_inputs(Proposal &proposal, const vector<string> &inputs)
+void set_proposal_inputs(Proposal &proposal, const std::vector<std::string> &inputs)
 {
     protobuf::RepeatedPtrField<std::string>* proposal_inputs = proposal.mutable_outputs();
     proposal_inputs-> Reserve(inputs.size());
@@ -55,7 +52,7 @@ void set_proposal_inputs(Proposal &proposal, const vector<string> &inputs)
 }
 
 //Set proposal outputs from given string vector.
-void set_proposal_outputs(Proposal &proposal, const vector<string> &outputs)
+void set_proposal_outputs(Proposal &proposal, const std::vector<std::string> &outputs)
 {
     google::protobuf::RepeatedPtrField<std::string>* proposal_outputs = proposal.mutable_outputs();
     proposal_outputs-> Reserve(outputs.size());
@@ -63,7 +60,7 @@ void set_proposal_outputs(Proposal &proposal, const vector<string> &outputs)
 }
 
 //Set proposal connections from given string vector.
-void set_proposal_connections(Proposal &proposal, const vector<string> &connections)
+void set_proposal_connections(Proposal &proposal, const std::vector<std::string> &connections)
 {
     protobuf::RepeatedPtrField<std::string>* proposal_connections = proposal.mutable_inputs();
     proposal_connections ->  Reserve(connections.size());
@@ -71,14 +68,14 @@ void set_proposal_connections(Proposal &proposal, const vector<string> &connecti
 }
 
 //Set proposal state patches from given map of patches.
-void set_state_patch(State &state, const map<string, string>& patches)
+void set_state_patch(State &state, const std::map<std::string, std::string>& patches)
 {
     *state.mutable_patch() = {patches.begin(), patches.end()};
 }
 
 // Serialize the proposal message and store it in the given string.  All propsal message
 // fields must be set. Consensus rounds need all fileds.
-bool proposal_serialize_to_string(Proposal &proposal, string &output)
+bool proposal_serialize_to_string(Proposal &proposal, std::string &output)
 {
     //check all fields are set in the proposal
     if (proposal.has_stage() && proposal.has_lcl() && proposal.has_state() && proposal.has_time() && (proposal.inputs_size() == 0) && (proposal.outputs_size() == 0))
@@ -89,14 +86,14 @@ bool proposal_serialize_to_string(Proposal &proposal, string &output)
 }
 
 // Parsing the proposal message from binary string to given message.
-bool proposal_parse_from_string(Proposal &proposal, const string &dataString)
+bool proposal_parse_from_string(Proposal &proposal, const std::string &dataString)
 {
     return proposal.ParseFromString(dataString);
 }
 
 // Serialize the npl message and store it in the given string.  All npl message
 // fields must be set.
-bool npl_serialize_to_string(NPL &npl, string &output)
+bool npl_serialize_to_string(NPL &npl, std::string &output)
 {
     //check all fields are set in the proposal
     //not sure npl messages need both data or lcl have to be set.
@@ -110,7 +107,7 @@ bool npl_serialize_to_string(NPL &npl, string &output)
 }
 
 // Parsing the npl message from binary string to given message.
-bool npl_parse_from_string(NPL &npl, const string &dataString)
+bool npl_parse_from_string(NPL &npl, const std::string &dataString)
 {
     return npl.ParseFromString(dataString);
 }
