@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <bitset>
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include "socket_session_handler.hpp"
@@ -27,7 +28,7 @@ class socket_session_handler;
 class socket_session : public std::enable_shared_from_this<socket_session>
 {
     beast::flat_buffer buffer_;
-    websocket::stream<tcp::socket> ws_;
+    websocket::stream<beast::tcp_stream> ws_;
     std::vector<std::shared_ptr<std::string const>> queue_;
     socket_session_handler &sess_handler_;
 
@@ -39,17 +40,35 @@ class socket_session : public std::enable_shared_from_this<socket_session>
 
     void on_write(error ec, std::size_t bytes_transferred);
 
-public:
-    socket_session(tcp::socket socket, socket_session_handler &sess_handler);
+    void on_close(error ec, std::int8_t type);
 
-    unsigned short port_;
+public:
+    socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler);
+
+    // The port of the remote party.
+    std::uint16_t port_;
+
+    // The IP address of the remote party.
     std::string address_;
 
-    void server_run(const unsigned short &port, const std::string &address);
-    void client_run(const unsigned short &port, const std::string &address, error ec);
+    // The unique identifier of the remote party (format <ip>:<port>).
+    std::string uniqueid_;
 
-    //Used to send message through an active websocket connection
+    // The set of util::SESSION_FLAG enum flags that will be set by user-code of this calss.
+    // We mainly use this to store contexual information about this session based on the use case.
+    // Setting and reading flags to this is completely managed by user-code.
+    std::bitset<8> flags_;
+
+    void server_run(const std::uint16_t port, const std::string &address);
+    void client_run(const std::uint16_t port, const std::string &address, error ec);
+
+    // Used to send message through an active websocket connection.
     void send(std::shared_ptr<std::string const> const &ss);
+
+    // When called, initializes the unique id string for this session.
+    void init_uniqueid();
+
+    void close();
 };
 } // namespace sock
 #endif

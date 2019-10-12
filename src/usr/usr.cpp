@@ -4,128 +4,194 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <rapidjson/document.h>
-#include <rapidjson/schema.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sodium.h>
+#include <boost/thread/thread.hpp>
+#include "../sock/socket_server.hpp"
+#include "../sock/socket_session_handler.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "usr.hpp"
-
-using namespace std;
-using namespace util;
-using namespace rapidjson;
+#include "user_session_handler.hpp"
 
 namespace usr
 {
 
 /**
  * Global user list. (Exposed to other sub systems)
+ * Map key: User socket session id (<ip:port>)
  */
-map<string, contract_user> users;
+std::map<std::string, util::contract_user> users;
 
 /**
- * Json schema doc used for user challenge-response json validation.
+ * Keep track of verification-pending challenges issued to newly connected users.
+ * Map key: User socket session id (<ip:port>)
  */
-Document challenge_response_schemadoc;
+std::map<std::string, std::string> pending_challenges;
 
+/**
+ * User session handler instance. This instance's methods will be fired for any user socket activity.
+ */
+usr::user_session_handler global_usr_session_handler;
+
+/**
+ * The IO context used by the websocket listener. (not exposed out of this namespace)
+ */
+net::io_context ioc;
+
+/**
+ * The thread the websocket lsitener is running on. (not exposed out of this namespace)
+ */
+std::thread listener_thread;
+
+// Challenge response fields.
+// These fields are used on challenge response validation.
+static const char* CHALLENGE_RESP_TYPE = "type";
+static const char* CHALLENGE_RESP_CHALLENGE = "challenge";
+static const char* CHALLENGE_RESP_SIG = "sig";
+static const char* CHALLENGE_RESP_PUBKEY = "pubkey";
+
+// Message type for the user challenge.
+static const char *CHALLENGE_MSGTYPE = "public_challenge";
+// Message type for the user challenge response.
+static const char *CHALLENGE_RESP_MSGTYPE = "challenge_response";
+// Length of user random challenge bytes.
+static const int CHALLENGE_LEN = 16;
+
+/**
+ * Initializes the usr subsystem. Must be called once during application startup.
+ * @return 0 for successful initialization. -1 for failure.
+ */
 int init()
 {
-    //We initialize the response schema doc from this json string so we can
-    //use the schema repeatedly for all challenge-response validations.
-
-    const char *challenge_response_schema =
-        "{"
-        "\"type\": \"object\","
-        "\"required\": [ \"type\", \"challenge\", \"sig\", \"pubkey\" ],"
-        "\"properties\": {"
-        "\"type\": { \"type\": \"string\" },"
-        "\"challenge\": { \"type\": \"string\" },"
-        "\"sig\": { \"type\": \"string\" },"
-        "\"pubkey\": { \"type\": \"string\" }"
-        "}"
-        "}";
-    challenge_response_schemadoc.Parse(challenge_response_schema);
+    // Start listening for incoming user connections.
+    start_listening();
 
     return 0;
 }
 
-void create_user_challenge(string &msg, string &challengeb64)
+/**
+ * Constructs user challenge message json and the challenge string required for
+ * initial user challenge handshake. This gets called when a user gets establishes
+ * a web sockets connection to HP.
+ * 
+ * @param msg String reference to copy the generated json message string into.
+ *            Message format:
+ *            {
+ *              "version": "<HP version>",
+ *              "type": "public_challenge",
+ *              "challenge": "<base64 challenge string>"
+ *            }
+ * @param challenge String reference to copy the generated base64 challenge string into.
+ */
+void create_user_challenge(std::string &msg, std::string &challengeb64)
 {
     //Use libsodium to generate the random challenge bytes.
-    unsigned char challenge_bytes[USER_CHALLENGE_LEN];
-    randombytes_buf(challenge_bytes, USER_CHALLENGE_LEN);
+    unsigned char challenge_bytes[CHALLENGE_LEN];
+    randombytes_buf(challenge_bytes, CHALLENGE_LEN);
 
     //We pass the b64 challenge string separately to the caller even though
     //we also include it in the challenge msg as well.
 
-    base64_encode(challenge_bytes, USER_CHALLENGE_LEN, challengeb64);
+    util::base64_encode(challengeb64, challenge_bytes, CHALLENGE_LEN);
 
     //Construct the challenge msg json.
-    Document d;
-    d.SetObject();
-    Document::AllocatorType &allocator = d.GetAllocator();
-    d.AddMember("version", StringRef(_HP_VERSION_), allocator);
-    d.AddMember("type", MSG_PUBLIC_CHALLENGE, allocator);
-    d.AddMember("challenge", StringRef(challengeb64.data()), allocator);
+    // We do not use RapidJson here in favour of performance because this is a simple json message.
 
-    StringBuffer buffer;
-    Writer<StringBuffer> writer(buffer);
-    d.Accept(writer);
-    msg = buffer.GetString();
+    // Since we know the rough size of the challenge massage we reserve adequate amount for the holder.
+    // Only Hot Pocket version number is variable length. Therefore message size is roughly 95 bytes
+    // so allocating 128bits for heap padding.
+    msg.reserve(128);
+    msg.append("{\"version\":\"")
+        .append(util::HP_VERSION)
+        .append("\",\"type\":\"public_challenge\",\"challenge\":\"")
+        .append(challengeb64)
+        .append("\"}");
 }
 
-int verify_user_challenge_response(const string &response, const string &original_challenge, string &extracted_pubkeyb64)
+/**
+ * Verifies the user challenge response with the original challenge issued to the user
+ * and the user public key contained in the response.
+ * 
+ * @param extracted_pubkeyb64 The base64 public key extracted from the response. 
+ * @param response The response bytes to verify. This will be parsed as json.
+ *                 Accepted response format:
+ *                 {
+ *                   "type": "challenge_response",
+ *                   "challenge": "<original base64 challenge the user received>",
+ *                   "sig": "<Base64 signature of the challenge>",
+ *                   "pubkey": "<Base64 public key of the user>"
+ *                 }
+ * @param original_challenge The original base64 challenge string issued to the user.
+ * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
+ */
+int verify_user_challenge_response(std::string &extracted_pubkeyb64, const std::string &response, const std::string &original_challenge)
 {
-    //We load response raw bytes into json document and validate the schema.
-    Document d;
+    // We load response raw bytes into json document.
+    rapidjson::Document d;
     d.Parse(response.data());
-
-    //Validate json scheme.
-    //This has a cost. But we have to do this first. Otherwise field value
-    //extraction will fail in subsequent steps if the message is malformed.
-    SchemaDocument schema(challenge_response_schemadoc);
-    SchemaValidator validator(schema);
-    if (!d.Accept(validator))
+    if (d.HasParseError())
     {
-        cerr << "User challenge resposne schema invalid.\n";
+        std::cerr << "Challenge response json parser error.\n";
         return -1;
     }
 
-    //Validate msg type.
-    string type = d["type"].GetString();
-    if (type != MSG_CHALLENGE_RESP)
+    // Validate msg type.
+    if (!d.HasMember(CHALLENGE_RESP_TYPE) || d[CHALLENGE_RESP_TYPE] != CHALLENGE_RESP_MSGTYPE)
     {
-        cerr << "User challenge response type invalid. 'challenge_response' expeced.\n";
+        std::cerr << "User challenge response type invalid. 'challenge_response' expected.\n";
         return -1;
     }
 
-    //Compare the response challenge string with the original issued challenge.
-    string challenge = d["challenge"].GetString();
-    if (challenge != original_challenge)
+    // Compare the response challenge string with the original issued challenge.
+    if (!d.HasMember(CHALLENGE_RESP_CHALLENGE) || d[CHALLENGE_RESP_CHALLENGE] != original_challenge.data())
     {
-        cerr << "User challenge resposne: challenge mismatch.\n";
+        std::cerr << "User challenge response challenge invalid.\n";
         return -1;
     }
 
-    //Verify the challenge signature. We do this last due to signature verification cost.
-    string sigb64 = d["sig"].GetString();
-    extracted_pubkeyb64 = d["pubkey"].GetString();
+    // Check for the 'sig' field existence.
+    if (!d.HasMember(CHALLENGE_RESP_SIG) || !d[CHALLENGE_RESP_SIG].IsString())
+    {
+        std::cerr << "User challenge response signature invalid.\n";
+        return -1;
+    }
+
+    // Check for the 'pubkey' field existence.
+    if (!d.HasMember(CHALLENGE_RESP_PUBKEY) || !d[CHALLENGE_RESP_PUBKEY].IsString())
+    {
+        std::cerr << "User challenge response public key invalid.\n";
+        return -1;
+    }
+
+    // Verify the challenge signature. We do this last due to signature verification cost.
+    std::string sigb64 = d[CHALLENGE_RESP_SIG].GetString();
+    extracted_pubkeyb64 = d[CHALLENGE_RESP_PUBKEY].GetString();
+
     if (crypto::verify_b64(original_challenge, sigb64, extracted_pubkeyb64) != 0)
     {
-        cerr << "User challenge response signature verification failed.\n";
+        std::cerr << "User challenge response signature verification failed.\n";
         return -1;
     }
 
     return 0;
 }
 
-int add_user(const string &pubkeyb64)
+/**
+ * Adds the user denoted by specified session id and public key to the global authed user list.
+ * This should get called after the challenge handshake is verified.
+ * 
+ * @param sessionid User socket session id.
+ * @param pubkeyb64 User's base64 public key.
+ * @return 0 on successful additions. -1 on failure.
+ */
+int add_user(const std::string &sessionid, const std::string &pubkeyb64)
 {
-    if (users.count(pubkeyb64) == 1)
+    if (users.count(sessionid) == 1)
     {
-        cerr << pubkeyb64 << " already exist. Cannot add user.\n";
+        std::cerr << sessionid << " already exist. Cannot add user.\n";
         return -1;
     }
 
@@ -135,7 +201,7 @@ int add_user(const string &pubkeyb64)
     int inpipe[2];
     if (pipe(inpipe) != 0)
     {
-        cerr << "User in pipe creation failed. pubkey:" << pubkeyb64 << endl;
+        std::cerr << "User in pipe creation failed. sessionid:" << sessionid << std::endl;
         return -1;
     }
 
@@ -143,7 +209,7 @@ int add_user(const string &pubkeyb64)
     int outpipe[2];
     if (pipe(outpipe) != 0)
     {
-        cerr << "User out pipe creation failed. pubkey:" << pubkeyb64 << endl;
+        std::cerr << "User out pipe creation failed. sessionid:" << sessionid << std::endl;
 
         //We need to close 'inpipe' in case outpipe failed.
         close(inpipe[0]);
@@ -152,20 +218,27 @@ int add_user(const string &pubkeyb64)
         return -1;
     }
 
-    users.insert(pair<string, contract_user>(pubkeyb64, contract_user(pubkeyb64, inpipe, outpipe)));
+    users.emplace(sessionid, util::contract_user(pubkeyb64, inpipe, outpipe));
     return 0;
 }
 
-int remove_user(const string &pubkeyb64)
+/**
+ * Removes the specified public key from the global user list.
+ * This must get called when a user disconnects from HP.
+ * 
+ * @return 0 on successful removals. -1 on failure.
+ */
+int remove_user(const std::string &sessionid)
 {
-    if (users.count(pubkeyb64) == 0)
+    auto itr = users.find(sessionid);
+
+    if (itr == users.end())
     {
-        cerr << pubkeyb64 << " does not exist. Cannot remove user.\n";
+        std::cerr << sessionid << " does not exist. Cannot remove user.\n";
         return -1;
     }
 
-    auto itr = users.find(pubkeyb64);
-    contract_user user = itr->second;
+    const util::contract_user &user = itr->second;
 
     //Close the User <--> SC I/O pipes.
     close(user.inpipe[0]);
@@ -177,6 +250,12 @@ int remove_user(const string &pubkeyb64)
     return 0;
 }
 
+/**
+ * Read all per-user outputs produced by the contract process and store them in
+ * the user buffer for later processing.
+ * 
+ * @return 0 on success. -1 on failure.
+ */
 int read_contract_user_outputs()
 {
     //Read any outputs that has been written by the contract process
@@ -187,7 +266,7 @@ int read_contract_user_outputs()
     //Currently this is sequential for simplicity which will not scale well
     //when there are large number of users connected to the same HP node.
 
-    for (auto &[pk, user] : users)
+    for (auto &[sid, user] : users)
     {
         int fdout = user.outpipe[0];
         int bytes_available = 0;
@@ -199,13 +278,30 @@ int read_contract_user_outputs()
             read(fdout, data, bytes_available);
 
             //Populate the user output buffer with new data
-            util::replace_string_contents(user.outbuffer, data, bytes_available);
+            user.outbuffer = std::string(data, bytes_available);
 
-            cout << "Read " + to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << endl;
+            std::cout << "Read " + std::to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << std::endl;
         }
     }
 
     return 0;
+}
+
+/**
+ * Starts listening for incoming user websocket connections.
+ */
+void start_listening()
+{
+    auto address = net::ip::make_address(conf::cfg.listenip);
+    std::make_shared<sock::socket_server>(
+        ioc,
+        tcp::endpoint{address, conf::cfg.pubport},
+        global_usr_session_handler)
+        ->run();
+
+    listener_thread = std::thread([&] { ioc.run(); });
+
+    std::cout << "Started listening for incoming user connections...\n";
 }
 
 } // namespace usr

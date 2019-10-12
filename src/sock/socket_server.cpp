@@ -15,7 +15,7 @@ namespace sock
 {
 
 socket_server::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler &session_handler)
-    : acceptor_(ioc), socket_(ioc), sess_handler_(session_handler)
+    : acceptor_(ioc), socket_(ioc),sess_handler_(session_handler)
 {
     error_code ec;
 
@@ -83,10 +83,11 @@ void socket_server::on_accept(error_code ec)
     {
         unsigned short port = socket_.remote_endpoint().port();
         std::string address = socket_.remote_endpoint().address().to_string();
+        websocket::stream<beast::tcp_stream> ws(std::move(socket_));
 
-        // Launch a new session for this connection
+       // Launch a new session for this connection
         std::make_shared<socket_session>(
-            std::move(socket_), sess_handler_)
+            ws, sess_handler_)
             ->server_run(port, address);
     }
 

@@ -1,5 +1,7 @@
 #include <iostream>
-#include "peer_session_handler.hpp"
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/asio.hpp>
 #include "message.pb.h"
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_client.hpp"
@@ -20,7 +22,7 @@ peer_session_handler peer_session_manager;
 std::time_t timestamp = std::time(nullptr);
 
 //peer session on connect callback method
-void peer_session_handler::on_connect(sock::socket_session *session, error ec)
+void peer_session_handler::on_connect(sock::socket_session *session)
 {
     std::cout << "Sending message" << std::endl;
     auto const message = std::make_shared<std::string const>("Connected successfully");
@@ -30,10 +32,10 @@ void peer_session_handler::on_connect(sock::socket_session *session, error ec)
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
-void peer_session_handler::on_message(sock::socket_session *session, std::shared_ptr<std::string const> const &message, error ec)
+void peer_session_handler::on_message(sock::socket_session *session, const std::string &message)
 {
-    std::cout << "on-message : " << *message << std::endl;
-    session->send(message);
+    std::cout << "on-message : " << message << std::endl;
+    session->send(std::make_shared<std::string>(message));
 }
 
 //peer session on message callback method
