@@ -55,6 +55,16 @@ int verify(const string &msg, const string &sig, const string &pubkey);
  */
 int verify_b64(const string &msg, const string &sigb64, const string &pubkeyb64);
 
+/**
+ * Generate SHA 512 hash for message prepend with prefix before hashing.
+ * 
+ * @param msg message string.
+ * @param prefix prefix char array.
+ * @param char_length length of prefix char array.
+ * @return SHA 512 hash.
+ */
+string sha_512_hash(const string &msg, const char *prefix, size_t char_length);
+
 } // namespace crypto
 
 #endif

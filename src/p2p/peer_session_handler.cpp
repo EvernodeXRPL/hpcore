@@ -3,9 +3,10 @@
 #include "message.pb.h"
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_client.hpp"
-#include "peer_session_handler.hpp"
 #include "../conf.hpp"
+#include "../crypto.hpp"
 #include "p2p.hpp"
+#include "peer_session_handler.hpp"
 
 namespace net = boost::asio;
 namespace beast = boost::beast;
@@ -60,8 +61,7 @@ void open_listen()
     std::cin >> t;
 }
 
-
-bool validate_peer_message(const Message &peer_message)
+bool validate_peer_message(const Message &peer_message, const std::string &message)
 {
     //todo:check pubkey in unl list. need to change unl list to a map.
 
@@ -72,10 +72,20 @@ bool validate_peer_message(const Message &peer_message)
         return false;
     }
 
-    //get message hash and see wheteher message is already recieved: abandon
-    //else put into recent peer hash array
+    //get message hash and see wheteher message is already recieved -> abandon
+    auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
+
+    if (peer_ctx.recent_peer_msghash.count(messageHash) == 0)
+    {
+        peer_ctx.recent_peer_msghash.insert({messageHash, timestamp});
+    }
+    else
+    {
+        return false;
+    }
 
     //check signature
+    //todo:move to initial part.
 
     return true;
 }
@@ -86,7 +96,7 @@ void on_peer_message_recieved(const std::string &message)
 
     if (message_parse_from_string(container_message, message))
     {
-        if (validate_peer_message(container_message))
+        if (validate_peer_message(container_message, message))
         {
             auto messageType = container_message.type();
             if (messageType == p2p::Message::PROPOSAL)

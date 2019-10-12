@@ -14,6 +14,7 @@ namespace p2p
 {
 
 namespace protobuf = google::protobuf;
+peer_context peer_ctx;
 
 //set all fields of given message.
 void set_message(Message &message, const int timestamp, const string &version, const string &publicKey, const string &signature, p2p::Message::Messagetype type, const string &content)

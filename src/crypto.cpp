@@ -38,8 +38,8 @@ string sign(const string &msg, const string &seckey)
 
     unsigned char sigchars[crypto_sign_BYTES];
     crypto_sign_detached(sigchars, NULL, (unsigned char *)msg.data(), msg.length(), (unsigned char *)seckey.data());
-    string sig((char *)sigchars, crypto_sign_BYTES);
-    return sig;
+    return string ((char *)sigchars, crypto_sign_BYTES);
+
 }
 
 string sign_b64(const string &msg, const string &seckeyb64)
@@ -74,6 +74,17 @@ int verify_b64(const string &msg, const string &sigb64, const string &pubkeyb64)
     util::base64_decode(sigb64, decoded_sig, crypto_sign_BYTES);
 
     return crypto_sign_verify_detached(decoded_sig, (unsigned char *)msg.data(), msg.length(), decoded_pubkey);
+}
+
+string sha_512_hash(const string &msg, const char *prefix, size_t char_length)
+{
+    string payload;
+    payload.reserve(char_length + msg.size());
+    payload.append(prefix);
+    payload.append(msg);
+    unsigned char hashchars[crypto_hash_sha512_BYTES];
+    crypto_hash_sha512(hashchars, (unsigned char *)payload.data(), payload.length());
+    return string((char *)hashchars, crypto_hash_sha512_BYTES);
 }
 
 } // namespace crypto

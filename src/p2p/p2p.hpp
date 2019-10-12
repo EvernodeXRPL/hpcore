@@ -11,7 +11,7 @@ namespace p2p
 
 struct peer_context
 {
-    map<string, string> recent_peer_msghash; // hash of recent peer messages.
+    map<string, time_t> recent_peer_msghash; // hash of recent peer messages.
 };
 
 //global peer context
