@@ -18,6 +18,6 @@ public:
     void on_close(sock::socket_session *session);
 };
 
-void open_listen();
+
 } // namespace p2p
 #endif

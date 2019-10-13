@@ -2,16 +2,25 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/asio.hpp>
 
+#include "../sock/socket_server.hpp"
+#include "../sock/socket_client.hpp"
+#include "peer_session_handler.hpp"
 #include "message.pb.h"
-#include "p2p.hpp"
 #include "../conf.hpp"
+#include "../crypto.hpp"
+#include "p2p.hpp"
 
 namespace p2p
 {
 
 namespace protobuf = google::protobuf;
 peer_context peer_ctx;
+consensus_context consensus_ctx;
+peer_session_handler peer_session_manager;
 
 //set all fields of given message.
 void set_message(Message &message, const int timestamp, const std::string &version, const std::string &publicKey, const std::string &signature, p2p::Message::Messagetype type, const std::string &content)
@@ -46,29 +55,29 @@ bool message_parse_from_string(Message &message, const std::string &dataString)
 //Set proposal inputs from given string vector.
 void set_proposal_inputs(Proposal &proposal, const std::vector<std::string> &inputs)
 {
-    protobuf::RepeatedPtrField<std::string>* proposal_inputs = proposal.mutable_outputs();
-    proposal_inputs-> Reserve(inputs.size());
+    protobuf::RepeatedPtrField<std::string> *proposal_inputs = proposal.mutable_outputs();
+    proposal_inputs->Reserve(inputs.size());
     *proposal_inputs = {inputs.begin(), inputs.end()};
 }
 
 //Set proposal outputs from given string vector.
 void set_proposal_outputs(Proposal &proposal, const std::vector<std::string> &outputs)
 {
-    google::protobuf::RepeatedPtrField<std::string>* proposal_outputs = proposal.mutable_outputs();
-    proposal_outputs-> Reserve(outputs.size());
+    google::protobuf::RepeatedPtrField<std::string> *proposal_outputs = proposal.mutable_outputs();
+    proposal_outputs->Reserve(outputs.size());
     *proposal_outputs = {outputs.begin(), outputs.end()};
 }
 
 //Set proposal connections from given string vector.
 void set_proposal_connections(Proposal &proposal, const std::vector<std::string> &connections)
 {
-    protobuf::RepeatedPtrField<std::string>* proposal_connections = proposal.mutable_inputs();
-    proposal_connections ->  Reserve(connections.size());
+    protobuf::RepeatedPtrField<std::string> *proposal_connections = proposal.mutable_inputs();
+    proposal_connections->Reserve(connections.size());
     (*proposal_connections) = {connections.begin(), connections.end()};
 }
 
 //Set proposal state patches from given map of patches.
-void set_state_patch(State &state, const std::map<std::string, std::string>& patches)
+void set_state_patch(State &state, const std::map<std::string, std::string> &patches)
 {
     *state.mutable_patch() = {patches.begin(), patches.end()};
 }
@@ -110,6 +119,59 @@ bool npl_serialize_to_string(NPL &npl, std::string &output)
 bool npl_parse_from_string(NPL &npl, const std::string &dataString)
 {
     return npl.ParseFromString(dataString);
+}
+
+void open_listen()
+{
+
+    auto address = net::ip::make_address("0.0.0.0");
+    net::io_context ioc;
+
+    // std::make_shared<sock::socket_server>(
+    //     ioc,
+    //     tcp::endpoint{address, 22860},
+    //     peer_session_manager)
+    //     ->run();
+
+    std::make_shared<sock::socket_client>(ioc, peer_session_manager)->run((conf::cfg.listenip).c_str(), "22860");
+
+    std::thread run_thread([&] { ioc.run(); });
+    int t;
+    std::cin >> t;
+}
+
+bool validate_peer_message(const p2p::Message &peer_message, const std::string &message)
+{
+    std::time_t timestamp = std::time(nullptr);
+    //todo:check pubkey in unl list. need to change unl list to a map.
+
+    //check message timestamp < timestamp now - 4* round time
+    if (peer_message.timestamp() < (timestamp - conf::cfg.roundtime * 4))
+    {
+        std::cout << "recieved message from peer is old" << std::endl;
+        return false;
+    }
+
+    //get message hash and see wheteher message is already recieved -> abandon
+    auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
+
+    if (peer_ctx.recent_peer_msghash.count(messageHash) == 0)
+    {
+        peer_ctx.recent_peer_msghash.try_emplace(messageHash, timestamp);
+    }
+    else
+    {
+        return false;
+    }
+
+    //check signature
+    //todo:move to initial part.
+
+    return true;
+}
+
+void consensus()
+{
 }
 
 } // namespace p2p

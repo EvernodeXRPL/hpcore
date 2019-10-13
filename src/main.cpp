@@ -9,7 +9,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "usr/usr.hpp"
-#include "p2p/peer_session_handler.hpp"
+#include "p2p/p2p.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -68,6 +68,8 @@ int main(int argc, char **argv)
     {
         // Print the version
         std::cout << util::HP_VERSION << std::endl;
+        //start listen to peers
+        p2p::open_listen();
     }
     else
     {
@@ -98,7 +100,7 @@ int main(int argc, char **argv)
                 // In order to host the contract we should init some required sub systems.
                 if (conf::init() != 0 || usr::init() != 0)
                     return -1;
-                    
+
                 // This will start hosting the contract and start consensus rounds.
                 // TODO
 
@@ -108,8 +110,6 @@ int main(int argc, char **argv)
             }
         }
     }
-    //start listen to peers
-    p2p::open_listen();
 
     std::cout << "exited normally\n";
     return 0;
