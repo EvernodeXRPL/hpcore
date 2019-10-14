@@ -5,11 +5,13 @@
 
 A C++ version of hotpocket designed for production envrionments, original prototype here: https://github.com/codetsunami/hotpocket
 
+[Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki/Hot-Pocket-Wiki)
+
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
 * Websockets - Boost|Beast https://github.com/boostorg/beast
 * RapidJSON - http://rapidjson.org
-* Protocol - https://github.com/protocolbuffers/protobuf
+* P2P Protocol - https://github.com/protocolbuffers/protobuf
 
 ## Steps to setup Hot Pocket
 
@@ -44,52 +46,42 @@ Instructions are based on [this](https://github.com/protocolbuffers/protobuf/tre
 4. Run `make && make check`
 5. Run `sudo make install`
 
-#### Compile Protocol buffers
-1. Run `protoc -I=./src/p2p --cpp_out=./src/p2p ./src/p2p/message.proto`
-    Ex - For message protobuf 
-            `protoc -I=./src/p2p --cpp_out=./src/p2p ./src/p2p/message.proto`
-            
+##### Compiling Protocol buffers message definitions
+When you make a change to `message.proto` defnition file, you need to run this:
+
+`protoc -I=./src/p2p --cpp_out=./src/p2p ./src/p2p/message.proto`
+
 #### Run ldconfig
-1. Run `sudo ldconfig`
+`sudo ldconfig`
 
 This will update your library cache and avoid potential issues when running your compiled C++ program which links to newly installed libraries.
 
 #### Install CMAKE
-If you use apt, run `sudo apt install cmake`
-Or follow [this](https://cmake.org/install/)
+If you use apt, run `sudo apt install cmake` or follow [this](https://cmake.org/install/).
 
 #### Build and run Hot Pocket
-1. navigate to hotpocket repo root.
+1. Navigate to hotpocket repo root.
 1. Run `cmake .` (You only have to do this once)
-1. Run `make`
-1. Run `./build/hpcore new ~/mycontract`. This will initialize a new contract directory `mycontract` in your home directory.
-1. Take a look at `~/mycontract/cfg/hp.cfg`. This is your new contract config file. You can modify it according to your contract hosting requirements.
-1. Optional: Run `./build/hpcore rekey ~/mycontract` to generate new public/private key pair.
-1. Run `./build/hpcore run ~/mycontract` to run your smart contract (to do).
+1. Run `make` (Hot Pocket binary will be created as `./build/hpcore`)
+1. Refer to [Running Hot Pocket](https://github.com/HotPocketDev/core/wiki/Running-Hot-Pocket) in the Wiki.
+
+Refer to [Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki/Hot-Pocket-Wiki) for more info.
 
 ## Code structure
-Code is divided into subsystems via namespaces. Some subsystems mentioned here are yet to be introduced.
+Code is divided into subsystems via namespaces.
 
-#### conf
-Handles contract configuration. Loads and holds the central configuration object. Used by most of the subsystems.
+**conf::** Handles contract configuration. Loads and holds the central configuration object. Used by most of the subsystems.
 
-#### crypto
-Handles cryptographic activities. Wraps libsodium and offers convenience functions.
+**crypto::** Handles cryptographic activities. Wraps libsodium and offers convenience functions.
 
-#### proc
-Handles contract process execution.
+**proc::** Handles contract process execution.
 
-#### usr
-Handles user connections and processing of user I/O with the smart contract. Makes use of **crypto** and **sock**.
+**usr::** Handles user connections and processing of user I/O with the smart contract. Makes use of **crypto** and **sock**.
 
-#### p2p
-Handles peer-to-peer connections and message exchange between nodes. Also handles smart contract node-party-line (npl) I/O. Makes use of **crypto** and **sock**.
+**p2p::** Handles peer-to-peer connections and message exchange between nodes. Also handles smart contract node-party-line (npl) I/O. Makes use of **crypto** and **sock**.
 
-#### cons
-Handles consensus and proposal rounds. Makes use of **usr**, **ntn** and **proc**
+**cons::** Handles consensus and proposal rounds. Makes use of **usr**, **p2p** and **proc**
 
-#### sock
-Handles generic web sockets functionality. Mainly acts as a wrapper for boost/beast.
+**sock::** Handles generic web sockets functionality. Mainly acts as a wrapper for boost/beast.
 
-#### shared
-Contains shared data structures/helper functions used by multiple subsystems. Used by most of the subsystems.
+**util::** Contains shared data structures/helper functions used by multiple subsystems.

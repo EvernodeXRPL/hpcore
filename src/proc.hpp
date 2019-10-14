@@ -5,9 +5,6 @@
 #include <map>
 #include "util.hpp"
 
-using namespace std;
-using namespace util;
-
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
  */
@@ -19,11 +16,11 @@ namespace proc
  */
 struct ContractExecArgs
 {
-    map<string, contract_user> &users; // Map of authenticated contract users indexed by user pubkey.
-    map<string, peer_node> &peers;     // Map of connected peers indexed by node pubkey.
+    std::map<std::string, util::contract_user> &users; // Map of authenticated contract users indexed by user pubkey.
+    std::map<std::string, util::peer_node> &peers;     // Map of connected peers indexed by node pubkey.
     uint64_t timestamp;                // Current HotPocket timestamp.
 
-    ContractExecArgs(map<string, contract_user> &_users, map<string, peer_node> &_peers, uint64_t _timestamp)
+    ContractExecArgs(std::map<std::string, util::contract_user> &_users, std::map<std::string, util::peer_node> &_peers, uint64_t _timestamp)
         : users(_users), peers(_peers)
     {
         timestamp = _timestamp;

@@ -6,40 +6,40 @@
 #include <map>
 #include "../util.hpp"
 
-using namespace std;
-using namespace util;
-
 /**
  * Maintains the global user list with pending input outputs and manages user connections.
  */
 namespace usr
 {
 
-// Length of user random challenge bytes.
-static const int user_challenge_len = 16;
-
-// Message type for the user challenge.
-static const char *msg_public_challenge = "public_challenge";
-
-// Message type for the user challenge response.
-static const char *msg_challenge_resp = "challenge_response";
-
 /**
  * Global authenticated (challenge-verified) user list.
  */
-extern map<string, contract_user> users;
+extern std::map<std::string, util::contract_user> users;
+
+/**
+ * Keep track of verification-pending challenges issued to newly connected users.
+ */
+extern std::map<std::string, std::string> pending_challenges;
+
+/**
+ * Keep track of verification-pending challenges issued to newly connected users.
+ */
+extern std::map<std::string, std::string> pending_challenges;
 
 int init();
 
-void create_user_challenge(string &msg, string &challengeb64);
+void create_user_challenge(std::string &msg, std::string &challengeb64);
 
-int verify_user_challenge_response(const string &response, const string &original_challenge, string &extracted_pubkey);
+int verify_user_challenge_response(std::string &extracted_pubkeyb64, const std::string &response, const std::string &original_challenge);
 
-int add_user(const string &pubkeyb64);
+int add_user(const std::string &sessionid, const std::string &pubkeyb64);
 
-int remove_user(const string &pubkeyb64);
+int remove_user(const std::string &sessionid);
 
 int read_contract_user_outputs();
+
+void start_listening();
 
 } // namespace usr
 
