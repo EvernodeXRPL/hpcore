@@ -102,7 +102,7 @@ void socket_session::on_read(error_code ec, std::size_t)
     }
 
     std::string message = beast::buffers_to_string(buffer_.data());
-    sess_handler_.on_message(this, message);
+    sess_handler_.on_message(this, std::move(message));
 
     // Clear the buffer
     buffer_.consume(buffer_.size());
