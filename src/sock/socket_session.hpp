@@ -27,10 +27,10 @@ class socket_session_handler;
 */
 class socket_session : public std::enable_shared_from_this<socket_session>
 {
-    beast::flat_buffer buffer_;                // used to store incoming messages
-    websocket::stream<beast::tcp_stream> ws_;  // websocket stream used send an recieve messages
-    std::vector<std::string> queue_;           // uses to store messages temporarily until it is sent to the relevant party
-    socket_session_handler &sess_handler_;     // handler passed to gain access to websocket events
+    beast::flat_buffer buffer_;               // used to store incoming messages
+    websocket::stream<beast::tcp_stream> ws_; // websocket stream used send an recieve messages
+    std::vector<std::string> queue_;          // uses to store messages temporarily until it is sent to the relevant party
+    socket_session_handler &sess_handler_;    // handler passed to gain access to websocket events
 
     void fail(error ec, char const *what);
 
@@ -45,11 +45,13 @@ class socket_session : public std::enable_shared_from_this<socket_session>
 public:
     socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler);
 
+    // port and the address of the remote party is being saved to used in the session handler
+    // to identify from which remote party the message recieved.
     // The port of the remote party.
-    std::uint16_t port_;
+    std::string_view port_;
 
     // The IP address of the remote party.
-    std::string address_;
+    std::string_view address_;
 
     // The unique identifier of the remote party (format <ip>:<port>).
     std::string uniqueid_;
@@ -59,10 +61,9 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags_;
 
-    void server_run(const std::uint16_t port, std::string_view address);
-    void client_run(const std::uint16_t port, std::string_view address, error ec);
+    void server_run(std::string_view port, std::string_view address);
+    void client_run(std::string_view port, std::string_view address, error ec);
 
-    
     void send(std::string &&ss);
 
     // When called, initializes the unique id string for this session.

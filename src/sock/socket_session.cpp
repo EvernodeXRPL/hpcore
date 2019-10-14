@@ -17,7 +17,7 @@ socket_session::socket_session(websocket::stream<beast::tcp_stream> &websocket, 
 }
 
 //port and address will be used to identify from which client the message recieved in the handler
-void socket_session::server_run(const std::uint16_t port, std::string_view address)
+void socket_session::server_run(std::string_view port, std::string_view address)
 {
     port_ = port;
     address_ = address;
@@ -31,7 +31,7 @@ void socket_session::server_run(const std::uint16_t port, std::string_view addre
 }
 
 //port and address will be used to identify from which server the message recieved in the handler
-void socket_session::client_run(const std::uint16_t port, std::string_view address, error ec)
+void socket_session::client_run(std::string_view port, std::string_view address, error ec)
 {
     port_ = port;
     address_ = address;
@@ -49,8 +49,8 @@ void socket_session::client_run(const std::uint16_t port, std::string_view addre
         });
 }
 
-/*
-* Executes on error
+/**
+ * Executes on error
 */
 void socket_session::fail(error_code ec, char const *what)
 {
@@ -62,8 +62,8 @@ void socket_session::fail(error_code ec, char const *what)
         return;
 }
 
-/*
-* Executes on acceptance of new connection
+/**
+ * Executes on acceptance of new connection
 */
 void socket_session::on_accept(error_code ec)
 {
@@ -87,7 +87,7 @@ void socket_session::on_accept(error_code ec)
 */
 void socket_session::on_read(error_code ec, std::size_t)
 {
-        //if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
+    //if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
     // read may get called when operation_aborted as well.
     // We don't need to process read operation in that case.
     if (ec == net::error::operation_aborted)
@@ -193,7 +193,7 @@ void socket_session::init_uniqueid()
     // Create a unique id for the session combining ip and port.
     // We prepare this appended string here because we need to use it for finding elemends from the maps
     // for validation purposes whenever a message is received.
-    uniqueid_.append(address_).append(":").append(std::to_string(port_));
+    uniqueid_.append(address_).append(":").append(port_);
 }
 
 } // namespace sock

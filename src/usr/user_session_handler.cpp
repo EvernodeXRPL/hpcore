@@ -37,7 +37,6 @@ void user_session_handler::on_connect(sock::socket_session *session)
     // Create an entry in pending_challenges for later tracking upon challenge response.
     usr::pending_challenges[session->uniqueid_] = challengeb64;
 
-    // TODO: This needs to be reviewed to optimise passing the message.
     session->send(std::move(msg));
 
     // Set the challenge-issued flag to help later checks in on_message.

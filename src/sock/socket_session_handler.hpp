@@ -15,18 +15,18 @@ class socket_session;
 class socket_session_handler
 {
 public:
-    /*
-    * Executes on initiation of a new connection
+    /**
+     * Executes on initiation of a new connection
     */
     virtual void on_connect(socket_session *session) = 0;
 
-    /*
-    * Executes on recieval of new message
+    /**
+     * Executes on recieval of new message
     */
-    virtual void on_message(socket_session *session,std::string &&message) = 0;
+    virtual void on_message(socket_session *session, std::string &&message) = 0;
 
-    /*
-    * Executes on websocket connection close
+    /**
+     * Executes on websocket connection close
     */
     virtual void on_close(socket_session *session) = 0;
 };

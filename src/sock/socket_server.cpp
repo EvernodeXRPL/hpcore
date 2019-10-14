@@ -53,8 +53,8 @@ socket_server::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socke
     }
 }
 
-/*
-* Entry point to socket server which accepts new connections
+/**
+ * Entry point to socket server which accepts new connections
 */
 void socket_server::run()
 {
@@ -67,8 +67,8 @@ void socket_server::run()
         });
 }
 
-/*
-* Executes on error
+/**
+ * Executes on error
 */
 void socket_server::fail(error_code ec, char const *what)
 {
@@ -78,8 +78,8 @@ void socket_server::fail(error_code ec, char const *what)
     std::cerr << what << ": " << ec.message() << "\n";
 }
 
-/*
-* Executes on acceptance of new connection
+/**
+ * Executes on acceptance of new connection
 */
 void socket_server::on_accept(error_code ec)
 {
@@ -89,8 +89,8 @@ void socket_server::on_accept(error_code ec)
     }
     else
     {
-        std::uint16_t port = socket_.remote_endpoint().port();
-        std::string address = socket_.remote_endpoint().address().to_string();
+        std::string_view port = std::to_string(socket_.remote_endpoint().port());
+        std::string_view address = socket_.remote_endpoint().address().to_string();
 
         //Creating websocket stream required to pass to initiate a new session
         websocket::stream<beast::tcp_stream> ws(std::move(socket_));

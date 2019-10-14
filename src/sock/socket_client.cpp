@@ -12,14 +12,14 @@ socket_client::socket_client(net::io_context &ioc, socket_session_handler &sessi
 {
 }
 
-/*
-* Entry point to socket client which will intiate a connection to server
+/**
+ * Entry point to socket client which will intiate a connection to server
 */
-void socket_client::run(char const *host, char const *port)
+void socket_client::run(std::string_view host, std::string_view port)
 {
     host_ = host;
-    port_ = (std::int16_t)std::strtoul(port, NULL, 0);
-    
+    port_ = port;
+
     // Look up the domain name
     resolver_.async_resolve(
         host,
@@ -29,8 +29,8 @@ void socket_client::run(char const *host, char const *port)
         });
 }
 
-/*
-* Executes on completion of resolving the server
+/**
+ * Executes on completion of resolving the server
 */
 void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
 {
@@ -45,8 +45,8 @@ void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
         });
 }
 
-/*
-* Executes on completion of connecting to the server
+/**
+ * Executes on completion of connecting to the server
 */
 void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_type)
 {
@@ -69,8 +69,8 @@ void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_t
                         });
 }
 
-/*
-* Executes on completion of handshake
+/**
+ * Executes on completion of handshake
 */
 void socket_client::on_handshake(error ec)
 {
@@ -80,8 +80,8 @@ void socket_client::on_handshake(error ec)
         ->client_run(port_, host_, ec);
 }
 
-/*
-* Executes on error
+/**
+ * Executes on error
 */
 void socket_client::socket_client_fail(beast::error_code ec, char const *what)
 {
