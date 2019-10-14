@@ -74,11 +74,11 @@ Code is divided into subsystems via namespaces.
 
 **crypto::** Handles cryptographic activities. Wraps libsodium and offers convenience functions.
 
-**proc::** Handles contract process execution.
+**proc::** Handles contract process execution and managing user/SC I/O and npl I/O. Makes use of **usr** and **p2p**.
 
-**usr::** Handles user connections and processing of user I/O with the smart contract. Makes use of **crypto** and **sock**.
+**usr::** Handles user connections. Makes use of **crypto** and **sock**.
 
-**p2p::** Handles peer-to-peer connections and message exchange between nodes. Also handles smart contract node-party-line (npl) I/O. Makes use of **crypto** and **sock**.
+**p2p::** Handles peer-to-peer connections and message exchange between nodes. Makes use of **crypto** and **sock**.
 
 **cons::** Handles consensus and proposal rounds. Makes use of **usr**, **p2p** and **proc**
 

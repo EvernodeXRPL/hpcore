@@ -89,9 +89,11 @@ void user_session_handler::on_message(sock::socket_session *session, const std::
         {
             // This is an authed user.
             const usr::contract_user &user = itr->second;
-            //TODO:Colect bytes into user inbuffer.
             
-            std::cout << "Collected " << message.length() << " bytes from user " << user.pubkeyb64 << std::endl;
+            //Hand over the bytes into user inbuffer.
+            user.inbuffer = std::move(message);
+            
+            std::cout << "Collected " << user.inbuffer.length() << " bytes from user " << user.pubkeyb64 << std::endl;
             return;
         }
     }

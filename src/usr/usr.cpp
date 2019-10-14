@@ -1,8 +1,6 @@
 #include <cstdio>
 #include <iostream>
 #include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -48,10 +46,10 @@ std::thread listener_thread;
 
 // Challenge response fields.
 // These fields are used on challenge response validation.
-static const char* CHALLENGE_RESP_TYPE = "type";
-static const char* CHALLENGE_RESP_CHALLENGE = "challenge";
-static const char* CHALLENGE_RESP_SIG = "sig";
-static const char* CHALLENGE_RESP_PUBKEY = "pubkey";
+static const char *CHALLENGE_RESP_TYPE = "type";
+static const char *CHALLENGE_RESP_CHALLENGE = "challenge";
+static const char *CHALLENGE_RESP_SIG = "sig";
+static const char *CHALLENGE_RESP_PUBKEY = "pubkey";
 
 // Message type for the user challenge.
 static const char *CHALLENGE_MSGTYPE = "public_challenge";
@@ -168,9 +166,9 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
 
     // Verify the challenge signature. We do this last due to signature verification cost.
     if (crypto::verify_b64(
-        original_challenge,
-        util::getsv(d[CHALLENGE_RESP_SIG]),
-        util::getsv(d[CHALLENGE_RESP_PUBKEY])) != 0)
+            original_challenge,
+            util::getsv(d[CHALLENGE_RESP_SIG]),
+            util::getsv(d[CHALLENGE_RESP_PUBKEY])) != 0)
     {
         std::cerr << "User challenge response signature verification failed.\n";
         return -1;
@@ -215,56 +213,19 @@ int remove_user(std::string_view sessionid)
         return -1;
     }
 
-    const usr::contract_user &user = itr->second;
+    usr::contract_user &user = itr->second;
 
-    //Close any open fds for this user.
-    for(int fd : user.fds)
+    // Close any open fds for this user.
+    for (int i = 0; i < 4; i++)
     {
-        if (fd > 0)
+        if (user.fds[i] > 0)
         {
-            close(fd);
-            fd = 0;
+            close(user.fds[i]);
+            user.fds[i] = 0;
         }
     }
 
     users.erase(itr);
-    return 0;
-}
-
-/**
- * Read all per-user outputs produced by the contract process and store them in
- * the user buffer for later processing.
- * 
- * @return 0 on success. -1 on failure.
- */
-int read_contract_user_outputs()
-{
-    //Read any outputs that has been written by the contract process
-    //from all the user outpipes and store in the outbuffer of each user.
-    //User outbuffer will be read by the consensus process later when it wishes so.
-
-    //Future optmization: Read and populate user buffers parallely.
-    //Currently this is sequential for simplicity which will not scale well
-    //when there are large number of users connected to the same HP node.
-
-    for (auto &[sid, user] : users)
-    {
-        int fdout = user.fds[util::USERFDTYPE::HPREAD];
-        int bytes_available = 0;
-        ioctl(fdout, FIONREAD, &bytes_available);
-
-        if (bytes_available > 0)
-        {
-            char data[bytes_available];
-            read(fdout, data, bytes_available);
-
-            //Populate the user output buffer with new data
-            user.outbuffer = std::string(data, bytes_available);
-
-            std::cout << "Read " + std::to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << std::endl;
-        }
-    }
-
     return 0;
 }
 

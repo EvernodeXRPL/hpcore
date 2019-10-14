@@ -33,21 +33,6 @@ enum SESSION_FLAG
 };
 
 /**
- * Enum used to differenciate pipe fds maintained for user/SC communication.
- */
-enum USERFDTYPE
-{
-    // Used by Smart Contract to read user-input sent by Hot Pocket
-    SCREAD = 0,
-    // Used by Hot Pocket to write user-input to the smart contract.
-    HPWRITE = 1,
-    // Used by Hot Pocket to read output from the smart contract.
-    HPREAD = 2,
-    // Used by Smart Contract to write output back to Hot Pocket.
-    SCWRITE = 3
-};
-
-/**
  * Holds information about a HotPocket peer connected to this node.
  */
 struct peer_node
