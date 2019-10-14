@@ -25,7 +25,7 @@ class socket_client : public std::enable_shared_from_this<socket_client>
     tcp::resolver resolver_;                  // resolver used to resolve host and the port
     websocket::stream<beast::tcp_stream> ws_; // web socket stream used to send and receive messages
     std::string host_;                   // address of the server in which the client connects
-    std::string_view port_;                   // port of the server in which client connects
+    std::string port_;                   // port of the server in which client connects
     socket_session_handler &sess_handler_;    // handler passed to gain access to websocket events
 
     void on_resolve(error ec, tcp::resolver::results_type results);

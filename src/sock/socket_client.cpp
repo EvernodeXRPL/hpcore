@@ -78,7 +78,7 @@ void socket_client::on_handshake(error ec)
     //Creates a new socket session object
     std::make_shared<socket_session>(
         ws_, sess_handler_)
-        ->client_run(port_, host_, ec);
+        ->client_run(std::move(host_), std::move(port_), ec);
 }
 
 /**

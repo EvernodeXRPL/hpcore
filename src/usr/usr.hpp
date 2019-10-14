@@ -22,10 +22,10 @@ struct contract_user
     std::string pubkeyb64;
     
     // Holds the user input to be processed by consensus rounds
-    std::string &&inbuffer = "";
+    std::string inbuffer;
 
     // Holds the contract output to be processed by consensus rounds
-    std::string &&outbuffer = "";
+    std::string outbuffer;
 
     // HP --> SC pipe + SC --> HP pipe
     // We keep 2 pipes in single array for easy access.
