@@ -33,24 +33,18 @@ enum SESSION_FLAG
 };
 
 /**
- * Holds information about an authenticated (challenge-verified) user
- * connected to the HotPocket node.
+ * Enum used to differenciate pipe fds maintained for user/SC communication.
  */
-struct contract_user
+enum USERFDTYPE
 {
-    std::string pubkeyb64; // Base64 user public key
-    int inpipe[2];    // Pipe to receive user input
-    int outpipe[2];   // Pipe to receive output produced by the contract
-    std::string outbuffer; // Holds the contract output to be processed by consensus rounds
-
-    contract_user(std::string_view _pubkeyb64, int _inpipe[2], int _outpipe[2])
-    {
-        pubkeyb64 = _pubkeyb64;
-        inpipe[0] = _inpipe[0];
-        inpipe[1] = _inpipe[1];
-        outpipe[0] = _outpipe[0];
-        outpipe[1] = _outpipe[1];
-    }
+    // Used by Smart Contract to read user-input sent by Hot Pocket
+    SCREAD = 0,
+    // Used by Hot Pocket to write user-input to the smart contract.
+    HPWRITE = 1,
+    // Used by Hot Pocket to read output from the smart contract.
+    HPREAD = 2,
+    // Used by Smart Contract to write output back to Hot Pocket.
+    SCWRITE = 3
 };
 
 /**
@@ -59,8 +53,8 @@ struct contract_user
 struct peer_node
 {
     std::string pubkeyb64; // Base64 peer public key
-    int inpipe[2];    // NPL pipe from HP to SC
-    int outpipe[2];   // NPL pipe from SC to HP
+    int inpipe[2];         // NPL pipe from HP to SC
+    int outpipe[2];        // NPL pipe from SC to HP
 
     peer_node(std::string_view _pubkeyb64, int _inpipe[2], int _outpipe[2])
     {

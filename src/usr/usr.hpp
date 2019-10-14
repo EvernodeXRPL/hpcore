@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string_view>
 #include <map>
+#include "contract_user.hpp"
 #include "../util.hpp"
 
 /**
@@ -15,7 +16,7 @@ namespace usr
 /**
  * Global authenticated (challenge-verified) user list.
  */
-extern std::map<std::string, util::contract_user, std::less<>> users;
+extern std::map<std::string, usr::contract_user, std::less<>> users;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.

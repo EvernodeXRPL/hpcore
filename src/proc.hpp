@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <map>
+#include "usr/contract_user.hpp"
 #include "util.hpp"
 
 /**
@@ -16,11 +17,11 @@ namespace proc
  */
 struct ContractExecArgs
 {
-    std::map<std::string, util::contract_user> &users; // Map of authenticated contract users indexed by user pubkey.
+    std::map<std::string, usr::contract_user> &users; // Map of authenticated contract users indexed by user pubkey.
     std::map<std::string, util::peer_node> &peers;     // Map of connected peers indexed by node pubkey.
     uint64_t timestamp;                // Current HotPocket timestamp.
 
-    ContractExecArgs(std::map<std::string, util::contract_user> &_users, std::map<std::string, util::peer_node> &_peers, uint64_t _timestamp)
+    ContractExecArgs(std::map<std::string, usr::contract_user> &_users, std::map<std::string, util::peer_node> &_peers, uint64_t _timestamp)
         : users(_users), peers(_peers)
     {
         timestamp = _timestamp;

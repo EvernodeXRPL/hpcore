@@ -23,7 +23,7 @@ namespace usr
  * Global user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
  */
-std::map<std::string, util::contract_user, std::less<>> users;
+std::map<std::string, usr::contract_user, std::less<>> users;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
@@ -195,30 +195,7 @@ int add_user(std::string_view sessionid, std::string_view pubkeyb64)
         return -1;
     }
 
-    //Establish the I/O pipes for [User <--> SC] channel.
-
-    //inpipe: User will write input to this and contract will read user-input from this.
-    int inpipe[2];
-    if (pipe(inpipe) != 0)
-    {
-        std::cerr << "User in pipe creation failed. sessionid:" << sessionid << std::endl;
-        return -1;
-    }
-
-    //outpipe: Contract will write output for the user to this and user will read from this.
-    int outpipe[2];
-    if (pipe(outpipe) != 0)
-    {
-        std::cerr << "User out pipe creation failed. sessionid:" << sessionid << std::endl;
-
-        //We need to close 'inpipe' in case outpipe failed.
-        close(inpipe[0]);
-        close(inpipe[1]);
-
-        return -1;
-    }
-
-    users.emplace(sessionid, util::contract_user(pubkeyb64, inpipe, outpipe));
+    users.emplace(sessionid, usr::contract_user(pubkeyb64));
     return 0;
 }
 
@@ -238,13 +215,17 @@ int remove_user(std::string_view sessionid)
         return -1;
     }
 
-    const util::contract_user &user = itr->second;
+    const usr::contract_user &user = itr->second;
 
-    //Close the User <--> SC I/O pipes.
-    close(user.inpipe[0]);
-    close(user.inpipe[1]);
-    close(user.outpipe[0]);
-    close(user.outpipe[1]);
+    //Close any open fds for this user.
+    for(int fd : user.fds)
+    {
+        if (fd > 0)
+        {
+            close(fd);
+            fd = 0;
+        }
+    }
 
     users.erase(itr);
     return 0;
@@ -268,7 +249,7 @@ int read_contract_user_outputs()
 
     for (auto &[sid, user] : users)
     {
-        int fdout = user.outpipe[0];
+        int fdout = user.fds[util::USERFDTYPE::HPREAD];
         int bytes_available = 0;
         ioctl(fdout, FIONREAD, &bytes_available);
 

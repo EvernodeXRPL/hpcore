@@ -89,8 +89,8 @@ int write_to_stdin(const ContractExecArgs &args)
     for (auto &[sid, user] : args.users)
     {
         rapidjson::Value fdlist(rapidjson::kArrayType);
-        fdlist.PushBack(user.inpipe[0], allocator);
-        fdlist.PushBack(user.outpipe[1], allocator);
+        fdlist.PushBack(user.fds[util::USERFDTYPE::SCREAD], allocator);
+        fdlist.PushBack(user.fds[util::USERFDTYPE::SCWRITE], allocator);
         users.AddMember(rapidjson::StringRef(user.pubkeyb64.data()), fdlist, allocator);
     }
     d.AddMember("usrfd", users, allocator);
