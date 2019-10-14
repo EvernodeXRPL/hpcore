@@ -17,7 +17,7 @@ socket_session::socket_session(websocket::stream<beast::tcp_stream> &websocket, 
 }
 
 //port and address will be used to identify from which client the message recieved in the handler
-void socket_session::server_run(const std::uint16_t port, const std::string &address)
+void socket_session::server_run(const std::uint16_t port, std::string_view address)
 {
     port_ = port;
     address_ = address;
@@ -31,14 +31,10 @@ void socket_session::server_run(const std::uint16_t port, const std::string &add
 }
 
 //port and address will be used to identify from which server the message recieved in the handler
-void socket_session::client_run(const std::uint16_t port, const std::string &address, error ec)
+void socket_session::client_run(const std::uint16_t port, std::string_view address, error ec)
 {
     port_ = port;
     address_ = address;
-
-    // Create a unique id for the session combining ip and port.
-    uniqueid_ = address + ":";
-    uniqueid_.append(std::to_string(port));
 
     if (ec)
         return fail(ec, "handshake");

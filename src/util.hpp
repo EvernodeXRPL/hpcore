@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <rapidjson/document.h>
 
 /**
  * Contains helper functions and data structures used by multiple other subsystems.
@@ -42,7 +43,7 @@ struct contract_user
     int outpipe[2];   // Pipe to receive output produced by the contract
     std::string outbuffer; // Holds the contract output to be processed by consensus rounds
 
-    contract_user(const std::string &_pubkeyb64, int _inpipe[2], int _outpipe[2])
+    contract_user(std::string_view _pubkeyb64, int _inpipe[2], int _outpipe[2])
     {
         pubkeyb64 = _pubkeyb64;
         inpipe[0] = _inpipe[0];
@@ -61,7 +62,7 @@ struct peer_node
     int inpipe[2];    // NPL pipe from HP to SC
     int outpipe[2];   // NPL pipe from SC to HP
 
-    peer_node(const std::string &_pubkeyb64, int _inpipe[2], int _outpipe[2])
+    peer_node(std::string_view _pubkeyb64, int _inpipe[2], int _outpipe[2])
     {
         pubkeyb64 = _pubkeyb64;
         inpipe[0] = _inpipe[0];
@@ -73,9 +74,11 @@ struct peer_node
 
 int base64_encode(std::string &encoded_string, const unsigned char *bin, size_t bin_len);
 
-int base64_decode(unsigned char *decoded, size_t decoded_len, const std::string &base64_str);
+int base64_decode(unsigned char *decoded, size_t decoded_len, std::string_view base64_str);
 
-int version_compare(const std::string &v1, const std::string &v2);
+int version_compare(const std::string &x, const std::string &y);
+
+std::string_view getsv(const rapidjson::Value &v);
 
 } // namespace util
 

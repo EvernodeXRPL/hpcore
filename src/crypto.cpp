@@ -45,7 +45,7 @@ void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string
  * @param seckey Secret key bytes.
  * @return Signature bytes.
  */
-std::string sign(const std::string &msg, const std::string &seckey)
+std::string sign(std::string_view msg, std::string_view seckey)
 {
     //Generate the signature using libsodium.
 
@@ -68,7 +68,7 @@ std::string sign(const std::string &msg, const std::string &seckey)
  * @param seckeyb64 Base64 secret key string.
  * @return Base64 signature string.
  */
-std::string sign_b64(const std::string &msg, const std::string &seckeyb64)
+std::string sign_b64(std::string_view msg, std::string_view seckeyb64)
 {
     //Decode b64 string and generate the signature using libsodium.
 
@@ -96,7 +96,7 @@ std::string sign_b64(const std::string &msg, const std::string &seckeyb64)
  * @param pubkey Public key bytes.
  * @return 0 for successful verification. -1 for failure.
  */
-int verify(const std::string &msg, const std::string &sig, const std::string &pubkey)
+int verify(std::string_view msg, std::string_view sig, std::string_view pubkey)
 {
     return crypto_sign_verify_detached(
         reinterpret_cast<const unsigned char *>(sig.data()),
@@ -113,7 +113,7 @@ int verify(const std::string &msg, const std::string &sig, const std::string &pu
  * @param pubkeyb64 Base64 secret key.
  * @return 0 for successful verification. -1 for failure.
  */
-int verify_b64(const std::string &msg, const std::string &sigb64, const std::string &pubkeyb64)
+int verify_b64(std::string_view msg, std::string_view sigb64, std::string_view pubkeyb64)
 {
     //Decode b64 string and verify the signature using libsodium.
 
