@@ -27,10 +27,10 @@ class socket_session_handler;
 */
 class socket_session : public std::enable_shared_from_this<socket_session>
 {
-    beast::flat_buffer buffer_;
-    websocket::stream<beast::tcp_stream> ws_;
-    std::vector<std::shared_ptr<std::string const>> queue_;
-    socket_session_handler &sess_handler_;
+    beast::flat_buffer buffer_;                // used to store incoming messages
+    websocket::stream<beast::tcp_stream> ws_;  // websocket stream used send an recieve messages
+    std::vector<std::string> queue_;           // uses to store messages temporarily until it is sent to the relevant party
+    socket_session_handler &sess_handler_;     // handler passed to gain access to websocket events
 
     void fail(error ec, char const *what);
 
@@ -62,8 +62,8 @@ public:
     void server_run(const std::uint16_t port, const std::string &address);
     void client_run(const std::uint16_t port, const std::string &address, error ec);
 
-    // Used to send message through an active websocket connection.
-    void send(std::shared_ptr<std::string const> const &ss);
+    
+    void send(std::string &&ss);
 
     // When called, initializes the unique id string for this session.
     void init_uniqueid();

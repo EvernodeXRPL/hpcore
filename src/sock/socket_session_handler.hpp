@@ -15,8 +15,19 @@ class socket_session;
 class socket_session_handler
 {
 public:
+    /*
+    * Executes on initiation of a new connection
+    */
     virtual void on_connect(socket_session *session) = 0;
+
+    /*
+    * Executes on recieval of new message
+    */
     virtual void on_message(socket_session *session, const std::string &message) = 0;
+
+    /*
+    * Executes on websocket connection close
+    */
     virtual void on_close(socket_session *session) = 0;
 };
 } // namespace sock

@@ -53,6 +53,9 @@ void socket_session::client_run(const std::uint16_t port, const std::string &add
         });
 }
 
+/*
+* Executes on error
+*/
 void socket_session::fail(error_code ec, char const *what)
 {
     // std::cerr << what << ": " << ec.message() << std::endl;
@@ -63,6 +66,9 @@ void socket_session::fail(error_code ec, char const *what)
         return;
 }
 
+/*
+* Executes on acceptance of new connection
+*/
 void socket_session::on_accept(error_code ec)
 {
     // Handle the error, if any
@@ -80,6 +86,9 @@ void socket_session::on_accept(error_code ec)
         });
 }
 
+/*
+* Executes on completion of recieiving a new message
+*/
 void socket_session::on_read(error_code ec, std::size_t)
 {
         //if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
@@ -111,7 +120,10 @@ void socket_session::on_read(error_code ec, std::size_t)
         });
 }
 
-void socket_session::send(std::shared_ptr<std::string const> const &ss)
+/*
+* Send message through an active websocket connection
+*/
+void socket_session::send(std::string &&ss)
 {
     // Always add to queue
     queue_.push_back(ss);
@@ -122,13 +134,16 @@ void socket_session::send(std::shared_ptr<std::string const> const &ss)
 
     // We are not currently writing, so send this immediately
     ws_.async_write(
-        net::buffer(*queue_.front()),
+        net::buffer(queue_.front()),
         [sp = shared_from_this()](
             error_code ec, std::size_t bytes) {
             sp->on_write(ec, bytes);
         });
 }
 
+/*
+* Executes on completion of write operation to a socket
+*/
 void socket_session::on_write(error_code ec, std::size_t)
 {
     // Handle the error, if any
@@ -141,13 +156,16 @@ void socket_session::on_write(error_code ec, std::size_t)
     // Send the next message if any
     if (!queue_.empty())
         ws_.async_write(
-            net::buffer(*queue_.front()),
+            net::buffer(queue_.front()),
             [sp = shared_from_this()](
                 error_code ec, std::size_t bytes) {
                 sp->on_write(ec, bytes);
             });
 }
 
+/*
+* Close an active websocket connection gracefully
+*/
 void socket_session::close()
 {
     // Close the WebSocket connection
@@ -158,6 +176,9 @@ void socket_session::close()
                     });
 }
 
+/*
+* Executes on completion of closing a socket connection
+*/
 //type will be used identify whether the error is due to failure in closing the web socket or transfer of another exception to this method
 void socket_session::on_close(error_code ec, std::int8_t type)
 {

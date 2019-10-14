@@ -16,18 +16,17 @@ using error = boost::system::error_code;
 
 namespace sock
 {
-
 /** 
  * Represents an active WebSocket client connection
  * Based on the implementation from https://github.com/vinniefalco/CppCon2018
 */
 class socket_client : public std::enable_shared_from_this<socket_client>
 {
-    tcp::resolver resolver_;
-    websocket::stream<beast::tcp_stream> ws_;
-    std::string host_;
-    unsigned short port_;
-    socket_session_handler &sess_handler_;
+    tcp::resolver resolver_;                  // resolver used to resolve host and the port
+    websocket::stream<beast::tcp_stream> ws_; // web socket stream used to send and receive messages
+    std::string host_;                        // address of the server in which the client connects
+    std::int16_t port_;                       // port of the server in which client connects
+    socket_session_handler &sess_handler_;    // handler passed to gain access to websocket events
 
     void on_resolve(error ec, tcp::resolver::results_type results);
 

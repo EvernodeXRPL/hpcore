@@ -24,7 +24,7 @@ void user_session_handler::on_connect(sock::socket_session *session)
 {
     std::cout << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
 
-    // As a soon as a user conntects, we issue them a challenge message. We remember the
+    // As soon as a user conntects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
 
     std::string msg;
@@ -38,7 +38,7 @@ void user_session_handler::on_connect(sock::socket_session *session)
     usr::pending_challenges[session->uniqueid_] = challengeb64;
 
     // TODO: This needs to be reviewed to optimise passing the message.
-    session->send(std::make_shared<std::string>(msg));
+    session->send(std::move(msg));
 
     // Set the challenge-issued flag to help later checks in on_message.
     session->flags_.set(util::SESSION_FLAG::USER_CHALLENGE_ISSUED);

@@ -18,9 +18,9 @@ namespace sock
 */
 class socket_server : public std::enable_shared_from_this<socket_server>
 {
-    tcp::acceptor acceptor_;
-    tcp::socket socket_;
-    socket_session_handler &sess_handler_;
+    tcp::acceptor acceptor_;               // acceptor which accepts new connections
+    tcp::socket socket_;                   // socket in which the client connects
+    socket_session_handler &sess_handler_; // handler passed to gain access to websocket events
 
     void fail(error ec, char const *what);
 
