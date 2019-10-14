@@ -1,6 +1,7 @@
 #include <string>
 #include <sodium.h>
 #include <sstream>
+#include <rapidjson/document.h>
 
 namespace util
 {
@@ -41,7 +42,7 @@ int base64_encode(std::string &encoded_string, const unsigned char *bin, size_t 
  * @param decodedbuf_len Decoded buffer size.
  * @param base64_str Base64 string to decode.
  */
-int base64_decode(unsigned char *decodedbuf, size_t decodedbuf_len, const std::string &base64_str)
+int base64_decode(unsigned char *decodedbuf, size_t decodedbuf_len, std::string_view base64_str)
 {
     const char *b64_end;
     size_t bin_len;
@@ -63,6 +64,11 @@ int base64_decode(unsigned char *decodedbuf, size_t decodedbuf_len, const std::s
  * v1 == v2  -> returns  0
  * v1 >  v2  -> returns +1
  * Error     -> returns -2
+ * 
+ * Remark on string_view: In other places of the code-base we utilize string_view
+ * to pass immutable string references around. However in this function we keep the 'const string&'
+ * syntax because istringstream doesn't support string_view. It's not worth optmising
+ * this code as it's not being used in high-scale processing.
  */
 int version_compare(const std::string &x, const std::string &y)
 {
@@ -86,6 +92,16 @@ int version_compare(const std::string &x, const std::string &y)
     }
 
     return 0;
+}
+
+/**
+ * Returns a std::string_view pointing to the rapidjson Value which is assumed
+ * to be a string. We use this function because rapidjson does not have build-in string_view
+ * support. Passing a non-string 'v' is not supported.
+ */
+std::string_view getsv(const rapidjson::Value &v)
+{
+    return std::string_view(v.GetString(), v.GetStringLength());
 }
 
 } // namespace util

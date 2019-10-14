@@ -59,8 +59,8 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags_;
 
-    void server_run(const std::uint16_t port, const std::string &address);
-    void client_run(const std::uint16_t port, const std::string &address, error ec);
+    void server_run(const std::uint16_t port, std::string_view address);
+    void client_run(const std::uint16_t port, std::string_view address, error ec);
 
     // Used to send message through an active websocket connection.
     void send(std::shared_ptr<std::string const> const &ss);
