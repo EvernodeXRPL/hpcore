@@ -12,11 +12,15 @@ socket_client::socket_client(net::io_context &ioc, socket_session_handler &sessi
 {
 }
 
-void socket_client::run(char const *host, char const *port)
+/**
+ * Entry point to socket client which will intiate a connection to server
+*/
+// boost async_resolve function requires a port as a string because of that port is passed as a string
+void socket_client::run(std::string_view host, std::string_view port)
 {
     host_ = host;
-    port_ = (unsigned short)std::strtoul(port, NULL, 0);
-    
+    port_ = port;
+
     // Look up the domain name
     resolver_.async_resolve(
         host,
@@ -26,6 +30,9 @@ void socket_client::run(char const *host, char const *port)
         });
 }
 
+/**
+ * Executes on completion of resolving the server
+*/
 void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
 {
     if (ec)
@@ -39,6 +46,9 @@ void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
         });
 }
 
+/**
+ * Executes on completion of connecting to the server
+*/
 void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_type)
 {
     if (ec)
@@ -60,13 +70,20 @@ void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_t
                         });
 }
 
+/**
+ * Executes on completion of handshake
+*/
 void socket_client::on_handshake(error ec)
 {
+    //Creates a new socket session object
     std::make_shared<socket_session>(
         ws_, sess_handler_)
         ->client_run(port_, host_, ec);
 }
 
+/**
+ * Executes on error
+*/
 void socket_client::socket_client_fail(beast::error_code ec, char const *what)
 {
     std::cerr << what << ": " << ec.message() << "\n";
