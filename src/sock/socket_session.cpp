@@ -17,7 +17,7 @@ socket_session::socket_session(websocket::stream<beast::tcp_stream> &websocket, 
 }
 
 //port and address will be used to identify from which client the message recieved in the handler
-void socket_session::server_run(std::string_view port, std::string_view address)
+void socket_session::server_run(const std::string &&address, const std::string &&port)
 {
     port_ = port;
     address_ = address;
@@ -31,7 +31,7 @@ void socket_session::server_run(std::string_view port, std::string_view address)
 }
 
 //port and address will be used to identify from which server the message recieved in the handler
-void socket_session::client_run(std::string_view port, std::string_view address, error ec)
+void socket_session::client_run(const std::string &&address, const std::string &&port, error ec)
 {
     port_ = port;
     address_ = address;

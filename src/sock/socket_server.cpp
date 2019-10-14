@@ -89,8 +89,8 @@ void socket_server::on_accept(error_code ec)
     }
     else
     {
-        std::string_view port = std::to_string(socket_.remote_endpoint().port());
-        std::string_view address = socket_.remote_endpoint().address().to_string();
+        std::string port = std::to_string(socket_.remote_endpoint().port());
+        std::string address = socket_.remote_endpoint().address().to_string();
 
         //Creating websocket stream required to pass to initiate a new session
         websocket::stream<beast::tcp_stream> ws(std::move(socket_));
@@ -98,7 +98,7 @@ void socket_server::on_accept(error_code ec)
        // Launch a new session for this connection
         std::make_shared<socket_session>(
             ws, sess_handler_)
-            ->server_run(port, address);
+            ->server_run(std::move(address), std::move(port));
     }
 
     // Accept another connection

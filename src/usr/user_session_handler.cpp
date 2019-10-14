@@ -87,10 +87,12 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         if (itr != usr::users.end())
         {
             // This is an authed user.
-            // Write the message to the user input pipe. SC will read from this pipe when it executes.
-            const util::contract_user &user = itr->second;
-            write(user.inpipe[1], message.data(), message.length());
-            std::cout << "User " << user.pubkeyb64 << " wrote " << message.length() << " bytes to contract input.\n";
+            usr::contract_user &user = itr->second;
+            
+            //Hand over the bytes into user inbuffer.
+            user.inbuffer = std::move(message);
+            
+            std::cout << "Collected " << user.inbuffer.length() << " bytes from user " << user.pubkeyb64 << std::endl;
             return;
         }
     }

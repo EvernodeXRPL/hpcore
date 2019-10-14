@@ -50,10 +50,10 @@ public:
     // from the parent we store as it is, since we are not going to pass it anywhere or used in a method
 
     // The port of the remote party.
-    std::string_view port_;
+    std::string port_;
 
     // The IP address of the remote party.
-    std::string_view address_;
+    std::string address_;
 
     // The unique identifier of the remote party (format <ip>:<port>).
     std::string uniqueid_;
@@ -63,8 +63,8 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags_;
 
-    void server_run(std::string_view port, std::string_view address);
-    void client_run(std::string_view port, std::string_view address, error ec);
+    void server_run(const std::string &&address, const std::string &&port);
+    void client_run(const std::string &&address, const std::string &&port, error ec);
 
     void send(std::string &&ss);
 
