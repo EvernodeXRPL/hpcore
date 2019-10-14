@@ -15,6 +15,7 @@ socket_client::socket_client(net::io_context &ioc, socket_session_handler &sessi
 /**
  * Entry point to socket client which will intiate a connection to server
 */
+// boost async_resolve function requires a port as a string because of that port is passed as a string
 void socket_client::run(std::string_view host, std::string_view port)
 {
     host_ = host;
