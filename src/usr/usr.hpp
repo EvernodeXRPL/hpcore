@@ -16,7 +16,7 @@ namespace usr
  * Holds information about an authenticated (challenge-verified) user
  * connected to the HotPocket node.
  */
-struct contract_user
+struct connected_user
 {
     // Base64 user public key
     std::string pubkeyb64;
@@ -24,7 +24,7 @@ struct contract_user
     // Holds the unprocessed user input collected from websocket.
     std::string inbuffer;
 
-    contract_user(std::string_view _pubkeyb64)
+    connected_user(std::string_view _pubkeyb64)
     {
         pubkeyb64 = _pubkeyb64;
     }
@@ -33,7 +33,7 @@ struct contract_user
 /**
  * Global authenticated (challenge-verified) user list.
  */
-extern std::unordered_map<std::string, usr::contract_user> users;
+extern std::unordered_map<std::string, usr::connected_user> users;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.

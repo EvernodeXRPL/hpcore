@@ -98,7 +98,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         if (itr != usr::users.end())
         {
             // This is an authed user.
-            usr::contract_user &user = itr->second;
+            usr::connected_user &user = itr->second;
 
             //Hand over the bytes into user inbuffer.
             user.inbuffer.append(message);

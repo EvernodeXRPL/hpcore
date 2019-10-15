@@ -21,7 +21,7 @@ namespace usr
  * Global user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
  */
-std::unordered_map<std::string, usr::contract_user> users;
+std::unordered_map<std::string, usr::connected_user> users;
 
 /**
  * Holds set of connected user session ids for lookups. (Exposed to other sub systems)
@@ -210,7 +210,7 @@ int add_user(const std::string &sessionid, const std::string &pubkeyb64)
         return -1;
     }
 
-    users.emplace(sessionid, usr::contract_user(pubkeyb64));
+    users.emplace(sessionid, usr::connected_user(pubkeyb64));
 
     // Populate sessionid map so we can lookup by user pubkey.
     sessionids.emplace(pubkeyb64, sessionid);
@@ -235,7 +235,7 @@ int remove_user(const std::string &sessionid)
         return -1;
     }
 
-    usr::contract_user &user = itr->second;
+    usr::connected_user &user = itr->second;
 
     sessionids.erase(user.pubkeyb64);
     users.erase(itr);
