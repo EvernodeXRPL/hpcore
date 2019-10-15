@@ -21,13 +21,19 @@ namespace usr
  * Global user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
  */
-std::map<std::string, usr::contract_user, std::less<>> users;
+std::unordered_map<std::string, usr::contract_user> users;
+
+/**
+ * Holds set of connected user session ids for lookups. (Exposed to other sub systems)
+ * Map key: User pubkey
+ */
+std::unordered_map<std::string, std::string> sessionids;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  * Map key: User socket session id (<ip:port>)
  */
-std::map<std::string, std::string, std::less<>> pending_challenges;
+std::unordered_map<std::string, std::string> pending_challenges;
 
 /**
  * User session handler instance. This instance's methods will be fired for any user socket activity.
@@ -196,7 +202,7 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
  * @param pubkeyb64 User's base64 public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(std::string_view sessionid, std::string_view pubkeyb64)
+int add_user(const std::string &sessionid, const std::string &pubkeyb64)
 {
     if (users.count(sessionid) == 1)
     {
@@ -205,6 +211,10 @@ int add_user(std::string_view sessionid, std::string_view pubkeyb64)
     }
 
     users.emplace(sessionid, usr::contract_user(pubkeyb64));
+
+    // Populate sessionid map so we can lookup by user pubkey.
+    sessionids.emplace(pubkeyb64, sessionid);
+
     return 0;
 }
 
@@ -214,7 +224,7 @@ int add_user(std::string_view sessionid, std::string_view pubkeyb64)
  * 
  * @return 0 on successful removals. -1 on failure.
  */
-int remove_user(std::string_view sessionid)
+int remove_user(const std::string &sessionid)
 {
     auto itr = users.find(sessionid);
 
@@ -236,6 +246,7 @@ int remove_user(std::string_view sessionid)
         }
     }
 
+    sessionids.erase(user.pubkeyb64);
     users.erase(itr);
     return 0;
 }

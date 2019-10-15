@@ -3,7 +3,7 @@
 
 #include <cstdio>
 #include <string_view>
-#include <map>
+#include <unordered_map>
 #include "../util.hpp"
 
 /**
@@ -59,12 +59,18 @@ enum USERFDTYPE
 /**
  * Global authenticated (challenge-verified) user list.
  */
-extern std::map<std::string, usr::contract_user, std::less<>> users;
+extern std::unordered_map<std::string, usr::contract_user> users;
+
+/**
+ * Keep track of verification-pending challenges issued to newly connected users.
+ * Map key: User socket session id (<ip:port>)
+ */
+extern std::unordered_map<std::string, std::string> sessionids;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  */
-extern std::map<std::string, std::string, std::less<>> pending_challenges;
+extern std::unordered_map<std::string, std::string> pending_challenges;
 
 int init();
 
@@ -74,9 +80,9 @@ void create_user_challenge(std::string &msg, std::string &challengeb64);
 
 int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string_view response, std::string_view original_challenge);
 
-int add_user(std::string_view sessionid, std::string_view pubkeyb64);
+int add_user(const std::string &sessionid, const std::string &pubkeyb64);
 
-int remove_user(std::string_view sessionid);
+int remove_user(const std::string &sessionid);
 
 void start_listening();
 
