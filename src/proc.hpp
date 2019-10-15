@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <map>
+#include "usr/usr.hpp"
 #include "util.hpp"
 
 /**
@@ -16,12 +17,9 @@ namespace proc
  */
 struct ContractExecArgs
 {
-    std::map<std::string, util::contract_user> &users; // Map of authenticated contract users indexed by user pubkey.
-    std::map<std::string, util::peer_node> &peers;     // Map of connected peers indexed by node pubkey.
-    uint64_t timestamp;                // Current HotPocket timestamp.
+    uint64_t timestamp; // Current HotPocket timestamp.
 
-    ContractExecArgs(std::map<std::string, util::contract_user> &_users, std::map<std::string, util::peer_node> &_peers, uint64_t _timestamp)
-        : users(_users), peers(_peers)
+    ContractExecArgs(uint64_t _timestamp)
     {
         timestamp = _timestamp;
     }
@@ -33,7 +31,15 @@ bool is_contract_running();
 
 //------Internal-use functions for this namespace.
 
+int create_userpipes();
+
 int write_to_stdin(const ContractExecArgs &args);
+
+void close_unused_userfds(bool is_hp);
+
+void cleanup_userfds(const usr::contract_user &user);
+
+int read_contract_user_outputs();
 
 } // namespace proc
 

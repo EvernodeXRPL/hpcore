@@ -2,7 +2,7 @@
 #define _HP_USR_H_
 
 #include <cstdio>
-#include <vector>
+#include <string_view>
 #include <map>
 #include "../util.hpp"
 
@@ -13,31 +13,68 @@ namespace usr
 {
 
 /**
+ * Holds information about an authenticated (challenge-verified) user
+ * connected to the HotPocket node.
+ */
+struct contract_user
+{
+    // Base64 user public key
+    std::string pubkeyb64;
+    
+    // Holds the user input to be processed by consensus rounds
+    std::string inbuffer;
+
+    // Holds the contract output to be processed by consensus rounds
+    std::string outbuffer;
+
+    // HP --> SC pipe + SC --> HP pipe
+    // We keep 2 pipes in single array for easy access.
+    // fd[0] used by Smart Contract to read user-input sent by Hot Pocket.
+    // fd[1] used by Hot Pocket to write user-input to the smart contract.
+    // fd[2] used by Hot Pocket to read output from the smart contract.
+    // fd[3] used by Smart Contract to write output back to Hot Pocket.
+    int fds[4];
+
+    contract_user(std::string_view _pubkeyb64)
+    {
+        pubkeyb64 = _pubkeyb64;
+    }
+};
+
+/**
+ * Enum used to differenciate pipe fds maintained for user/SC communication.
+ */
+enum USERFDTYPE
+{
+    // Used by Smart Contract to read user-input sent by Hot Pocket
+    SCREAD = 0,
+    // Used by Hot Pocket to write user-input to the smart contract.
+    HPWRITE = 1,
+    // Used by Hot Pocket to read output from the smart contract.
+    HPREAD = 2,
+    // Used by Smart Contract to write output back to Hot Pocket.
+    SCWRITE = 3
+};
+
+/**
  * Global authenticated (challenge-verified) user list.
  */
-extern std::map<std::string, util::contract_user> users;
+extern std::map<std::string, usr::contract_user, std::less<>> users;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  */
-extern std::map<std::string, std::string> pending_challenges;
-
-/**
- * Keep track of verification-pending challenges issued to newly connected users.
- */
-extern std::map<std::string, std::string> pending_challenges;
+extern std::map<std::string, std::string, std::less<>> pending_challenges;
 
 int init();
 
 void create_user_challenge(std::string &msg, std::string &challengeb64);
 
-int verify_user_challenge_response(std::string &extracted_pubkeyb64, const std::string &response, const std::string &original_challenge);
+int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string_view response, std::string_view original_challenge);
 
-int add_user(const std::string &sessionid, const std::string &pubkeyb64);
+int add_user(std::string_view sessionid, std::string_view pubkeyb64);
 
-int remove_user(const std::string &sessionid);
-
-int read_contract_user_outputs();
+int remove_user(std::string_view sessionid);
 
 void start_listening();
 

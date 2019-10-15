@@ -143,7 +143,7 @@ int load_config()
     ifs.close();
 
     // Check whether the contract version is specified.
-    std::string cfgversion = d["version"].GetString();
+    std::string_view cfgversion = util::getsv(d["version"]);
     if (cfgversion.empty())
     {
         std::cerr << "Contract config version missing.\n";
@@ -151,7 +151,7 @@ int load_config()
     }
 
     // Check whether this contract complies with the min version requirement.
-    int verresult = util::version_compare(cfgversion, std::string(util::MIN_CONTRACT_VERSION));
+    int verresult = util::version_compare(std::string(cfgversion), std::string(util::MIN_CONTRACT_VERSION));
     if (verresult == -1)
     {
         std::cerr << "Contract version too old. Minimum "

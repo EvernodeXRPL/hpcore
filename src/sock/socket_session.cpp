@@ -17,7 +17,7 @@ socket_session::socket_session(websocket::stream<beast::tcp_stream> &websocket, 
 }
 
 //port and address will be used to identify from which client the message recieved in the handler
-void socket_session::server_run(const std::uint16_t port, const std::string &address)
+void socket_session::server_run(const std::string &&address, const std::string &&port)
 {
     port_ = port;
     address_ = address;
@@ -31,14 +31,10 @@ void socket_session::server_run(const std::uint16_t port, const std::string &add
 }
 
 //port and address will be used to identify from which server the message recieved in the handler
-void socket_session::client_run(const std::uint16_t port, const std::string &address, error ec)
+void socket_session::client_run(const std::string &&address, const std::string &&port, error ec)
 {
     port_ = port;
     address_ = address;
-
-    // Create a unique id for the session combining ip and port.
-    uniqueid_ = address + ":";
-    uniqueid_.append(std::to_string(port));
 
     if (ec)
         return fail(ec, "handshake");
@@ -53,6 +49,9 @@ void socket_session::client_run(const std::uint16_t port, const std::string &add
         });
 }
 
+/**
+ * Executes on error
+*/
 void socket_session::fail(error_code ec, char const *what)
 {
     // std::cerr << what << ": " << ec.message() << std::endl;
@@ -63,6 +62,9 @@ void socket_session::fail(error_code ec, char const *what)
         return;
 }
 
+/**
+ * Executes on acceptance of new connection
+*/
 void socket_session::on_accept(error_code ec)
 {
     // Handle the error, if any
@@ -80,8 +82,12 @@ void socket_session::on_accept(error_code ec)
         });
 }
 
+/*
+* Executes on completion of recieiving a new message
+*/
 void socket_session::on_read(error_code ec, std::size_t)
 {
+    //if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
     // read may get called when operation_aborted as well.
     // We don't need to process read operation in that case.
     if (ec == net::error::operation_aborted)
@@ -96,7 +102,7 @@ void socket_session::on_read(error_code ec, std::size_t)
     }
 
     std::string message = beast::buffers_to_string(buffer_.data());
-    sess_handler_.on_message(this, message);
+    sess_handler_.on_message(this, std::move(message));
 
     // Clear the buffer
     buffer_.consume(buffer_.size());
@@ -110,7 +116,10 @@ void socket_session::on_read(error_code ec, std::size_t)
         });
 }
 
-void socket_session::send(std::shared_ptr<std::string const> const &ss)
+/*
+* Send message through an active websocket connection
+*/
+void socket_session::send(std::string &&ss)
 {
     // Always add to queue
     queue_.push_back(ss);
@@ -121,13 +130,16 @@ void socket_session::send(std::shared_ptr<std::string const> const &ss)
 
     // We are not currently writing, so send this immediately
     ws_.async_write(
-        net::buffer(*queue_.front()),
+        net::buffer(queue_.front()),
         [sp = shared_from_this()](
             error_code ec, std::size_t bytes) {
             sp->on_write(ec, bytes);
         });
 }
 
+/*
+* Executes on completion of write operation to a socket
+*/
 void socket_session::on_write(error_code ec, std::size_t)
 {
     // Handle the error, if any
@@ -140,13 +152,16 @@ void socket_session::on_write(error_code ec, std::size_t)
     // Send the next message if any
     if (!queue_.empty())
         ws_.async_write(
-            net::buffer(*queue_.front()),
+            net::buffer(queue_.front()),
             [sp = shared_from_this()](
                 error_code ec, std::size_t bytes) {
                 sp->on_write(ec, bytes);
             });
 }
 
+/*
+* Close an active websocket connection gracefully
+*/
 void socket_session::close()
 {
     // Close the WebSocket connection
@@ -157,6 +172,9 @@ void socket_session::close()
                     });
 }
 
+/*
+* Executes on completion of closing a socket connection
+*/
 //type will be used identify whether the error is due to failure in closing the web socket or transfer of another exception to this method
 void socket_session::on_close(error_code ec, std::int8_t type)
 {
@@ -175,7 +193,7 @@ void socket_session::init_uniqueid()
     // Create a unique id for the session combining ip and port.
     // We prepare this appended string here because we need to use it for finding elemends from the maps
     // for validation purposes whenever a message is received.
-    uniqueid_.append(address_).append(":").append(std::to_string(port_));
+    uniqueid_.append(address_).append(":").append(port_);
 }
 
 } // namespace sock
