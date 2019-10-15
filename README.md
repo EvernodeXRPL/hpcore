@@ -51,6 +51,25 @@ When you make a change to `message.proto` defnition file, you need to run this:
 
 `protoc -I=./src/p2p --cpp_out=./src/p2p ./src/p2p/message.proto`
 
+#### Install FlatBuffers
+Instructions are based on [this](https://github.com/protocolbuffers/protobuf/tree/master/src).
+
+1. Clone the git respository into a new directory from [here](https://github.com/google/flatbuffers).
+2. Build with CMake
+```
+git clone https://github.com/google/flatbuffers.git
+cd flatbuffers
+cmake -G "Unix Makefiles"
+make
+```
+3. Run `sudo cp -r include/flatbuffers /usr/local/include/`
+4. Run `sudo snap install flatbuffers --edge`
+
+##### Compiling FlatBuffers message definitions
+When you make a change to `message.fbc` defnition file, you need to run this:
+
+`flatc -o src/p2p/ --cpp src/p2p/message.fbs`
+
 #### Run ldconfig
 `sudo ldconfig`
 

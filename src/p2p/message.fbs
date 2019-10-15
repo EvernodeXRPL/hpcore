@@ -1,0 +1,59 @@
+//IDL file for p2p message schema.
+namespace p2p;
+
+table StringKeyValuePair { 
+    key:[ubyte]; 
+    value:string; 
+ }
+
+ table ByteArray {
+     array:[ubyte];
+ }
+
+table Container { //root type for message
+    version: uint16; 
+    signature:[ubyte];
+    content:[ubyte]; // message content: byte array of proposal,npl,etc
+}
+
+union Messase { Proposal, Npl }
+
+table Content {
+    message:Messase;
+}
+
+table Proposal {
+    pubkey:[ubyte];
+    timestamp:uint64;
+    stage: int8;
+    time:uint64;
+    lcl:[ubyte];
+    connections: [ByteArray];
+    raw_inputs: [StringKeyValuePair]; //stage 0 inputs 
+    hash_inputs:[string];  //stage > 0 inputs (hash of satge 0 inputs)
+    raw_outputs: [StringKeyValuePair]; //stage 0 outputs 
+    hash_outputs:[string];  //stage > 0 outputs (hash of satge 0 outputs)
+    state: State;
+}
+
+table Npl {
+    pubkey:[ubyte];
+    timestamp:uint64;
+    data:[ubyte];
+    lcl:[ubyte];
+}
+
+table StateDifference {
+    created: [StringKeyValuePair];
+    updated: [StringKeyValuePair];
+    deleted: [StringKeyValuePair];
+}
+
+table State {
+    previous: [ubyte];
+    current: [ubyte];
+    difference: StateDifference;
+    patch: [StringKeyValuePair];
+}
+
+root_type Container;
