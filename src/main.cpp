@@ -5,10 +5,12 @@
 #include <cstdio>
 #include <iostream>
 #include <thread>
+#include <unistd.h>
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "usr/usr.hpp"
+#include "proc.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -104,6 +106,21 @@ int main(int argc, char **argv)
                 // Temp code to avoid exiting.
                 std::string s;
                 std::cin >> s;
+
+                // Test code to execute contract and collect outputs.
+                std::unordered_map<std::string, std::pair<std::string, std::string>> userbufs;
+                for (auto &[sid, user] : usr::users)
+                {
+                    std::pair<std::string, std::string> bufpair;
+                    bufpair.first = std::move(user.inbuffer);
+                    userbufs[user.pubkeyb64] = bufpair;
+                }
+
+                proc::ContractExecArgs eargs(123123345, userbufs);
+                proc::exec_contract(eargs);
+
+                // Free resources.
+                usr::deinit();
             }
         }
     }

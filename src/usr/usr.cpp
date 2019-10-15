@@ -2,8 +2,6 @@
 #include <iostream>
 #include <unistd.h>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <sodium.h>
 #include <boost/thread/thread.hpp>
 #include "../sock/socket_server.hpp"
@@ -21,13 +19,19 @@ namespace usr
  * Global user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
  */
-std::map<std::string, usr::contract_user, std::less<>> users;
+std::unordered_map<std::string, usr::connected_user> users;
+
+/**
+ * Holds set of connected user session ids for lookups. (Exposed to other sub systems)
+ * Map key: User pubkey
+ */
+std::unordered_map<std::string, std::string> sessionids;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  * Map key: User socket session id (<ip:port>)
  */
-std::map<std::string, std::string, std::less<>> pending_challenges;
+std::unordered_map<std::string, std::string> pending_challenges;
 
 /**
  * User session handler instance. This instance's methods will be fired for any user socket activity.
@@ -68,6 +72,14 @@ int init()
     start_listening();
 
     return 0;
+}
+
+/**
+ * Free any resources used by usr subsystem (eg. socket listeners).
+ */
+void deinit()
+{
+    stop_listening();
 }
 
 /**
@@ -165,14 +177,17 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
     }
 
     // Verify the challenge signature. We do this last due to signature verification cost.
+    std::string_view pubkeysv = util::getsv(d[CHALLENGE_RESP_PUBKEY]);
     if (crypto::verify_b64(
             original_challenge,
             util::getsv(d[CHALLENGE_RESP_SIG]),
-            util::getsv(d[CHALLENGE_RESP_PUBKEY])) != 0)
+            pubkeysv) != 0)
     {
         std::cerr << "User challenge response signature verification failed.\n";
         return -1;
     }
+
+    extracted_pubkeyb64 = pubkeysv;
 
     return 0;
 }
@@ -185,7 +200,7 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
  * @param pubkeyb64 User's base64 public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(std::string_view sessionid, std::string_view pubkeyb64)
+int add_user(const std::string &sessionid, const std::string &pubkeyb64)
 {
     if (users.count(sessionid) == 1)
     {
@@ -193,7 +208,11 @@ int add_user(std::string_view sessionid, std::string_view pubkeyb64)
         return -1;
     }
 
-    users.emplace(sessionid, usr::contract_user(pubkeyb64));
+    users.emplace(sessionid, usr::connected_user(pubkeyb64));
+
+    // Populate sessionid map so we can lookup by user pubkey.
+    sessionids.emplace(pubkeyb64, sessionid);
+
     return 0;
 }
 
@@ -201,9 +220,10 @@ int add_user(std::string_view sessionid, std::string_view pubkeyb64)
  * Removes the specified public key from the global user list.
  * This must get called when a user disconnects from HP.
  * 
+ * @param sessionid User socket session id.
  * @return 0 on successful removals. -1 on failure.
  */
-int remove_user(std::string_view sessionid)
+int remove_user(const std::string &sessionid)
 {
     auto itr = users.find(sessionid);
 
@@ -213,18 +233,9 @@ int remove_user(std::string_view sessionid)
         return -1;
     }
 
-    usr::contract_user &user = itr->second;
+    usr::connected_user &user = itr->second;
 
-    // Close any open fds for this user.
-    for (int i = 0; i < 4; i++)
-    {
-        if (user.fds[i] > 0)
-        {
-            close(user.fds[i]);
-            user.fds[i] = 0;
-        }
-    }
-
+    sessionids.erase(user.pubkeyb64);
     users.erase(itr);
     return 0;
 }
@@ -244,6 +255,14 @@ void start_listening()
     listener_thread = std::thread([&] { ioc.run(); });
 
     std::cout << "Started listening for incoming user connections...\n";
+}
+
+/**
+ * Stops listening for incoming connections.
+ */
+void stop_listening()
+{
+    //TODO
 }
 
 } // namespace usr

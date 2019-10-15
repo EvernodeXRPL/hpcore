@@ -1,0 +1,6 @@
+{
+    "dependencies": {
+        "fs-extra": "^8.1.0",
+        "posix-pipe-fork-exec": "git+https://github.com/codetsunami/posix-pipe-fork-exec.git"
+    }
+}
