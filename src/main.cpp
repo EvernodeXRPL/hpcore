@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <iostream>
 #include <thread>
+#include <unistd.h>
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
@@ -108,6 +109,11 @@ int main(int argc, char **argv)
 
                 proc::ContractExecArgs eargs(123123345);
                 proc::exec_contract(eargs);
+
+                while (proc::is_contract_running())
+                    sleep(1);
+
+                proc::read_contract_user_outputs();
 
                 // Free resources.
                 usr::deinit();

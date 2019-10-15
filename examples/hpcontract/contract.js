@@ -15,6 +15,8 @@ Object.keys(hpargs.usrfd).forEach(function(key,index) {
     let userinput = Buffer.from(pipe.getfdbytes(userfds[0])).toString();
     console.log("Input received from user " + key + ":");
     console.log(userinput);
+
+    fs.writeSync(userfds[1], "Echoing: " + userinput);
 });
 
 console.log("===Sample contract ended===");

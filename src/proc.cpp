@@ -40,7 +40,7 @@ int exec_contract(const ContractExecArgs &args)
     }
 
     // Write any verified (consensus-reached) user inputs to user pipes.
-    write_contract_user_inputs();
+    write_verified_user_inputs();
 
     __pid_t pid = fork();
     if (pid > 0)
@@ -189,17 +189,16 @@ int write_to_stdin(const ContractExecArgs &args)
 }
 
 /**
- * Writes verified (consesus-reached) user input to the SC
- * via the pipe.
+ * Writes verified (consesus-reached) user input to the SC via the pipe.
  */
-void write_contract_user_inputs()
+void write_verified_user_inputs()
 {
     for (auto &[sid, user] : usr::users)
     {
         // Write the user input into the contract and close the writefd.
         // We use vmsplice to map (zero-copy) the user input into the fd.
         iovec memsegs[1];
-        memsegs[0].iov_base = user.inbuffer.data();
+        memsegs[0].iov_base = user.inbuffer.data(); //***TODO: We should read from consensus-verified input.
         memsegs[0].iov_len = user.inbuffer.length();
         int writefd = user.fds[usr::USERFDTYPE::HPWRITE];
 
@@ -233,23 +232,34 @@ int read_contract_user_outputs()
 
     for (auto &[sid, user] : usr::users)
     {
-        int fdout = user.fds[usr::USERFDTYPE::HPREAD];
+        int readfd = user.fds[usr::USERFDTYPE::HPREAD];
         int bytes_available = 0;
-        ioctl(fdout, FIONREAD, &bytes_available);
+        ioctl(readfd, FIONREAD, &bytes_available);
 
         if (bytes_available > 0)
         {
-            char data[bytes_available];
-            read(fdout, data, bytes_available);
+            user.outbuffer.reserve(bytes_available);
 
-            // Populate the user output buffer with new data
-            user.outbuffer = std::string(data, bytes_available);
+            // Populate the user output buffer with new data from the pipe.
+            // We use vmsplice to map (zero-copy) the output from the fd.
+            iovec memsegs[1];
+            memsegs[0].iov_base = user.outbuffer.data();
+            memsegs[0].iov_len = bytes_available;
 
-            // Close remaining fd on HP process side because we are done with contract process I/O.
-            close(user.fds[usr::USERFDTYPE::HPREAD]);
-
-            std::cout << "Read " + std::to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << std::endl;
+            if (vmsplice(readfd, memsegs, 1, 0) == -1)
+            {
+                std::cerr << "Error reading contract output for user "
+                          << user.pubkeyb64 << std::endl;
+            }
+            else
+            {
+                std::cout << "Contract produced " << bytes_available << " bytes for user " << user.pubkeyb64 << std::endl;
+            }
         }
+
+        // Close readfd fd on HP process side because we are done with contract process I/O.
+        close(readfd);
+        user.fds[usr::USERFDTYPE::HPREAD] = 0;
     }
 
     return 0;

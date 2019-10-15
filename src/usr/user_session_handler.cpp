@@ -101,7 +101,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
             usr::contract_user &user = itr->second;
 
             //Hand over the bytes into user inbuffer.
-            user.inbuffer = std::move(message);
+            user.inbuffer.append(message);
 
             std::cout << "Collected " << user.inbuffer.length() << " bytes from user " << user.pubkeyb64 << std::endl;
             return;
