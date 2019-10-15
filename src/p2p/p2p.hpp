@@ -36,20 +36,31 @@ Need to improve and add additional functionality once started to use.
 */
 
 void set_message(Message &message, const int timestamp, const std::string &version, const std::string &publicKey, const std::string &signature, p2p::Message::Messagetype type, const std::string &content);
+
 bool message_serialize_to_string(Message &message, std::string &output);
+
 bool message_parse_from_string(Message &message, const std::string &dataString);
+
 void set_proposal_inputs(Proposal &proposal, const std::vector<std::string> &inputs);
+
 void set_proposal_outputs(Proposal &proposal, const std::vector<std::string> &outputs);
+
 void set_proposal_connections(Proposal &proposal, const std::vector<std::string> &connections);
+
 void set_state_patch(State &state, const std::map<std::string, std::string> &patches);
+
 bool proposal_serialize_to_string(Proposal &proposal, std::string &output);
+
 bool proposal_parse_from_string(Proposal &proposal, const std::string &dataString);
+
 bool npl_serialize_to_string(NPL &npl, std::string &output);
+
 bool npl_parse_from_string(NPL &npl, const std::string &dataString);
 
 
 //p2p message handling
 void open_listen();
+
 bool validate_peer_message(const p2p::Message &peer_message, const std::string &message);
 
 void consensus();

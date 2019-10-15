@@ -1,23 +1,16 @@
 #include <iostream>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio.hpp>
 #include "message.pb.h"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 
-namespace net = boost::asio;
-namespace beast = boost::beast;
-
-using tcp = net::ip::tcp;
-using error = boost::system::error_code;
-
 namespace p2p
 {
 
-//peer session on connect callback method
+/**
+ * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
+ */
 void peer_session_handler::on_connect(sock::socket_session *session)
 {
     std::cout << "Sending message" << std::endl;
