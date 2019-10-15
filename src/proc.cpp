@@ -2,12 +2,10 @@
 #include <iostream>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sstream>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include "proc.hpp"
 #include "usr/usr.hpp"
 #include "conf.hpp"
@@ -116,54 +114,48 @@ int create_userpipes()
  *   "version":"<hp version>",
  *   "pubkey": "<this node's base64 public key>",
  *   "ts": <this node's timestamp (unix milliseconds)>,
- *   "usrfd":{ "pkb64":[fd0, fd1], ... },
- *   "nplfd":{ "pkb64":[fd0, fd1], ... },
+ *   "usrfd":{ "<pkb64>":[fd0, fd1], ... },
+ *   "nplfd":{ "<pkb64>":[fd0, fd1], ... },
  *   "unl":[ "pkb64", ... ]
  * }
  */
 int write_to_stdin(const ContractExecArgs &args)
 {
-    //Populate the json document with contract args.
+    // Populate the json strring with contract args.
+    // We don't use a JSOn parser here because it's lightweight to contrstuct the
+    // json string manually.
 
-    rapidjson::Document d;
-    d.SetObject();
-    rapidjson::Document::AllocatorType &allocator = d.GetAllocator();
+    std::ostringstream os;
+    os << "{\"version:\"" << util::HP_VERSION
+       << "\",\"pubkey\":\"" << conf::cfg.pubkeyb64
+       << "\",\"ts\":" << args.timestamp
+       << ",\"usrfd\":{";
 
-    d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
-    d.AddMember("pubkey", rapidjson::StringRef(conf::cfg.pubkeyb64.data()), allocator);
-    d.AddMember("ts", args.timestamp, allocator);
-
-    rapidjson::Value users(rapidjson::kObjectType);
-    for (auto &[sid, user] : usr::users)
+    for (auto itr = usr::users.begin(); itr != usr::users.end(); itr++)
     {
-        rapidjson::Value fdlist(rapidjson::kArrayType);
-        fdlist.PushBack(user.fds[usr::USERFDTYPE::SCREAD], allocator);
-        fdlist.PushBack(user.fds[usr::USERFDTYPE::SCWRITE], allocator);
-        users.AddMember(rapidjson::StringRef(user.pubkeyb64.data()), fdlist, allocator);
+        if (itr != usr::users.begin())
+            os << ","; // Trailing comma separator for previous element.
+
+        usr::contract_user user = itr->second;
+        os << "\"" << user.pubkeyb64 << "\":["
+           << user.fds[usr::USERFDTYPE::SCREAD] << ","
+           << user.fds[usr::USERFDTYPE::SCWRITE] << "]";
     }
-    d.AddMember("usrfd", users, allocator);
 
-    // rapidjson::Value peers(rapidjson::kObjectType);
-    // for (auto &[sid, peer] : p2p::peers)
-    // {
-    //     rapidjson::Value fdlist(rapidjson::kArrayType);
-    //     fdlist.PushBack(peer.inpipe[0], allocator);
-    //     fdlist.PushBack(peer.outpipe[1], allocator);
-    //     peers.AddMember(rapidjson::StringRef(peer.pubkeyb64.data()), fdlist, allocator);
-    // }
-    // d.AddMember("nplfd", peers, allocator);
+    os << "},\"nplfd\":{},\"unl\":[";
 
-    rapidjson::Value unl(rapidjson::kArrayType);
-    for (std::string &node : conf::cfg.unl)
-        unl.PushBack(rapidjson::StringRef(node.data()), allocator);
-    d.AddMember("unl", unl, allocator);
+    for (auto node = conf::cfg.unl.begin(); node != conf::cfg.unl.end(); node++)
+    {
+        if (node != conf::cfg.unl.begin())
+            os << ","; // Trailing comma separator for previous element.
 
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    d.Accept(writer);
+        os << "\"" << *node << "\"";
+    }
+
+    os << "]}";
 
     // Get the json string that should be written to contract input pipe.
-    const char *json = buffer.GetString();
+    std::string json = os.str();
 
     // Establish contract input pipe.
     int stdinpipe[2];
@@ -179,7 +171,7 @@ int write_to_stdin(const ContractExecArgs &args)
     close(stdinpipe[0]);
 
     // Write the json message and close write fd.
-    write(stdinpipe[1], json, buffer.GetSize());
+    write(stdinpipe[1], json.data(), json.size() + 1);
     close(stdinpipe[1]);
 
     return 0;
