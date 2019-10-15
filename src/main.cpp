@@ -103,8 +103,8 @@ int main(int argc, char **argv)
                 // TODO
 
                 // Temp code to avoid exiting.
-                //std::string s;
-                //std::cin >> s;
+                std::string s;
+                std::cin >> s;
 
                 proc::ContractExecArgs eargs(123123345);
                 proc::exec_contract(eargs);

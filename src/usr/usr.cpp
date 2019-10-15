@@ -173,14 +173,17 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
     }
 
     // Verify the challenge signature. We do this last due to signature verification cost.
+    std::string_view pubkeysv = util::getsv(d[CHALLENGE_RESP_PUBKEY]);
     if (crypto::verify_b64(
             original_challenge,
             util::getsv(d[CHALLENGE_RESP_SIG]),
-            util::getsv(d[CHALLENGE_RESP_PUBKEY])) != 0)
+            pubkeysv) != 0)
     {
         std::cerr << "User challenge response signature verification failed.\n";
         return -1;
     }
+
+    extracted_pubkeyb64 = pubkeysv;
 
     return 0;
 }

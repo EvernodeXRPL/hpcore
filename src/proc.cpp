@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sstream>
+#include <fcntl.h>
+#include <sys/uio.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -36,6 +38,9 @@ int exec_contract(const ContractExecArgs &args)
         std::cerr << "User pipe creation failed.\n";
         return -1;
     }
+
+    // Write any verified (consensus-reached) user inputs to user pipes.
+    write_contract_user_inputs();
 
     __pid_t pid = fork();
     if (pid > 0)
@@ -102,6 +107,12 @@ int create_userpipes()
             cleanup_userfds(user);
             return -1;
         }
+
+        // If both pipes got created, assign them to user struct.
+        user.fds[usr::USERFDTYPE::SCREAD] = inpipe[0];
+        user.fds[usr::USERFDTYPE::HPWRITE] = inpipe[1];
+        user.fds[usr::USERFDTYPE::HPREAD] = outpipe[0];
+        user.fds[usr::USERFDTYPE::SCWRITE] = outpipe[1];
     }
 
     return 0;
@@ -126,7 +137,7 @@ int write_to_stdin(const ContractExecArgs &args)
     // json string manually.
 
     std::ostringstream os;
-    os << "{\"version:\"" << util::HP_VERSION
+    os << "{\"version\":\"" << util::HP_VERSION
        << "\",\"pubkey\":\"" << conf::cfg.pubkeyb64
        << "\",\"ts\":" << args.timestamp
        << ",\"usrfd\":{";
@@ -171,10 +182,37 @@ int write_to_stdin(const ContractExecArgs &args)
     close(stdinpipe[0]);
 
     // Write the json message and close write fd.
-    write(stdinpipe[1], json.data(), json.size() + 1);
+    write(stdinpipe[1], json.data(), json.size());
     close(stdinpipe[1]);
 
     return 0;
+}
+
+/**
+ * Writes verified (consesus-reached) user input to the SC
+ * via the pipe.
+ */
+void write_contract_user_inputs()
+{
+    for (auto &[sid, user] : usr::users)
+    {
+        // Write the user input into the contract and close the writefd.
+        // We use vmsplice to map (zero-copy) the user input into the fd.
+        iovec memsegs[1];
+        memsegs[0].iov_base = user.inbuffer.data();
+        memsegs[0].iov_len = user.inbuffer.length();
+        int writefd = user.fds[usr::USERFDTYPE::HPWRITE];
+
+        if (vmsplice(writefd, memsegs, 1, 0) == -1)
+        {
+            std::cerr << "Error writing contract input (" << user.inbuffer.length()
+                      << " bytes) from user " << user.pubkeyb64 << std::endl;
+        }
+
+        // Close the writefd since we no longer need it for this round.
+        close(writefd);
+        user.fds[usr::USERFDTYPE::HPWRITE] = 0;
+    }
 }
 
 /**
@@ -207,9 +245,8 @@ int read_contract_user_outputs()
             // Populate the user output buffer with new data
             user.outbuffer = std::string(data, bytes_available);
 
-            // Close remaining fds on HP process side because we are done with contract process I/O.
+            // Close remaining fd on HP process side because we are done with contract process I/O.
             close(user.fds[usr::USERFDTYPE::HPREAD]);
-            close(user.fds[usr::USERFDTYPE::HPWRITE]);
 
             std::cout << "Read " + std::to_string(bytes_available) << " bytes into user output buffer. user:" + user.pubkeyb64 << std::endl;
         }
@@ -245,13 +282,17 @@ void close_unused_userfds(bool is_hp)
         {
             // Close unused fds in Hot Pocket process.
             close(user.fds[usr::USERFDTYPE::SCREAD]);
+            user.fds[usr::USERFDTYPE::SCREAD] = 0;
             close(user.fds[usr::USERFDTYPE::SCWRITE]);
+            user.fds[usr::USERFDTYPE::SCWRITE] = 0;
         }
         else
         {
             // Close unused fds in smart contract process.
             close(user.fds[usr::USERFDTYPE::HPREAD]);
-            close(user.fds[usr::USERFDTYPE::HPWRITE]);
+            user.fds[usr::USERFDTYPE::HPREAD] = 0;
+
+            //HPWRITE fd has aleady been closed by HP process after writing user inputs.
         }
     }
 }

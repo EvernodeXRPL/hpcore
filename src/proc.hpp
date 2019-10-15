@@ -39,6 +39,8 @@ void close_unused_userfds(bool is_hp);
 
 void cleanup_userfds(const usr::contract_user &user);
 
+void write_contract_user_inputs();
+
 int read_contract_user_outputs();
 
 } // namespace proc

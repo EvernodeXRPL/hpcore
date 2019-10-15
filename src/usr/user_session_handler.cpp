@@ -68,7 +68,8 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
                 usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
                 usr::add_user(session->uniqueid_, userpubkey);                    // Add the user to the global authed user list
 
-                std::cout << "User connection " << session->uniqueid_ << " authenticated.\n";
+                std::cout << "User connection " << session->uniqueid_ << " authenticated. Public key "
+                          << userpubkey << std::endl;
                 return;
             }
             else
@@ -88,10 +89,10 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         {
             // This is an authed user.
             usr::contract_user &user = itr->second;
-            
+
             //Hand over the bytes into user inbuffer.
             user.inbuffer = std::move(message);
-            
+
             std::cout << "Collected " << user.inbuffer.length() << " bytes from user " << user.pubkeyb64 << std::endl;
             return;
         }
