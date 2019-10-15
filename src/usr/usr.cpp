@@ -222,6 +222,7 @@ int add_user(const std::string &sessionid, const std::string &pubkeyb64)
  * Removes the specified public key from the global user list.
  * This must get called when a user disconnects from HP.
  * 
+ * @param sessionid User socket session id.
  * @return 0 on successful removals. -1 on failure.
  */
 int remove_user(const std::string &sessionid)

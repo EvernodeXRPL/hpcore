@@ -24,7 +24,7 @@ void user_session_handler::on_connect(sock::socket_session *session)
 {
     std::cout << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
 
-    // As soon as a user conntects, we issue them a challenge message. We remember the
+    // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
 
     std::string msg;
@@ -56,25 +56,25 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         auto itr = usr::pending_challenges.find(session->uniqueid_);
         if (itr != usr::pending_challenges.end())
         {
-            std::string userpubkey;
+            std::string userpubkeyb64;
             std::string_view original_challenge = itr->second;
-            if (usr::verify_user_challenge_response(userpubkey, message, original_challenge) == 0)
+            if (usr::verify_user_challenge_response(userpubkeyb64, message, original_challenge) == 0)
             {
                 // Challenge singature verification successful.
 
                 // Now check whether this user public key is duplicate.
-                if (usr::sessionids.count(userpubkey) == 0)
+                if (usr::sessionids.count(userpubkeyb64) == 0)
                 {
                     // All good. Unique public key.
                     // Promote the connection from pending-challenges to authenticated users.
 
                     session->flags_.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
                     session->flags_.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
-                    usr::add_user(session->uniqueid_, userpubkey);                    // Add the user to the global authed user list
+                    usr::add_user(session->uniqueid_, userpubkeyb64);                    // Add the user to the global authed user list
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
                     
                     std::cout << "User connection " << session->uniqueid_ << " authenticated. Public key "
-                              << userpubkey << std::endl;
+                              << userpubkeyb64 << std::endl;
                     return;
                 }
                 else
