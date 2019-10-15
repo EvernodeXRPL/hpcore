@@ -9,6 +9,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "usr/usr.hpp"
+#include "proc.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -102,8 +103,14 @@ int main(int argc, char **argv)
                 // TODO
 
                 // Temp code to avoid exiting.
-                std::string s;
-                std::cin >> s;
+                //std::string s;
+                //std::cin >> s;
+
+                proc::ContractExecArgs eargs(123123345);
+                proc::exec_contract(eargs);
+
+                // Free resources.
+                usr::deinit();
             }
         }
     }

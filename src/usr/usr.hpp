@@ -68,6 +68,8 @@ extern std::map<std::string, std::string, std::less<>> pending_challenges;
 
 int init();
 
+void deinit();
+
 void create_user_challenge(std::string &msg, std::string &challengeb64);
 
 int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string_view response, std::string_view original_challenge);
@@ -77,6 +79,8 @@ int add_user(std::string_view sessionid, std::string_view pubkeyb64);
 int remove_user(std::string_view sessionid);
 
 void start_listening();
+
+void stop_listening();
 
 } // namespace usr
 

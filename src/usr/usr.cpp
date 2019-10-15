@@ -71,6 +71,14 @@ int init()
 }
 
 /**
+ * Free any resources used by usr subsystem (eg. socket listeners).
+ */
+void deinit()
+{
+    stop_listening();
+}
+
+/**
  * Constructs user challenge message json and the challenge string required for
  * initial user challenge handshake. This gets called when a user gets establishes
  * a web sockets connection to HP.
@@ -244,6 +252,14 @@ void start_listening()
     listener_thread = std::thread([&] { ioc.run(); });
 
     std::cout << "Started listening for incoming user connections...\n";
+}
+
+/**
+ * Stops listening for incoming connections.
+ */
+void stop_listening()
+{
+    //TODO
 }
 
 } // namespace usr
