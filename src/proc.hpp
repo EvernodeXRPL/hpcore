@@ -17,9 +17,17 @@ namespace proc
  */
 struct ContractExecArgs
 {
-    uint64_t timestamp; // Current HotPocket timestamp.
+    // Map of user I/O buffers (map key: user public key).
+    // The value is a pair holding consensus-verified input and contract-generated output.
+    std::unordered_map<std::string, std::pair<std::string, std::string>> &userbufs;
+    
+    // Current HotPocket timestamp.
+    uint64_t timestamp;
 
-    ContractExecArgs(uint64_t _timestamp)
+    ContractExecArgs(
+        uint64_t _timestamp,
+        std::unordered_map<std::string, std::pair<std::string, std::string>> &_userbufs) :
+            userbufs(_userbufs)
     {
         timestamp = _timestamp;
     }
@@ -27,21 +35,19 @@ struct ContractExecArgs
 
 int exec_contract(const ContractExecArgs &args);
 
-bool is_contract_running();
-
 //------Internal-use functions for this namespace.
 
-int create_userpipes();
+bool is_contract_running();
 
 int write_to_stdin(const ContractExecArgs &args);
 
+int write_verified_user_inputs(const ContractExecArgs &args);
+
+int read_contract_user_outputs(const ContractExecArgs &args);
+
 void close_unused_userfds(bool is_hp);
 
-void cleanup_userfds(const usr::contract_user &user);
-
-void write_verified_user_inputs();
-
-int read_contract_user_outputs();
+void cleanup_userfds();
 
 } // namespace proc
 

@@ -107,13 +107,16 @@ int main(int argc, char **argv)
                 std::string s;
                 std::cin >> s;
 
-                proc::ContractExecArgs eargs(123123345);
+                std::unordered_map<std::string, std::pair<std::string, std::string>> userbufs;
+                for (auto &[sid, user] : usr::users)
+                {
+                    std::pair<std::string, std::string> bufpair;
+                    bufpair.first = std::move(user.inbuffer);
+                    userbufs[user.pubkeyb64] = bufpair;
+                }
+
+                proc::ContractExecArgs eargs(123123345, userbufs);
                 proc::exec_contract(eargs);
-
-                while (proc::is_contract_running())
-                    sleep(1);
-
-                proc::read_contract_user_outputs();
 
                 // Free resources.
                 usr::deinit();

@@ -21,39 +21,13 @@ struct contract_user
     // Base64 user public key
     std::string pubkeyb64;
     
-    // Holds the user input to be processed by consensus rounds
+    // Holds the unprocessed user input collected from websocket.
     std::string inbuffer;
-
-    // Holds the contract output to be processed by consensus rounds
-    std::string outbuffer;
-
-    // HP --> SC pipe + SC --> HP pipe
-    // We keep 2 pipes in single array for easy access.
-    // fd[0] used by Smart Contract to read user-input sent by Hot Pocket.
-    // fd[1] used by Hot Pocket to write user-input to the smart contract.
-    // fd[2] used by Hot Pocket to read output from the smart contract.
-    // fd[3] used by Smart Contract to write output back to Hot Pocket.
-    int fds[4];
 
     contract_user(std::string_view _pubkeyb64)
     {
         pubkeyb64 = _pubkeyb64;
     }
-};
-
-/**
- * Enum used to differenciate pipe fds maintained for user/SC communication.
- */
-enum USERFDTYPE
-{
-    // Used by Smart Contract to read user-input sent by Hot Pocket
-    SCREAD = 0,
-    // Used by Hot Pocket to write user-input to the smart contract.
-    HPWRITE = 1,
-    // Used by Hot Pocket to read output from the smart contract.
-    HPREAD = 2,
-    // Used by Smart Contract to write output back to Hot Pocket.
-    SCWRITE = 3
 };
 
 /**

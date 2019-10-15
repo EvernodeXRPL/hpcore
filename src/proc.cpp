@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <iostream>
 #include <stdlib.h>
+#include <vector>
 #include <unistd.h>
 #include <sstream>
 #include <fcntl.h>
@@ -9,16 +10,35 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "proc.hpp"
-#include "usr/usr.hpp"
 #include "conf.hpp"
 
 namespace proc
 {
 
 /**
+ * Enum used to differenciate pipe fds maintained for SC I/O pipes.
+ */
+enum FDTYPE
+{
+    // Used by Smart Contract to read input sent by Hot Pocket
+    SCREAD = 0,
+    // Used by Hot Pocket to write input to the smart contract.
+    HPWRITE = 1,
+    // Used by Hot Pocket to read output from the smart contract.
+    HPREAD = 2,
+    // Used by Smart Contract to write output back to Hot Pocket.
+    SCWRITE = 3
+};
+
+/**
  * Keeps the currently executing contract process id (if any)
  */
 __pid_t contract_pid = 0;
+
+/**
+ * Map of user pipe fds (map key: user public key)
+ */
+std::unordered_map<std::string, std::vector<int>> userfds;
 
 /**
  * Executes the contract process and passes the specified arguments.
@@ -33,14 +53,13 @@ int exec_contract(const ContractExecArgs &args)
         return -1;
     }
 
-    if (create_userpipes() != 0)
+    // Write any verified (consensus-reached) user inputs to user pipes.
+    if (write_verified_user_inputs(args) != 0)
     {
-        std::cerr << "User pipe creation failed.\n";
+        cleanup_userfds();
+        std::cerr << "Failed to write user inputs to contract.\n";
         return -1;
     }
-
-    // Write any verified (consensus-reached) user inputs to user pipes.
-    write_verified_user_inputs();
 
     __pid_t pid = fork();
     if (pid > 0)
@@ -75,45 +94,16 @@ int exec_contract(const ContractExecArgs &args)
         return -1;
     }
 
-    return 0;
-}
+    // Wait for contract process completion.
+    if (is_contract_running())
+        usleep(1000); // wait for 10 milliseconds
 
-/**
- * Create pipes for all authed users in order to perform I/O with SC.
- */
-int create_userpipes()
-{
-    for (auto &[k, user] : usr::users)
+    // After execution, collect contract user outputs.
+    if (read_contract_user_outputs(args) != 0)
     {
-        int inpipe[2];
-        if (pipe(inpipe) != 0)
-        {
-            //Abandon and cleanup.
-            cleanup_userfds(user);
-            return -1;
-        }
-
-        int outpipe[2];
-        if (pipe(outpipe) != 0)
-        {
-            // Close the earlier created pipe.
-            close(inpipe[0]);
-            close(inpipe[1]);
-
-            inpipe[0] = 0;
-            inpipe[1] = 0;
-
-            //Abandon and cleanup.
-            cleanup_userfds(user);
-            return -1;
-        }
-
-        // If both pipes got created, assign them to user struct.
-        user.fds[usr::USERFDTYPE::SCREAD] = inpipe[0];
-        user.fds[usr::USERFDTYPE::HPWRITE] = inpipe[1];
-        user.fds[usr::USERFDTYPE::HPREAD] = outpipe[0];
-        user.fds[usr::USERFDTYPE::SCWRITE] = outpipe[1];
-    }
+        std::cerr << "Failed to read user outputs from contract.\n";
+        return -1;
+    };
 
     return 0;
 }
@@ -142,15 +132,15 @@ int write_to_stdin(const ContractExecArgs &args)
        << "\",\"ts\":" << args.timestamp
        << ",\"usrfd\":{";
 
-    for (auto itr = usr::users.begin(); itr != usr::users.end(); itr++)
+    for (auto itr = userfds.begin(); itr != userfds.end(); itr++)
     {
-        if (itr != usr::users.begin())
+        if (itr != userfds.begin())
             os << ","; // Trailing comma separator for previous element.
 
-        usr::contract_user user = itr->second;
-        os << "\"" << user.pubkeyb64 << "\":["
-           << user.fds[usr::USERFDTYPE::SCREAD] << ","
-           << user.fds[usr::USERFDTYPE::SCWRITE] << "]";
+        // Write user pubkey and fds.
+        os << "\"" << itr->first << "\":["
+           << itr->second[FDTYPE::SCREAD] << ","
+           << itr->second[FDTYPE::SCWRITE] << "]";
     }
 
     os << "},\"nplfd\":{},\"unl\":[";
@@ -189,29 +179,53 @@ int write_to_stdin(const ContractExecArgs &args)
 }
 
 /**
- * Writes verified (consesus-reached) user input to the SC via the pipe.
+ * Creates the pipes and writes verified (consesus-reached) user
+ * input to the SC via the pipe.
  */
-void write_verified_user_inputs()
+int write_verified_user_inputs(const ContractExecArgs &args)
 {
-    for (auto &[sid, user] : usr::users)
+    for (auto &[pubkey, bufpair] : args.userbufs)
     {
+        int inpipe[2];
+        if (pipe(inpipe) != 0)
+            return -1;
+
+        int outpipe[2];
+        if (pipe(outpipe) != 0)
+        {
+            // Close the earlier created pipe.
+            close(inpipe[0]);
+            close(inpipe[1]);
+            return -1;
+        }
+
+        // If both pipes got created, assign them to the fd map.
+        std::vector<int> fds;
+        fds.push_back(inpipe[0]);  //SCREAD
+        fds.push_back(inpipe[1]);  //HPWRITE
+        fds.push_back(outpipe[0]); //HPREAD
+        fds.push_back(outpipe[1]); //SCWRITE
+        userfds.emplace(pubkey, fds);
+
         // Write the user input into the contract and close the writefd.
         // We use vmsplice to map (zero-copy) the user input into the fd.
         iovec memsegs[1];
-        memsegs[0].iov_base = user.inbuffer.data(); //***TODO: We should read from consensus-verified input.
-        memsegs[0].iov_len = user.inbuffer.length();
-        int writefd = user.fds[usr::USERFDTYPE::HPWRITE];
+        memsegs[0].iov_base = bufpair.first.data(); // bufpair.first is the input buffer.
+        memsegs[0].iov_len = bufpair.first.length();
+        int writefd = fds[FDTYPE::HPWRITE];
 
         if (vmsplice(writefd, memsegs, 1, 0) == -1)
         {
-            std::cerr << "Error writing contract input (" << user.inbuffer.length()
-                      << " bytes) from user " << user.pubkeyb64 << std::endl;
+            std::cerr << "Error writing contract input (" << bufpair.first.length()
+                      << " bytes) from user " << pubkey << std::endl;
         }
 
         // Close the writefd since we no longer need it for this round.
         close(writefd);
-        user.fds[usr::USERFDTYPE::HPWRITE] = 0;
+        fds[FDTYPE::HPWRITE] = 0;
     }
+
+    return 0;
 }
 
 /**
@@ -220,7 +234,7 @@ void write_verified_user_inputs()
  * 
  * @return 0 on success. -1 on failure.
  */
-int read_contract_user_outputs()
+int read_contract_user_outputs(const ContractExecArgs &args)
 {
     // Read any outputs that have been written by the contract process
     // from all the user outpipes and store in the outbuffer of each user.
@@ -230,36 +244,38 @@ int read_contract_user_outputs()
     // Currently this is sequential for simplicity which will not scale well
     // when there are large number of users connected to the same HP node.
 
-    for (auto &[sid, user] : usr::users)
+    for (auto &[pubkey, bufpair] : args.userbufs)
     {
-        int readfd = user.fds[usr::USERFDTYPE::HPREAD];
+        // Get fds for the user by pubkey.
+        std::vector<int> &fds = userfds[pubkey];
+        int readfd = fds[FDTYPE::HPREAD];
         int bytes_available = 0;
         ioctl(readfd, FIONREAD, &bytes_available);
 
         if (bytes_available > 0)
         {
-            user.outbuffer.reserve(bytes_available);
+            bufpair.second.reserve(bytes_available); // bufpair.second is the output buffer.
 
             // Populate the user output buffer with new data from the pipe.
             // We use vmsplice to map (zero-copy) the output from the fd.
             iovec memsegs[1];
-            memsegs[0].iov_base = user.outbuffer.data();
+            memsegs[0].iov_base = bufpair.second.data();
             memsegs[0].iov_len = bytes_available;
 
             if (vmsplice(readfd, memsegs, 1, 0) == -1)
             {
                 std::cerr << "Error reading contract output for user "
-                          << user.pubkeyb64 << std::endl;
+                          << pubkey << std::endl;
             }
             else
             {
-                std::cout << "Contract produced " << bytes_available << " bytes for user " << user.pubkeyb64 << std::endl;
+                std::cout << "Contract produced " << bytes_available << " bytes for user " << pubkey << std::endl;
             }
         }
 
         // Close readfd fd on HP process side because we are done with contract process I/O.
         close(readfd);
-        user.fds[usr::USERFDTYPE::HPREAD] = 0;
+        fds[FDTYPE::HPREAD] = 0;
     }
 
     return 0;
@@ -286,21 +302,21 @@ bool is_contract_running()
  */
 void close_unused_userfds(bool is_hp)
 {
-    for (auto &[sid, user] : usr::users)
+    for (auto &[pubkey, fds] : userfds)
     {
         if (is_hp)
         {
             // Close unused fds in Hot Pocket process.
-            close(user.fds[usr::USERFDTYPE::SCREAD]);
-            user.fds[usr::USERFDTYPE::SCREAD] = 0;
-            close(user.fds[usr::USERFDTYPE::SCWRITE]);
-            user.fds[usr::USERFDTYPE::SCWRITE] = 0;
+            close(fds[FDTYPE::SCREAD]);
+            fds[FDTYPE::SCREAD] = 0;
+            close(fds[FDTYPE::SCWRITE]);
+            fds[FDTYPE::SCWRITE] = 0;
         }
         else
         {
             // Close unused fds in smart contract process.
-            close(user.fds[usr::USERFDTYPE::HPREAD]);
-            user.fds[usr::USERFDTYPE::HPREAD] = 0;
+            close(fds[FDTYPE::HPREAD]);
+            fds[FDTYPE::HPREAD] = 0;
 
             //HPWRITE fd has aleady been closed by HP process after writing user inputs.
         }
@@ -308,24 +324,17 @@ void close_unused_userfds(bool is_hp)
 }
 
 /**
- * Cleanup any open fds of all users (called after partial pipe failure).
- * 
- * @param upto The user upto which point should be checked for open fds.
+ * Closes any open user fds based after an error.
  */
-void cleanup_userfds(const usr::contract_user &upto)
+void cleanup_userfds()
 {
-    for (auto &[sid, user] : usr::users)
+    for (auto &[pubkey, fds] : userfds)
     {
-        if (&user == &upto)
-            break;
-
         for (int i = 0; i < 4; i++)
         {
-            if (user.fds[i] > 0)
-            {
-                close(user.fds[i]);
-                user.fds[i] = 0;
-            }
+            if (fds[i] > 0)
+                close(fds[i]);
+            fds[i] = 0;
         }
     }
 }

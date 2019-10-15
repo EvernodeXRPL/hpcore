@@ -237,16 +237,6 @@ int remove_user(const std::string &sessionid)
 
     usr::contract_user &user = itr->second;
 
-    // Close any open fds for this user.
-    for (int i = 0; i < 4; i++)
-    {
-        if (user.fds[i] > 0)
-        {
-            close(user.fds[i]);
-            user.fds[i] = 0;
-        }
-    }
-
     sessionids.erase(user.pubkeyb64);
     users.erase(itr);
     return 0;
