@@ -2,8 +2,6 @@
 #include <iostream>
 #include <unistd.h>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <sodium.h>
 #include <boost/thread/thread.hpp>
 #include "../sock/socket_server.hpp"

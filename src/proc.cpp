@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <sys/uio.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include "proc.hpp"
 #include "conf.hpp"
