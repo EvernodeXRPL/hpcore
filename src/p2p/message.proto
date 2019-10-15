@@ -43,6 +43,7 @@ message Proposal {
   optional int32 time = 5;
   optional State state = 6;
   optional bytes lcl = 7;
+  //public key needed here
 }
 
 message NPL {

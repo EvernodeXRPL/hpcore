@@ -9,12 +9,18 @@ namespace p2p
 struct peer_context
 {
     std::map<std::string, time_t> recent_peer_msghash; // hash of recent peer messages.
-    std::vector<NPL> npl_messages;                     //npl messages recieved
+    std::vector<NPL> npl_messages; //npl messages recieved
+    std::map<std::string, std::vector<std::string>> local_pending_inputs;  //inputs from users: IP:PORT;pubkeyhex -> [ ordered list of input packets ]
 };
+                      
 
 struct consensus_context
 {
-    std::map<std::string, Proposal> proposals;
+    std::map<std::string, Proposal> proposals; //msg.pubkey + '-' + msg.stage => proposal message
+    int stage;
+    std::time_t novel_proposal_time;
+    std::string lcl;
+
 };
 
 //global peer context
