@@ -107,6 +107,7 @@ int main(int argc, char **argv)
                 std::string s;
                 std::cin >> s;
 
+                // Test code to execute contract and collect outputs.
                 std::unordered_map<std::string, std::pair<std::string, std::string>> userbufs;
                 for (auto &[sid, user] : usr::users)
                 {

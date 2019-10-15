@@ -37,8 +37,6 @@ int exec_contract(const ContractExecArgs &args);
 
 //------Internal-use functions for this namespace.
 
-bool is_contract_running();
-
 int write_to_stdin(const ContractExecArgs &args);
 
 int write_verified_user_inputs(const ContractExecArgs &args);

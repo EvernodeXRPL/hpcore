@@ -31,11 +31,6 @@ enum FDTYPE
 };
 
 /**
- * Keeps the currently executing contract process id (if any)
- */
-__pid_t contract_pid = 0;
-
-/**
  * Map of user pipe fds (map key: user public key)
  */
 std::unordered_map<std::string, std::vector<int>> userfds;
@@ -47,12 +42,6 @@ std::unordered_map<std::string, std::vector<int>> userfds;
  */
 int exec_contract(const ContractExecArgs &args)
 {
-    if (is_contract_running())
-    {
-        std::cerr << "Contract process still running.\n";
-        return -1;
-    }
-
     // Write any verified (consensus-reached) user inputs to user pipes.
     if (write_verified_user_inputs(args) != 0)
     {
@@ -66,10 +55,25 @@ int exec_contract(const ContractExecArgs &args)
     {
         // HotPocket process.
 
-        contract_pid = pid;
-
         // Close all user fds unused by HP process.
         close_unused_userfds(true);
+
+        // Wait for child process (contract process) to complete execution.
+        int scstatus;
+        wait(&scstatus);
+        if (!WIFEXITED(scstatus))
+        {
+            std::cerr << "Contract process exited with non-normal status code: "
+                      << WEXITSTATUS(scstatus) << std::endl;
+            return -1;
+        }
+
+        // After contract execution, collect contract user outputs.
+        if (read_contract_user_outputs(args) != 0)
+        {
+            std::cerr << "Failed to read user outputs from contract.\n";
+            return -1;
+        };
     }
     else if (pid == 0)
     {
@@ -93,17 +97,6 @@ int exec_contract(const ContractExecArgs &args)
         std::cerr << "fork() failed.\n";
         return -1;
     }
-
-    // Wait for contract process completion.
-    if (is_contract_running())
-        usleep(1000); // wait for 10 milliseconds
-
-    // After execution, collect contract user outputs.
-    if (read_contract_user_outputs(args) != 0)
-    {
-        std::cerr << "Failed to read user outputs from contract.\n";
-        return -1;
-    };
 
     return 0;
 }
@@ -205,7 +198,7 @@ int write_verified_user_inputs(const ContractExecArgs &args)
         fds.push_back(inpipe[1]);  //HPWRITE
         fds.push_back(outpipe[0]); //HPREAD
         fds.push_back(outpipe[1]); //SCWRITE
-        userfds.emplace(pubkey, fds);
+        userfds[pubkey] = fds;
 
         // Write the user input into the contract and close the writefd.
         // We use vmsplice to map (zero-copy) the user input into the fd.
@@ -282,22 +275,6 @@ int read_contract_user_outputs(const ContractExecArgs &args)
 }
 
 /**
- * Checks whether the contract process is running at this moment.
- */
-bool is_contract_running()
-{
-    if (contract_pid > 0)
-    {
-        int status = 0;
-        if (!waitpid(contract_pid, &status, WNOHANG))
-            return true;
-        contract_pid = 0;
-    }
-
-    return false;
-}
-
-/**
  * Closes unused user fds based on which process this gets called from.
  */
 void close_unused_userfds(bool is_hp)
@@ -318,7 +295,8 @@ void close_unused_userfds(bool is_hp)
             close(fds[FDTYPE::HPREAD]);
             fds[FDTYPE::HPREAD] = 0;
 
-            //HPWRITE fd has aleady been closed by HP process after writing user inputs.
+            // HPWRITE fd has aleady been closed by HP process after writing user
+            // inputs (before the fork).
         }
     }
 }
