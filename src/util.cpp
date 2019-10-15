@@ -17,21 +17,20 @@ int base64_encode(std::string &encoded_string, const unsigned char *bin, size_t 
 {
     // Get length of encoded result from sodium.
     const size_t base64_len = sodium_base64_encoded_len(bin_len, sodium_base64_VARIANT_ORIGINAL);
-    char base64chars[base64_len];
+
+    // "base64_len - 1" because sodium include '\0' in the calculated base64 length.
+    // Therefore we need to omit it when initializing the std::string.
+    encoded_string.resize(base64_len - 1);
 
     // Get encoded string.
     const char *encoded_str_char = sodium_bin2base64(
-        base64chars, base64_len,
+        encoded_string.data(), base64_len,
         bin, bin_len,
         sodium_base64_VARIANT_ORIGINAL);
 
     if (encoded_str_char == NULL)
         return -1;
 
-    // Assign the encoded char* onto the provided string reference.
-    // "base64_len - 1" because sodium include '\0' in the calculated base64 length.
-    //      Therefore we need to omit it when initializing the std::string.
-    encoded_string = std::string(base64chars, base64_len - 1);
     return 0;
 }
 

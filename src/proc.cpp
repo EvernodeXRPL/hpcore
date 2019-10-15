@@ -246,7 +246,7 @@ int read_contract_user_outputs(const ContractExecArgs &args)
 
         if (bytes_available > 0)
         {
-            bufpair.second.reserve(bytes_available); // bufpair.second is the output buffer.
+            bufpair.second.resize(bytes_available); // bufpair.second is the output buffer.
 
             // Populate the user output buffer with new data from the pipe.
             // We use vmsplice to map (zero-copy) the output from the fd.
