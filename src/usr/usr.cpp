@@ -23,7 +23,7 @@ std::unordered_map<std::string, usr::connected_user> users;
 
 /**
  * Holds set of connected user session ids for lookups. (Exposed to other sub systems)
- * Map key: User pubkey
+ * Map key: User binary pubkey
  */
 std::unordered_map<std::string, std::string> sessionids;
 
@@ -197,10 +197,10 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
  * This should get called after the challenge handshake is verified.
  * 
  * @param sessionid User socket session id.
- * @param pubkeyb64 User's base64 public key.
+ * @param pubkey User's binary public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(const std::string &sessionid, const std::string &pubkeyb64)
+int add_user(const std::string &sessionid, const std::string &pubkey)
 {
     if (users.count(sessionid) == 1)
     {
@@ -208,10 +208,10 @@ int add_user(const std::string &sessionid, const std::string &pubkeyb64)
         return -1;
     }
 
-    users.emplace(sessionid, usr::connected_user(pubkeyb64));
+    users.emplace(sessionid, usr::connected_user(pubkey));
 
     // Populate sessionid map so we can lookup by user pubkey.
-    sessionids.emplace(pubkeyb64, sessionid);
+    sessionids[pubkey] = sessionid;
 
     return 0;
 }
@@ -235,7 +235,7 @@ int remove_user(const std::string &sessionid)
 
     usr::connected_user &user = itr->second;
 
-    sessionids.erase(user.pubkeyb64);
+    sessionids.erase(user.pubkey);
     users.erase(itr);
     return 0;
 }

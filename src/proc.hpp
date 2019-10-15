@@ -17,7 +17,7 @@ namespace proc
  */
 struct ContractExecArgs
 {
-    // Map of user I/O buffers (map key: user public key).
+    // Map of user I/O buffers (map key: user binary public key).
     // The value is a pair holding consensus-verified input and contract-generated output.
     std::unordered_map<std::string, std::pair<std::string, std::string>> &userbufs;
     

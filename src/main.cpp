@@ -113,7 +113,7 @@ int main(int argc, char **argv)
                 {
                     std::pair<std::string, std::string> bufpair;
                     bufpair.first = std::move(user.inbuffer);
-                    userbufs[user.pubkeyb64] = bufpair;
+                    userbufs[user.pubkey] = bufpair;
                 }
 
                 proc::ContractExecArgs eargs(123123345, userbufs);
