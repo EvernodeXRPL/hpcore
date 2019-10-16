@@ -10,13 +10,15 @@ console.log("Input received from hp: " + input);
 
 let hpargs = JSON.parse(input);
 
-Object.keys(hpargs.usrfd).forEach(function(key,index) {
+Object.keys(hpargs.usrfd).forEach(function (key, index) {
     let userfds = hpargs.usrfd[key];
-    let userinput = Buffer.from(pipe.getfdbytes(userfds[0])).toString();
-    console.log("Input received from user " + key + ":");
-    console.log(userinput);
+    let userinput = Buffer.from(pipe.getfdbytes(userfds[0])).toString().trim();
 
-    fs.writeSync(userfds[1], "Echoing: " + userinput);
+    if (userinput.length > 0) {
+        console.log("Input received from user " + key + ":");
+        console.log(userinput);
+        fs.writeSync(userfds[1], "Echoing: " + userinput);
+    }
 });
 
 console.log("===Sample contract ended===");

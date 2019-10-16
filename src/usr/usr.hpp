@@ -5,6 +5,7 @@
 #include <string_view>
 #include <unordered_map>
 #include "../util.hpp"
+#include "../sock/socket_session.hpp"
 
 /**
  * Maintains the global user list with pending input outputs and manages user connections.
@@ -24,17 +25,23 @@ struct connected_user
     // Holds the unprocessed user input collected from websocket.
     std::string inbuffer;
 
+    // Holds the websocket session of this user.
+    // We don't need to own the session object since the lifetime of user and session are coupled.
+    sock::socket_session *session;
+
     /**
      * @param _pubkey The public key of the user in binary format.
      */
-    connected_user(std::string_view _pubkey)
+    connected_user(sock::socket_session *_session, std::string_view _pubkey)
     {
+        session = _session;
         pubkey = _pubkey;
     }
 };
 
 /**
- * Global authenticated (challenge-verified) user list.
+ * Connected (authenticated) user list. (Exposed to other sub systems)
+ * Map key: User socket session id (<ip:port>)
  */
 extern std::unordered_map<std::string, usr::connected_user> users;
 
@@ -57,7 +64,7 @@ void create_user_challenge(std::string &msg, std::string &challengeb64);
 
 int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string_view response, std::string_view original_challenge);
 
-int add_user(const std::string &sessionid, const std::string &pubkey);
+int add_user(sock::socket_session *session, const std::string &pubkey);
 
 int remove_user(const std::string &sessionid);
 

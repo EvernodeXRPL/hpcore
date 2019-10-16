@@ -6,6 +6,7 @@
 #include <sodium.h>
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
+#include "../proc.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
@@ -80,7 +81,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
 
                     session->flags_.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
                     session->flags_.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
-                    usr::add_user(session->uniqueid_, userpubkey);                    // Add the user to the global authed user list
+                    usr::add_user(session, userpubkey);                               // Add the user to the global authed user list
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
 
                     std::cout << "User connection " << session->uniqueid_ << " authenticated. Public key "
@@ -138,6 +139,8 @@ void user_session_handler::on_close(sock::socket_session *session)
     // Session belongs to an authed user.
     else if (session->flags_[util::SESSION_FLAG::USER_AUTHED])
     {
+        // Wait for SC process completion before we remove existing user.
+        proc::await_contract_execution();
         usr::remove_user(session->uniqueid_);
     }
 

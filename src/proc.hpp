@@ -35,6 +35,8 @@ struct ContractExecArgs
 
 int exec_contract(const ContractExecArgs &args);
 
+int await_contract_execution();
+
 //------Internal-use functions for this namespace.
 
 int write_to_stdin(const ContractExecArgs &args);

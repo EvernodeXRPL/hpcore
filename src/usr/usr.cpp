@@ -16,13 +16,14 @@ namespace usr
 {
 
 /**
- * Global user list. (Exposed to other sub systems)
+ * Connected (authenticated) user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
  */
 std::unordered_map<std::string, usr::connected_user> users;
 
 /**
- * Holds set of connected user session ids for lookups. (Exposed to other sub systems)
+ * Holds set of connected user session ids and public keys for lookups.
+ * This is used for pubkey duplicate checks as well.
  * Map key: User binary pubkey
  */
 std::unordered_map<std::string, std::string> sessionids;
@@ -196,19 +197,20 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
  * Adds the user denoted by specified session id and public key to the global authed user list.
  * This should get called after the challenge handshake is verified.
  * 
- * @param sessionid User socket session id.
+ * @param session User socket session.
  * @param pubkey User's binary public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(const std::string &sessionid, const std::string &pubkey)
+int add_user(sock::socket_session *session, const std::string &pubkey)
 {
+    const std::string &sessionid = session->uniqueid_;
     if (users.count(sessionid) == 1)
     {
         std::cerr << sessionid << " already exist. Cannot add user.\n";
         return -1;
     }
 
-    users.emplace(sessionid, usr::connected_user(pubkey));
+    users.emplace(sessionid, usr::connected_user(session, pubkey));
 
     // Populate sessionid map so we can lookup by user pubkey.
     sessionids[pubkey] = sessionid;

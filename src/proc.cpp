@@ -35,6 +35,11 @@ enum FDTYPE
 std::unordered_map<std::string, std::vector<int>> userfds;
 
 /**
+ * Holds the contract process id (if currently executing).
+ */
+__pid_t contract_pid;
+
+/**
  * Executes the contract process and passes the specified arguments.
  * 
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -49,21 +54,22 @@ int exec_contract(const ContractExecArgs &args)
         return -1;
     }
 
-    __pid_t pid = fork();
+    __id_t pid = fork();
     if (pid > 0)
     {
         // HotPocket process.
+        contract_pid = pid;
 
         // Close all user fds unused by HP process.
         close_unused_userfds(true);
 
         // Wait for child process (contract process) to complete execution.
-        int scstatus;
-        wait(&scstatus);
-        if (!WIFEXITED(scstatus))
+        
+        int presult = await_contract_execution();
+        contract_pid = 0;
+        if (presult != 0)
         {
-            std::cerr << "Contract process exited with non-normal status code: "
-                      << WEXITSTATUS(scstatus) << std::endl;
+            std::cerr << "Contract process exited with non-normal status code: " << presult << std::endl;
             return -1;
         }
 
@@ -73,6 +79,8 @@ int exec_contract(const ContractExecArgs &args)
             std::cerr << "Failed to read user outputs from contract.\n";
             return -1;
         };
+        
+        userfds.clear();
     }
     else if (pid == 0)
     {
@@ -97,6 +105,23 @@ int exec_contract(const ContractExecArgs &args)
         return -1;
     }
 
+    return 0;
+}
+
+/**
+ * Blocks the calling thread until the contract process compelted exeution (if running).
+ * 
+ * @returns 0 if contract process exited normally, exit code of contract process if abnormally exited.
+ */
+int await_contract_execution()
+{
+    if (contract_pid > 0)
+    {
+        int scstatus;
+        waitpid(contract_pid, &scstatus, 0);
+        if (!WIFEXITED(scstatus))
+            return WEXITSTATUS(scstatus);
+    }
     return 0;
 }
 
@@ -207,17 +232,28 @@ int write_verified_user_inputs(const ContractExecArgs &args)
         fds.push_back(outpipe[1]); //SCWRITE
         userfds[pubkey] = fds;
 
-        // Write the user input into the contract and close the writefd.
-        // We use vmsplice to map (zero-copy) the user input into the fd.
-        iovec memsegs[1];
-        memsegs[0].iov_base = bufpair.first.data(); // bufpair.first is the input buffer.
-        memsegs[0].iov_len = bufpair.first.length();
+        // Write the user input (if any) into the contract and close the writefd.
+
         int writefd = fds[FDTYPE::HPWRITE];
 
-        if (vmsplice(writefd, memsegs, 1, 0) == -1)
+        if (!bufpair.first.empty()) // bufpair.first is the input buffer.
         {
-            std::cerr << "Error writing contract input (" << bufpair.first.length()
-                      << " bytes) from user" << std::endl;
+            // We use vmsplice to map (zero-copy) the user input into the fd.
+            iovec memsegs[1];
+            memsegs[0].iov_base = bufpair.first.data();
+            memsegs[0].iov_len = bufpair.first.length();
+
+            if (vmsplice(writefd, memsegs, 1, 0) == -1)
+            {
+                std::cerr << "Error writing contract input (" << bufpair.first.length()
+                          << " bytes) from user" << std::endl;
+            }
+
+            // It's important that we DO NOT clear the input buffer string until the contract
+            // process has actually read from the fd. Because the OS is just mapping our
+            // input buffer memory portion into the fd, if we clear it now, the contract process
+            // will get invaid bytes when reading the fd. Therefore we clear the input buffer
+            // inside read_contract_user_outputs().
         }
 
         // Close the writefd since we no longer need it for this round.
@@ -246,6 +282,10 @@ int read_contract_user_outputs(const ContractExecArgs &args)
 
     for (auto &[pubkey, bufpair] : args.userbufs)
     {
+        // Clear the input buffer because we are sure the contract has finished reading from
+        // that mapped memory portion.
+        bufpair.first.clear(); //bufpair.first is the input buffer.
+
         // Get fds for the user by pubkey.
         std::vector<int> &fds = userfds[pubkey];
         int readfd = fds[FDTYPE::HPREAD];
@@ -257,7 +297,7 @@ int read_contract_user_outputs(const ContractExecArgs &args)
             bufpair.second.resize(bytes_available); // bufpair.second is the output buffer.
 
             // Populate the user output buffer with new data from the pipe.
-            // We use vmsplice to map (zero-copy) the output from the fd.
+            // We use vmsplice to map (zero-copy) the output from the fd into output bbuffer.
             iovec memsegs[1];
             memsegs[0].iov_base = bufpair.second.data();
             memsegs[0].iov_len = bytes_available;
@@ -269,7 +309,8 @@ int read_contract_user_outputs(const ContractExecArgs &args)
             }
             else
             {
-                std::cout << "Contract produced " << bytes_available << " bytes for user" << std::endl;
+                std::cout << "Contract produced " << bytes_available
+                          << " bytes for user" << std::endl;
             }
         }
 
@@ -309,7 +350,7 @@ void close_unused_userfds(bool is_hp)
 }
 
 /**
- * Closes any open user fds based after an error.
+ * Closes any open user fds after an error.
  */
 void cleanup_userfds()
 {
