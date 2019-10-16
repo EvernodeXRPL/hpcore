@@ -7,49 +7,44 @@ namespace util
 {
 
 /**
- * Encodes provided bytes to base64 string.
+ * Encodes provided bytes to hex string.
  * 
- * @param encoded_string String reference to assign the base64 encoded output. 
+ * @param encoded_string String reference to assign the hex encoded output.
  * @param bin Bytes to encode.
  * @param bin_len Bytes length.
+ * @return Always returns 0.
  */
-int base64_encode(std::string &encoded_string, const unsigned char *bin, size_t bin_len)
+int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_len)
 {
-    // Get length of encoded result from sodium.
-    const size_t base64_len = sodium_base64_encoded_len(bin_len, sodium_base64_VARIANT_ORIGINAL);
-
-    // "base64_len - 1" because sodium include '\0' in the calculated base64 length.
-    // Therefore we need to omit it when initializing the std::string.
-    encoded_string.resize(base64_len - 1);
+    // Allocate the target string.
+    encoded_string.resize(bin_len * 2);
 
     // Get encoded string.
-    const char *encoded_str_char = sodium_bin2base64(
-        encoded_string.data(), base64_len,
-        bin, bin_len,
-        sodium_base64_VARIANT_ORIGINAL);
-
-    if (encoded_str_char == NULL)
-        return -1;
+    sodium_bin2hex(
+        encoded_string.data(),
+        encoded_string.length() + 1, // + 1 because sodium writes ending '\0' character as well.
+        bin,
+        bin_len);
 
     return 0;
 }
 
 /**
- * Decodes provided base64 string into bytes.
+ * Decodes provided hex string into bytes.
  * 
  * @param decodedbuf Buffer to assign decoded bytes.
  * @param decodedbuf_len Decoded buffer size.
- * @param base64_str Base64 string to decode.
+ * @param hex_str hex string to decode.
  */
-int base64_decode(unsigned char *decodedbuf, size_t decodedbuf_len, std::string_view base64_str)
+int hex2bin(unsigned char *decodedbuf, size_t decodedbuf_len, std::string_view hex_str)
 {
-    const char *b64_end;
+    const char *hex_end;
     size_t bin_len;
-    if (sodium_base642bin(
+    if (sodium_hex2bin(
             decodedbuf, decodedbuf_len,
-            base64_str.data(), base64_str.size() + 1,
-            "", &bin_len, &b64_end,
-            sodium_base64_VARIANT_ORIGINAL))
+            hex_str.data(),
+            hex_str.length(),
+            "", &bin_len, &hex_end))
     {
         return -1;
     }

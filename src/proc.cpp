@@ -111,7 +111,7 @@ int exec_contract(const ContractExecArgs &args)
 /**
  * Blocks the calling thread until the contract process compelted exeution (if running).
  * 
- * @returns 0 if contract process exited normally, exit code of contract process if abnormally exited.
+ * @return 0 if contract process exited normally, exit code of contract process if abnormally exited.
  */
 int await_contract_execution()
 {
@@ -130,11 +130,11 @@ int await_contract_execution()
  * Input format:
  * {
  *   "version":"<hp version>",
- *   "pubkey": "<this node's base64 public key>",
+ *   "pubkey": "<this node's hex public key>",
  *   "ts": <this node's timestamp (unix milliseconds)>,
- *   "usrfd":{ "<pkb64>":[fd0, fd1], ... },
- *   "nplfd":{ "<pkb64>":[fd0, fd1], ... },
- *   "unl":[ "pkb64", ... ]
+ *   "usrfd":{ "<pkhex>":[fd0, fd1], ... },
+ *   "nplfd":{ "<pkhex>":[fd0, fd1], ... },
+ *   "unl":[ "pkhex", ... ]
  * }
  */
 int write_to_stdin(const ContractExecArgs &args)
@@ -145,7 +145,7 @@ int write_to_stdin(const ContractExecArgs &args)
 
     std::ostringstream os;
     os << "{\"version\":\"" << util::HP_VERSION
-       << "\",\"pubkey\":\"" << conf::cfg.pubkeyb64
+       << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
        << "\",\"ts\":" << args.timestamp
        << ",\"usrfd\":{";
 
@@ -154,16 +154,16 @@ int write_to_stdin(const ContractExecArgs &args)
         if (itr != userfds.begin())
             os << ","; // Trailing comma separator for previous element.
 
-        // Get the base64 pubkey of the user.
+        // Get the hex pubkey of the user.
         std::string_view userpubkey = itr->first; // User pubkey in binary format.
-        std::string userpubkeyb64;
-        util::base64_encode(
-            userpubkeyb64,
+        std::string userpubkeyhex;
+        util::bin2hex(
+            userpubkeyhex,
             reinterpret_cast<const unsigned char *>(userpubkey.data()),
             userpubkey.length());
 
-        // Write user base64 pubkey and fds.
-        os << "\"" << userpubkeyb64 << "\":["
+        // Write user hex pubkey and fds.
+        os << "\"" << userpubkeyhex << "\":["
            << itr->second[FDTYPE::SCREAD] << ","
            << itr->second[FDTYPE::SCWRITE] << "]";
     }

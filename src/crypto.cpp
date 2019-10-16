@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <iostream>
-#include <sodium.h>
 #include "crypto.hpp"
 #include "util.hpp"
 
@@ -27,13 +26,18 @@ int init()
  */
 void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string &keytype)
 {
-    //Generate key pair using libsodium default algorithm. (Currently using ed25519)
+    // Generate key pair using libsodium default algorithm.
+    // Currently using ed25519. So append prefix byte to represent that.
 
-    pubkey.resize(crypto_sign_PUBLICKEYBYTES);
-    seckey.resize(crypto_sign_SECRETKEYBYTES);
+    pubkey.resize(PFXD_PUBKEY_BYTES);
+    pubkey[0] = KEYPFX_ed25519;
+
+    seckey.resize(PFXD_SECKEY_BYTES);
+    seckey[0] = KEYPFX_ed25519;
+
     crypto_sign_keypair(
-        reinterpret_cast<unsigned char *>(pubkey.data()),
-        reinterpret_cast<unsigned char *>(seckey.data()));
+        reinterpret_cast<unsigned char *>(pubkey.data() + 1),
+        reinterpret_cast<unsigned char *>(seckey.data() + 1));
 
     keytype = crypto_sign_primitive();
 }
@@ -56,24 +60,24 @@ std::string sign(std::string_view msg, std::string_view seckey)
         NULL,
         reinterpret_cast<const unsigned char *>(msg.data()),
         msg.length(),
-        reinterpret_cast<const unsigned char *>(seckey.data()));
+        reinterpret_cast<const unsigned char *>(seckey.data() + 1)); // +1 to skip the prefix byte.
     
     return sig;
 }
 
 /**
- * Returns the base64 signature string for a message.
+ * Returns the hex signature string for a message.
  * 
  * @param msg Message bytes to sign.
- * @param seckeyb64 Base64 secret key string.
- * @return Base64 signature string.
+ * @param seckeyhex hex secret key string.
+ * @return hex signature string.
  */
-std::string sign_b64(std::string_view msg, std::string_view seckeyb64)
+std::string sign_hex(std::string_view msg, std::string_view seckeyhex)
 {
-    //Decode b64 string and generate the signature using libsodium.
+    //Decode hex string and generate the signature using libsodium.
 
-    unsigned char seckey[crypto_sign_SECRETKEYBYTES];
-    util::base64_decode(seckey, crypto_sign_SECRETKEYBYTES, seckeyb64);
+    unsigned char seckey[PFXD_SECKEY_BYTES];
+    util::hex2bin(seckey, PFXD_SECKEY_BYTES, seckeyhex);
 
     unsigned char sig[crypto_sign_BYTES];
     crypto_sign_detached(
@@ -81,11 +85,11 @@ std::string sign_b64(std::string_view msg, std::string_view seckeyb64)
         NULL,
         reinterpret_cast<const unsigned char *>(msg.data()),
         msg.length(),
-        seckey);
+        seckey + 1); // +1 to skip prefix byte.
 
-    std::string sigb64;
-    util::base64_encode(sigb64, sig, crypto_sign_BYTES);
-    return sigb64;
+    std::string sighex;
+    util::bin2hex(sighex, sig, crypto_sign_BYTES);
+    return sighex;
 }
 
 /**
@@ -102,32 +106,32 @@ int verify(std::string_view msg, std::string_view sig, std::string_view pubkey)
         reinterpret_cast<const unsigned char *>(sig.data()),
         reinterpret_cast<const unsigned char *>(msg.data()),
         msg.length(),
-        reinterpret_cast<const unsigned char *>(pubkey.data()));
+        reinterpret_cast<const unsigned char *>(pubkey.data() + 1)); // +1 to skip prefix byte.
 }
 
 /**
- * Verifies the given base64 signature for the message.
+ * Verifies the given hex signature for the message.
  * 
- * @param msg Base64 message string.
- * @param sigb64 Base64 signature string.
- * @param pubkeyb64 Base64 secret key.
+ * @param msg hex message string.
+ * @param sighex hex signature string.
+ * @param pubkeyhex hex secret key.
  * @return 0 for successful verification. -1 for failure.
  */
-int verify_b64(std::string_view msg, std::string_view sigb64, std::string_view pubkeyb64)
+int verify_hex(std::string_view msg, std::string_view sighex, std::string_view pubkeyhex)
 {
-    //Decode b64 string and verify the signature using libsodium.
+    //Decode hex string and verify the signature using libsodium.
 
-    unsigned char decoded_pubkey[crypto_sign_PUBLICKEYBYTES];
-    util::base64_decode(decoded_pubkey, crypto_sign_PUBLICKEYBYTES, pubkeyb64);
+    unsigned char decoded_pubkey[PFXD_PUBKEY_BYTES];
+    util::hex2bin(decoded_pubkey, PFXD_PUBKEY_BYTES, pubkeyhex);
 
     unsigned char decoded_sig[crypto_sign_BYTES];
-    util::base64_decode(decoded_sig, crypto_sign_BYTES, sigb64);
+    util::hex2bin(decoded_sig, crypto_sign_BYTES, sighex);
 
     return crypto_sign_verify_detached(
         decoded_sig,
         reinterpret_cast<const unsigned char *>(msg.data()),
         msg.length(),
-        decoded_pubkey);
+        decoded_pubkey + 1); // +1 to skip prefix byte.
 }
 
 } // namespace crypto

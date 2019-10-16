@@ -49,7 +49,7 @@ int rekey()
         return -1;
 
     crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
-    if (binpair_to_b64() != 0)
+    if (binpair_to_hex() != 0)
         return -1;
 
     if (save_config() != 0)
@@ -82,7 +82,7 @@ int create_contract()
     //We populate the in-memory struct with default settings and then save it to the file.
 
     crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
-    if (binpair_to_b64() != 0)
+    if (binpair_to_hex() != 0)
         return -1;
 
     cfg.listenip = "0.0.0.0";
@@ -167,8 +167,8 @@ int load_config()
 
     // Load up the values into the struct.
 
-    cfg.pubkeyb64 = d["pubkeyb64"].GetString();
-    cfg.seckeyb64 = d["seckeyb64"].GetString();
+    cfg.pubkeyhex = d["pubkeyhex"].GetString();
+    cfg.seckeyhex = d["seckeyhex"].GetString();
     cfg.keytype = d["keytype"].GetString();
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
@@ -188,8 +188,8 @@ int load_config()
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
 
-    // Convert the b64 keys to binary and keep for later use.
-    if (b64pair_to_bin() != 0)
+    // Convert the hex keys to binary and keep for later use.
+    if (hexpair_to_bin() != 0)
         return -1;
 
     return 0;
@@ -208,8 +208,8 @@ int save_config()
     d.SetObject();
     rapidjson::Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
-    d.AddMember("pubkeyb64", rapidjson::StringRef(cfg.pubkeyb64.data()), allocator);
-    d.AddMember("seckeyb64", rapidjson::StringRef(cfg.seckeyb64.data()), allocator);
+    d.AddMember("pubkeyhex", rapidjson::StringRef(cfg.pubkeyhex.data()), allocator);
+    d.AddMember("seckeyhex", rapidjson::StringRef(cfg.seckeyhex.data()), allocator);
     d.AddMember("keytype", rapidjson::StringRef(cfg.keytype.data()), allocator);
     d.AddMember("binary", rapidjson::StringRef(cfg.binary.data()), allocator);
     d.AddMember("binargs", rapidjson::StringRef(cfg.binargs.data()), allocator);
@@ -256,25 +256,25 @@ int save_config()
 }
 
 /**
- * Decode current binary keys in 'cfg' and populate the it with base64 keys.
+ * Decode current binary keys in 'cfg' and populate the it with hex keys.
  * 
  * @return 0 for successful conversion. -1 for failure.
  */
-int binpair_to_b64()
+int binpair_to_hex()
 {
-    if (util::base64_encode(
-            cfg.pubkeyb64,
+    if (util::bin2hex(
+            cfg.pubkeyhex,
             reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
-            crypto_sign_PUBLICKEYBYTES) != 0)
+            cfg.pubkey.length()) != 0)
     {
         std::cerr << "Error encoding public key bytes.\n";
         return -1;
     }
 
-    if (util::base64_encode(
-            cfg.seckeyb64,
+    if (util::bin2hex(
+            cfg.seckeyhex,
             reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
-            crypto_sign_SECRETKEYBYTES) != 0)
+            cfg.seckey.length()) != 0)
     {
         std::cerr << "Error encoding secret key bytes.\n";
         return -1;
@@ -284,28 +284,29 @@ int binpair_to_b64()
 }
 
 /**
- * Decode current base64 keys in 'cfg' and populate the it with binary keys.
+ * Decode current hex keys in 'cfg' and populate the it with binary keys.
  * 
  * @return 0 for successful conversion. -1 for failure.
  */
-int b64pair_to_bin()
+int hexpair_to_bin()
 {
-    cfg.pubkey.resize(crypto_sign_PUBLICKEYBYTES);
-    if (util::base64_decode(
+    cfg.pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
+    if (util::hex2bin(
             reinterpret_cast<unsigned char *>(cfg.pubkey.data()),
-            cfg.pubkey.length(), cfg.pubkeyb64) != 0)
+            cfg.pubkey.length(),
+            cfg.pubkeyhex) != 0)
     {
-        std::cerr << "Error decoding base64 public key.\n";
+        std::cerr << "Error decoding hex public key.\n";
         return -1;
     }
 
-    cfg.seckey.resize(crypto_sign_SECRETKEYBYTES);
-    if (util::base64_decode(
+    cfg.seckey.resize(crypto::PFXD_SECKEY_BYTES);
+    if (util::hex2bin(
             reinterpret_cast<unsigned char *>(cfg.seckey.data()),
             cfg.seckey.length(),
-            cfg.seckeyb64) != 0)
+            cfg.seckeyhex) != 0)
     {
-        std::cerr << "Error decoding base64 secret key.\n";
+        std::cerr << "Error decoding hex secret key.\n";
         return -1;
     }
     
@@ -321,7 +322,7 @@ int validate_config()
 {
     // Check for non-empty signing keys.
     // We also check for key pair validity as well in the below code.
-    if (cfg.pubkeyb64.empty() || cfg.seckeyb64.empty())
+    if (cfg.pubkeyhex.empty() || cfg.seckeyhex.empty())
     {
         std::cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
         return -1;
@@ -344,8 +345,8 @@ int validate_config()
 
     //Sign and verify a sample message to ensure we have a matching signing key pair.
     std::string msg = "hotpocket";
-    std::string sigb64 = crypto::sign_b64(msg, cfg.seckeyb64);
-    if (crypto::verify_b64(msg, sigb64, cfg.pubkeyb64) != 0)
+    std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
+    if (crypto::verify_hex(msg, sighex, cfg.pubkeyhex) != 0)
     {
         std::cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
         return -1;
@@ -385,12 +386,12 @@ int is_schema_valid(rapidjson::Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"version\", \"pubkeyb64\", \"seckeyb64\", \"keytype\", \"binary\", \"binargs\", \"listenip\""
+        "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"keytype\", \"binary\", \"binargs\", \"listenip\""
         ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
-        "\"pubkeyb64\": { \"type\": \"string\" },"
-        "\"seckeyb64\": { \"type\": \"string\" },"
+        "\"pubkeyhex\": { \"type\": \"string\" },"
+        "\"seckeyhex\": { \"type\": \"string\" },"
         "\"keytype\": { \"type\": \"string\" },"
         "\"binary\": { \"type\": \"string\" },"
         "\"binargs\": { \"type\": \"string\" },"

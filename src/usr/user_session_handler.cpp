@@ -3,7 +3,6 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio.hpp>
-#include <sodium.h>
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
 #include "../proc.hpp"
@@ -30,14 +29,14 @@ void user_session_handler::on_connect(sock::socket_session *session)
     // challenge we issued and later verifies the user's response with it.
 
     std::string msg;
-    std::string challengeb64;
-    usr::create_user_challenge(msg, challengeb64);
+    std::string challengehex;
+    usr::create_user_challenge(msg, challengehex);
 
     // We init the session unique id to associate with the challenge.
     session->init_uniqueid();
 
     // Create an entry in pending_challenges for later tracking upon challenge response.
-    usr::pending_challenges[session->uniqueid_] = challengeb64;
+    usr::pending_challenges[session->uniqueid_] = challengehex;
 
     session->send(std::move(msg));
 
@@ -58,20 +57,20 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         auto itr = usr::pending_challenges.find(session->uniqueid_);
         if (itr != usr::pending_challenges.end())
         {
-            std::string userpubkeyb64;
+            std::string userpubkeyhex;
             std::string_view original_challenge = itr->second;
-            if (usr::verify_user_challenge_response(userpubkeyb64, message, original_challenge) == 0)
+            if (usr::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
             {
                 // Challenge singature verification successful.
 
-                // Decode b64 pubkey and get binary pubkey. We area only going to keep
+                // Decode hex pubkey and get binary pubkey. We area only going to keep
                 // the binary pubkey due to reduced memory footprint.
                 std::string userpubkey;
-                userpubkey.resize(crypto_sign_PUBLICKEYBYTES);
-                util::base64_decode(
+                userpubkey.resize(userpubkeyhex.length() / 2);
+                util::hex2bin(
                     reinterpret_cast<unsigned char *>(userpubkey.data()),
                     userpubkey.length(),
-                    userpubkeyb64);
+                    userpubkeyhex);
 
                 // Now check whether this user public key is duplicate.
                 if (usr::sessionids.count(userpubkey) == 0)
@@ -85,7 +84,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
 
                     std::cout << "User connection " << session->uniqueid_ << " authenticated. Public key "
-                              << userpubkeyb64 << std::endl;
+                              << userpubkeyhex << std::endl;
                     return;
                 }
                 else
