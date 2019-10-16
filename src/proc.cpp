@@ -129,8 +129,16 @@ int write_to_stdin(const ContractExecArgs &args)
         if (itr != userfds.begin())
             os << ","; // Trailing comma separator for previous element.
 
-        // Write user pubkey and fds.
-        os << "\"" << itr->first << "\":["
+        // Get the base64 pubkey of the user.
+        std::string_view userpubkey = itr->first; // User pubkey in binary format.
+        std::string userpubkeyb64;
+        util::base64_encode(
+            userpubkeyb64,
+            reinterpret_cast<const unsigned char *>(userpubkey.data()),
+            userpubkey.length());
+
+        // Write user base64 pubkey and fds.
+        os << "\"" << userpubkeyb64 << "\":["
            << itr->second[FDTYPE::SCREAD] << ","
            << itr->second[FDTYPE::SCWRITE] << "]";
     }
@@ -209,7 +217,7 @@ int write_verified_user_inputs(const ContractExecArgs &args)
         if (vmsplice(writefd, memsegs, 1, 0) == -1)
         {
             std::cerr << "Error writing contract input (" << bufpair.first.length()
-                      << " bytes) from user " << pubkey << std::endl;
+                      << " bytes) from user" << std::endl;
         }
 
         // Close the writefd since we no longer need it for this round.
@@ -246,7 +254,7 @@ int read_contract_user_outputs(const ContractExecArgs &args)
 
         if (bytes_available > 0)
         {
-            bufpair.second.reserve(bytes_available); // bufpair.second is the output buffer.
+            bufpair.second.resize(bytes_available); // bufpair.second is the output buffer.
 
             // Populate the user output buffer with new data from the pipe.
             // We use vmsplice to map (zero-copy) the output from the fd.
@@ -261,7 +269,7 @@ int read_contract_user_outputs(const ContractExecArgs &args)
             }
             else
             {
-                std::cout << "Contract produced " << bytes_available << " bytes for user " << pubkey << std::endl;
+                std::cout << "Contract produced " << bytes_available << " bytes for user" << std::endl;
             }
         }
 

@@ -18,15 +18,18 @@ namespace usr
  */
 struct connected_user
 {
-    // Base64 user public key
-    std::string pubkeyb64;
-    
+    // User binary public key
+    std::string pubkey;
+
     // Holds the unprocessed user input collected from websocket.
     std::string inbuffer;
 
-    connected_user(std::string_view _pubkeyb64)
+    /**
+     * @param _pubkey The public key of the user in binary format.
+     */
+    connected_user(std::string_view _pubkey)
     {
-        pubkeyb64 = _pubkeyb64;
+        pubkey = _pubkey;
     }
 };
 
@@ -54,7 +57,7 @@ void create_user_challenge(std::string &msg, std::string &challengeb64);
 
 int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string_view response, std::string_view original_challenge);
 
-int add_user(const std::string &sessionid, const std::string &pubkeyb64);
+int add_user(const std::string &sessionid, const std::string &pubkey);
 
 int remove_user(const std::string &sessionid);
 

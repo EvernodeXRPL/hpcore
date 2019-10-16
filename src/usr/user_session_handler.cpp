@@ -3,6 +3,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio.hpp>
+#include <sodium.h>
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
 #include "usr.hpp"
@@ -62,17 +63,26 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
             {
                 // Challenge singature verification successful.
 
+                // Decode b64 pubkey and get binary pubkey. We area only going to keep
+                // the binary pubkey due to reduced memory footprint.
+                std::string userpubkey;
+                userpubkey.resize(crypto_sign_PUBLICKEYBYTES);
+                util::base64_decode(
+                    reinterpret_cast<unsigned char *>(userpubkey.data()),
+                    userpubkey.length(),
+                    userpubkeyb64);
+
                 // Now check whether this user public key is duplicate.
-                if (usr::sessionids.count(userpubkeyb64) == 0)
+                if (usr::sessionids.count(userpubkey) == 0)
                 {
                     // All good. Unique public key.
                     // Promote the connection from pending-challenges to authenticated users.
 
                     session->flags_.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
                     session->flags_.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
-                    usr::add_user(session->uniqueid_, userpubkeyb64);                    // Add the user to the global authed user list
+                    usr::add_user(session->uniqueid_, userpubkey);                    // Add the user to the global authed user list
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
-                    
+
                     std::cout << "User connection " << session->uniqueid_ << " authenticated. Public key "
                               << userpubkeyb64 << std::endl;
                     return;
@@ -100,10 +110,10 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
             // This is an authed user.
             usr::connected_user &user = itr->second;
 
-            //Hand over the bytes into user inbuffer.
+            //Append the bytes into connected user input buffer.
             user.inbuffer.append(message);
 
-            std::cout << "Collected " << user.inbuffer.length() << " bytes from user " << user.pubkeyb64 << std::endl;
+            std::cout << "Collected " << user.inbuffer.length() << " bytes from user" << std::endl;
             return;
         }
     }

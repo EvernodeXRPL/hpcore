@@ -29,12 +29,12 @@ void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string
 {
     //Generate key pair using libsodium default algorithm. (Currently using ed25519)
 
-    unsigned char pubkeychars[crypto_sign_PUBLICKEYBYTES];
-    unsigned char seckeychars[crypto_sign_SECRETKEYBYTES];
-    crypto_sign_keypair(pubkeychars, seckeychars);
+    pubkey.resize(crypto_sign_PUBLICKEYBYTES);
+    seckey.resize(crypto_sign_SECRETKEYBYTES);
+    crypto_sign_keypair(
+        reinterpret_cast<unsigned char *>(pubkey.data()),
+        reinterpret_cast<unsigned char *>(seckey.data()));
 
-    pubkey = std::string(reinterpret_cast<char *>(pubkeychars), crypto_sign_PUBLICKEYBYTES);
-    seckey = std::string(reinterpret_cast<char *>(seckeychars), crypto_sign_SECRETKEYBYTES);
     keytype = crypto_sign_primitive();
 }
 
@@ -49,15 +49,15 @@ std::string sign(std::string_view msg, std::string_view seckey)
 {
     //Generate the signature using libsodium.
 
-    unsigned char sigchars[crypto_sign_BYTES];
+    std::string sig;
+    sig.resize(crypto_sign_BYTES);
     crypto_sign_detached(
-        sigchars,
+        reinterpret_cast<unsigned char *>(sig.data()),
         NULL,
         reinterpret_cast<const unsigned char *>(msg.data()),
         msg.length(),
         reinterpret_cast<const unsigned char *>(seckey.data()));
-
-    std::string sig(reinterpret_cast<char *>(sigchars), crypto_sign_BYTES);
+    
     return sig;
 }
 
