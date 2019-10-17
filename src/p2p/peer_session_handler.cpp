@@ -19,7 +19,7 @@ using error = boost::system::error_code;
 namespace p2p
 {
 
-const uint8_t* create_message()
+const uint8_t *create_message()
 {
     flatbuffers::FlatBufferBuilder builder(1024);
     std::time_t timestamp = std::time(nullptr);
@@ -71,7 +71,6 @@ void peer_session_handler::on_message(sock::socket_session *session, const std::
     if (VerifyContainerBuffer(container_verifier))
     {
         auto container = GetContainer(container_pointer);
-
 
         auto version = container->version();
         auto signature = container->signature();

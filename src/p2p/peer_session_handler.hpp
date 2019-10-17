@@ -18,6 +18,5 @@ public:
     void on_close(sock::socket_session *session);
 };
 
-
 } // namespace p2p
 #endif
