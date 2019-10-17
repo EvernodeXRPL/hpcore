@@ -70,8 +70,6 @@ int main(int argc, char **argv)
     {
         // Print the version
         std::cout << util::HP_VERSION << std::endl;
-        //start listen to peers
-        p2p::open_listen();
     }
     else
     {
@@ -100,7 +98,7 @@ int main(int argc, char **argv)
             else if (conf::ctx.command == "run")
             {
                 // In order to host the contract we should init some required sub systems.
-                if (conf::init() != 0 || usr::init() != 0)
+                if (conf::init() != 0 || usr::init() != 0 || p2p::init() != 0)
                     return -1;
 
                 // This will start hosting the contract and start consensus rounds.

@@ -44,6 +44,8 @@ class socket_session : public std::enable_shared_from_this<socket_session>
 
 public:
     socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler);
+    
+    ~socket_session();
 
     // Port and the address of the remote party is being saved to used in the session handler
     // to identify from which remote party the message recieved. Since the port is passed as a string 

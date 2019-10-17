@@ -8,6 +8,7 @@
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util.hpp"
@@ -174,9 +175,21 @@ int load_config()
     cfg.binargs = d["binargs"].GetString();
     cfg.listenip = d["listenip"].GetString();
 
+    //Storing peers in unordered map keyed by the address:port and also saving address and port seperately to retrieve easily
+    // in handling peer connections.
+    std::vector<std::string> splitted_peers;
     cfg.peers.clear();
     for (auto &v : d["peers"].GetArray())
-        cfg.peers.push_back(v.GetString());
+    {
+        //Split the address:port text into two
+        boost::split(splitted_peers, v.GetString(), boost::is_any_of(":"));
+        if (splitted_peers.size() == 2)
+        {
+            //Push the peer address and the port to peers array
+            cfg.peers.insert(std::make_pair(v.GetString(), std::make_pair(splitted_peers.front(), splitted_peers.back())));
+            splitted_peers.clear();
+        }
+    }
 
     cfg.unl.clear();
     for (auto &v : d["unl"].GetArray())
@@ -216,10 +229,10 @@ int save_config()
     d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
 
     rapidjson::Value peers(rapidjson::kArrayType);
-    for (std::string &peer : cfg.peers)
+    for (auto &peer : cfg.peers)
     {
         rapidjson::Value v;
-        v.SetString(rapidjson::StringRef(peer.data()), allocator);
+        v.SetString(rapidjson::StringRef(peer.first.data()), allocator);
         peers.PushBack(v, allocator);
     }
     d.AddMember("peers", peers, allocator);
@@ -309,7 +322,7 @@ int hexpair_to_bin()
         std::cerr << "Error decoding hex secret key.\n";
         return -1;
     }
-    
+
     return 0;
 }
 

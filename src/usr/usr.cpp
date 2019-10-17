@@ -45,7 +45,7 @@ usr::user_session_handler global_usr_session_handler;
 net::io_context ioc;
 
 /**
- * The thread the websocket lsitener is running on. (not exposed out of this namespace)
+ * The thread the websocket listener is running on. (not exposed out of this namespace)
  */
 std::thread listener_thread;
 

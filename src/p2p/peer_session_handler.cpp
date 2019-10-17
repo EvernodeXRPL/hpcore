@@ -3,6 +3,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "p2p.hpp"
+#include "../util.hpp"
 #include "peer_session_handler.hpp"
 
 namespace p2p
@@ -13,19 +14,29 @@ namespace p2p
  */
 void peer_session_handler::on_connect(sock::socket_session *session)
 {
-    std::cout << "Sending message" << std::endl;
-    auto const message = std::make_shared<std::string const>("Connected successfully");
-    session->send(message);
-    //todo:check connected peer is in peer list.
+    if (!session->flags_[util::SESSION_FLAG::INBOUND])
+    {
+        // We init the session unique id to associate with the challenge.
+        session->init_uniqueid();
+        peer_connections.insert(std::make_pair(session->uniqueid_, session));
+        std::cout << "Adding peer to list :" << session->uniqueid_ + " " << session->address_ + " " << session->port_ << std::endl;
+    }
+    else
+    {
+        std::cout << "Sending message" << std::endl;
+        std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
+        session->send(std::move(message));
+    }
 }
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
-void peer_session_handler::on_message(sock::socket_session *session, const std::string &message)
+void peer_session_handler::on_message(sock::socket_session *session, std::string &&message)
 {
     std::cout << "on-message : " << message << std::endl;
+    peer_connections.insert(std::make_pair(session->uniqueid_, session));
     //session->send(std::make_shared<std::string>(message));
-    
+
     GOOGLE_PROTOBUF_VERIFY_VERSION;
     Message container_message;
 
@@ -73,7 +84,7 @@ void peer_session_handler::on_message(sock::socket_session *session, const std::
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session *session)
 {
-    std::cout << "on_close";
+    std::cout << "on_closing peer :"+session->uniqueid_<<std::endl;
 }
 
 } // namespace p2p

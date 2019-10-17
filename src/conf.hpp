@@ -3,6 +3,7 @@
 
 #include <rapidjson/document.h>
 #include <vector>
+#include <unordered_map>
 
 /**
  * Manages the central contract config and context structs.
@@ -33,19 +34,19 @@ struct contract_config
 
     // Config elements which are loaded from the config file.
 
-    std::string pubkeyhex;        // Contract hex public key
-    std::string seckeyhex;        // Contract hex secret key
-    std::string keytype;          // Key generation algorithm used by libsodium
-    std::string binary;           // Full path to the contract binary
-    std::string binargs;          // CLI arguments to pass to the contract binary
-    std::string listenip;         // The IPs to listen on for incoming connections
-    std::vector<std::string> peers;    // List of peers in the format "<ip address>:<port>"
-    std::vector<std::string> unl;      // Unique node list (list of hex public keys)
-    unsigned short peerport; // Listening port for peer connections
-    int roundtime;           // Consensus round time in ms
-    unsigned short pubport;  // Listening port for public user connections
-    int pubmaxsize;          // User message max size in bytes
-    int pubmaxcpm;           // User message rate
+    std::string pubkeyhex;                                                     // Contract hex public key
+    std::string seckeyhex;                                                     // Contract hex secret key
+    std::string keytype;                                                       // Key generation algorithm used by libsodium
+    std::string binary;                                                        // Full path to the contract binary
+    std::string binargs;                                                       // CLI arguments to pass to the contract binary
+    std::string listenip;                                                      // The IPs to listen on for incoming connections
+    std::unordered_map<std::string, std::pair<std::string,std::string>> peers; // List of peers in a map keyed by "<ip address>:<port>" format
+    std::vector<std::string> unl;                                              // Unique node list (list of base64 public keys)
+    std::uint16_t peerport;                                                    // Listening port for peer connections
+    int roundtime;                                                             // Consensus round time in ms
+    std::uint16_t pubport;                                                     // Listening port for public user connections
+    int pubmaxsize;                                                            // User message max size in bytes
+    int pubmaxcpm;                                                             // User message rate
 };
 
 // Global contract context struct exposed to the application.

@@ -2,6 +2,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include "socket_session.hpp"
+#include "../util.hpp"
 
 namespace net = boost::asio;
 
@@ -16,11 +17,17 @@ socket_session::socket_session(websocket::stream<beast::tcp_stream> &websocket, 
 {
 }
 
+socket_session::~socket_session(){
+    sess_handler_.on_close(this);
+}
 //port and address will be used to identify from which client the message recieved in the handler
 void socket_session::server_run(const std::string &&address, const std::string &&port)
 {
     port_ = port;
     address_ = address;
+
+    //Set this flag to identify whether this socket session created when node acts as a server
+    flags_.set(util::SESSION_FLAG::INBOUND);
 
     // Accept the websocket handshake
     ws_.async_accept(
@@ -38,7 +45,7 @@ void socket_session::client_run(const std::string &&address, const std::string &
 
     if (ec)
         return fail(ec, "handshake");
-
+        
     sess_handler_.on_connect(this);
 
     ws_.async_read(
@@ -178,13 +185,13 @@ void socket_session::close()
 //type will be used identify whether the error is due to failure in closing the web socket or transfer of another exception to this method
 void socket_session::on_close(error_code ec, std::int8_t type)
 {
-    sess_handler_.on_close(this);
+    // sess_handler_.on_close(this);
 
-    if (type == 1)
-        return;
+    // if (type == 1)
+    //     return;
 
-    if (ec)
-        return fail(ec, "close");
+    // if (ec)
+    //     return fail(ec, "close");
 }
 
 // When called, initializes the unique id string for this session.
