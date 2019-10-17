@@ -10,8 +10,11 @@
 
 namespace p2p
 {
-const uint8_t *create_message()
+const std::string create_message()
 {
+    //todo:get a average propsal message size and allocate builder based on that.
+    //todo: Create custom vector allocator in order to avoid copying buffer to string.
+
     flatbuffers::FlatBufferBuilder builder(1024);
     std::time_t timestamp = std::time(nullptr);
     uint8_t stage = 0;
@@ -30,7 +33,10 @@ const uint8_t *create_message()
 
     auto container_message = CreateContainer(container_builder, 0, 0, content);
     container_builder.Finish(container_message);
-    return container_builder.GetBufferPointer();
+    auto buf_size = container_builder.GetSize();
+    auto message_buf =  container_builder.GetBufferPointer();
+    //todo: should return buffer_pointer to socket
+    return std::string((char *)message_buf, buf_size);
 }
 
 /**
@@ -47,8 +53,10 @@ void peer_session_handler::on_connect(sock::socket_session *session)
     }
     else
     {
-        std::cout << "Sending message" << std::endl;
-        std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
+
+        auto message =create_message();
+        std::cout << message << std::endl;
+        //std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
         session->send(std::move(message));
     }
 }
@@ -60,22 +68,21 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     std::cout << "on-message : " << message << std::endl;
     peer_connections.insert(std::make_pair(session->uniqueid_, session));
     //session->send(std::make_shared<std::string>(message));
+
     uint8_t *container_pointer = (uint8_t *)message.c_str();
     auto container_length = message.length();
-
-    std::cout << "on-message : " << *container_pointer << std::endl;
-    //Message container_message;
 
     //Defining Flatbuffer verifier (default max depth = 64, max_tables = 1000000,)
     flatbuffers::Verifier container_verifier(container_pointer, container_length);
 
-    //verify message conent using flatbuffer verifier
+    //Verify container message conent using flatbuffer verifier
     if (VerifyContainerBuffer(container_verifier))
     {
         auto container = GetContainer(container_pointer);
 
         auto version = container->version();
         auto signature = container->signature();
+
         auto container_content = container->content();
         auto container_content_length = container_content->size();
         auto container_content_str = container_content->GetAsString(container_content_length);
@@ -83,10 +90,11 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
         //validate message
         uint8_t *content_pointer = (uint8_t *)container_content;
 
-        //Defining Flatbuffer verifier for content verification.
+        //Defining Flatbuffer verifier for content message verification.
+        //Since content is also serialised by using Filterbuf we can verify it using Filterbuffer.
         flatbuffers::Verifier content_verifier(container_pointer, container_length);
 
-        //verify message conent using flatbuffer
+        //verify content message conent using flatbuffer.
         if (VerifyContainerBuffer(content_verifier))
         {
             auto content = GetMutableContent(content_pointer);
@@ -95,7 +103,12 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
             if (content_message_type == Message_Proposal)
             {
                 auto proposal = content->message_as_Proposal();
+                auto pubkey = proposal->pubkey();
+                auto pubkey_p = pubkey->data();
+                auto timestamp = proposal->timestamp();
+                
                 //call message validate method
+                //p2p::validate_peer_message(container_content_str->string_view(), timestamp, version, pubkey->GetAsString()->string_view());
                 //if so  call send message to consensus
             }
             else if (content_message_type == Message_Npl)
