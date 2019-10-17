@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 project(HPCore)
 
-add_definitions("-std=c++17")
+add_definitions("-std=c++17" "-fno-exceptions")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
@@ -22,7 +22,7 @@ add_executable(hpcore
 target_link_libraries(hpcore
     libsodium.a
     libboost_system.a
-    libboost_filesystem.a
+    stdc++fs
     pthread
     protobuf.a
 )

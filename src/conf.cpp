@@ -1,13 +1,13 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <experimental/filesystem>
 #include <sodium.h>
 #include <rapidjson/document.h>
 #include <rapidjson/schema.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
-#include <boost/filesystem.hpp>
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util.hpp"
@@ -67,15 +67,15 @@ int rekey()
  */
 int create_contract()
 {
-    if (boost::filesystem::exists(ctx.contractDir))
+    if (std::experimental::filesystem::exists(ctx.contractDir))
     {
         std::cerr << "Contract dir already exists. Cannot create contract at the same location.\n";
         return -1;
     }
 
-    boost::filesystem::create_directories(ctx.configDir);
-    boost::filesystem::create_directories(ctx.histDir);
-    boost::filesystem::create_directories(ctx.stateDir);
+    std::experimental::filesystem::create_directories(ctx.configDir);
+    std::experimental::filesystem::create_directories(ctx.histDir);
+    std::experimental::filesystem::create_directories(ctx.stateDir);
 
     //Create config file with default settings.
 
@@ -335,7 +335,7 @@ int validate_config()
     }
 
     // Check whether the contract binary actually exists.
-    if (!boost::filesystem::exists(cfg.binary))
+    if (!std::experimental::filesystem::exists(cfg.binary))
     {
         std::cerr << "Contract binary does not exist: " << cfg.binary << std::endl;
         return -1;
@@ -364,7 +364,7 @@ int validate_contract_dir_paths()
 
     for (std::string &dir : dirs)
     {
-        if (!boost::filesystem::exists(dir))
+        if (!std::experimental::filesystem::exists(dir))
         {
             std::cerr << dir << " does not exist.\n";
             return -1;

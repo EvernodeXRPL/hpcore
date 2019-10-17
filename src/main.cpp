@@ -2,6 +2,9 @@
     Entry point for HP Core
 **/
 
+// This will direct all boost exceptions to our error handler.
+#define BOOST_NO_EXCEPTIONS
+
 #include <cstdio>
 #include <iostream>
 #include <thread>
@@ -146,4 +149,13 @@ int main(int argc, char **argv)
     }
     std::cout << "exited normally\n";
     return 0;
+}
+
+/**
+ * Global exception handler for boost exceptions.
+ */
+void boost::throw_exception(std::exception const &e)
+{
+    std::cerr << "Boost error:" << e.what() << std::endl;
+    exit(-1);
 }
