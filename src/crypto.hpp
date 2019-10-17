@@ -29,15 +29,9 @@ int verify(std::string_view msg, std::string_view sig, std::string_view pubkey);
 
 int verify_hex(std::string_view msg, std::string_view sighex, std::string_view pubkeyhex);
 
-/**
- * Generate SHA 512 hash for message prepend with prefix before hashing.
- * 
- * @param msg message string.
- * @param prefix prefix char array.
- * @param char_length length of prefix char array.
- * @return SHA 512 hash.
- */
 std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char_length);
+
+std::string sha_512_hash(const std::string *msg, size_t msg_length, const char *prefix, size_t char_length);
 
 } // namespace crypto
 

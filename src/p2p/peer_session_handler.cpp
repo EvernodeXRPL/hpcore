@@ -1,20 +1,44 @@
 #include <iostream>
-#include "message.pb.h"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "p2p.hpp"
 #include "../util.hpp"
 #include "peer_session_handler.hpp"
+#include "flatbuffers/flatbuffers.h"
+#include "message_content_generated.h"
+#include "message_container_generated.h"
 
 namespace p2p
 {
+const uint8_t *create_message()
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+    std::time_t timestamp = std::time(nullptr);
+    uint8_t stage = 0;
+
+    auto proposal = CreateProposal(builder, 0, timestamp, stage, timestamp);
+    auto message = CreateContent(builder, Message_NONE, proposal.Union());
+    builder.Finish(message);
+    //builder.
+    uint8_t *buf = builder.GetBufferPointer();
+    auto size = builder.GetSize();
+
+    auto messageContent = GetContent(buf);
+    flatbuffers::FlatBufferBuilder container_builder(1024);
+
+    auto content = container_builder.CreateVector(buf, size);
+
+    auto container_message = CreateContainer(container_builder, 0, 0, content);
+    container_builder.Finish(container_message);
+    return container_builder.GetBufferPointer();
+}
 
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
 void peer_session_handler::on_connect(sock::socket_session *session)
 {
-    if (!session->flags_[util::SESSION_FLAG::INBOUND])
+     if (!session->flags_[util::SESSION_FLAG::INBOUND])
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
@@ -36,38 +60,50 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     std::cout << "on-message : " << message << std::endl;
     peer_connections.insert(std::make_pair(session->uniqueid_, session));
     //session->send(std::make_shared<std::string>(message));
+    uint8_t *container_pointer = (uint8_t *)message.c_str();
+    auto container_length = message.length();
 
-    GOOGLE_PROTOBUF_VERIFY_VERSION;
-    Message container_message;
+    std::cout << "on-message : " << *container_pointer << std::endl;
+    //Message container_message;
 
-    if (p2p::message_parse_from_string(container_message, message))
+    //Defining Flatbuffer verifier (default max depth = 64, max_tables = 1000000,)
+    flatbuffers::Verifier container_verifier(container_pointer, container_length);
+
+    //verify message conent using flatbuffer verifier
+    if (VerifyContainerBuffer(container_verifier))
     {
-        if (p2p::validate_peer_message(container_message, message))
+        auto container = GetContainer(container_pointer);
+
+        auto version = container->version();
+        auto signature = container->signature();
+        auto container_content = container->content();
+        auto container_content_length = container_content->size();
+        auto container_content_str = container_content->GetAsString(container_content_length);
+
+        //validate message
+        uint8_t *content_pointer = (uint8_t *)container_content;
+
+        //Defining Flatbuffer verifier for content verification.
+        flatbuffers::Verifier content_verifier(container_pointer, container_length);
+
+        //verify message conent using flatbuffer
+        if (VerifyContainerBuffer(content_verifier))
         {
-            auto message_type = container_message.type();
+            auto content = GetMutableContent(content_pointer);
+            auto content_message_type = content->message_type();
 
-            if (message_type == p2p::Message::PROPOSAL)
+            if (content_message_type == Message_Proposal)
             {
-                p2p::Proposal proposal;
-                proposal_parse_from_string(proposal, container_message.content());
-
-                std::string prop_name;
-                prop_name.reserve(container_message.publickey().size() + 1 + sizeof(proposal.stage()));
-                prop_name += container_message.publickey();
-                prop_name += '-';
-                prop_name += proposal.stage();
-
-                //put it into propsal message map
-                consensus_ctx.proposals.try_emplace(prop_name, proposal);
-                //broadcast it
+                auto proposal = content->message_as_Proposal();
+                //call message validate method
+                //if so  call send message to consensus
             }
-            else if (message_type == p2p::Message::NPL)
+            else if (content_message_type == Message_Npl)
             {
-                p2p::NPL npl;
-                npl_parse_from_string(npl, container_message.content());
+                auto npl = content->message_as_Npl();
 
-                //put it into npl list
-                p2p::peer_ctx.npl_messages.push_back(npl);
+                // //put it into npl list
+                // p2p::peer_ctx.npl_messages.push_back(npl);
                 //broadcast it
             }
             else
@@ -77,9 +113,9 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     }
     else
     {
-        //bad message
     }
-}
+
+} // namespace p2p
 
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session *session)

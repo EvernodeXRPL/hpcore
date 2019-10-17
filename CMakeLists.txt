@@ -6,7 +6,6 @@ add_definitions("-std=c++17")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
 add_executable(hpcore
-    src/p2p/message.pb.cc
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
     src/sock/socket_session.cpp

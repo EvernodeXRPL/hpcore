@@ -2,6 +2,7 @@
 #include <iostream>
 #include "crypto.hpp"
 #include "util.hpp"
+#include <boost/beast/core.hpp>
 
 namespace crypto
 {
@@ -134,6 +135,14 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
         decoded_pubkey + 1); // +1 to skip prefix byte.
 }
 
+/**
+ * Generate SHA 512 hash for message prepend with prefix before hashing.
+ * 
+ * @param msg message string.
+ * @param prefix prefix char array.
+ * @param char_length length of prefix char array.
+ * @return SHA 512 hash.
+ */
 std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char_length)
 {
     std::string payload;
@@ -144,5 +153,36 @@ std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char
     crypto_hash_sha512(hashchars, (unsigned char *)payload.data(), payload.length());
     return std::string((char *)hashchars, crypto_hash_sha512_BYTES);
 }
+
+/**
+ * Generate SHA 512 hash for message prepend with prefix before hashing.
+ * 
+ * @param msg pointer to a string message.
+ * @param msg message string.
+ * @param prefix prefix char array.
+ * @param char_length length of prefix char array.
+ * @return SHA 512 hash.
+ */
+std::string sha_512_hash(const std::string *msg, size_t msg_length, const char *prefix, size_t char_length)
+{
+    std::string payload;
+    payload.reserve(char_length + msg_length);
+    payload.append(prefix);
+    payload.append(msg->data());
+    unsigned char hashchars[crypto_hash_sha512_BYTES];
+    crypto_hash_sha512(hashchars, (unsigned char *)payload.data(), payload.length());
+    return std::string((char *)hashchars, crypto_hash_sha512_BYTES);
+}
+
+// std::string sha_512_hash(const uint8_t *message, size_t message_size, const char* prefix, size_t char_length)
+// {
+//     const char *pp = reinterpret_cast<const char *>(message);
+
+//     std::unique_ptr<char[]> buf_ptr(new char[char_length + message_size]);
+//     unsigned char myBuffer[char_length + message_size];
+//     unsigned char hashchars[crypto_hash_sha512_BYTES];
+//     crypto_hash_sha512(hashchars, reinterpret_cast<const unsigned char *>(myBuffer), sizeof(myBuffer));
+//     return std::string((char *)hashchars, crypto_hash_sha512_BYTES);
+// }
 
 } // namespace crypto
