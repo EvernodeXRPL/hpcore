@@ -92,19 +92,21 @@ void peer_connection_watchdog()
  * @param timestamp of the message.
  * @return whether message is validated or not.
  */
-bool validate_peer_message(const std::string *message, size_t message_size, time_t timestamp, uint16_t version)
+bool validate_peer_message(const std::string_view message, time_t timestamp, uint16_t version, const std::string_view pubkey)
 {
     std::time_t time_now = std::time(nullptr);
     //todo:check pubkey in unl list. need to change unl list to a map.
 
-    //protocol version check
+    //Check protocol version of message whether it is than minimum suppoerted protocol version. 
     if (version <= util::MIN_PEERMSG_VERSION)
     {
         std::cout << "recieved message is a old unsupported version" << std::endl;
         return false;
     }
-    //check consensus stage
-    //check message timestamp < timestamp now - 4* round time.
+
+    //check message timestamp.  < timestamp now - 4* round time.
+    //todo:this might change to check only current stage related. (Base on how we are going to implement consensus algorithm)
+    //check consensus stage is for valid stage(node current consensus stage - 1)
     if (timestamp < (time_now - conf::cfg.roundtime * 4))
     {
         std::cout << "recieved message from peer is old" << std::endl;
@@ -112,16 +114,16 @@ bool validate_peer_message(const std::string *message, size_t message_size, time
     }
 
     //get message hash and see wheteher message is already recieved -> abandon
-    auto messageHash = crypto::sha_512_hash(message, message_size, "PEERMSG", 7);
+    //auto messageHash = crypto::sha_512_hash(message, message_size, "PEERMSG", 7);
 
-    if (peer_ctx.recent_peer_msghash.count(messageHash) == 0)
-    {
-        peer_ctx.recent_peer_msghash.try_emplace(messageHash, timestamp);
-    }
-    else
-    {
-        return false;
-    }
+    // if (peer_ctx.recent_peer_msghash.count(messageHash) == 0)
+    // {
+    //     peer_ctx.recent_peer_msghash.try_emplace(messageHash, timestamp);
+    // }
+    // else
+    // {
+    //     return false;
+    // }
 
     //signature check
 
