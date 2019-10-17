@@ -35,7 +35,6 @@ struct contract_config
 
     std::string pubkeyhex;        // Contract hex public key
     std::string seckeyhex;        // Contract hex secret key
-    std::string keytype;          // Key generation algorithm used by libsodium
     std::string binary;           // Full path to the contract binary
     std::string binargs;          // CLI arguments to pass to the contract binary
     std::string listenip;         // The IPs to listen on for incoming connections

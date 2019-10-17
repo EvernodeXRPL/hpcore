@@ -48,7 +48,7 @@ int rekey()
     if (load_config() != 0)
         return -1;
 
-    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
+    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
     if (binpair_to_hex() != 0)
         return -1;
 
@@ -81,7 +81,7 @@ int create_contract()
 
     //We populate the in-memory struct with default settings and then save it to the file.
 
-    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
+    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
     if (binpair_to_hex() != 0)
         return -1;
 
@@ -169,7 +169,6 @@ int load_config()
 
     cfg.pubkeyhex = d["pubkeyhex"].GetString();
     cfg.seckeyhex = d["seckeyhex"].GetString();
-    cfg.keytype = d["keytype"].GetString();
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
     cfg.listenip = d["listenip"].GetString();
@@ -210,7 +209,6 @@ int save_config()
     d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
     d.AddMember("pubkeyhex", rapidjson::StringRef(cfg.pubkeyhex.data()), allocator);
     d.AddMember("seckeyhex", rapidjson::StringRef(cfg.seckeyhex.data()), allocator);
-    d.AddMember("keytype", rapidjson::StringRef(cfg.keytype.data()), allocator);
     d.AddMember("binary", rapidjson::StringRef(cfg.binary.data()), allocator);
     d.AddMember("binargs", rapidjson::StringRef(cfg.binargs.data()), allocator);
     d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
@@ -386,13 +384,12 @@ int is_schema_valid(rapidjson::Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"keytype\", \"binary\", \"binargs\", \"listenip\""
+        "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
         ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
         "\"seckeyhex\": { \"type\": \"string\" },"
-        "\"keytype\": { \"type\": \"string\" },"
         "\"binary\": { \"type\": \"string\" },"
         "\"binargs\": { \"type\": \"string\" },"
         "\"listenip\": { \"type\": \"string\" },"

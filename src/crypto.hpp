@@ -19,7 +19,7 @@ static size_t PFXD_SECKEY_BYTES = crypto_sign_SECRETKEYBYTES + 1;
 
 int init();
 
-void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string &keytype);
+void generate_signing_keys(std::string &pubkey, std::string &seckey);
 
 std::string sign(std::string_view msg, std::string_view seckey);
 
