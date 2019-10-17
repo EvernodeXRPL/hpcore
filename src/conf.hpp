@@ -4,6 +4,7 @@
 #include <rapidjson/document.h>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 /**
  * Manages the central contract config and context structs.
@@ -41,7 +42,7 @@ struct contract_config
     std::string binargs;                                                       // CLI arguments to pass to the contract binary
     std::string listenip;                                                      // The IPs to listen on for incoming connections
     std::unordered_map<std::string, std::pair<std::string,std::string>> peers; // List of peers in a map keyed by "<ip address>:<port>" format
-    std::vector<std::string> unl;                                              // Unique node list (list of base64 public keys)
+    std::unordered_set<std::string> unl;                                       // Unique node list (list of base64 public keys)
     std::uint16_t peerport;                                                    // Listening port for peer connections
     int roundtime;                                                             // Consensus round time in ms
     std::uint16_t pubport;                                                     // Listening port for public user connections
