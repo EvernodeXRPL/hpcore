@@ -378,7 +378,7 @@ int read_iopipe(std::vector<int> &fds, std::string &outputbuffer)
     // from the HP outpipe and store in the outbuffer.
     // outbuffer will be read by the consensus process later when it wishes so.
 
-    int readfd = hpscfds[FDTYPE::HPREAD];
+    int readfd = fds[FDTYPE::HPREAD];
     int bytes_available = 0;
     ioctl(readfd, FIONREAD, &bytes_available);
     bool vmsplice_error = false;
@@ -399,7 +399,7 @@ int read_iopipe(std::vector<int> &fds, std::string &outputbuffer)
 
     // Close readfd fd on HP process side because we are done with contract process I/O.
     close(readfd);
-    hpscfds[FDTYPE::HPREAD] = 0;
+    fds[FDTYPE::HPREAD] = 0;
 
     return vmsplice_error ? -1 : 0;
 }
@@ -410,9 +410,7 @@ void close_unused_fds(bool is_hp)
 
     // Loop through user fds.
     for (auto &[pubkey, fds] : userfds)
-    {
         close_unused_vectorfds(is_hp, fds);
-    }
 }
 
 /**

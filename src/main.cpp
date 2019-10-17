@@ -108,7 +108,8 @@ int main(int argc, char **argv)
 
                 while (true)
                 {
-                    sleep(1);
+                    sleep(2);
+
                     // Test code to execute contract and collect outputs.
                     std::unordered_map<std::string, std::pair<std::string, std::string>> userbufs;
                     for (auto &[sid, user] : usr::users)
@@ -122,8 +123,7 @@ int main(int argc, char **argv)
                         userbufs[user.pubkey] = bufpair;
                     }
                     std::pair<std::string, std::string> hpscbufpair;
-                    hpscbufpair.first = "";
-                    hpscbufpair.second = "";
+                    hpscbufpair.first = "{msg:'Message from HP'}";
 
                     proc::ContractExecArgs eargs(123123345, userbufs, hpscbufpair);
                     proc::exec_contract(eargs);
@@ -141,6 +141,9 @@ int main(int argc, char **argv)
                             user.session->send(std::move(bufpair.second));
                         }
                     }
+
+                    if (!hpscbufpair.second.empty())
+                        std::cout << "Message from SC: " << hpscbufpair.second << std::endl;
 
                     userbufs.clear();
                 }
