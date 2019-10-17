@@ -10,8 +10,11 @@
 
 namespace p2p
 {
-const uint8_t *create_message()
+const std::string create_message()
 {
+    //todo:get a average propsal message size and allocate builder based on that.
+    //todo: Create custom vector allocator in order to avoid copying buffer to string.
+
     flatbuffers::FlatBufferBuilder builder(1024);
     std::time_t timestamp = std::time(nullptr);
     uint8_t stage = 0;
@@ -30,7 +33,10 @@ const uint8_t *create_message()
 
     auto container_message = CreateContainer(container_builder, 0, 0, content);
     container_builder.Finish(container_message);
-    return container_builder.GetBufferPointer();
+    auto buf_size = container_builder.GetSize();
+    auto message_buf = container_builder.GetBufferPointer();
+    //todo: should return buffer_pointer to socket
+    return std::string((char *)message_buf, buf_size);
 }
 
 /**
@@ -38,7 +44,7 @@ const uint8_t *create_message()
  */
 void peer_session_handler::on_connect(sock::socket_session *session)
 {
-     if (!session->flags_[util::SESSION_FLAG::INBOUND])
+    if (!session->flags_[util::SESSION_FLAG::INBOUND])
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
@@ -47,8 +53,9 @@ void peer_session_handler::on_connect(sock::socket_session *session)
     }
     else
     {
-        std::cout << "Sending message" << std::endl;
-        std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
+        std::string message = create_message();
+        std::cout << "Sending message :" << message << std::endl;
+        // std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
         session->send(std::move(message));
     }
 }
@@ -114,13 +121,12 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     else
     {
     }
-
-} // namespace p2p
+}
 
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session *session)
 {
-    std::cout << "on_closing peer :"+session->uniqueid_<<std::endl;
+    std::cout << "on_closing peer :" + session->uniqueid_ << std::endl;
 }
 
 } // namespace p2p
