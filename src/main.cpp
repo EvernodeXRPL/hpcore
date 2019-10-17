@@ -121,8 +121,11 @@ int main(int argc, char **argv)
                         bufpair.first = std::move(inputtosend);
                         userbufs[user.pubkey] = bufpair;
                     }
+                    std::pair<std::string, std::string> hpscbufpair;
+                    hpscbufpair.first = "";
+                    hpscbufpair.second = "";
 
-                    proc::ContractExecArgs eargs(123123345, userbufs);
+                    proc::ContractExecArgs eargs(123123345, userbufs, hpscbufpair);
                     proc::exec_contract(eargs);
 
                     for (auto &[pubkey, bufpair] : userbufs)
