@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <vector>
+#include <experimental/filesystem>
 #include <unistd.h>
 #include <sstream>
 #include <fcntl.h>
@@ -96,7 +97,7 @@ int exec_contract(const ContractExecArgs &args)
         close_unused_fds(false);
 
         // Set the contract process working directory.
-        chdir(conf::ctx.contractDir.data());
+        std::experimental::filesystem::current_path(conf::ctx.contractDir);
 
         // Write the contract input message from HotPocket to the stdin (0) of the contract process.
         write_contract_args(args);
@@ -204,7 +205,11 @@ int write_contract_args(const ContractExecArgs &args)
     close(stdinpipe[0]);
 
     // Write the json message and close write fd.
-    write(stdinpipe[1], json.data(), json.size());
+    if (write(stdinpipe[1], json.data(), json.size()) == -1)
+    {
+        std::cerr << "Failed to write to stdin of contract process.\n";
+        return -1;
+    }
     close(stdinpipe[1]);
 
     return 0;

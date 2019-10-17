@@ -4,8 +4,9 @@
 .*.sw?
 .DS_Store
 build/**
+release/**
 .vscode/**
-Makefile
-CMakeCache.txt
-cmake_install.cmake
-CMakeFiles/**
+**/Makefile
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/CMakeFiles/**
