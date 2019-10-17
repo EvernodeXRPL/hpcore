@@ -34,7 +34,7 @@ const std::string create_message()
     auto container_message = CreateContainer(container_builder, 0, 0, content);
     container_builder.Finish(container_message);
     auto buf_size = container_builder.GetSize();
-    auto message_buf =  container_builder.GetBufferPointer();
+    auto message_buf = container_builder.GetBufferPointer();
     //todo: should return buffer_pointer to socket
     return std::string((char *)message_buf, buf_size);
 }
@@ -44,7 +44,7 @@ const std::string create_message()
  */
 void peer_session_handler::on_connect(sock::socket_session *session)
 {
-     if (!session->flags_[util::SESSION_FLAG::INBOUND])
+    if (!session->flags_[util::SESSION_FLAG::INBOUND])
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
@@ -53,10 +53,9 @@ void peer_session_handler::on_connect(sock::socket_session *session)
     }
     else
     {
-
-        auto message =create_message();
-        std::cout << message << std::endl;
-        //std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
+        std::string message = create_message();
+        std::cout << "Sending message :" << message << std::endl;
+        // std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
         session->send(std::move(message));
     }
 }
@@ -127,13 +126,12 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     else
     {
     }
-
-} // namespace p2p
+}
 
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session *session)
 {
-    std::cout << "on_closing peer :"+session->uniqueid_<<std::endl;
+    std::cout << "on_closing peer :" + session->uniqueid_ << std::endl;
 }
 
 } // namespace p2p

@@ -15,11 +15,14 @@ namespace sock
 socket_session::socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler)
     : ws_(std::move(websocket)), sess_handler_(sess_handler)
 {
+    ws_.binary(true);
 }
 
-socket_session::~socket_session(){
+socket_session::~socket_session()
+{
     sess_handler_.on_close(this);
 }
+
 //port and address will be used to identify from which client the message recieved in the handler
 void socket_session::server_run(const std::string &&address, const std::string &&port)
 {
@@ -45,7 +48,7 @@ void socket_session::client_run(const std::string &&address, const std::string &
 
     if (ec)
         return fail(ec, "handshake");
-        
+
     sess_handler_.on_connect(this);
 
     ws_.async_read(
@@ -61,7 +64,7 @@ void socket_session::client_run(const std::string &&address, const std::string &
 */
 void socket_session::fail(error_code ec, char const *what)
 {
-    // std::cerr << what << ": " << ec.message() << std::endl;
+     std::cerr << what << ": " << ec.message() << std::endl;
 
     // Don't report these
     if (ec == net::error::operation_aborted ||
