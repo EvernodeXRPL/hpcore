@@ -20,21 +20,21 @@ const std::string create_message()
     uint8_t stage = 0;
 
     auto proposal = CreateProposal(builder, 0, timestamp, stage, timestamp);
-    auto message = CreateContent(builder, Message_NONE, proposal.Union());
+    auto message = CreateContent(builder, Message_Proposal, proposal.Union());
     builder.Finish(message);
+
     //builder.
     uint8_t *buf = builder.GetBufferPointer();
     auto size = builder.GetSize();
 
-    auto messageContent = GetContent(buf);
     flatbuffers::FlatBufferBuilder container_builder(1024);
 
     auto content = container_builder.CreateVector(buf, size);
-
-    auto container_message = CreateContainer(container_builder, 0, 0, content);
+    auto container_message = CreateContainer(container_builder, 5, content, content);
     container_builder.Finish(container_message);
     auto buf_size = container_builder.GetSize();
     auto message_buf = container_builder.GetBufferPointer();
+
     //todo: should return buffer_pointer to socket
     return std::string((char *)message_buf, buf_size);
 }
@@ -54,7 +54,7 @@ void peer_session_handler::on_connect(sock::socket_session *session)
     else
     {
         std::string message = create_message();
-        std::cout << "Sending message :" << message << std::endl;
+        // std::cout << "Sending message :" << message << std::endl;
         // std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
         session->send(std::move(message));
     }
@@ -81,31 +81,34 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
 
         auto version = container->version();
         auto signature = container->signature();
-
+        std::cout << "version" << version << std::endl;
         auto container_content = container->content();
         auto container_content_length = container_content->size();
-        auto container_content_str = container_content->GetAsString(container_content_length);
+        auto container_content_buf = container_content->Data();
+
+        // auto container_content_str = container_content->GetAsString(container_content_length);
 
         //validate message
-        uint8_t *content_pointer = (uint8_t *)container_content;
+        const uint8_t *content_pointer = container_content_buf;
 
         //Defining Flatbuffer verifier for content message verification.
         //Since content is also serialised by using Filterbuf we can verify it using Filterbuffer.
-        flatbuffers::Verifier content_verifier(container_pointer, container_length);
+        flatbuffers::Verifier content_verifier(content_pointer, container_content_length);
 
         //verify content message conent using flatbuffer.
         if (VerifyContainerBuffer(content_verifier))
         {
-            auto content = GetMutableContent(content_pointer);
+            auto content = GetContent(content_pointer);
             auto content_message_type = content->message_type();
-
+            std::cout << "asa2:" << std::to_string(content_message_type) << std::endl;
             if (content_message_type == Message_Proposal)
             {
                 auto proposal = content->message_as_Proposal();
                 auto pubkey = proposal->pubkey();
                 auto pubkey_p = pubkey->data();
                 auto timestamp = proposal->timestamp();
-                
+                std::cout << "timestamp:" << timestamp << std::endl;
+
                 //call message validate method
                 //p2p::validate_peer_message(container_content_str->string_view(), timestamp, version, pubkey->GetAsString()->string_view());
                 //if so  call send message to consensus
