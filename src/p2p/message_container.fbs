@@ -1,0 +1,11 @@
+//IDL file for p2p message schema.
+include "message_content.fbs";
+namespace p2p;
+
+table Container { //root type for message
+    version: uint16; 
+    signature:[ubyte];
+    content:[ubyte]; // message content: byte array of proposal,npl,etc
+}
+
+root_type Container;

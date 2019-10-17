@@ -11,7 +11,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
 * Websockets - Boost|Beast https://github.com/boostorg/beast
 * RapidJSON - http://rapidjson.org
-* P2P Protocol - https://github.com/protocolbuffers/protobuf
+* P2P Protocol - https://google.github.io/flatbuffers/
 
 ## Steps to setup Hot Pocket
 
@@ -37,22 +37,8 @@ Following Instructions are based on Boost [getting started](https://www.boost.or
 2. Navigate to the extracted directory.
 3. Run `sudo cp -r include/rapidjson /usr/local/include/`
 
-#### Install Protocol buffers
-Instructions are based on [this](https://github.com/protocolbuffers/protobuf/tree/master/src).
-
-1. Download and extract Protobuf 3.10.0 from [here](https://github.com/protocolbuffers/protobuf/releases/download/v3.10.0/protobuf-cpp-3.10.0.tar.gz).
-2. Navigate to the extracted Protobuf directory in a terminal.
-3. Run `./configure`
-4. Run `make && make check`
-5. Run `sudo make install`
-
-##### Compiling Protocol buffers message definitions
-When you make a change to `message.proto` defnition file, you need to run this:
-
-`protoc -I=./src/p2p --cpp_out=./src/p2p ./src/p2p/message.proto`
-
 #### Install FlatBuffers
-Instructions are based on [this](https://github.com/protocolbuffers/protobuf/tree/master/src).
+Instructions are based on [this](https://google.github.io/flatbuffers/).
 
 1. Clone the git respository into a new directory from [here](https://github.com/google/flatbuffers).
 2. Build with CMake
@@ -68,7 +54,7 @@ make
 ##### Compiling FlatBuffers message definitions
 When you make a change to `message.fbc` defnition file, you need to run this:
 
-`flatc -o src/p2p/ --cpp src/p2p/message.fbs`
+`flatc -o src/p2p/ --gen-mutable --cpp src/p2p/message.fbs`
 
 #### Run ldconfig
 `sudo ldconfig`

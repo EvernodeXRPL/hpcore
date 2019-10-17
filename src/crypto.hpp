@@ -20,15 +20,9 @@ int verify(const std::string &msg, const std::string &sig, const std::string &pu
 
 int verify_b64(const std::string &msg, const std::string &sigb64, const std::string &pubkeyb64);
 
-/**
- * Generate SHA 512 hash for message prepend with prefix before hashing.
- * 
- * @param msg message string.
- * @param prefix prefix char array.
- * @param char_length length of prefix char array.
- * @return SHA 512 hash.
- */
 std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char_length);
+
+std::string sha_512_hash(const std::string *msg, size_t msg_length, const char *prefix, size_t char_length);
 
 } // namespace crypto
 

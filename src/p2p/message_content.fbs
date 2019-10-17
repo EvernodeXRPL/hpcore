@@ -10,16 +10,10 @@ table StringKeyValuePair {
      array:[ubyte];
  }
 
-table Container { //root type for message
-    version: uint16; 
-    signature:[ubyte];
-    content:[ubyte]; // message content: byte array of proposal,npl,etc
-}
-
-union Messase { Proposal, Npl }
+union Message { Proposal, Npl }
 
 table Content {
-    message:Messase;
+    message:Message;
 }
 
 table Proposal {
@@ -56,4 +50,4 @@ table State {
     patch: [StringKeyValuePair];
 }
 
-root_type Container;
+root_type Content;
