@@ -33,14 +33,14 @@ struct contract_config
 
     // Config elements which are loaded from the config file.
 
-    std::string pubkeyb64;        // Contract base64 public key
-    std::string seckeyb64;        // Contract base64 secret key
+    std::string pubkeyhex;        // Contract hex public key
+    std::string seckeyhex;        // Contract hex secret key
     std::string keytype;          // Key generation algorithm used by libsodium
     std::string binary;           // Full path to the contract binary
     std::string binargs;          // CLI arguments to pass to the contract binary
     std::string listenip;         // The IPs to listen on for incoming connections
     std::vector<std::string> peers;    // List of peers in the format "<ip address>:<port>"
-    std::vector<std::string> unl;      // Unique node list (list of base64 public keys)
+    std::vector<std::string> unl;      // Unique node list (list of hex public keys)
     unsigned short peerport; // Listening port for peer connections
     int roundtime;           // Consensus round time in ms
     unsigned short pubport;  // Listening port for public user connections
@@ -76,9 +76,9 @@ int validate_contract_dir_paths();
 
 int is_schema_valid(rapidjson::Document &d);
 
-int binpair_to_b64();
+int binpair_to_hex();
 
-int b64pair_to_bin();
+int hexpair_to_bin();
 
 } // namespace conf
 

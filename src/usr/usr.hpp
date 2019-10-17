@@ -3,8 +3,9 @@
 
 #include <cstdio>
 #include <string_view>
-#include <map>
+#include <unordered_map>
 #include "../util.hpp"
+#include "../sock/socket_session.hpp"
 
 /**
  * Maintains the global user list with pending input outputs and manages user connections.
@@ -16,67 +17,60 @@ namespace usr
  * Holds information about an authenticated (challenge-verified) user
  * connected to the HotPocket node.
  */
-struct contract_user
+struct connected_user
 {
-    // Base64 user public key
-    std::string pubkeyb64;
-    
-    // Holds the user input to be processed by consensus rounds
+    // User binary public key
+    std::string pubkey;
+
+    // Holds the unprocessed user input collected from websocket.
     std::string inbuffer;
 
-    // Holds the contract output to be processed by consensus rounds
-    std::string outbuffer;
+    // Holds the websocket session of this user.
+    // We don't need to own the session object since the lifetime of user and session are coupled.
+    sock::socket_session *session;
 
-    // HP --> SC pipe + SC --> HP pipe
-    // We keep 2 pipes in single array for easy access.
-    // fd[0] used by Smart Contract to read user-input sent by Hot Pocket.
-    // fd[1] used by Hot Pocket to write user-input to the smart contract.
-    // fd[2] used by Hot Pocket to read output from the smart contract.
-    // fd[3] used by Smart Contract to write output back to Hot Pocket.
-    int fds[4];
-
-    contract_user(std::string_view _pubkeyb64)
+    /**
+     * @param _pubkey The public key of the user in binary format.
+     */
+    connected_user(sock::socket_session *_session, std::string_view _pubkey)
     {
-        pubkeyb64 = _pubkeyb64;
+        session = _session;
+        pubkey = _pubkey;
     }
 };
 
 /**
- * Enum used to differenciate pipe fds maintained for user/SC communication.
+ * Connected (authenticated) user list. (Exposed to other sub systems)
+ * Map key: User socket session id (<ip:port>)
  */
-enum USERFDTYPE
-{
-    // Used by Smart Contract to read user-input sent by Hot Pocket
-    SCREAD = 0,
-    // Used by Hot Pocket to write user-input to the smart contract.
-    HPWRITE = 1,
-    // Used by Hot Pocket to read output from the smart contract.
-    HPREAD = 2,
-    // Used by Smart Contract to write output back to Hot Pocket.
-    SCWRITE = 3
-};
+extern std::unordered_map<std::string, usr::connected_user> users;
 
 /**
- * Global authenticated (challenge-verified) user list.
+ * Keep track of verification-pending challenges issued to newly connected users.
+ * Map key: User socket session id (<ip:port>)
  */
-extern std::map<std::string, usr::contract_user, std::less<>> users;
+extern std::unordered_map<std::string, std::string> sessionids;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  */
-extern std::map<std::string, std::string, std::less<>> pending_challenges;
+extern std::unordered_map<std::string, std::string> pending_challenges;
 
 int init();
 
-void create_user_challenge(std::string &msg, std::string &challengeb64);
+void deinit();
 
-int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string_view response, std::string_view original_challenge);
+void create_user_challenge(std::string &msg, std::string &challengehex);
 
-int add_user(std::string_view sessionid, std::string_view pubkeyb64);
+int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge);
 
-int remove_user(std::string_view sessionid);
+int add_user(sock::socket_session *session, const std::string &pubkey);
+
+int remove_user(const std::string &sessionid);
 
 void start_listening();
+
+void stop_listening();
 
 } // namespace usr
 

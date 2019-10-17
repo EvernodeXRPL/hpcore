@@ -2,8 +2,6 @@
 #include <iostream>
 #include <unistd.h>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <sodium.h>
 #include <boost/thread/thread.hpp>
 #include "../sock/socket_server.hpp"
@@ -18,16 +16,23 @@ namespace usr
 {
 
 /**
- * Global user list. (Exposed to other sub systems)
+ * Connected (authenticated) user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
  */
-std::map<std::string, usr::contract_user, std::less<>> users;
+std::unordered_map<std::string, usr::connected_user> users;
+
+/**
+ * Holds set of connected user session ids and public keys for lookups.
+ * This is used for pubkey duplicate checks as well.
+ * Map key: User binary pubkey
+ */
+std::unordered_map<std::string, std::string> sessionids;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  * Map key: User socket session id (<ip:port>)
  */
-std::map<std::string, std::string, std::less<>> pending_challenges;
+std::unordered_map<std::string, std::string> pending_challenges;
 
 /**
  * User session handler instance. This instance's methods will be fired for any user socket activity.
@@ -56,7 +61,7 @@ static const char *CHALLENGE_MSGTYPE = "public_challenge";
 // Message type for the user challenge response.
 static const char *CHALLENGE_RESP_MSGTYPE = "challenge_response";
 // Length of user random challenge bytes.
-static const int CHALLENGE_LEN = 16;
+static const size_t CHALLENGE_LEN = 16;
 
 /**
  * Initializes the usr subsystem. Must be called once during application startup.
@@ -71,6 +76,14 @@ int init()
 }
 
 /**
+ * Free any resources used by usr subsystem (eg. socket listeners).
+ */
+void deinit()
+{
+    stop_listening();
+}
+
+/**
  * Constructs user challenge message json and the challenge string required for
  * initial user challenge handshake. This gets called when a user gets establishes
  * a web sockets connection to HP.
@@ -80,20 +93,20 @@ int init()
  *            {
  *              "version": "<HP version>",
  *              "type": "public_challenge",
- *              "challenge": "<base64 challenge string>"
+ *              "challenge": "<hex challenge string>"
  *            }
- * @param challenge String reference to copy the generated base64 challenge string into.
+ * @param challenge String reference to copy the generated hex challenge string into.
  */
-void create_user_challenge(std::string &msg, std::string &challengeb64)
+void create_user_challenge(std::string &msg, std::string &challengehex)
 {
     //Use libsodium to generate the random challenge bytes.
     unsigned char challenge_bytes[CHALLENGE_LEN];
     randombytes_buf(challenge_bytes, CHALLENGE_LEN);
 
-    //We pass the b64 challenge string separately to the caller even though
+    //We pass the hex challenge string separately to the caller even though
     //we also include it in the challenge msg as well.
 
-    util::base64_encode(challengeb64, challenge_bytes, CHALLENGE_LEN);
+    util::bin2hex(challengehex, challenge_bytes, CHALLENGE_LEN);
 
     //Construct the challenge msg json.
     // We do not use RapidJson here in favour of performance because this is a simple json message.
@@ -105,7 +118,7 @@ void create_user_challenge(std::string &msg, std::string &challengeb64)
     msg.append("{\"version\":\"")
         .append(util::HP_VERSION)
         .append("\",\"type\":\"public_challenge\",\"challenge\":\"")
-        .append(challengeb64)
+        .append(challengehex)
         .append("\"}");
 }
 
@@ -113,19 +126,19 @@ void create_user_challenge(std::string &msg, std::string &challengeb64)
  * Verifies the user challenge response with the original challenge issued to the user
  * and the user public key contained in the response.
  * 
- * @param extracted_pubkeyb64 The base64 public key extracted from the response. 
+ * @param extracted_pubkeyhex The hex public key extracted from the response. 
  * @param response The response bytes to verify. This will be parsed as json.
  *                 Accepted response format:
  *                 {
  *                   "type": "challenge_response",
- *                   "challenge": "<original base64 challenge the user received>",
- *                   "sig": "<Base64 signature of the challenge>",
- *                   "pubkey": "<Base64 public key of the user>"
+ *                   "challenge": "<original hex challenge the user received>",
+ *                   "sig": "<hex signature of the challenge>",
+ *                   "pubkey": "<hex public key of the user>"
  *                 }
- * @param original_challenge The original base64 challenge string issued to the user.
+ * @param original_challenge The original hex challenge string issued to the user.
  * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
  */
-int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string_view response, std::string_view original_challenge)
+int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge)
 {
     // We load response raw bytes into json document.
     rapidjson::Document d;
@@ -165,14 +178,17 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
     }
 
     // Verify the challenge signature. We do this last due to signature verification cost.
-    if (crypto::verify_b64(
+    std::string_view pubkeysv = util::getsv(d[CHALLENGE_RESP_PUBKEY]);
+    if (crypto::verify_hex(
             original_challenge,
             util::getsv(d[CHALLENGE_RESP_SIG]),
-            util::getsv(d[CHALLENGE_RESP_PUBKEY])) != 0)
+            pubkeysv) != 0)
     {
         std::cerr << "User challenge response signature verification failed.\n";
         return -1;
     }
+
+    extracted_pubkeyhex = pubkeysv;
 
     return 0;
 }
@@ -181,19 +197,24 @@ int verify_user_challenge_response(std::string &extracted_pubkeyb64, std::string
  * Adds the user denoted by specified session id and public key to the global authed user list.
  * This should get called after the challenge handshake is verified.
  * 
- * @param sessionid User socket session id.
- * @param pubkeyb64 User's base64 public key.
+ * @param session User socket session.
+ * @param pubkey User's binary public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(std::string_view sessionid, std::string_view pubkeyb64)
+int add_user(sock::socket_session *session, const std::string &pubkey)
 {
+    const std::string &sessionid = session->uniqueid_;
     if (users.count(sessionid) == 1)
     {
         std::cerr << sessionid << " already exist. Cannot add user.\n";
         return -1;
     }
 
-    users.emplace(sessionid, usr::contract_user(pubkeyb64));
+    users.emplace(sessionid, usr::connected_user(session, pubkey));
+
+    // Populate sessionid map so we can lookup by user pubkey.
+    sessionids[pubkey] = sessionid;
+
     return 0;
 }
 
@@ -201,9 +222,10 @@ int add_user(std::string_view sessionid, std::string_view pubkeyb64)
  * Removes the specified public key from the global user list.
  * This must get called when a user disconnects from HP.
  * 
+ * @param sessionid User socket session id.
  * @return 0 on successful removals. -1 on failure.
  */
-int remove_user(std::string_view sessionid)
+int remove_user(const std::string &sessionid)
 {
     auto itr = users.find(sessionid);
 
@@ -213,18 +235,9 @@ int remove_user(std::string_view sessionid)
         return -1;
     }
 
-    usr::contract_user &user = itr->second;
+    usr::connected_user &user = itr->second;
 
-    // Close any open fds for this user.
-    for (int i = 0; i < 4; i++)
-    {
-        if (user.fds[i] > 0)
-        {
-            close(user.fds[i]);
-            user.fds[i] = 0;
-        }
-    }
-
+    sessionids.erase(user.pubkey);
     users.erase(itr);
     return 0;
 }
@@ -244,6 +257,14 @@ void start_listening()
     listener_thread = std::thread([&] { ioc.run(); });
 
     std::cout << "Started listening for incoming user connections...\n";
+}
+
+/**
+ * Stops listening for incoming connections.
+ */
+void stop_listening()
+{
+    //TODO
 }
 
 } // namespace usr

@@ -41,7 +41,7 @@ function main() {
        {
        hotpocket: 0.1,
        type: 'public_challenge',
-       challenge: '<base64 string>'
+       challenge: '<hex string>'
        }
      */
 
@@ -68,15 +68,16 @@ function main() {
         console.log("Received challenge message")
         console.log(m)
 
-        console.log('My public key is: ' + Buffer.from(keys.publicKey).toString('base64'));
+        let pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
+        console.log('My public key is: ' + pkhex);
 
         // sign the challenge and send back the response
         var sigbytes = sodium.crypto_sign_detached(m.challenge, keys.privateKey);
         var response = {
             type: 'challenge_response',
             challenge: m.challenge,
-            sig: Buffer.from(sigbytes).toString('base64'),
-            pubkey: Buffer.from(keys.publicKey).toString('base64')
+            sig: Buffer.from(sigbytes).toString('hex'),
+            pubkey: pkhex
         }
 
         console.log('Sending challenge response...');

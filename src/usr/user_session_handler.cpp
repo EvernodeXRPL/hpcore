@@ -5,6 +5,7 @@
 #include <boost/asio.hpp>
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
+#include "../proc.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
@@ -24,18 +25,18 @@ void user_session_handler::on_connect(sock::socket_session *session)
 {
     std::cout << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
 
-    // As soon as a user conntects, we issue them a challenge message. We remember the
+    // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
 
     std::string msg;
-    std::string challengeb64;
-    usr::create_user_challenge(msg, challengeb64);
+    std::string challengehex;
+    usr::create_user_challenge(msg, challengehex);
 
     // We init the session unique id to associate with the challenge.
     session->init_uniqueid();
 
     // Create an entry in pending_challenges for later tracking upon challenge response.
-    usr::pending_challenges[session->uniqueid_] = challengeb64;
+    usr::pending_challenges[session->uniqueid_] = challengehex;
 
     session->send(std::move(msg));
 
@@ -56,20 +57,40 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         auto itr = usr::pending_challenges.find(session->uniqueid_);
         if (itr != usr::pending_challenges.end())
         {
-            std::string userpubkey;
+            std::string userpubkeyhex;
             std::string_view original_challenge = itr->second;
-            if (usr::verify_user_challenge_response(userpubkey, message, original_challenge) == 0)
+            if (usr::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
             {
-                // Challenge verification successful.
-                // Promote the connection from pending-challenges to authenticated users.
+                // Challenge singature verification successful.
 
-                session->flags_.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
-                session->flags_.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
-                usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
-                usr::add_user(session->uniqueid_, userpubkey);                    // Add the user to the global authed user list
+                // Decode hex pubkey and get binary pubkey. We area only going to keep
+                // the binary pubkey due to reduced memory footprint.
+                std::string userpubkey;
+                userpubkey.resize(userpubkeyhex.length() / 2);
+                util::hex2bin(
+                    reinterpret_cast<unsigned char *>(userpubkey.data()),
+                    userpubkey.length(),
+                    userpubkeyhex);
 
-                std::cout << "User connection " << session->uniqueid_ << " authenticated.\n";
-                return;
+                // Now check whether this user public key is duplicate.
+                if (usr::sessionids.count(userpubkey) == 0)
+                {
+                    // All good. Unique public key.
+                    // Promote the connection from pending-challenges to authenticated users.
+
+                    session->flags_.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
+                    session->flags_.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
+                    usr::add_user(session, userpubkey);                               // Add the user to the global authed user list
+                    usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
+
+                    std::cout << "User connection " << session->uniqueid_ << " authenticated. Public key "
+                              << userpubkeyhex << std::endl;
+                    return;
+                }
+                else
+                {
+                    std::cout << "Duplicate user public key " << session->uniqueid_ << std::endl;
+                }
             }
             else
             {
@@ -87,12 +108,12 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         if (itr != usr::users.end())
         {
             // This is an authed user.
-            usr::contract_user &user = itr->second;
-            
-            //Hand over the bytes into user inbuffer.
-            user.inbuffer = std::move(message);
-            
-            std::cout << "Collected " << user.inbuffer.length() << " bytes from user " << user.pubkeyb64 << std::endl;
+            usr::connected_user &user = itr->second;
+
+            //Append the bytes into connected user input buffer.
+            user.inbuffer.append(message);
+
+            std::cout << "Collected " << user.inbuffer.length() << " bytes from user" << std::endl;
             return;
         }
     }
@@ -117,6 +138,8 @@ void user_session_handler::on_close(sock::socket_session *session)
     // Session belongs to an authed user.
     else if (session->flags_[util::SESSION_FLAG::USER_AUTHED])
     {
+        // Wait for SC process completion before we remove existing user.
+        proc::await_contract_execution();
         usr::remove_user(session->uniqueid_);
     }
 

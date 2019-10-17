@@ -5,11 +5,13 @@
 #include <cstdio>
 #include <iostream>
 #include <thread>
+#include <unistd.h>
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
+#include "proc.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -104,9 +106,44 @@ int main(int argc, char **argv)
                 // This will start hosting the contract and start consensus rounds.
                 // TODO
 
-                // Temp code to avoid exiting.
-                std::string s;
-                std::cin >> s;
+                while (true)
+                {
+                    sleep(1);
+                    // Test code to execute contract and collect outputs.
+                    std::unordered_map<std::string, std::pair<std::string, std::string>> userbufs;
+                    for (auto &[sid, user] : usr::users)
+                    {
+                        std::pair<std::string, std::string> bufpair;
+
+                        std::string inputtosend;
+                        inputtosend.swap(user.inbuffer);
+
+                        bufpair.first = std::move(inputtosend);
+                        userbufs[user.pubkey] = bufpair;
+                    }
+
+                    proc::ContractExecArgs eargs(123123345, userbufs);
+                    proc::exec_contract(eargs);
+
+                    for (auto &[pubkey, bufpair] : userbufs)
+                    {
+                        if (!bufpair.second.empty())
+                        {
+                            // Find the user session id by the pubkey.
+                            const std::string sessionid = usr::sessionids[pubkey];
+
+                            // Find the user by session id.
+                            auto itr = usr::users.find(sessionid);
+                            const usr::connected_user &user = itr->second;
+                            user.session->send(std::move(bufpair.second));
+                        }
+                    }
+
+                    userbufs.clear();
+                }
+
+                // Free resources.
+                usr::deinit();
             }
         }
     }
