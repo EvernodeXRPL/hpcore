@@ -193,7 +193,7 @@ int load_config()
 
     cfg.unl.clear();
     for (auto &v : d["unl"].GetArray())
-        cfg.unl.push_back(v.GetString());
+        cfg.unl.insert(v.GetString());
 
     cfg.peerport = d["peerport"].GetInt();
     cfg.roundtime = d["roundtime"].GetInt();
@@ -238,7 +238,7 @@ int save_config()
     d.AddMember("peers", peers, allocator);
 
     rapidjson::Value unl(rapidjson::kArrayType);
-    for (std::string &node : cfg.unl)
+    for (auto &node : cfg.unl)
     {
         rapidjson::Value v;
         v.SetString(rapidjson::StringRef(node.data()), allocator);
