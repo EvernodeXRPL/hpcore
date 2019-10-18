@@ -27,10 +27,13 @@ const std::string create_message()
     uint8_t *buf = builder.GetBufferPointer();
     auto size = builder.GetSize();
 
+    auto signature_content_str = reinterpret_cast<const char *>(buf);
+    std::string_view message_signature(signature_content_str, size);
+
     flatbuffers::FlatBufferBuilder container_builder(1024);
 
     auto content = container_builder.CreateVector(buf, size);
-    auto container_message = CreateContainer(container_builder, 5, content, content);
+    auto container_message = CreateContainer(container_builder, util::MIN_PEERMSG_VERSION, content, content);
     container_builder.Finish(container_message);
     auto buf_size = container_builder.GetSize();
     auto message_buf = container_builder.GetBufferPointer();
@@ -81,12 +84,15 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
 
         auto version = container->version();
         auto signature = container->signature();
-        std::cout << "version" << version << std::endl;
+        auto signature_length = signature->size();
+        auto signature_buf = signature->Data();
+
         auto container_content = container->content();
         auto container_content_length = container_content->size();
         auto container_content_buf = container_content->Data();
 
-        // auto container_content_str = container_content->GetAsString(container_content_length);
+        auto signature_content_str = reinterpret_cast<const char *>(signature_buf);
+        std::basic_string_view message_signature(signature_content_str, signature_length);
 
         //validate message
         const uint8_t *content_pointer = container_content_buf;
@@ -100,17 +106,23 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
         {
             auto content = GetContent(content_pointer);
             auto content_message_type = content->message_type();
-            std::cout << "asa2:" << std::to_string(content_message_type) << std::endl;
+
             if (content_message_type == Message_Proposal)
             {
                 auto proposal = content->message_as_Proposal();
+
                 auto pubkey = proposal->pubkey();
-                auto pubkey_p = pubkey->data();
+                auto pubkey_length = container_content->size();
+                auto pubkey_buf = container_content->Data();
+
+                auto pubkey_str = reinterpret_cast<const char *>(pubkey_buf);
+                std::basic_string_view message_pubkey(pubkey_str, pubkey_length);
+
                 auto timestamp = proposal->timestamp();
                 std::cout << "timestamp:" << timestamp << std::endl;
 
                 //call message validate method
-                //p2p::validate_peer_message(container_content_str->string_view(), timestamp, version, pubkey->GetAsString()->string_view());
+                p2p::validate_peer_message(message_signature, timestamp, version, message_pubkey);
                 //if so  call send message to consensus
             }
             else if (content_message_type == Message_Npl)
