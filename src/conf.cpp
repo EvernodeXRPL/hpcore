@@ -186,14 +186,14 @@ int load_config()
         if (splitted_peers.size() == 2)
         {
             //Push the peer address and the port to peers array
-            cfg.peers.insert(std::make_pair(v.GetString(), std::make_pair(splitted_peers.front(), splitted_peers.back())));
+            cfg.peers.emplace(std::make_pair(v.GetString(), std::make_pair(splitted_peers.front(), splitted_peers.back())));
             splitted_peers.clear();
         }
     }
 
     cfg.unl.clear();
     for (auto &v : d["unl"].GetArray())
-        cfg.unl.insert(v.GetString());
+        cfg.unl.emplace(v.GetString());
 
     cfg.peerport = d["peerport"].GetInt();
     cfg.roundtime = d["roundtime"].GetInt();

@@ -92,12 +92,14 @@ void peer_connection_watchdog()
  * @param timestamp of the message.
  * @return whether message is validated or not.
  */
-bool validate_peer_message(const std::string_view message, time_t timestamp, uint16_t version, const std::string_view pubkey)
+bool validate_peer_message(const std::string_view message, time_t timestamp, uint16_t version, std::string_view pubkey)
 {
     std::time_t time_now = std::time(nullptr);
-    //todo:check pubkey in unl list. need to change unl list to a map.
 
-    //Check protocol version of message whether it is than minimum suppoerted protocol version. 
+    // Return if the message is not from a node of current node's unl
+    return conf::cfg.peers.count(pubkey.data()) == 0;
+
+    //Check protocol version of message whether it is than minimum suppoerted protocol version.
     if (version <= util::MIN_PEERMSG_VERSION)
     {
         std::cout << "recieved message is a old unsupported version" << std::endl;

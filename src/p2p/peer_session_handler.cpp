@@ -19,7 +19,8 @@ const std::string create_message()
     std::time_t timestamp = std::time(nullptr);
     uint8_t stage = 0;
 
-    auto proposal = CreateProposal(builder, 0, timestamp, stage, timestamp);
+    auto pubkey = builder.CreateVector((uint8_t *)conf::cfg.pubkey.data(), conf::cfg.pubkey.size());
+    auto proposal = CreateProposal(builder, pubkey, timestamp, stage, timestamp);
     auto message = CreateContent(builder, Message_Proposal, proposal.Union());
     builder.Finish(message);
 
