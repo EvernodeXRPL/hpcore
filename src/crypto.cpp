@@ -173,15 +173,4 @@ std::string sha_512_hash(const std::string_view msg, const char *prefix, size_t 
     return std::string((char *)hashchars, crypto_hash_sha512_BYTES);
 }
 
-// std::string sha_512_hash(const uint8_t *message, size_t message_size, const char* prefix, size_t char_length)
-// {
-//     const char *pp = reinterpret_cast<const char *>(message);
-
-//     std::unique_ptr<char[]> buf_ptr(new char[char_length + message_size]);
-//     unsigned char myBuffer[char_length + message_size];
-//     unsigned char hashchars[crypto_hash_sha512_BYTES];
-//     crypto_hash_sha512(hashchars, reinterpret_cast<const unsigned char *>(myBuffer), sizeof(myBuffer));
-//     return std::string((char *)hashchars, crypto_hash_sha512_BYTES);
-// }
-
 } // namespace crypto
