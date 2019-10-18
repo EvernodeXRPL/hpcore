@@ -10,6 +10,7 @@
 
 namespace p2p
 {
+
 const std::string create_message()
 {
     //todo:get a average propsal message size and allocate builder based on that.
@@ -18,31 +19,30 @@ const std::string create_message()
     flatbuffers::FlatBufferBuilder builder(1024);
     std::time_t timestamp = std::time(nullptr);
     uint8_t stage = 0;
-    auto pubkey  = conf::cfg.pubkey;
-    auto ss = reinterpret_cast<const uint8_t *>(pubkey.data());
+    auto pubkey = conf::cfg.pubkey;
 
-    std::cout << "sizes :" <<  " " << pubkey.size() << std::endl;
-    
-    auto pubkey_b = builder.CreateVector((uint8_t *) pubkey.data(), pubkey.size());
+    auto pubkey_b = builder.CreateVector((uint8_t *)pubkey.data(), pubkey.size());
     auto proposal = CreateProposal(builder, pubkey_b, timestamp, stage, timestamp);
     auto message = CreateContent(builder, Message_Proposal, proposal.Union());
     builder.Finish(message);
 
-    //builder.
+    //Get serialized/packed message content pointer and size.
     uint8_t *buf = builder.GetBufferPointer();
     auto size = builder.GetSize();
 
-    auto signature_content_str = reinterpret_cast<const char *>(buf);
-    std::string_view message_content(signature_content_str, size);
+    auto content_str = reinterpret_cast<const char *>(buf);
+    std::string_view message_content(content_str, size);
 
-    auto sig = crypto::sign(message_content , pubkey);
+    //Sign message content with pubkey
+    auto sig = crypto::sign(message_content, conf::cfg.seckey);
 
+    //todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
     flatbuffers::FlatBufferBuilder container_builder(1024);
 
     auto content = container_builder.CreateVector(buf, size);
 
     auto sig_buf = sig.data();
-    auto signature = container_builder.CreateVector((uint8_t *) sig_buf, sig.size());
+    auto signature = container_builder.CreateVector((uint8_t *)sig_buf, sig.size());
     auto container_message = CreateContainer(container_builder, util::MIN_PEERMSG_VERSION, signature, content);
     container_builder.Finish(container_message);
     auto buf_size = container_builder.GetSize();
@@ -77,7 +77,7 @@ void peer_session_handler::on_connect(sock::socket_session *session)
 //validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session *session, std::string &&message)
 {
-    std::cout << "on-message : " << message << std::endl;
+   // std::cout << "on-message : " << message << std::endl;
     peer_connections.insert(std::make_pair(session->uniqueid_, session));
     //session->send(std::make_shared<std::string>(message));
 
@@ -106,8 +106,7 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
         auto container_content_buf = container_content->Data();
 
         auto message_content_str = reinterpret_cast<const char *>(container_content_buf);
-        std::string_view message_content(message_content_str, signature_length);
-        
+        std::string_view message_content(message_content_str, container_content_length);
 
         //validate message
         const uint8_t *content_pointer = container_content_buf;
@@ -130,14 +129,11 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
                 auto pubkey_length = pubkey->size();
                 auto pubkey_buf = pubkey->Data();
 
-                std::cout << "sizes 2:" <<  " " << pubkey_length << std::endl;
-
                 auto pubkey_str = reinterpret_cast<const char *>(pubkey_buf);
                 std::basic_string_view message_pubkey(pubkey_str, pubkey_length);
 
                 auto timestamp = proposal->timestamp();
-                std::cout << "timestamp:" << timestamp << std::endl;
-
+                
                 //call message validate method
                 auto status = p2p::validate_peer_message(message_content, message_signature, timestamp, version, message_pubkey);
                 //if so  call send message to consensus

@@ -94,16 +94,14 @@ void peer_connection_watchdog()
  */
 bool validate_peer_message(const std::string_view message, const std::string_view signature, time_t timestamp, uint16_t version, const std::string_view pubkey)
 {
-    std::cout << "validate_peer_message : " << pubkey.size() << std::endl;
-
     std::time_t time_now = std::time(nullptr);
 
     // Return if the message is not from a node of current node's unl
-    // if (!conf::cfg.unl.count(pubkey.data()))
-    // {
-    //     return false;
-    // }
-    std::cout << "pub key validated : " << message << std::endl;
+    if (!conf::cfg.unl.count(pubkey.data()))
+    {
+        std::cout << "pubkey verification failed" << std::endl;
+        return false;
+    }
 
     //Check protocol version of message whether it is than minimum suppoerted protocol version.
     if (version < util::MIN_PEERMSG_VERSION)
@@ -133,10 +131,14 @@ bool validate_peer_message(const std::string_view message, const std::string_vie
         return false;
     }
 
-    std::cout << "signature verification" << signature.size() << std::endl;
-    //signature check
+    //verify message
     auto signature_verified = crypto::verify(message, signature, pubkey);
-    std::cout << "signature verification " << signature_verified << std::endl;
+
+    if (signature_verified != 0)
+    {
+        return false;
+        std::cout << "signature verification failed" << std::endl;
+    }
 
     return true;
 }
