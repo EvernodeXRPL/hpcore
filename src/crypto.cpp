@@ -157,18 +157,17 @@ std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char
 /**
  * Generate SHA 512 hash for message prepend with prefix before hashing.
  * 
- * @param msg pointer to a string message.
  * @param msg message string.
  * @param prefix prefix char array.
  * @param char_length length of prefix char array.
  * @return SHA 512 hash.
  */
-std::string sha_512_hash(const std::string *msg, size_t msg_length, const char *prefix, size_t char_length)
+std::string sha_512_hash(const std::string_view msg, const char *prefix, size_t char_length)
 {
     std::string payload;
-    payload.reserve(char_length + msg_length);
+    payload.reserve(char_length + msg.size());
     payload.append(prefix);
-    payload.append(msg->data());
+    payload.append(msg.data());
     unsigned char hashchars[crypto_hash_sha512_BYTES];
     crypto_hash_sha512(hashchars, (unsigned char *)payload.data(), payload.length());
     return std::string((char *)hashchars, crypto_hash_sha512_BYTES);

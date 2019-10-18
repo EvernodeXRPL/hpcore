@@ -94,10 +94,16 @@ void peer_connection_watchdog()
  */
 bool validate_peer_message(const std::string_view message, time_t timestamp, uint16_t version, std::string_view pubkey)
 {
+    std::cout << "validate_peer_message : " << pubkey.size() << std::endl;
+
     std::time_t time_now = std::time(nullptr);
 
     // Return if the message is not from a node of current node's unl
-    return conf::cfg.peers.count(pubkey.data()) == 0;
+    if (!conf::cfg.unl.count(pubkey.data()))
+    {
+        return false;
+    }
+    std::cout << "pub key validated : " << message << std::endl;
 
     //Check protocol version of message whether it is than minimum suppoerted protocol version.
     if (version <= util::MIN_PEERMSG_VERSION)
@@ -116,16 +122,16 @@ bool validate_peer_message(const std::string_view message, time_t timestamp, uin
     }
 
     //get message hash and see wheteher message is already recieved -> abandon
-    //auto messageHash = crypto::sha_512_hash(message, message_size, "PEERMSG", 7);
+    auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
 
-    // if (peer_ctx.recent_peer_msghash.count(messageHash) == 0)
-    // {
-    //     peer_ctx.recent_peer_msghash.try_emplace(messageHash, timestamp);
-    // }
-    // else
-    // {
-    //     return false;
-    // }
+    if (peer_ctx.recent_peer_msghash.count(messageHash) == 0)
+    {
+        peer_ctx.recent_peer_msghash.try_emplace(messageHash, timestamp);
+    }
+    else
+    {
+        return false;
+    }
 
     //signature check
 
