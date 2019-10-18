@@ -19,6 +19,14 @@ add_executable(hpcore
     src/main.cpp
 )
 
+add_custom_target(release
+  COMMAND cmake -DCMAKE_BUILD_TYPE=RELEASE .
+  COMMAND make hpcore
+  COMMAND strip ./build/hpcore
+  COMMAND docker build -t hpcore:latest .
+)
+set_target_properties(release PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
 target_link_libraries(hpcore
     libsodium.a
     libboost_system.a
