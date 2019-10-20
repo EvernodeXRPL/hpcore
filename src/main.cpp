@@ -14,7 +14,7 @@
 #include "crypto.hpp"
 #include "usr/usr.hpp"
 #include "proc.hpp"
-#include "hplog.h"
+#include "hplog.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.

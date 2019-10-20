@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include "proc.hpp"
 #include "conf.hpp"
+#include "hplog.hpp"
 
 namespace proc
 {
@@ -47,7 +48,7 @@ int exec_contract(const ContractExecArgs &args)
     // Write any hp input messages to hp->sc pipe.
     if (write_contract_hp_inputs(args) != 0)
     {
-        std::cerr << "Failed to write HP input to contract.\n";
+        LOG_ERR << "Failed to write HP input to contract.\n";
         return -1;
     }
 
@@ -55,7 +56,7 @@ int exec_contract(const ContractExecArgs &args)
     if (write_contract_user_inputs(args) != 0)
     {
         cleanup_userfds();
-        std::cerr << "Failed to write user inputs to contract.\n";
+        LOG_ERR << "Failed to write user inputs to contract.\n";
         return -1;
     }
 
@@ -74,7 +75,7 @@ int exec_contract(const ContractExecArgs &args)
         contract_pid = 0;
         if (presult != 0)
         {
-            std::cerr << "Contract process exited with non-normal status code: " << presult << std::endl;
+            LOG_ERR << "Contract process exited with non-normal status code: " << presult << std::endl;
             return -1;
         }
 
@@ -107,7 +108,7 @@ int exec_contract(const ContractExecArgs &args)
     }
     else
     {
-        std::cerr << "fork() failed.\n";
+        LOG_ERR << "fork() failed.\n";
         return -1;
     }
 
@@ -195,7 +196,7 @@ int write_contract_args(const ContractExecArgs &args)
     int stdinpipe[2];
     if (pipe(stdinpipe) != 0)
     {
-        std::cerr << "Failed to create pipe to the contract process.\n";
+        LOG_ERR << "Failed to create pipe to the contract process.\n";
         return -1;
     }
 
@@ -207,7 +208,7 @@ int write_contract_args(const ContractExecArgs &args)
     // Write the json message and close write fd.
     if (write(stdinpipe[1], json.data(), json.size()) == -1)
     {
-        std::cerr << "Failed to write to stdin of contract process.\n";
+        LOG_ERR << "Failed to write to stdin of contract process.\n";
         return -1;
     }
     close(stdinpipe[1]);
@@ -222,7 +223,7 @@ int write_contract_hp_inputs(const ContractExecArgs &args)
 {
     if (create_and_write_iopipes(hpscfds, args.hpscbufs.first) != 0) // hpscbufs.first is the input buffer.
     {
-        std::cerr << "Error writing HP input to SC (" << args.hpscbufs.first.length()
+        LOG_ERR << "Error writing HP input to SC (" << args.hpscbufs.first.length()
                   << " bytes)" << std::endl;
         return -1;
     }
@@ -243,7 +244,7 @@ int write_contract_user_inputs(const ContractExecArgs &args)
 
         if (create_and_write_iopipes(fds, bufpair.first) != 0) // bufpair.first is the input buffer.
         {
-            std::cerr << "Error writing contract input (" << bufpair.first.length()
+            LOG_ERR << "Error writing contract input (" << bufpair.first.length()
                       << " bytes) from user" << std::endl;
             return -1;
         }
@@ -266,7 +267,7 @@ int read_contract_hp_outputs(const ContractExecArgs &args)
 
     if (read_iopipe(hpscfds, args.hpscbufs.second) != 0) // hpscbufs.second is the output buffer.
     {
-        std::cerr << "Error reading HP output";
+        LOG_ERR << "Error reading HP output";
         return -1;
     }
     return 0;
@@ -291,7 +292,7 @@ int read_contract_user_outputs(const ContractExecArgs &args)
 
         if (read_iopipe(fds, bufpair.second) != 0) // bufpair.second is the output buffer.
         {
-            std::cerr << "Error reading contract output for user "
+            LOG_ERR << "Error reading contract output for user "
                       << pubkey << std::endl;
         }
     }

@@ -12,6 +12,7 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/support/date_time.hpp>
 #include "conf.hpp"
+#include "hplog.hpp"
 
 namespace logging = boost::log;
 namespace sinks = boost::log::sinks;
@@ -23,33 +24,19 @@ namespace keywords = boost::log::keywords;
 namespace hplog
 {
 
-enum LOG_SEVERITY
-{
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR
-};
-
-BOOST_LOG_ATTRIBUTE_KEYWORD(a_severity, "Severity", hplog::LOG_SEVERITY);
-
 // The operator is used for regular stream formatting
 std::ostream &operator<<(std::ostream &strm, LOG_SEVERITY level)
 {
-    static const char *strings[] =
-        {
-            "dbg",
-            "info",
-            "warn",
-            "err"};
+    static const char *loglevels[] = {"dbg", "info", "warn", "err"};
 
-    if (static_cast<std::size_t>(level) < sizeof(strings) / sizeof(*strings))
-        strm << strings[level];
+    if (static_cast<std::size_t>(level) < sizeof(loglevels) / sizeof(*loglevels))
+        strm << loglevels[level];
     else
         strm << static_cast<int>(level);
 
     return strm;
 }
+
 
 // Severity attribute value tag type
 struct severity_tag;
@@ -70,7 +57,7 @@ void init()
     {
         logging::add_console_log(
             std::clog,
-            keywords::filter = (a_severity >= LOG_SEVERITY::WARN),
+            keywords::filter = (a_severity >= severity),
             keywords::format =
                 (expr::stream
                  << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S")
@@ -80,28 +67,12 @@ void init()
                  << "> " << expr::smessage));
     }
 
+    if (conf::cfg.loggers.count("file") == 1)
+    {
+        // TODO: Add file logger.
+    }
+
     logging::add_common_attributes();
 }
 
 } // namespace hplog
-
-// Thread-safe global logger type.
-typedef src::severity_channel_logger_mt<hplog::LOG_SEVERITY, std::string> logger;
-
-BOOST_LOG_INLINE_GLOBAL_LOGGER_INIT(hplogger, logger)
-{
-    return logger(keywords::channel = "hp");
-}
-
-BOOST_LOG_INLINE_GLOBAL_LOGGER_INIT(sclogger, logger)
-{
-    return logger(keywords::channel = "sc");
-}
-
-#define LOG_DBG BOOST_LOG_SEV(hplogger::get(), hplog::LOG_SEVERITY::DEBUG)
-#define LOG_INFO BOOST_LOG_SEV(hplogger::get(), hplog::LOG_SEVERITY::INFO)
-#define LOG_WARN BOOST_LOG_SEV(hplogger::get(), hplog::LOG_SEVERITY::WARN)
-#define LOG_ERR BOOST_LOG_SEV(hplogger::get(), hplog::LOG_SEVERITY::ERROR)
-
-#define LOG_INFO_SC BOOST_LOG_SEV(sclogger::get(), hplog::LOG_SEVERITY::INFO)
-#define LOG_ERR_SC BOOST_LOG_SEV(sclogger::get(), hplog::LOG_SEVERITY::ERROR)

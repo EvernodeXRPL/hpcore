@@ -14,6 +14,7 @@ add_executable(hpcore
     src/util.cpp
     src/crypto.cpp
     src/conf.cpp
+    src/hplog.cpp
     src/proc.cpp
     src/usr/user_session_handler.cpp
     src/usr/usr.cpp
