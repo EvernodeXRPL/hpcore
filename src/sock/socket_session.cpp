@@ -54,7 +54,7 @@ void socket_session::client_run(const std::string &&address, const std::string &
 */
 void socket_session::fail(error_code ec, char const *what)
 {
-    // std::cerr << what << ": " << ec.message() << std::endl;
+    // LOG_ERR << what << ": " << ec.message();
 
     // Don't report these
     if (ec == net::error::operation_aborted ||

@@ -3,6 +3,7 @@
 
 #include <rapidjson/document.h>
 #include <vector>
+#include <unordered_set>
 
 /**
  * Manages the central contract config and context structs.
@@ -45,6 +46,8 @@ struct contract_config
     unsigned short pubport;  // Listening port for public user connections
     int pubmaxsize;          // User message max size in bytes
     int pubmaxcpm;           // User message rate
+    std::string loglevel;                       // Log severity level (debug, info, warn, error)
+    std::unordered_set<std::string> loggers;    // List of enabled loggers (console, file)
 };
 
 // Global contract context struct exposed to the application.

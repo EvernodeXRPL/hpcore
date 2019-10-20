@@ -1,5 +1,6 @@
 #include <iostream>
 #include "socket_client.hpp"
+#include "../hplog.hpp"
 
 using tcp = net::ip::tcp;
 using error = boost::system::error_code;
@@ -86,7 +87,7 @@ void socket_client::on_handshake(error ec)
 */
 void socket_client::socket_client_fail(beast::error_code ec, char const *what)
 {
-    std::cerr << what << ": " << ec.message() << "\n";
+    LOG_ERR << what << ": " << ec.message();
 }
 
 } // namespace sock

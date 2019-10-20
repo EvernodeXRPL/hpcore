@@ -9,6 +9,7 @@
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
+#include "../hplog.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
@@ -145,35 +146,35 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
     d.Parse(response.data());
     if (d.HasParseError())
     {
-        std::cerr << "Challenge response json parser error.\n";
+        LOG_INFO << "Challenge response json parsing failed.";
         return -1;
     }
 
     // Validate msg type.
     if (!d.HasMember(CHALLENGE_RESP_TYPE) || d[CHALLENGE_RESP_TYPE] != CHALLENGE_RESP_MSGTYPE)
     {
-        std::cerr << "User challenge response type invalid. 'challenge_response' expected.\n";
+        LOG_INFO << "User challenge response type invalid. 'challenge_response' expected.";
         return -1;
     }
 
     // Compare the response challenge string with the original issued challenge.
     if (!d.HasMember(CHALLENGE_RESP_CHALLENGE) || d[CHALLENGE_RESP_CHALLENGE] != original_challenge.data())
     {
-        std::cerr << "User challenge response challenge invalid.\n";
+        LOG_INFO << "User challenge response challenge invalid.";
         return -1;
     }
 
     // Check for the 'sig' field existence.
     if (!d.HasMember(CHALLENGE_RESP_SIG) || !d[CHALLENGE_RESP_SIG].IsString())
     {
-        std::cerr << "User challenge response signature invalid.\n";
+        LOG_INFO << "User challenge response signature invalid.";
         return -1;
     }
 
     // Check for the 'pubkey' field existence.
     if (!d.HasMember(CHALLENGE_RESP_PUBKEY) || !d[CHALLENGE_RESP_PUBKEY].IsString())
     {
-        std::cerr << "User challenge response public key invalid.\n";
+        LOG_INFO << "User challenge response public key invalid.";
         return -1;
     }
 
@@ -184,7 +185,7 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
             util::getsv(d[CHALLENGE_RESP_SIG]),
             pubkeysv) != 0)
     {
-        std::cerr << "User challenge response signature verification failed.\n";
+        LOG_INFO << "User challenge response signature verification failed.";
         return -1;
     }
 
@@ -206,7 +207,7 @@ int add_user(sock::socket_session *session, const std::string &pubkey)
     const std::string &sessionid = session->uniqueid_;
     if (users.count(sessionid) == 1)
     {
-        std::cerr << sessionid << " already exist. Cannot add user.\n";
+        LOG_INFO << sessionid << " already exist. Cannot add user.";
         return -1;
     }
 
@@ -231,7 +232,7 @@ int remove_user(const std::string &sessionid)
 
     if (itr == users.end())
     {
-        std::cerr << sessionid << " does not exist. Cannot remove user.\n";
+        LOG_INFO << sessionid << " does not exist. Cannot remove user.";
         return -1;
     }
 
@@ -256,7 +257,7 @@ void start_listening()
 
     listener_thread = std::thread([&] { ioc.run(); });
 
-    std::cout << "Started listening for incoming user connections...\n";
+    LOG_INFO << "Started listening for incoming user connections...";
 }
 
 /**
