@@ -87,7 +87,7 @@ void socket_client::on_handshake(error ec)
 */
 void socket_client::socket_client_fail(beast::error_code ec, char const *what)
 {
-    LOG_ERR << what << ": " << ec.message() << "\n";
+    LOG_ERR << what << ": " << ec.message();
 }
 
 } // namespace sock

@@ -76,7 +76,7 @@ void socket_server::fail(error_code ec, char const *what)
     // Don't report on canceled operations
     if (ec == net::error::operation_aborted)
         return;
-    LOG_ERR << what << ": " << ec.message() << "\n";
+    LOG_ERR << what << ": " << ec.message();
 }
 
 /**

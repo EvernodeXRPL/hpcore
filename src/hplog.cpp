@@ -39,6 +39,7 @@ struct severity_tag;
 
 void init()
 {
+    // Set log severity level based on contract config.
     LOG_SEVERITY severity = LOG_SEVERITY::WARN;
     if (conf::cfg.loglevel == "debug")
         severity = LOG_SEVERITY::DEBUG;
@@ -68,6 +69,7 @@ void init()
         // TODO: Add file logger.
     }
 
+    // Add Boost Log built-in fields for log entries.
     logging::add_common_attributes();
 }
 

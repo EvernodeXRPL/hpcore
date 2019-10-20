@@ -24,7 +24,7 @@ namespace usr
  */
 void user_session_handler::on_connect(sock::socket_session *session)
 {
-    LOG_INFO << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
+    LOG_INFO << "User client connected " << session->address_ << ":" << session->port_;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
@@ -85,17 +85,17 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
 
                     LOG_INFO << "User connection " << session->uniqueid_ << " authenticated. Public key "
-                              << userpubkeyhex << std::endl;
+                              << userpubkeyhex;
                     return;
                 }
                 else
                 {
-                    LOG_INFO << "Duplicate user public key " << session->uniqueid_ << std::endl;
+                    LOG_INFO << "Duplicate user public key " << session->uniqueid_;
                 }
             }
             else
             {
-                LOG_INFO << "Challenge verification failed " << session->uniqueid_ << std::endl;
+                LOG_INFO << "Challenge verification failed " << session->uniqueid_;
             }
         }
     }
@@ -114,14 +114,14 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
             //Append the bytes into connected user input buffer.
             user.inbuffer.append(message);
 
-            LOG_DBG << "Collected " << user.inbuffer.length() << " bytes from user" << std::endl;
+            LOG_DBG << "Collected " << user.inbuffer.length() << " bytes from user";
             return;
         }
     }
 
     // If for any reason we reach this point, we should drop the connection.
     session->close();
-    LOG_INFO << "Dropped the user connection " << session->address_ << ":" << session->port_ << std::endl;
+    LOG_INFO << "Dropped the user connection " << session->address_ << ":" << session->port_;
 }
 
 /**
@@ -144,7 +144,7 @@ void user_session_handler::on_close(sock::socket_session *session)
         usr::remove_user(session->uniqueid_);
     }
 
-    LOG_INFO << "User disconnected " << session->uniqueid_ << std::endl;
+    LOG_INFO << "User disconnected " << session->uniqueid_;
 }
 
 } // namespace usr
