@@ -71,7 +71,10 @@ int exec_contract(const ContractExecArgs &args)
 
         // Wait for child process (contract process) to complete execution.
 
+        LOG_INFO << "Contract process started.";
         int presult = await_contract_execution();
+        LOG_INFO << "Contract process ended.";
+
         contract_pid = 0;
         if (presult != 0)
         {

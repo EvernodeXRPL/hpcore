@@ -150,7 +150,7 @@ int main(int argc, char **argv)
                     }
 
                     if (!hpscbufpair.second.empty())
-                        std::cout << "Message from SC: " << hpscbufpair.second << std::endl;
+                        LOG_DBG << "Message from SC: " << hpscbufpair.second << std::endl;
 
                     userbufs.clear();
                 }
@@ -160,7 +160,8 @@ int main(int argc, char **argv)
             }
         }
     }
-    std::cout << "exited normally\n";
+
+    LOG_INFO << "exited normally\n";
     return 0;
 }
 
@@ -169,6 +170,6 @@ int main(int argc, char **argv)
  */
 void boost::throw_exception(std::exception const &e)
 {
-    std::cerr << "Boost error:" << e.what() << std::endl;
+    LOG_ERR << "Boost error:" << e.what() << std::endl;
     exit(-1);
 }

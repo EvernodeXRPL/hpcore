@@ -5,6 +5,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
 #include "socket_server.hpp"
+#include "../hplog.hpp"
 
 namespace net = boost::asio; // namespace asio
 
@@ -75,7 +76,7 @@ void socket_server::fail(error_code ec, char const *what)
     // Don't report on canceled operations
     if (ec == net::error::operation_aborted)
         return;
-    std::cerr << what << ": " << ec.message() << "\n";
+    LOG_ERR << what << ": " << ec.message() << "\n";
 }
 
 /**

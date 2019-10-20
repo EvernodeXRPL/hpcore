@@ -70,7 +70,7 @@ int create_contract()
 {
     if (std::experimental::filesystem::exists(ctx.contractDir))
     {
-        std::cerr << "Contract dir already exists. Cannot create contract at the same location.\n";
+        std::cout << "Contract dir already exists. Cannot create contract at the same location.\n";
         return -1;
     }
 
@@ -140,12 +140,12 @@ int load_config()
     rapidjson::Document d;
     if (d.ParseStream(isw).HasParseError())
     {
-        std::cerr << "Invalid config file format. Parser error at position " << d.GetErrorOffset() << std::endl;
+        std::cout << "Invalid config file format. Parser error at position " << d.GetErrorOffset() << std::endl;
         return -1;
     }
     else if (is_schema_valid(d) != 0)
     {
-        std::cerr << "Invalid config file format.\n";
+        std::cout << "Invalid config file format.\n";
         return -1;
     }
     ifs.close();
@@ -154,7 +154,7 @@ int load_config()
     std::string_view cfgversion = util::getsv(d["version"]);
     if (cfgversion.empty())
     {
-        std::cerr << "Contract config version missing.\n";
+        std::cout << "Contract config version missing.\n";
         return -1;
     }
 
@@ -162,14 +162,14 @@ int load_config()
     int verresult = util::version_compare(std::string(cfgversion), std::string(util::MIN_CONTRACT_VERSION));
     if (verresult == -1)
     {
-        std::cerr << "Contract version too old. Minimum "
+        std::cout << "Contract version too old. Minimum "
                   << util::MIN_CONTRACT_VERSION << " required. "
                   << cfgversion << " found.\n";
         return -1;
     }
     else if (verresult == -2)
     {
-        std::cerr << "Malformed version string.\n";
+        std::cout << "Malformed version string.\n";
         return -1;
     }
 
@@ -268,7 +268,7 @@ int save_config()
     rapidjson::PrettyWriter<rapidjson::OStreamWrapper> writer(osw);
     if (!d.Accept(writer))
     {
-        std::cerr << "Writing to config file failed. " << ctx.configFile << std::endl;
+        std::cout << "Writing to config file failed. " << ctx.configFile << std::endl;
         return -1;
     }
     ofs.close();
@@ -288,7 +288,7 @@ int binpair_to_hex()
             reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
             cfg.pubkey.length()) != 0)
     {
-        std::cerr << "Error encoding public key bytes.\n";
+        std::cout << "Error encoding public key bytes.\n";
         return -1;
     }
 
@@ -297,7 +297,7 @@ int binpair_to_hex()
             reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
             cfg.seckey.length()) != 0)
     {
-        std::cerr << "Error encoding secret key bytes.\n";
+        std::cout << "Error encoding secret key bytes.\n";
         return -1;
     }
 
@@ -317,7 +317,7 @@ int hexpair_to_bin()
             cfg.pubkey.length(),
             cfg.pubkeyhex) != 0)
     {
-        std::cerr << "Error decoding hex public key.\n";
+        std::cout << "Error decoding hex public key.\n";
         return -1;
     }
 
@@ -327,7 +327,7 @@ int hexpair_to_bin()
             cfg.seckey.length(),
             cfg.seckeyhex) != 0)
     {
-        std::cerr << "Error decoding hex secret key.\n";
+        std::cout << "Error decoding hex secret key.\n";
         return -1;
     }
 
@@ -345,7 +345,7 @@ int validate_config()
     // We also check for key pair validity as well in the below code.
     if (cfg.pubkeyhex.empty() || cfg.seckeyhex.empty())
     {
-        std::cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
+        std::cout << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
         return -1;
     }
 
@@ -354,7 +354,7 @@ int validate_config()
         cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 ||
         cfg.loglevel.empty() || cfg.loggers.empty())
     {
-        std::cerr << "Required configuration fields missing at " << ctx.configFile << std::endl;
+        std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
         return -1;
     }
 
@@ -362,7 +362,7 @@ int validate_config()
     const std::unordered_set<std::string> valid_loglevels({"debug", "info", "warn", "error"});
     if (valid_loglevels.count(cfg.loglevel) != 1)
     {
-        std::cerr << "Invalid loglevel configured. Valid values: debug|info|warn|error\n";
+        std::cout << "Invalid loglevel configured. Valid values: debug|info|warn|error\n";
         return -1;
     }
 
@@ -371,7 +371,7 @@ int validate_config()
     {
         if (valid_loggers.count(logger) != 1)
         {
-            std::cerr << "Invalid logger. Valid values: console|file\n";
+            std::cout << "Invalid logger. Valid values: console|file\n";
             return -1;
         }
     }
@@ -379,7 +379,7 @@ int validate_config()
     // Check whether the contract binary actually exists.
     if (!std::experimental::filesystem::exists(cfg.binary))
     {
-        std::cerr << "Contract binary does not exist: " << cfg.binary << std::endl;
+        std::cout << "Contract binary does not exist: " << cfg.binary << std::endl;
         return -1;
     }
 
@@ -388,7 +388,7 @@ int validate_config()
     std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
     if (crypto::verify_hex(msg, sighex, cfg.pubkeyhex) != 0)
     {
-        std::cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
+        std::cout << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
         return -1;
     }
 
@@ -408,7 +408,7 @@ int validate_contract_dir_paths()
     {
         if (!std::experimental::filesystem::exists(dir))
         {
-            std::cerr << dir << " does not exist.\n";
+            std::cout << dir << " does not exist.\n";
             return -1;
         }
     }

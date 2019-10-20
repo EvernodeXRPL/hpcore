@@ -146,35 +146,35 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
     d.Parse(response.data());
     if (d.HasParseError())
     {
-        LOG_DBG << "Challenge response json parser error.\n";
+        LOG_INFO << "Challenge response json parsing failed.\n";
         return -1;
     }
 
     // Validate msg type.
     if (!d.HasMember(CHALLENGE_RESP_TYPE) || d[CHALLENGE_RESP_TYPE] != CHALLENGE_RESP_MSGTYPE)
     {
-        LOG_DBG << "User challenge response type invalid. 'challenge_response' expected.\n";
+        LOG_INFO << "User challenge response type invalid. 'challenge_response' expected.\n";
         return -1;
     }
 
     // Compare the response challenge string with the original issued challenge.
     if (!d.HasMember(CHALLENGE_RESP_CHALLENGE) || d[CHALLENGE_RESP_CHALLENGE] != original_challenge.data())
     {
-        LOG_DBG << "User challenge response challenge invalid.\n";
+        LOG_INFO << "User challenge response challenge invalid.\n";
         return -1;
     }
 
     // Check for the 'sig' field existence.
     if (!d.HasMember(CHALLENGE_RESP_SIG) || !d[CHALLENGE_RESP_SIG].IsString())
     {
-        LOG_DBG << "User challenge response signature invalid.\n";
+        LOG_INFO << "User challenge response signature invalid.\n";
         return -1;
     }
 
     // Check for the 'pubkey' field existence.
     if (!d.HasMember(CHALLENGE_RESP_PUBKEY) || !d[CHALLENGE_RESP_PUBKEY].IsString())
     {
-        LOG_DBG << "User challenge response public key invalid.\n";
+        LOG_INFO << "User challenge response public key invalid.\n";
         return -1;
     }
 
@@ -185,7 +185,7 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
             util::getsv(d[CHALLENGE_RESP_SIG]),
             pubkeysv) != 0)
     {
-        LOG_DBG << "User challenge response signature verification failed.\n";
+        LOG_INFO << "User challenge response signature verification failed.\n";
         return -1;
     }
 
@@ -207,7 +207,7 @@ int add_user(sock::socket_session *session, const std::string &pubkey)
     const std::string &sessionid = session->uniqueid_;
     if (users.count(sessionid) == 1)
     {
-        LOG_DBG << sessionid << " already exist. Cannot add user.\n";
+        LOG_INFO << sessionid << " already exist. Cannot add user.\n";
         return -1;
     }
 
@@ -232,7 +232,7 @@ int remove_user(const std::string &sessionid)
 
     if (itr == users.end())
     {
-        LOG_DBG << sessionid << " does not exist. Cannot remove user.\n";
+        LOG_INFO << sessionid << " does not exist. Cannot remove user.\n";
         return -1;
     }
 

@@ -24,7 +24,7 @@ namespace usr
  */
 void user_session_handler::on_connect(sock::socket_session *session)
 {
-    LOG_DBG << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
+    LOG_INFO << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
@@ -84,7 +84,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
                     usr::add_user(session, userpubkey);                               // Add the user to the global authed user list
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
 
-                    LOG_DBG << "User connection " << session->uniqueid_ << " authenticated. Public key "
+                    LOG_INFO << "User connection " << session->uniqueid_ << " authenticated. Public key "
                               << userpubkeyhex << std::endl;
                     return;
                 }
@@ -95,7 +95,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
             }
             else
             {
-                LOG_DBG << "Challenge verification failed " << session->uniqueid_ << std::endl;
+                LOG_INFO << "Challenge verification failed " << session->uniqueid_ << std::endl;
             }
         }
     }
@@ -121,7 +121,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
 
     // If for any reason we reach this point, we should drop the connection.
     session->close();
-    LOG_DBG << "Dropped the user connection " << session->address_ << ":" << session->port_ << std::endl;
+    LOG_INFO << "Dropped the user connection " << session->address_ << ":" << session->port_ << std::endl;
 }
 
 /**
@@ -144,7 +144,7 @@ void user_session_handler::on_close(sock::socket_session *session)
         usr::remove_user(session->uniqueid_);
     }
 
-    LOG_DBG << "User disconnected " << session->uniqueid_ << std::endl;
+    LOG_INFO << "User disconnected " << session->uniqueid_ << std::endl;
 }
 
 } // namespace usr

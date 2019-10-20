@@ -24,19 +24,15 @@ namespace keywords = boost::log::keywords;
 namespace hplog
 {
 
-// The operator is used for regular stream formatting
-std::ostream &operator<<(std::ostream &strm, LOG_SEVERITY level)
+/**
+ * Stream operator overload for converting integer severity vaue to text.
+ */
+std::ostream &operator<<(std::ostream &os, LOG_SEVERITY level)
 {
-    static const char *loglevels[] = {"dbg", "info", "warn", "err"};
-
-    if (static_cast<std::size_t>(level) < sizeof(loglevels) / sizeof(*loglevels))
-        strm << loglevels[level];
-    else
-        strm << static_cast<int>(level);
-
-    return strm;
+    static std::string_view loglevels[] = {"dbg", "info", "warn", "err"};
+    os << loglevels[level];
+    return os;
 }
-
 
 // Severity attribute value tag type
 struct severity_tag;
@@ -63,8 +59,8 @@ void init()
                  << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S")
                  //<< ":" << expr::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID")
                  << " [" << expr::attr<std::string>("Channel")
-                 << "] <" << expr::attr<LOG_SEVERITY, severity_tag>("Severity")
-                 << "> " << expr::smessage));
+                 << "] [" << expr::attr<LOG_SEVERITY, severity_tag>("Severity")
+                 << "] " << expr::smessage));
     }
 
     if (conf::cfg.loggers.count("file") == 1)
