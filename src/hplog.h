@@ -11,6 +11,7 @@
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/support/date_time.hpp>
+#include "conf.hpp"
 
 namespace logging = boost::log;
 namespace sinks = boost::log::sinks;
@@ -55,16 +56,29 @@ struct severity_tag;
 
 void init()
 {
-    logging::add_console_log(
-        std::clog,
-        keywords::filter = (a_severity >= LOG_SEVERITY::WARN),
-        keywords::format =
-            (expr::stream
-             << expr::format_date_time< boost::posix_time::ptime >("TimeStamp", "%Y-%m-%d %H:%M:%S")
-             //<< ":" << expr::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID")
-             << " [" << expr::attr<std::string>("Channel")
-             << "] <" << expr::attr<LOG_SEVERITY, severity_tag>("Severity")
-             << "> " << expr::smessage));
+    LOG_SEVERITY severity = LOG_SEVERITY::WARN;
+    if (conf::cfg.loglevel == "debug")
+        severity = LOG_SEVERITY::DEBUG;
+    else if (conf::cfg.loglevel == "info")
+        severity = LOG_SEVERITY::INFO;
+    else if (conf::cfg.loglevel == "warn")
+        severity = LOG_SEVERITY::WARN;
+    else if (conf::cfg.loglevel == "error")
+        severity = LOG_SEVERITY::ERROR;
+
+    if (conf::cfg.loggers.count("console") == 1)
+    {
+        logging::add_console_log(
+            std::clog,
+            keywords::filter = (a_severity >= LOG_SEVERITY::WARN),
+            keywords::format =
+                (expr::stream
+                 << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S")
+                 //<< ":" << expr::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID")
+                 << " [" << expr::attr<std::string>("Channel")
+                 << "] <" << expr::attr<LOG_SEVERITY, severity_tag>("Severity")
+                 << "> " << expr::smessage));
+    }
 
     logging::add_common_attributes();
 }

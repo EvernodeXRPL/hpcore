@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <unordered_set>
 #include <experimental/filesystem>
 #include <sodium.h>
 #include <rapidjson/document.h>
@@ -91,6 +92,13 @@ int create_contract()
     cfg.pubport = 8080;
     cfg.pubmaxsize = 65536;
     cfg.pubmaxcpm = 100;
+
+#ifndef NDEBUG
+    cfg.loglevel = "debug";
+#else
+    cfg.loglevel = "warn";
+#endif
+    cfg.loggers.emplace("console");
 
     //Save the default settings into the config file.
     if (save_config() != 0)
@@ -187,6 +195,11 @@ int load_config()
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
 
+    cfg.loglevel = d["loglevel"].GetString();
+    cfg.loggers.clear();
+    for (auto &v : d["loggers"].GetArray())
+        cfg.loggers.emplace(v.GetString());
+
     // Convert the hex keys to binary and keep for later use.
     if (hexpair_to_bin() != 0)
         return -1;
@@ -236,6 +249,16 @@ int save_config()
     d.AddMember("pubport", cfg.pubport, allocator);
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
+
+    d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
+    rapidjson::Value loggers(rapidjson::kArrayType);
+    for (const std::string &logger : cfg.loggers)
+    {
+        rapidjson::Value v;
+        v.SetString(rapidjson::StringRef(logger.data()), allocator);
+        loggers.PushBack(v, allocator);
+    }
+    d.AddMember("loggers", loggers, allocator);
 
     // Write the json doc to file.
 
@@ -307,7 +330,7 @@ int hexpair_to_bin()
         std::cerr << "Error decoding hex secret key.\n";
         return -1;
     }
-    
+
     return 0;
 }
 
@@ -328,10 +351,29 @@ int validate_config()
 
     // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0)
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 ||
+        cfg.loglevel.empty() || cfg.loggers.empty())
     {
         std::cerr << "Required configuration fields missing at " << ctx.configFile << std::endl;
         return -1;
+    }
+
+    // Log settings
+    const std::unordered_set<std::string> valid_loglevels({"debug", "info", "warn", "error"});
+    if (valid_loglevels.count(cfg.loglevel) != 1)
+    {
+        std::cerr << "Invalid loglevel configured. Valid values: debug|info|warn|error\n";
+        return -1;
+    }
+
+    const std::unordered_set<std::string> valid_loggers({"console", "file"});
+    for (const std::string &logger : cfg.loggers)
+    {
+        if (valid_loggers.count(logger) != 1)
+        {
+            std::cerr << "Invalid logger. Valid values: console|file\n";
+            return -1;
+        }
     }
 
     // Check whether the contract binary actually exists.
@@ -385,7 +427,8 @@ int is_schema_valid(rapidjson::Document &d)
         "{"
         "\"type\": \"object\","
         "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
-        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\" ],"
+        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\""
+        ", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
@@ -405,7 +448,12 @@ int is_schema_valid(rapidjson::Document &d)
         "\"roundtime\": { \"type\": \"integer\" },"
         "\"pubport\": { \"type\": \"integer\" },"
         "\"pubmaxsize\": { \"type\": \"integer\" },"
-        "\"pubmaxcpm\": { \"type\": \"integer\" }"
+        "\"pubmaxcpm\": { \"type\": \"integer\" },"
+        "\"loglevel\": { \"type\": \"string\" },"
+        "\"loggers\": {"
+        "\"type\": \"array\","
+        "\"items\": { \"type\": \"string\" }"
+        "},"
         "}"
         "}";
 

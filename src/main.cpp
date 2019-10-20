@@ -14,6 +14,7 @@
 #include "crypto.hpp"
 #include "usr/usr.hpp"
 #include "proc.hpp"
+#include "hplog.h"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -64,7 +65,7 @@ int parse_cmd(int argc, char **argv)
 int main(int argc, char **argv)
 {
     // Extract the CLI args
-    // After this call conf::ctx must be populated.
+    // This call will populate conf::ctx
     if (parse_cmd(argc, argv) != 0)
         return -1;
 
@@ -100,7 +101,13 @@ int main(int argc, char **argv)
             else if (conf::ctx.command == "run")
             {
                 // In order to host the contract we should init some required sub systems.
-                if (conf::init() != 0 || usr::init() != 0)
+                
+                if (conf::init() != 0)
+                    return -1;
+
+                hplog::init();
+
+                if (usr::init() != 0)
                     return -1;
 
                 // This will start hosting the contract and start consensus rounds.
