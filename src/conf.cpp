@@ -9,7 +9,7 @@
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
-#include <boost/filesystem.hpp>
+
 #include <boost/algorithm/string.hpp>
 #include "conf.hpp"
 #include "crypto.hpp"

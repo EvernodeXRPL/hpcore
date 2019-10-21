@@ -1,10 +1,9 @@
 #include <iostream>
-#include <boost/algorithm/string.hpp>
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_client.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
-#include "../usr/usr.hpp"
+#include "../util.hpp"
 #include "../hplog.hpp"
 #include "peer_session_handler.hpp"
 #include "p2p.hpp"
@@ -38,9 +37,6 @@ std::thread peer_watchdog_thread;
 std::thread peer_thread;
 
 std::map<std::string, time_t> recent_peer_msghash;
-
-//todo:move to cons
-consensus_context consensus_ctx;
 
 int init()
 {
@@ -155,48 +151,5 @@ bool validate_peer_message(std::string_view message, std::string_view signature,
 
     return true;
 }
-
-// void consensus()
-// {
-//     std::time_t timestamp = std::time(nullptr);
-//     p2p::Proposal proposal;
-
-//     switch (consensus_ctx.stage)
-//     {
-
-//     case 0: // in stage 0 we create a novel proposal and broadcast it
-//     {
-//         // clear out the old stage 3 proposals and any previous proposals made by us
-//         // todo: check the state of these to ensure we're running consensus ledger
-//         for (const auto &p : consensus_ctx.proposals)
-//         {
-//             auto propsal = p.second;
-//             if (propsal.stage() == 3 || conf::cfg.pubkeyb64 == "propsal pubkey")
-//                 consensus_ctx.proposals.erase(p.first);
-//         }
-
-//         for (const auto &user : usr::users)
-//         {
-//             // add all the connections we host
-//             proposal.add_connections(user.second.pubkeyb64);
-
-//             // todo:add all their pending messages
-//         }
-
-//         // todo:propose outputs from previous round if any
-//         // todo: set propsal states
-
-//         consensus_ctx.novel_proposal_time = timestamp;
-//         //proposal.time() = static_cast<int> (timestamp); time_t is long int
-
-//         //broadcast_to_peers(sign_peer_message(proposal).signed)
-//     }
-//     case 1:
-//     case 2:
-//     case 3:
-//     {
-//     }
-//     }
-// }
 
 } // namespace p2p

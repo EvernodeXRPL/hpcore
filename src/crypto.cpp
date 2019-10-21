@@ -2,7 +2,6 @@
 #include <iostream>
 #include "crypto.hpp"
 #include "util.hpp"
-#include <boost/beast/core.hpp>
 
 namespace crypto
 {

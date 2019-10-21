@@ -25,20 +25,20 @@ const std::string create_message()
     std::time_t timestamp = std::time(nullptr);
     uint8_t stage = 0;
 
-    auto pubkey = conf::cfg.pubkey;
-    auto pubkey_b = builder.CreateVector((uint8_t *)pubkey.data(), pubkey.size());
+    std::string pubkey = conf::cfg.pubkey;
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey_b = builder.CreateVector((uint8_t *)pubkey.data(), pubkey.size());
 
     //create dummy propsal message
-    auto proposal = CreateProposal(builder, pubkey_b, timestamp, stage, timestamp);
-    auto message = CreateContent(builder, Message_Proposal, proposal.Union());
+    flatbuffers::Offset<Proposal> proposal = CreateProposal(builder, pubkey_b, timestamp, stage, timestamp);
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal, proposal.Union());
     builder.Finish(message); //finished building message content to get serialised content.
 
     //Get serialized/packed message content pointer and size.
     uint8_t *buf = builder.GetBufferPointer();
-    auto size = builder.GetSize();
+    flatbuffers::uoffset_t size = builder.GetSize();
 
     //Get a binary string_view for the serialised message content.
-    auto content_str = reinterpret_cast<const char *>(buf);
+    const char *content_str = reinterpret_cast<const char *>(buf);
     std::string_view message_content(content_str, size);
 
     //todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
@@ -46,30 +46,30 @@ const std::string create_message()
     flatbuffers::FlatBufferBuilder container_builder(1024);
 
     //create container message content from serialised content from previous step.
-    auto content = container_builder.CreateVector(buf, size);
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = container_builder.CreateVector(buf, size);
 
     //Sign message content with node's private key.
-    auto sig = crypto::sign(message_content, conf::cfg.seckey);
-    auto sig_buf = sig.data();
-    auto signature = container_builder.CreateVector((uint8_t *)sig_buf, sig.size()); //include signature to message
+    std::string sig = crypto::sign(message_content, conf::cfg.seckey);
+    char *sig_buf = sig.data();
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = container_builder.CreateVector((uint8_t *)sig_buf, sig.size()); //include signature to message
 
-    auto container_message = CreateContainer(container_builder, util::MIN_PEERMSG_VERSION, signature, content);
+    flatbuffers::Offset<Container> container_message = CreateContainer(container_builder, util::MIN_PEERMSG_VERSION, signature, content);
     container_builder.Finish(container_message); //finished building message container to get serialised message.
 
-    auto buf_size = container_builder.GetSize();
-    auto message_buf = container_builder.GetBufferPointer();
+    flatbuffers::uoffset_t buf_size = container_builder.GetSize();
+    uint8_t *message_buf = container_builder.GetBufferPointer();
 
     //todo: should return buffer_pointer to socket.
     return std::string((char *)message_buf, buf_size);
 }
 
 //private method returns string_view from Flat Buffer vector of bytes.
-std::string_view get_stringview_for_flatbuff_vector_of_bytes(const flatbuffers::Vector<uint8_t> *pointer)
+std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *pointer)
 {
-    auto pointer_length = pointer->size();
-    auto pointer_buf = pointer->Data();
+    flatbuffers::uoffset_t pointer_length = pointer->size();
+    const uint8_t *pointer_buf = pointer->Data();
 
-    auto signature_content_str = reinterpret_cast<const char *>(pointer_buf);
+    const char *signature_content_str = reinterpret_cast<const char *>(pointer_buf);
     return std::string_view(signature_content_str, pointer_length);
 }
 
@@ -88,8 +88,6 @@ void peer_session_handler::on_connect(sock::socket_session *session)
     else
     {
         std::string message = create_message();
-        // LOG_DBG << "Sending message :" << message;
-        // std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
         session->send(std::move(message));
     }
 }
@@ -103,8 +101,8 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     //session->send(std::make_shared<std::string>(message));
 
     //Accessing message buffer
-    uint8_t *container_pointer = (uint8_t *)message.c_str();
-    auto container_length = message.length();
+    uint8_t *container_pointer = (uint8_t *)message.data();
+    size_t container_length = message.length();
 
     //Defining Flatbuffer verifier (default max depth = 64, max_tables = 1000000,)
     flatbuffers::Verifier container_verifier(container_pointer, container_length);
@@ -113,14 +111,14 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     if (VerifyContainerBuffer(container_verifier))
     {
         //Get message container
-        auto container = GetContainer(container_pointer);
-        auto version = container->version();
+        const p2p::Container *container = GetContainer(container_pointer);
+        const uint16_t version = container->version();
 
         //Get serialised message content.
-        auto container_content = container->content();
-        auto container_content_buf = container_content->Data();
+        const flatbuffers::Vector<uint8_t> *container_content = container->content();
+        const uint8_t *container_content_buf = container_content->Data();
 
-        std::string_view message_content = get_stringview_for_flatbuff_vector_of_bytes(container_content);
+        std::string_view message_content = flatbuff_bytes_to_sv(container_content);
 
         //Accessing message content.
         const uint8_t *content_pointer = container_content->Data();
@@ -133,24 +131,24 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
         if (VerifyContainerBuffer(content_verifier))
         {
             //Get message content.
-            auto content = GetContent(content_pointer);
-            auto content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
+            const Content *content = GetContent(content_pointer);
+            p2p::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
             if (content_message_type == Message_Proposal) //message is a proposal message
             {
-                auto proposal = content->message_as_Proposal();
-                auto timestamp = proposal->timestamp();
+                const Proposal *proposal = content->message_as_Proposal();
+                uint64_t timestamp = proposal->timestamp();
 
                 //Get public key of message originating node.
-                auto pubkey = proposal->pubkey();
-                std::string_view message_pubkey = get_stringview_for_flatbuff_vector_of_bytes(pubkey);
+                const flatbuffers::Vector<uint8_t> *pubkey = proposal->pubkey();
+                std::string_view message_pubkey = flatbuff_bytes_to_sv(pubkey);
 
                 //Get signature from container message.
-                auto signature = container->signature();
-                std::string_view message_signature = get_stringview_for_flatbuff_vector_of_bytes(signature);
+                const flatbuffers::Vector<uint8_t> *signature = container->signature();
+                std::string_view message_signature = flatbuff_bytes_to_sv(signature);
 
                 //validate message for malleability, timeliness, signature and prune recieving messages.
-                auto validated = p2p::validate_peer_message(message_content, message_signature, message_pubkey, timestamp, version);
+                bool validated = p2p::validate_peer_message(message_content, message_signature, message_pubkey, timestamp, version);
                 if (validated)
                 {
                     //if validated send message to consensus.
@@ -163,7 +161,7 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
             }
             else if (content_message_type == Message_Npl) //message is a proposal message
             {
-                auto npl = content->message_as_Npl();
+                const Npl *npl = content->message_as_Npl();
                 // execute npl logic here.
                 //broadcast message.
             }
