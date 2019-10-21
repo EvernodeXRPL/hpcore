@@ -28,6 +28,7 @@ enum LOG_SEVERITY
 BOOST_LOG_ATTRIBUTE_KEYWORD(a_severity, "Severity", hplog::LOG_SEVERITY);
 
 void init();
+void deinit();
 
 } // namespace hplog
 
