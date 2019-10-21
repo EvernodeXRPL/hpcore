@@ -5,6 +5,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../usr/usr.hpp"
+#include "../hplog.hpp"
 #include "peer_session_handler.hpp"
 #include "p2p.hpp"
 
@@ -57,7 +58,7 @@ void start_peer_connections()
         global_peer_session_handler)
         ->run();
 
-    std::cout << "Started listening for incoming peer connections on " << conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport) << std::endl;
+    LOG_INFO << "Started listening for incoming peer connections on " << conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport) << std::endl;
 
     //Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
     timer_thread = std::thread([&] { peer_connection_watchdog(); });
@@ -72,7 +73,7 @@ void peer_connection_watchdog()
     {
         if (peer_connections.find(v.first) == peer_connections.end())
         {
-            std::cout << "Trying to connect :" << v.second.first + ":" << v.second.second << std::endl;
+            LOG_DBG << "Trying to connect :" << v.second.first + ":" << v.second.second << std::endl;
             std::make_shared<sock::socket_client>(ioc, global_peer_session_handler)->run(v.second.first, v.second.second);
         }
     }
@@ -100,14 +101,14 @@ bool validate_peer_message(const std::string_view message, const std::string_vie
     //check protocol version of message whether it is than minimum supported protocol version.
     if (version < util::MIN_PEERMSG_VERSION)
     {
-        std::cout << "recieved message is a old unsupported version" << std::endl;
+        LOG_DBG << "Recieved message is from unsupported version" << std::endl;
         return false;
     }
 
     // validate if the message is not from a node of current node's unl list.
     if (!conf::cfg.unl.count(pubkey.data()))
     {
-        std::cout << "pubkey verification failed" << std::endl;
+        LOG_DBG << "pubkey verification failed" << std::endl;
         return false;
     }
 
@@ -117,7 +118,7 @@ bool validate_peer_message(const std::string_view message, const std::string_vie
     */
     if (timestamp < (time_now - conf::cfg.roundtime * 4))
     {
-        std::cout << "recieved message from peer is old" << std::endl;
+        LOG_DBG << "Recieved message from peer is old" << std::endl;
         return false;
     }
 
@@ -140,7 +141,7 @@ bool validate_peer_message(const std::string_view message, const std::string_vie
     if (signature_verified != 0)
     {
         return false;
-        std::cout << "signature verification failed" << std::endl;
+        LOG_DBG << "Signature verification failed" << std::endl;
     }
 
     return true;

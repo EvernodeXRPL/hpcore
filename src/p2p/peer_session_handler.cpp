@@ -3,6 +3,7 @@
 #include "../crypto.hpp"
 #include "p2p.hpp"
 #include "../util.hpp"
+#include "../hplog.hpp"
 #include "peer_session_handler.hpp"
 #include "flatbuffers/flatbuffers.h"
 #include "message_content_generated.h"
@@ -72,12 +73,12 @@ void peer_session_handler::on_connect(sock::socket_session *session)
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
         peer_connections.insert(std::make_pair(session->uniqueid_, session));
-        std::cout << "Adding peer to list :" << session->uniqueid_ + " " << session->address_ + " " << session->port_ << std::endl;
+        LOG_DBG << "Adding peer to list :" << session->uniqueid_ + " " << session->address_ + " " << session->port_ << std::endl;
     }
     else
     {
         std::string message = create_message();
-        // std::cout << "Sending message :" << message << std::endl;
+        // LOG_DBG << "Sending message :" << message << std::endl;
         // std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
         session->send(std::move(message));
     }
@@ -87,7 +88,7 @@ void peer_session_handler::on_connect(sock::socket_session *session)
 //validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session *session, std::string &&message)
 {
-    // std::cout << "on-message : " << message << std::endl;
+    // LOG_DBG << "on-message : " << message << std::endl;
     peer_connections.insert(std::make_pair(session->uniqueid_, session));
     //session->send(std::make_shared<std::string>(message));
 
@@ -152,9 +153,16 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
                 auto timestamp = proposal->timestamp();
 
                 //validate message for malleability, timeliness, signature and prune recieving messages.
-                auto status = p2p::validate_peer_message(message_content, message_signature, message_pubkey, timestamp, version);
-                //if validated send message to consensus.
-                //if validated broadcast message.
+                auto validated = p2p::validate_peer_message(message_content, message_signature, message_pubkey, timestamp, version);
+                if (validated)
+                {
+                    //if validated send message to consensus.
+                    //if validated broadcast message.
+                }
+                else
+                {
+                    LOG_DBG << "Message validation failed" << std::endl;
+                }
             }
             else if (content_message_type == Message_Npl) //message is a proposal message
             {
@@ -164,25 +172,28 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
             }
             else
             {
-                //warn received invalid message type from peer.
+                //warn received invalid message from peer.
+                LOG_DBG << "Received invalid message type from peer" << std::endl;
                 //remove/penalize node who sent the message.
             }
         }
         else
         {
             //warn bad message from peer.
+            LOG_DBG << "Bad message content" << std::endl;
         }
     }
     else
     {
         //warn bad message from peer.
+        LOG_DBG << "Bad message from peer" << std::endl;
     }
 }
 
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session *session)
 {
-    std::cout << "on_closing peer :" + session->uniqueid_ << std::endl;
+    LOG_DBG << "on_closing peer :" + session->uniqueid_ << std::endl;
 }
 
 } // namespace p2p
