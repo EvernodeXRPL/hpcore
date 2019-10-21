@@ -184,37 +184,38 @@ int load_config()
     cfg.binargs = d["binargs"].GetString();
     cfg.listenip = d["listenip"].GetString();
 
-    //Storing peers in unordered map keyed by the address:port and also saving address and port seperately to retrieve easily
-    // in handling peer connections.
+    // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
+    // seperately to retrieve easily when handling peer connections.
     std::vector<std::string> splitted_peers;
     cfg.peers.clear();
     for (auto &v : d["peers"].GetArray())
     {
-        //Split the address:port text into two
-        boost::split(splitted_peers, v.GetString(), boost::is_any_of(":"));
+        const char* ipport_concat = v.GetString();
+        // Split the address:port text into two
+        boost::split(splitted_peers, ipport_concat, boost::is_any_of(":"));
         if (splitted_peers.size() == 2)
         {
-            //Push the peer address and the port to peers array
-            cfg.peers.emplace(std::make_pair(v.GetString(), std::make_pair(splitted_peers.front(), splitted_peers.back())));
+            // Push the peer address and the port to peers array
+            cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), splitted_peers.back())));
             splitted_peers.clear();
         }
     }
 
     cfg.unl.clear();
-    for (auto &v : d["unl"].GetArray())
+    for (auto &nodepk : d["unl"].GetArray())
     {
-        //Convert the public key hex of the unl to binary and store it
-        std::string bin_unl;
-        bin_unl.resize(crypto::PFXD_PUBKEY_BYTES);
+        // Convert the public key hex of each node to binary and store it.
+        std::string bin_pubkey;
+        bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
         if (util::hex2bin(
-                reinterpret_cast<unsigned char *>(bin_unl.data()),
-                bin_unl.length(),
-                v.GetString()) != 0)
+                reinterpret_cast<unsigned char *>(bin_pubkey.data()),
+                bin_pubkey.length(),
+                nodepk.GetString()) != 0)
         {
             std::cerr << "Error decoding unl list.\n";
             return -1;
         }
-        cfg.unl.emplace(bin_unl);
+        cfg.unl.emplace(bin_pubkey);
     }
 
     cfg.peerport = d["peerport"].GetInt();
@@ -255,28 +256,28 @@ int save_config()
     d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
 
     rapidjson::Value peers(rapidjson::kArrayType);
-    for (auto &peer : cfg.peers)
+    for (auto &[ipport_concat, ipport_pair] : cfg.peers)
     {
         rapidjson::Value v;
-        v.SetString(rapidjson::StringRef(peer.first.data()), allocator);
+        v.SetString(rapidjson::StringRef(ipport_concat.data()), allocator);
         peers.PushBack(v, allocator);
     }
     d.AddMember("peers", peers, allocator);
 
     rapidjson::Value unl(rapidjson::kArrayType);
-    for (auto &node : cfg.unl)
+    for (auto &nodepk : cfg.unl)
     {
         rapidjson::Value v;
-        std::string npl_node;
+        std::string hex_pubkey;
         if (util::bin2hex(
-                npl_node,
-                reinterpret_cast<const unsigned char *>(node.data()),
-                node.length()) != 0)
+                hex_pubkey,
+                reinterpret_cast<const unsigned char *>(nodepk.data()),
+                nodepk.length()) != 0)
         {
             std::cerr << "Error encoding npl list.\n";
             return -1;
         }
-        v.SetString(rapidjson::StringRef(npl_node.data()), allocator);
+        v.SetString(rapidjson::StringRef(hex_pubkey.data()), allocator);
         unl.PushBack(v, allocator);
     }
     d.AddMember("unl", unl, allocator);
