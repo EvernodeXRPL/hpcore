@@ -2,6 +2,9 @@
     Entry point for HP Core
 **/
 
+// This will direct all boost exceptions to our error handler.
+#define BOOST_NO_EXCEPTIONS
+
 #include <cstdio>
 #include <iostream>
 #include <thread>
@@ -12,6 +15,7 @@
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
 #include "proc.hpp"
+#include "hplog.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -62,7 +66,7 @@ int parse_cmd(int argc, char **argv)
 int main(int argc, char **argv)
 {
     // Extract the CLI args
-    // After this call conf::ctx must be populated.
+    // This call will populate conf::ctx
     if (parse_cmd(argc, argv) != 0)
         return -1;
 
@@ -98,7 +102,16 @@ int main(int argc, char **argv)
             else if (conf::ctx.command == "run")
             {
                 // In order to host the contract we should init some required sub systems.
-                if (conf::init() != 0 || usr::init() != 0 || p2p::init() != 0)
+                
+                if (conf::init() != 0)
+                    return -1;
+
+                hplog::init();
+
+                if (usr::init() != 0)
+                    return -1;
+
+                 if (p2p::init() != 0)
                     return -1;
 
                 // This will start hosting the contract and start consensus rounds.
@@ -106,7 +119,8 @@ int main(int argc, char **argv)
 
                 while (true)
                 {
-                    sleep(1);
+                    sleep(2);
+
                     // Test code to execute contract and collect outputs.
                     std::unordered_map<std::string, std::pair<std::string, std::string>> userbufs;
                     for (auto &[sid, user] : usr::users)
@@ -119,8 +133,10 @@ int main(int argc, char **argv)
                         bufpair.first = std::move(inputtosend);
                         userbufs[user.pubkey] = bufpair;
                     }
+                    std::pair<std::string, std::string> hpscbufpair;
+                    hpscbufpair.first = "{msg:'Message from HP'}";
 
-                    proc::ContractExecArgs eargs(123123345, userbufs);
+                    proc::ContractExecArgs eargs(123123345, userbufs, hpscbufpair);
                     proc::exec_contract(eargs);
 
                     for (auto &[pubkey, bufpair] : userbufs)
@@ -137,6 +153,9 @@ int main(int argc, char **argv)
                         }
                     }
 
+                    if (!hpscbufpair.second.empty())
+                        LOG_DBG << "Message from SC: " << hpscbufpair.second;
+
                     userbufs.clear();
                 }
 
@@ -146,6 +165,15 @@ int main(int argc, char **argv)
         }
     }
 
-    std::cout << "exited normally\n";
+    LOG_INFO << "exited normally";
     return 0;
+}
+
+/**
+ * Global exception handler for boost exceptions.
+ */
+void boost::throw_exception(std::exception const &e)
+{
+    LOG_ERR << "Boost error:" << e.what();
+    exit(-1);
 }

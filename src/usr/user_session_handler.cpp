@@ -6,6 +6,7 @@
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
 #include "../proc.hpp"
+#include "../hplog.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
@@ -23,7 +24,7 @@ namespace usr
  */
 void user_session_handler::on_connect(sock::socket_session *session)
 {
-    std::cout << "User client connected " << session->address_ << ":" << session->port_ << std::endl;
+    LOG_INFO << "User client connected " << session->address_ << ":" << session->port_;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
@@ -83,18 +84,18 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
                     usr::add_user(session, userpubkey);                               // Add the user to the global authed user list
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
 
-                    std::cout << "User connection " << session->uniqueid_ << " authenticated. Public key "
-                              << userpubkeyhex << std::endl;
+                    LOG_INFO << "User connection " << session->uniqueid_ << " authenticated. Public key "
+                              << userpubkeyhex;
                     return;
                 }
                 else
                 {
-                    std::cout << "Duplicate user public key " << session->uniqueid_ << std::endl;
+                    LOG_INFO << "Duplicate user public key " << session->uniqueid_;
                 }
             }
             else
             {
-                std::cout << "Challenge verification failed " << session->uniqueid_ << std::endl;
+                LOG_INFO << "Challenge verification failed " << session->uniqueid_;
             }
         }
     }
@@ -113,14 +114,14 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
             //Append the bytes into connected user input buffer.
             user.inbuffer.append(message);
 
-            std::cout << "Collected " << user.inbuffer.length() << " bytes from user" << std::endl;
+            LOG_DBG << "Collected " << user.inbuffer.length() << " bytes from user";
             return;
         }
     }
 
     // If for any reason we reach this point, we should drop the connection.
     session->close();
-    std::cout << "Dropped the user connection " << session->address_ << ":" << session->port_ << std::endl;
+    LOG_INFO << "Dropped the user connection " << session->address_ << ":" << session->port_;
 }
 
 /**
@@ -143,7 +144,7 @@ void user_session_handler::on_close(sock::socket_session *session)
         usr::remove_user(session->uniqueid_);
     }
 
-    std::cout << "User disconnected " << session->uniqueid_ << std::endl;
+    LOG_INFO << "User disconnected " << session->uniqueid_;
 }
 
 } // namespace usr

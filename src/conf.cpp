@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <unordered_set>
+#include <experimental/filesystem>
 #include <sodium.h>
 #include <rapidjson/document.h>
 #include <rapidjson/schema.h>
@@ -49,7 +51,7 @@ int rekey()
     if (load_config() != 0)
         return -1;
 
-    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
+    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
     if (binpair_to_hex() != 0)
         return -1;
 
@@ -68,21 +70,21 @@ int rekey()
  */
 int create_contract()
 {
-    if (boost::filesystem::exists(ctx.contractDir))
+    if (std::experimental::filesystem::exists(ctx.contractDir))
     {
-        std::cerr << "Contract dir already exists. Cannot create contract at the same location.\n";
+        std::cout << "Contract dir already exists. Cannot create contract at the same location.\n";
         return -1;
     }
 
-    boost::filesystem::create_directories(ctx.configDir);
-    boost::filesystem::create_directories(ctx.histDir);
-    boost::filesystem::create_directories(ctx.stateDir);
+    std::experimental::filesystem::create_directories(ctx.configDir);
+    std::experimental::filesystem::create_directories(ctx.histDir);
+    std::experimental::filesystem::create_directories(ctx.stateDir);
 
     //Create config file with default settings.
 
     //We populate the in-memory struct with default settings and then save it to the file.
 
-    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey, cfg.keytype);
+    crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
     if (binpair_to_hex() != 0)
         return -1;
 
@@ -92,6 +94,13 @@ int create_contract()
     cfg.pubport = 8080;
     cfg.pubmaxsize = 65536;
     cfg.pubmaxcpm = 100;
+
+#ifndef NDEBUG
+    cfg.loglevel = "debug";
+#else
+    cfg.loglevel = "warn";
+#endif
+    cfg.loggers.emplace("console");
 
     //Save the default settings into the config file.
     if (save_config() != 0)
@@ -133,12 +142,12 @@ int load_config()
     rapidjson::Document d;
     if (d.ParseStream(isw).HasParseError())
     {
-        std::cerr << "Invalid config file format. Parser error at position " << d.GetErrorOffset() << std::endl;
+        std::cout << "Invalid config file format. Parser error at position " << d.GetErrorOffset() << std::endl;
         return -1;
     }
     else if (is_schema_valid(d) != 0)
     {
-        std::cerr << "Invalid config file format.\n";
+        std::cout << "Invalid config file format.\n";
         return -1;
     }
     ifs.close();
@@ -147,7 +156,7 @@ int load_config()
     std::string_view cfgversion = util::getsv(d["version"]);
     if (cfgversion.empty())
     {
-        std::cerr << "Contract config version missing.\n";
+        std::cout << "Contract config version missing.\n";
         return -1;
     }
 
@@ -155,14 +164,14 @@ int load_config()
     int verresult = util::version_compare(std::string(cfgversion), std::string(util::MIN_CONTRACT_VERSION));
     if (verresult == -1)
     {
-        std::cerr << "Contract version too old. Minimum "
+        std::cout << "Contract version too old. Minimum "
                   << util::MIN_CONTRACT_VERSION << " required. "
                   << cfgversion << " found.\n";
         return -1;
     }
     else if (verresult == -2)
     {
-        std::cerr << "Malformed version string.\n";
+        std::cout << "Malformed version string.\n";
         return -1;
     }
 
@@ -170,7 +179,6 @@ int load_config()
 
     cfg.pubkeyhex = d["pubkeyhex"].GetString();
     cfg.seckeyhex = d["seckeyhex"].GetString();
-    cfg.keytype = d["keytype"].GetString();
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
     cfg.listenip = d["listenip"].GetString();
@@ -214,6 +222,11 @@ int load_config()
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
 
+    cfg.loglevel = d["loglevel"].GetString();
+    cfg.loggers.clear();
+    for (auto &v : d["loggers"].GetArray())
+        cfg.loggers.emplace(v.GetString());
+
     // Convert the hex keys to binary and keep for later use.
     if (hexpair_to_bin() != 0)
         return -1;
@@ -236,7 +249,6 @@ int save_config()
     d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
     d.AddMember("pubkeyhex", rapidjson::StringRef(cfg.pubkeyhex.data()), allocator);
     d.AddMember("seckeyhex", rapidjson::StringRef(cfg.seckeyhex.data()), allocator);
-    d.AddMember("keytype", rapidjson::StringRef(cfg.keytype.data()), allocator);
     d.AddMember("binary", rapidjson::StringRef(cfg.binary.data()), allocator);
     d.AddMember("binargs", rapidjson::StringRef(cfg.binargs.data()), allocator);
     d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
@@ -274,6 +286,16 @@ int save_config()
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
 
+    d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
+    rapidjson::Value loggers(rapidjson::kArrayType);
+    for (const std::string &logger : cfg.loggers)
+    {
+        rapidjson::Value v;
+        v.SetString(rapidjson::StringRef(logger.data()), allocator);
+        loggers.PushBack(v, allocator);
+    }
+    d.AddMember("loggers", loggers, allocator);
+
     // Write the json doc to file.
 
     std::ofstream ofs(ctx.configFile);
@@ -282,7 +304,7 @@ int save_config()
     rapidjson::PrettyWriter<rapidjson::OStreamWrapper> writer(osw);
     if (!d.Accept(writer))
     {
-        std::cerr << "Writing to config file failed. " << ctx.configFile << std::endl;
+        std::cout << "Writing to config file failed. " << ctx.configFile << std::endl;
         return -1;
     }
     ofs.close();
@@ -302,7 +324,7 @@ int binpair_to_hex()
             reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
             cfg.pubkey.length()) != 0)
     {
-        std::cerr << "Error encoding public key bytes.\n";
+        std::cout << "Error encoding public key bytes.\n";
         return -1;
     }
 
@@ -311,7 +333,7 @@ int binpair_to_hex()
             reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
             cfg.seckey.length()) != 0)
     {
-        std::cerr << "Error encoding secret key bytes.\n";
+        std::cout << "Error encoding secret key bytes.\n";
         return -1;
     }
 
@@ -331,7 +353,7 @@ int hexpair_to_bin()
             cfg.pubkey.length(),
             cfg.pubkeyhex) != 0)
     {
-        std::cerr << "Error decoding hex public key.\n";
+        std::cout << "Error decoding hex public key.\n";
         return -1;
     }
 
@@ -341,7 +363,7 @@ int hexpair_to_bin()
             cfg.seckey.length(),
             cfg.seckeyhex) != 0)
     {
-        std::cerr << "Error decoding hex secret key.\n";
+        std::cout << "Error decoding hex secret key.\n";
         return -1;
     }
 
@@ -359,22 +381,41 @@ int validate_config()
     // We also check for key pair validity as well in the below code.
     if (cfg.pubkeyhex.empty() || cfg.seckeyhex.empty())
     {
-        std::cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
+        std::cout << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
         return -1;
     }
 
     // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0)
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 ||
+        cfg.loglevel.empty() || cfg.loggers.empty())
     {
-        std::cerr << "Required configuration fields missing at " << ctx.configFile << std::endl;
+        std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
         return -1;
     }
 
-    // Check whether the contract binary actually exists.
-    if (!boost::filesystem::exists(cfg.binary))
+    // Log settings
+    const std::unordered_set<std::string> valid_loglevels({"debug", "info", "warn", "error"});
+    if (valid_loglevels.count(cfg.loglevel) != 1)
     {
-        std::cerr << "Contract binary does not exist: " << cfg.binary << std::endl;
+        std::cout << "Invalid loglevel configured. Valid values: debug|info|warn|error\n";
+        return -1;
+    }
+
+    const std::unordered_set<std::string> valid_loggers({"console", "file"});
+    for (const std::string &logger : cfg.loggers)
+    {
+        if (valid_loggers.count(logger) != 1)
+        {
+            std::cout << "Invalid logger. Valid values: console|file\n";
+            return -1;
+        }
+    }
+
+    // Check whether the contract binary actually exists.
+    if (!std::experimental::filesystem::exists(cfg.binary))
+    {
+        std::cout << "Contract binary does not exist: " << cfg.binary << std::endl;
         return -1;
     }
 
@@ -383,7 +424,7 @@ int validate_config()
     std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
     if (crypto::verify_hex(msg, sighex, cfg.pubkeyhex) != 0)
     {
-        std::cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
+        std::cout << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
         return -1;
     }
 
@@ -401,9 +442,9 @@ int validate_contract_dir_paths()
 
     for (std::string &dir : dirs)
     {
-        if (!boost::filesystem::exists(dir))
+        if (!std::experimental::filesystem::exists(dir))
         {
-            std::cerr << dir << " does not exist.\n";
+            std::cout << dir << " does not exist.\n";
             return -1;
         }
     }
@@ -421,13 +462,13 @@ int is_schema_valid(rapidjson::Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"keytype\", \"binary\", \"binargs\", \"listenip\""
-        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\" ],"
+        "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
+        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\""
+        ", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
         "\"seckeyhex\": { \"type\": \"string\" },"
-        "\"keytype\": { \"type\": \"string\" },"
         "\"binary\": { \"type\": \"string\" },"
         "\"binargs\": { \"type\": \"string\" },"
         "\"listenip\": { \"type\": \"string\" },"
@@ -443,7 +484,12 @@ int is_schema_valid(rapidjson::Document &d)
         "\"roundtime\": { \"type\": \"integer\" },"
         "\"pubport\": { \"type\": \"integer\" },"
         "\"pubmaxsize\": { \"type\": \"integer\" },"
-        "\"pubmaxcpm\": { \"type\": \"integer\" }"
+        "\"pubmaxcpm\": { \"type\": \"integer\" },"
+        "\"loglevel\": { \"type\": \"string\" },"
+        "\"loggers\": {"
+        "\"type\": \"array\","
+        "\"items\": { \"type\": \"string\" }"
+        "},"
         "}"
         "}";
 

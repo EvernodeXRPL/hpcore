@@ -15,17 +15,17 @@ int init()
 {
     if (sodium_init() < 0)
     {
-        std::cerr << "sodium_init failed.\n";
+        std::cout << "sodium_init failed.\n";
         return -1;
     }
 
     return 0;
 }
 
-/**
+/**l
  * Generates a signing key pair using libsodium and assigns them to the provided strings.
  */
-void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string &keytype)
+void generate_signing_keys(std::string &pubkey, std::string &seckey)
 {
     // Generate key pair using libsodium default algorithm.
     // Currently using ed25519. So append prefix byte to represent that.
@@ -37,10 +37,8 @@ void generate_signing_keys(std::string &pubkey, std::string &seckey, std::string
     seckey[0] = KEYPFX_ed25519;
 
     crypto_sign_keypair(
-        reinterpret_cast<unsigned char *>(pubkey.data() + 1),
-        reinterpret_cast<unsigned char *>(seckey.data() + 1));
-
-    keytype = crypto_sign_primitive();
+        reinterpret_cast<unsigned char *>(pubkey.data() + 1),   // +1 to skip the prefix byte.
+        reinterpret_cast<unsigned char *>(seckey.data() + 1));  // +1 to skip the prefix byte.
 }
 
 /**
