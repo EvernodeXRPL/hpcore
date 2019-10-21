@@ -18,8 +18,8 @@ const std::string create_message()
 {
     //todo:get a average propsal message size and allocate builder based on that.
     /*
-    * todo: Create custom vector allocator for protobuff in order to avoid copying buffer to string.
-    * Includes overidding socket_session send method to support this as well.
+    * todo: create custom vector allocator for protobuff in order to avoid copying buffer to string.
+    * includes overidding socket_session send method to support this as well.
     */
     flatbuffers::FlatBufferBuilder builder(1024);
     std::time_t timestamp = std::time(nullptr);
@@ -63,6 +63,16 @@ const std::string create_message()
     return std::string((char *)message_buf, buf_size);
 }
 
+//private method returns string_view from Flat Buffer vector of bytes.
+std::string_view get_stringview_for_flatbuff_vector_of_bytes(const flatbuffers::Vector<uint8_t> *pointer)
+{
+    auto pointer_length = pointer->size();
+    auto pointer_buf = pointer->Data();
+
+    auto signature_content_str = reinterpret_cast<const char *>(pointer_buf);
+    return std::string_view(signature_content_str, pointer_length);
+}
+
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
@@ -73,12 +83,12 @@ void peer_session_handler::on_connect(sock::socket_session *session)
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
         peer_connections.insert(std::make_pair(session->uniqueid_, session));
-        LOG_DBG << "Adding peer to list :" << session->uniqueid_ + " " << session->address_ + " " << session->port_ << std::endl;
+        LOG_DBG << "Adding peer to list :" << session->uniqueid_ + " " << session->address_ + " " << session->port_;
     }
     else
     {
         std::string message = create_message();
-        // LOG_DBG << "Sending message :" << message << std::endl;
+        // LOG_DBG << "Sending message :" << message;
         // std::string message = "I'm " + conf::cfg.listenip + ":" + std::to_string(conf::cfg.peerport);
         session->send(std::move(message));
     }
@@ -88,7 +98,7 @@ void peer_session_handler::on_connect(sock::socket_session *session)
 //validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session *session, std::string &&message)
 {
-    // LOG_DBG << "on-message : " << message << std::endl;
+    // LOG_DBG << "on-message : " << message;
     peer_connections.insert(std::make_pair(session->uniqueid_, session));
     //session->send(std::make_shared<std::string>(message));
 
@@ -104,31 +114,20 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
     {
         //Get message container
         auto container = GetContainer(container_pointer);
-
         auto version = container->version();
-
-        //Get signature from message.
-        auto signature = container->signature();
-        auto signature_length = signature->size();
-        auto signature_buf = signature->Data();
-
-        auto signature_content_str = reinterpret_cast<const char *>(signature_buf);
-        std::string_view message_signature(signature_content_str, signature_length);
 
         //Get serialised message content.
         auto container_content = container->content();
-        auto container_content_length = container_content->size();
         auto container_content_buf = container_content->Data();
 
-        auto message_content_str = reinterpret_cast<const char *>(container_content_buf);
-        std::string_view message_content(message_content_str, container_content_length);
+        std::string_view message_content = get_stringview_for_flatbuff_vector_of_bytes(container_content);
 
         //Accessing message content.
-        const uint8_t *content_pointer = container_content_buf;
+        const uint8_t *content_pointer = container_content->Data();
 
         //Defining Flatbuffer verifier for content message verification.
         //Since content is also serialised by using Filterbuf we can verify it using Filterbuffer.
-        flatbuffers::Verifier content_verifier(content_pointer, container_content_length);
+        flatbuffers::Verifier content_verifier(content_pointer, message_content.size());
 
         //verify content message conent using flatbuffer verifier.
         if (VerifyContainerBuffer(content_verifier))
@@ -140,17 +139,15 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
             if (content_message_type == Message_Proposal) //message is a proposal message
             {
                 auto proposal = content->message_as_Proposal();
-                //access proposal field data.
+                auto timestamp = proposal->timestamp();
 
                 //Get public key of message originating node.
                 auto pubkey = proposal->pubkey();
-                auto pubkey_length = pubkey->size();
-                auto pubkey_buf = pubkey->Data();
+                std::string_view message_pubkey = get_stringview_for_flatbuff_vector_of_bytes(pubkey);
 
-                auto pubkey_str = reinterpret_cast<const char *>(pubkey_buf);
-                std::string_view message_pubkey(pubkey_str, pubkey_length);
-
-                auto timestamp = proposal->timestamp();
+                //Get signature from container message.
+                auto signature = container->signature();
+                std::string_view message_signature = get_stringview_for_flatbuff_vector_of_bytes(signature);
 
                 //validate message for malleability, timeliness, signature and prune recieving messages.
                 auto validated = p2p::validate_peer_message(message_content, message_signature, message_pubkey, timestamp, version);
@@ -161,7 +158,7 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
                 }
                 else
                 {
-                    LOG_DBG << "Message validation failed" << std::endl;
+                    LOG_DBG << "Message validation failed";
                 }
             }
             else if (content_message_type == Message_Npl) //message is a proposal message
@@ -173,27 +170,27 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
             else
             {
                 //warn received invalid message from peer.
-                LOG_DBG << "Received invalid message type from peer" << std::endl;
+                LOG_DBG << "Received invalid message type from peer";
                 //remove/penalize node who sent the message.
             }
         }
         else
         {
-            //warn bad message from peer.
-            LOG_DBG << "Bad message content" << std::endl;
+            //warn bad message content.
+            LOG_DBG << "Bad message content";
         }
     }
     else
     {
-        //warn bad message from peer.
-        LOG_DBG << "Bad message from peer" << std::endl;
+        //warn bad messages from peer.
+        LOG_DBG << "Bad message from peer";
     }
 }
 
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session *session)
 {
-    LOG_DBG << "on_closing peer :" + session->uniqueid_ << std::endl;
+    LOG_DBG << "on_closing peer :" << session->uniqueid_;
 }
 
 } // namespace p2p

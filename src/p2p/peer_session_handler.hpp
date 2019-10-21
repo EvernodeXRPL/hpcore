@@ -5,8 +5,6 @@
 #include "../sock/socket_session_handler.hpp"
 #include "../sock/socket_session.hpp"
 
-using error = boost::system::error_code;
-
 namespace p2p
 {
 

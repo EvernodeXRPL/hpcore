@@ -31,7 +31,7 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
 
 std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char_length);
 
-std::string sha_512_hash(const std::string_view msg, const char *prefix, size_t char_length);
+std::string sha_512_hash(std::string_view msg, const char *prefix, size_t char_length);
 
 } // namespace crypto
 

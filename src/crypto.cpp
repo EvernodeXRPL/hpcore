@@ -160,7 +160,7 @@ std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char
  * @param char_length length of prefix char array.
  * @return SHA 512 hash.
  */
-std::string sha_512_hash(const std::string_view msg, const char *prefix, size_t char_length)
+std::string sha_512_hash(std::string_view msg, const char *prefix, size_t char_length)
 {
     std::string payload;
     payload.reserve(char_length + msg.size());

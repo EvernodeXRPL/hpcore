@@ -11,13 +11,12 @@ namespace p2p
  */
 extern std::unordered_map<std::string, sock::socket_session *> peer_connections;
 
-struct peer_context
-{
-    std::map<std::string, time_t> recent_peer_msghash; // hash of recent peer messages.
-    //std::vector<NPL> npl_messages; //npl messages recieved
-    std::map<std::string, std::vector<std::string>> local_pending_inputs; //inputs from users: IP:PORT;pubkeyhex -> [ ordered list of input packets ]
-};
+/**
+ * This is used to store hash of recent peer messages: messagehash -> timestamp of message
+ */
+extern std::map<std::string, time_t> recent_peer_msghash;
 
+//todo:move to consensus namespace
 struct consensus_context
 {
     // std::map<std::string, Proposal> proposals; //msg.pubkey + '-' + msg.stage => proposal message
@@ -25,9 +24,6 @@ struct consensus_context
     // std::time_t novel_proposal_time;
     // std::string lcl;
 };
-
-//global peer context
-extern peer_context peer_ctx;
 
 //global consenus context
 extern consensus_context consensus_ctx;
@@ -39,7 +35,7 @@ void start_peer_connections();
 
 void peer_connection_watchdog();
 
-bool validate_peer_message(const std::string_view message, const std::string_view signature, const std::string_view pubkey, time_t timestamp, uint16_t version);
+bool validate_peer_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp, uint16_t version);
 
 //void consensus();
 
