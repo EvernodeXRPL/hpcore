@@ -1,4 +1,7 @@
-//IDL file for p2p message schema.
+//IDL file for p2p message container schema.
+/*Message content need to be serialised and parsed into container, we need two root types in flatbuffs to generat
+ needed api methods. Since Flatbuff only support one rrot at each IDL files, we had to seperate message schema to 2 files.
+*/
 include "message_content.fbs";
 namespace p2p;
 

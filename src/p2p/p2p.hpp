@@ -39,7 +39,7 @@ void start_peer_connections();
 
 void peer_connection_watchdog();
 
-bool validate_peer_message(const std::string_view message, const std::string_view signature, time_t timestamp, uint16_t version, const std::string_view pubkey);
+bool validate_peer_message(const std::string_view message, const std::string_view signature, const std::string_view pubkey, time_t timestamp, uint16_t version);
 
 //void consensus();
 

@@ -81,38 +81,40 @@ void peer_connection_watchdog()
     peer_connection_watchdog();
 }
 
-/*
-
-*/
 /**
  * Validate the incoming p2p message. Check for message version, timestamp and signature.
  * 
- * @param msg pointer to a string message buffer.
- * @param msg size of the message buffer.
- * @param timestamp of the message.
+ * @param message message content.
+ * @param signature message signature.
+ * @param pubkey public key of message originating node.
+ * @param timestamp message timestamp.
+ * @param version message timestamp.
  * @return whether message is validated or not.
  */
-bool validate_peer_message(const std::string_view message, const std::string_view signature, time_t timestamp, uint16_t version, const std::string_view pubkey)
+bool validate_peer_message(const std::string_view message, const std::string_view signature, const std::string_view pubkey, time_t timestamp, uint16_t version)
 {
+    //Validation are prioritzed base on expensiveness of validation.
+    //i.e - signature validation is doen at the end.
     std::time_t time_now = std::time(nullptr);
 
-    // Return if the message is not from a node of current node's unl
-    if (!conf::cfg.unl.count(pubkey.data()))
-    {
-        std::cout << "pubkey verification failed" << std::endl;
-        return false;
-    }
-
-    //Check protocol version of message whether it is than minimum suppoerted protocol version.
+    //check protocol version of message whether it is than minimum supported protocol version.
     if (version < util::MIN_PEERMSG_VERSION)
     {
         std::cout << "recieved message is a old unsupported version" << std::endl;
         return false;
     }
 
+    // validate if the message is not from a node of current node's unl list.
+    if (!conf::cfg.unl.count(pubkey.data()))
+    {
+        std::cout << "pubkey verification failed" << std::endl;
+        return false;
+    }
+
     //check message timestamp.  < timestamp now - 4* round time.
-    //todo:this might change to check only current stage related. (Base on how we are going to implement consensus algorithm)
-    //check consensus stage is for valid stage(node current consensus stage - 1)
+    /*todo:this might change to check only current stage related. (Base on how consensus algorithm implementation take shape)
+    check message stage is for valid stage(node's current consensus stage - 1)
+    */
     if (timestamp < (time_now - conf::cfg.roundtime * 4))
     {
         std::cout << "recieved message from peer is old" << std::endl;
@@ -131,7 +133,8 @@ bool validate_peer_message(const std::string_view message, const std::string_vie
         return false;
     }
 
-    //verify message
+    //verify message signature
+    //this should be the last validation since this is bit expensive
     auto signature_verified = crypto::verify(message, signature, pubkey);
 
     if (signature_verified != 0)

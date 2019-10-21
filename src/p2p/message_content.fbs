@@ -1,22 +1,22 @@
-//IDL file for p2p message schema.
+//IDL file for p2p message content schema.
 namespace p2p;
 
-table StringKeyValuePair { 
+table StringKeyValuePair { //flatbuff equivalent for dictionary/hashmap for <byte>
     key:[ubyte]; 
     value:string; 
  }
 
- table ByteArray {
+ table ByteArray { //To represent list of byte arrays
      array:[ubyte];
  }
 
-union Message { Proposal, Npl }
+union Message { Proposal, Npl } //message content type
 
-table Content {
+table Content { 
     message:Message;
 }
 
-table Proposal {
+table Proposal { //Proposal type message schema
     pubkey:[ubyte];
     timestamp:uint64;
     stage: int8;
@@ -30,24 +30,24 @@ table Proposal {
     state: State;
 }
 
-table Npl {
+table Npl { //NPL type message schema
     pubkey:[ubyte];
     timestamp:uint64;
     data:[ubyte];
     lcl:[ubyte];
 }
 
-table StateDifference {
-    created: [StringKeyValuePair];
-    updated: [StringKeyValuePair];
-    deleted: [StringKeyValuePair];
+table StateDifference { //Represent state difference by tracking created,updated and deleted state files.
+    created: [StringKeyValuePair]; //list of { fn => hash }
+    updated: [StringKeyValuePair]; 
+    deleted: [StringKeyValuePair]; 
 }
 
 table State {
-    previous: [ubyte];
-    current: [ubyte];
-    difference: StateDifference;
-    patch: [StringKeyValuePair];
+    previous: [ubyte];  // hash of the previous state
+    current: [ubyte];  //  hash of the current state
+    difference: StateDifference; 
+    patch: [StringKeyValuePair];   // fn -> bsdiff patch going from previous state to new state
 }
 
-root_type Content;
+root_type Content; //root type for message content
