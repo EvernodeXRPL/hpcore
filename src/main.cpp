@@ -63,6 +63,22 @@ int parse_cmd(int argc, char **argv)
     return -1;
 }
 
+/**
+ * Performs any cleanup on graceful application termination.
+ */
+void deinit()
+{
+    usr::deinit();
+    hplog::deinit();
+}
+
+void signal_handler(int signum)
+{
+    LOG_WARN << "Interrupt signal (" << signum << ") received.";
+    deinit();
+    exit(signum);
+}
+
 int main(int argc, char **argv)
 {
     // Extract the CLI args
@@ -102,7 +118,7 @@ int main(int argc, char **argv)
             else if (conf::ctx.command == "run")
             {
                 // In order to host the contract we should init some required sub systems.
-                
+
                 if (conf::init() != 0)
                     return -1;
 
@@ -113,6 +129,9 @@ int main(int argc, char **argv)
 
                  if (p2p::init() != 0)
                     return -1;
+                    
+                // After initializing primary subsystems, register the SIGINT handler.
+                signal(SIGINT, signal_handler);
 
                 // This will start hosting the contract and start consensus rounds.
                 // TODO
@@ -160,7 +179,7 @@ int main(int argc, char **argv)
                 }
 
                 // Free resources.
-                usr::deinit();
+                deinit();
             }
         }
     }

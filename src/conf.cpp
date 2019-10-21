@@ -125,6 +125,7 @@ void set_contract_dir_paths(std::string basedir)
     ctx.configFile = ctx.configDir + "/hp.cfg";
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
+    ctx.logDir = basedir + "/log";
 }
 
 /**

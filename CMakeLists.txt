@@ -34,6 +34,7 @@ target_link_libraries(hpcore
     libsodium.a
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_LOG_LIBRARY}
+    ${Boost_LOG_SETUP_LIBRARY}
     stdc++fs
     pthread
     protobuf.a
