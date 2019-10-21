@@ -13,6 +13,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "usr/usr.hpp"
+#include "p2p/p2p.hpp"
 #include "proc.hpp"
 #include "hplog.hpp"
 
@@ -126,6 +127,9 @@ int main(int argc, char **argv)
                 if (usr::init() != 0)
                     return -1;
 
+                 if (p2p::init() != 0)
+                    return -1;
+                    
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
 

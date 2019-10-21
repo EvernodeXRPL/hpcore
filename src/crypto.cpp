@@ -132,4 +132,42 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
         decoded_pubkey + 1); // +1 to skip prefix byte.
 }
 
+/**
+ * Generate SHA 512 hash for message prepend with prefix before hashing.
+ * 
+ * @param msg message string.
+ * @param prefix prefix char array.
+ * @param char_length length of prefix char array.
+ * @return SHA 512 hash.
+ */
+std::string sha_512_hash(const std::string &msg, const char *prefix, size_t char_length)
+{
+    std::string payload;
+    payload.reserve(char_length + msg.size());
+    payload.append(prefix);
+    payload.append(msg);
+    unsigned char hashchars[crypto_hash_sha512_BYTES];
+    crypto_hash_sha512(hashchars, (unsigned char *)payload.data(), payload.length());
+    return std::string((char *)hashchars, crypto_hash_sha512_BYTES);
+}
+
+/**
+ * Generate SHA 512 hash for message prepend with prefix before hashing.
+ * 
+ * @param msg message string.
+ * @param prefix prefix char array.
+ * @param char_length length of prefix char array.
+ * @return SHA 512 hash.
+ */
+std::string sha_512_hash(std::string_view msg, const char *prefix, size_t char_length)
+{
+    std::string payload;
+    payload.reserve(char_length + msg.size());
+    payload.append(prefix);
+    payload.append(msg.data());
+    unsigned char hashchars[crypto_hash_sha512_BYTES];
+    crypto_hash_sha512(hashchars, (unsigned char *)payload.data(), payload.length());
+    return std::string((char *)hashchars, crypto_hash_sha512_BYTES);
+}
+
 } // namespace crypto

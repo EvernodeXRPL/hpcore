@@ -28,8 +28,9 @@ static const int MIN_PEERMSG_VERSION = 1;
  */
 enum SESSION_FLAG
 {
-    USER_CHALLENGE_ISSUED = 0,
-    USER_AUTHED = 1
+    INBOUND = 0,
+    USER_CHALLENGE_ISSUED = 1,
+    USER_AUTHED = 2
 };
 
 int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_len);

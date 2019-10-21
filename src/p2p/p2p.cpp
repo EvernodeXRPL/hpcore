@@ -1,95 +1,155 @@
-#include <string>
-#include "message.pb.h"
+#include <iostream>
+#include "../sock/socket_server.hpp"
+#include "../sock/socket_client.hpp"
+#include "../conf.hpp"
+#include "../crypto.hpp"
+#include "../util.hpp"
+#include "../hplog.hpp"
+#include "peer_session_handler.hpp"
 #include "p2p.hpp"
-
-using namespace std;
 
 namespace p2p
 {
+/**
+ * Peer connections exposing to the application
+ */
+std::unordered_map<std::string, sock::socket_session *> peer_connections;
 
-void set_message(Message &message, int timestamp, const string &version, const string &publicKey, const string &signature, p2p::Message::Messagetype type, const string &content)
+/**
+ * Peer session handler instance. This instance's methods will be fired for any peer socket activity.
+ */
+p2p::peer_session_handler global_peer_session_handler;
+
+/**
+ * IO context used by the  boost library in creating sockets
+ */
+net::io_context ioc;
+
+/**
+ * The thread the peer server and client is running on. (not exposed out of this namespace)
+ * Peer connection watchdog runs on this thread.
+ */
+std::thread peer_watchdog_thread;
+
+/**
+ * The thread the peer listener is running on. (not exposed out of this namespace)
+ */
+std::thread peer_thread;
+
+std::map<std::string, time_t> recent_peer_msghash;
+
+int init()
 {
-    message.set_version(version);
-    message.set_timestamp(timestamp);
-    message.set_publickey(publicKey);
-    message.set_signature(signature);
-    message.set_type(type);
-    message.set_content(content);
+    //Entry point for p2p which will start peer connections to other nodes
+    start_peer_connections();
+
+    return 0;
 }
 
-bool message_serialize_to_string(Message &message, string *output)
+void start_peer_connections()
 {
-    //check all fields are set in message
-    if (message.has_publickey() && message.has_signature() && message.has_timestamp() && message.has_type() && message.has_version() && message.has_content())
+    auto address = net::ip::make_address(conf::cfg.listenip);
 
-        return message.SerializeToString(output);
+    // Start listening to peers
+    std::make_shared<sock::socket_server>(
+        ioc,
+        tcp::endpoint{address, conf::cfg.peerport},
+        global_peer_session_handler)
+        ->run();
 
-    else
+    LOG_INFO << "Started listening for incoming peer connections on " << conf::cfg.listenip << ":" << conf::cfg.peerport;
+
+    // Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
+    peer_watchdog_thread = std::thread([&] { peer_connection_watchdog(); });
+
+    // Peer listener thread.
+    peer_thread = std::thread([&] { ioc.run(); });
+}
+
+// Scan peer connections continually and attempt to maintain the connection if they drop
+void peer_connection_watchdog()
+{
+    //todo: implement exit gracefully.
+    while (true)
+    {
+        for (auto &v : conf::cfg.peers)
+        {
+            if (peer_connections.find(v.first) == peer_connections.end())
+            {
+                LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
+                std::make_shared<sock::socket_client>(ioc, global_peer_session_handler)->run(v.second.first, v.second.second);
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(conf::cfg.roundtime * 4));
+    }
+}
+
+/**
+ * Validate the incoming p2p message. Check for message version, timestamp and signature.
+ * 
+ * @param message binary message content.
+ * @param signature binary message signature.
+ * @param pubkey binary public key of message originating node.
+ * @param timestamp message timestamp.
+ * @param version message timestamp.
+ * @return whether message is validated or not.
+ */
+bool validate_peer_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp, uint16_t version)
+{
+    //Validation are prioritzed base on expensiveness of validation.
+    //i.e - signature validation is done at the end.
+
+    std::time_t time_now = std::time(nullptr);
+
+    //check protocol version of message whether it is greater than minimum supported protocol version.
+    if (version < util::MIN_PEERMSG_VERSION)
+    {
+        LOG_DBG << "Recieved message is from unsupported version";
         return false;
-}
+    }
 
-bool message_parse_from_string(Message &message, const string &dataString)
-{
-    return message.ParseFromString(dataString);
-}
-
-void set_proposal_inputs(Proposal &proposal, vector<string> inputs)
-{
-    google::protobuf::RepeatedPtrField<std::string>* proposal_inputs = proposal.mutable_outputs();
-    proposal_inputs-> Reserve(inputs.size());
-    *proposal_inputs = {inputs.begin(), inputs.end()};
-}
-
-void set_proposal_outputs(Proposal &proposal, vector<string> outputs)
-{
-    google::protobuf::RepeatedPtrField<std::string>* proposal_outputs = proposal.mutable_outputs();
-    proposal_outputs-> Reserve(outputs.size());
-    *proposal_outputs = {outputs.begin(), outputs.end()};
-}
-
-void set_proposal_connections(Proposal &proposal, vector<string> connections)
-{
-    google::protobuf::RepeatedPtrField<std::string>* proposal_connections = proposal.mutable_inputs();
-    proposal_connections ->  Reserve(connections.size());
-    (*proposal_connections) = {connections.begin(), connections.end()};
-}
-
-void set_state_patch(State &state, map<string, string> patches)
-{
-    *state.mutable_patch() = {patches.begin(), patches.end()};
-}
-
-bool proposal_serialize_to_string(Proposal &proposal, string *output)
-{
-    //check all fields are set in the proposal
-    if (proposal.has_stage() && proposal.has_lcl() && proposal.has_state() && proposal.has_time() && (proposal.inputs_size() == 0) && (proposal.outputs_size() == 0))
-        return proposal.SerializeToString(output);
-
-    else
+    // validate if the message is not from a node of current node's unl list.
+    if (!conf::cfg.unl.count(pubkey.data()))
+    {
+        LOG_DBG << "pubkey verification failed";
         return false;
-}
+    }
 
-bool proposal_parse_from_string(Proposal &proposal, const string &dataString)
-{
-    return proposal.ParseFromString(dataString);
-}
-
-bool npl_serialize_to_string(NPL &npl, string *output)
-{
-    //check all fields are set in the proposal
-    //not sure npl messages need both data or lcl have to be set.
-    //may be only one needed. need to deal with this when processing npl messages
-    if (npl.has_data() && npl.has_lcl())
-
-        return npl.SerializeToString(output);
-
-    else
+    //check message timestamp.  < timestamp now - 4* round time.
+    /*todo:this might change to check only current stage related. (Base on how consensus algorithm implementation take shape)
+    check message stage is for valid stage(node's current consensus stage - 1)
+    */
+    if (timestamp < (time_now - conf::cfg.roundtime * 4))
+    {
+        LOG_DBG << "Recieved message from peer is old";
         return false;
-}
+    }
 
-bool npl_parse_from_string(NPL &npl, const string &dataString)
-{
-    return npl.ParseFromString(dataString);
+    //get message hash and see wheteher message is already recieved -> abandon
+    auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
+
+    if (recent_peer_msghash.count(messageHash) == 0)
+    {
+        recent_peer_msghash.try_emplace(std::move(messageHash), timestamp);
+    }
+    else
+    {
+        LOG_DBG << "Duplicate message";
+        return false;
+    }
+
+    //verify message signature.
+    //this should be the last validation since this is bit expensive
+    auto signature_verified = crypto::verify(message, signature, pubkey);
+
+    if (signature_verified != 0)
+    {
+        LOG_DBG << "Signature verification failed";
+        return false;
+    }
+
+    return true;
 }
 
 } // namespace p2p
