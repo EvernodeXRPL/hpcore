@@ -5,7 +5,6 @@
 #include "../crypto.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
-#include "peer_session_handler.hpp"
 #include "p2p.hpp"
 
 namespace p2p
@@ -13,7 +12,7 @@ namespace p2p
 /**
  * Peer connections exposing to the application
  */
-std::unordered_map<std::string, sock::socket_session *> peer_connections;
+std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
 
 /**
  * Peer session handler instance. This instance's methods will be fired for any peer socket activity.

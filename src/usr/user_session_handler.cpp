@@ -32,17 +32,16 @@ std::string_view user_outbound_message::buffer()
 /**
  * This gets hit every time a client connects to HP via the public port (configured in contract config).
  */
-void
-user_session_handler::on_connect(sock::socket_session *session)
+void user_session_handler::on_connect(sock::socket_session<user_outbound_message> *session)
 {
     LOG_INFO << "User client connected " << session->address_ << ":" << session->port_;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
 
-    std::string msg;
+    std::string msgstr;
     std::string challengehex;
-    usr::create_user_challenge(msg, challengehex);
+    usr::create_user_challenge(msgstr, challengehex);
 
     // We init the session unique id to associate with the challenge.
     session->init_uniqueid();
@@ -50,7 +49,8 @@ user_session_handler::on_connect(sock::socket_session *session)
     // Create an entry in pending_challenges for later tracking upon challenge response.
     usr::pending_challenges[session->uniqueid_] = challengehex;
 
-    session->send(std::move(msg));
+    user_outbound_message outmsg(std::move(msgstr));
+    session->send(outmsg);
 
     // Set the challenge-issued flag to help later checks in on_message.
     session->flags_.set(util::SESSION_FLAG::USER_CHALLENGE_ISSUED);
@@ -59,7 +59,9 @@ user_session_handler::on_connect(sock::socket_session *session)
 /**
  * This gets hit every time we receive some data from a client connected to the HP public port.
  */
-void user_session_handler::on_message(sock::socket_session *session, std::string_view message)
+void user_session_handler::on_message(
+    sock::socket_session<user_outbound_message> *session,
+    std::string_view message)
 {
     // First check whether this session is pending challenge.
     // Meaning we have previously issued a challenge to the client,
@@ -138,7 +140,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
 /**
  * This gets hit every time a client disconnects from the HP public port.
  */
-void user_session_handler::on_close(sock::socket_session *session)
+void user_session_handler::on_close(sock::socket_session<user_outbound_message> *session)
 {
     // Cleanup any resources related to this session.
 

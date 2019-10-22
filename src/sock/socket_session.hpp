@@ -27,14 +27,6 @@ namespace sock
  */
 class outbound_message
 {
-    // // Unique pointer to the object that is holding the buffer (Only set in single-destination messages).
-    // // This object will get destroyed as soon as this socket_message is destroyed.
-    // std::unique_ptr<void> uq_ptr;
-
-    // // Sahred pointer to the object that is holding the buffer (Only set in multicast messages).
-    // // This object will get destroyed as soon all the copies of socket_message gets destroyed.
-    // std::shared_ptr<void> sh_ptr;
-
 public:
     // Returns a pointer to the internal buffer owned by the message object.
     // Contents of this buffer is the message that is sent/received with the socket.
@@ -42,17 +34,19 @@ public:
 };
 
 //Forward Declaration
+template <class T>
 class socket_session_handler;
 
 /** 
  * Represents an active WebSocket connection
 */
-class socket_session : public std::enable_shared_from_this<socket_session>
+template <class T>
+class socket_session : public std::enable_shared_from_this<socket_session<T>>
 {
     beast::flat_buffer buffer_;               // used to store incoming messages
     websocket::stream<beast::tcp_stream> ws_; // websocket stream used send an recieve messages
-    std::vector<std::string> queue_;          // uses to store messages temporarily until it is sent to the relevant party
-    socket_session_handler &sess_handler_;    // handler passed to gain access to websocket events
+    std::vector<T> queue_;                    // used to store messages temporarily until it is sent to the relevant party
+    socket_session_handler<T> &sess_handler_;    // handler passed to gain access to websocket events
 
     void fail(error ec, char const *what);
 
@@ -65,12 +59,12 @@ class socket_session : public std::enable_shared_from_this<socket_session>
     void on_close(error ec, std::int8_t type);
 
 public:
-    socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler &sess_handler);
-    
+    socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler<T> &sess_handler);
+
     ~socket_session();
 
     // Port and the address of the remote party is being saved to used in the session handler
-    // to identify from which remote party the message recieved. Since the port is passed as a string 
+    // to identify from which remote party the message recieved. Since the port is passed as a string
     // from the parent we store as it is, since we are not going to pass it anywhere or used in a method
 
     // The port of the remote party.
@@ -90,7 +84,7 @@ public:
     void server_run(const std::string &&address, const std::string &&port);
     void client_run(const std::string &&address, const std::string &&port, error ec);
 
-    void send(std::string &&ss);
+    void send(T msg);
 
     // When called, initializes the unique id string for this session.
     void init_uniqueid();

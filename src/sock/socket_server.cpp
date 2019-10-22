@@ -15,7 +15,8 @@ using error_code = boost::system::error_code;
 namespace sock
 {
 
-socket_server::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler &session_handler)
+template <class T>
+socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler)
     : acceptor_(ioc), socket_(ioc),sess_handler_(session_handler)
 {
     error_code ec;
@@ -57,13 +58,14 @@ socket_server::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socke
 /**
  * Entry point to socket server which accepts new connections
 */
-void socket_server::run()
+template <class T>
+void socket_server<T>::run()
 {
 
     // Start accepting a connection
     acceptor_.async_accept(
         socket_,
-        [self = shared_from_this()](error_code ec) {
+        [self = this->shared_from_this()](error_code ec) {
             self->on_accept(ec);
         });
 }
@@ -71,7 +73,8 @@ void socket_server::run()
 /**
  * Executes on error
 */
-void socket_server::fail(error_code ec, char const *what)
+template <class T>
+void socket_server<T>::fail(error_code ec, char const *what)
 {
     // Don't report on canceled operations
     if (ec == net::error::operation_aborted)
@@ -82,7 +85,8 @@ void socket_server::fail(error_code ec, char const *what)
 /**
  * Executes on acceptance of new connection
 */
-void socket_server::on_accept(error_code ec)
+template <class T>
+void socket_server<T>::on_accept(error_code ec)
 {
     if (ec)
     {
@@ -105,7 +109,7 @@ void socket_server::on_accept(error_code ec)
     // Accept another connection
     acceptor_.async_accept(
         socket_,
-        [self = shared_from_this()](error_code ec) {
+        [self = this->shared_from_this()](error_code ec) {
             self->on_accept(ec);
         });
 }

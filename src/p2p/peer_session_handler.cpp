@@ -12,13 +12,13 @@
 namespace p2p
 {
 
-peer_broadcast_message::peer_broadcast_message(
+peer_outbound_message::peer_outbound_message(
     std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr)
 {
     fbbuilder_ptr = _fbbuilder_ptr;
 }
 
-std::string_view peer_broadcast_message::buffer()
+std::string_view peer_outbound_message::buffer()
 {
     return std::string_view(
         reinterpret_cast<const char *>((*fbbuilder_ptr).GetBufferPointer()),
@@ -96,7 +96,7 @@ std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
-void peer_session_handler::on_connect(sock::socket_session *session)
+void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
     if (!session->flags_[util::SESSION_FLAG::INBOUND])
     {
@@ -114,7 +114,7 @@ void peer_session_handler::on_connect(sock::socket_session *session)
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
-void peer_session_handler::on_message(sock::socket_session *session, std::string_view message)
+void peer_session_handler::on_message(sock::socket_session<peer_outbound_message> *session, std::string_view message)
 {
     peer_connections.insert(std::make_pair(session->uniqueid_, session));
 
@@ -202,7 +202,7 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
 }
 
 //peer session on message callback method
-void peer_session_handler::on_close(sock::socket_session *session)
+void peer_session_handler::on_close(sock::socket_session<peer_outbound_message> *session)
 {
     LOG_DBG << "on_closing peer :" << session->uniqueid_;
 }

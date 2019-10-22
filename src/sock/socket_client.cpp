@@ -8,7 +8,8 @@ using error = boost::system::error_code;
 namespace sock
 {
 
-socket_client::socket_client(net::io_context &ioc, socket_session_handler &session_handler)
+template <class T>
+socket_client<T>::socket_client(net::io_context &ioc, socket_session_handler<T> &session_handler)
     : resolver_(net::make_strand(ioc)), ws_(net::make_strand(ioc)), sess_handler_(session_handler)
 {
 }
@@ -17,7 +18,8 @@ socket_client::socket_client(net::io_context &ioc, socket_session_handler &sessi
  * Entry point to socket client which will intiate a connection to server
 */
 // boost async_resolve function requires a port as a string because of that port is passed as a string
-void socket_client::run(std::string_view host, std::string_view port)
+template <class T>
+void socket_client<T>::run(std::string_view host, std::string_view port)
 {
     host_ = host;
     port_ = port;
@@ -26,7 +28,7 @@ void socket_client::run(std::string_view host, std::string_view port)
     resolver_.async_resolve(
         host,
         port,
-        [self = shared_from_this()](error ec, tcp::resolver::results_type results) {
+        [self = this->shared_from_this()](error ec, tcp::resolver::results_type results) {
             self->on_resolve(ec, results);
         });
 }
@@ -34,7 +36,8 @@ void socket_client::run(std::string_view host, std::string_view port)
 /**
  * Executes on completion of resolving the server
 */
-void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
+template <class T>
+void socket_client<T>::on_resolve(error ec, tcp::resolver::results_type results)
 {
     if (ec)
         socket_client_fail(ec, "socket_client_resolve");
@@ -42,7 +45,7 @@ void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
     // Make the connection on the IP address we get from a lookup
     beast::get_lowest_layer(ws_).async_connect(
         results,
-        [self = shared_from_this()](error ec, tcp::resolver::results_type::endpoint_type type) {
+        [self = this->shared_from_this()](error ec, tcp::resolver::results_type::endpoint_type type) {
             self->on_connect(ec, type);
         });
 }
@@ -50,7 +53,8 @@ void socket_client::on_resolve(error ec, tcp::resolver::results_type results)
 /**
  * Executes on completion of connecting to the server
 */
-void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_type)
+template <class T>
+void socket_client<T>::on_connect(error ec, tcp::resolver::results_type::endpoint_type)
 {
     if (ec)
         socket_client_fail(ec, "socket_client_connect");
@@ -66,7 +70,7 @@ void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_t
 
     // Perform the websocket handshake
     ws_.async_handshake(host_, "/",
-                        [self = shared_from_this()](error ec) {
+                        [self = this->shared_from_this()](error ec) {
                             self->on_handshake(ec);
                         });
 }
@@ -74,7 +78,8 @@ void socket_client::on_connect(error ec, tcp::resolver::results_type::endpoint_t
 /**
  * Executes on completion of handshake
 */
-void socket_client::on_handshake(error ec)
+template <class T>
+void socket_client<T>::on_handshake(error ec)
 {
     //Creates a new socket session object
     std::make_shared<socket_session>(
@@ -85,7 +90,8 @@ void socket_client::on_handshake(error ec)
 /**
  * Executes on error
 */
-void socket_client::socket_client_fail(beast::error_code ec, char const *what)
+template <class T>
+void socket_client<T>::socket_client_fail(beast::error_code ec, char const *what)
 {
     LOG_ERR << what << ": " << ec.message();
 }
