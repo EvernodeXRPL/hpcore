@@ -5,6 +5,15 @@
 namespace usr
 {
 
+class user_outbound_message : public sock::outbound_message
+{
+    std::string msg;
+
+    user_outbound_message(std::string &&_msg);
+    
+    virtual std::string_view buffer();
+};
+
 class user_session_handler : public sock::socket_session_handler
 {
 public:

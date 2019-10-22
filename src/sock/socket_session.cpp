@@ -136,7 +136,7 @@ void socket_session::on_read(error_code ec, std::size_t)
 void socket_session::send(std::string &&ss)
 {
     // Always add to queue
-    queue_.push_back(ss);
+    queue_.push_back(std::move(ss));
 
     // Are we already writing?
     if (queue_.size() > 1)

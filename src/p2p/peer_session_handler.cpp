@@ -12,6 +12,19 @@
 namespace p2p
 {
 
+peer_broadcast_message::peer_broadcast_message(
+    std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr)
+{
+    fbbuilder_ptr = _fbbuilder_ptr;
+}
+
+std::string_view peer_broadcast_message::buffer()
+{
+    return std::string_view(
+        reinterpret_cast<const char *>((*fbbuilder_ptr).GetBufferPointer()),
+        (*fbbuilder_ptr).GetSize());
+}
+
 //private method used to create a proposal message with dummy data.
 //Will be similiar to consensus proposal creation in each stage.
 const std::string create_message()

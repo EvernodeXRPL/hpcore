@@ -1,7 +1,7 @@
 #ifndef _SOCK_SERVER_SESSION_H_
 #define _SOCK_SERVER_SESSION_H_
 
-#include <string>
+#include <memory>
 #include <vector>
 #include <bitset>
 #include <boost/asio.hpp>
@@ -18,6 +18,28 @@ using error = boost::system::error_code;
 
 namespace sock
 {
+
+/**
+ * Represents an outbound message that is sent with a websocket.
+ * We use this class to wrap different object types holding actual message contents.
+ * We use this mechanism to achieve end-to-end zero-copy between original message
+ * content generator and websocket flush.
+ */
+class outbound_message
+{
+    // // Unique pointer to the object that is holding the buffer (Only set in single-destination messages).
+    // // This object will get destroyed as soon as this socket_message is destroyed.
+    // std::unique_ptr<void> uq_ptr;
+
+    // // Sahred pointer to the object that is holding the buffer (Only set in multicast messages).
+    // // This object will get destroyed as soon all the copies of socket_message gets destroyed.
+    // std::shared_ptr<void> sh_ptr;
+
+public:
+    // Returns a pointer to the internal buffer owned by the message object.
+    // Contents of this buffer is the message that is sent/received with the socket.
+    virtual std::string_view buffer() = 0;
+};
 
 //Forward Declaration
 class socket_session_handler;

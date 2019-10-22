@@ -19,10 +19,21 @@ using error = boost::system::error_code;
 namespace usr
 {
 
+user_outbound_message::user_outbound_message(std::string &&_msg)
+{
+    msg = std::move(_msg);
+}
+
+std::string_view user_outbound_message::buffer()
+{
+    return std::string_view(msg.data(), msg.size());
+}
+
 /**
  * This gets hit every time a client connects to HP via the public port (configured in contract config).
  */
-void user_session_handler::on_connect(sock::socket_session *session)
+void
+user_session_handler::on_connect(sock::socket_session *session)
 {
     LOG_INFO << "User client connected " << session->address_ << ":" << session->port_;
 
@@ -85,7 +96,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
                     usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
 
                     LOG_INFO << "User connection " << session->uniqueid_ << " authenticated. Public key "
-                              << userpubkeyhex;
+                             << userpubkeyhex;
                     return;
                 }
                 else
