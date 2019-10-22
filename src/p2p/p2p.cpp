@@ -126,7 +126,18 @@ bool validate_peer_message(std::string_view message, std::string_view signature,
         return false;
     }
 
-    //get message hash and see wheteher message is already recieved -> abandon
+    //verify message signature.
+    //this should be the last validation since this is bit expensive
+    auto signature_verified = crypto::verify(message, signature, pubkey);
+
+    if (signature_verified != 0)
+    {
+        LOG_DBG << "Signature verification failed";
+        return false;
+    }
+
+    // After signature is verified, get message hash and see wheteher
+    // message is already recieved -> abandon if duplicate.
     auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
 
     if (recent_peer_msghash.count(messageHash) == 0)
@@ -136,16 +147,6 @@ bool validate_peer_message(std::string_view message, std::string_view signature,
     else
     {
         LOG_DBG << "Duplicate message";
-        return false;
-    }
-
-    //verify message signature.
-    //this should be the last validation since this is bit expensive
-    auto signature_verified = crypto::verify(message, signature, pubkey);
-
-    if (signature_verified != 0)
-    {
-        LOG_DBG << "Signature verification failed";
         return false;
     }
 

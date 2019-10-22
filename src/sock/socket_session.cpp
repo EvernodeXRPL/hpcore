@@ -111,8 +111,12 @@ void socket_session::on_read(error_code ec, std::size_t)
         return fail(ec, "read");
     }
 
-    std::string message = beast::buffers_to_string(buffer_.data());
-    sess_handler_.on_message(this, std::move(message));
+    // Wrap the buffer data in a string_view and call session handler.
+    // We DO NOT transfer ownership of buffer data to the session handler. It should
+    // read and process the message and we will clear the buffer after its done with it.
+    const char *buffer_data = net::buffer_cast<const char *>(buffer_.data());
+    std::string_view message(buffer_data, buffer_.size());
+    sess_handler_.on_message(this, message);
 
     // Clear the buffer
     buffer_.consume(buffer_.size());

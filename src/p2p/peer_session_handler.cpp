@@ -1,11 +1,11 @@
 #include <iostream>
+#include <flatbuffers/flatbuffers.h>
 #include "../conf.hpp"
 #include "../crypto.hpp"
-#include "p2p.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
+#include "p2p.hpp"
 #include "peer_session_handler.hpp"
-#include "flatbuffers/flatbuffers.h"
 #include "message_content_generated.h"
 #include "message_container_generated.h"
 
@@ -63,14 +63,21 @@ const std::string create_message()
     return std::string((char *)message_buf, buf_size);
 }
 
-//private method returns string_view from Flat Buffer vector of bytes.
-std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *pointer)
+/**
+ * Private method to return string_view from flat buffer data pointer and length.
+ */
+std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_t length)
 {
-    flatbuffers::uoffset_t pointer_length = pointer->size();
-    const uint8_t *pointer_buf = pointer->Data();
+    const char *signature_content_str = reinterpret_cast<const char *>(data);
+    return std::string_view(signature_content_str, length);
+}
 
-    const char *signature_content_str = reinterpret_cast<const char *>(pointer_buf);
-    return std::string_view(signature_content_str, pointer_length);
+/**
+ * Private method to return string_view from Flat Buffer vector of bytes.
+ */
+std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer)
+{
+    return flatbuff_bytes_to_sv(buffer->Data(), buffer->size());
 }
 
 /**
@@ -94,14 +101,12 @@ void peer_session_handler::on_connect(sock::socket_session *session)
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
-void peer_session_handler::on_message(sock::socket_session *session, std::string &&message)
+void peer_session_handler::on_message(sock::socket_session *session, std::string_view message)
 {
-    // LOG_DBG << "on-message : " << message;
     peer_connections.insert(std::make_pair(session->uniqueid_, session));
-    //session->send(std::make_shared<std::string>(message));
 
     //Accessing message buffer
-    uint8_t *container_pointer = (uint8_t *)message.data();
+    const uint8_t *container_pointer = reinterpret_cast<const uint8_t *>(message.data());
     size_t container_length = message.length();
 
     //Defining Flatbuffer verifier (default max depth = 64, max_tables = 1000000,)
@@ -116,16 +121,14 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
 
         //Get serialised message content.
         const flatbuffers::Vector<uint8_t> *container_content = container->content();
-        const uint8_t *container_content_buf = container_content->Data();
 
-        std::string_view message_content = flatbuff_bytes_to_sv(container_content);
-
-        //Accessing message content.
+        //Accessing message content and size.
         const uint8_t *content_pointer = container_content->Data();
+        flatbuffers::uoffset_t content_size = container_content->size();
 
         //Defining Flatbuffer verifier for content message verification.
         //Since content is also serialised by using Filterbuf we can verify it using Filterbuffer.
-        flatbuffers::Verifier content_verifier(content_pointer, message_content.size());
+        flatbuffers::Verifier content_verifier(content_pointer, content_size);
 
         //verify content message conent using flatbuffer verifier.
         if (VerifyContainerBuffer(content_verifier))
@@ -140,12 +143,12 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
                 uint64_t timestamp = proposal->timestamp();
 
                 //Get public key of message originating node.
-                const flatbuffers::Vector<uint8_t> *pubkey = proposal->pubkey();
-                std::string_view message_pubkey = flatbuff_bytes_to_sv(pubkey);
+                std::string_view message_pubkey = flatbuff_bytes_to_sv(proposal->pubkey());
 
                 //Get signature from container message.
-                const flatbuffers::Vector<uint8_t> *signature = container->signature();
-                std::string_view message_signature = flatbuff_bytes_to_sv(signature);
+                std::string_view message_signature = flatbuff_bytes_to_sv(container->signature());
+
+                std::string_view message_content = flatbuff_bytes_to_sv(content_pointer, content_size);
 
                 //validate message for malleability, timeliness, signature and prune recieving messages.
                 bool validated = p2p::validate_peer_message(message_content, message_signature, message_pubkey, timestamp, version);

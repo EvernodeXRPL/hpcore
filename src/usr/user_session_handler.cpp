@@ -48,7 +48,7 @@ void user_session_handler::on_connect(sock::socket_session *session)
 /**
  * This gets hit every time we receive some data from a client connected to the HP public port.
  */
-void user_session_handler::on_message(sock::socket_session *session, std::string &&message)
+void user_session_handler::on_message(sock::socket_session *session, std::string_view message)
 {
     // First check whether this session is pending challenge.
     // Meaning we have previously issued a challenge to the client,

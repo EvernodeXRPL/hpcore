@@ -23,7 +23,7 @@ public:
     /**
      * Executes on recieval of new message
     */
-    virtual void on_message(socket_session *session, std::string &&message) = 0;
+    virtual void on_message(socket_session *session, std::string_view message) = 0;
 
     /**
      * Executes on websocket connection close
