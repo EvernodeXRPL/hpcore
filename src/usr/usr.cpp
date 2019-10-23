@@ -16,6 +16,9 @@
 namespace usr
 {
 
+// The SSL context is required, and holds certificates
+ssl::context ctx{ssl::context::tlsv13};
+
 /**
  * Connected (authenticated) user list. (Exposed to other sub systems)
  * Map key: User socket session id (<ip:port>)
@@ -249,8 +252,10 @@ int remove_user(const std::string &sessionid)
 void start_listening()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
+    load_server_certificate(ctx);
     std::make_shared<sock::socket_server>(
         ioc,
+        ctx,
         tcp::endpoint{address, conf::cfg.pubport},
         global_usr_session_handler)
         ->run();

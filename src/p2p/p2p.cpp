@@ -8,6 +8,24 @@
 #include "peer_session_handler.hpp"
 #include "p2p.hpp"
 
+#include "../sock/server_certificate.hpp"
+#include "../sock/root_certificate.hpp"
+#include <boost/beast/core.hpp>
+#include <boost/beast/ssl.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/beast/websocket/ssl.hpp>
+#include <boost/asio/strand.hpp>
+#include <algorithm>
+#include <cstdlib>
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <thread>
+#include <vector>
+
+namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
+
 namespace p2p
 {
 /**
@@ -24,6 +42,9 @@ p2p::peer_session_handler global_peer_session_handler;
  * IO context used by the  boost library in creating sockets
  */
 net::io_context ioc;
+
+// The SSL context is required, and holds certificates
+ssl::context ctx{ssl::context::tlsv13};
 
 /**
  * The thread the peer server and client is running on. (not exposed out of this namespace)
@@ -49,18 +70,20 @@ int init()
 void start_peer_connections()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
+    load_server_certificate(ctx);
 
     // Start listening to peers
-    std::make_shared<sock::socket_server>(
-        ioc,
-        tcp::endpoint{address, conf::cfg.peerport},
-        global_peer_session_handler)
-        ->run();
+    // std::make_shared<sock::socket_server>(
+    //     ioc,
+    //     ctx,
+    //     tcp::endpoint{address, conf::cfg.peerport},
+    //     global_peer_session_handler)
+    //     ->run();
 
     LOG_INFO << "Started listening for incoming peer connections on " << conf::cfg.listenip << ":" << conf::cfg.peerport;
 
     // Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
-    peer_watchdog_thread = std::thread([&] { peer_connection_watchdog(); });
+    // peer_watchdog_thread = std::thread([&] { peer_connection_watchdog(); });
 
     // Peer listener thread.
     peer_thread = std::thread([&] { ioc.run(); });
@@ -77,7 +100,8 @@ void peer_connection_watchdog()
             if (peer_connections.find(v.first) == peer_connections.end())
             {
                 LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
-                std::make_shared<sock::socket_client>(ioc, global_peer_session_handler)->run(v.second.first, v.second.second);
+                load_server_certificate(ctx);
+                std::make_shared<sock::socket_client>(ioc, ctx, global_peer_session_handler)->run(v.second.first, v.second.second);
             }
         }
 

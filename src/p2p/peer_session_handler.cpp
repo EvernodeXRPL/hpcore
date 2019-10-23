@@ -96,9 +96,7 @@ void peer_session_handler::on_connect(sock::socket_session *session)
 //validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session *session, std::string &&message)
 {
-    // LOG_DBG << "on-message : " << message;
-    peer_connections.insert(std::make_pair(session->uniqueid_, session));
-    //session->send(std::make_shared<std::string>(message));
+     LOG_DBG << "on-message : " << message;
 
     //Accessing message buffer
     uint8_t *container_pointer = (uint8_t *)message.data();
