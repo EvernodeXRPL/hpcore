@@ -5,6 +5,7 @@
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
 #include "../hplog.hpp"
+#include "../crypto.hpp"
 #include "cons.hpp"
 
 namespace cons
@@ -131,12 +132,128 @@ void consensus()
                 increment<std::string>(votes.users, user);
 
             //vote for inputs
+            if (!rc_proposal.raw_inputs.empty())
+            {
+                //todo:
+                for (auto input : rc_proposal.raw_inputs)
+                {
+                    std::string possible_input = input.first;
+                    possible_input.reserve(input.second.size());
+                    possible_input.append(input.second);
 
+                    auto hash = crypto::sha_512_hash(possible_input, "INP", 3);
+                    consensus_ctx.possible_inputs.try_emplace(hash, input.first);
+                    increment<std::string>(votes.inputs, hash);
+                }
+            }
+            else if (!rc_proposal.hash_inputs.empty())
+            {
+                for (auto input : rc_proposal.raw_inputs)
+                {
+                    increment<std::string>(votes.inputs, input.second);
+                }
+            }
 
             //vote for outputs
+            if (!rc_proposal.raw_outputs.empty())
+            {
+                //todo:
+                for (auto output : rc_proposal.raw_outputs)
+                {
+                    std::string possible_output = output.first;
+                    possible_output.reserve(output.second.size());
+                    possible_output.append(output.second);
+
+                    auto hash = crypto::sha_512_hash(possible_output, "OUT", 3);
+                    consensus_ctx.possible_outputs.try_emplace(hash, output.first);
+                    increment<std::string>(votes.outputs, hash);
+                }
+            }
+            else if (!rc_proposal.hash_outputs.empty())
+            {
+                for (auto output : rc_proposal.raw_outputs)
+                {
+                    increment<std::string>(votes.outputs, output.second);
+                }
+            }
+
+            // repeat above for state
+        }
+
+        float vote_threshold = cons::STAGE1_THRESHOLD;
+        switch (consensus_ctx.stage)
+        {
+        case 1:
+            vote_threshold = cons::STAGE1_THRESHOLD * conf::cfg.unl.size();
+            break;
+        case 2:
+            vote_threshold = cons::STAGE2_THRESHOLD * conf::cfg.unl.size();
+            break;
+        case 3:
+            vote_threshold = cons::STAGE3_THRESHOLD * conf::cfg.unl.size();
+            break;
+        }
+
+        // todo: check if inputs being proposed by another node are actually spoofed inputs
+        // from a user locally connected to this node.
+
+        // if we're at proposal stage 1 we'll accept any input and connection that has 1 or more vote.
+
+        //add user connections which have votes over stage threshold to proposal.
+        for (auto usr : votes.users)
+            if (usr.second >= vote_threshold || (usr.second > 0 && consensus_ctx.stage == 1))
+                proposal.users.emplace_back(usr.first);
+
+        //add inputs which have votes over stage threshold to proposal.
+        for (auto input : votes.inputs)
+            if (input.second >= vote_threshold || (input.second > 0 && consensus_ctx.stage == 1))
+                proposal.hash_inputs.emplace_back(input.first);
+
+        //add outputs which have votes over stage threshold to proposal.
+        for (auto output : votes.outputs)
+            if (output.second >= vote_threshold)
+                proposal.hash_outputs.emplace_back(output.first);
+
+        //todo:add states which have votes over stage threshold to proposal.
+
+        // time is voted on a simple sorted and majority basis, since there will always be disagreement.
+        int32_t largest_vote = 0;
+        for (auto &time : votes.time)
+        {
+            if (time.second > largestvote)
+            {
+                largestvote = time.second;
+                proposal.time = time.first;
+            }
+        }
+
+        // we always vote for our current lcl regardless of what other peers are saying
+        // if there's a fork condition we will either request history and state from
+        // our peers or we will halt depending on level of consensus on the sides of the fork
+        proposal.lcl = consensus_ctx.lcl;
+
+        //send proposal
+        //1.create flatbuffer content.
+        //2.sign message
+        //3.create container.
+        //4. broadcast tha message.
+
+        if (consensus_ctx.stage == 3)
+        {
+            // apply_ledger(proposal)
         }
     }
     }
+
+    // auto time_to_sleep = conf::cfg.roundtime / 4;
+    // std::chrono::milliseconds timespan(time_to_sleep);
+    // // after a novel proposal we will just busy wait for proposals
+    // if (consensus_ctx.stage > 0)
+    //     std::this_thread::sleep_for(timespan);
+    // else
+    //     usleep(1);
+
+    consensus_ctx.stage = (consensus_ctx.stage + 1) % 4;
 }
 
 } // namespace cons
