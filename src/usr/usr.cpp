@@ -202,9 +202,9 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
  * @param pubkey User's binary public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(sock::socket_session *session, const std::string &pubkey)
+int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey)
 {
-    const std::string &sessionid = session->uniqueid_;
+    const std::string &sessionid = session->uniqueid;
     if (users.count(sessionid) == 1)
     {
         LOG_INFO << sessionid << " already exist. Cannot add user.";
@@ -249,7 +249,7 @@ int remove_user(const std::string &sessionid)
 void start_listening()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
-    std::make_shared<sock::socket_server>(
+    std::make_shared<sock::socket_server<user_outbound_message>>(
         ioc,
         tcp::endpoint{address, conf::cfg.pubport},
         global_usr_session_handler)

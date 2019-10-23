@@ -19,27 +19,39 @@ using error = boost::system::error_code;
 namespace usr
 {
 
+user_outbound_message::user_outbound_message(std::string &&_msg)
+{
+    msg = std::move(_msg);
+}
+
+// Returns the buffer that should be written to the socket.
+std::string_view user_outbound_message::buffer()
+{
+    return std::string_view(msg.data(), msg.size());
+}
+
 /**
  * This gets hit every time a client connects to HP via the public port (configured in contract config).
  */
-void user_session_handler::on_connect(sock::socket_session *session)
+void user_session_handler::on_connect(sock::socket_session<user_outbound_message> *session)
 {
-    LOG_INFO << "User client connected " << session->address_ << ":" << session->port_;
+    LOG_INFO << "User client connected " << session->address << ":" << session->port;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
 
-    std::string msg;
+    std::string msgstr;
     std::string challengehex;
-    usr::create_user_challenge(msg, challengehex);
+    usr::create_user_challenge(msgstr, challengehex);
 
     // We init the session unique id to associate with the challenge.
     session->init_uniqueid();
 
     // Create an entry in pending_challenges for later tracking upon challenge response.
-    usr::pending_challenges[session->uniqueid_] = challengehex;
+    usr::pending_challenges[session->uniqueid] = challengehex;
 
-    session->send(std::move(msg));
+    user_outbound_message outmsg(std::move(msgstr));
+    session->send(std::move(outmsg));
 
     // Set the challenge-issued flag to help later checks in on_message.
     session->flags_.set(util::SESSION_FLAG::USER_CHALLENGE_ISSUED);
@@ -48,14 +60,16 @@ void user_session_handler::on_connect(sock::socket_session *session)
 /**
  * This gets hit every time we receive some data from a client connected to the HP public port.
  */
-void user_session_handler::on_message(sock::socket_session *session, std::string &&message)
+void user_session_handler::on_message(
+    sock::socket_session<user_outbound_message> *session,
+    std::string_view message)
 {
     // First check whether this session is pending challenge.
     // Meaning we have previously issued a challenge to the client,
     if (session->flags_[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
         // The received message must be the challenge response. We need to verify it.
-        auto itr = usr::pending_challenges.find(session->uniqueid_);
+        auto itr = usr::pending_challenges.find(session->uniqueid);
         if (itr != usr::pending_challenges.end())
         {
             std::string userpubkeyhex;
@@ -82,20 +96,20 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
                     session->flags_.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
                     session->flags_.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
                     usr::add_user(session, userpubkey);                               // Add the user to the global authed user list
-                    usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
+                    usr::pending_challenges.erase(session->uniqueid);                // Remove the stored challenge
 
-                    LOG_INFO << "User connection " << session->uniqueid_ << " authenticated. Public key "
-                              << userpubkeyhex;
+                    LOG_INFO << "User connection " << session->uniqueid << " authenticated. Public key "
+                             << userpubkeyhex;
                     return;
                 }
                 else
                 {
-                    LOG_INFO << "Duplicate user public key " << session->uniqueid_;
+                    LOG_INFO << "Duplicate user public key " << session->uniqueid;
                 }
             }
             else
             {
-                LOG_INFO << "Challenge verification failed " << session->uniqueid_;
+                LOG_INFO << "Challenge verification failed " << session->uniqueid;
             }
         }
     }
@@ -105,7 +119,7 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
         // Check whether this user is among authenticated users
         // and perform authenticated msg processing.
 
-        auto itr = usr::users.find(session->uniqueid_);
+        auto itr = usr::users.find(session->uniqueid);
         if (itr != usr::users.end())
         {
             // This is an authed user.
@@ -121,30 +135,30 @@ void user_session_handler::on_message(sock::socket_session *session, std::string
 
     // If for any reason we reach this point, we should drop the connection.
     session->close();
-    LOG_INFO << "Dropped the user connection " << session->address_ << ":" << session->port_;
+    LOG_INFO << "Dropped the user connection " << session->address << ":" << session->port;
 }
 
 /**
  * This gets hit every time a client disconnects from the HP public port.
  */
-void user_session_handler::on_close(sock::socket_session *session)
+void user_session_handler::on_close(sock::socket_session<user_outbound_message> *session)
 {
     // Cleanup any resources related to this session.
 
     // Session is awaiting challenge response.
     if (session->flags_[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
-        usr::pending_challenges.erase(session->uniqueid_);
+        usr::pending_challenges.erase(session->uniqueid);
     }
     // Session belongs to an authed user.
     else if (session->flags_[util::SESSION_FLAG::USER_AUTHED])
     {
         // Wait for SC process completion before we remove existing user.
         proc::await_contract_execution();
-        usr::remove_user(session->uniqueid_);
+        usr::remove_user(session->uniqueid);
     }
 
-    LOG_INFO << "User disconnected " << session->uniqueid_;
+    LOG_INFO << "User disconnected " << session->uniqueid;
 }
 
 } // namespace usr
