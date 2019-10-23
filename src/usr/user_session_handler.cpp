@@ -50,7 +50,7 @@ void user_session_handler::on_connect(sock::socket_session<user_outbound_message
     usr::pending_challenges[session->uniqueid_] = challengehex;
 
     user_outbound_message outmsg(std::move(msgstr));
-    session->send(outmsg);
+    session->send(std::move(outmsg));
 
     // Set the challenge-issued flag to help later checks in on_message.
     session->flags_.set(util::SESSION_FLAG::USER_CHALLENGE_ISSUED);

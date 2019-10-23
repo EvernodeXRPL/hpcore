@@ -1,3 +1,6 @@
+#ifndef _HP_USER_SESSION_HANDLER_H_
+#define _HP_USER_SESSION_HANDLER_H_
+
 #include <boost/beast/core.hpp>
 #include "../sock/socket_session_handler.hpp"
 #include "../sock/socket_session.hpp"
@@ -23,3 +26,5 @@ public:
 };
 
 } // namespace usr
+
+#endif

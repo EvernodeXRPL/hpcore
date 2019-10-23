@@ -25,9 +25,14 @@ std::string_view peer_outbound_message::buffer()
         (*fbbuilder_ptr).GetSize());
 }
 
+flatbuffers::FlatBufferBuilder& peer_outbound_message::builder()
+{
+    return *fbbuilder_ptr;
+}
+
 //private method used to create a proposal message with dummy data.
 //Will be similiar to consensus proposal creation in each stage.
-const std::string create_message()
+const std::string create_message(flatbuffers::FlatBufferBuilder &container_builder)
 {
     //todo:get a average propsal message size and allocate builder based on that.
     /*
@@ -53,10 +58,6 @@ const std::string create_message()
     //Get a binary string_view for the serialised message content.
     const char *content_str = reinterpret_cast<const char *>(buf);
     std::string_view message_content(content_str, size);
-
-    //todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
-    // Do this when implementing consensus.
-    flatbuffers::FlatBufferBuilder container_builder(1024);
 
     //create container message content from serialised content from previous step.
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = container_builder.CreateVector(buf, size);
@@ -107,8 +108,10 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
     }
     else
     {
-        std::string message = create_message();
-        session->send(std::move(message));
+        // todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
+        peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+        std::string message = create_message(msg.builder());
+        session->send(msg);
     }
 }
 

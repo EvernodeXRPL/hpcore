@@ -13,7 +13,10 @@ class peer_outbound_message : public sock::outbound_message
 {
     std::shared_ptr<flatbuffers::FlatBufferBuilder> fbbuilder_ptr;
 
+public:
     peer_outbound_message(std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr);
+
+    flatbuffers::FlatBufferBuilder& builder();
     
     virtual std::string_view buffer();
 };

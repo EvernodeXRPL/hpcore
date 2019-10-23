@@ -50,7 +50,7 @@ void start_peer_connections()
     auto address = net::ip::make_address(conf::cfg.listenip);
 
     // Start listening to peers
-    std::make_shared<sock::socket_server>(
+    std::make_shared<sock::socket_server<peer_outbound_message>>(
         ioc,
         tcp::endpoint{address, conf::cfg.peerport},
         global_peer_session_handler)
@@ -76,7 +76,8 @@ void peer_connection_watchdog()
             if (peer_connections.find(v.first) == peer_connections.end())
             {
                 LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
-                std::make_shared<sock::socket_client>(ioc, global_peer_session_handler)->run(v.second.first, v.second.second);
+                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, global_peer_session_handler)
+                    ->run(v.second.first, v.second.second);
             }
         }
 
