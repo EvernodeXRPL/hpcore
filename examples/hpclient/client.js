@@ -54,7 +54,7 @@ function main() {
 
     ws.on('message', (m) => {
         console.log("-----Received raw message-----")
-        console.log(m)
+        console.log(m.toString())
         console.log("------------------------------")
 
         try {

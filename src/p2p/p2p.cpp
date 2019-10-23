@@ -5,7 +5,6 @@
 #include "../crypto.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
-#include "peer_session_handler.hpp"
 #include "p2p.hpp"
 
 namespace p2p
@@ -13,7 +12,7 @@ namespace p2p
 /**
  * Peer connections exposing to the application
  */
-std::unordered_map<std::string, sock::socket_session *> peer_connections;
+std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
 
 /**
  * Peer session handler instance. This instance's methods will be fired for any peer socket activity.
@@ -51,7 +50,7 @@ void start_peer_connections()
     auto address = net::ip::make_address(conf::cfg.listenip);
 
     // Start listening to peers
-    std::make_shared<sock::socket_server>(
+    std::make_shared<sock::socket_server<peer_outbound_message>>(
         ioc,
         tcp::endpoint{address, conf::cfg.peerport},
         global_peer_session_handler)
@@ -77,7 +76,8 @@ void peer_connection_watchdog()
             if (peer_connections.find(v.first) == peer_connections.end())
             {
                 LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
-                std::make_shared<sock::socket_client>(ioc, global_peer_session_handler)->run(v.second.first, v.second.second);
+                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, global_peer_session_handler)
+                    ->run(v.second.first, v.second.second);
             }
         }
 
@@ -126,7 +126,18 @@ bool validate_peer_message(std::string_view message, std::string_view signature,
         return false;
     }
 
-    //get message hash and see wheteher message is already recieved -> abandon
+    //verify message signature.
+    //this should be the last validation since this is bit expensive
+    auto signature_verified = crypto::verify(message, signature, pubkey);
+
+    if (signature_verified != 0)
+    {
+        LOG_DBG << "Signature verification failed";
+        return false;
+    }
+
+    // After signature is verified, get message hash and see wheteher
+    // message is already recieved -> abandon if duplicate.
     auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
 
     if (recent_peer_msghash.count(messageHash) == 0)
@@ -136,16 +147,6 @@ bool validate_peer_message(std::string_view message, std::string_view signature,
     else
     {
         LOG_DBG << "Duplicate message";
-        return false;
-    }
-
-    //verify message signature.
-    //this should be the last validation since this is bit expensive
-    auto signature_verified = crypto::verify(message, signature, pubkey);
-
-    if (signature_verified != 0)
-    {
-        LOG_DBG << "Signature verification failed";
         return false;
     }
 

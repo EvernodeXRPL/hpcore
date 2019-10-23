@@ -3,6 +3,7 @@
 
 #include <unordered_map>
 #include "../sock/socket_session.hpp"
+#include "peer_session_handler.hpp"
 
 namespace p2p
 {
@@ -22,7 +23,7 @@ struct Proposal
 /**
  * This is used to store active peer connections mapped by the unique key of socket session
  */
-extern std::unordered_map<std::string, sock::socket_session *> peer_connections;
+extern std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
 
 /**
  * This is used to store hash of recent peer messages: messagehash -> timestamp of message

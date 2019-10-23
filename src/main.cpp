@@ -127,9 +127,9 @@ int main(int argc, char **argv)
                 if (usr::init() != 0)
                     return -1;
 
-                 if (p2p::init() != 0)
+                if (p2p::init() != 0)
                     return -1;
-                    
+
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
 
@@ -145,17 +145,24 @@ int main(int argc, char **argv)
                     for (auto &[sid, user] : usr::users)
                     {
                         std::pair<std::string, std::string> bufpair;
-
                         std::string inputtosend;
                         inputtosend.swap(user.inbuffer);
-
                         bufpair.first = std::move(inputtosend);
-                        userbufs[user.pubkey] = bufpair;
+
+                        userbufs.emplace(user.pubkey, std::move(bufpair));
                     }
+
                     std::pair<std::string, std::string> hpscbufpair;
                     hpscbufpair.first = "{msg:'Message from HP'}";
 
-                    proc::ContractExecArgs eargs(123123345, userbufs, hpscbufpair);
+                    std::unordered_map<std::string, std::pair<std::string, std::string>> nplbufs;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        std::pair<std::string, std::string> bufpair;
+                        nplbufs.emplace("aaa", std::move(bufpair));
+                    }
+
+                    proc::ContractExecArgs eargs(123123345, userbufs, nplbufs, hpscbufpair);
                     proc::exec_contract(eargs);
 
                     for (auto &[pubkey, bufpair] : userbufs)
@@ -184,7 +191,7 @@ int main(int argc, char **argv)
         }
     }
 
-    LOG_INFO << "exited normally";
+    std::cout << "exited normally\n";
     return 0;
 }
 

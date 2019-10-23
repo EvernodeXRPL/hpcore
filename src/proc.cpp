@@ -30,7 +30,10 @@ enum FDTYPE
 };
 
 // Map of user pipe fds (map key: user public key)
-std::unordered_map<std::string, std::vector<int>> userfds;
+contract_fdmap userfds;
+
+// Map of NPL pipe fds (map key: user public key)
+contract_fdmap nplfds;
 
 // Pipe fds for HP <--> messages.
 std::vector<int> hpscfds;
@@ -52,15 +55,23 @@ int exec_contract(const ContractExecArgs &args)
         return -1;
     }
 
-    // Write any verified (consensus-reached) user inputs to user pipes.
-    if (write_contract_user_inputs(args) != 0)
+    // Write any npl inputs to npl pipes.
+    if (write_contract_fdmap_inputs(nplfds, args.nplbufs) != 0)
     {
-        cleanup_userfds();
+        cleanup_fdmap(nplfds);
+        LOG_ERR << "Failed to write NPL inputs to contract.";
+        return -1;
+    }
+
+    // Write any verified (consensus-reached) user inputs to user pipes.
+    if (write_contract_fdmap_inputs(userfds, args.userbufs) != 0)
+    {
+        cleanup_fdmap(userfds);
         LOG_ERR << "Failed to write user inputs to contract.";
         return -1;
     }
 
-    __id_t pid = fork();
+    __pid_t pid = fork();
     if (pid > 0)
     {
         // HotPocket process.
@@ -85,11 +96,24 @@ int exec_contract(const ContractExecArgs &args)
         // After contract execution, collect contract outputs.
 
         if (read_contract_hp_outputs(args) != 0)
+        {
+            LOG_ERR << "Error reading HP output from the contract.";
             return -1;
+        }
 
-        if (read_contract_user_outputs(args) != 0)
+        if (read_contract_fdmap_outputs(nplfds, args.nplbufs) != 0)
+        {
+            LOG_ERR << "Error reading NPL output from the contract.";
             return -1;
+        }
 
+        if (read_contract_fdmap_outputs(userfds, args.userbufs) != 0)
+        {
+            LOG_ERR << "Error reading User output from the contract.";
+            return -1;
+        }
+
+        nplfds.clear();
         userfds.clear();
     }
     else if (pid == 0)
@@ -151,7 +175,7 @@ int await_contract_execution()
 int write_contract_args(const ContractExecArgs &args)
 {
     // Populate the json string with contract args.
-    // We don't use a JSOn parser here because it's lightweight to contrstuct the
+    // We don't use a JSON parser here because it's lightweight to contrstuct the
     // json string manually.
 
     std::ostringstream os;
@@ -161,33 +185,27 @@ int write_contract_args(const ContractExecArgs &args)
        << ",\"hpfd\":[" << hpscfds[FDTYPE::SCREAD] << "," << hpscfds[FDTYPE::SCWRITE]
        << "],\"usrfd\":{";
 
-    for (auto itr = userfds.begin(); itr != userfds.end(); itr++)
+    fdmap_json_to_stream(userfds, os);
+
+    os << "},\"nplfd\":{";
+
+    fdmap_json_to_stream(nplfds, os);
+
+    os << "},\"unl\":[";
+
+    for (auto nodepk = conf::cfg.unl.begin(); nodepk != conf::cfg.unl.end(); nodepk++)
     {
-        if (itr != userfds.begin())
+        if (nodepk != conf::cfg.unl.begin())
             os << ","; // Trailing comma separator for previous element.
 
-        // Get the hex pubkey of the user.
-        std::string_view userpubkey = itr->first; // User pubkey in binary format.
-        std::string userpubkeyhex;
+        // Convert binary nodepk into hex.
+        std::string pubkeyhex;
         util::bin2hex(
-            userpubkeyhex,
-            reinterpret_cast<const unsigned char *>(userpubkey.data()),
-            userpubkey.length());
+            pubkeyhex,
+            reinterpret_cast<const unsigned char *>((*nodepk).data()),
+            (*nodepk).length());
 
-        // Write user hex pubkey and fds.
-        os << "\"" << userpubkeyhex << "\":["
-           << itr->second[FDTYPE::SCREAD] << ","
-           << itr->second[FDTYPE::SCWRITE] << "]";
-    }
-
-    os << "},\"nplfd\":{},\"unl\":[";
-
-    for (auto node = conf::cfg.unl.begin(); node != conf::cfg.unl.end(); node++)
-    {
-        if (node != conf::cfg.unl.begin())
-            os << ","; // Trailing comma separator for previous element.
-
-        os << "\"" << *node << "\"";
+        os << "\"" << pubkeyhex << "\"";
     }
 
     os << "]}";
@@ -227,32 +245,9 @@ int write_contract_hp_inputs(const ContractExecArgs &args)
     if (create_and_write_iopipes(hpscfds, args.hpscbufs.first) != 0) // hpscbufs.first is the input buffer.
     {
         LOG_ERR << "Error writing HP input to SC (" << args.hpscbufs.first.length()
-                  << " bytes)";
+                << " bytes)";
         return -1;
     }
-    return 0;
-}
-
-/**
- * Creates the pipes and writes verified (consesus-reached) user
- * inputs to the SC via the pipe.
- */
-int write_contract_user_inputs(const ContractExecArgs &args)
-{
-    // Loop through input buffer for each user.
-    for (auto &[pubkey, bufpair] : args.userbufs)
-    {
-        userfds[pubkey] = std::move(std::vector<int>());
-        std::vector<int> &fds = userfds[pubkey];
-
-        if (create_and_write_iopipes(fds, bufpair.first) != 0) // bufpair.first is the input buffer.
-        {
-            LOG_ERR << "Error writing contract input (" << bufpair.first.length()
-                      << " bytes) from user";
-            return -1;
-        }
-    }
-
     return 0;
 }
 
@@ -269,46 +264,95 @@ int read_contract_hp_outputs(const ContractExecArgs &args)
     args.hpscbufs.first.clear(); //bufpair.first is the input buffer.
 
     if (read_iopipe(hpscfds, args.hpscbufs.second) != 0) // hpscbufs.second is the output buffer.
-    {
-        LOG_ERR << "Error reading HP output";
         return -1;
-    }
+
     return 0;
 }
 
 /**
- * Read all per-user outputs produced by the contract process and store them in
- * the user buffer for later processing.
+ * Common helper function to write json output of fdmap to given ostream.
+ * @param fdmap Any pubkey->fdlist map. (eg. userfds, nplfds)
+ * @param os An output stream.
+ */
+void fdmap_json_to_stream(const contract_fdmap &fdmap, std::ostringstream &os)
+{
+    for (auto itr = fdmap.begin(); itr != fdmap.end(); itr++)
+    {
+        if (itr != fdmap.begin())
+            os << ","; // Trailing comma separator for previous element.
+
+        // Get the hex pubkey.
+        std::string_view pubkey = itr->first; // Pubkey in binary format.
+        std::string pubkeyhex;
+        util::bin2hex(
+            pubkeyhex,
+            reinterpret_cast<const unsigned char *>(pubkey.data()),
+            pubkey.length());
+
+        // Write  hex pubkey and fds.
+        os << "\"" << pubkeyhex << "\":["
+           << itr->second[FDTYPE::SCREAD] << ","
+           << itr->second[FDTYPE::SCWRITE] << "]";
+    }
+}
+
+/**
+ * Common function to create the pipes and write buffer inputs to the fdmap.
+ * We take mutable parameters since the internal entries in the maps will be
+ * modified (eg. fd close, buffer clear).
  * 
+ * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
+ * @param bufmap A map which has a public key and input/output buffer pair for that public key.
  * @return 0 on success. -1 on failure.
  */
-int read_contract_user_outputs(const ContractExecArgs &args)
+int write_contract_fdmap_inputs(contract_fdmap &fdmap, contract_bufmap &bufmap)
 {
-    for (auto &[pubkey, bufpair] : args.userbufs)
+    // Loop through input buffer for each pubkey.
+    for (auto &[pubkey, bufpair] : bufmap)
+    {
+        std::vector<int> fds = std::vector<int>();
+        if (create_and_write_iopipes(fds, bufpair.first) != 0) // bufpair.first is the input buffer.
+            return -1;
+
+        fdmap.emplace(pubkey, std::move(fds));
+    }
+
+    return 0;
+}
+
+/**
+ * Common function to read all outputs produced by the contract process and store them in
+ * output buffers for later processing.
+ * 
+ * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
+ * @param bufmap A map which has a public key and input/output buffer pair for that public key.
+ * @return 0 on success. -1 on failure.
+ */
+int read_contract_fdmap_outputs(contract_fdmap &fdmap, contract_bufmap &bufmap)
+{
+    for (auto &[pubkey, bufpair] : bufmap)
     {
         // Clear the input buffer because we are sure the contract has finished reading from
         // that mapped memory portion.
         bufpair.first.clear(); //bufpair.first is the input buffer.
 
-        // Get fds for the user by pubkey.
-        std::vector<int> &fds = userfds[pubkey];
+        // Get fds for the pubkey.
+        std::vector<int> &fds = fdmap[pubkey];
 
         if (read_iopipe(fds, bufpair.second) != 0) // bufpair.second is the output buffer.
-        {
-            LOG_ERR << "Error reading contract output for user "
-                      << pubkey;
-        }
+            return -1;
     }
 
     return 0;
 }
 
 /**
- * Closes any open user fds after an error.
+ * Common function to close any open fds in the map after an error.
+ * @param fdmap Any pubkey->fdlist map. (eg. userfds, nplfds)
  */
-void cleanup_userfds()
+void cleanup_fdmap(contract_fdmap &fdmap)
 {
-    for (auto &[pubkey, fds] : userfds)
+    for (auto &[pubkey, fds] : fdmap)
     {
         for (int i = 0; i < 4; i++)
         {
@@ -377,7 +421,7 @@ int create_and_write_iopipes(std::vector<int> &fds, std::string &inputbuffer)
 }
 
 /**
- * Common function to read SC output from the pipe and populate a given buffer.
+ * Common function to read and close SC output from the pipe and populate a given buffer.
  * @param fds Vector representing the pipes fd list.
  * @param The buffer to place the read output.
  */
@@ -419,6 +463,10 @@ void close_unused_fds(bool is_hp)
 
     // Loop through user fds.
     for (auto &[pubkey, fds] : userfds)
+        close_unused_vectorfds(is_hp, fds);
+
+    // Loop through npl fds.
+    for (auto &[pubkey, fds] : nplfds)
         close_unused_vectorfds(is_hp, fds);
 }
 
