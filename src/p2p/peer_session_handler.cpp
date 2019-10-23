@@ -1,20 +1,40 @@
 #include <iostream>
+#include <flatbuffers/flatbuffers.h>
 #include "../conf.hpp"
 #include "../crypto.hpp"
-#include "p2p.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
+#include "p2p.hpp"
 #include "peer_session_handler.hpp"
-#include "flatbuffers/flatbuffers.h"
 #include "message_content_generated.h"
 #include "message_container_generated.h"
 
 namespace p2p
 {
 
+peer_outbound_message::peer_outbound_message(
+    std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr)
+{
+    fbbuilder_ptr = _fbbuilder_ptr;
+}
+
+// Returns a reference to the flatbuffer builder object.
+flatbuffers::FlatBufferBuilder &peer_outbound_message::builder()
+{
+    return *fbbuilder_ptr;
+}
+
+// Returns a reference to the data buffer that must be written to the socket.
+std::string_view peer_outbound_message::buffer()
+{
+    return std::string_view(
+        reinterpret_cast<const char *>((*fbbuilder_ptr).GetBufferPointer()),
+        (*fbbuilder_ptr).GetSize());
+}
+
 //private method used to create a proposal message with dummy data.
 //Will be similiar to consensus proposal creation in each stage.
-const std::string create_message()
+const std::string create_message(flatbuffers::FlatBufferBuilder &container_builder)
 {
     //todo:get a average propsal message size and allocate builder based on that.
     /*
@@ -41,10 +61,6 @@ const std::string create_message()
     const char *content_str = reinterpret_cast<const char *>(buf);
     std::string_view message_content(content_str, size);
 
-    //todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
-    // Do this when implementing consensus.
-    flatbuffers::FlatBufferBuilder container_builder(1024);
-
     //create container message content from serialised content from previous step.
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = container_builder.CreateVector(buf, size);
 
@@ -63,43 +79,53 @@ const std::string create_message()
     return std::string((char *)message_buf, buf_size);
 }
 
-//private method returns string_view from Flat Buffer vector of bytes.
-std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *pointer)
+/**
+ * Private method to return string_view from flat buffer data pointer and length.
+ */
+std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_t length)
 {
-    flatbuffers::uoffset_t pointer_length = pointer->size();
-    const uint8_t *pointer_buf = pointer->Data();
+    const char *signature_content_str = reinterpret_cast<const char *>(data);
+    return std::string_view(signature_content_str, length);
+}
 
-    const char *signature_content_str = reinterpret_cast<const char *>(pointer_buf);
-    return std::string_view(signature_content_str, pointer_length);
+/**
+ * Private method to return string_view from Flat Buffer vector of bytes.
+ */
+std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer)
+{
+    return flatbuff_bytes_to_sv(buffer->Data(), buffer->size());
 }
 
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
-void peer_session_handler::on_connect(sock::socket_session *session)
+void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
     if (!session->flags_[util::SESSION_FLAG::INBOUND])
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
-        peer_connections.insert(std::make_pair(session->uniqueid_, session));
-        LOG_DBG << "Adding peer to list :" << session->uniqueid_ + " " << session->address_ + " " << session->port_;
+        peer_connections.insert(std::make_pair(session->uniqueid, session));
+        LOG_DBG << "Adding peer to list: " << session->uniqueid << " " << session->address << " " << session->port;
     }
     else
     {
-        std::string message = create_message();
-        session->send(std::move(message));
+        // todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
+        peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+        std::string message = create_message(msg.builder());
+        session->send(msg);
     }
 }
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
-void peer_session_handler::on_message(sock::socket_session *session, std::string &&message)
+void peer_session_handler::on_message(sock::socket_session<peer_outbound_message> *session, std::string_view message)
 {
      LOG_DBG << "on-message : " << message;
+    peer_connections.insert(std::make_pair(session->uniqueid, session));
 
     //Accessing message buffer
-    uint8_t *container_pointer = (uint8_t *)message.data();
+    const uint8_t *container_pointer = reinterpret_cast<const uint8_t *>(message.data());
     size_t container_length = message.length();
 
     //Defining Flatbuffer verifier (default max depth = 64, max_tables = 1000000,)
@@ -114,16 +140,14 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
 
         //Get serialised message content.
         const flatbuffers::Vector<uint8_t> *container_content = container->content();
-        const uint8_t *container_content_buf = container_content->Data();
 
-        std::string_view message_content = flatbuff_bytes_to_sv(container_content);
-
-        //Accessing message content.
+        //Accessing message content and size.
         const uint8_t *content_pointer = container_content->Data();
+        flatbuffers::uoffset_t content_size = container_content->size();
 
         //Defining Flatbuffer verifier for content message verification.
         //Since content is also serialised by using Filterbuf we can verify it using Filterbuffer.
-        flatbuffers::Verifier content_verifier(content_pointer, message_content.size());
+        flatbuffers::Verifier content_verifier(content_pointer, content_size);
 
         //verify content message conent using flatbuffer verifier.
         if (VerifyContainerBuffer(content_verifier))
@@ -138,12 +162,12 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
                 uint64_t timestamp = proposal->timestamp();
 
                 //Get public key of message originating node.
-                const flatbuffers::Vector<uint8_t> *pubkey = proposal->pubkey();
-                std::string_view message_pubkey = flatbuff_bytes_to_sv(pubkey);
+                std::string_view message_pubkey = flatbuff_bytes_to_sv(proposal->pubkey());
 
                 //Get signature from container message.
-                const flatbuffers::Vector<uint8_t> *signature = container->signature();
-                std::string_view message_signature = flatbuff_bytes_to_sv(signature);
+                std::string_view message_signature = flatbuff_bytes_to_sv(container->signature());
+
+                std::string_view message_content = flatbuff_bytes_to_sv(content_pointer, content_size);
 
                 //validate message for malleability, timeliness, signature and prune recieving messages.
                 bool validated = p2p::validate_peer_message(message_content, message_signature, message_pubkey, timestamp, version);
@@ -184,9 +208,9 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
 }
 
 //peer session on message callback method
-void peer_session_handler::on_close(sock::socket_session *session)
+void peer_session_handler::on_close(sock::socket_session<peer_outbound_message> *session)
 {
-    LOG_DBG << "on_closing peer :" << session->uniqueid_;
+    LOG_DBG << "on_closing peer :" << session->uniqueid;
 }
 
 } // namespace p2p
