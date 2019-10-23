@@ -14,6 +14,7 @@
 #include "crypto.hpp"
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
+#include "p2p/peer_message_handler.hpp"
 #include "proc.hpp"
 #include "hplog.hpp"
 

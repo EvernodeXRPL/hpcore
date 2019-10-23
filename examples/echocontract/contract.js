@@ -4,8 +4,8 @@ process.on('uncaughtException', (err) => {
 const fs = require('fs')
 
 let input = fs.readFileSync(0, 'utf8');
-console.log("===Sample contract started===");
-console.log("Contract args received from hp: " + input);
+//console.log("===Sample contract started===");
+//console.log("Contract args received from hp: " + input);
 
 let hpargs = JSON.parse(input);
 
@@ -22,9 +22,9 @@ Object.keys(hpargs.usrfd).forEach(function (key, index) {
 
 let hpinput = fs.readFileSync(hpargs.hpfd[0], 'utf8');
 if (hpinput.length > 0) {
-    console.log("Input received from hp:");
-    console.log(hpinput);
+    //console.log("Input received from hp:");
+    //console.log(hpinput);
     fs.writeSync(hpargs.hpfd[1], "Echoing: " + hpinput);
 }
 
-console.log("===Sample contract ended===");
+//console.log("===Sample contract ended===");

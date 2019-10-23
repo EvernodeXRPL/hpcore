@@ -18,7 +18,6 @@ void increment(std::unordered_map<T, int32_t> &counter, T &candidate)
 {
     if (counter.count(candidate))
         counter[candidate]++;
-
     else
         counter.try_emplace(candidate, 1);
 }

@@ -7,6 +7,7 @@
 
 namespace p2p
 {
+    
 struct proposal
 {
     std::string pubkey;
@@ -20,6 +21,17 @@ struct proposal
     std::unordered_map<std::string, std::string> raw_outputs;
     std::vector<std::string> hash_outputs;
 };
+
+struct message_collection
+{
+    std::vector<proposal> proposals;
+};
+
+/**
+ * Holds all the messages until they are processed by consensus.
+ */
+extern message_collection collected_msgs;
+
 /**
  * This is used to store active peer connections mapped by the unique key of socket session
  */
@@ -36,8 +48,6 @@ int init();
 void start_peer_connections();
 
 void peer_connection_watchdog();
-
-bool validate_peer_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp, uint16_t version);
 
 } // namespace p2p
 

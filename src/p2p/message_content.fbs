@@ -3,7 +3,7 @@ namespace p2p;
 
 table StringKeyValuePair { //flatbuff equivalent for dictionary/hashmap for <byte>
     key:[ubyte]; 
-    value:string; 
+    value:[ubyte]; 
  }
 
  table ByteArray { //To represent list of byte arrays
@@ -22,11 +22,11 @@ table Proposal_Message { //Proposal type message schema
     stage: int8;
     time:uint64;
     lcl:[ubyte];
-    connections: [ByteArray];
-    raw_inputs: [StringKeyValuePair]; //stage 0 inputs 
-    hash_inputs:[string];  //stage > 0 inputs (hash of satge 0 inputs)
-    raw_outputs: [StringKeyValuePair]; //stage 0 outputs 
-    hash_outputs:[string];  //stage > 0 outputs (hash of satge 0 outputs)
+    users: [ByteArray];
+    raw_inputs: [StringKeyValuePair];   //stage 0 inputs 
+    hash_inputs:[ByteArray];            //stage > 0 inputs (hash of satge 0 inputs)
+    raw_outputs: [StringKeyValuePair];  //stage 0 outputs 
+    hash_outputs:[ByteArray];           //stage > 0 outputs (hash of satge 0 outputs)
     state: State;
 }
 
