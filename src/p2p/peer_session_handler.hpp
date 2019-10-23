@@ -1,5 +1,5 @@
-#ifndef _HP_P2P_SESSION_H_
-#define _HP_P2P_SESSION_H_
+#ifndef _HP_PEER_SESSION_HANDLER_H_
+#define _HP_PEER_SESSION_HANDLER_H_
 
 #include <boost/beast/core.hpp>
 #include <flatbuffers/flatbuffers.h>

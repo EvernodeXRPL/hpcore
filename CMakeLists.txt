@@ -7,6 +7,7 @@ find_package(Boost REQUIRED COMPONENTS system log)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
 add_executable(hpcore
+    src/p2p/peer_message_handler.cpp
     src/p2p/peer_session_handler.cpp
     src/p2p/p2p.cpp
     src/cons/cons.cpp
