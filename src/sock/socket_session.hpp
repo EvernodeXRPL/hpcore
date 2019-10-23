@@ -46,10 +46,10 @@ class socket_session_handler;
 template <class T>
 class socket_session : public std::enable_shared_from_this<socket_session<T>>
 {
-    beast::flat_buffer buffer_;               // used to store incoming messages
-    websocket::stream<beast::tcp_stream> ws_; // websocket stream used send an recieve messages
-    std::vector<T> queue_;                    // used to store messages temporarily until it is sent to the relevant party
-    socket_session_handler<T> &sess_handler_; // handler passed to gain access to websocket events
+    beast::flat_buffer buffer;               // used to store incoming messages
+    websocket::stream<beast::tcp_stream> ws; // websocket stream used send an recieve messages
+    std::vector<T> queue;                    // used to store messages temporarily until it is sent to the relevant party
+    socket_session_handler<T> &sess_handler; // handler passed to gain access to websocket events
 
     void fail(error_code ec, char const *what);
 
@@ -71,13 +71,13 @@ public:
     // from the parent we store as it is, since we are not going to pass it anywhere or used in a method
 
     // The port of the remote party.
-    std::string port_;
+    std::string port;
 
     // The IP address of the remote party.
-    std::string address_;
+    std::string address;
 
     // The unique identifier of the remote party (format <ip>:<port>).
-    std::string uniqueid_;
+    std::string uniqueid;
 
     // The set of util::SESSION_FLAG enum flags that will be set by user-code of this calss.
     // We mainly use this to store contexual information about this session based on the use case.
@@ -97,29 +97,30 @@ public:
 
 template <class T>
 socket_session<T>::socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler<T> &sess_handler)
-    : ws_(std::move(websocket)), sess_handler_(sess_handler)
+    : ws(std::move(websocket)), sess_handler(sess_handler)
 {
-    ws_.binary(true);
+    // We use binary data instead of ASCII/UTF8 character data.
+    ws.binary(true);
 }
 
 template <class T>
 socket_session<T>::~socket_session()
 {
-    sess_handler_.on_close(this);
+    sess_handler.on_close(this);
 }
 
 //port and address will be used to identify from which client the message recieved in the handler
 template <class T>
 void socket_session<T>::server_run(const std::string &&address, const std::string &&port)
 {
-    port_ = port;
-    address_ = address;
+    this->port = port;
+    this->address = address;
 
     //Set this flag to identify whether this socket session created when node acts as a server
     flags_.set(util::SESSION_FLAG::INBOUND);
 
     // Accept the websocket handshake
-    ws_.async_accept(
+    ws.async_accept(
         [sp = this->shared_from_this()](
             error_code ec) {
             sp->on_accept(ec);
@@ -130,16 +131,16 @@ void socket_session<T>::server_run(const std::string &&address, const std::strin
 template <class T>
 void socket_session<T>::client_run(const std::string &&address, const std::string &&port, error_code ec)
 {
-    port_ = port;
-    address_ = address;
+    this->port = port;
+    this->address = address;
 
     if (ec)
         return fail(ec, "handshake");
 
-    sess_handler_.on_connect(this);
+    sess_handler.on_connect(this);
 
-    ws_.async_read(
-        buffer_,
+    ws.async_read(
+        buffer,
         [sp = this->shared_from_this()](
             error_code ec, std::size_t bytes) {
             sp->on_read(ec, bytes);
@@ -170,11 +171,11 @@ void socket_session<T>::on_accept(error_code ec)
     if (ec)
         return fail(ec, "accept");
 
-    sess_handler_.on_connect(this);
+    sess_handler.on_connect(this);
 
     // Read a message
-    ws_.async_read(
-        buffer_,
+    ws.async_read(
+        buffer,
         [sp = this->shared_from_this()](
             error_code ec, std::size_t bytes) {
             sp->on_read(ec, bytes);
@@ -204,16 +205,16 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
     // Wrap the buffer data in a string_view and call session handler.
     // We DO NOT transfer ownership of buffer data to the session handler. It should
     // read and process the message and we will clear the buffer after its done with it.
-    const char *buffer_data = net::buffer_cast<const char *>(buffer_.data());
-    std::string_view message(buffer_data, buffer_.size());
-    sess_handler_.on_message(this, message);
+    const char *buffer_data = net::buffer_cast<const char *>(buffer.data());
+    std::string_view message(buffer_data, buffer.size());
+    sess_handler.on_message(this, message);
 
     // Clear the buffer
-    buffer_.consume(buffer_.size());
+    buffer.consume(buffer.size());
 
     // Read another message
-    ws_.async_read(
-        buffer_,
+    ws.async_read(
+        buffer,
         [sp = this->shared_from_this()](
             error_code ec, std::size_t bytes) {
             sp->on_read(ec, bytes);
@@ -227,16 +228,16 @@ template <class T>
 void socket_session<T>::send(T msg)
 {
     // Always add to queue
-    queue_.push_back(std::move(msg));
+    queue.push_back(std::move(msg));
 
     // Are we already writing?
-    if (queue_.size() > 1)
+    if (queue.size() > 1)
         return;
 
-    std::string_view sv = queue_.front().buffer();
+    std::string_view sv = queue.front().buffer();
 
     // We are not currently writing, so send this immediately
-    ws_.async_write(
+    ws.async_write(
         // Project the outbound_message buffer from the queue front into the asio buffer.
         net::buffer(sv.data(), sv.length()),
         [sp = this->shared_from_this()](
@@ -256,13 +257,13 @@ void socket_session<T>::on_write(error_code ec, std::size_t)
         return fail(ec, "write");
 
     // Remove the string from the queue
-    queue_.erase(queue_.begin());
+    queue.erase(queue.begin());
 
     // Send the next message if any
-    if (!queue_.empty())
+    if (!queue.empty())
     {
-        std::string_view sv = queue_.front().buffer();
-        ws_.async_write(
+        std::string_view sv = queue.front().buffer();
+        ws.async_write(
             net::buffer(sv.data(), sv.length()),
             [sp = this->shared_from_this()](
                 error_code ec, std::size_t bytes) {
@@ -278,7 +279,7 @@ template <class T>
 void socket_session<T>::close()
 {
     // Close the WebSocket connection
-    ws_.async_close(websocket::close_code::normal,
+    ws.async_close(websocket::close_code::normal,
                     [sp = this->shared_from_this()](
                         error_code ec) {
                         sp->on_close(ec, 0);
@@ -292,7 +293,7 @@ void socket_session<T>::close()
 template <class T>
 void socket_session<T>::on_close(error_code ec, std::int8_t type)
 {
-    // sess_handler_.on_close(this);
+    // sess_handler.on_close(this);
 
     // if (type == 1)
     //     return;
@@ -308,7 +309,7 @@ void socket_session<T>::init_uniqueid()
     // Create a unique id for the session combining ip and port.
     // We prepare this appended string here because we need to use it for finding elemends from the maps
     // for validation purposes whenever a message is received.
-    uniqueid_.append(address_).append(":").append(port_);
+    uniqueid.append(address).append(":").append(port);
 }
 
 } // namespace sock

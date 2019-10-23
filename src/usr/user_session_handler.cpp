@@ -24,6 +24,7 @@ user_outbound_message::user_outbound_message(std::string &&_msg)
     msg = std::move(_msg);
 }
 
+// Returns the buffer that should be written to the socket.
 std::string_view user_outbound_message::buffer()
 {
     return std::string_view(msg.data(), msg.size());
@@ -34,7 +35,7 @@ std::string_view user_outbound_message::buffer()
  */
 void user_session_handler::on_connect(sock::socket_session<user_outbound_message> *session)
 {
-    LOG_INFO << "User client connected " << session->address_ << ":" << session->port_;
+    LOG_INFO << "User client connected " << session->address << ":" << session->port;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
@@ -47,7 +48,7 @@ void user_session_handler::on_connect(sock::socket_session<user_outbound_message
     session->init_uniqueid();
 
     // Create an entry in pending_challenges for later tracking upon challenge response.
-    usr::pending_challenges[session->uniqueid_] = challengehex;
+    usr::pending_challenges[session->uniqueid] = challengehex;
 
     user_outbound_message outmsg(std::move(msgstr));
     session->send(std::move(outmsg));
@@ -68,7 +69,7 @@ void user_session_handler::on_message(
     if (session->flags_[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
         // The received message must be the challenge response. We need to verify it.
-        auto itr = usr::pending_challenges.find(session->uniqueid_);
+        auto itr = usr::pending_challenges.find(session->uniqueid);
         if (itr != usr::pending_challenges.end())
         {
             std::string userpubkeyhex;
@@ -95,20 +96,20 @@ void user_session_handler::on_message(
                     session->flags_.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
                     session->flags_.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
                     usr::add_user(session, userpubkey);                               // Add the user to the global authed user list
-                    usr::pending_challenges.erase(session->uniqueid_);                // Remove the stored challenge
+                    usr::pending_challenges.erase(session->uniqueid);                // Remove the stored challenge
 
-                    LOG_INFO << "User connection " << session->uniqueid_ << " authenticated. Public key "
+                    LOG_INFO << "User connection " << session->uniqueid << " authenticated. Public key "
                              << userpubkeyhex;
                     return;
                 }
                 else
                 {
-                    LOG_INFO << "Duplicate user public key " << session->uniqueid_;
+                    LOG_INFO << "Duplicate user public key " << session->uniqueid;
                 }
             }
             else
             {
-                LOG_INFO << "Challenge verification failed " << session->uniqueid_;
+                LOG_INFO << "Challenge verification failed " << session->uniqueid;
             }
         }
     }
@@ -118,7 +119,7 @@ void user_session_handler::on_message(
         // Check whether this user is among authenticated users
         // and perform authenticated msg processing.
 
-        auto itr = usr::users.find(session->uniqueid_);
+        auto itr = usr::users.find(session->uniqueid);
         if (itr != usr::users.end())
         {
             // This is an authed user.
@@ -134,7 +135,7 @@ void user_session_handler::on_message(
 
     // If for any reason we reach this point, we should drop the connection.
     session->close();
-    LOG_INFO << "Dropped the user connection " << session->address_ << ":" << session->port_;
+    LOG_INFO << "Dropped the user connection " << session->address << ":" << session->port;
 }
 
 /**
@@ -147,17 +148,17 @@ void user_session_handler::on_close(sock::socket_session<user_outbound_message> 
     // Session is awaiting challenge response.
     if (session->flags_[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
-        usr::pending_challenges.erase(session->uniqueid_);
+        usr::pending_challenges.erase(session->uniqueid);
     }
     // Session belongs to an authed user.
     else if (session->flags_[util::SESSION_FLAG::USER_AUTHED])
     {
         // Wait for SC process completion before we remove existing user.
         proc::await_contract_execution();
-        usr::remove_user(session->uniqueid_);
+        usr::remove_user(session->uniqueid);
     }
 
-    LOG_INFO << "User disconnected " << session->uniqueid_;
+    LOG_INFO << "User disconnected " << session->uniqueid;
 }
 
 } // namespace usr

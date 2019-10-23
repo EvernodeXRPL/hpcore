@@ -18,16 +18,18 @@ peer_outbound_message::peer_outbound_message(
     fbbuilder_ptr = _fbbuilder_ptr;
 }
 
+// Returns a reference to the flatbuffer builder object.
+flatbuffers::FlatBufferBuilder &peer_outbound_message::builder()
+{
+    return *fbbuilder_ptr;
+}
+
+// Returns a reference to the data buffer that must be written to the socket.
 std::string_view peer_outbound_message::buffer()
 {
     return std::string_view(
         reinterpret_cast<const char *>((*fbbuilder_ptr).GetBufferPointer()),
         (*fbbuilder_ptr).GetSize());
-}
-
-flatbuffers::FlatBufferBuilder& peer_outbound_message::builder()
-{
-    return *fbbuilder_ptr;
 }
 
 //private method used to create a proposal message with dummy data.
@@ -103,8 +105,8 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
-        peer_connections.insert(std::make_pair(session->uniqueid_, session));
-        LOG_DBG << "Adding peer to list :" << session->uniqueid_ + " " << session->address_ + " " << session->port_;
+        peer_connections.insert(std::make_pair(session->uniqueid, session));
+        LOG_DBG << "Adding peer to list: " << session->uniqueid << " " << session->address << " " << session->port;
     }
     else
     {
@@ -119,7 +121,7 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
 //validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session<peer_outbound_message> *session, std::string_view message)
 {
-    peer_connections.insert(std::make_pair(session->uniqueid_, session));
+    peer_connections.insert(std::make_pair(session->uniqueid, session));
 
     //Accessing message buffer
     const uint8_t *container_pointer = reinterpret_cast<const uint8_t *>(message.data());
@@ -207,7 +209,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session<peer_outbound_message> *session)
 {
-    LOG_DBG << "on_closing peer :" << session->uniqueid_;
+    LOG_DBG << "on_closing peer :" << session->uniqueid;
 }
 
 } // namespace p2p

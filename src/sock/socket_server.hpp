@@ -23,9 +23,9 @@ namespace sock
 template <class T>
 class socket_server : public std::enable_shared_from_this<socket_server<T>>
 {
-    tcp::acceptor acceptor_;               // acceptor which accepts new connections
-    tcp::socket socket_;                   // socket in which the client connects
-    socket_session_handler<T> &sess_handler_; // handler passed to gain access to websocket events
+    tcp::acceptor acceptor;               // acceptor which accepts new connections
+    tcp::socket socket;                   // socket in which the client connects
+    socket_session_handler<T> &sess_handler; // handler passed to gain access to websocket events
 
     void fail(error_code ec, char const *what);
 
@@ -41,12 +41,12 @@ public:
 
 template <class T>
 socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler)
-    : acceptor_(ioc), socket_(ioc),sess_handler_(session_handler)
+    : acceptor(ioc), socket(ioc), sess_handler(session_handler)
 {
     error_code ec;
 
     // Open the acceptor
-    acceptor_.open(endpoint.protocol(), ec);
+    acceptor.open(endpoint.protocol(), ec);
     if (ec)
     {
         fail(ec, "open");
@@ -54,7 +54,7 @@ socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, so
     }
 
     // Allow address reuse
-    acceptor_.set_option(net::socket_base::reuse_address(true));
+    acceptor.set_option(net::socket_base::reuse_address(true));
     if (ec)
     {
         fail(ec, "set_option");
@@ -62,7 +62,7 @@ socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, so
     }
 
     // Bind to the server address
-    acceptor_.bind(endpoint, ec);
+    acceptor.bind(endpoint, ec);
     if (ec)
     {
         fail(ec, "bind");
@@ -70,7 +70,7 @@ socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, so
     }
 
     // Start listening for connections
-    acceptor_.listen(
+    acceptor.listen(
         net::socket_base::max_listen_connections, ec);
     if (ec)
     {
@@ -87,8 +87,8 @@ void socket_server<T>::run()
 {
 
     // Start accepting a connection
-    acceptor_.async_accept(
-        socket_,
+    acceptor.async_accept(
+        socket,
         [self = this->shared_from_this()](error_code ec) {
             self->on_accept(ec);
         });
@@ -118,21 +118,21 @@ void socket_server<T>::on_accept(error_code ec)
     }
     else
     {
-        std::string port = std::to_string(socket_.remote_endpoint().port());
-        std::string address = socket_.remote_endpoint().address().to_string();
+        std::string port = std::to_string(socket.remote_endpoint().port());
+        std::string address = socket.remote_endpoint().address().to_string();
 
         //Creating websocket stream required to pass to initiate a new session
-        websocket::stream<beast::tcp_stream> ws(std::move(socket_));
+        websocket::stream<beast::tcp_stream> ws(std::move(socket));
 
        // Launch a new session for this connection
         std::make_shared<socket_session<T>>(
-            ws, sess_handler_)
+            ws, sess_handler)
             ->server_run(std::move(address), std::move(port));
     }
 
     // Accept another connection
-    acceptor_.async_accept(
-        socket_,
+    acceptor.async_accept(
+        socket,
         [self = this->shared_from_this()](error_code ec) {
             self->on_accept(ec);
         });

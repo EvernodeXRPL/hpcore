@@ -204,7 +204,7 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
  */
 int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey)
 {
-    const std::string &sessionid = session->uniqueid_;
+    const std::string &sessionid = session->uniqueid;
     if (users.count(sessionid) == 1)
     {
         LOG_INFO << sessionid << " already exist. Cannot add user.";

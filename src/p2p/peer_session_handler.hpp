@@ -9,6 +9,11 @@
 namespace p2p
 {
 
+/**
+ * Represents a peer message generated using flatbuffer that must be sent to the socket.
+ * We keep a shared_ptr of flatbuffer builder to support broadcasting the same message
+ * on multiple connections without copying buffer contents.
+ */
 class peer_outbound_message : public sock::outbound_message
 {
     std::shared_ptr<flatbuffers::FlatBufferBuilder> fbbuilder_ptr;
@@ -16,8 +21,10 @@ class peer_outbound_message : public sock::outbound_message
 public:
     peer_outbound_message(std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr);
 
+    // Returns a reference to the flatbuffer builder object.
     flatbuffers::FlatBufferBuilder& builder();
     
+    // Returns a reference to the data buffer that must be written to the socket.
     virtual std::string_view buffer();
 };
 
