@@ -1,20 +1,32 @@
 
 #include <ctime>
+#include <unordered_map>
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
+#include "../hplog.hpp"
 #include "cons.hpp"
 
 namespace cons
 {
 
 consensus_context consensus_ctx;
-std::vector<p2p::Proposal> consensus_proposals;
+std::vector<p2p::proposal> consensus_proposals;
+
+template <typename T>
+void increment(std::unordered_map<T, int32_t> &counter, T &candidate)
+{
+    if (counter.count(candidate))
+        counter[candidate]++;
+
+    else
+        counter.try_emplace(candidate, 1);
+}
 
 void consensus()
 {
     std::time_t time_now = std::time(nullptr);
-    p2p::Proposal proposal;
+    p2p::proposal proposal;
 
     switch (consensus_ctx.stage)
     {
@@ -64,8 +76,65 @@ void consensus()
     case 3:
     {
         //copy proposals
+        //consensus_ctx.proposals = ;
+
+        //vote counters
+        cons::vote_counter votes;
+
+        for (auto &rc_proposal : consensus_ctx.proposals)
+        {
+            //vote stages if only proposal lcl is match with node's last consensus lcl
+            if (proposal.lcl == consensus_ctx.lcl)
+            {
+                //std::string rp_state = std::to_string(rc_proposal.stage);
+                increment<int8_t>(votes.stage, rc_proposal.stage);
+            }
+            //todo:vote for lcl checking condtion
+        }
+
+        int32_t largestvote = 0;
+        int8_t wining_stage = -1;
+        for (auto &stage : votes.stage)
+        {
+            if (stage.second > largestvote)
+            {
+                largestvote = stage.second;
+                wining_stage = stage.first;
+            }
+        }
+
+        // check if we're ahead/behind of consensus
+        if (wining_stage < consensus_ctx.stage - 1)
+        {
+            LOG_DBG << "wait for proposals becuase node is ahead of consensus" << wining_stage;
+            // LOG_DBG << 'stage votes' << stage_votes ;
+            // wait_for_proposals => wait_time = (time - ram.consensus.novel_proposal_time < Math.floor(node.roundtime / 1000)))
+        }
+        else if (wining_stage > consensus_ctx.stage - 1)
+        {
+            LOG_DBG << "wait for proposals becuase node is behind of consensus " << wining_stage;
+            //return wait_for_proposals =>reset = true
+        }
+
+        //todo:check lcl votes and wait for proposals
+
+        //start count votes for other proposal fields.
+        for (auto &rc_proposal : consensus_ctx.proposals)
+        {
+            //vote for proposal timestamps
+            // everyone votes on an arbitrary time, as long as its within the round time and not in the future
+            if (time_now > rc_proposal.time && time_now - rc_proposal.time < conf::cfg.roundtime)
+                increment<uint64_t>(votes.time, rc_proposal.time);
+
+            //vote for user connection
+            for (auto user : rc_proposal.users)
+                increment<std::string>(votes.users, user);
+
+            //vote for inputs
 
 
+            //vote for outputs
+        }
     }
     }
 }

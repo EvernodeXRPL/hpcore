@@ -7,7 +7,7 @@
 
 namespace p2p
 {
-struct Proposal
+struct proposal
 {
     std::string pubkey;
     uint64_t timestamp;

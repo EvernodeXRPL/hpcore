@@ -14,11 +14,21 @@ namespace cons
  */
 struct consensus_context
 {
-    std::vector<p2p::Proposal> proposals;
+    std::vector<p2p::proposal> proposals;
     int stage;
     std::time_t novel_proposal_time;
     std::string lcl;
     std::string novel_proposal;
+};
+
+struct vote_counter
+{
+    std::unordered_map<int8_t, int32_t> stage;
+    std::unordered_map<std::string, int32_t> lcl;
+    std::unordered_map<std::string, int32_t> users;
+    std::unordered_map<std::string, int32_t> inputs;
+    std::unordered_map<std::string, int32_t> outputs;
+    std::unordered_map<uint64_t, int32_t> time;
 };
 
 extern consensus_context consensus_ctx;
