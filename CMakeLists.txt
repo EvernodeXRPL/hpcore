@@ -12,6 +12,7 @@ add_executable(hpcore
     src/sock/socket_session.cpp
     src/p2p/peer_session_handler.cpp
     src/p2p/p2p.cpp
+    src/cons/cons.cpp
     src/util.cpp
     src/crypto.cpp
     src/conf.cpp
@@ -37,5 +38,4 @@ target_link_libraries(hpcore
     ${Boost_LOG_SETUP_LIBRARY}
     stdc++fs
     pthread
-    protobuf.a
 )

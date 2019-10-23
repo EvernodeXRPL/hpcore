@@ -29,8 +29,8 @@ const std::string create_message()
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey_b = builder.CreateVector((uint8_t *)pubkey.data(), pubkey.size());
 
     //create dummy propsal message
-    flatbuffers::Offset<Proposal> proposal = CreateProposal(builder, pubkey_b, timestamp, stage, timestamp);
-    flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal, proposal.Union());
+    flatbuffers::Offset<Proposal_Message> proposal = CreateProposal_Message(builder, pubkey_b, timestamp, stage, timestamp);
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
     builder.Finish(message); //finished building message content to get serialised content.
 
     //Get serialized/packed message content pointer and size.
@@ -134,9 +134,9 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
             const Content *content = GetContent(content_pointer);
             p2p::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
-            if (content_message_type == Message_Proposal) //message is a proposal message
+            if (content_message_type == Message_Proposal_Message) //message is a proposal message
             {
-                const Proposal *proposal = content->message_as_Proposal();
+                const Proposal_Message *proposal = content->message_as_Proposal_Message();
                 uint64_t timestamp = proposal->timestamp();
 
                 //Get public key of message originating node.
@@ -159,9 +159,9 @@ void peer_session_handler::on_message(sock::socket_session *session, std::string
                     LOG_DBG << "Message validation failed";
                 }
             }
-            else if (content_message_type == Message_Npl) //message is a proposal message
+            else if (content_message_type == Message_Npl_Message) //message is a proposal message
             {
-                const Npl *npl = content->message_as_Npl();
+                const Npl_Message *npl = content->message_as_Npl_Message();
                 // execute npl logic here.
                 //broadcast message.
             }

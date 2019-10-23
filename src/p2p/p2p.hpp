@@ -6,6 +6,19 @@
 
 namespace p2p
 {
+struct Proposal
+{
+    std::string pubkey;
+    uint64_t timestamp;
+    int8_t stage;
+    uint64_t time;
+    std::string lcl;
+    std::vector<std::string> users;
+    std::unordered_map<std::string, std::string> raw_inputs;
+    std::vector<std::string> hash_inputs;
+    std::unordered_map<std::string, std::string> raw_outputs;
+    std::vector<std::string> hash_outputs;
+};
 /**
  * This is used to store active peer connections mapped by the unique key of socket session
  */

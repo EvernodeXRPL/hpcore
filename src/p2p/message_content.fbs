@@ -10,13 +10,13 @@ table StringKeyValuePair { //flatbuff equivalent for dictionary/hashmap for <byt
      array:[ubyte];
  }
 
-union Message { Proposal, Npl } //message content type
+union Message { Proposal_Message, Npl_Message } //message content type
 
 table Content { 
     message:Message;
 }
 
-table Proposal { //Proposal type message schema
+table Proposal_Message { //Proposal type message schema
     pubkey:[ubyte];
     timestamp:uint64;
     stage: int8;
@@ -30,7 +30,7 @@ table Proposal { //Proposal type message schema
     state: State;
 }
 
-table Npl { //NPL type message schema
+table Npl_Message { //NPL type message schema
     pubkey:[ubyte];
     timestamp:uint64;
     data:[ubyte];
