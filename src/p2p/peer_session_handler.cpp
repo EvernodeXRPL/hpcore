@@ -38,12 +38,12 @@ std::string_view peer_outbound_message::buffer()
  */
 void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
-    if (!session->flags_[util::SESSION_FLAG::INBOUND])
+    if (!session->flags[util::SESSION_FLAG::INBOUND])
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
         peer_connections.insert(std::make_pair(session->uniqueid, session));
-        LOG_DBG << "Adding peer to list: " << session->uniqueid << " " << session->address << " " << session->port;
+        LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
     else
     {
