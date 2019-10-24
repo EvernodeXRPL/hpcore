@@ -49,12 +49,16 @@ void start_peer_connections()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
 
+    //Used to pass down the default settings to the socket session
+    sock::session_options sess_opts;
+    sess_opts.max_message_size = conf::cfg.peermaxsize;
+
     // Start listening to peers
     std::make_shared<sock::socket_server<peer_outbound_message>>(
         ioc,
         tcp::endpoint{address, conf::cfg.peerport},
         global_peer_session_handler)
-        ->run();
+        ->run(sess_opts);
 
     LOG_INFO << "Started listening for incoming peer connections on " << conf::cfg.listenip << ":" << conf::cfg.peerport;
 

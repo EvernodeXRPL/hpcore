@@ -94,6 +94,7 @@ int create_contract()
     cfg.pubport = 8080;
     cfg.pubmaxsize = 65536;
     cfg.pubmaxcpm = 100;
+    cfg.peermaxsize = 65536;
 
 #ifndef NDEBUG
     cfg.loglevel = "debug";
@@ -223,6 +224,7 @@ int load_config()
     cfg.pubport = d["pubport"].GetInt();
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
+    cfg.peermaxsize = d["peermaxsize"].GetInt();
 
     cfg.loglevel = d["loglevel"].GetString();
     cfg.loggers.clear();
@@ -287,6 +289,7 @@ int save_config()
     d.AddMember("pubport", cfg.pubport, allocator);
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
+    d.AddMember("peermaxsize", cfg.peermaxsize, allocator);
 
     d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
     rapidjson::Value loggers(rapidjson::kArrayType);
@@ -389,7 +392,7 @@ int validate_config()
 
     // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 ||
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 || cfg.peermaxsize == 0 ||
         cfg.loglevel.empty() || cfg.loggers.empty())
     {
         std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
@@ -466,7 +469,7 @@ int is_schema_valid(rapidjson::Document &d)
         "\"type\": \"object\","
         "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
         ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\""
-        ", \"loglevel\", \"loggers\" ],"
+        ", \"peermaxsize\", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
@@ -487,6 +490,7 @@ int is_schema_valid(rapidjson::Document &d)
         "\"pubport\": { \"type\": \"integer\" },"
         "\"pubmaxsize\": { \"type\": \"integer\" },"
         "\"pubmaxcpm\": { \"type\": \"integer\" },"
+        "\"peermaxsize\": { \"type\": \"integer\" },"
         "\"loglevel\": { \"type\": \"string\" },"
         "\"loggers\": {"
         "\"type\": \"array\","

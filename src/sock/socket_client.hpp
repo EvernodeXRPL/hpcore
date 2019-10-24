@@ -24,11 +24,12 @@ namespace sock
 template <class T>
 class socket_client : public std::enable_shared_from_this<socket_client<T>>
 {
-    tcp::resolver resolver;                  // resolver used to resolve host and the port
-    websocket::stream<beast::tcp_stream> ws; // web socket stream used to send and receive messages
-    std::string host;                        // address of the server in which the client connects
-    std::string port;                        // port of the server in which client connects
+    tcp::resolver resolver;                   // resolver used to resolve host and the port
+    websocket::stream<beast::tcp_stream> ws;  // web socket stream used to send and receive messages
+    std::string host;                         // address of the server in which the client connects
+    std::string port;                         // port of the server in which client connects
     socket_session_handler<T> &sess_handler_; // handler passed to gain access to websocket events
+    session_options &sess_opts;              // store session specific options
 
     void on_resolve(error ec, tcp::resolver::results_type results);
 
@@ -44,15 +45,15 @@ class socket_client : public std::enable_shared_from_this<socket_client<T>>
 
 public:
     // Resolver and socket require an io_context
-    socket_client(net::io_context &ioc, socket_session_handler<T> &session_handler);
+    socket_client(net::io_context &ioc, socket_session_handler<T> &session_handler, session_options &sess_opts);
 
     //Entry point to the client which requires an active host and port
     void run(std::string_view host, std::string_view port);
 };
 
 template <class T>
-socket_client<T>::socket_client(net::io_context &ioc, socket_session_handler<T> &session_handler)
-    : resolver(net::make_strand(ioc)), ws(net::make_strand(ioc)), sess_handler_(session_handler)
+socket_client<T>::socket_client(net::io_context &ioc, socket_session_handler<T> &session_handler, session_options &sess_opts)
+    : resolver(net::make_strand(ioc)), ws(net::make_strand(ioc)), sess_handler_(session_handler), sess_opts(sess_opts)
 {
 }
 

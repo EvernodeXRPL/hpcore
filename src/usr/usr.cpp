@@ -248,12 +248,17 @@ int remove_user(const std::string &sessionid)
  */
 void start_listening()
 {
+
+    //Used to pass down the default settings to the socket session
+    sock::session_options sess_opts;
+    sess_opts.max_message_size = conf::cfg.pubmaxsize;
+
     auto address = net::ip::make_address(conf::cfg.listenip);
     std::make_shared<sock::socket_server<user_outbound_message>>(
         ioc,
         tcp::endpoint{address, conf::cfg.pubport},
         global_usr_session_handler)
-        ->run();
+        ->run(sess_opts);
 
     listener_thread = std::thread([&] { ioc.run(); });
 

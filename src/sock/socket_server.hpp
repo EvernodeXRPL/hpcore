@@ -23,25 +23,25 @@ namespace sock
 template <class T>
 class socket_server : public std::enable_shared_from_this<socket_server<T>>
 {
-    tcp::acceptor acceptor;               // acceptor which accepts new connections
-    tcp::socket socket;                   // socket in which the client connects
+    tcp::acceptor acceptor;                  // acceptor which accepts new connections
+    tcp::socket socket;                      // socket in which the client connects
     socket_session_handler<T> &sess_handler; // handler passed to gain access to websocket events
+    session_options &sess_opts;              // store session specific options
 
     void fail(error_code ec, char const *what);
 
     void on_accept(error_code ec);
 
 public:
-    socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler);
+    socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt);
 
     // Start accepting incoming connections
     void run();
 };
 
-
 template <class T>
-socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler)
-    : acceptor(ioc), socket(ioc), sess_handler(session_handler)
+socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt)
+    : acceptor(ioc), socket(ioc), sess_handler(session_handler), sess_opts(sess_opt)
 {
     error_code ec;
 
@@ -118,16 +118,14 @@ void socket_server<T>::on_accept(error_code ec)
     }
     else
     {
-        std::string port = std::to_string(socket.remote_endpoint().port());
-        std::string address = socket.remote_endpoint().address().to_string();
-
         //Creating websocket stream required to pass to initiate a new session
         websocket::stream<beast::tcp_stream> ws(std::move(socket));
 
-       // Launch a new session for this connection
+       
+        // Launch a new session for this connection
         std::make_shared<socket_session<T>>(
             ws, sess_handler)
-            ->server_run(std::move(address), std::move(port));
+            ->server_run(socket.remote_endpoint().address().to_string(), std::to_string(socket.remote_endpoint().port()), );
     }
 
     // Accept another connection
