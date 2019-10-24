@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 project(HPCore)
 
-add_definitions("-std=c++17" "-DBOOST_LOG_DYN_LINK")
-find_package(Boost REQUIRED COMPONENTS system log)
+add_definitions("-std=c++17")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
@@ -31,9 +30,11 @@ set_target_properties(release PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 target_link_libraries(hpcore
     libsodium.a
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_LOG_LIBRARY}
-    ${Boost_LOG_SETUP_LIBRARY}
+    libboost_system.a
+    libboost_thread.a
+    libboost_log.a
+    libboost_log_setup.a
+    libboost_filesystem.a
     stdc++fs
     pthread
     crypto
