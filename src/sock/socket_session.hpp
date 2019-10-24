@@ -43,10 +43,8 @@ public:
 // Use this to feed the session with default options from the config file
 struct session_options
 {
-    std::uint64_t max_message_size; // The CLI command issued to launch HotPocket
+    std::uint64_t max_message_size;
 };
-
-extern session_options sess_opts;
 
 //Forward Declaration
 template <class T>
@@ -98,7 +96,7 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    void run(const std::string &&address, const std::string &&port, const bool is_server_session, const session_options &sess_opts);
+    void run(const std::string &&address, const std::string &&port, bool is_server_session, session_options &sess_opts);
 
     void send(T msg);
 
@@ -132,14 +130,15 @@ void socket_session<T>::set_message_max_size(std::uint64_t size)
 
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
-void socket_session<T>::run(const std::string &&address, const std::string &&port, const bool is_server_session, const session_options &sess_opts)
+void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, session_options &sess_opts)
 {
     ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
 
-    std::cout << "Message size :" << sess_opts.max_message_size << std::endl;
-    // If message max size is defined in the session_options struct set it to the websocket stream
     if (sess_opts.max_message_size > 0)
+    {
+        // Setting maximum file size
         set_message_max_size(sess_opts.max_message_size);
+    }
 
     if (is_server_session)
     {

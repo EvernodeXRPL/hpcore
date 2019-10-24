@@ -45,7 +45,7 @@ std::thread peer_thread;
 /**
  * Used to pass down the default settings to the socket session
  */
-sock::session_options sess_opts;
+ sock::session_options sess_opts;
 
 std::map<std::string, time_t> recent_peer_msghash;
 
@@ -61,7 +61,7 @@ void start_peer_connections()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
 
-    //setting up the message max message size. Retrieve it from config
+    //setting up the message max size. Retrieve it from config
     // At the moment same settings are used to initialize a new server and client
     sess_opts.max_message_size = conf::cfg.peermaxsize;
 

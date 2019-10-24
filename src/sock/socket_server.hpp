@@ -25,25 +25,22 @@ class socket_server : public std::enable_shared_from_this<socket_server<T>>
     net::io_context &ioc;                    // socket in which the client connects
     ssl::context &ctx;                       // ssl context which provides support for tls
     socket_session_handler<T> &sess_handler; // handler passed to gain access to websocket events
-    session_options &sess_opts;              // store session specific options
+    session_options &sess_opts;              // session options needed to pass to session
 
     void fail(error_code ec, char const *what);
 
     void on_accept(error_code ec, tcp::socket socket);
 
 public:
-    socket_server(net::io_context &ioc, ssl::context &ctx,
-                  tcp::endpoint endpoint,
-                  socket_session_handler<T> &session_handler,
-                  session_options &sess_opt);
+    socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &session_options);
 
     // Start accepting incoming connections
     void run();
 };
 
 template <class T>
-socket_server<T>::socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt)
-    : acceptor(net::make_strand(ioc)), ioc(ioc), ctx(ctx), sess_handler(session_handler), sess_opts(sess_opt)
+socket_server<T>::socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &session_options)
+    : acceptor(net::make_strand(ioc)), ioc(ioc), ctx(ctx), sess_handler(session_handler), sess_opts(session_options)
 {
     error_code ec;
 
@@ -127,7 +124,7 @@ void socket_server<T>::on_accept(error_code ec, tcp::socket socket)
         // Launch a new session for this connection
         std::make_shared<socket_session<T>>(
             std::move(ws), sess_handler)
-            ->run(socket.remote_endpoint().address().to_string(), std::to_string(socket.remote_endpoint().port()), true, sess_opts);
+            ->run(std::to_string(socket.remote_endpoint().port()), socket.remote_endpoint().address().to_string(), true, sess_opts);
     }
 
     // Accept another connection
