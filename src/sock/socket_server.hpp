@@ -2,6 +2,7 @@
 #define _SOCK_SERVER_LISTENER_H_
 
 #include "socket_session_handler.hpp"
+#include "../conf.hpp"
 #include "../hplog.hpp"
 
 namespace net = boost::asio;      // namespace asio
@@ -82,6 +83,19 @@ socket_server<T>::socket_server(net::io_context &ioc, ssl::context &ctx, tcp::en
 template <class T>
 void socket_server<T>::run()
 {
+     // Adding ssl context options disallowing requests which supports sslv2 and sslv3 which have security vulnerabilitis
+    ctx.set_options(
+        boost::asio::ssl::context::default_workarounds |
+        boost::asio::ssl::context::no_sslv2 |
+        boost::asio::ssl::context::no_sslv3);
+
+    //Providing the certification file for ssl context
+    ctx.use_certificate_chain_file(conf::ctx.tlsCertFile);
+
+    // Providing key file for the ssl context
+    ctx.use_private_key_file(
+        conf::ctx.tlsKeyFile,
+        boost::asio::ssl::context::pem);
 
     // Start accepting a connection
     acceptor.async_accept(

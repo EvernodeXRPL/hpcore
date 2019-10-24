@@ -115,7 +115,7 @@ socket_session<T>::~socket_session()
      sess_handler.on_close(this);
 }
 
-//port and address will be used to identify from which server the message recieved in the handler
+//port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
 void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session)
 {
@@ -123,7 +123,11 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
 
     if (is_server_session)
     {
-        //Set this flag to identify whether this socket session created when node acts as a server
+        /**
+         * Set this flag to identify whether this socket session created when node acts as a server
+         * INBOUND true - when node acts as server
+         * INBOUND false (OUTBOUND) - when node acts as client
+         */
         flags.set(util::SESSION_FLAG::INBOUND);
         handshake_type = ssl::stream_base::server;
     }

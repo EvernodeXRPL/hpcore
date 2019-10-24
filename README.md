@@ -61,8 +61,7 @@ When you make a change to `message.fbc` defnition file, you need to run this:
 2. Navigate to the extracted directory.
 3. Run `./config`
 4. Run `make`
-5. Run `make test`
-6. Run `make install`
+5. Run `make install`
 
 #### Run ldconfig
 `sudo ldconfig`

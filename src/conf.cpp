@@ -123,8 +123,8 @@ void set_contract_dir_paths(std::string basedir)
     ctx.contractDir = basedir;
     ctx.configDir = basedir + "/cfg";
     ctx.configFile = ctx.configDir + "/hp.cfg";
-    ctx.keyFile = ctx.configDir + "/key.pem";
-    ctx.certFile = ctx.configDir + "/cert.pem";
+    ctx.tlsKeyFile = ctx.configDir + "/key.pem";
+    ctx.tlsCertFile = ctx.configDir + "/cert.pem";
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
     ctx.logDir = basedir + "/log";
@@ -441,21 +441,21 @@ int validate_config()
  */
 int validate_contract_dir_paths()
 {
-    std::string dirs[6] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir, ctx.keyFile, ctx.certFile};
+    std::string paths[6] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir, ctx.tlsKeyFile, ctx.tlsCertFile};
 
-    for (std::string &dir : dirs)
+    for (std::string &path : paths)
     {
-        if (!std::experimental::filesystem::exists(dir))
+        if (!std::experimental::filesystem::exists(path))
         {
-            if(dir == ctx.keyFile || dir == ctx.certFile)
+            if(path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
             {
-            std::cout << dir << " does not exist. Please provide self-signed certificates. Can generate using command\n" <<
-            "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem\n" <<
-            "and add it to "+ ctx.configDir;
+                std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n" <<
+                    "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem\n" <<
+                    "and add it to "+ ctx.configDir;
             }
             else
             {
-            std::cout << dir << " does not exist.\n";
+                std::cout << path << " does not exist.\n";
             }
 
             return -1;

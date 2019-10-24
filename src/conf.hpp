@@ -27,8 +27,8 @@ struct contract_ctx
     std::string logDir;      // Contract log dir
     std::string configDir;   // Contract config dir
     std::string configFile;  // Full path to the contract config file
-    std::string keyFile;     // Full path to the ssl secret key file
-    std::string certFile;    // Full path to the ssl certificate
+    std::string tlsKeyFile;     // Full path to the tls secret key file
+    std::string tlsCertFile; // Full path to the tls certificate
 };
 
 // Holds all the contract config values.
