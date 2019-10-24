@@ -8,7 +8,7 @@
 
 namespace p2p {
 
-struct StringKeyValuePair;
+struct BytesKeyValuePair;
 
 struct ByteArray;
 
@@ -70,7 +70,7 @@ template<> struct MessageTraits<Npl_Message> {
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
 bool VerifyMessageVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-struct StringKeyValuePair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct BytesKeyValuePair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_KEY = 4,
     VT_VALUE = 6
@@ -97,44 +97,44 @@ struct StringKeyValuePair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct StringKeyValuePairBuilder {
+struct BytesKeyValuePairBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_key(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> key) {
-    fbb_.AddOffset(StringKeyValuePair::VT_KEY, key);
+    fbb_.AddOffset(BytesKeyValuePair::VT_KEY, key);
   }
   void add_value(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> value) {
-    fbb_.AddOffset(StringKeyValuePair::VT_VALUE, value);
+    fbb_.AddOffset(BytesKeyValuePair::VT_VALUE, value);
   }
-  explicit StringKeyValuePairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit BytesKeyValuePairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  StringKeyValuePairBuilder &operator=(const StringKeyValuePairBuilder &);
-  flatbuffers::Offset<StringKeyValuePair> Finish() {
+  BytesKeyValuePairBuilder &operator=(const BytesKeyValuePairBuilder &);
+  flatbuffers::Offset<BytesKeyValuePair> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<StringKeyValuePair>(end);
+    auto o = flatbuffers::Offset<BytesKeyValuePair>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<StringKeyValuePair> CreateStringKeyValuePair(
+inline flatbuffers::Offset<BytesKeyValuePair> CreateBytesKeyValuePair(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> key = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> value = 0) {
-  StringKeyValuePairBuilder builder_(_fbb);
+  BytesKeyValuePairBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_key(key);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<StringKeyValuePair> CreateStringKeyValuePairDirect(
+inline flatbuffers::Offset<BytesKeyValuePair> CreateBytesKeyValuePairDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *key = nullptr,
     const std::vector<uint8_t> *value = nullptr) {
   auto key__ = key ? _fbb.CreateVector<uint8_t>(*key) : 0;
   auto value__ = value ? _fbb.CreateVector<uint8_t>(*value) : 0;
-  return p2p::CreateStringKeyValuePair(
+  return p2p::CreateBytesKeyValuePair(
       _fbb,
       key__,
       value__);
@@ -315,11 +315,11 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *mutable_users() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_USERS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *raw_inputs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_INPUTS);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_inputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_INPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_raw_inputs() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_INPUTS);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_raw_inputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_INPUTS);
   }
   const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *hash_inputs() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_HASH_INPUTS);
@@ -327,11 +327,11 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *mutable_hash_inputs() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_HASH_INPUTS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *raw_outputs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_OUTPUTS);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_outputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_OUTPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_raw_outputs() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_OUTPUTS);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_raw_outputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_OUTPUTS);
   }
   const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *hash_outputs() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_HASH_OUTPUTS);
@@ -396,13 +396,13 @@ struct Proposal_MessageBuilder {
   void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> users) {
     fbb_.AddOffset(Proposal_Message::VT_USERS, users);
   }
-  void add_raw_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_inputs) {
+  void add_raw_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_inputs) {
     fbb_.AddOffset(Proposal_Message::VT_RAW_INPUTS, raw_inputs);
   }
   void add_hash_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_inputs) {
     fbb_.AddOffset(Proposal_Message::VT_HASH_INPUTS, hash_inputs);
   }
-  void add_raw_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_outputs) {
+  void add_raw_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_outputs) {
     fbb_.AddOffset(Proposal_Message::VT_RAW_OUTPUTS, raw_outputs);
   }
   void add_hash_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_outputs) {
@@ -431,9 +431,9 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> users = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_inputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_inputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_outputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_outputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_outputs = 0,
     flatbuffers::Offset<State> state = 0) {
   Proposal_MessageBuilder builder_(_fbb);
@@ -459,17 +459,17 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
     const std::vector<flatbuffers::Offset<ByteArray>> *users = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *raw_inputs = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_inputs = nullptr,
     const std::vector<flatbuffers::Offset<ByteArray>> *hash_inputs = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *raw_outputs = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_outputs = nullptr,
     const std::vector<flatbuffers::Offset<ByteArray>> *hash_outputs = nullptr,
     flatbuffers::Offset<State> state = 0) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*users) : 0;
-  auto raw_inputs__ = raw_inputs ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*raw_inputs) : 0;
+  auto raw_inputs__ = raw_inputs ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*raw_inputs) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*hash_inputs) : 0;
-  auto raw_outputs__ = raw_outputs ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*raw_outputs) : 0;
+  auto raw_outputs__ = raw_outputs ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*raw_outputs) : 0;
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*hash_outputs) : 0;
   return p2p::CreateProposal_Message(
       _fbb,
@@ -594,23 +594,23 @@ struct StateDifference FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_UPDATED = 6,
     VT_DELETED = 8
   };
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *created() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_CREATED);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *created() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_CREATED);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_created() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_CREATED);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_created() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_CREATED);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *updated() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_UPDATED);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *updated() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_UPDATED);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_updated() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_UPDATED);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_updated() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_UPDATED);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *deleted() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_DELETED);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *deleted() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_DELETED);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_deleted() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_DELETED);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_deleted() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_DELETED);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -630,13 +630,13 @@ struct StateDifference FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct StateDifferenceBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_created(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> created) {
+  void add_created(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> created) {
     fbb_.AddOffset(StateDifference::VT_CREATED, created);
   }
-  void add_updated(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> updated) {
+  void add_updated(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> updated) {
     fbb_.AddOffset(StateDifference::VT_UPDATED, updated);
   }
-  void add_deleted(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> deleted) {
+  void add_deleted(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> deleted) {
     fbb_.AddOffset(StateDifference::VT_DELETED, deleted);
   }
   explicit StateDifferenceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -653,9 +653,9 @@ struct StateDifferenceBuilder {
 
 inline flatbuffers::Offset<StateDifference> CreateStateDifference(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> created = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> updated = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> deleted = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> created = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> updated = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> deleted = 0) {
   StateDifferenceBuilder builder_(_fbb);
   builder_.add_deleted(deleted);
   builder_.add_updated(updated);
@@ -665,12 +665,12 @@ inline flatbuffers::Offset<StateDifference> CreateStateDifference(
 
 inline flatbuffers::Offset<StateDifference> CreateStateDifferenceDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *created = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *updated = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *deleted = nullptr) {
-  auto created__ = created ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*created) : 0;
-  auto updated__ = updated ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*updated) : 0;
-  auto deleted__ = deleted ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*deleted) : 0;
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *created = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *updated = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *deleted = nullptr) {
+  auto created__ = created ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*created) : 0;
+  auto updated__ = updated ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*updated) : 0;
+  auto deleted__ = deleted ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*deleted) : 0;
   return p2p::CreateStateDifference(
       _fbb,
       created__,
@@ -703,11 +703,11 @@ struct State FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   StateDifference *mutable_difference() {
     return GetPointer<StateDifference *>(VT_DIFFERENCE);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *patch() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_PATCH);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *patch() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_PATCH);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_patch() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_PATCH);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_patch() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_PATCH);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -736,7 +736,7 @@ struct StateBuilder {
   void add_difference(flatbuffers::Offset<StateDifference> difference) {
     fbb_.AddOffset(State::VT_DIFFERENCE, difference);
   }
-  void add_patch(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> patch) {
+  void add_patch(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> patch) {
     fbb_.AddOffset(State::VT_PATCH, patch);
   }
   explicit StateBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -756,7 +756,7 @@ inline flatbuffers::Offset<State> CreateState(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> previous = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> current = 0,
     flatbuffers::Offset<StateDifference> difference = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> patch = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> patch = 0) {
   StateBuilder builder_(_fbb);
   builder_.add_patch(patch);
   builder_.add_difference(difference);
@@ -770,10 +770,10 @@ inline flatbuffers::Offset<State> CreateStateDirect(
     const std::vector<uint8_t> *previous = nullptr,
     const std::vector<uint8_t> *current = nullptr,
     flatbuffers::Offset<StateDifference> difference = 0,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *patch = nullptr) {
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *patch = nullptr) {
   auto previous__ = previous ? _fbb.CreateVector<uint8_t>(*previous) : 0;
   auto current__ = current ? _fbb.CreateVector<uint8_t>(*current) : 0;
-  auto patch__ = patch ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*patch) : 0;
+  auto patch__ = patch ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*patch) : 0;
   return p2p::CreateState(
       _fbb,
       previous__,

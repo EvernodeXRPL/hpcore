@@ -49,7 +49,9 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
     {
         // todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
         peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-        std::string message = create_message(msg.builder());
+
+        proposal p;
+        create_msg_from_proposal(msg.builder(), p);
         session->send(msg);
     }
 }
@@ -80,13 +82,13 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         const Proposal_Message *proposalmsg = content->message_as_Proposal_Message();
         
         //validate message for malleability, timeliness, signature and prune recieving messages.
-        bool validated = validate_content_message(
+        bool val_result = validate_content_message(
             flatbuff_bytes_to_sv(content_ptr, content_size),
             flatbuff_bytes_to_sv(container->signature()),
             flatbuff_bytes_to_sv(proposalmsg->pubkey()),
             proposalmsg->timestamp());
 
-        if (validated)
+        if (val_result == 0)
             collected_msgs.proposals.push_back(create_proposal_from_msg(*proposalmsg));
         else
             LOG_DBG << "Message content field validation failed";

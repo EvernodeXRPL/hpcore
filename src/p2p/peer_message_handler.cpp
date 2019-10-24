@@ -11,6 +11,31 @@
 namespace p2p
 {
 
+/**
+ * This section contains Flatbuffer message reading/writing helpers.
+ * These helpers are mainly used by peer_session_handler.
+ * 
+ * All Flatbuffer peer messages are 'Container' messages. 'Container' message is a bucket
+ * which some common headers (version, singature etc..) and the message 'Content' (Proposal, NPL etc..).
+ * 
+ * Therefore, when constructing peer messages, we have to first construct 'Content' message and then
+ * place the 'Content' inside a 'Conatiner. 'Content' and 'Container' messages are constructed using
+ * Flatbuffer builders.
+ * 
+ * Reading is also 2 steps because of this. We have first interprit the 'Container' message from the
+ * received data and then interprit the 'Content' portion of it separately to read the actual content.
+ */
+
+//---Message validation and reading helpers---/
+
+/**
+ * Verifies Conatiner message structure and outputs faltbuffer Container pointer to access the given buffer.
+ * 
+ * @param container_ref A pointer reference to assign the pointer to the Container object.
+ * @param container_bud The buffer containing the data that should validated and interpreted
+ *                      via the container pointer.
+ * @return 0 on successful verification. -1 for failure.
+ */
 int validate_and_extract_container(const Container **container_ref, std::string_view container_buf)
 {
     //Accessing message buffer
@@ -43,6 +68,15 @@ int validate_and_extract_container(const Container **container_ref, std::string_
     return 0;
 }
 
+/**
+ * Verifies the Content message structure and outputs faltbuffer Content pointer to access the given buffer.
+ * 
+ * @param content_ref A pointer reference to assign the pointer to the Content object.
+ * @param content_ptr Pointer to the the buffer containing the data that should validated and interpreted
+ *                      via the container pointer.
+ * @param content_size Data buffer size.
+ * @return 0 on successful verification. -1 for failure.
+ */
 int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, flatbuffers::uoffset_t content_size)
 {
     //Defining Flatbuffer verifier for message content verification.
@@ -61,16 +95,16 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
 }
 
 /**
- * Validate the incoming p2p message. Check for message version, timestamp and signature.
+ * Validate the incoming p2p message content on several criteria.
  * 
- * @param message binary message content.
- * @param signature binary message signature.
- * @param pubkey binary public key of message originating node.
- * @param timestamp message timestamp.
- * @param version message timestamp.
- * @return whether message is validated or not.
+ * @param message Message content data buffer.
+ * @param signature Binary message signature.
+ * @param pubkey Binary public key of message originating node.
+ * @param timestamp Message timestamp.
+ * @param version Message protocol version.
+ * @return 0 on successful validation. -1 for failure.
  */
-bool validate_content_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp)
+int validate_content_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp)
 {
     //Validation are prioritzed base on expensiveness of validation.
     //i.e - signature validation is done at the end.
@@ -81,7 +115,7 @@ bool validate_content_message(std::string_view message, std::string_view signatu
     if (!conf::cfg.unl.count(pubkey.data()))
     {
         LOG_DBG << "pubkey verification failed";
-        return false;
+        return -1;
     }
 
     //check message timestamp.  < timestamp now - 4* round time.
@@ -91,7 +125,7 @@ bool validate_content_message(std::string_view message, std::string_view signatu
     if (timestamp < (time_now - conf::cfg.roundtime * 4))
     {
         LOG_DBG << "Recieved message from peer is old";
-        return false;
+        return -1;
     }
 
     //verify message signature.
@@ -101,7 +135,7 @@ bool validate_content_message(std::string_view message, std::string_view signatu
     if (signature_verified != 0)
     {
         LOG_DBG << "Signature verification failed";
-        return false;
+        return -1;
     }
 
     // After signature is verified, get message hash and see wheteher
@@ -115,13 +149,18 @@ bool validate_content_message(std::string_view message, std::string_view signatu
     else
     {
         LOG_DBG << "Duplicate message";
-        return false;
+        return -1;
     }
 
-    return true;
+    return 0;
 }
 
-proposal create_proposal_from_msg(const Proposal_Message &msg)
+/**
+ * Creates a proposal stuct from the given proposal message.
+ * @param The Flatbuffer poporal received from the peer.
+ * @return A proposal struct representing the message.
+ */
+const proposal create_proposal_from_msg(const Proposal_Message &msg)
 {
     proposal p;
 
@@ -153,55 +192,74 @@ proposal create_proposal_from_msg(const Proposal_Message &msg)
     return p;
 }
 
-//private method used to create a proposal message with dummy data.
-//Will be similiar to consensus proposal creation in each stage.
-const std::string create_message(flatbuffers::FlatBufferBuilder &container_builder)
+//---Message creation helpers---//
+
+/**
+ * Ctreat proposal peer message from the given proposal struct.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param p The proposal struct to be placed in the container message.
+ */
+void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder, const proposal &p)
 {
-    //todo:get a average propsal message size and allocate builder based on that.
-    /*
-    * todo: create custom vector allocator for protobuff in order to avoid copying buffer to string.
-    * includes overidding socket_session send method to support this as well.
-    */
+    // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
-    time_t timestamp = std::time(nullptr);
-    uint8_t stage = 0;
 
-    std::string pubkey = conf::cfg.pubkey;
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey_b = builder.CreateVector((uint8_t *)pubkey.data(), pubkey.size());
+    // Create dummy propsal message
+    flatbuffers::Offset<Proposal_Message> proposal =
+        CreateProposal_Message(
+            builder,
+            sv_to_flatbuff_bytes(builder, conf::cfg.pubkey),
+            p.timestamp,
+            p.stage,
+            p.time,
+            sv_to_flatbuff_bytes(builder, p.lcl),
+            vector_to_flatbuf_bytearrayvector(builder, p.users),
+            vector_to_flatbuf_bytepairvector(builder, p.raw_inputs),
+            vector_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
+            vector_to_flatbuf_bytepairvector(builder, p.raw_outputs),
+            vector_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
-    //create dummy propsal message
-    flatbuffers::Offset<Proposal_Message> proposal = CreateProposal_Message(builder, pubkey_b, timestamp, stage, timestamp);
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
-    builder.Finish(message); //finished building message content to get serialised content.
+    builder.Finish(message); // Finished building message content to get serialised content.
 
-    //Get serialized/packed message content pointer and size.
-    uint8_t *buf = builder.GetBufferPointer();
-    flatbuffers::uoffset_t size = builder.GetSize();
-
-    //Get a binary string_view for the serialised message content.
-    const char *content_str = reinterpret_cast<const char *>(buf);
-    std::string_view message_content(content_str, size);
-
-    //create container message content from serialised content from previous step.
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = container_builder.CreateVector(buf, size);
-
-    //Sign message content with node's private key.
-    std::string sig = crypto::sign(message_content, conf::cfg.seckey);
-    char *sig_buf = sig.data();
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = container_builder.CreateVector((uint8_t *)sig_buf, sig.size()); //include signature to message
-
-    flatbuffers::Offset<Container> container_message = CreateContainer(container_builder, util::MIN_PEERMSG_VERSION, signature, content);
-    container_builder.Finish(container_message); //finished building message container to get serialised message.
-
-    flatbuffers::uoffset_t buf_size = container_builder.GetSize();
-    uint8_t *message_buf = container_builder.GetBufferPointer();
-
-    //todo: should return buffer_ptr to socket.
-    return std::string((char *)message_buf, buf_size);
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder);
 }
 
 /**
- * Private method to return string_view from flat buffer data pointer and length.
+ * Creates a Flatbuffer container message from the given Content message.
+ * @param container_builder The Flatbuffer builder to which the final container message should be written to.
+ * @param content_builder The Flatbuffer builder containing the content message that should be placed
+ *                        inside the container message.
+ */
+void create_containermsg_from_content(
+    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder)
+{
+    uint8_t *content_buf = content_builder.GetBufferPointer();
+    flatbuffers::uoffset_t content_size = content_builder.GetSize();
+
+    // Create container message content from serialised content from previous step.
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = container_builder.CreateVector(content_buf, content_size);
+
+    // Sign message content with this node's private key.
+    std::string_view content_to_sign(reinterpret_cast<const char *>(content_buf), content_size);
+    std::string sig = crypto::sign(content_to_sign, conf::cfg.seckey);
+
+    flatbuffers::Offset<Container> container_message = CreateContainer(
+        container_builder,
+        util::PEERMSG_VERSION,
+        sv_to_flatbuff_bytes(container_builder, sig), //signature field
+        content);
+
+    // Finish building message container to get serialised message.
+    container_builder.Finish(container_message);
+}
+
+//---Conversion helpers from flatbuffers data types to std data types---//
+
+/**
+ * Returns string_view from flat buffer data pointer and length.
  */
 std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_t length)
 {
@@ -210,14 +268,17 @@ std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_
 }
 
 /**
- * Private method to return string_view from Flat Buffer vector of bytes.
+ * Returns return string_view from Flat Buffer vector of bytes.
  */
 std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer)
 {
     return flatbuff_bytes_to_sv(buffer->Data(), buffer->size());
 }
 
-std::vector<std::string> flatbuf_bytearrayvector_to_vector(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec)
+/**
+ * Returns std::vector from Flatbuffer vector of ByteArrays.
+ */
+const std::vector<std::string> flatbuf_bytearrayvector_to_vector(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec)
 {
     std::vector<std::string> vec;
     for (auto el : *fbvec)
@@ -225,12 +286,57 @@ std::vector<std::string> flatbuf_bytearrayvector_to_vector(const flatbuffers::Ve
     return vec;
 }
 
-std::unordered_map<std::string, std::string> flatbuf_pairvector_to_map(const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *fbvec)
+/**
+ * Returns a map from Flatbuffer vector of key value pairs.
+ */
+const std::unordered_map<std::string, std::string>
+flatbuf_pairvector_to_map(const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *fbvec)
 {
     std::unordered_map<std::string, std::string> map;
     for (auto el : *fbvec)
         map.emplace(flatbuff_bytes_to_sv(el->key()), flatbuff_bytes_to_sv(el->value()));
     return map;
+}
+
+//---Conversion helpers from std data types to flatbuffers data types---//
+//---These are used in constructing Flatbuffer messages using builders---//
+
+/**
+ * Returns Flatbuffer bytes vector from string_view.
+ */
+const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>
+sv_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, std::string_view sv)
+{
+    return builder.CreateVector((uint8_t *)sv.data(), sv.size());
+}
+
+/**
+ * Returns Flatbuffer vector of ByteArrays from given std::vector of strings.
+ */
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
+vector_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::vector<std::string> &vec)
+{
+    std::vector<flatbuffers::Offset<ByteArray>> fbvec;
+    for (std::string_view str : vec)
+        fbvec.push_back(CreateByteArray(builder, sv_to_flatbuff_bytes(builder, str)));
+    return builder.CreateVector(fbvec);
+}
+
+/**
+ * Returns Flatbuffer vector of key value pairs from given map.
+ */
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>>
+vector_to_flatbuf_bytepairvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::string> &map)
+{
+    std::vector<flatbuffers::Offset<BytesKeyValuePair>> fbvec;
+    for (auto const &[key, value] : map)
+    {
+        fbvec.push_back(CreateBytesKeyValuePair(
+            builder,
+            sv_to_flatbuff_bytes(builder, key),
+            sv_to_flatbuff_bytes(builder, value)));
+    }
+    return builder.CreateVector(fbvec);
 }
 
 } // namespace p2p
