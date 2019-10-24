@@ -1,12 +1,15 @@
 
 #include <ctime>
 #include <unordered_map>
+#include <list>
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
+#include "../p2p/peer_message_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
 #include "../proc.hpp"
+#include <flatbuffers/flatbuffers.h>
 #include "cons.hpp"
 
 namespace cons
@@ -251,6 +254,9 @@ void consensus()
         //3.create container.
         //4. broadcast tha message.
 
+        flatbuffers::FlatBufferBuilder builder(1024);
+        p2p::create_msg_from_proposal(builder, proposal);
+
         if (consensus_ctx.stage == 3)
         {
             apply_ledger(proposal);
@@ -326,6 +332,7 @@ void apply_ledger(p2p::proposal proposal)
         }
     }
 
+    consensus_ctx.possible_inputs.empty();
     run_contract_binary();
 }
 

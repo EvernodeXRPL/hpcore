@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <list>
 #include <ctime>
 #include "../p2p/p2p.hpp"
 
@@ -22,18 +23,17 @@ static const float STAGE3_THRESHOLD = 0.8;
  */
 struct consensus_context
 {
-    std::vector<p2p::proposal> proposals;
+    std::list<p2p::proposal> proposals;
     int8_t stage;
     std::time_t novel_proposal_time;
     std::string lcl;
     std::string novel_proposal;
-    std::map<std::string, std::pair<std::string, std::string>> possible_inputs;
-    std::map<std::string, std::pair<std::string, std::string>> possible_outputs;
+    std::map<std::string, std::pair<const std::string, std::string>> possible_inputs;
+    std::map<std::string, std::pair<const std::string, std::string>> possible_outputs;
     int32_t next_sleep;
 };
 
-std::map<std::string, std::string> local_outputs;
-std::map<std::string, std::pair<std::string, std::string>> local_inputs;
+std::map<std::string, std::pair<const std::string, const std::string>> local_inputs;
 std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;//local_outputs
 
 struct vote_counter
