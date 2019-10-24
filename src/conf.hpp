@@ -14,7 +14,7 @@ namespace conf
 {
 
 // Typedef to represent ip address and port pair.
-typedef std::pair<std::string,std::string> ip_port_pair;
+typedef std::pair<std::string, std::string> ip_port_pair;
 
 // Holds contextual information about the currently loaded contract.
 struct contract_ctx
@@ -27,6 +27,8 @@ struct contract_ctx
     std::string logDir;      // Contract log dir
     std::string configDir;   // Contract config dir
     std::string configFile;  // Full path to the contract config file
+    std::string keyFile;     // Full path to the ssl secret key file
+    std::string certFile;    // Full path to the ssl certificate
 };
 
 // Holds all the contract config values.
@@ -39,21 +41,21 @@ struct contract_config
 
     // Config elements which are loaded from the config file.
 
-    std::string pubkeyhex;                                  // Contract hex public key
-    std::string seckeyhex;                                  // Contract hex secret key
-    std::string keytype;                                    // Key generation algorithm used by libsodium
-    std::string binary;                                     // Full path to the contract binary
-    std::string binargs;                                    // CLI arguments to pass to the contract binary
-    std::string listenip;                                   // The IPs to listen on for incoming connections
-    std::unordered_map<std::string, ip_port_pair> peers;    // Map of peers keyed by "<ip address>:<port>" concatenated format
-    std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)
-    std::uint16_t peerport;                                 // Listening port for peer connections
-    int roundtime;                                          // Consensus round time in ms
-    std::uint16_t pubport;                                  // Listening port for public user connections
-    int pubmaxsize;                                         // User message max size in bytes
-    int pubmaxcpm;                                          // User message rate
-    std::string loglevel;                                   // Log severity level (debug, info, warn, error)
-    std::unordered_set<std::string> loggers;                // List of enabled loggers (console, file)
+    std::string pubkeyhex;                               // Contract hex public key
+    std::string seckeyhex;                               // Contract hex secret key
+    std::string keytype;                                 // Key generation algorithm used by libsodium
+    std::string binary;                                  // Full path to the contract binary
+    std::string binargs;                                 // CLI arguments to pass to the contract binary
+    std::string listenip;                                // The IPs to listen on for incoming connections
+    std::unordered_map<std::string, ip_port_pair> peers; // Map of peers keyed by "<ip address>:<port>" concatenated format
+    std::unordered_set<std::string> unl;                 // Unique node list (list of binary public keys)
+    std::uint16_t peerport;                              // Listening port for peer connections
+    int roundtime;                                       // Consensus round time in ms
+    std::uint16_t pubport;                               // Listening port for public user connections
+    int pubmaxsize;                                      // User message max size in bytes
+    int pubmaxcpm;                                       // User message rate
+    std::string loglevel;                                // Log severity level (debug, info, warn, error)
+    std::unordered_set<std::string> loggers;             // List of enabled loggers (console, file)
 };
 
 // Global contract context struct exposed to the application.

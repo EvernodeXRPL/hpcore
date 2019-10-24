@@ -8,13 +8,18 @@
 #include <boost/beast.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include "../util.hpp"
+#include <boost/beast/ssl.hpp>
+#include <boost/beast/websocket/ssl.hpp>
 #include "socket_session_handler.hpp"
+#include "../util.hpp"
+#include "../hplog.hpp"
+
 
 namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace websocket = boost::beast::websocket;
 namespace http = boost::beast::http;
+namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 
 using tcp = net::ip::tcp;
 using error_code = boost::system::error_code;
@@ -46,12 +51,14 @@ class socket_session_handler;
 template <class T>
 class socket_session : public std::enable_shared_from_this<socket_session<T>>
 {
-    beast::flat_buffer buffer;               // used to store incoming messages
-    websocket::stream<beast::tcp_stream> ws; // websocket stream used send an recieve messages
-    std::vector<T> queue;                    // used to store messages temporarily until it is sent to the relevant party
-    socket_session_handler<T> &sess_handler; // handler passed to gain access to websocket events
+    beast::flat_buffer buffer;                                  // used to store incoming messages
+    websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws; // websocket stream used send an recieve messages
+    std::vector<T> queue;                                       // used to store messages temporarily until it is sent to the relevant party
+    socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
 
     void fail(error_code ec, char const *what);
+
+    void on_ssl_handshake(error_code ec);
 
     void on_accept(error_code ec);
 
@@ -62,7 +69,7 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
     void on_close(error_code ec, std::int8_t type);
 
 public:
-    socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler<T> &sess_handler);
+    socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler);
 
     ~socket_session();
 
@@ -82,10 +89,9 @@ public:
     // The set of util::SESSION_FLAG enum flags that will be set by user-code of this calss.
     // We mainly use this to store contexual information about this session based on the use case.
     // Setting and reading flags to this is completely managed by user-code.
-    std::bitset<8> flags_;
+    std::bitset<8> flags;
 
-    void server_run(const std::string &&address, const std::string &&port);
-    void client_run(const std::string &&address, const std::string &&port, error_code ec);
+    void run(const std::string &&address, const std::string &&port, bool is_server_session);
 
     void send(T msg);
 
@@ -96,7 +102,7 @@ public:
 };
 
 template <class T>
-socket_session<T>::socket_session(websocket::stream<beast::tcp_stream> &websocket, socket_session_handler<T> &sess_handler)
+socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler)
     : ws(std::move(websocket)), sess_handler(sess_handler)
 {
     // We use binary data instead of ASCII/UTF8 character data.
@@ -106,59 +112,77 @@ socket_session<T>::socket_session(websocket::stream<beast::tcp_stream> &websocke
 template <class T>
 socket_session<T>::~socket_session()
 {
-    sess_handler.on_close(this);
-}
-
-//port and address will be used to identify from which client the message recieved in the handler
-template <class T>
-void socket_session<T>::server_run(const std::string &&address, const std::string &&port)
-{
-    this->port = port;
-    this->address = address;
-
-    //Set this flag to identify whether this socket session created when node acts as a server
-    flags_.set(util::SESSION_FLAG::INBOUND);
-
-    // Accept the websocket handshake
-    ws.async_accept(
-        [sp = this->shared_from_this()](
-            error_code ec) {
-            sp->on_accept(ec);
-        });
+     sess_handler.on_close(this);
 }
 
 //port and address will be used to identify from which server the message recieved in the handler
 template <class T>
-void socket_session<T>::client_run(const std::string &&address, const std::string &&port, error_code ec)
+void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session)
 {
+    ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
+
+    if (is_server_session)
+    {
+        //Set this flag to identify whether this socket session created when node acts as a server
+        flags.set(util::SESSION_FLAG::INBOUND);
+        handshake_type = ssl::stream_base::server;
+    }
+
     this->port = port;
     this->address = address;
 
-    if (ec)
-        return fail(ec, "handshake");
+    // Set the timeout.
+    beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));
 
-    sess_handler.on_connect(this);
-
-    ws.async_read(
-        buffer,
-        [sp = this->shared_from_this()](
-            error_code ec, std::size_t bytes) {
-            sp->on_read(ec, bytes);
+    // Perform the SSL handshake
+    ws.next_layer().async_handshake(
+        handshake_type,
+        [sp = this->shared_from_this()](error_code ec) {
+            sp->on_ssl_handshake(ec);
         });
 }
 
-/**
- * Executes on error
+/*
+* Close an active websocket connection gracefully
 */
 template <class T>
-void socket_session<T>::fail(error_code ec, char const *what)
+void socket_session<T>::on_ssl_handshake(error_code ec)
 {
-    // LOG_ERR << what << ": " << ec.message();
+    if (ec)
+        return fail(ec, "handshake");
 
-    // Don't report these
-    if (ec == net::error::operation_aborted ||
-        ec == websocket::error::closed)
-        return;
+    // Turn off the timeout on the tcp_stream, because
+    // the websocket stream has its own timeout system.
+    beast::get_lowest_layer(ws).expires_never();
+
+    if (flags[util::SESSION_FLAG::INBOUND])
+    {
+        // Set suggested timeout settings for the websocket
+        ws.set_option(
+            websocket::stream_base::timeout::suggested(
+                beast::role_type::server));
+
+        // Accept the websocket handshake
+        ws.async_accept(
+            [sp = this->shared_from_this()](
+                error_code ec) {
+                sp->on_accept(ec);
+            });
+    }
+    else
+    {
+
+        ws.set_option(
+            websocket::stream_base::timeout::suggested(
+                beast::role_type::client));
+
+        // Perform the websocket handshake
+        ws.async_handshake(this->address, "/",
+                           [sp = this->shared_from_this()](
+                               error_code ec) {
+                               sp->on_accept(ec);
+                           });
+    }
 }
 
 /**
@@ -171,7 +195,7 @@ void socket_session<T>::on_accept(error_code ec)
     if (ec)
         return fail(ec, "accept");
 
-    sess_handler.on_connect(this);
+     sess_handler.on_connect(this);
 
     // Read a message
     ws.async_read(
@@ -207,7 +231,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
     // read and process the message and we will clear the buffer after its done with it.
     const char *buffer_data = net::buffer_cast<const char *>(buffer.data());
     std::string_view message(buffer_data, buffer.size());
-    sess_handler.on_message(this, message);
+     sess_handler.on_message(this, message);
 
     // Clear the buffer
     buffer.consume(buffer.size());
@@ -280,10 +304,10 @@ void socket_session<T>::close()
 {
     // Close the WebSocket connection
     ws.async_close(websocket::close_code::normal,
-                    [sp = this->shared_from_this()](
-                        error_code ec) {
-                        sp->on_close(ec, 0);
-                    });
+                   [sp = this->shared_from_this()](
+                       error_code ec) {
+                       sp->on_close(ec, 0);
+                   });
 }
 
 /*
@@ -293,13 +317,11 @@ void socket_session<T>::close()
 template <class T>
 void socket_session<T>::on_close(error_code ec, std::int8_t type)
 {
-    // sess_handler.on_close(this);
+    if (type == 1)
+        return;
 
-    // if (type == 1)
-    //     return;
-
-    // if (ec)
-    //     return fail(ec, "close");
+    if (ec)
+        return fail(ec, "close");
 }
 
 // When called, initializes the unique id string for this session.
@@ -310,6 +332,20 @@ void socket_session<T>::init_uniqueid()
     // We prepare this appended string here because we need to use it for finding elemends from the maps
     // for validation purposes whenever a message is received.
     uniqueid.append(address).append(":").append(port);
+}
+
+/**
+ * Executes on error
+*/
+template <class T>
+void socket_session<T>::fail(error_code ec, char const *what)
+{
+    LOG_ERR << what << ": " << ec.message();
+
+    // Don't report these
+    if (ec == net::error::operation_aborted ||
+        ec == websocket::error::closed)
+        return;
 }
 
 } // namespace sock

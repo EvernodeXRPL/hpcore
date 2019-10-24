@@ -7,22 +7,6 @@
 #include "../hplog.hpp"
 #include "p2p.hpp"
 
-#include "../sock/server_certificate.hpp"
-#include "../sock/root_certificate.hpp"
-#include <boost/beast/core.hpp>
-#include <boost/beast/ssl.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/beast/websocket/ssl.hpp>
-#include <boost/asio/strand.hpp>
-#include <algorithm>
-#include <cstdlib>
-#include <functional>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <thread>
-#include <vector>
-
 namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 
 namespace p2p
@@ -42,7 +26,9 @@ p2p::peer_session_handler global_peer_session_handler;
  */
 net::io_context ioc;
 
-// The SSL context is required, and holds certificates
+/**
+ * SSL context used by the  boost library in providing tls support
+ */
 ssl::context ctx{ssl::context::tlsv13};
 
 /**
@@ -69,11 +55,25 @@ int init()
 void start_peer_connections()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
-    load_server_certificate(ctx);
+
+    // Adding ssl context options disallowing requests which supports sslv2 and sslv3 which have security vulnerabilitis
+    ctx.set_options(
+        boost::asio::ssl::context::default_workarounds |
+        boost::asio::ssl::context::no_sslv2 |
+        boost::asio::ssl::context::no_sslv3);
+
+    //Providing the certification file for ssl context
+    ctx.use_certificate_chain_file(conf::ctx.certFile);
+
+    // Providing key file for the ssl context
+    ctx.use_private_key_file(
+        conf::ctx.keyFile,
+        boost::asio::ssl::context::pem);
 
     // Start listening to peers
     std::make_shared<sock::socket_server<peer_outbound_message>>(
         ioc,
+        ctx,
         tcp::endpoint{address, conf::cfg.peerport},
         global_peer_session_handler)
         ->run();
@@ -81,7 +81,7 @@ void start_peer_connections()
     LOG_INFO << "Started listening for incoming peer connections on " << conf::cfg.listenip << ":" << conf::cfg.peerport;
 
     // Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
-    // peer_watchdog_thread = std::thread([&] { peer_connection_watchdog(); });
+    peer_watchdog_thread = std::thread([&] { peer_connection_watchdog(); });
 
     // Peer listener thread.
     peer_thread = std::thread([&] { ioc.run(); });
@@ -98,8 +98,7 @@ void peer_connection_watchdog()
             if (peer_connections.find(v.first) == peer_connections.end())
             {
                 LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
-                load_server_certificate(ctx);
-                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, global_peer_session_handler)
+                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, ctx, global_peer_session_handler)
                     ->run(v.second.first, v.second.second);
             }
         }

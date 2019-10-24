@@ -33,17 +33,6 @@ enum SESSION_FLAG
     USER_AUTHED = 2
 };
 
-/**
- * Used to identify when new connection is made whether the current node acts as a server or client
- * specifying it because there are client specific codes and server specific codes which needs to be execute in
- * socket server.
-*/
-enum PEER
-{
-    SERVER = 0;
-    CLIENT = 1;
-};
-
 int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_len);
 
 int hex2bin(unsigned char *decoded, size_t decoded_len, std::string_view hex_str);

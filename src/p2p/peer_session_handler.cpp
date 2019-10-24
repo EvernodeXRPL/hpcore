@@ -101,12 +101,12 @@ std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer
  */
 void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
-    if (!session->flags_[util::SESSION_FLAG::INBOUND])
+    if (!session->flags[util::SESSION_FLAG::INBOUND])
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
         peer_connections.insert(std::make_pair(session->uniqueid, session));
-        LOG_DBG << "Adding peer to list: " << session->uniqueid << " " << session->address << " " << session->port;
+        LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
     else
     {
@@ -121,9 +121,6 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
 //validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session<peer_outbound_message> *session, std::string_view message)
 {
-     LOG_DBG << "on-message : " << message;
-    peer_connections.insert(std::make_pair(session->uniqueid, session));
-
     //Accessing message buffer
     const uint8_t *container_pointer = reinterpret_cast<const uint8_t *>(message.data());
     size_t container_length = message.length();

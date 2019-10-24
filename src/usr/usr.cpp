@@ -4,14 +4,14 @@
 #include <rapidjson/document.h>
 #include <sodium.h>
 #include <boost/thread/thread.hpp>
+#include "usr.hpp"
+#include "user_session_handler.hpp"
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_session_handler.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
-#include "usr.hpp"
-#include "user_session_handler.hpp"
 
 namespace usr
 {
@@ -252,7 +252,21 @@ int remove_user(const std::string &sessionid)
 void start_listening()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
-    load_server_certificate(ctx);
+
+    // Adding ssl context options disallowing requests which supports sslv2 and sslv3 which have security vulnerabilitis
+    ctx.set_options(
+        boost::asio::ssl::context::default_workarounds |
+        boost::asio::ssl::context::no_sslv2 |
+        boost::asio::ssl::context::no_sslv3);
+
+    //Providing the certification file for ssl context
+    ctx.use_certificate_chain_file(conf::ctx.certFile);
+
+    // Providing key file for the ssl context
+    ctx.use_private_key_file(
+        conf::ctx.keyFile,
+        boost::asio::ssl::context::pem);
+
     std::make_shared<sock::socket_server<user_outbound_message>>(
         ioc,
         ctx,
