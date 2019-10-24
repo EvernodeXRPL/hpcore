@@ -1,7 +1,7 @@
 //IDL file for p2p message content schema.
 namespace p2p;
 
-table StringKeyValuePair { //flatbuff equivalent for dictionary/hashmap for <byte>
+table BytesKeyValuePair { //flatbuff equivalent for dictionary/hashmap for <byte>
     key:[ubyte]; 
     value:[ubyte]; 
  }
@@ -23,10 +23,10 @@ table Proposal_Message { //Proposal type message schema
     time:uint64;
     lcl:[ubyte];
     users: [ByteArray];
-    raw_inputs: [StringKeyValuePair];   //stage 0 inputs 
-    hash_inputs:[ByteArray];            //stage > 0 inputs (hash of satge 0 inputs)
-    raw_outputs: [StringKeyValuePair];  //stage 0 outputs 
-    hash_outputs:[ByteArray];           //stage > 0 outputs (hash of satge 0 outputs)
+    raw_inputs: [BytesKeyValuePair];   //stage 0 inputs 
+    hash_inputs:[ByteArray];            //stage > 0 inputs (hash of stage 0 inputs)
+    raw_outputs: [BytesKeyValuePair];  //stage 0 outputs 
+    hash_outputs:[ByteArray];           //stage > 0 outputs (hash of stage 0 outputs)
     state: State;
 }
 
@@ -38,16 +38,16 @@ table Npl_Message { //NPL type message schema
 }
 
 table StateDifference { //Represent state difference by tracking created,updated and deleted state files.
-    created: [StringKeyValuePair]; //list of { fn => hash }
-    updated: [StringKeyValuePair]; 
-    deleted: [StringKeyValuePair]; 
+    created: [BytesKeyValuePair]; //list of { fn => hash }
+    updated: [BytesKeyValuePair]; 
+    deleted: [BytesKeyValuePair]; 
 }
 
 table State {
     previous: [ubyte];  // hash of the previous state
     current: [ubyte];  //  hash of the current state
     difference: StateDifference; 
-    patch: [StringKeyValuePair];   // fn -> bsdiff patch going from previous state to new state
+    patch: [BytesKeyValuePair];   // fn -> bsdiff patch going from previous state to new state
 }
 
 root_type Content; //root type for message content

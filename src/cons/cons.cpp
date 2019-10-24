@@ -16,7 +16,7 @@ consensus_context consensus_ctx;
 std::vector<p2p::proposal> consensus_proposals;
 
 template <typename T>
-void increment(std::unordered_map<T, int32_t> &counter, T &candidate)
+void increment(std::unordered_map<T, int32_t> &counter, const T &candidate)
 {
     if (counter.count(candidate))
         counter[candidate]++;
@@ -66,7 +66,7 @@ void consensus()
         for (auto &[sid, user] : usr::users)
         {
             // add all the connections we host
-            proposal.users.emplace_back(user.pubkey);
+            proposal.users.emplace(user.pubkey);
 
             // and all their pending messages
             std::string inputtosend;
@@ -215,17 +215,17 @@ void consensus()
         //add user connections which have votes over stage threshold to proposal.
         for (auto usr : votes.users)
             if (usr.second >= vote_threshold || (usr.second > 0 && consensus_ctx.stage == 1))
-                proposal.users.emplace_back(usr.first);
+                proposal.users.emplace(usr.first);
 
         //add inputs which have votes over stage threshold to proposal.
         for (auto input : votes.inputs)
             if (input.second >= vote_threshold || (input.second > 0 && consensus_ctx.stage == 1))
-                proposal.hash_inputs.emplace_back(input.first);
+                proposal.hash_inputs.emplace(input.first);
 
         //add outputs which have votes over stage threshold to proposal.
         for (auto output : votes.outputs)
             if (output.second >= vote_threshold)
-                proposal.hash_outputs.emplace_back(output.first);
+                proposal.hash_outputs.emplace(output.first);
 
         //todo:add states which have votes over stage threshold to proposal.
 

@@ -56,6 +56,13 @@ When you make a change to `message.fbc` defnition file, you need to run this:
 
 `flatc -o src/p2p/ --gen-mutable --cpp src/p2p/message.fbs`
 
+#### Install OpenSSL
+1. Download and extract OpenSSL-1.1.1d source from [here](https://www.openssl.org/source/openssl-1.1.1d.tar.gz).
+2. Navigate to the extracted directory.
+3. Run `./config`
+4. Run `make`
+5. Run `make install`
+
 #### Run ldconfig
 `sudo ldconfig`
 
