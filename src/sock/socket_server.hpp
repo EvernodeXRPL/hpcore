@@ -32,7 +32,10 @@ class socket_server : public std::enable_shared_from_this<socket_server<T>>
     void on_accept(error_code ec, tcp::socket socket);
 
 public:
-    socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt);
+    socket_server(net::io_context &ioc, ssl::context &ctx,
+                  tcp::endpoint endpoint,
+                  socket_session_handler<T> &session_handler,
+                  session_options &sess_opt);
 
     // Start accepting incoming connections
     void run();
@@ -40,7 +43,7 @@ public:
 
 template <class T>
 socket_server<T>::socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt)
-: acceptor(net::make_strand(ioc)), ioc(ioc), ctx(ctx), sess_handler(session_handler), sess_opts(sess_opt)
+    : acceptor(net::make_strand(ioc)), ioc(ioc), ctx(ctx), sess_handler(session_handler), sess_opts(sess_opt)
 {
     error_code ec;
 
@@ -123,8 +126,8 @@ void socket_server<T>::on_accept(error_code ec, tcp::socket socket)
 
         // Launch a new session for this connection
         std::make_shared<socket_session<T>>(
-            ws, sess_handler)
-            ->server_run(socket.remote_endpoint().address().to_string(), std::to_string(socket.remote_endpoint().port()), );
+            std::move(ws), sess_handler)
+            ->run(socket.remote_endpoint().address().to_string(), std::to_string(socket.remote_endpoint().port()), true, sess_opts);
     }
 
     // Accept another connection

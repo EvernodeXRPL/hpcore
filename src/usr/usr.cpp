@@ -262,8 +262,9 @@ void start_listening()
         ioc,
         ctx,
         tcp::endpoint{address, conf::cfg.pubport},
-        global_usr_session_handler)
-        ->run(sess_opts);
+        global_usr_session_handler,
+        sess_opts)
+        ->run();
 
     listener_thread = std::thread([&] { ioc.run(); });
 

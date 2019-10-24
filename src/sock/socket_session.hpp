@@ -98,7 +98,7 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    void run(const std::string &&address, const std::string &&port, , const bool is_server_session, const session_options &sess_opts);
+    void run(const std::string &&address, const std::string &&port, const bool is_server_session, const session_options &sess_opts);
 
     void send(T msg);
 
@@ -121,14 +121,25 @@ socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp
 template <class T>
 socket_session<T>::~socket_session()
 {
-     sess_handler.on_close(this);
+    sess_handler.on_close(this);
+}
+
+template <class T>
+void socket_session<T>::set_message_max_size(std::uint64_t size)
+{
+    ws.read_message_max(size);
 }
 
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
-void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session)
+void socket_session<T>::run(const std::string &&address, const std::string &&port, const bool is_server_session, const session_options &sess_opts)
 {
     ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
+
+    std::cout << "Message size :" << sess_opts.max_message_size << std::endl;
+    // If message max size is defined in the session_options struct set it to the websocket stream
+    if (sess_opts.max_message_size > 0)
+        set_message_max_size(sess_opts.max_message_size);
 
     if (is_server_session)
     {
@@ -208,7 +219,7 @@ void socket_session<T>::on_accept(error_code ec)
     if (ec)
         return fail(ec, "accept");
 
-     sess_handler.on_connect(this);
+    sess_handler.on_connect(this);
 
     // Read a message
     ws.async_read(
@@ -244,7 +255,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
     // read and process the message and we will clear the buffer after its done with it.
     const char *buffer_data = net::buffer_cast<const char *>(buffer.data());
     std::string_view message(buffer_data, buffer.size());
-     sess_handler.on_message(this, message);
+    sess_handler.on_message(this, message);
 
     // Clear the buffer
     buffer.consume(buffer.size());

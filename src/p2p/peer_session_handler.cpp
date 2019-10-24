@@ -11,7 +11,7 @@
 
 namespace p2p
 {
-
+    
 peer_outbound_message::peer_outbound_message(
     std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr)
 {
