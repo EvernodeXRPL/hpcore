@@ -7,6 +7,8 @@
 #include "../hplog.hpp"
 #include "p2p.hpp"
 
+namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
+
 namespace p2p
 {
 /**
@@ -23,6 +25,11 @@ p2p::peer_session_handler global_peer_session_handler;
  * IO context used by the  boost library in creating sockets
  */
 net::io_context ioc;
+
+/**
+ * SSL context used by the  boost library in providing tls support
+ */
+ssl::context ctx{ssl::context::tlsv13};
 
 /**
  * The thread the peer server and client is running on. (not exposed out of this namespace)
@@ -56,6 +63,7 @@ void start_peer_connections()
     // Start listening to peers
     std::make_shared<sock::socket_server<peer_outbound_message>>(
         ioc,
+        ctx,
         tcp::endpoint{address, conf::cfg.peerport},
         global_peer_session_handler)
         ->run(sess_opts);
@@ -80,7 +88,7 @@ void peer_connection_watchdog()
             if (peer_connections.find(v.first) == peer_connections.end())
             {
                 LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
-                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, global_peer_session_handler)
+                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, ctx, global_peer_session_handler)
                     ->run(v.second.first, v.second.second);
             }
         }

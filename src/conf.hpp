@@ -14,7 +14,7 @@ namespace conf
 {
 
 // Typedef to represent ip address and port pair.
-typedef std::pair<std::string,std::string> ip_port_pair;
+typedef std::pair<std::string, std::string> ip_port_pair;
 
 // Holds contextual information about the currently loaded contract.
 struct contract_ctx
@@ -27,6 +27,8 @@ struct contract_ctx
     std::string logDir;      // Contract log dir
     std::string configDir;   // Contract config dir
     std::string configFile;  // Full path to the contract config file
+    std::string tlsKeyFile;     // Full path to the tls secret key file
+    std::string tlsCertFile; // Full path to the tls certificate
 };
 
 // Holds all the contract config values.

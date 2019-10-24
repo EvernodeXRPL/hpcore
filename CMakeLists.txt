@@ -34,5 +34,6 @@ target_link_libraries(hpcore
     ${Boost_LOG_SETUP_LIBRARY}
     stdc++fs
     pthread
-    protobuf.a
+    crypto
+    ssl
 )

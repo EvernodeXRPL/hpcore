@@ -124,6 +124,8 @@ void set_contract_dir_paths(std::string basedir)
     ctx.contractDir = basedir;
     ctx.configDir = basedir + "/cfg";
     ctx.configFile = ctx.configDir + "/hp.cfg";
+    ctx.tlsKeyFile = ctx.configDir + "/key.pem";
+    ctx.tlsCertFile = ctx.configDir + "/cert.pem";
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
     ctx.logDir = basedir + "/log";
@@ -191,14 +193,14 @@ int load_config()
     cfg.peers.clear();
     for (auto &v : d["peers"].GetArray())
     {
-        const char* ipport_concat = v.GetString();
+        const char *ipport_concat = v.GetString();
         // Split the address:port text into two
         boost::split(splitted_peers, ipport_concat, boost::is_any_of(":"));
         if (splitted_peers.size() == 2)
         {
-            // Push the peer address and the port to peers array
-            cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), splitted_peers.back())));
-            splitted_peers.clear();
+        // Push the peer address and the port to peers array
+        cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), splitted_peers.back())));
+        splitted_peers.clear();
         }
     }
 
@@ -236,8 +238,7 @@ int load_config()
         return -1;
 
     return 0;
-}
-
+} 
 /**
  * Saves the current values of the 'cfg' struct into the config file.
  * 
@@ -443,13 +444,23 @@ int validate_config()
  */
 int validate_contract_dir_paths()
 {
-    std::string dirs[4] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir};
+    std::string paths[6] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir, ctx.tlsKeyFile, ctx.tlsCertFile};
 
-    for (std::string &dir : dirs)
+    for (std::string &path : paths)
     {
-        if (!std::experimental::filesystem::exists(dir))
+        if (!std::experimental::filesystem::exists(path))
         {
-            std::cout << dir << " does not exist.\n";
+            if(path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
+            {
+                std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n" <<
+                    "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem\n" <<
+                    "and add it to "+ ctx.configDir;
+            }
+            else
+            {
+                std::cout << path << " does not exist.\n";
+            }
+
             return -1;
         }
     }

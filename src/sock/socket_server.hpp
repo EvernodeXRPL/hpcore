@@ -1,14 +1,12 @@
 #ifndef _SOCK_SERVER_LISTENER_H_
 #define _SOCK_SERVER_LISTENER_H_
 
-#include <boost/asio.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
 #include "socket_session_handler.hpp"
+#include "../conf.hpp"
 #include "../hplog.hpp"
 
-namespace net = boost::asio; // namespace asio
+namespace net = boost::asio;      // namespace asio
+namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 
 using tcp = net::ip::tcp;
 using error_code = boost::system::error_code;
@@ -24,24 +22,25 @@ template <class T>
 class socket_server : public std::enable_shared_from_this<socket_server<T>>
 {
     tcp::acceptor acceptor;                  // acceptor which accepts new connections
-    tcp::socket socket;                      // socket in which the client connects
+    net::io_context &ioc;                    // socket in which the client connects
+    ssl::context &ctx;                       // ssl context which provides support for tls
     socket_session_handler<T> &sess_handler; // handler passed to gain access to websocket events
     session_options &sess_opts;              // store session specific options
 
     void fail(error_code ec, char const *what);
 
-    void on_accept(error_code ec);
+    void on_accept(error_code ec, tcp::socket socket);
 
 public:
-    socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt);
+    socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt);
 
     // Start accepting incoming connections
     void run();
 };
 
 template <class T>
-socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt)
-    : acceptor(ioc), socket(ioc), sess_handler(session_handler), sess_opts(sess_opt)
+socket_server<T>::socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<T> &session_handler, session_options &sess_opt)
+: acceptor(net::make_strand(ioc)), ioc(ioc), ctx(ctx), sess_handler(session_handler), sess_opts(sess_opt)
 {
     error_code ec;
 
@@ -85,13 +84,55 @@ socket_server<T>::socket_server(net::io_context &ioc, tcp::endpoint endpoint, so
 template <class T>
 void socket_server<T>::run()
 {
+    // Adding ssl context options disallowing requests which supports sslv2 and sslv3 which have security vulnerabilitis
+    ctx.set_options(
+        boost::asio::ssl::context::default_workarounds |
+        boost::asio::ssl::context::no_sslv2 |
+        boost::asio::ssl::context::no_sslv3);
+
+    //Providing the certification file for ssl context
+    ctx.use_certificate_chain_file(conf::ctx.tlsCertFile);
+
+    // Providing key file for the ssl context
+    ctx.use_private_key_file(
+        conf::ctx.tlsKeyFile,
+        boost::asio::ssl::context::pem);
 
     // Start accepting a connection
     acceptor.async_accept(
-        socket,
-        [self = this->shared_from_this()](error_code ec) {
-            self->on_accept(ec);
-        });
+        net::make_strand(ioc),
+        beast::bind_front_handler(
+            &socket_server<T>::on_accept,
+            this->shared_from_this()));
+}
+
+/**
+ * Executes on acceptance of new connection
+*/
+template <class T>
+void socket_server<T>::on_accept(error_code ec, tcp::socket socket)
+{
+    if (ec)
+    {
+        return fail(ec, "accept");
+    }
+    else
+    {
+        //Creating websocket stream required to pass to initiate a new session
+        websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws(std::move(socket), ctx);
+
+        // Launch a new session for this connection
+        std::make_shared<socket_session<T>>(
+            ws, sess_handler)
+            ->server_run(socket.remote_endpoint().address().to_string(), std::to_string(socket.remote_endpoint().port()), );
+    }
+
+    // Accept another connection
+    acceptor.async_accept(
+        net::make_strand(ioc),
+        beast::bind_front_handler(
+            &socket_server<T>::on_accept,
+            this->shared_from_this()));
 }
 
 /**
@@ -104,36 +145,6 @@ void socket_server<T>::fail(error_code ec, char const *what)
     if (ec == net::error::operation_aborted)
         return;
     LOG_ERR << what << ": " << ec.message();
-}
-
-/**
- * Executes on acceptance of new connection
-*/
-template <class T>
-void socket_server<T>::on_accept(error_code ec)
-{
-    if (ec)
-    {
-        return fail(ec, "accept");
-    }
-    else
-    {
-        //Creating websocket stream required to pass to initiate a new session
-        websocket::stream<beast::tcp_stream> ws(std::move(socket));
-
-       
-        // Launch a new session for this connection
-        std::make_shared<socket_session<T>>(
-            ws, sess_handler)
-            ->server_run(socket.remote_endpoint().address().to_string(), std::to_string(socket.remote_endpoint().port()), );
-    }
-
-    // Accept another connection
-    acceptor.async_accept(
-        socket,
-        [self = this->shared_from_this()](error_code ec) {
-            self->on_accept(ec);
-        });
 }
 
 } // namespace sock

@@ -4,17 +4,20 @@
 #include <rapidjson/document.h>
 #include <sodium.h>
 #include <boost/thread/thread.hpp>
+#include "usr.hpp"
+#include "user_session_handler.hpp"
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_session_handler.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
-#include "usr.hpp"
-#include "user_session_handler.hpp"
 
 namespace usr
 {
+
+// The SSL context is required, and holds certificates
+ssl::context ctx{ssl::context::tlsv13};
 
 /**
  * Connected (authenticated) user list. (Exposed to other sub systems)
@@ -254,8 +257,10 @@ void start_listening()
     sess_opts.max_message_size = conf::cfg.pubmaxsize;
 
     auto address = net::ip::make_address(conf::cfg.listenip);
+
     std::make_shared<sock::socket_server<user_outbound_message>>(
         ioc,
+        ctx,
         tcp::endpoint{address, conf::cfg.pubport},
         global_usr_session_handler)
         ->run(sess_opts);
