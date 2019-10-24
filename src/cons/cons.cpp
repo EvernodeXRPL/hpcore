@@ -6,6 +6,7 @@
 #include "../p2p/p2p.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
+#include "../proc.hpp"
 #include "cons.hpp"
 
 namespace cons
@@ -21,6 +22,24 @@ void increment(std::unordered_map<T, int32_t> &counter, T &candidate)
         counter[candidate]++;
     else
         counter.try_emplace(candidate, 1);
+}
+
+float get_stage_threshold(int8_t stage)
+{
+    float vote_threshold = cons::STAGE1_THRESHOLD;
+    switch (stage)
+    {
+    case 1:
+        vote_threshold = cons::STAGE1_THRESHOLD * conf::cfg.unl.size();
+        break;
+    case 2:
+        vote_threshold = cons::STAGE2_THRESHOLD * conf::cfg.unl.size();
+        break;
+    case 3:
+        vote_threshold = cons::STAGE3_THRESHOLD * conf::cfg.unl.size();
+        break;
+    }
+    return vote_threshold;
 }
 
 void consensus()
@@ -44,7 +63,6 @@ void consensus()
         }
 
         //get user inputs
-        std::unordered_map<std::string, std::string> user_inputs;
         for (auto &[sid, user] : usr::users)
         {
             // add all the connections we host
@@ -54,12 +72,17 @@ void consensus()
             std::string inputtosend;
             inputtosend.swap(user.inbuffer);
 
-            user_inputs.try_emplace(user.pubkey, std::move(inputtosend));
+            proposal.raw_inputs.try_emplace(user.pubkey, std::move(inputtosend));
         }
 
-        // todo:propose outputs from previous round if any
-        //  for (var user in ram.consensus.local_output_dict)
-        //         proposal.out[user] = ram.consensus.local_output_dict[user]
+        //propose outputs from previous round if any.
+        for (auto &[pubkey, bufpair] : cons::local_userbuf)
+        {
+            if (!bufpair.second.empty())
+            {
+                proposal.raw_outputs.try_emplace(pubkey, bufpair.second);
+            }
+        }
 
         // todo: set propsal states
 
@@ -67,7 +90,7 @@ void consensus()
         //todo:generate proposal hash and check with consensus_ctx.novel_proposal, we are sending same proposal again/
 
         proposal.time = time_now;
-
+        proposal.stage = 0;
         //broadcast_to_peers(sign_peer_message(proposal).signed)
         break;
     }
@@ -76,6 +99,7 @@ void consensus()
     case 3:
     {
         //copy proposals
+        consensus_ctx.proposals.swap(p2p::collected_msgs.proposals);
         //consensus_ctx.proposals = ;
 
         //vote counters
@@ -141,7 +165,8 @@ void consensus()
                     possible_input.append(input.second);
 
                     auto hash = crypto::sha_512_hash(possible_input, "INP", 3);
-                    consensus_ctx.possible_inputs.try_emplace(hash, input.first);
+                    auto input_pair = std::make_pair(input.first, input.second);
+                    consensus_ctx.possible_inputs.try_emplace(std::move(hash), std::move(input_pair));
                     increment<std::string>(votes.inputs, hash);
                 }
             }
@@ -164,7 +189,8 @@ void consensus()
                     possible_output.append(output.second);
 
                     auto hash = crypto::sha_512_hash(possible_output, "OUT", 3);
-                    consensus_ctx.possible_outputs.try_emplace(hash, output.first);
+                    auto output_pair = std::make_pair(output.first, output.second);
+                    consensus_ctx.possible_outputs.try_emplace(std::move(hash), std::move(output_pair));
                     increment<std::string>(votes.outputs, hash);
                 }
             }
@@ -179,19 +205,7 @@ void consensus()
             // repeat above for state
         }
 
-        float vote_threshold = cons::STAGE1_THRESHOLD;
-        switch (consensus_ctx.stage)
-        {
-        case 1:
-            vote_threshold = cons::STAGE1_THRESHOLD * conf::cfg.unl.size();
-            break;
-        case 2:
-            vote_threshold = cons::STAGE2_THRESHOLD * conf::cfg.unl.size();
-            break;
-        case 3:
-            vote_threshold = cons::STAGE3_THRESHOLD * conf::cfg.unl.size();
-            break;
-        }
+        float vote_threshold = get_stage_threshold(consensus_ctx.stage);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -221,7 +235,7 @@ void consensus()
         {
             if (time.second > largestvote)
             {
-                largestvote = time.second;
+                largest_vote = time.second;
                 proposal.time = time.first;
             }
         }
@@ -239,7 +253,7 @@ void consensus()
 
         if (consensus_ctx.stage == 3)
         {
-            // apply_ledger(proposal)
+            apply_ledger(proposal);
         }
     }
     }
@@ -251,8 +265,81 @@ void consensus()
     //     std::this_thread::sleep_for(timespan);
     // else
     //     usleep(1);
-
+    consensus_ctx.proposals.clear();
     consensus_ctx.stage = (consensus_ctx.stage + 1) % 4;
+}
+
+void apply_ledger(p2p::proposal proposal)
+{
+    //todo:write lcl.
+
+    // first send out any relevant output from the previous consensus round and execution
+    for (auto &hash : proposal.hash_outputs)
+    {
+        auto itr = consensus_ctx.possible_outputs.find(hash);
+        if (itr != consensus_ctx.possible_outputs.end())
+        {
+            LOG_DBG << "output required" << hash << "but wasn't in our possible output dict, this will potentially cause desync";
+            // todo: consider fatal
+        }
+        else
+        {
+            auto output = itr->second.second;
+            //send outputs.
+            const std::string sessionid = usr::sessionids[itr->second.first];
+            // Find the user by session id.
+            auto itr = usr::users.find(sessionid);
+            const usr::connected_user &user = itr->second;
+            user.session->send(std::move(output));
+        }
+    }
+
+    // now we can safely clear our outputs.
+    consensus_ctx.possible_outputs.empty();
+
+    //todo:check  state against the winning / canonical state
+    //and act accordingly (rollback, ask state from peer, etc.)
+
+    //create input to feed to binary contract run
+
+    //todo:remove entries from pending inputs that made their way into a closed ledger
+    for (auto &hash : proposal.hash_inputs)
+    {
+        auto itr = consensus_ctx.possible_inputs.find(hash);
+        if (itr != consensus_ctx.possible_inputs.end())
+        {
+            LOG_DBG << "input required" << hash << "but wasn't in our possible input dict, this will potentially cause desync";
+            // todo: consider fatal
+        }
+        else
+        {
+            //todo: check if the pending input for this user contains any more data  and remove them.
+
+            for (auto &input : consensus_ctx.possible_inputs)
+            {
+                std::pair<std::string, std::string> bufpair;
+                std::string inputtosend;
+                inputtosend.swap(input.second.second);
+                bufpair.first = std::move(inputtosend);
+                cons::local_userbuf.emplace(input.second.first, std::move(bufpair));
+            }
+        }
+    }
+
+    run_contract_binary();
+}
+
+void run_contract_binary()
+{
+    //consensus_ctx.possible_inputs
+    std::time_t time_now = std::time(nullptr);
+    std::pair<std::string, std::string> hpscbufpair;
+    hpscbufpair.first = "{msg:'Message from HP'}";
+
+    std::unordered_map<std::string, std::pair<std::string, std::string>> nplbufs;
+
+    proc::ContractExecArgs eargs(123123345, cons::local_userbuf, nplbufs, hpscbufpair);
+    proc::exec_contract(eargs);
 }
 
 } // namespace cons

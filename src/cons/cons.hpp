@@ -23,13 +23,18 @@ static const float STAGE3_THRESHOLD = 0.8;
 struct consensus_context
 {
     std::vector<p2p::proposal> proposals;
-    int stage;
+    int8_t stage;
     std::time_t novel_proposal_time;
     std::string lcl;
     std::string novel_proposal;
-    std::unordered_map<std::string, std::string> possible_inputs;
-    std::unordered_map<std::string, std::string> possible_outputs;
+    std::map<std::string, std::pair<std::string, std::string>> possible_inputs;
+    std::map<std::string, std::pair<std::string, std::string>> possible_outputs;
+    int32_t next_sleep;
 };
+
+std::map<std::string, std::string> local_outputs;
+std::map<std::string, std::pair<std::string, std::string>> local_inputs;
+std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;//local_outputs
 
 struct vote_counter
 {
@@ -45,6 +50,9 @@ extern consensus_context consensus_ctx;
 
 void consensus();
 
+void apply_ledger(p2p::proposal proposal);
+
+void run_contract_binary();
 } // namespace cons
 
 #endif
