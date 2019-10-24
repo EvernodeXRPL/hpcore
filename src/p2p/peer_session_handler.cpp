@@ -48,11 +48,11 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
     else
     {
         // todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
-        peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+        // peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
 
-        proposal p;
-        create_msg_from_proposal(msg.builder(), p);
-        session->send(msg);
+        // proposal p;
+        // create_msg_from_proposal(msg.builder(), p);
+        // session->send(msg);
     }
 }
 

@@ -33,8 +33,8 @@ struct consensus_context
     int32_t next_sleep;
 };
 
-std::map<std::string, std::pair<const std::string, const std::string>> local_inputs;
-std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;//local_outputs
+extern std::map<std::string, std::pair<const std::string, const std::string>> local_inputs;
+extern std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;
 
 struct vote_counter
 {
@@ -53,6 +53,7 @@ void consensus();
 void apply_ledger(p2p::proposal proposal);
 
 void run_contract_binary();
+
 } // namespace cons
 
 #endif

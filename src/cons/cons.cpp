@@ -6,6 +6,7 @@
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
 #include "../p2p/peer_message_handler.hpp"
+#include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
 #include "../proc.hpp"
@@ -17,6 +18,9 @@ namespace cons
 
 consensus_context consensus_ctx;
 std::vector<p2p::proposal> consensus_proposals;
+std::map<std::string, std::pair<const std::string, const std::string>> local_inputs;
+std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;
+
 
 template <typename T>
 void increment(std::unordered_map<T, int32_t> &counter, const T &candidate)
@@ -79,7 +83,7 @@ void consensus()
         }
 
         //propose outputs from previous round if any.
-        for (auto &[pubkey, bufpair] : cons::local_userbuf)
+        for (auto &[pubkey, bufpair] : local_userbuf)
         {
             if (!bufpair.second.empty())
             {
@@ -94,7 +98,16 @@ void consensus()
 
         proposal.time = time_now;
         proposal.stage = 0;
-        //broadcast_to_peers(sign_peer_message(proposal).signed)
+
+        //broadcast proposal to peers
+        p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+        p2p::create_msg_from_proposal(msg.builder(), proposal);
+
+        for (auto &[k, session] : p2p::peer_connections)
+        {
+            session->send(msg);
+        }
+
         break;
     }
     case 1:
@@ -249,13 +262,13 @@ void consensus()
         proposal.lcl = consensus_ctx.lcl;
 
         //send proposal
-        //1.create flatbuffer content.
-        //2.sign message
-        //3.create container.
-        //4. broadcast tha message.
+        p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+        p2p::create_msg_from_proposal(msg.builder(), proposal);
 
-        flatbuffers::FlatBufferBuilder builder(1024);
-        p2p::create_msg_from_proposal(builder, proposal);
+        for (auto &[k, session] : p2p::peer_connections)
+        {
+            session->send(msg);
+        }
 
         if (consensus_ctx.stage == 3)
         {
@@ -327,7 +340,7 @@ void apply_ledger(p2p::proposal proposal)
                 std::string inputtosend;
                 inputtosend.swap(input.second.second);
                 bufpair.first = std::move(inputtosend);
-                cons::local_userbuf.emplace(input.second.first, std::move(bufpair));
+                local_userbuf.emplace(input.second.first, std::move(bufpair));
             }
         }
     }
@@ -345,7 +358,7 @@ void run_contract_binary()
 
     std::unordered_map<std::string, std::pair<std::string, std::string>> nplbufs;
 
-    proc::ContractExecArgs eargs(123123345, cons::local_userbuf, nplbufs, hpscbufpair);
+    proc::ContractExecArgs eargs(123123345, local_userbuf, nplbufs, hpscbufpair);
     proc::exec_contract(eargs);
 }
 
