@@ -175,19 +175,19 @@ const proposal create_proposal_from_msg(const Proposal_Message &msg)
         p.lcl = flatbuff_bytes_to_sv(msg.lcl());
 
     if (msg.users())
-        p.users = flatbuf_bytearrayvector_to_vector(msg.users());
+        p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
 
     if (msg.raw_inputs())
-        p.raw_inputs = flatbuf_pairvector_to_map(msg.raw_inputs());
+        p.raw_inputs = flatbuf_pairvector_to_stringmap(msg.raw_inputs());
 
     if (msg.hash_inputs())
-        p.hash_inputs = flatbuf_bytearrayvector_to_vector(msg.hash_inputs());
+        p.hash_inputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_inputs());
 
     if (msg.raw_outputs())
-        p.raw_outputs = flatbuf_pairvector_to_map(msg.raw_outputs());
+        p.raw_outputs = flatbuf_pairvector_to_stringmap(msg.raw_outputs());
 
     if (msg.hash_outputs())
-        p.hash_outputs = flatbuf_bytearrayvector_to_vector(msg.hash_outputs());
+        p.hash_outputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_outputs());
 
     return p;
 }
@@ -213,11 +213,11 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             p.stage,
             p.time,
             sv_to_flatbuff_bytes(builder, p.lcl),
-            vector_to_flatbuf_bytearrayvector(builder, p.users),
-            vector_to_flatbuf_bytepairvector(builder, p.raw_inputs),
-            vector_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-            vector_to_flatbuf_bytepairvector(builder, p.raw_outputs),
-            vector_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
+            stringlist_to_flatbuf_bytearrayvector(builder, p.users),
+            stringmap_to_flatbuf_bytepairvector(builder, p.raw_inputs),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
+            stringmap_to_flatbuf_bytepairvector(builder, p.raw_outputs),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -276,23 +276,25 @@ std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer
 }
 
 /**
- * Returns std::vector from Flatbuffer vector of ByteArrays.
+ * Returns set from Flatbuffer vector of ByteArrays.
  */
-const std::vector<std::string> flatbuf_bytearrayvector_to_vector(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec)
+const std::unordered_set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec)
 {
-    std::vector<std::string> vec;
+    std::unordered_set<std::string> set;
+    set.reserve(fbvec->size());
     for (auto el : *fbvec)
-        vec.push_back(std::string(flatbuff_bytes_to_sv(el->array())));
-    return vec;
+        set.emplace(std::string(flatbuff_bytes_to_sv(el->array())));
+    return set;
 }
 
 /**
  * Returns a map from Flatbuffer vector of key value pairs.
  */
-const std::unordered_map<std::string, std::string>
-flatbuf_pairvector_to_map(const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *fbvec)
+const std::unordered_map<std::string, const std::string>
+flatbuf_pairvector_to_stringmap(const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *fbvec)
 {
-    std::unordered_map<std::string, std::string> map;
+    std::unordered_map<std::string, const std::string> map;
+    map.reserve(fbvec->size());
     for (auto el : *fbvec)
         map.emplace(flatbuff_bytes_to_sv(el->key()), flatbuff_bytes_to_sv(el->value()));
     return map;
@@ -307,17 +309,18 @@ flatbuf_pairvector_to_map(const flatbuffers::Vector<flatbuffers::Offset<BytesKey
 const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>
 sv_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, std::string_view sv)
 {
-    return builder.CreateVector((uint8_t *)sv.data(), sv.size());
+    return builder.CreateVector(reinterpret_cast<const uint8_t *>(sv.data()), sv.size());
 }
 
 /**
- * Returns Flatbuffer vector of ByteArrays from given std::vector of strings.
+ * Returns Flatbuffer vector of ByteArrays from given set of strings.
  */
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
-vector_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::vector<std::string> &vec)
+stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_set<std::string> &set)
 {
     std::vector<flatbuffers::Offset<ByteArray>> fbvec;
-    for (std::string_view str : vec)
+    fbvec.reserve(set.size());
+    for (std::string_view str : set)
         fbvec.push_back(CreateByteArray(builder, sv_to_flatbuff_bytes(builder, str)));
     return builder.CreateVector(fbvec);
 }
@@ -326,9 +329,10 @@ vector_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const
  * Returns Flatbuffer vector of key value pairs from given map.
  */
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>>
-vector_to_flatbuf_bytepairvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::string> &map)
+stringmap_to_flatbuf_bytepairvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::string> &map)
 {
     std::vector<flatbuffers::Offset<BytesKeyValuePair>> fbvec;
+    fbvec.reserve(map.size());
     for (auto const &[key, value] : map)
     {
         fbvec.push_back(CreateBytesKeyValuePair(

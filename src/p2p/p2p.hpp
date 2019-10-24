@@ -1,7 +1,9 @@
 #ifndef _HP_P2P_H_
 #define _HP_P2P_H_
 
+#include <unordered_set>
 #include <unordered_map>
+#include <list>
 #include "../sock/socket_session.hpp"
 #include "peer_session_handler.hpp"
 
@@ -15,16 +17,16 @@ struct proposal
     int8_t stage;
     uint64_t time;
     std::string lcl;
-    std::vector<std::string> users;
-    std::unordered_map<std::string, std::string> raw_inputs;
-    std::vector<std::string> hash_inputs;
-    std::unordered_map<std::string, std::string> raw_outputs;
-    std::vector<std::string> hash_outputs;
+    std::unordered_set<std::string> users;
+    std::unordered_map<std::string, const std::string> raw_inputs;
+    std::unordered_set<std::string> hash_inputs;
+    std::unordered_map<std::string, const std::string> raw_outputs;
+    std::unordered_set<std::string> hash_outputs;
 };
 
 struct message_collection
 {
-    std::vector<proposal> proposals;
+    std::list<proposal> proposals;
 };
 
 /**
@@ -35,7 +37,7 @@ extern message_collection collected_msgs;
 /**
  * This is used to store active peer connections mapped by the unique key of socket session
  */
-extern std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
+extern std::unordered_map<std::string, const sock::socket_session<peer_outbound_message> *> peer_connections;
 
 /**
  * This is used to store hash of recent peer messages: messagehash -> timestamp of message
