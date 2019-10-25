@@ -95,6 +95,7 @@ int create_contract()
     cfg.pubmaxsize = 65536;
     cfg.pubmaxmpm = 100;
     cfg.peermaxsize = 65536;
+    cfg.peermaxmpm = 1000;
 
 #ifndef NDEBUG
     cfg.loglevel = "debug";
@@ -198,9 +199,9 @@ int load_config()
         boost::split(splitted_peers, ipport_concat, boost::is_any_of(":"));
         if (splitted_peers.size() == 2)
         {
-        // Push the peer address and the port to peers array
-        cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), splitted_peers.back())));
-        splitted_peers.clear();
+            // Push the peer address and the port to peers array
+            cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), splitted_peers.back())));
+            splitted_peers.clear();
         }
     }
 
@@ -227,6 +228,7 @@ int load_config()
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
     cfg.pubmaxmpm = d["pubmaxmpm"].GetInt();
     cfg.peermaxsize = d["peermaxsize"].GetInt();
+    cfg.peermaxmpm = d["peermaxmpm"].GetInt();
 
     cfg.loglevel = d["loglevel"].GetString();
     cfg.loggers.clear();
@@ -238,7 +240,7 @@ int load_config()
         return -1;
 
     return 0;
-} 
+}
 /**
  * Saves the current values of the 'cfg' struct into the config file.
  * 
@@ -291,6 +293,7 @@ int save_config()
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxmpm", cfg.pubmaxmpm, allocator);
     d.AddMember("peermaxsize", cfg.peermaxsize, allocator);
+    d.AddMember("peermaxmpm", cfg.peermaxmpm, allocator);
 
     d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
     rapidjson::Value loggers(rapidjson::kArrayType);
@@ -393,8 +396,8 @@ int validate_config()
 
     // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxmpm == 0 || cfg.peermaxsize == 0 ||
-        cfg.loglevel.empty() || cfg.loggers.empty())
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxmpm == 0 || cfg.peermaxsize == 0 || 
+        cfg.peermaxmpm == 0 || cfg.loglevel.empty() || cfg.loggers.empty())
     {
         std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
         return -1;
@@ -450,11 +453,11 @@ int validate_contract_dir_paths()
     {
         if (!std::experimental::filesystem::exists(path))
         {
-            if(path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
+            if (path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
             {
-                std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n" <<
-                    "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem\n" <<
-                    "and add it to "+ ctx.configDir;
+                std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
+                          << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem\n"
+                          << "and add it to " + ctx.configDir;
             }
             else
             {
@@ -480,7 +483,7 @@ int is_schema_valid(rapidjson::Document &d)
         "\"type\": \"object\","
         "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
         ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxmpm\""
-        ", \"peermaxsize\", \"loglevel\", \"loggers\" ],"
+        ", \"peermaxsize\", \"peermaxmpm\", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
@@ -502,6 +505,7 @@ int is_schema_valid(rapidjson::Document &d)
         "\"pubmaxsize\": { \"type\": \"integer\" },"
         "\"pubmaxmpm\": { \"type\": \"integer\" },"
         "\"peermaxsize\": { \"type\": \"integer\" },"
+        "\"peermaxmpm\": { \"type\": \"integer\" },"
         "\"loglevel\": { \"type\": \"string\" },"
         "\"loggers\": {"
         "\"type\": \"array\","
