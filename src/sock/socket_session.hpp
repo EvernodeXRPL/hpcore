@@ -96,7 +96,7 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    void run(const std::string &&address, const std::string &&port, bool is_server_session, session_options &sess_opts);
+    void run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
 
     void send(T msg);
 
@@ -134,7 +134,7 @@ void socket_session<T>::set_message_max_size(std::uint64_t size)
 
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
-void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, session_options &sess_opts)
+void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts)
 {
     ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
 
