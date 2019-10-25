@@ -122,6 +122,10 @@ socket_session<T>::~socket_session()
     sess_handler.on_close(this);
 }
 
+/**
+ * Sets the largest permissible incoming message size. If exceeds over this limit will cause a
+ * protocol failure
+*/
 template <class T>
 void socket_session<T>::set_message_max_size(std::uint64_t size)
 {

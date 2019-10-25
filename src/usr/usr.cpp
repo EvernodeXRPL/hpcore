@@ -53,7 +53,9 @@ net::io_context ioc;
  */
 std::thread listener_thread;
 
-//Used to pass down the default settings to the socket session
+/**
+ * Used to pass down the default settings to the socket session
+ */
 sock::session_options sess_opts;
 
 // Challenge response fields.
