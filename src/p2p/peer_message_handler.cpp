@@ -140,17 +140,17 @@ int validate_content_message(std::string_view message, std::string_view signatur
 
     // After signature is verified, get message hash and see wheteher
     // message is already recieved -> abandon if duplicate.
-    auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
+    // auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
 
-    if (recent_peer_msghash.count(messageHash) == 0)
-    {
-        recent_peer_msghash.try_emplace(std::move(messageHash), timestamp);
-    }
-    else
-    {
-        LOG_DBG << "Duplicate message";
-        return -1;
-    }
+    // if (recent_peer_msghash.count(messageHash) == 0)
+    // {
+    //     recent_peer_msghash.try_emplace(std::move(messageHash), timestamp);
+    // }
+    // else
+    // {
+    //     LOG_DBG << "Duplicate message";
+    //     return -1;
+    // }
 
     return 0;
 }
