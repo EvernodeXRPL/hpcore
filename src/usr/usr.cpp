@@ -53,6 +53,11 @@ net::io_context ioc;
  */
 std::thread listener_thread;
 
+/**
+ * Used to pass down the default settings to the socket session
+ */
+sock::session_options sess_opts;
+
 // Challenge response fields.
 // These fields are used on challenge response validation.
 static const char *CHALLENGE_RESP_TYPE = "type";
@@ -251,13 +256,17 @@ int remove_user(const std::string &sessionid)
  */
 void start_listening()
 {
+
     auto address = net::ip::make_address(conf::cfg.listenip);
+    sess_opts.max_message_size = conf::cfg.pubmaxsize;
+
 
     std::make_shared<sock::socket_server<user_outbound_message>>(
         ioc,
         ctx,
         tcp::endpoint{address, conf::cfg.pubport},
-        global_usr_session_handler)
+        global_usr_session_handler,
+        sess_opts)
         ->run();
 
     listener_thread = std::thread([&] { ioc.run(); });

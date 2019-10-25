@@ -14,7 +14,6 @@
 #include "../util.hpp"
 #include "../hplog.hpp"
 
-
 namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace websocket = boost::beast::websocket;
@@ -39,6 +38,12 @@ public:
     // Returns a pointer to the internal buffer owned by the message object.
     // Contents of this buffer is the message that is sent/received with the socket.
     virtual std::string_view buffer() = 0;
+};
+
+// Use this to feed the session with default options from the config file
+struct session_options
+{
+    std::uint64_t max_message_size;
 };
 
 //Forward Declaration
@@ -91,9 +96,11 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    void run(const std::string &&address, const std::string &&port, bool is_server_session);
+    void run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
 
     void send(T msg);
+
+    void set_message_max_size(std::uint64_t size);
 
     // When called, initializes the unique id string for this session.
     void init_uniqueid();
@@ -112,14 +119,30 @@ socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp
 template <class T>
 socket_session<T>::~socket_session()
 {
-     sess_handler.on_close(this);
+    sess_handler.on_close(this);
+}
+
+/**
+ * Sets the largest permissible incoming message size. If exceeds over this limit will cause a
+ * protocol failure
+*/
+template <class T>
+void socket_session<T>::set_message_max_size(std::uint64_t size)
+{
+    ws.read_message_max(size);
 }
 
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
-void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session)
+void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts)
 {
     ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
+
+    if (sess_opts.max_message_size > 0)
+    {
+        // Setting maximum file size
+        set_message_max_size(sess_opts.max_message_size);
+    }
 
     if (is_server_session)
     {
@@ -199,7 +222,7 @@ void socket_session<T>::on_accept(error_code ec)
     if (ec)
         return fail(ec, "accept");
 
-     sess_handler.on_connect(this);
+    sess_handler.on_connect(this);
 
     // Read a message
     ws.async_read(
@@ -235,7 +258,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
     // read and process the message and we will clear the buffer after its done with it.
     const char *buffer_data = net::buffer_cast<const char *>(buffer.data());
     std::string_view message(buffer_data, buffer.size());
-     sess_handler.on_message(this, message);
+    sess_handler.on_message(this, message);
 
     // Clear the buffer
     buffer.consume(buffer.size());
