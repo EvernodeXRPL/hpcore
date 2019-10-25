@@ -25,6 +25,5 @@ let pubport=8080+$n
 # We specify --name for each node so it will be the virtual dns name for each node.
 docker run --rm -t -i --network=hpnet --name=node${n} \
     -p ${pubport}:${pubport} \
-    # -p ${peerport}:${peerport} \ #Uncomment if peer port needs to be exposed to host.
-    --mount type=bind,source=${clusterloc}/node${n},target=/contract \ # Mount the node directory.
+    --mount type=bind,source=${clusterloc}/node${n},target=/contract \
     hpcore:latest run /contract

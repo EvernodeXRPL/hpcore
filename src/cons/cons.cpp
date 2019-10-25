@@ -55,9 +55,8 @@ void wait_for_proposals(bool reset)
 {
     if (reset)
         consensus_ctx.stage = 0;
-    sleep(1);
-    // std::chrono::milliseconds timespan(1);
-    // std::this_thread::sleep_for(timespan);
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
 void consensus()
@@ -108,11 +107,16 @@ void consensus()
         //propose outputs from previous round if any.
         for (auto &[pubkey, bufpair] : local_userbuf)
         {
-            if (!bufpair.second.empty())
+            LOG_DBG << "local_userbuf:[" << bufpair.second.size() << "]";
+
+            if (!bufpair.second.empty()) // bufpair.second is the output buffer.
             {
-                proposal.raw_outputs.try_emplace(pubkey, bufpair.second);
+                std::string rawoutput;
+                rawoutput.swap(bufpair.second);
+                proposal.raw_outputs.try_emplace(pubkey, std::move(rawoutput));
             }
         }
+        local_userbuf.clear();
 
         // todo: set propsal states
 
@@ -178,7 +182,7 @@ void consensus()
         {
             LOG_DBG << "wait for proposals becuase node is ahead of consensus stage:" << std::to_string(wining_stage);
             // LOG_DBG << 'stage votes' << stage_votes ;
-            return;
+            return wait_for_proposals((time_now - consensus_ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4));
         }
         else if (wining_stage > consensus_ctx.stage - 1)
         {
@@ -213,16 +217,20 @@ void consensus()
             if (!rc_proposal.raw_inputs.empty())
             {
                 //todo:
-                for (auto input : rc_proposal.raw_inputs)
+                for (auto &[pubkey, input] : rc_proposal.raw_inputs)
                 {
-                    std::string possible_input = input.first;
-                    possible_input.reserve(input.second.size());
-                    possible_input.append(input.second);
+                    std::string possible_input;
+                    possible_input.reserve(pubkey.size() + input.size());
+                    possible_input.append(pubkey);
+                    possible_input.append(input);
 
                     auto hash = crypto::sha_512_hash(possible_input, "INP", 3);
-                    auto input_pair = std::make_pair(input.first, input.second);
-                    consensus_ctx.possible_inputs.try_emplace(std::move(hash), std::move(input_pair));
                     increment<std::string>(votes.inputs, hash);
+
+                    LOG_DBG << "Added hashsize: " << hash.size() << " with input: " << input;
+                    consensus_ctx.possible_inputs.try_emplace(
+                        std::move(hash),
+                        std::make_pair(pubkey, input));
                 }
             }
             else if (!rc_proposal.hash_inputs.empty())
@@ -244,7 +252,7 @@ void consensus()
                     string_to_hash.append(pubkey);
                     string_to_hash.append(output);
 
-                    LOG_DBG << "raw_outputs:[" << output << "]";
+                    LOG_DBG << "raw_outputs:[" << output.size() << "]";
 
                     std::string hash = crypto::sha_512_hash(string_to_hash, "OUT", 3);
                     increment<std::string>(votes.outputs, hash);
@@ -332,13 +340,14 @@ void consensus()
     }
     }
 
-    // auto time_to_sleep = conf::cfg.roundtime / 4;
-    // std::chrono::milliseconds timespan(time_to_sleep);
-    // // // after a novel proposal we will just busy wait for proposals
-    // if (consensus_ctx.stage > 0)
-    //     std::this_thread::sleep_for(timespan);
-    //else
-    sleep(1);
+    auto time_to_sleep = conf::cfg.roundtime / 4;
+    
+    // // after a novel proposal we will just busy wait for proposals
+    if (consensus_ctx.stage > 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(time_to_sleep));
+    else
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
     consensus_ctx.proposals.clear();
     consensus_ctx.stage = (consensus_ctx.stage + 1) % 4;
 }
@@ -347,11 +356,12 @@ void apply_ledger(p2p::proposal proposal)
 {
     //todo:write lcl.
 
+    LOG_DBG << "possible_outputs: " << consensus_ctx.possible_outputs.size();
     // first send out any relevant output from the previous consensus round and execution
     for (auto &hash : proposal.hash_outputs)
     {
         auto itr = consensus_ctx.possible_outputs.find(hash);
-        if (itr != consensus_ctx.possible_outputs.end())
+        if (itr == consensus_ctx.possible_outputs.end())
         {
             LOG_DBG << "output required but wasn't in our possible output dict, this will potentially cause desync";
             // todo: consider fatal
@@ -380,7 +390,7 @@ void apply_ledger(p2p::proposal proposal)
                     usr::user_outbound_message outmsg(std::move(outputtosend));
                     LOG_DBG << "D";
 
-                    user.session->send(outmsg);
+                    user.session->send(std::move(outmsg));
                     LOG_DBG << "E";
                 }
             }
@@ -399,27 +409,28 @@ void apply_ledger(p2p::proposal proposal)
     for (auto &hash : proposal.hash_inputs)
     {
         auto itr = consensus_ctx.possible_inputs.find(hash);
-        if (itr != consensus_ctx.possible_inputs.end())
+        if (itr == consensus_ctx.possible_inputs.end())
         {
-            LOG_DBG << "input required" << hash << "but wasn't in our possible input dict, this will potentially cause desync";
+            LOG_DBG << "input required hashsize:" << hash.size() << " but wasn't in our possible input dict, this will potentially cause desync";
             // todo: consider fatal
         }
         else
         {
             //todo: check if the pending input for this user contains any more data  and remove them.
 
-            for (auto &input : consensus_ctx.possible_inputs)
+            for (auto &[hash, userinput] : consensus_ctx.possible_inputs)
             {
                 std::pair<std::string, std::string> bufpair;
                 std::string inputtosend;
-                inputtosend.swap(input.second.second);
+                inputtosend.swap(userinput.second);
                 bufpair.first = std::move(inputtosend);
-                local_userbuf.emplace(input.second.first, std::move(bufpair));
+                LOG_DBG << "local_userbuf count: " << local_userbuf.size();
+                local_userbuf.try_emplace(userinput.first, std::move(bufpair));
             }
+            consensus_ctx.possible_inputs.empty();
         }
     }
 
-    consensus_ctx.possible_inputs.empty();
     run_contract_binary();
 }
 

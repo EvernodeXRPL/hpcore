@@ -137,7 +137,6 @@ int main(int argc, char **argv)
 
                 while (true)
                 {
-                    sleep(2);
                     cons::consensus();
                 }
 
