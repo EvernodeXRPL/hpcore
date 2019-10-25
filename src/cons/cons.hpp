@@ -17,24 +17,22 @@ static const float STAGE2_THRESHOLD = 0.65;
 //stage 3 vote threshold
 static const float STAGE3_THRESHOLD = 0.8;
 
-
 /**
  * This is used to store consensus information
  */
 struct consensus_context
 {
-    std::list<p2p::proposal> proposals;
     int8_t stage;
     std::time_t novel_proposal_time;
     std::string lcl;
     std::string novel_proposal;
     std::map<std::string, std::pair<const std::string, std::string>> possible_inputs;
     std::map<std::string, std::pair<const std::string, std::string>> possible_outputs;
+
+    std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;
+
     int32_t next_sleep;
 };
-
-extern std::map<std::string, std::pair<const std::string, const std::string>> local_inputs;
-extern std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;
 
 struct vote_counter
 {
@@ -46,13 +44,24 @@ struct vote_counter
     std::unordered_map<uint64_t, int32_t> time;
 };
 
-extern consensus_context consensus_ctx;
+extern consensus_context ctx;
 
 void consensus();
 
-void apply_ledger(p2p::proposal proposal);
+void apply_ledger(const p2p::proposal &proposal);
 
-void run_contract_binary();
+float_t get_stage_threshold(int8_t stage);
+
+void wait_for_proposals(bool reset);
+
+void emit_stage0_proposal(time_t time_now);
+
+p2p::proposal emit_stage123_proposal(
+    time_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
+
+int8_t get_winning_stage(const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
+
+void run_contract_binary(std::time_t time);
 
 } // namespace cons
 

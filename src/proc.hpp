@@ -40,10 +40,10 @@ struct ContractExecArgs
     std::pair<std::string, std::string> &hpscbufs;
     
     // Current HotPocket timestamp.
-    uint64_t timestamp;
+    time_t timestamp;
 
     ContractExecArgs(
-        uint64_t _timestamp,
+        time_t _timestamp,
         contract_bufmap &_userbufs,
         contract_bufmap &_nplbufs,
         std::pair<std::string, std::string> &_hpscbufs) :

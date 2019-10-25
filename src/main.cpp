@@ -133,7 +133,7 @@ int main(int argc, char **argv)
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
                 
-                cons::consensus_ctx.stage = 0;
+                cons::ctx.stage = 0;
 
                 while (true)
                 {
