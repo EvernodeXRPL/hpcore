@@ -2,6 +2,9 @@
 #include <ctime>
 #include <unordered_map>
 #include <list>
+#include <math.h>
+#include <chrono>
+#include <thread>
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
@@ -21,7 +24,6 @@ std::vector<p2p::proposal> consensus_proposals;
 std::map<std::string, std::pair<const std::string, const std::string>> local_inputs;
 std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;
 
-
 template <typename T>
 void increment(std::unordered_map<T, int32_t> &counter, const T &candidate)
 {
@@ -33,7 +35,7 @@ void increment(std::unordered_map<T, int32_t> &counter, const T &candidate)
 
 float get_stage_threshold(int8_t stage)
 {
-    float vote_threshold = cons::STAGE1_THRESHOLD;
+    float vote_threshold = -1;
     switch (stage)
     {
     case 1:
@@ -49,10 +51,20 @@ float get_stage_threshold(int8_t stage)
     return vote_threshold;
 }
 
+void wait_for_proposals(bool reset)
+{
+    if (reset)
+        consensus_ctx.stage = 0;
+    sleep(1);
+    // std::chrono::milliseconds timespan(1);
+    // std::this_thread::sleep_for(timespan);
+}
+
 void consensus()
 {
     std::time_t time_now = std::time(nullptr);
     p2p::proposal proposal;
+    proposal.stage = consensus_ctx.stage;
 
     switch (consensus_ctx.stage)
     {
@@ -95,9 +107,8 @@ void consensus()
 
         consensus_ctx.novel_proposal_time = time_now;
         //todo:generate proposal hash and check with consensus_ctx.novel_proposal, we are sending same proposal again/
-
+        proposal.lcl = consensus_ctx.lcl;
         proposal.time = time_now;
-        proposal.stage = 0;
 
         //broadcast proposal to peers
         p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
@@ -123,6 +134,7 @@ void consensus()
 
         for (auto &rc_proposal : consensus_ctx.proposals)
         {
+            LOG_WARN << "proposal 4" << consensus_ctx.proposals;
             //vote stages if only proposal lcl is match with node's last consensus lcl
             if (proposal.lcl == consensus_ctx.lcl)
             {
@@ -134,6 +146,7 @@ void consensus()
 
         int32_t largestvote = 0;
         int8_t wining_stage = -1;
+        votes.stage.clear();
         for (auto &stage : votes.stage)
         {
             if (stage.second > largestvote)
@@ -143,16 +156,21 @@ void consensus()
             }
         }
 
+        LOG_WARN << "our desireble stage" << std::to_string((consensus_ctx.stage -1)) << "winning stage" << std::to_string(wining_stage);
+
         // check if we're ahead/behind of consensus
         if (wining_stage < consensus_ctx.stage - 1)
         {
             LOG_DBG << "wait for proposals becuase node is ahead of consensus" << wining_stage;
+            LOG_WARN << "wait for proposals becuase node is ahead of consensus" << wining_stage;
             // LOG_DBG << 'stage votes' << stage_votes ;
-            // wait_for_proposals => wait_time = (time - ram.consensus.novel_proposal_time < Math.floor(node.roundtime / 1000)))
+            return;
         }
         else if (wining_stage > consensus_ctx.stage - 1)
         {
             LOG_DBG << "wait for proposals becuase node is behind of consensus " << wining_stage;
+            LOG_WARN << "wait for proposals becuase node is behind of consensus " << wining_stage;
+            return wait_for_proposals(true);
             //return wait_for_proposals =>reset = true
         }
 
@@ -230,14 +248,18 @@ void consensus()
 
         //add user connections which have votes over stage threshold to proposal.
         for (auto usr : votes.users)
+        {
+            LOG_WARN << "stage" << consensus_ctx.stage << "vote " << usr.second;
             if (usr.second >= vote_threshold || (usr.second > 0 && consensus_ctx.stage == 1))
                 proposal.users.emplace(usr.first);
-
+        }
         //add inputs which have votes over stage threshold to proposal.
         for (auto input : votes.inputs)
+        {
+            LOG_WARN << "input" << consensus_ctx.stage << "vote " << input.second;
             if (input.second >= vote_threshold || (input.second > 0 && consensus_ctx.stage == 1))
                 proposal.hash_inputs.emplace(input.first);
-
+        }
         //add outputs which have votes over stage threshold to proposal.
         for (auto output : votes.outputs)
             if (output.second >= vote_threshold)
@@ -272,6 +294,7 @@ void consensus()
 
         if (consensus_ctx.stage == 3)
         {
+            LOG_DBG << "stage 3 output" << proposal.hash_inputs.size();
             apply_ledger(proposal);
         }
     }
@@ -279,11 +302,11 @@ void consensus()
 
     // auto time_to_sleep = conf::cfg.roundtime / 4;
     // std::chrono::milliseconds timespan(time_to_sleep);
-    // // after a novel proposal we will just busy wait for proposals
+    // // // after a novel proposal we will just busy wait for proposals
     // if (consensus_ctx.stage > 0)
     //     std::this_thread::sleep_for(timespan);
-    // else
-    //     usleep(1);
+    //else
+    sleep(1);
     consensus_ctx.proposals.clear();
     consensus_ctx.stage = (consensus_ctx.stage + 1) % 4;
 }

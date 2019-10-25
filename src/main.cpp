@@ -185,9 +185,11 @@ int main(int argc, char **argv)
                 //     userbufs.clear();
                 // }
 
+                cons::consensus_ctx.stage = 0;
+
                 while (true)
                 {
-                    sleep(2);
+                    sleep(1);
                     cons::consensus();
                 }
 
