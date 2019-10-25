@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Runs the specified node contract with hpcore docker image.
+# This script assumes you already have the hpcore docker image and 'hpnet' virtual docker network.
 # Usage (to run the node no. 1): ./start.sh 1
 
 # Validate the node count arg.
@@ -15,10 +16,6 @@ clusterloc=`dirname $0`
 cd $clusterloc
 clusterloc=$(pwd)
 n=$1
-
-# Create docker virtual network named 'hpnet'
-# All nodes will communicate with each other via this network.
-docker network create --driver bridge hpnet > /dev/null 2>&1
 
 let pubport=8080+$n
 # let peerport=22860+$n #Uncomment if peer port needs to be exposed to host.

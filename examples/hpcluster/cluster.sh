@@ -15,11 +15,11 @@ clusterloc=`dirname $0`
 cd $clusterloc
 clusterloc=$(pwd)
 
-# Build the docker image using the docker file located at HP repository root.
-# This will add an image named hpcore:latest into your docker images.
-docker build -t hpcore:latest ../../
+# Create docker virtual network named 'hpnet'
+# All nodes will communicate with each other via this network.
+docker network create --driver bridge hpnet > /dev/null 2>&1
 
-# Delete all sub-directories.
+# Delete all sub-directories to make way for HP node contracts.
 rm -r -- ./*/ > /dev/null 2>&1
 
 # Create contract directories for all nodes in the cluster.
@@ -41,19 +41,20 @@ do
     mv hp.cfg tmp.json  # nodejs needs file extension to be .json
 
     # Collect each node pubkey and peer ports for later processing.
-    
+
     pubkeys[i]=$(node -p "require('./tmp.json').pubkeyhex")
 
     # During hosting we use docker virtual dns instead of IP address.
     # So each node is reachable via 'node<id>' name.
     peers[i]="node${1}:${peerport}"
     
-    # Update peer and public ports.
+    # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
             binargs: './bin/contract.js', \
             peerport: ${peerport}, \
-            pubport: ${pubport} \
+            pubport: ${pubport}, \
+            loglevel: 'debug'
             }, null, 2)" > hp.cfg
     rm tmp.json
 
