@@ -38,6 +38,14 @@ int init()
     if (validate_contract_dir_paths() != 0 || load_config() != 0 || validate_config() != 0)
         return -1;
 
+    // Append self peer to peer list.
+    std::string portstr = std::to_string(cfg.peerport);
+    std::string peerid = "0.0.0.0:" + portstr;
+    cfg.peers.emplace(std::move(peerid), std::make_pair("0.0.0.0", portstr));
+
+    // Append self pubkey to unl list.
+    cfg.unl.emplace(cfg.pubkey);
+
     return 0;
 }
 

@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string_view>
 #include <unordered_map>
+#include <mutex>
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
 #include "user_session_handler.hpp"
@@ -45,6 +46,7 @@ struct connected_user
  * Map key: User socket session id (<ip:port>)
  */
 extern std::unordered_map<std::string, usr::connected_user> users;
+extern std::mutex users_mutex; // Mutex for users access race conditions.
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.

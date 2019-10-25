@@ -24,6 +24,7 @@ ssl::context ctx{ssl::context::tlsv13};
  * Map key: User socket session id (<ip:port>)
  */
 std::unordered_map<std::string, usr::connected_user> users;
+std::mutex users_mutex; // Mutex for users access race conditions.
 
 /**
  * Holds set of connected user session ids and public keys for lookups.
@@ -214,7 +215,10 @@ int add_user(sock::socket_session<user_outbound_message> *session, const std::st
         return -1;
     }
 
-    users.emplace(sessionid, usr::connected_user(session, pubkey));
+    {
+        std::lock_guard<std::mutex> lock(users_mutex);
+        users.emplace(sessionid, usr::connected_user(session, pubkey));
+    }
 
     // Populate sessionid map so we can lookup by user pubkey.
     sessionids[pubkey] = sessionid;
@@ -241,7 +245,11 @@ int remove_user(const std::string &sessionid)
 
     usr::connected_user &user = itr->second;
 
-    sessionids.erase(user.pubkey);
+    {
+        std::lock_guard<std::mutex> lock(users_mutex);
+        sessionids.erase(user.pubkey);
+    }
+    
     users.erase(itr);
     return 0;
 }

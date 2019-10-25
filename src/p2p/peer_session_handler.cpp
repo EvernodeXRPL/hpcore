@@ -42,7 +42,10 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
     {
         // We init the session unique id to associate with the challenge.
         session->init_uniqueid();
-        peer_connections.insert(std::make_pair(session->uniqueid, session));
+        {
+            std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+            peer_connections.insert(std::make_pair(session->uniqueid, session));
+        }
         LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
     else
@@ -89,9 +92,14 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             proposalmsg->timestamp());
 
         if (val_result == 0)
+        {
+            std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex);
             collected_msgs.proposals.push_back(create_proposal_from_msg(*proposalmsg));
+        }
         else
+        {
             LOG_DBG << "Message content field validation failed";
+        }
     }
     else if (content_message_type == Message_Npl_Message) //message is a NPL message
     {
@@ -110,8 +118,10 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 //peer session on message callback method
 void peer_session_handler::on_close(sock::socket_session<peer_outbound_message> *session)
 {
-    peer_connections.erase(session->uniqueid);
-
+    {
+        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+        peer_connections.erase(session->uniqueid);
+    }
     LOG_DBG << "Peer disonnected: " << session->uniqueid;
 }
 

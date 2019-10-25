@@ -112,7 +112,7 @@ void socket_client<T>::on_connect(error ec, tcp::resolver::results_type::endpoin
 template <class T>
 void socket_client<T>::socket_client_fail(beast::error_code ec, char const *what)
 {
-    LOG_ERR << what << ": " << ec.message();
+    LOG_DBG << what << ": " << ec.message();
 }
 
 } // namespace sock

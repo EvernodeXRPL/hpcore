@@ -21,6 +21,7 @@ message_collection collected_msgs;
  * Peer connections exposing to the application
  */
 std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
+std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
 /**
  * Peer session handler instance. This instance's methods will be fired for any peer socket activity.

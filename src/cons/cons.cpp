@@ -75,23 +75,34 @@ void consensus()
         // todo: check the state of these to ensure we're running consensus ledger
         //consensus_ctx.proposals.erase(std::remove_if);
 
-        for (auto iter = consensus_ctx.proposals.begin(); iter != consensus_ctx.proposals.end();)
         {
-            if (iter->stage == 3 || conf::cfg.pubkey == iter->pubkey)
-                consensus_ctx.proposals.erase(iter);
+            std::lock_guard<std::mutex> lock(p2p::collected_msgs.proposals_mutex);
+
+            auto itr = p2p::collected_msgs.proposals.begin();
+            while (itr != p2p::collected_msgs.proposals.end())
+            {
+                if (itr->stage == 3 || conf::cfg.pubkey == itr->pubkey)
+                    p2p::collected_msgs.proposals.erase(itr++);
+                else
+                    ++itr;
+            }
         }
 
         //get user inputs
-        for (auto &[sid, user] : usr::users)
         {
-            // add all the connections we host
-            proposal.users.emplace(user.pubkey);
+            std::lock_guard<std::mutex> lock(usr::users_mutex);
+            for (auto &[sid, user] : usr::users)
+            {
+                // add all the connections we host
+                proposal.users.emplace(user.pubkey);
 
-            // and all their pending messages
-            std::string inputtosend;
-            inputtosend.swap(user.inbuffer);
+                // and all their pending messages
+                std::string input;
+                input.swap(user.inbuffer);
 
-            proposal.raw_inputs.try_emplace(user.pubkey, std::move(inputtosend));
+                if (!input.empty())
+                    proposal.raw_inputs.try_emplace(user.pubkey, std::move(input));
+            }
         }
 
         //propose outputs from previous round if any.
@@ -114,9 +125,13 @@ void consensus()
         p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
         p2p::create_msg_from_proposal(msg.builder(), proposal);
 
-        for (auto &[k, session] : p2p::peer_connections)
         {
-            session->send(msg);
+            std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+            for (auto &[k, session] : p2p::peer_connections)
+            {
+                LOG_WARN << "Sending proposal to: " << session->uniqueid;
+                session->send(msg);
+            }
         }
 
         break;
@@ -134,19 +149,19 @@ void consensus()
 
         for (auto &rc_proposal : consensus_ctx.proposals)
         {
-            LOG_WARN << "proposal 4" << consensus_ctx.proposals;
             //vote stages if only proposal lcl is match with node's last consensus lcl
             if (proposal.lcl == consensus_ctx.lcl)
             {
                 //std::string rp_state = std::to_string(rc_proposal.stage);
                 increment<int8_t>(votes.stage, rc_proposal.stage);
+                LOG_WARN << "Incremented stage vote: " << std::to_string(rc_proposal.stage) << " votes:" << votes.stage[rc_proposal.stage];
             }
             //todo:vote for lcl checking condtion
         }
 
         int32_t largestvote = 0;
         int8_t wining_stage = -1;
-        votes.stage.clear();
+
         for (auto &stage : votes.stage)
         {
             if (stage.second > largestvote)
@@ -156,20 +171,18 @@ void consensus()
             }
         }
 
-        LOG_WARN << "our desireble stage" << std::to_string((consensus_ctx.stage -1)) << "winning stage" << std::to_string(wining_stage);
+        LOG_DBG << "wining_stage: " << std::to_string(wining_stage);
 
         // check if we're ahead/behind of consensus
         if (wining_stage < consensus_ctx.stage - 1)
         {
-            LOG_DBG << "wait for proposals becuase node is ahead of consensus" << wining_stage;
-            LOG_WARN << "wait for proposals becuase node is ahead of consensus" << wining_stage;
+            LOG_DBG << "wait for proposals becuase node is ahead of consensus stage:" << std::to_string(wining_stage);
             // LOG_DBG << 'stage votes' << stage_votes ;
             return;
         }
         else if (wining_stage > consensus_ctx.stage - 1)
         {
             LOG_DBG << "wait for proposals becuase node is behind of consensus " << wining_stage;
-            LOG_WARN << "wait for proposals becuase node is behind of consensus " << wining_stage;
             return wait_for_proposals(true);
             //return wait_for_proposals =>reset = true
         }
@@ -182,11 +195,19 @@ void consensus()
             //vote for proposal timestamps
             // everyone votes on an arbitrary time, as long as its within the round time and not in the future
             if (time_now > rc_proposal.time && time_now - rc_proposal.time < conf::cfg.roundtime)
+            {
                 increment<uint64_t>(votes.time, rc_proposal.time);
+                LOG_WARN << "Incremented time: " << rc_proposal.time << " votes:" << votes.time[rc_proposal.time];
+            }
 
             //vote for user connection
             for (auto user : rc_proposal.users)
+            {
+                std::string str;
+                util::bin2hex(str, (unsigned char *)user.data(), user.length());
                 increment<std::string>(votes.users, user);
+                LOG_WARN << "Incremented user: " << str << " votes:" << votes.users[user];
+            }
 
             //vote for inputs
             if (!rc_proposal.raw_inputs.empty())
@@ -206,9 +227,9 @@ void consensus()
             }
             else if (!rc_proposal.hash_inputs.empty())
             {
-                for (auto input : rc_proposal.raw_inputs)
+                for (auto inputhash : rc_proposal.hash_inputs)
                 {
-                    increment<std::string>(votes.inputs, input.second);
+                    increment<std::string>(votes.inputs, inputhash);
                 }
             }
 
@@ -216,23 +237,28 @@ void consensus()
             if (!rc_proposal.raw_outputs.empty())
             {
                 //todo:
-                for (auto output : rc_proposal.raw_outputs)
+                for (auto &[pubkey, output] : rc_proposal.raw_outputs)
                 {
-                    std::string possible_output = output.first;
-                    possible_output.reserve(output.second.size());
-                    possible_output.append(output.second);
+                    std::string string_to_hash;
+                    string_to_hash.reserve(pubkey.size() + output.size());
+                    string_to_hash.append(pubkey);
+                    string_to_hash.append(output);
 
-                    auto hash = crypto::sha_512_hash(possible_output, "OUT", 3);
-                    auto output_pair = std::make_pair(output.first, output.second);
-                    consensus_ctx.possible_outputs.try_emplace(std::move(hash), std::move(output_pair));
+                    LOG_DBG << "raw_outputs:[" << output << "]";
+
+                    std::string hash = crypto::sha_512_hash(string_to_hash, "OUT", 3);
                     increment<std::string>(votes.outputs, hash);
+
+                    consensus_ctx.possible_outputs.try_emplace(
+                        std::move(hash),
+                        std::make_pair(pubkey, output));
                 }
             }
             else if (!rc_proposal.hash_outputs.empty())
             {
-                for (auto output : rc_proposal.raw_outputs)
+                for (auto outputhash : rc_proposal.hash_outputs)
                 {
-                    increment<std::string>(votes.outputs, output.second);
+                    increment<std::string>(votes.outputs, outputhash);
                 }
             }
 
@@ -249,16 +275,14 @@ void consensus()
         //add user connections which have votes over stage threshold to proposal.
         for (auto usr : votes.users)
         {
-            LOG_WARN << "stage" << consensus_ctx.stage << "vote " << usr.second;
             if (usr.second >= vote_threshold || (usr.second > 0 && consensus_ctx.stage == 1))
                 proposal.users.emplace(usr.first);
         }
         //add inputs which have votes over stage threshold to proposal.
-        for (auto input : votes.inputs)
+        for (auto &[hash, count] : votes.inputs)
         {
-            LOG_WARN << "input" << consensus_ctx.stage << "vote " << input.second;
-            if (input.second >= vote_threshold || (input.second > 0 && consensus_ctx.stage == 1))
-                proposal.hash_inputs.emplace(input.first);
+            if (count >= vote_threshold || (count > 0 && consensus_ctx.stage == 1))
+                proposal.hash_inputs.emplace(hash);
         }
         //add outputs which have votes over stage threshold to proposal.
         for (auto output : votes.outputs)
@@ -287,9 +311,17 @@ void consensus()
         p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
         p2p::create_msg_from_proposal(msg.builder(), proposal);
 
-        for (auto &[k, session] : p2p::peer_connections)
+        LOG_DBG << "Stage (" << std::to_string(consensus_ctx.stage)
+                << ") Proposed users:" << proposal.users.size()
+                << " rinputs:" << proposal.raw_inputs.size()
+                << " hinputs:" << proposal.hash_inputs.size()
+                << " routs:" << proposal.raw_outputs.size()
+                << " houts:" << proposal.hash_outputs.size();
+
         {
-            session->send(msg);
+            std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+            for (auto &[k, session] : p2p::peer_connections)
+                session->send(msg);
         }
 
         if (consensus_ctx.stage == 3)
@@ -321,18 +353,37 @@ void apply_ledger(p2p::proposal proposal)
         auto itr = consensus_ctx.possible_outputs.find(hash);
         if (itr != consensus_ctx.possible_outputs.end())
         {
-            LOG_DBG << "output required" << hash << "but wasn't in our possible output dict, this will potentially cause desync";
+            LOG_DBG << "output required but wasn't in our possible output dict, this will potentially cause desync";
             // todo: consider fatal
         }
         else
         {
-            auto output = itr->second.second;
             //send outputs.
-            const std::string sessionid = usr::sessionids[itr->second.first];
-            // Find the user by session id.
-            auto itr = usr::users.find(sessionid);
-            const usr::connected_user &user = itr->second;
-            user.session->send(std::move(output));
+            LOG_DBG << "A";
+            auto &[pubkey, output] = itr->second;
+            std::string outputtosend;
+            outputtosend.swap(output);
+            LOG_DBG << "B";
+
+            {
+                std::lock_guard<std::mutex> lock(usr::users_mutex);
+
+                // Find the user by session id.
+                const std::string sessionid = usr::sessionids[pubkey];
+                auto itr = usr::users.find(sessionid);
+                if (itr != usr::users.end())
+                {
+                    const usr::connected_user &user = itr->second;
+
+                    LOG_DBG << "C [" << outputtosend << "]";
+
+                    usr::user_outbound_message outmsg(std::move(outputtosend));
+                    LOG_DBG << "D";
+
+                    user.session->send(outmsg);
+                    LOG_DBG << "E";
+                }
+            }
         }
     }
 

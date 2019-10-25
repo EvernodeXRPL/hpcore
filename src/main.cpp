@@ -132,64 +132,12 @@ int main(int argc, char **argv)
 
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
-
-                // This will start hosting the contract and start consensus rounds.
-                // TODO
-
-                // while (true)
-                // {
-                //     sleep(2);
-
-                //     // Test code to execute contract and collect outputs.
-                //     std::unordered_map<std::string, std::pair<std::string, std::string>> userbufs;
-                //     for (auto &[sid, user] : usr::users)
-                //     {
-                //         std::pair<std::string, std::string> bufpair;
-                //         std::string inputtosend;
-                //         inputtosend.swap(user.inbuffer);
-                //         bufpair.first = std::move(inputtosend);
-
-                //         userbufs.emplace(user.pubkey, std::move(bufpair));
-                //     }
-
-                //     std::pair<std::string, std::string> hpscbufpair;
-                //     hpscbufpair.first = "{msg:'Message from HP'}";
-
-                //     std::unordered_map<std::string, std::pair<std::string, std::string>> nplbufs;
-                //     for (int i = 0; i < 3; i++)
-                //     {
-                //         std::pair<std::string, std::string> bufpair;
-                //         nplbufs.emplace("aaa", std::move(bufpair));
-                //     }
-
-                //     proc::ContractExecArgs eargs(123123345, userbufs, nplbufs, hpscbufpair);
-                //     proc::exec_contract(eargs);
-
-                //     for (auto &[pubkey, bufpair] : userbufs)
-                //     {
-                //         if (!bufpair.second.empty())
-                //         {
-                //             // Find the user session id by the pubkey.
-                //             const std::string sessionid = usr::sessionids[pubkey];
-
-                //             // Find the user by session id.
-                //             auto itr = usr::users.find(sessionid);
-                //             const usr::connected_user &user = itr->second;
-                //             user.session->send(std::move(bufpair.second));
-                //         }
-                //     }
-
-                //     if (!hpscbufpair.second.empty())
-                //         LOG_DBG << "Message from SC: " << hpscbufpair.second;
-
-                //     userbufs.clear();
-                // }
-
+                
                 cons::consensus_ctx.stage = 0;
 
                 while (true)
                 {
-                    sleep(1);
+                    sleep(2);
                     cons::consensus();
                 }
 
