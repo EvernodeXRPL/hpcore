@@ -93,7 +93,7 @@ int create_contract()
     cfg.roundtime = 1000;
     cfg.pubport = 8080;
     cfg.pubmaxsize = 65536;
-    cfg.pubmaxcpm = 100;
+    cfg.pubmaxmpm = 100;
     cfg.peermaxsize = 65536;
 
 #ifndef NDEBUG
@@ -225,7 +225,7 @@ int load_config()
     cfg.roundtime = d["roundtime"].GetInt();
     cfg.pubport = d["pubport"].GetInt();
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
-    cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
+    cfg.pubmaxmpm = d["pubmaxmpm"].GetInt();
     cfg.peermaxsize = d["peermaxsize"].GetInt();
 
     cfg.loglevel = d["loglevel"].GetString();
@@ -289,7 +289,7 @@ int save_config()
     d.AddMember("roundtime", cfg.roundtime, allocator);
     d.AddMember("pubport", cfg.pubport, allocator);
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
-    d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
+    d.AddMember("pubmaxmpm", cfg.pubmaxmpm, allocator);
     d.AddMember("peermaxsize", cfg.peermaxsize, allocator);
 
     d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
@@ -393,7 +393,7 @@ int validate_config()
 
     // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 || cfg.peermaxsize == 0 ||
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxmpm == 0 || cfg.peermaxsize == 0 ||
         cfg.loglevel.empty() || cfg.loggers.empty())
     {
         std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
@@ -479,7 +479,7 @@ int is_schema_valid(rapidjson::Document &d)
         "{"
         "\"type\": \"object\","
         "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
-        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\""
+        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxmpm\""
         ", \"peermaxsize\", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
@@ -500,7 +500,7 @@ int is_schema_valid(rapidjson::Document &d)
         "\"roundtime\": { \"type\": \"integer\" },"
         "\"pubport\": { \"type\": \"integer\" },"
         "\"pubmaxsize\": { \"type\": \"integer\" },"
-        "\"pubmaxcpm\": { \"type\": \"integer\" },"
+        "\"pubmaxmpm\": { \"type\": \"integer\" },"
         "\"peermaxsize\": { \"type\": \"integer\" },"
         "\"loglevel\": { \"type\": \"string\" },"
         "\"loggers\": {"
