@@ -26,6 +26,7 @@ class socket_client : public std::enable_shared_from_this<socket_client<T>>
     std::string host;                                           // address of the server in which the client connects
     std::string port;                                           // port of the server in which client connects
     socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
+    const session_options &sess_opts;                                 // session options needed to pass to session
 
     void on_resolve(error ec, tcp::resolver::results_type results);
 
@@ -39,81 +40,10 @@ class socket_client : public std::enable_shared_from_this<socket_client<T>>
 
 public:
     // Resolver and socket require an io_context
-    socket_client(net::io_context &ioc, ssl::context &ctx, socket_session_handler<T> &session_handler);
+    socket_client(net::io_context &ioc, ssl::context &ctx, socket_session_handler<T> &session_handler, const session_options &session_options);
 
     //Entry point to the client which requires an active host and port
     void run(std::string_view host, std::string_view port);
 };
-
-template <class T>
-socket_client<T>::socket_client(net::io_context &ioc, ssl::context &ctx, socket_session_handler<T> &session_handler)
-    : resolver(net::make_strand(ioc)), ws(net::make_strand(ioc), ctx), sess_handler(session_handler)
-{
-}
-
-/**
- * Entry point to socket client which will intiate a connection to server
-*/
-// boost async_resolve function requires a port as a string because of that port is passed as a string
-template <class T>
-void socket_client<T>::run(std::string_view host, std::string_view port)
-{
-    this->host = host;
-    this->port = port;
-
-    // Look up the domain name
-    resolver.async_resolve(
-        host,
-        port,
-        [self = this->shared_from_this()](error ec, tcp::resolver::results_type results) {
-            self->on_resolve(ec, results);
-        });
-}
-
-/**
- * Executes on completion of resolving the server
-*/
-template <class T>
-void socket_client<T>::on_resolve(error ec, tcp::resolver::results_type results)
-{
-    if (ec)
-        socket_client_fail(ec, "socket_client_resolve");
-
-    // Make the connection on the IP address we get from a lookup
-    beast::get_lowest_layer(ws).async_connect(
-        results,
-        [self = this->shared_from_this()](error ec, tcp::resolver::results_type::endpoint_type type) {
-            self->on_connect(ec, type);
-        });
-}
-
-/**
- * Executes on completion of connecting to the server
-*/
-template <class T>
-void socket_client<T>::on_connect(error ec, tcp::resolver::results_type::endpoint_type)
-{
-    if (ec)
-    {
-        socket_client_fail(ec, "socket_client_connect");
-    }
-    else
-    {
-        //Creates a new socket session object
-        std::make_shared<socket_session<T>>(
-            std::move(ws), sess_handler)
-            ->run(std::move(host), std::move(port), false);
-    }
-}
-
-/**
- * Executes on error
-*/
-template <class T>
-void socket_client<T>::socket_client_fail(beast::error_code ec, char const *what)
-{
-    LOG_DBG << what << ": " << ec.message();
-}
-
 } // namespace sock
 #endif
