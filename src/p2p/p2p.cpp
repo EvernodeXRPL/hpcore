@@ -11,10 +11,17 @@ namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 
 namespace p2p
 {
+
+/**
+ * Holds all the messages until they are processed by consensus.
+ */
+message_collection collected_msgs;
+
 /**
  * Peer connections exposing to the application
  */
 std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
+std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
 /**
  * Peer session handler instance. This instance's methods will be fired for any peer socket activity.
@@ -47,7 +54,7 @@ std::thread peer_thread;
  */
  sock::session_options sess_opts;
 
-std::map<std::string, time_t> recent_peer_msghash;
+std::map<std::string, int64_t> recent_peer_msghash;
 
 int init()
 {
@@ -101,74 +108,6 @@ void peer_connection_watchdog()
 
         std::this_thread::sleep_for(std::chrono::milliseconds(conf::cfg.roundtime * 4));
     }
-}
-
-/**
- * Validate the incoming p2p message. Check for message version, timestamp and signature.
- * 
- * @param message binary message content.
- * @param signature binary message signature.
- * @param pubkey binary public key of message originating node.
- * @param timestamp message timestamp.
- * @param version message timestamp.
- * @return whether message is validated or not.
- */
-bool validate_peer_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp, uint16_t version)
-{
-    //Validation are prioritzed base on expensiveness of validation.
-    //i.e - signature validation is done at the end.
-
-    std::time_t time_now = std::time(nullptr);
-
-    //check protocol version of message whether it is greater than minimum supported protocol version.
-    if (version < util::MIN_PEERMSG_VERSION)
-    {
-        LOG_DBG << "Recieved message is from unsupported version";
-        return false;
-    }
-
-    // validate if the message is not from a node of current node's unl list.
-    if (!conf::cfg.unl.count(pubkey.data()))
-    {
-        LOG_DBG << "pubkey verification failed";
-        return false;
-    }
-
-    //check message timestamp.  < timestamp now - 4* round time.
-    /*todo:this might change to check only current stage related. (Base on how consensus algorithm implementation take shape)
-    check message stage is for valid stage(node's current consensus stage - 1)
-    */
-    if (timestamp < (time_now - conf::cfg.roundtime * 4))
-    {
-        LOG_DBG << "Recieved message from peer is old";
-        return false;
-    }
-
-    //verify message signature.
-    //this should be the last validation since this is bit expensive
-    auto signature_verified = crypto::verify(message, signature, pubkey);
-
-    if (signature_verified != 0)
-    {
-        LOG_DBG << "Signature verification failed";
-        return false;
-    }
-
-    // After signature is verified, get message hash and see wheteher
-    // message is already recieved -> abandon if duplicate.
-    auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
-
-    if (recent_peer_msghash.count(messageHash) == 0)
-    {
-        recent_peer_msghash.try_emplace(std::move(messageHash), timestamp);
-    }
-    else
-    {
-        LOG_DBG << "Duplicate message";
-        return false;
-    }
-
-    return true;
 }
 
 } // namespace p2p

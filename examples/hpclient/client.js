@@ -93,7 +93,7 @@ function main() {
 
         var input_pump = () => {
             rl.question('', (answer) => {
-                ws.send(answer + "\n")
+                ws.send(answer)
                 input_pump()
             })
         }

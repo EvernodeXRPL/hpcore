@@ -79,12 +79,12 @@ void init()
 
             // This will make every new launch of Hot Pocket to start a new log file number.
             // It will scan existing log files matching the pattern and find the next number.
-            keywords::scan_method = sinks::file::scan_matching,
+            keywords::scan_method = sinks::file::scan_matching
 
 #ifndef NDEBUG
             // We enable auto_flush to immediately get the logs onto the file. Otherwise it takes time
             // for buffered logs to reach the file. This impacts performance. So enabled only in debug build.
-            keywords::auto_flush = true
+            , keywords::auto_flush = true
 #endif
         );
     }

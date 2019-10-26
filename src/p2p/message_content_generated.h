@@ -8,15 +8,15 @@
 
 namespace p2p {
 
-struct StringKeyValuePair;
+struct BytesKeyValuePair;
 
 struct ByteArray;
 
 struct Content;
 
-struct Proposal;
+struct Proposal_Message;
 
-struct Npl;
+struct Npl_Message;
 
 struct StateDifference;
 
@@ -24,17 +24,17 @@ struct State;
 
 enum Message {
   Message_NONE = 0,
-  Message_Proposal = 1,
-  Message_Npl = 2,
+  Message_Proposal_Message = 1,
+  Message_Npl_Message = 2,
   Message_MIN = Message_NONE,
-  Message_MAX = Message_Npl
+  Message_MAX = Message_Npl_Message
 };
 
 inline const Message (&EnumValuesMessage())[3] {
   static const Message values[] = {
     Message_NONE,
-    Message_Proposal,
-    Message_Npl
+    Message_Proposal_Message,
+    Message_Npl_Message
   };
   return values;
 }
@@ -42,15 +42,15 @@ inline const Message (&EnumValuesMessage())[3] {
 inline const char * const *EnumNamesMessage() {
   static const char * const names[] = {
     "NONE",
-    "Proposal",
-    "Npl",
+    "Proposal_Message",
+    "Npl_Message",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMessage(Message e) {
-  if (e < Message_NONE || e > Message_Npl) return "";
+  if (e < Message_NONE || e > Message_Npl_Message) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessage()[index];
 }
@@ -59,18 +59,18 @@ template<typename T> struct MessageTraits {
   static const Message enum_value = Message_NONE;
 };
 
-template<> struct MessageTraits<Proposal> {
-  static const Message enum_value = Message_Proposal;
+template<> struct MessageTraits<Proposal_Message> {
+  static const Message enum_value = Message_Proposal_Message;
 };
 
-template<> struct MessageTraits<Npl> {
-  static const Message enum_value = Message_Npl;
+template<> struct MessageTraits<Npl_Message> {
+  static const Message enum_value = Message_Npl_Message;
 };
 
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
 bool VerifyMessageVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-struct StringKeyValuePair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct BytesKeyValuePair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_KEY = 4,
     VT_VALUE = 6
@@ -81,60 +81,60 @@ struct StringKeyValuePair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_key() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_KEY);
   }
-  const flatbuffers::String *value() const {
-    return GetPointer<const flatbuffers::String *>(VT_VALUE);
+  const flatbuffers::Vector<uint8_t> *value() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_VALUE);
   }
-  flatbuffers::String *mutable_value() {
-    return GetPointer<flatbuffers::String *>(VT_VALUE);
+  flatbuffers::Vector<uint8_t> *mutable_value() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_VALUE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_KEY) &&
            verifier.VerifyVector(key()) &&
            VerifyOffset(verifier, VT_VALUE) &&
-           verifier.VerifyString(value()) &&
+           verifier.VerifyVector(value()) &&
            verifier.EndTable();
   }
 };
 
-struct StringKeyValuePairBuilder {
+struct BytesKeyValuePairBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_key(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> key) {
-    fbb_.AddOffset(StringKeyValuePair::VT_KEY, key);
+    fbb_.AddOffset(BytesKeyValuePair::VT_KEY, key);
   }
-  void add_value(flatbuffers::Offset<flatbuffers::String> value) {
-    fbb_.AddOffset(StringKeyValuePair::VT_VALUE, value);
+  void add_value(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> value) {
+    fbb_.AddOffset(BytesKeyValuePair::VT_VALUE, value);
   }
-  explicit StringKeyValuePairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit BytesKeyValuePairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  StringKeyValuePairBuilder &operator=(const StringKeyValuePairBuilder &);
-  flatbuffers::Offset<StringKeyValuePair> Finish() {
+  BytesKeyValuePairBuilder &operator=(const BytesKeyValuePairBuilder &);
+  flatbuffers::Offset<BytesKeyValuePair> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<StringKeyValuePair>(end);
+    auto o = flatbuffers::Offset<BytesKeyValuePair>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<StringKeyValuePair> CreateStringKeyValuePair(
+inline flatbuffers::Offset<BytesKeyValuePair> CreateBytesKeyValuePair(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> key = 0,
-    flatbuffers::Offset<flatbuffers::String> value = 0) {
-  StringKeyValuePairBuilder builder_(_fbb);
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> value = 0) {
+  BytesKeyValuePairBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_key(key);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<StringKeyValuePair> CreateStringKeyValuePairDirect(
+inline flatbuffers::Offset<BytesKeyValuePair> CreateBytesKeyValuePairDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *key = nullptr,
-    const char *value = nullptr) {
+    const std::vector<uint8_t> *value = nullptr) {
   auto key__ = key ? _fbb.CreateVector<uint8_t>(*key) : 0;
-  auto value__ = value ? _fbb.CreateString(value) : 0;
-  return p2p::CreateStringKeyValuePair(
+  auto value__ = value ? _fbb.CreateVector<uint8_t>(*value) : 0;
+  return p2p::CreateBytesKeyValuePair(
       _fbb,
       key__,
       value__);
@@ -208,11 +208,11 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetPointer<const void *>(VT_MESSAGE);
   }
   template<typename T> const T *message_as() const;
-  const Proposal *message_as_Proposal() const {
-    return message_type() == Message_Proposal ? static_cast<const Proposal *>(message()) : nullptr;
+  const Proposal_Message *message_as_Proposal_Message() const {
+    return message_type() == Message_Proposal_Message ? static_cast<const Proposal_Message *>(message()) : nullptr;
   }
-  const Npl *message_as_Npl() const {
-    return message_type() == Message_Npl ? static_cast<const Npl *>(message()) : nullptr;
+  const Npl_Message *message_as_Npl_Message() const {
+    return message_type() == Message_Npl_Message ? static_cast<const Npl_Message *>(message()) : nullptr;
   }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
@@ -226,12 +226,12 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-template<> inline const Proposal *Content::message_as<Proposal>() const {
-  return message_as_Proposal();
+template<> inline const Proposal_Message *Content::message_as<Proposal_Message>() const {
+  return message_as_Proposal_Message();
 }
 
-template<> inline const Npl *Content::message_as<Npl>() const {
-  return message_as_Npl();
+template<> inline const Npl_Message *Content::message_as<Npl_Message>() const {
+  return message_as_Npl_Message();
 }
 
 struct ContentBuilder {
@@ -265,14 +265,14 @@ inline flatbuffers::Offset<Content> CreateContent(
   return builder_.Finish();
 }
 
-struct Proposal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PUBKEY = 4,
     VT_TIMESTAMP = 6,
     VT_STAGE = 8,
     VT_TIME = 10,
     VT_LCL = 12,
-    VT_CONNECTIONS = 14,
+    VT_USERS = 14,
     VT_RAW_INPUTS = 16,
     VT_HASH_INPUTS = 18,
     VT_RAW_OUTPUTS = 20,
@@ -309,35 +309,35 @@ struct Proposal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *connections() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_CONNECTIONS);
+  const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *users() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_USERS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *mutable_connections() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_CONNECTIONS);
+  flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *mutable_users() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_USERS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *raw_inputs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_INPUTS);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_inputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_INPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_raw_inputs() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_INPUTS);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_raw_inputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_INPUTS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *hash_inputs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_HASH_INPUTS);
+  const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *hash_inputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_HASH_INPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *mutable_hash_inputs() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_HASH_INPUTS);
+  flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *mutable_hash_inputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_HASH_INPUTS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *raw_outputs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_OUTPUTS);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_outputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_OUTPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_raw_outputs() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_RAW_OUTPUTS);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_raw_outputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_RAW_OUTPUTS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *hash_outputs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_HASH_OUTPUTS);
+  const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *hash_outputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_HASH_OUTPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *mutable_hash_outputs() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_HASH_OUTPUTS);
+  flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *mutable_hash_outputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *>(VT_HASH_OUTPUTS);
   }
   const State *state() const {
     return GetPointer<const State *>(VT_STATE);
@@ -354,89 +354,89 @@ struct Proposal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
-           VerifyOffset(verifier, VT_CONNECTIONS) &&
-           verifier.VerifyVector(connections()) &&
-           verifier.VerifyVectorOfTables(connections()) &&
+           VerifyOffset(verifier, VT_USERS) &&
+           verifier.VerifyVector(users()) &&
+           verifier.VerifyVectorOfTables(users()) &&
            VerifyOffset(verifier, VT_RAW_INPUTS) &&
            verifier.VerifyVector(raw_inputs()) &&
            verifier.VerifyVectorOfTables(raw_inputs()) &&
            VerifyOffset(verifier, VT_HASH_INPUTS) &&
            verifier.VerifyVector(hash_inputs()) &&
-           verifier.VerifyVectorOfStrings(hash_inputs()) &&
+           verifier.VerifyVectorOfTables(hash_inputs()) &&
            VerifyOffset(verifier, VT_RAW_OUTPUTS) &&
            verifier.VerifyVector(raw_outputs()) &&
            verifier.VerifyVectorOfTables(raw_outputs()) &&
            VerifyOffset(verifier, VT_HASH_OUTPUTS) &&
            verifier.VerifyVector(hash_outputs()) &&
-           verifier.VerifyVectorOfStrings(hash_outputs()) &&
+           verifier.VerifyVectorOfTables(hash_outputs()) &&
            VerifyOffset(verifier, VT_STATE) &&
            verifier.VerifyTable(state()) &&
            verifier.EndTable();
   }
 };
 
-struct ProposalBuilder {
+struct Proposal_MessageBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
-    fbb_.AddOffset(Proposal::VT_PUBKEY, pubkey);
+    fbb_.AddOffset(Proposal_Message::VT_PUBKEY, pubkey);
   }
   void add_timestamp(uint64_t timestamp) {
-    fbb_.AddElement<uint64_t>(Proposal::VT_TIMESTAMP, timestamp, 0);
+    fbb_.AddElement<uint64_t>(Proposal_Message::VT_TIMESTAMP, timestamp, 0);
   }
   void add_stage(int8_t stage) {
-    fbb_.AddElement<int8_t>(Proposal::VT_STAGE, stage, 0);
+    fbb_.AddElement<int8_t>(Proposal_Message::VT_STAGE, stage, 0);
   }
   void add_time(uint64_t time) {
-    fbb_.AddElement<uint64_t>(Proposal::VT_TIME, time, 0);
+    fbb_.AddElement<uint64_t>(Proposal_Message::VT_TIME, time, 0);
   }
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
-    fbb_.AddOffset(Proposal::VT_LCL, lcl);
+    fbb_.AddOffset(Proposal_Message::VT_LCL, lcl);
   }
-  void add_connections(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> connections) {
-    fbb_.AddOffset(Proposal::VT_CONNECTIONS, connections);
+  void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> users) {
+    fbb_.AddOffset(Proposal_Message::VT_USERS, users);
   }
-  void add_raw_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_inputs) {
-    fbb_.AddOffset(Proposal::VT_RAW_INPUTS, raw_inputs);
+  void add_raw_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_inputs) {
+    fbb_.AddOffset(Proposal_Message::VT_RAW_INPUTS, raw_inputs);
   }
-  void add_hash_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> hash_inputs) {
-    fbb_.AddOffset(Proposal::VT_HASH_INPUTS, hash_inputs);
+  void add_hash_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_inputs) {
+    fbb_.AddOffset(Proposal_Message::VT_HASH_INPUTS, hash_inputs);
   }
-  void add_raw_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_outputs) {
-    fbb_.AddOffset(Proposal::VT_RAW_OUTPUTS, raw_outputs);
+  void add_raw_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_outputs) {
+    fbb_.AddOffset(Proposal_Message::VT_RAW_OUTPUTS, raw_outputs);
   }
-  void add_hash_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> hash_outputs) {
-    fbb_.AddOffset(Proposal::VT_HASH_OUTPUTS, hash_outputs);
+  void add_hash_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_outputs) {
+    fbb_.AddOffset(Proposal_Message::VT_HASH_OUTPUTS, hash_outputs);
   }
   void add_state(flatbuffers::Offset<State> state) {
-    fbb_.AddOffset(Proposal::VT_STATE, state);
+    fbb_.AddOffset(Proposal_Message::VT_STATE, state);
   }
-  explicit ProposalBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ProposalBuilder &operator=(const ProposalBuilder &);
-  flatbuffers::Offset<Proposal> Finish() {
+  Proposal_MessageBuilder &operator=(const Proposal_MessageBuilder &);
+  flatbuffers::Offset<Proposal_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Proposal>(end);
+    auto o = flatbuffers::Offset<Proposal_Message>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Proposal> CreateProposal(
+inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
     uint64_t timestamp = 0,
     int8_t stage = 0,
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> connections = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_inputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> hash_inputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> raw_outputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> hash_outputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> users = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_inputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_inputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> raw_outputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>> hash_outputs = 0,
     flatbuffers::Offset<State> state = 0) {
-  ProposalBuilder builder_(_fbb);
+  Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
   builder_.add_timestamp(timestamp);
   builder_.add_state(state);
@@ -444,41 +444,41 @@ inline flatbuffers::Offset<Proposal> CreateProposal(
   builder_.add_raw_outputs(raw_outputs);
   builder_.add_hash_inputs(hash_inputs);
   builder_.add_raw_inputs(raw_inputs);
-  builder_.add_connections(connections);
+  builder_.add_users(users);
   builder_.add_lcl(lcl);
   builder_.add_pubkey(pubkey);
   builder_.add_stage(stage);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Proposal> CreateProposalDirect(
+inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *pubkey = nullptr,
     uint64_t timestamp = 0,
     int8_t stage = 0,
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
-    const std::vector<flatbuffers::Offset<ByteArray>> *connections = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *raw_inputs = nullptr,
-    const std::vector<flatbuffers::Offset<flatbuffers::String>> *hash_inputs = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *raw_outputs = nullptr,
-    const std::vector<flatbuffers::Offset<flatbuffers::String>> *hash_outputs = nullptr,
+    const std::vector<flatbuffers::Offset<ByteArray>> *users = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_inputs = nullptr,
+    const std::vector<flatbuffers::Offset<ByteArray>> *hash_inputs = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *raw_outputs = nullptr,
+    const std::vector<flatbuffers::Offset<ByteArray>> *hash_outputs = nullptr,
     flatbuffers::Offset<State> state = 0) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
-  auto connections__ = connections ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*connections) : 0;
-  auto raw_inputs__ = raw_inputs ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*raw_inputs) : 0;
-  auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*hash_inputs) : 0;
-  auto raw_outputs__ = raw_outputs ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*raw_outputs) : 0;
-  auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*hash_outputs) : 0;
-  return p2p::CreateProposal(
+  auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*users) : 0;
+  auto raw_inputs__ = raw_inputs ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*raw_inputs) : 0;
+  auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*hash_inputs) : 0;
+  auto raw_outputs__ = raw_outputs ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*raw_outputs) : 0;
+  auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*hash_outputs) : 0;
+  return p2p::CreateProposal_Message(
       _fbb,
       pubkey__,
       timestamp,
       stage,
       time,
       lcl__,
-      connections__,
+      users__,
       raw_inputs__,
       hash_inputs__,
       raw_outputs__,
@@ -486,7 +486,7 @@ inline flatbuffers::Offset<Proposal> CreateProposalDirect(
       state);
 }
 
-struct Npl FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PUBKEY = 4,
     VT_TIMESTAMP = 6,
@@ -530,40 +530,40 @@ struct Npl FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct NplBuilder {
+struct Npl_MessageBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
-    fbb_.AddOffset(Npl::VT_PUBKEY, pubkey);
+    fbb_.AddOffset(Npl_Message::VT_PUBKEY, pubkey);
   }
   void add_timestamp(uint64_t timestamp) {
-    fbb_.AddElement<uint64_t>(Npl::VT_TIMESTAMP, timestamp, 0);
+    fbb_.AddElement<uint64_t>(Npl_Message::VT_TIMESTAMP, timestamp, 0);
   }
   void add_data(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data) {
-    fbb_.AddOffset(Npl::VT_DATA, data);
+    fbb_.AddOffset(Npl_Message::VT_DATA, data);
   }
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
-    fbb_.AddOffset(Npl::VT_LCL, lcl);
+    fbb_.AddOffset(Npl_Message::VT_LCL, lcl);
   }
-  explicit NplBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit Npl_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  NplBuilder &operator=(const NplBuilder &);
-  flatbuffers::Offset<Npl> Finish() {
+  Npl_MessageBuilder &operator=(const Npl_MessageBuilder &);
+  flatbuffers::Offset<Npl_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Npl>(end);
+    auto o = flatbuffers::Offset<Npl_Message>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Npl> CreateNpl(
+inline flatbuffers::Offset<Npl_Message> CreateNpl_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
     uint64_t timestamp = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0) {
-  NplBuilder builder_(_fbb);
+  Npl_MessageBuilder builder_(_fbb);
   builder_.add_timestamp(timestamp);
   builder_.add_lcl(lcl);
   builder_.add_data(data);
@@ -571,7 +571,7 @@ inline flatbuffers::Offset<Npl> CreateNpl(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Npl> CreateNplDirect(
+inline flatbuffers::Offset<Npl_Message> CreateNpl_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *pubkey = nullptr,
     uint64_t timestamp = 0,
@@ -580,7 +580,7 @@ inline flatbuffers::Offset<Npl> CreateNplDirect(
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto data__ = data ? _fbb.CreateVector<uint8_t>(*data) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
-  return p2p::CreateNpl(
+  return p2p::CreateNpl_Message(
       _fbb,
       pubkey__,
       timestamp,
@@ -594,23 +594,23 @@ struct StateDifference FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_UPDATED = 6,
     VT_DELETED = 8
   };
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *created() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_CREATED);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *created() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_CREATED);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_created() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_CREATED);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_created() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_CREATED);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *updated() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_UPDATED);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *updated() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_UPDATED);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_updated() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_UPDATED);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_updated() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_UPDATED);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *deleted() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_DELETED);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *deleted() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_DELETED);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_deleted() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_DELETED);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_deleted() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_DELETED);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -630,13 +630,13 @@ struct StateDifference FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct StateDifferenceBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_created(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> created) {
+  void add_created(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> created) {
     fbb_.AddOffset(StateDifference::VT_CREATED, created);
   }
-  void add_updated(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> updated) {
+  void add_updated(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> updated) {
     fbb_.AddOffset(StateDifference::VT_UPDATED, updated);
   }
-  void add_deleted(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> deleted) {
+  void add_deleted(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> deleted) {
     fbb_.AddOffset(StateDifference::VT_DELETED, deleted);
   }
   explicit StateDifferenceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -653,9 +653,9 @@ struct StateDifferenceBuilder {
 
 inline flatbuffers::Offset<StateDifference> CreateStateDifference(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> created = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> updated = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> deleted = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> created = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> updated = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> deleted = 0) {
   StateDifferenceBuilder builder_(_fbb);
   builder_.add_deleted(deleted);
   builder_.add_updated(updated);
@@ -665,12 +665,12 @@ inline flatbuffers::Offset<StateDifference> CreateStateDifference(
 
 inline flatbuffers::Offset<StateDifference> CreateStateDifferenceDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *created = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *updated = nullptr,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *deleted = nullptr) {
-  auto created__ = created ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*created) : 0;
-  auto updated__ = updated ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*updated) : 0;
-  auto deleted__ = deleted ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*deleted) : 0;
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *created = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *updated = nullptr,
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *deleted = nullptr) {
+  auto created__ = created ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*created) : 0;
+  auto updated__ = updated ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*updated) : 0;
+  auto deleted__ = deleted ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*deleted) : 0;
   return p2p::CreateStateDifference(
       _fbb,
       created__,
@@ -703,11 +703,11 @@ struct State FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   StateDifference *mutable_difference() {
     return GetPointer<StateDifference *>(VT_DIFFERENCE);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *patch() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_PATCH);
+  const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *patch() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_PATCH);
   }
-  flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *mutable_patch() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>> *>(VT_PATCH);
+  flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *mutable_patch() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *>(VT_PATCH);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -736,7 +736,7 @@ struct StateBuilder {
   void add_difference(flatbuffers::Offset<StateDifference> difference) {
     fbb_.AddOffset(State::VT_DIFFERENCE, difference);
   }
-  void add_patch(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> patch) {
+  void add_patch(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> patch) {
     fbb_.AddOffset(State::VT_PATCH, patch);
   }
   explicit StateBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -756,7 +756,7 @@ inline flatbuffers::Offset<State> CreateState(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> previous = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> current = 0,
     flatbuffers::Offset<StateDifference> difference = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<StringKeyValuePair>>> patch = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>> patch = 0) {
   StateBuilder builder_(_fbb);
   builder_.add_patch(patch);
   builder_.add_difference(difference);
@@ -770,10 +770,10 @@ inline flatbuffers::Offset<State> CreateStateDirect(
     const std::vector<uint8_t> *previous = nullptr,
     const std::vector<uint8_t> *current = nullptr,
     flatbuffers::Offset<StateDifference> difference = 0,
-    const std::vector<flatbuffers::Offset<StringKeyValuePair>> *patch = nullptr) {
+    const std::vector<flatbuffers::Offset<BytesKeyValuePair>> *patch = nullptr) {
   auto previous__ = previous ? _fbb.CreateVector<uint8_t>(*previous) : 0;
   auto current__ = current ? _fbb.CreateVector<uint8_t>(*current) : 0;
-  auto patch__ = patch ? _fbb.CreateVector<flatbuffers::Offset<StringKeyValuePair>>(*patch) : 0;
+  auto patch__ = patch ? _fbb.CreateVector<flatbuffers::Offset<BytesKeyValuePair>>(*patch) : 0;
   return p2p::CreateState(
       _fbb,
       previous__,
@@ -787,12 +787,12 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
     case Message_NONE: {
       return true;
     }
-    case Message_Proposal: {
-      auto ptr = reinterpret_cast<const Proposal *>(obj);
+    case Message_Proposal_Message: {
+      auto ptr = reinterpret_cast<const Proposal_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Message_Npl: {
-      auto ptr = reinterpret_cast<const Npl *>(obj);
+    case Message_Npl_Message: {
+      auto ptr = reinterpret_cast<const Npl_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return false;

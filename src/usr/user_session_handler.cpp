@@ -27,7 +27,7 @@ user_outbound_message::user_outbound_message(std::string &&_msg)
 // Returns the buffer that should be written to the socket.
 std::string_view user_outbound_message::buffer()
 {
-    return std::string_view(msg.data(), msg.size());
+    return msg;
 }
 
 /**
