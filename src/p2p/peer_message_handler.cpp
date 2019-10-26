@@ -104,12 +104,12 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
  * @param version Message protocol version.
  * @return 0 on successful validation. -1 for failure.
  */
-int validate_content_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp)
+int validate_content_message(std::string_view message, std::string_view signature, std::string_view pubkey, int64_t timestamp)
 {
     //Validation are prioritzed base on expensiveness of validation.
     //i.e - signature validation is done at the end.
 
-    time_t time_now = std::time(nullptr);
+    int64_t time_now = util::get_epoch_milliseconds();
 
     // validate if the message is not from a node of current node's unl list.
     if (!conf::cfg.unl.count(pubkey.data()))

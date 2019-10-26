@@ -19,7 +19,7 @@ int validate_and_extract_container(const Container **container_ref, std::string_
 
 int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, flatbuffers::uoffset_t content_size);
 
-int validate_content_message(std::string_view message, std::string_view signature, std::string_view pubkey, time_t timestamp);
+int validate_content_message(std::string_view message, std::string_view signature, std::string_view pubkey, int64_t timestamp);
 
 const proposal create_proposal_from_msg(const Proposal_Message &msg);
 

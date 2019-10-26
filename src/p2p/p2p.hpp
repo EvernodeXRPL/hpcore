@@ -14,9 +14,9 @@ namespace p2p
 struct proposal
 {
     std::string pubkey;
-    uint64_t timestamp;
+    int64_t timestamp;
+    int64_t time;
     int8_t stage;
-    uint64_t time;
     std::string lcl;
     std::unordered_set<std::string> users;
     std::unordered_map<std::string, const std::string> raw_inputs;
@@ -45,7 +45,7 @@ extern std::mutex peer_connections_mutex; // Mutex for peer connections access r
 /**
  * This is used to store hash of recent peer messages: messagehash -> timestamp of message
  */
-extern std::map<std::string, time_t> recent_peer_msghash;
+extern std::map<std::string, int64_t> recent_peer_msghash;
 
 int init();
 

@@ -3,7 +3,6 @@
 #include <unordered_map>
 #include <list>
 #include <math.h>
-#include <chrono>
 #include <thread>
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
@@ -28,7 +27,7 @@ consensus_context ctx;
  * @param candidate The candidate whose vote should be increased by 1.
  */
 template <typename T>
-void increment(std::unordered_map<T, int32_t> &counter, const T &candidate)
+void increment(std::map<T, int32_t> &counter, const T &candidate)
 {
     if (counter.count(candidate))
         counter[candidate]++;
@@ -40,12 +39,13 @@ void consensus()
 {
     // A consensus round consists of 4 stages (0,1,2,3).
 
-    time_t time_now = std::time(nullptr);
+    int64_t time_now = util::get_epoch_milliseconds();
 
     if (ctx.stage == 0)
     {
-        // In stage 0 we create a novel stg_prop and broadcast it.
-        emit_stage0_proposal(time_now);
+        // In stage 0 we create a novel proposal and broadcast it.
+        const p2p::proposal stg_prop = emit_stage0_proposal(time_now);
+        broadcast_proposal(stg_prop);
     }
     else // Stage 1, 2, 3
     {
@@ -57,38 +57,28 @@ void consensus()
         // Initialize vote counters
         vote_counter votes;
 
-        int8_t winning_stage = get_winning_stage(candidate_proposals, votes);
-
         // check if we're ahead/behind of consensus
-        if (winning_stage < ctx.stage - 1)
+        bool should_reset; // Whether to reset back to stage 0
+        if (is_stage_desync(should_reset, time_now, candidate_proposals, votes))
         {
-            LOG_DBG << "Wait for proposals becuase node stage: " << std::to_string(ctx.stage)
-                    << " is ahead of consensus stage: " << std::to_string(winning_stage);
-
-            bool reset = (time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
-            return wait_for_proposals(reset);
-        }
-        else if (winning_stage > ctx.stage - 1)
-        {
-            LOG_DBG << "Wait for proposals becuase node stage: " << std::to_string(ctx.stage)
-                    << " is behind of consensus " << std::to_string(winning_stage);
-
-            return wait_for_proposals(true);
+            wait_for_proposals(should_reset);
+            return;
         }
 
         // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
-        p2p::proposal stg_prop = emit_stage123_proposal(time_now, candidate_proposals, votes);
-
-        candidate_proposals.clear();
+        const p2p::proposal stg_prop = emit_stage123_proposal(time_now, candidate_proposals, votes);
+        broadcast_proposal(stg_prop);
 
         if (ctx.stage == 3)
         {
-            LOG_DBG << "Stage 3 consensus reached. Applying ledger...";
             apply_ledger(stg_prop);
+
+            // We have finished a consensus round (all 4 stages).
+            LOG_DBG << "****Stage 3 consensus reached*****";
         }
     }
 
-    // We have finished a consensus round (all 4 stages).
+    // We have finished a consensus stage.
 
     // Transition to next stage.
     ctx.stage = (ctx.stage + 1) % 4;
@@ -102,11 +92,12 @@ void consensus()
         std::this_thread::sleep_for(std::chrono::milliseconds(time_to_sleep));
 }
 
-void emit_stage0_proposal(time_t time_now)
+p2p::proposal emit_stage0_proposal(int64_t time_now)
 {
     // The proposal we are going to emit in stage 0.
     p2p::proposal stg_prop;
     stg_prop.time = time_now;
+    stg_prop.timestamp = time_now;
     stg_prop.stage = ctx.stage;
     stg_prop.lcl = ctx.lcl;
     ctx.novel_proposal_time = time_now;
@@ -161,24 +152,17 @@ void emit_stage0_proposal(time_t time_now)
     ctx.local_userbuf.clear();
 
     // todo: set propsal states
-    // todo: generate stg_prop hash and check with ctx.novel_proposal, we are sending same stg_prop again/
+    // todo: generate stg_prop hash and check with ctx.novel_proposal, we are sending same stg_prop again.
 
-    // Broadcast stg_prop to peers
-    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2p::create_msg_from_proposal(msg.builder(), stg_prop);
-    {
-        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-        for (auto &[k, session] : p2p::peer_connections)
-            session->send(msg);
-    }
+    return stg_prop;
 }
 
 p2p::proposal emit_stage123_proposal(
-    time_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes)
+    int64_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes)
 {
     // The proposal to be emited at the end of this stage.
     p2p::proposal stg_prop;
-    stg_prop.time = std::time(nullptr); // Current time.
+    stg_prop.timestamp = time_now;
     stg_prop.stage = ctx.stage;
     stg_prop.lcl = ctx.lcl;
 
@@ -189,7 +173,7 @@ p2p::proposal emit_stage123_proposal(
     {
         // Vote for times.
         // Everyone votes on an arbitrary time, as long as its within the round time and not in the future
-        if (stg_prop.time > cp.time && stg_prop.time - cp.time < conf::cfg.roundtime)
+        if (time_now > cp.time && (time_now - cp.time) < conf::cfg.roundtime)
             increment(votes.time, cp.time);
 
         // Vote for user connections
@@ -249,7 +233,7 @@ p2p::proposal emit_stage123_proposal(
                     std::make_pair(pubkey, output));
             }
         }
-        // Proposals from stage 1, 2, 3 ill have hashed user outputs in them.
+        // Proposals from stage 1, 2, 3 will have hashed user outputs in them.
         else if (!cp.hash_outputs.empty())
         {
             for (auto outputhash : cp.hash_outputs)
@@ -286,13 +270,13 @@ p2p::proposal emit_stage123_proposal(
     // todo:add states which have votes over stage threshold to proposal.
 
     // time is voted on a simple sorted and majority basis, since there will always be disagreement.
-    int32_t largest_vote = 0;
-    for (auto &time : votes.time)
+    int32_t highest_votes = 0;
+    for (auto [time, numvotes] : votes.time)
     {
-        if (time.second > largest_vote)
+        if (numvotes > highest_votes)
         {
-            largest_vote = time.second;
-            stg_prop.time = time.first;
+            highest_votes = numvotes;
+            stg_prop.time = time;
         }
     }
 
@@ -301,25 +285,33 @@ p2p::proposal emit_stage123_proposal(
     // our peers or we will halt depending on level of consensus on the sides of the fork
     stg_prop.lcl = ctx.lcl;
 
-    // Broadcast the stage proposal
-    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2p::create_msg_from_proposal(msg.builder(), stg_prop);
+    return stg_prop;
+}
 
-    LOG_DBG << "Stage (" << std::to_string(ctx.stage)
-            << ") Proposed users:" << stg_prop.users.size()
-            << " hinputs:" << stg_prop.hash_inputs.size()
-            << " houts:" << stg_prop.hash_outputs.size();
+void broadcast_proposal(const p2p::proposal &p)
+{
+    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+    p2p::create_msg_from_proposal(msg.builder(), p);
 
     {
+        //Broadcast while locking the peer_connections.
         std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
         for (auto &[k, session] : p2p::peer_connections)
             session->send(msg);
     }
 
-    return stg_prop;
+    LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
+            << "] users:" << p.users.size()
+            << " rinp:" << p.raw_inputs.size()
+            << " hinp:" << p.hash_inputs.size()
+            << " rout:" << p.raw_outputs.size()
+            << " hout:" << p.hash_outputs.size();
 }
 
-int8_t get_winning_stage(const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes)
+/**
+ * Check whether our current stage is ahead or behind of the majority stage.
+ */
+bool is_stage_desync(bool &should_reset, int64_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes)
 {
     // Stage votes.
     for (const p2p::proposal &cp : candidate_proposals)
@@ -342,7 +334,23 @@ int8_t get_winning_stage(const std::list<p2p::proposal> &candidate_proposals, vo
         }
     }
 
-    return winning_stage;
+    bool is_desync = false;
+
+    if (winning_stage < ctx.stage - 1)
+    {
+        should_reset = (time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
+        is_desync = true;
+    }
+    else if (winning_stage > ctx.stage - 1)
+    {
+        should_reset = true;
+        is_desync = true;
+    }
+
+    LOG_DBG << "Wait for proposals (reset:" << should_reset << ") Node stage:" << std::to_string(ctx.stage)
+            << " is ahead of consensus stage:" << std::to_string(winning_stage);
+
+    return is_desync;
 }
 
 /**
@@ -451,7 +459,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
     run_contract_binary(cons_prop.time);
 }
 
-void run_contract_binary(time_t time_now)
+void run_contract_binary(int64_t time_now)
 {
     std::pair<std::string, std::string> hpscbufpair;
     std::unordered_map<std::string, std::pair<std::string, std::string>> nplbufs;

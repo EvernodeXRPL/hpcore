@@ -12,9 +12,7 @@ else
   exit 1
 fi
 
-clusterloc=`dirname $0`
-cd $clusterloc
-clusterloc=$(pwd)
+clusterloc=$(pwd)/hpcluster
 n=$1
 
 let pubport=8080+$n

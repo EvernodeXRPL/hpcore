@@ -54,7 +54,7 @@ std::thread peer_thread;
  */
  sock::session_options sess_opts;
 
-std::map<std::string, time_t> recent_peer_msghash;
+std::map<std::string, int64_t> recent_peer_msghash;
 
 int init()
 {

@@ -11,16 +11,12 @@ else
   exit 1
 fi
 
-clusterloc=`dirname $0`
-cd $clusterloc
-clusterloc=$(pwd)
+# Delete and recreate 'hpcluster' directory.
+rm -r hpcluster > /dev/null 2>&1
+mkdir hpcluster
+clusterloc="./hpcluster"
 
-# Create docker virtual network named 'hpnet'
-# All nodes will communicate with each other via this network.
-docker network create --driver bridge hpnet > /dev/null 2>&1
-
-# Delete all sub-directories to make way for HP node contracts.
-rm -r -- ./*/ > /dev/null 2>&1
+pushd $clusterloc > /dev/null 2>&1
 
 # Create contract directories for all nodes in the cluster.
 ncount=$1
@@ -32,7 +28,7 @@ do
     let pubport=8080+$n
 
     # Create contract dir named "node<i>"
-    ../../build/hpcore new "node${n}" > /dev/null 2>&1
+    ../build/hpcore new "node${n}" > /dev/null 2>&1
 
     pushd ./node$n/cfg > /dev/null 2>&1
 
@@ -46,7 +42,7 @@ do
 
     # During hosting we use docker virtual dns instead of IP address.
     # So each node is reachable via 'node<id>' name.
-    peers[i]="node${1}:${peerport}"
+    peers[i]="node${n}:${peerport}"
     
     # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
@@ -66,7 +62,7 @@ do
 
     # Copy the contract executable.
     mkdir ./node$n/bin
-    cp ../echocontract/contract.js ./node$n/bin/contract.js
+    cp ../examples/echocontract/contract.js ./node$n/bin/contract.js
 done
 
 # Function to generate JSON array string while skiping a given index.
@@ -110,7 +106,13 @@ do
     popd > /dev/null 2>&1
 done
 
+popd > /dev/null 2>&1
+
+# Create docker virtual network named 'hpnet'
+# All nodes will communicate with each other via this network.
+docker network create --driver bridge hpnet > /dev/null 2>&1
+
 echo "Cluster generated at ${clusterloc}"
-echo "Use \"./start.sh <nodeid>\" to run each node."
+echo "Use \"./cluster-start.sh <nodeid>\" to run each node."
 
 exit 0

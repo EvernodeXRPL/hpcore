@@ -1,6 +1,7 @@
 #include <string>
 #include <sodium.h>
 #include <sstream>
+#include <chrono>
 #include <rapidjson/document.h>
 
 namespace util
@@ -50,6 +51,16 @@ int hex2bin(unsigned char *decodedbuf, size_t decodedbuf_len, std::string_view h
     }
 
     return 0;
+}
+
+/**
+ * Returns current time in UNIX epoch milliseconds.
+ */
+int64_t get_epoch_milliseconds()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+                  std::chrono::system_clock::now().time_since_epoch())
+                  .count();
 }
 
 /**

@@ -40,6 +40,8 @@ int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_le
 
 int hex2bin(unsigned char *decoded, size_t decoded_len, std::string_view hex_str);
 
+int64_t get_epoch_milliseconds();
+
 int version_compare(const std::string &x, const std::string &y);
 
 std::string_view getsv(const rapidjson::Value &v);

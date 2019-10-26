@@ -10,3 +10,4 @@ release/**
 **/CMakeCache.txt
 **/cmake_install.cmake
 **/CMakeFiles/**
+hpcluster

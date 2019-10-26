@@ -23,7 +23,7 @@ static const float STAGE3_THRESHOLD = 0.8;
 struct consensus_context
 {
     int8_t stage;
-    std::time_t novel_proposal_time;
+    std::int64_t novel_proposal_time;
     std::string lcl;
     std::string novel_proposal;
     std::map<std::string, std::pair<const std::string, std::string>> possible_inputs;
@@ -36,12 +36,12 @@ struct consensus_context
 
 struct vote_counter
 {
-    std::unordered_map<int8_t, int32_t> stage;
-    std::unordered_map<std::string, int32_t> lcl;
-    std::unordered_map<std::string, int32_t> users;
-    std::unordered_map<std::string, int32_t> inputs;
-    std::unordered_map<std::string, int32_t> outputs;
-    std::unordered_map<uint64_t, int32_t> time;
+    std::map<int8_t, int32_t> stage;
+    std::map<int64_t, int32_t> time;
+    std::map<std::string, int32_t> lcl;
+    std::map<std::string, int32_t> users;
+    std::map<std::string, int32_t> inputs;
+    std::map<std::string, int32_t> outputs;
 };
 
 extern consensus_context ctx;
@@ -54,14 +54,16 @@ float_t get_stage_threshold(int8_t stage);
 
 void wait_for_proposals(bool reset);
 
-void emit_stage0_proposal(time_t time_now);
+p2p::proposal emit_stage0_proposal(int64_t time_now);
 
 p2p::proposal emit_stage123_proposal(
-    time_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
+    int64_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
 
-int8_t get_winning_stage(const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
+void broadcast_proposal(const p2p::proposal &p);
 
-void run_contract_binary(std::time_t time);
+bool is_stage_desync(bool &should_reset, int64_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
+
+void run_contract_binary(std::int64_t time);
 
 } // namespace cons
 
