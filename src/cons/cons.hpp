@@ -22,8 +22,11 @@ static const float STAGE3_THRESHOLD = 0.8;
  */
 struct consensus_context
 {
+    std::list<p2p::proposal> candidate_proposals;
+
     int8_t stage;
-    std::int64_t novel_proposal_time;
+    int64_t novel_proposal_time;
+    int64_t time_now;
     std::string lcl;
     std::string novel_proposal;
     std::map<std::string, std::pair<const std::string, std::string>> possible_inputs;
@@ -52,16 +55,15 @@ void apply_ledger(const p2p::proposal &proposal);
 
 float_t get_stage_threshold(int8_t stage);
 
-void wait_for_proposals(bool reset);
+void timewait_stage(bool reset);
 
-p2p::proposal emit_stage0_proposal(int64_t time_now);
+p2p::proposal create_stage0_proposal();
 
-p2p::proposal emit_stage123_proposal(
-    int64_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
+p2p::proposal create_stage123_proposal(vote_counter &votes);
 
-void broadcast_proposal(const p2p::proposal &p);
+int broadcast_proposal(const p2p::proposal &p);
 
-bool is_stage_desync(bool &should_reset, int64_t time_now, const std::list<p2p::proposal> &candidate_proposals, vote_counter &votes);
+void check_majority_stage(bool &is_desync, bool &should_reset, int8_t &majority_stage, vote_counter &votes);
 
 void run_contract_binary(std::int64_t time);
 

@@ -124,16 +124,17 @@ int main(int argc, char **argv)
 
                 hplog::init();
 
-                if (usr::init() != 0)
+                if (p2p::init() != 0)
                     return -1;
 
-                if (p2p::init() != 0)
+                if (usr::init() != 0)
                     return -1;
 
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
-                
+
                 cons::ctx.stage = 0;
+                cons::ctx.lcl = "static_lcl";
 
                 while (true)
                 {
