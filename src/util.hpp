@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <rapidjson/document.h>
+#include "crypto.hpp"
 
 /**
  * Contains helper functions and data structures used by multiple other subsystems.
@@ -45,6 +46,35 @@ int64_t get_epoch_milliseconds();
 int version_compare(const std::string &x, const std::string &y);
 
 std::string_view getsv(const rapidjson::Value &v);
+
+/**
+ * Represents a data buffer which calculates the hash of the buffer.
+ */
+struct hash_buffer
+{
+    std::string hash;
+    std::string buffer;
+
+    hash_buffer(std::string_view data)
+    {
+        buffer = data;
+    }
+
+    hash_buffer(std::string_view data, std::string_view hashprefix)
+    {
+        buffer = data;
+
+        std::string timestr = std::to_string(get_epoch_milliseconds());
+
+        std::string stringtohash;
+        stringtohash.reserve(hashprefix.length() + buffer.length() + timestr.length());
+        stringtohash.append(hashprefix);
+        stringtohash.append(buffer);
+        stringtohash.append(timestr);
+
+        hash = crypto::sha_512_hash(stringtohash);
+    }
+};
 
 } // namespace util
 

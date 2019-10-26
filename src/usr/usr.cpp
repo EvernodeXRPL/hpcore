@@ -31,13 +31,13 @@ std::mutex users_mutex; // Mutex for users access race conditions.
  * This is used for pubkey duplicate checks as well.
  * Map key: User binary pubkey
  */
-std::unordered_map<std::string, std::string> sessionids;
+std::unordered_map<std::string, const std::string> sessionids;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  * Map key: User socket session id (<ip:port>)
  */
-std::unordered_map<std::string, std::string> pending_challenges;
+std::unordered_map<std::string, const std::string> pending_challenges;
 
 /**
  * User session handler instance. This instance's methods will be fired for any user socket activity.
@@ -226,7 +226,7 @@ int add_user(sock::socket_session<user_outbound_message> *session, const std::st
     }
 
     // Populate sessionid map so we can lookup by user pubkey.
-    sessionids[pubkey] = sessionid;
+    sessionids.try_emplace(pubkey, sessionid);
 
     return 0;
 }
@@ -254,7 +254,7 @@ int remove_user(const std::string &sessionid)
         std::lock_guard<std::mutex> lock(users_mutex);
         sessionids.erase(user.pubkey);
     }
-    
+
     users.erase(itr);
     return 0;
 }
@@ -267,7 +267,6 @@ void start_listening()
 
     auto address = net::ip::make_address(conf::cfg.listenip);
     sess_opts.max_message_size = conf::cfg.pubmaxsize;
-
 
     std::make_shared<sock::socket_server<user_outbound_message>>(
         ioc,

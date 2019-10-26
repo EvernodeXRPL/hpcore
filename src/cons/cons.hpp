@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <list>
 #include <ctime>
+#include "../proc.hpp"
 #include "../p2p/p2p.hpp"
 
 namespace cons
@@ -23,16 +24,18 @@ static const float STAGE3_THRESHOLD = 0.8;
 struct consensus_context
 {
     std::list<p2p::proposal> candidate_proposals;
+    std::unordered_map<std::string, std::list<util::hash_buffer>> candidate_users;
 
     int8_t stage;
     int64_t novel_proposal_time;
     int64_t time_now;
     std::string lcl;
     std::string novel_proposal;
+
     std::map<std::string, std::pair<const std::string, std::string>> possible_inputs;
     std::map<std::string, std::pair<const std::string, std::string>> possible_outputs;
 
-    std::unordered_map<std::string, std::pair<std::string, std::string>> local_userbuf;
+    std::unordered_map<std::string, proc::contract_iobuf_pair> useriobufmap;
 
     int32_t next_sleep;
 };
@@ -56,6 +59,8 @@ void apply_ledger(const p2p::proposal &proposal);
 float_t get_stage_threshold(int8_t stage);
 
 void timewait_stage(bool reset);
+
+void populate_candidate_users_and_inputs();
 
 p2p::proposal create_stage0_proposal();
 

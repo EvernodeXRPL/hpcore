@@ -43,8 +43,8 @@ void consensus()
     ctx.time_now = util::get_epoch_milliseconds();
 
     // Throughout consensus, we move over the incoming proposals collected via the network so far into
-    // the candidate proposal set (move and append). This is to have a private working set for the consensus and void
-    // threading conflicts with network incoming proposals list.
+    // the candidate proposal set (move and append). This is to have a private working set for the consensus and avoid
+    // threading conflicts with network incoming proposals.
     {
         std::lock_guard<std::mutex> lock(p2p::collected_msgs.proposals_mutex);
         ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::collected_msgs.proposals);
@@ -54,19 +54,24 @@ void consensus()
     {
         // Stage 0 means begining of a consensus round.
 
-        // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
-        // when we transition to stage 1.
-        auto itr = ctx.candidate_proposals.begin();
-        while (itr != ctx.candidate_proposals.end())
         {
-            // Remove any proposal from previous round's stage 3.
-            // Remove any proposal from self (pubkey match).
-            // todo: check the state of these to ensure we're running consensus ledger
-            if (itr->stage == 3 || conf::cfg.pubkey == itr->pubkey)
-                ctx.candidate_proposals.erase(itr++);
-            else
-                ++itr;
+            // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
+            // when we transition to stage 1.
+            auto itr = ctx.candidate_proposals.begin();
+            while (itr != ctx.candidate_proposals.end())
+            {
+                // Remove any proposal from previous round's stage 3.
+                // Remove any proposal from self (pubkey match).
+                // todo: check the state of these to ensure we're running consensus ledger
+                if (itr->stage == 3 || conf::cfg.pubkey == itr->pubkey)
+                    ctx.candidate_proposals.erase(itr++);
+                else
+                    ++itr;
+            }
         }
+
+        // Transfer connected user data onto consensus candidate data.
+        populate_candidate_users_and_inputs();
 
         // In stage 0 we create a novel proposal and broadcast it.
         const p2p::proposal stg_prop = create_stage0_proposal();
@@ -127,6 +132,40 @@ void consensus()
         std::this_thread::sleep_for(std::chrono::milliseconds(conf::cfg.roundtime / 4));
 }
 
+/**
+ * Populate connected users and their inputs (if any) into consensus candidate data.
+ */
+void populate_candidate_users_and_inputs()
+{
+    // Lock the connected user list until we do this operation.
+    std::lock_guard<std::mutex> lock(usr::users_mutex);
+    for (auto &[sid, con_user] : usr::users)
+    {
+        // Populate the user into candidate user inputs map.
+        // We do this regardless of whether the user has any inputs or not.
+
+        // Pointer to user's candidate input list.
+        // This may be an existing list or a new list we create right now.
+        std::list<util::hash_buffer> *inplist;
+
+        auto cuser_itr = ctx.candidate_users.find(con_user.pubkey);
+        if (cuser_itr == ctx.candidate_users.end()) // Not found
+        {
+            // If user pubkey not found, insert the pubkey and new list to hold candidate inputs.
+            auto [newpair, success] = ctx.candidate_users.try_emplace(con_user.pubkey, std::list<util::hash_buffer>());
+            inplist = &newpair->second;
+        }
+        else
+        {
+            // Set the inplist pointer to existing list.
+            inplist = &cuser_itr->second;
+        }
+
+        // Transfer the connected user's inputs (if any) to the candidate user's inputs list.
+        inplist->splice(inplist->end(), con_user.inputs);
+    }
+}
+
 p2p::proposal create_stage0_proposal()
 {
     // The proposal we are going to emit in stage 0.
@@ -137,36 +176,34 @@ p2p::proposal create_stage0_proposal()
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
 
-    // Populate the stg_prop with users list (user pubkey list) and their inputs.
-    {
-        std::lock_guard<std::mutex> lock(usr::users_mutex);
-        for (auto &[sid, user] : usr::users)
-        {
-            // add all the user connections we host
-            stg_prop.users.emplace(user.pubkey);
+    // Populate the poposal with users list (user pubkey list) and their inputs.
 
-            // and all their pending messages
-            if (!user.inbuffer.empty())
-            {
-                std::string input;
-                input.swap(user.inbuffer);
-                stg_prop.raw_inputs.try_emplace(user.pubkey, std::move(input));
-            }
-        }
+    // Add all the user connections we host
+    //stg_prop.users.emplace(con_user.pubkey);
+
+    // // and all their pending messages
+    // if (!inplist->empty())
+    // {
+    //     std::string input;
+    //     input.swap(user.inbuffer);
+    //     stg_prop.raw_inputs.try_emplace(user.pubkey, std::move(input));
+    // }
+
+    {
     }
 
     // Populate the stg_prop with any contract outputs from previous round's stage 3.
-    for (auto &[pubkey, bufpair] : ctx.local_userbuf)
+    for (auto &[pubkey, bufpair] : ctx.useriobufmap)
     {
-        if (!bufpair.second.empty()) // bufpair.second is the output buffer.
+        if (!bufpair.output.empty())
         {
             std::string rawoutput;
-            rawoutput.swap(bufpair.second);
+            rawoutput.swap(bufpair.output);
 
-            stg_prop.raw_outputs.try_emplace(pubkey, std::move(rawoutput));
+            stg_prop.raw_outputs.try_emplace(pubkey, util::hash_buffer(rawoutput, pubkey));
         }
     }
-    ctx.local_userbuf.clear();
+    ctx.useriobufmap.clear();
 
     // todo: set propsal states
     // todo: generate stg_prop hash and check with ctx.novel_proposal, we are sending same stg_prop again.
@@ -188,7 +225,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 
     //todo:check lcl votes and wait for proposals
 
-    // Vote for rest of the proposal fields
+    // Vote for rest of the proposal fields by looking at candidate proposals.
     for (const p2p::proposal &cp : ctx.candidate_proposals)
     {
         // Vote for times.
@@ -202,28 +239,19 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 
         // Vote for user inputs
 
-        // Proposals from stage 0 will have raw inputs in them.
+        // Proposals from stage 0 will have raw inputs (and their hashes) in them.
         if (!cp.raw_inputs.empty())
         {
             for (auto &[pubkey, input] : cp.raw_inputs)
             {
-                // Hash the pubkey+input.
-                std::string str_to_hash;
-                str_to_hash.reserve(pubkey.size() + input.size());
-                str_to_hash.append(pubkey);
-                str_to_hash.append(input);
-                std::string hash = crypto::sha_512_hash(str_to_hash, "INP", 3);
-
-                // Vote for the hash.
-                increment(votes.inputs, hash);
+                // Vote for the input hash.
+                increment(votes.inputs, input.hash);
 
                 // Remember the actual input along with the hash for future use for apply-ledger.
-                ctx.possible_inputs.try_emplace(
-                    std::move(hash),
-                    std::make_pair(pubkey, input));
+                ctx.possible_inputs.try_emplace(input.hash, std::make_pair(pubkey, input.buffer));
             }
         }
-        // Proposals from stage 1, 2, 3 will have hashed inputs in them.
+        // Proposals from stage 1, 2, 3 will have only input hashes in them.
         else if (!cp.hash_inputs.empty())
         {
             for (const std::string &inputhash : cp.hash_inputs)
@@ -237,20 +265,11 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         {
             for (auto &[pubkey, output] : cp.raw_outputs)
             {
-                // Hash the pubkey+input.
-                std::string str_to_hash;
-                str_to_hash.reserve(pubkey.size() + output.size());
-                str_to_hash.append(pubkey);
-                str_to_hash.append(output);
-                std::string hash = crypto::sha_512_hash(str_to_hash, "OUT", 3);
-
                 // Vote for the hash.
-                increment<std::string>(votes.outputs, hash);
+                increment<std::string>(votes.outputs, output.hash);
 
-                // Remember the actual output along with the hash for future use for apply-ledger.
-                ctx.possible_outputs.try_emplace(
-                    std::move(hash),
-                    std::make_pair(pubkey, output));
+                // Remember the actual output along with the hash for future use for apply-ledger and sending back to user.
+                ctx.possible_outputs.try_emplace(output.hash, std::make_pair(pubkey, output));
             }
         }
         // Proposals from stage 1, 2, 3 will have hashed user outputs in them.
@@ -471,7 +490,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
         }
         else
         {
-            // Prepare ctx.local_userbuf with user inputs to feed to the contract.
+            // Prepare ctx.useriobufmap with user inputs to feed to the contract.
 
             const std::string &pubkey = itr->second.first;
             std::string rawinput = itr->second.second;
@@ -481,7 +500,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
 
             std::pair<std::string, std::string> bufpair;
             bufpair.first = std::move(inputtofeed);
-            ctx.local_userbuf.try_emplace(pubkey, std::move(bufpair));
+            ctx.useriobufmap.try_emplace(pubkey, std::move(bufpair));
         }
     }
 
@@ -493,7 +512,7 @@ void run_contract_binary(int64_t time_now)
     std::pair<std::string, std::string> hpscbufpair;
     std::unordered_map<std::string, std::pair<std::string, std::string>> nplbufs;
 
-    proc::ContractExecArgs eargs(time_now, ctx.local_userbuf, nplbufs, hpscbufpair);
+    proc::ContractExecArgs eargs(time_now, ctx.useriobufmap, nplbufs, hpscbufpair);
     proc::exec_contract(eargs);
 }
 
