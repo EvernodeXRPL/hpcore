@@ -472,16 +472,16 @@ void apply_ledger(const p2p::proposal &cons_prop)
         else
         {
             // Prepare ctx.local_userbuf with user inputs to feed to the contract.
-            for (auto &[hash, userinput] : ctx.possible_inputs)
-            {
-                std::string inputtofeed;
-                inputtofeed.swap(userinput.second);
 
-                std::pair<std::string, std::string> bufpair;
-                bufpair.first = std::move(inputtofeed);
-                ctx.local_userbuf.try_emplace(userinput.first, std::move(bufpair));
-            }
-            ctx.possible_inputs.empty();
+            const std::string &pubkey = itr->second.first;
+            std::string rawinput = itr->second.second;
+
+            std::string inputtofeed;
+            inputtofeed.swap(rawinput);
+
+            std::pair<std::string, std::string> bufpair;
+            bufpair.first = std::move(inputtofeed);
+            ctx.local_userbuf.try_emplace(pubkey, std::move(bufpair));
         }
     }
 
