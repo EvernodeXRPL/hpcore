@@ -178,13 +178,13 @@ const proposal create_proposal_from_msg(const Proposal_Message &msg)
         p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
 
     if (msg.raw_inputs())
-        p.raw_inputs = flatbuf_pairvector_to_stringmap(msg.raw_inputs());
+        p.raw_inputs = flatbuf_rawinputs_to_hashbuffermap(msg.raw_inputs());
 
     if (msg.hash_inputs())
         p.hash_inputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_inputs());
 
     if (msg.raw_outputs())
-        p.raw_outputs = flatbuf_pairvector_to_stringmap(msg.raw_outputs());
+        p.raw_outputs = flatbuf_rawoutputs_to_hashbuffermap(msg.raw_outputs());
 
     if (msg.hash_outputs())
         p.hash_outputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_outputs());
@@ -214,9 +214,9 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             p.time,
             sv_to_flatbuff_bytes(builder, p.lcl),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
-            stringmap_to_flatbuf_bytepairvector(builder, p.raw_inputs),
+            hashbuffermap_to_flatbuf_rawinputs(builder, p.raw_inputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-            stringmap_to_flatbuf_bytepairvector(builder, p.raw_outputs),
+            hashbuffermap_to_flatbuf_rawoutputs(builder, p.raw_outputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
@@ -300,6 +300,52 @@ flatbuf_pairvector_to_stringmap(const flatbuffers::Vector<flatbuffers::Offset<By
     return map;
 }
 
+/**
+ * Returns a hash buffer map from Flatbuffer proposal raw inputs.
+ */
+const std::unordered_map<std::string, const std::vector<util::hash_buffer>>
+flatbuf_rawinputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *fbvec)
+{
+    std::unordered_map<std::string, const std::vector<util::hash_buffer>> map;
+    map.reserve(fbvec->size());
+    for (const RawInputList *user : *fbvec)
+    {
+        std::vector<util::hash_buffer> bufvec;
+        bufvec.reserve(user->inputs()->size());
+
+        for (auto input : *user->inputs())
+        {
+            // Create hash_buffer object and manually assign the hash from the input.
+            util::hash_buffer buf(flatbuff_bytes_to_sv(input->value())); //input->value() is the raw input.
+            buf.hash = flatbuff_bytes_to_sv(input->key());               //input->key() is the hash of the input.
+
+            bufvec.push_back(buf);
+        }
+
+        map.emplace(flatbuff_bytes_to_sv(user->pubkey()), std::move(bufvec));
+    }
+    return map;
+}
+
+/**
+ * Returns a hash buffer map from Flatbuffer proposal raw outputs.
+ */
+const std::unordered_map<std::string, util::hash_buffer>
+flatbuf_rawoutputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawOutput>> *fbvec)
+{
+    std::unordered_map<std::string, util::hash_buffer> map;
+    map.reserve(fbvec->size());
+    for (const RawOutput *user : *fbvec)
+    {
+        // Create hash_buffer object and manually assign the hash from the output.
+        util::hash_buffer buf(flatbuff_bytes_to_sv(user->output()->value())); //output->value() is the raw output.
+        buf.hash = flatbuff_bytes_to_sv(user->output()->key());               //output->key() is the hash of the output.
+
+        map.emplace(flatbuff_bytes_to_sv(user->pubkey()), std::move(buf));
+    }
+    return map;
+}
+
 //---Conversion helpers from std data types to flatbuffers data types---//
 //---These are used in constructing Flatbuffer messages using builders---//
 
@@ -339,6 +385,54 @@ stringmap_to_flatbuf_bytepairvector(flatbuffers::FlatBufferBuilder &builder, con
             builder,
             sv_to_flatbuff_bytes(builder, key),
             sv_to_flatbuff_bytes(builder, value)));
+    }
+    return builder.CreateVector(fbvec);
+}
+
+/**
+ * Returns Flatbuffer vector of RawInputs from a given map of hash buffer lists.
+ */
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawInputList>>>
+hashbuffermap_to_flatbuf_rawinputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::vector<util::hash_buffer>> &map)
+{
+    std::vector<flatbuffers::Offset<RawInputList>> fbvec;
+    fbvec.reserve(map.size());
+    for (auto const &[pubkey, bufvec] : map)
+    {
+        std::vector<flatbuffers::Offset<BytesKeyValuePair>> fbinputsvec;
+        for (const util::hash_buffer &buf : bufvec)
+        {
+            fbinputsvec.push_back(CreateBytesKeyValuePair(
+                builder,
+                sv_to_flatbuff_bytes(builder, buf.hash),
+                sv_to_flatbuff_bytes(builder, buf.buffer)));
+        }
+
+        fbvec.push_back(CreateRawInputList(
+            builder,
+            sv_to_flatbuff_bytes(builder, pubkey),
+            builder.CreateVector(fbinputsvec)));
+    }
+    return builder.CreateVector(fbvec);
+}
+
+/**
+ * Returns Flatbuffer vector of RawOutputs from a given map of hash buffers.
+ */
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawOutput>>>
+hashbuffermap_to_flatbuf_rawoutputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, util::hash_buffer> &map)
+{
+    std::vector<flatbuffers::Offset<RawOutput>> fbvec;
+    fbvec.reserve(map.size());
+    for (auto const &[pubkey, buf] : map)
+    {
+        fbvec.push_back(CreateRawOutput(
+            builder,
+            sv_to_flatbuff_bytes(builder, pubkey),
+            CreateBytesKeyValuePair(
+                builder,
+                sv_to_flatbuff_bytes(builder, buf.hash),
+                sv_to_flatbuff_bytes(builder, buf.buffer))));
     }
     return builder.CreateVector(fbvec);
 }

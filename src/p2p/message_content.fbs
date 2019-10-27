@@ -1,18 +1,28 @@
 //IDL file for p2p message content schema.
 namespace p2p;
 
-table BytesKeyValuePair { //flatbuff equivalent for dictionary/hashmap for <byte>
-    key:[ubyte]; 
-    value:[ubyte]; 
- }
+table BytesKeyValuePair { //A key, value pair of byte[].
+    key:[ubyte];
+    value:[ubyte];
+}
 
- table ByteArray { //To represent list of byte arrays
-     array:[ubyte];
- }
+table RawInputList { //Pubkey bytes with an array of key value pairs.
+    pubkey:[ubyte];
+    inputs:[BytesKeyValuePair];
+}
+
+table RawOutput { //Pubkey bytes with a output key value pair.
+    pubkey:[ubyte];
+    output:BytesKeyValuePair;
+}
+
+table ByteArray { //To represent list of byte arrays
+    array:[ubyte];
+}
 
 union Message { Proposal_Message, Npl_Message } //message content type
 
-table Content { 
+table Content {
     message:Message;
 }
 
@@ -23,10 +33,10 @@ table Proposal_Message { //Proposal type message schema
     time:uint64;
     lcl:[ubyte];
     users: [ByteArray];
-    raw_inputs: [BytesKeyValuePair];   //stage 0 inputs 
-    hash_inputs:[ByteArray];            //stage > 0 inputs (hash of stage 0 inputs)
-    raw_outputs: [BytesKeyValuePair];  //stage 0 outputs 
-    hash_outputs:[ByteArray];           //stage > 0 outputs (hash of stage 0 outputs)
+    raw_inputs: [RawInputList];  //stage 0 inputs (hash and raw value)
+    hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
+    raw_outputs: [RawOutput]; //stage 0 outputs (hash and raw value)
+    hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
     state: State;
 }
 

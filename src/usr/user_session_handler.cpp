@@ -48,7 +48,7 @@ void user_session_handler::on_connect(sock::socket_session<user_outbound_message
     session->init_uniqueid();
 
     // Create an entry in pending_challenges for later tracking upon challenge response.
-    usr::pending_challenges[session->uniqueid] = challengehex;
+    usr::pending_challenges.try_emplace(session->uniqueid, challengehex);
 
     user_outbound_message outmsg(std::move(msgstr));
     session->send(std::move(outmsg));
@@ -95,7 +95,7 @@ void user_session_handler::on_message(
 
                     session->flags.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
                     session->flags.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
-                    usr::add_user(session, userpubkey);                               // Add the user to the global authed user list
+                    usr::add_user(session, userpubkey);                              // Add the user to the global authed user list
                     usr::pending_challenges.erase(session->uniqueid);                // Remove the stored challenge
 
                     LOG_INFO << "User connection " << session->uniqueid << " authenticated. Public key "
@@ -125,10 +125,13 @@ void user_session_handler::on_message(
             // This is an authed user.
             usr::connected_user &user = itr->second;
 
-            //Append the bytes into connected user input buffer.
-            user.inbuffer.append(message);
+            {
+                std::lock_guard<std::mutex> lock(users_mutex);
+                //Add to the hashed input buffer list.
+                user.inputs.push_back(util::hash_buffer(message, user.pubkey));
+            }
 
-            LOG_DBG << "Collected " << user.inbuffer.length() << " bytes from user";
+            LOG_DBG << "Collected " << message.length() << " bytes from user";
             return;
         }
     }

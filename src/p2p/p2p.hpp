@@ -19,9 +19,9 @@ struct proposal
     int8_t stage;
     std::string lcl;
     std::unordered_set<std::string> users;
-    std::unordered_map<std::string, const std::string> raw_inputs;
+    std::unordered_map<std::string, const std::vector<util::hash_buffer>> raw_inputs;
     std::unordered_set<std::string> hash_inputs;
-    std::unordered_map<std::string, const std::string> raw_outputs;
+    std::unordered_map<std::string, util::hash_buffer> raw_outputs;
     std::unordered_set<std::string> hash_outputs;
 };
 

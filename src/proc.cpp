@@ -30,10 +30,10 @@ enum FDTYPE
 };
 
 // Map of user pipe fds (map key: user public key)
-contract_fdmap userfds;
+contract_fdmap_t userfds;
 
 // Map of NPL pipe fds (map key: user public key)
-contract_fdmap nplfds;
+contract_fdmap_t nplfds;
 
 // Pipe fds for HP <--> messages.
 std::vector<int> hpscfds;
@@ -242,10 +242,9 @@ int write_contract_args(const ContractExecArgs &args)
  */
 int write_contract_hp_inputs(const ContractExecArgs &args)
 {
-    if (create_and_write_iopipes(hpscfds, args.hpscbufs.first) != 0) // hpscbufs.first is the input buffer.
+    if (create_and_write_iopipes(hpscfds, args.hpscbufs.inputs) != 0)
     {
-        LOG_ERR << "Error writing HP input to SC (" << args.hpscbufs.first.length()
-                << " bytes)";
+        LOG_ERR << "Error writing HP inputs to SC";
         return -1;
     }
     return 0;
@@ -259,11 +258,11 @@ int write_contract_hp_inputs(const ContractExecArgs &args)
  */
 int read_contract_hp_outputs(const ContractExecArgs &args)
 {
-    // Clear the input buffer because we are sure the contract has finished reading from
+    // Clear the input buffers because we are sure the contract has finished reading from
     // that mapped memory portion.
-    args.hpscbufs.first.clear(); //bufpair.first is the input buffer.
+    args.hpscbufs.inputs.clear();
 
-    if (read_iopipe(hpscfds, args.hpscbufs.second) != 0) // hpscbufs.second is the output buffer.
+    if (read_iopipe(hpscfds, args.hpscbufs.output) != 0) // hpscbufs.second is the output buffer.
         return -1;
 
     return 0;
@@ -274,7 +273,7 @@ int read_contract_hp_outputs(const ContractExecArgs &args)
  * @param fdmap Any pubkey->fdlist map. (eg. userfds, nplfds)
  * @param os An output stream.
  */
-void fdmap_json_to_stream(const contract_fdmap &fdmap, std::ostringstream &os)
+void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os)
 {
     for (auto itr = fdmap.begin(); itr != fdmap.end(); itr++)
     {
@@ -302,16 +301,16 @@ void fdmap_json_to_stream(const contract_fdmap &fdmap, std::ostringstream &os)
  * modified (eg. fd close, buffer clear).
  * 
  * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
- * @param bufmap A map which has a public key and input/output buffer pair for that public key.
+ * @param bufmap A map which has a public key and input/output buffer lists for that public key.
  * @return 0 on success. -1 on failure.
  */
-int write_contract_fdmap_inputs(contract_fdmap &fdmap, contract_bufmap &bufmap)
+int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
 {
-    // Loop through input buffer for each pubkey.
-    for (auto &[pubkey, bufpair] : bufmap)
+    // Loop through input buffers for each pubkey.
+    for (auto &[pubkey, buflist] : bufmap)
     {
         std::vector<int> fds = std::vector<int>();
-        if (create_and_write_iopipes(fds, bufpair.first) != 0) // bufpair.first is the input buffer.
+        if (create_and_write_iopipes(fds, buflist.inputs) != 0)
             return -1;
 
         fdmap.emplace(pubkey, std::move(fds));
@@ -328,18 +327,18 @@ int write_contract_fdmap_inputs(contract_fdmap &fdmap, contract_bufmap &bufmap)
  * @param bufmap A map which has a public key and input/output buffer pair for that public key.
  * @return 0 on success. -1 on failure.
  */
-int read_contract_fdmap_outputs(contract_fdmap &fdmap, contract_bufmap &bufmap)
+int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
 {
     for (auto &[pubkey, bufpair] : bufmap)
     {
         // Clear the input buffer because we are sure the contract has finished reading from
-        // that mapped memory portion.
-        bufpair.first.clear(); //bufpair.first is the input buffer.
+        // the inputs' mapped memory portion.
+        bufpair.inputs.clear();
 
         // Get fds for the pubkey.
         std::vector<int> &fds = fdmap[pubkey];
 
-        if (read_iopipe(fds, bufpair.second) != 0) // bufpair.second is the output buffer.
+        if (read_iopipe(fds, bufpair.output) != 0) // bufpair.second is the output buffer.
             return -1;
     }
 
@@ -350,7 +349,7 @@ int read_contract_fdmap_outputs(contract_fdmap &fdmap, contract_bufmap &bufmap)
  * Common function to close any open fds in the map after an error.
  * @param fdmap Any pubkey->fdlist map. (eg. userfds, nplfds)
  */
-void cleanup_fdmap(contract_fdmap &fdmap)
+void cleanup_fdmap(contract_fdmap_t &fdmap)
 {
     for (auto &[pubkey, fds] : fdmap)
     {
@@ -370,7 +369,7 @@ void cleanup_fdmap(contract_fdmap &fdmap)
  * @param fds Vector to populate fd list.
  * @param inputbuffer Buffer to write into the HP write fd.
  */
-int create_and_write_iopipes(std::vector<int> &fds, std::string &inputbuffer)
+int create_and_write_iopipes(std::vector<int> &fds, std::list<std::string> &inputs)
 {
     int inpipe[2];
     if (pipe(inpipe) != 0)
@@ -392,17 +391,17 @@ int create_and_write_iopipes(std::vector<int> &fds, std::string &inputbuffer)
     fds.push_back(outpipe[0]); //HPREAD
     fds.push_back(outpipe[1]); //SCWRITE
 
-    // Write the input (if any) into the contract and close the writefd.
+    // Write the inputs (if any) into the contract and close the writefd.
 
     int writefd = fds[FDTYPE::HPWRITE];
     bool vmsplice_error = false;
 
-    if (!inputbuffer.empty())
+    for (std::string &input : inputs)
     {
         // We use vmsplice to map (zero-copy) the input into the fd.
         iovec memsegs[1];
-        memsegs[0].iov_base = inputbuffer.data();
-        memsegs[0].iov_len = inputbuffer.length();
+        memsegs[0].iov_base = input.data();
+        memsegs[0].iov_len = input.length();
 
         if (vmsplice(writefd, memsegs, 1, 0) == -1)
             vmsplice_error = true;
@@ -421,15 +420,15 @@ int create_and_write_iopipes(std::vector<int> &fds, std::string &inputbuffer)
 }
 
 /**
- * Common function to read and close SC output from the pipe and populate a given buffer.
+ * Common function to read and close SC output from the pipe and populate the output list.
  * @param fds Vector representing the pipes fd list.
- * @param The buffer to place the read output.
+ * @param output The buffer to place the read output.
  */
-int read_iopipe(std::vector<int> &fds, std::string &outputbuffer)
+int read_iopipe(std::vector<int> &fds, std::string &output)
 {
-    // Read any outputs that have been written by the contract process
-    // from the HP outpipe and store in the outbuffer.
-    // outbuffer will be read by the consensus process later when it wishes so.
+    // Read any data that have been written by the contract process
+    // from the output pipe and store in the output buffer.
+    // Outputs will be read by the consensus process later when it wishes so.
 
     int readfd = fds[FDTYPE::HPREAD];
     int bytes_available = 0;
@@ -438,12 +437,12 @@ int read_iopipe(std::vector<int> &fds, std::string &outputbuffer)
 
     if (bytes_available > 0)
     {
-        outputbuffer.resize(bytes_available); // args.hpscbufs.second is the output buffer.
+        output.resize(bytes_available);
 
         // Populate the user output buffer with new data from the pipe.
         // We use vmsplice to map (zero-copy) the output from the fd into output bbuffer.
         iovec memsegs[1];
-        memsegs[0].iov_base = outputbuffer.data();
+        memsegs[0].iov_base = output.data();
         memsegs[0].iov_len = bytes_available;
 
         if (vmsplice(readfd, memsegs, 1, 0) == -1)

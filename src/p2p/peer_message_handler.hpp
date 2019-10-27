@@ -36,9 +36,17 @@ std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_
 
 std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer);
 
-const std::unordered_set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
+const std::unordered_set<std::string>
+flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
 
-const std::unordered_map<std::string, const std::string> flatbuf_pairvector_to_stringmap(const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *fbvec);
+const std::unordered_map<std::string, const std::string>
+flatbuf_pairvector_to_stringmap(const flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>> *fbvec);
+
+const std::unordered_map<std::string, const std::vector<util::hash_buffer>>
+flatbuf_rawinputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *fbvec);
+
+const std::unordered_map<std::string, util::hash_buffer>
+flatbuf_rawoutputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawOutput>> *fbvec);
 
 //---Conversion helpers from std data types to flatbuffers data types---//
 
@@ -50,6 +58,12 @@ stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, c
 
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>>
 stringmap_to_flatbuf_bytepairvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::string> &map);
+
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawInputList>>>
+hashbuffermap_to_flatbuf_rawinputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::vector<util::hash_buffer>> &map);
+
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawOutput>>>
+hashbuffermap_to_flatbuf_rawoutputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, util::hash_buffer> &map);
 
 } // namespace p2p
 

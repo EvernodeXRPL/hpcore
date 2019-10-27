@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string_view>
 #include <unordered_map>
+#include <list>
 #include <mutex>
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
@@ -22,10 +23,10 @@ namespace usr
 struct connected_user
 {
     // User binary public key
-    std::string pubkey;
+    const std::string pubkey;
 
-    // Holds the unprocessed user input collected from websocket.
-    std::string inbuffer;
+    // Holds the unprocessed user inputs (and the hashes) collected from websocket.
+    std::list<util::hash_buffer> inputs;
 
     // Holds the websocket session of this user.
     // We don't need to own the session object since the lifetime of user and session are coupled.
@@ -35,9 +36,9 @@ struct connected_user
      * @param _pubkey The public key of the user in binary format.
      */
     connected_user(sock::socket_session<user_outbound_message> *_session, std::string_view _pubkey)
+        : pubkey(_pubkey)
     {
         session = _session;
-        pubkey = _pubkey;
     }
 };
 
@@ -52,12 +53,12 @@ extern std::mutex users_mutex; // Mutex for users access race conditions.
  * Keep track of verification-pending challenges issued to newly connected users.
  * Map key: User socket session id (<ip:port>)
  */
-extern std::unordered_map<std::string, std::string> sessionids;
+extern std::unordered_map<std::string, const std::string> sessionids;
 
 /**
  * Keep track of verification-pending challenges issued to newly connected users.
  */
-extern std::unordered_map<std::string, std::string> pending_challenges;
+extern std::unordered_map<std::string, const std::string> pending_challenges;
 
 int init();
 
