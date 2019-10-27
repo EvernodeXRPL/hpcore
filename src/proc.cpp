@@ -437,7 +437,7 @@ int read_iopipe(std::vector<int> &fds, std::string &output)
 
     if (bytes_available > 0)
     {
-        output.reserve(bytes_available);
+        output.resize(bytes_available);
 
         // Populate the user output buffer with new data from the pipe.
         // We use vmsplice to map (zero-copy) the output from the fd into output bbuffer.

@@ -152,7 +152,10 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
 {
     // We load response raw bytes into json document.
     rapidjson::Document d;
-    d.Parse(response.data());
+
+    // Because we project the response message directly from the binary socket buffer in a zero-copy manner, the response
+    // string is not null terminated. 'kParseStopWhenDoneFlag' avoids rapidjson error in this case.
+    d.Parse<rapidjson::kParseStopWhenDoneFlag>(response.data());
     if (d.HasParseError())
     {
         LOG_INFO << "Challenge response json parsing failed.";

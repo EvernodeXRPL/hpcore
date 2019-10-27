@@ -1,5 +1,3 @@
-#include <unordered_map>
-#include <list>
 #include <math.h>
 #include <thread>
 #include <flatbuffers/flatbuffers.h>
@@ -144,25 +142,10 @@ void populate_candidate_users_and_inputs()
         // Populate the user into candidate user inputs map.
         // We do this regardless of whether the user has any inputs or not.
 
-        // Pointer to user's candidate input list.
-        // This may be an existing list or a new list we create right now.
-        std::list<util::hash_buffer> *inplist;
-
-        auto cuser_itr = ctx.candidate_users.find(con_user.pubkey);
-        if (cuser_itr == ctx.candidate_users.end()) // Not found
-        {
-            // If user pubkey not found, insert the pubkey and new list to hold candidate inputs.
-            auto [newpair, success] = ctx.candidate_users.try_emplace(con_user.pubkey, std::list<util::hash_buffer>());
-            inplist = &newpair->second;
-        }
-        else
-        {
-            // Set the inplist pointer to existing list.
-            inplist = &cuser_itr->second;
-        }
+        std::list<util::hash_buffer> &inplist = ctx.candidate_users[con_user.pubkey];
 
         // Transfer the connected user's inputs (if any) to the candidate user's inputs list.
-        inplist->splice(inplist->end(), con_user.inputs);
+        inplist.splice(inplist.end(), con_user.inputs);
     }
 }
 
@@ -178,18 +161,20 @@ p2p::proposal create_stage0_proposal()
 
     // Populate the poposal with users list (user pubkey list) and their inputs.
 
-    // Add all the user connections we host
-    //stg_prop.users.emplace(con_user.pubkey);
-
-    // // and all their pending messages
-    // if (!inplist->empty())
-    // {
-    //     std::string input;
-    //     input.swap(user.inbuffer);
-    //     stg_prop.raw_inputs.try_emplace(user.pubkey, std::move(input));
-    // }
-
+    for (auto [pubkey, inputs] : ctx.candidate_users)
     {
+        // Add all the user connections we host.
+        stg_prop.users.emplace(pubkey);
+
+        // Add all their pending inputs.
+        if (!inputs.empty())
+        {
+            std::vector<util::hash_buffer> inpvec;
+            for (util::hash_buffer &hashbuf : inputs)
+                inpvec.push_back(hashbuf); // Copy all hashbufs from candidate inputs into the proposal.
+
+            stg_prop.raw_inputs.emplace(pubkey, std::move(inpvec));
+        }
     }
 
     // Populate the stg_prop with any contract outputs from previous round's stage 3.
@@ -242,13 +227,18 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         // Proposals from stage 0 will have raw inputs (and their hashes) in them.
         if (!cp.raw_inputs.empty())
         {
-            for (auto &[pubkey, input] : cp.raw_inputs)
+            for (auto &[pubkey, inputs] : cp.raw_inputs)
             {
                 // Vote for the input hash.
-                increment(votes.inputs, input.hash);
+                for (util::hash_buffer input : inputs)
+                {
+                    increment(votes.inputs, input.hash);
 
-                // Remember the actual input along with the hash for future use for apply-ledger.
-                ctx.possible_inputs.try_emplace(input.hash, std::make_pair(pubkey, input.buffer));
+                    std::string inputbuffer;
+                    inputbuffer.swap(input.buffer);
+                    // Remember the actual input along with the hash for future use for apply-ledger.
+                    ctx.possible_inputs.try_emplace(input.hash, std::make_pair(pubkey, inputbuffer));
+                }
             }
         }
         // Proposals from stage 1, 2, 3 will have only input hashes in them.
@@ -258,27 +248,28 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
                 increment(votes.inputs, inputhash);
         }
 
-        // Vote for user outputs
+        // Vote for contract outputs
 
         // Proposals from stage 0 will have raw user outputs in them.
         if (!cp.raw_outputs.empty())
         {
-            for (auto &[pubkey, output] : cp.raw_outputs)
+            for (auto [pubkey, output] : cp.raw_outputs)
             {
                 // Vote for the hash.
                 increment<std::string>(votes.outputs, output.hash);
 
+                std::string outputbuf;
+                outputbuf.swap(output.buffer);
+
                 // Remember the actual output along with the hash for future use for apply-ledger and sending back to user.
-                ctx.possible_outputs.try_emplace(output.hash, std::make_pair(pubkey, output));
+                ctx.possible_outputs.try_emplace(output.hash, std::make_pair(pubkey, outputbuf));
             }
         }
         // Proposals from stage 1, 2, 3 will have hashed user outputs in them.
         else if (!cp.hash_outputs.empty())
         {
             for (auto outputhash : cp.hash_outputs)
-            {
                 increment<std::string>(votes.outputs, outputhash);
-            }
         }
 
         // todo: repeat above for state
@@ -477,7 +468,6 @@ void apply_ledger(const p2p::proposal &cons_prop)
 
     //create input to feed to binary contract run
 
-    //todo:remove entries from pending inputs that made their way into a closed ledger
     for (const std::string &hash : cons_prop.hash_inputs)
     {
         auto itr = ctx.possible_inputs.find(hash);
@@ -498,19 +488,43 @@ void apply_ledger(const p2p::proposal &cons_prop)
             std::string inputtofeed;
             inputtofeed.swap(rawinput);
 
-            std::pair<std::string, std::string> bufpair;
-            bufpair.first = std::move(inputtofeed);
-            ctx.useriobufmap.try_emplace(pubkey, std::move(bufpair));
+            proc::contract_iobuf_pair &bufpair = ctx.useriobufmap[pubkey];
+            bufpair.inputs.push_back(std::move(inputtofeed));
         }
     }
+    ctx.possible_inputs.clear();
 
     run_contract_binary(cons_prop.time);
+
+    // Remove entries from candidate inputs that made their way into a closed ledger
+    auto cu_itr = ctx.candidate_users.begin();
+    while (cu_itr != ctx.candidate_users.end())
+    {
+        // Delete any ledger inputs for this user.
+        std::list<util::hash_buffer> &inputs = cu_itr->second;
+        auto inp_itr = inputs.begin();
+        while (inp_itr != inputs.end())
+        {
+            // Delete the input from the list, if it was part of consensus proposal.
+            if (cons_prop.hash_inputs.count(inp_itr->hash))
+                inputs.erase(inp_itr++);
+            else
+                ++inp_itr;
+        }
+
+        // Delete the user from the list if there are no more unprocessed inputs.
+        if (cu_itr->second.empty())
+            ctx.candidate_users.erase(cu_itr++);
+        else
+            ++cu_itr;
+    }
 }
 
 void run_contract_binary(int64_t time_now)
 {
-    std::pair<std::string, std::string> hpscbufpair;
-    std::unordered_map<std::string, std::pair<std::string, std::string>> nplbufs;
+    // todo:implement proper data structures to exchange npl and hpsc bufs
+    proc::contract_bufmap_t nplbufs;
+    proc::contract_iobuf_pair hpscbufpair;
 
     proc::ContractExecArgs eargs(time_now, ctx.useriobufmap, nplbufs, hpscbufpair);
     proc::exec_contract(eargs);
