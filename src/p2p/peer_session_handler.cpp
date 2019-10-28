@@ -71,6 +71,9 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
         return;
 
+    if (is_message_duplicate(message))
+        return;
+
     p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
     if (content_message_type == p2pmsg::Message_Proposal_Message) //message is a proposal message

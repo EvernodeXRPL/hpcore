@@ -46,6 +46,6 @@ hashbuffermap_to_flatbuf_rawinputs(flatbuffers::FlatBufferBuilder &builder, cons
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawOutput>>>
 hashbuffermap_to_flatbuf_rawoutputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, util::hash_buffer> &map);
 
-} // namespace p2p
+} // namespace fbschema::p2pmsg
 
 #endif

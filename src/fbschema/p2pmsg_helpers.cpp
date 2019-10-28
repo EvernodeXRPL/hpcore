@@ -34,7 +34,7 @@ namespace fbschema::p2pmsg
  * Verifies Conatiner message structure and outputs faltbuffer Container pointer to access the given buffer.
  * 
  * @param container_ref A pointer reference to assign the pointer to the Container object.
- * @param container_bud The buffer containing the data that should validated and interpreted
+ * @param container_buf The buffer containing the data that should be validated and interpreted
  *                      via the container pointer.
  * @return 0 on successful verification. -1 for failure.
  */
@@ -57,9 +57,6 @@ int validate_and_extract_container(const Container **container_ref, std::string_
     //Get message container
     const Container *container = GetContainer(container_buf_ptr);
 
-    //Validation are prioritzed base on expensiveness of validation.
-    //i.e - signature validation is done at the end.
-
     //check protocol version of message whether it is greater than minimum supported protocol version.
     const uint16_t version = container->version();
     if (version < util::MIN_PEERMSG_VERSION)
@@ -68,28 +65,13 @@ int validate_and_extract_container(const Container **container_ref, std::string_
         return -1;
     }
 
-    int64_t time_now = util::get_epoch_milliseconds();
-
     //check message timestamp.
+    int64_t time_now = util::get_epoch_milliseconds();
     if (container->timestamp() < (time_now - conf::cfg.roundtime * 4))
     {
         LOG_DBG << "Peer message is too old.";
         return -1;
     }
-
-    // After signature is verified, get message hash and see wheteher
-    // message is already recieved -> abandon if duplicate.
-    // auto messageHash = crypto::sha_512_hash(message, "PEERMSG", 7);
-
-    // if (recent_peer_msghash.count(messageHash) == 0)
-    // {
-    //     recent_peer_msghash.try_emplace(std::move(messageHash), timestamp);
-    // }
-    // else
-    // {
-    //     LOG_DBG << "Duplicate message";
-    //     return -1;
-    // }
 
     //Assign container and content out params.
     *container_ref = container;
@@ -363,4 +345,4 @@ hashbuffermap_to_flatbuf_rawoutputs(flatbuffers::FlatBufferBuilder &builder, con
     return builder.CreateVector(fbvec);
 }
 
-} // namespace p2p
+} // namespace fbschema::p2pmsg
