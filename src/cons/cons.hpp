@@ -70,6 +70,8 @@ int broadcast_proposal(const p2p::proposal &p);
 
 void check_majority_stage(bool &is_desync, bool &should_reset, int8_t &majority_stage, vote_counter &votes);
 
+void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, int64_t &time_now, vote_counter &votes);
+
 void run_contract_binary(std::int64_t time);
 
 } // namespace cons

@@ -85,13 +85,29 @@ void consensus()
         // Initialize vote counters
         vote_counter votes;
 
-        // check if we're ahead/behind of consensus
-        bool is_desync, reset_to_stage0;
+        // check if we're ahead/behind of consensus stage
+        bool is_stage_desync, reset_to_stage0;
         int8_t majority_stage;
-        check_majority_stage(is_desync, reset_to_stage0, majority_stage, votes);
-        if (is_desync)
+        check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
+        if (is_stage_desync)
         {
             timewait_stage(reset_to_stage0);
+            return;
+        }
+
+        // check if we're ahead/behind of consensus lcl
+        bool is_lcl_desync, should_request_history;
+        std::string majority_lcl;
+        check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, ctx.time_now, votes);
+
+        if (should_request_history)
+        {
+            //todo:create history request message and request request history from a random peer.
+        }
+        if (is_lcl_desync)
+        {
+            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
+            timewait_stage(should_reset);
             return;
         }
 
@@ -392,6 +408,67 @@ void check_majority_stage(bool &is_desync, bool &should_reset, int8_t &majority_
     }
 }
 
+/**
+ * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
+ */
+void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, int64_t &time_now, vote_counter &votes)
+{
+    // Stage votes.
+    int32_t total_lcl_votes = 0;
+    for (const p2p::proposal &cp : ctx.candidate_proposals)
+    {
+        // Vote stages if only proposal lcl is match with node's last consensus lcl
+        if ((time_now - cp.timestamp < conf::cfg.roundtime * 4) && (cp.stage == ctx.stage - 1))
+        {
+            increment(votes.lcl, cp.lcl);
+            total_lcl_votes++;
+        }
+    }
+
+    is_desync = false;
+    should_request_history = false;
+
+    if (total_lcl_votes == 0)
+    {
+        LOG_DBG << "No votes";
+        is_desync = true;
+    }
+
+    if (total_lcl_votes)
+    {
+        LOG_DBG << "Not enough peers proposing to perform consensus";
+        is_desync = true;
+    }
+
+    int32_t winning_votes = 0;
+    for (const auto [lcl, votes] : votes.lcl)
+    {
+        if (votes > winning_votes)
+        {
+            winning_votes = votes;
+            majority_lcl = lcl;
+        }
+    }
+
+    double wining_votes_unl_ratio = winning_votes / conf::cfg.unl.size();
+    if (wining_votes_unl_ratio < 0.8)
+    {
+        // potential fork condition.
+        LOG_DBG << "No consensus on lcl. Possible fork condition.";
+        is_desync = true;
+    }
+
+    //if winning lcl is not matched node lcl,
+    //that means vode is not on the consensus ledger.
+    //Should request history from a peer.
+    if (ctx.lcl != majority_lcl)
+    {
+        LOG_DBG << "We are not on the consensus ledger, requesting history from a random peer";
+        is_desync = true;
+        //todo:create history request message and request request history from a random peer.
+        should_request_history = true;
+    }
+}
 /**
  * Returns the consensus percentage threshold for the specified stage.
  * @param stage The consensus stage [1, 2, 3]
