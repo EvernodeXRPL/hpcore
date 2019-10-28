@@ -2,13 +2,13 @@
 #include <iostream>
 #include <stdlib.h>
 #include <vector>
-#include <experimental/filesystem>
 #include <unistd.h>
 #include <sstream>
 #include <fcntl.h>
 #include <sys/uio.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
+#include <boost/filesystem.hpp>
 #include "proc.hpp"
 #include "conf.hpp"
 #include "hplog.hpp"
@@ -125,7 +125,7 @@ int exec_contract(const ContractExecArgs &args)
         close_unused_fds(false);
 
         // Set the contract process working directory.
-        std::experimental::filesystem::current_path(conf::ctx.contractDir);
+        boost::filesystem::current_path(conf::ctx.contractDir);
 
         // Write the contract input message from HotPocket to the stdin (0) of the contract process.
         write_contract_args(args);

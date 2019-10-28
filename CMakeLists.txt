@@ -38,7 +38,6 @@ target_link_libraries(hpcore
     libboost_log.a
     libboost_log_setup.a
     libboost_filesystem.a
-    stdc++fs
     pthread
     crypto
     ssl

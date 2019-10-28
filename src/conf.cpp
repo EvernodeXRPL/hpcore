@@ -2,14 +2,13 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_set>
-#include <experimental/filesystem>
 #include <sodium.h>
 #include <rapidjson/document.h>
 #include <rapidjson/schema.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
-
+#include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 #include "conf.hpp"
 #include "crypto.hpp"
@@ -78,15 +77,15 @@ int rekey()
  */
 int create_contract()
 {
-    if (std::experimental::filesystem::exists(ctx.contractDir))
+    if (boost::filesystem::exists(ctx.contractDir))
     {
         std::cout << "Contract dir already exists. Cannot create contract at the same location.\n";
         return -1;
     }
 
-    std::experimental::filesystem::create_directories(ctx.configDir);
-    std::experimental::filesystem::create_directories(ctx.histDir);
-    std::experimental::filesystem::create_directories(ctx.stateDir);
+    boost::filesystem::create_directories(ctx.configDir);
+    boost::filesystem::create_directories(ctx.histDir);
+    boost::filesystem::create_directories(ctx.stateDir);
 
     //Create config file with default settings.
 
@@ -430,7 +429,7 @@ int validate_config()
     }
 
     // Check whether the contract binary actually exists.
-    if (!std::experimental::filesystem::exists(cfg.binary))
+    if (!boost::filesystem::exists(cfg.binary))
     {
         std::cout << "Contract binary does not exist: " << cfg.binary << std::endl;
         return -1;
@@ -459,7 +458,7 @@ int validate_contract_dir_paths()
 
     for (std::string &path : paths)
     {
-        if (!std::experimental::filesystem::exists(path))
+        if (!boost::filesystem::exists(path))
         {
             if (path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
             {
