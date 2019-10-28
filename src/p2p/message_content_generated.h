@@ -411,30 +411,16 @@ inline flatbuffers::Offset<Content> CreateContent(
 
 struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PUBKEY = 4,
-    VT_TIMESTAMP = 6,
-    VT_STAGE = 8,
-    VT_TIME = 10,
-    VT_LCL = 12,
-    VT_USERS = 14,
-    VT_RAW_INPUTS = 16,
-    VT_HASH_INPUTS = 18,
-    VT_RAW_OUTPUTS = 20,
-    VT_HASH_OUTPUTS = 22,
-    VT_STATE = 24
+    VT_STAGE = 4,
+    VT_TIME = 6,
+    VT_LCL = 8,
+    VT_USERS = 10,
+    VT_RAW_INPUTS = 12,
+    VT_HASH_INPUTS = 14,
+    VT_RAW_OUTPUTS = 16,
+    VT_HASH_OUTPUTS = 18,
+    VT_STATE = 20
   };
-  const flatbuffers::Vector<uint8_t> *pubkey() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  uint64_t timestamp() const {
-    return GetField<uint64_t>(VT_TIMESTAMP, 0);
-  }
-  bool mutate_timestamp(uint64_t _timestamp) {
-    return SetField<uint64_t>(VT_TIMESTAMP, _timestamp, 0);
-  }
   int8_t stage() const {
     return GetField<int8_t>(VT_STAGE, 0);
   }
@@ -491,9 +477,6 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_PUBKEY) &&
-           verifier.VerifyVector(pubkey()) &&
-           VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
            VerifyField<int8_t>(verifier, VT_STAGE) &&
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyOffset(verifier, VT_LCL) &&
@@ -522,12 +505,6 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct Proposal_MessageBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
-    fbb_.AddOffset(Proposal_Message::VT_PUBKEY, pubkey);
-  }
-  void add_timestamp(uint64_t timestamp) {
-    fbb_.AddElement<uint64_t>(Proposal_Message::VT_TIMESTAMP, timestamp, 0);
-  }
   void add_stage(int8_t stage) {
     fbb_.AddElement<int8_t>(Proposal_Message::VT_STAGE, stage, 0);
   }
@@ -569,8 +546,6 @@ struct Proposal_MessageBuilder {
 
 inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    uint64_t timestamp = 0,
     int8_t stage = 0,
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
@@ -582,7 +557,6 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<State> state = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
-  builder_.add_timestamp(timestamp);
   builder_.add_state(state);
   builder_.add_hash_outputs(hash_outputs);
   builder_.add_raw_outputs(raw_outputs);
@@ -590,15 +564,12 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
   builder_.add_raw_inputs(raw_inputs);
   builder_.add_users(users);
   builder_.add_lcl(lcl);
-  builder_.add_pubkey(pubkey);
   builder_.add_stage(stage);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *pubkey = nullptr,
-    uint64_t timestamp = 0,
     int8_t stage = 0,
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
@@ -608,7 +579,6 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<flatbuffers::Offset<RawOutput>> *raw_outputs = nullptr,
     const std::vector<flatbuffers::Offset<ByteArray>> *hash_outputs = nullptr,
     flatbuffers::Offset<State> state = 0) {
-  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*users) : 0;
   auto raw_inputs__ = raw_inputs ? _fbb.CreateVector<flatbuffers::Offset<RawInputList>>(*raw_inputs) : 0;
@@ -617,8 +587,6 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<ByteArray>>(*hash_outputs) : 0;
   return p2p::CreateProposal_Message(
       _fbb,
-      pubkey__,
-      timestamp,
       stage,
       time,
       lcl__,

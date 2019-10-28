@@ -154,7 +154,6 @@ p2p::proposal create_stage0_proposal()
     // The proposal we are going to emit in stage 0.
     p2p::proposal stg_prop;
     stg_prop.time = ctx.time_now;
-    stg_prop.timestamp = ctx.time_now;
     ctx.novel_proposal_time = ctx.time_now;
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
@@ -200,7 +199,6 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 {
     // The proposal to be emited at the end of this stage.
     p2p::proposal stg_prop;
-    stg_prop.timestamp = ctx.time_now;
     stg_prop.stage = ctx.stage;
 
     // we always vote for our current lcl regardless of what other peers are saying

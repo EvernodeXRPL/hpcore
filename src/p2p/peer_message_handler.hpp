@@ -17,18 +17,18 @@ namespace p2p
 
 int validate_and_extract_container(const Container **container_ref, std::string_view container_buf);
 
+int validate_container_trust(const Container *container);
+
 int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, flatbuffers::uoffset_t content_size);
 
-int validate_content_message(std::string_view message, std::string_view signature, std::string_view pubkey, int64_t timestamp);
-
-const proposal create_proposal_from_msg(const Proposal_Message &msg);
+const proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey);
 
 //---Message creation helpers---//
 
 void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder, const proposal &p);
 
 void create_containermsg_from_content(
-    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder);
+    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, bool sign);
 
 //---Conversion helpers from flatbuffers data types to std data types---//
 

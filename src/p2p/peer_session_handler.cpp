@@ -12,7 +12,7 @@
 
 namespace p2p
 {
-    
+
 peer_outbound_message::peer_outbound_message(
     std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr)
 {
@@ -82,24 +82,17 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
     if (content_message_type == Message_Proposal_Message) //message is a proposal message
     {
-        const Proposal_Message *proposalmsg = content->message_as_Proposal_Message();
-        
-        //validate message for malleability, timeliness, signature and prune recieving messages.
-        bool val_result = validate_content_message(
-            flatbuff_bytes_to_sv(content_ptr, content_size),
-            flatbuff_bytes_to_sv(container->signature()),
-            flatbuff_bytes_to_sv(proposalmsg->pubkey()),
-            proposalmsg->timestamp());
+        // We only trust proposals coming from trusted peers.
+        if (validate_container_trust(container) != 0)
+        {
+            LOG_DBG << "Proposal rejected due to trust failure.";
+            return;
+        }
 
-        if (val_result == 0)
-        {
-            std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex);
-            collected_msgs.proposals.push_back(create_proposal_from_msg(*proposalmsg));
-        }
-        else
-        {
-            LOG_DBG << "Message content field validation failed";
-        }
+        std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex); // Insert proposal with lock.
+
+        collected_msgs.proposals.push_back(
+            create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey()));
     }
     else if (content_message_type == Message_Npl_Message) //message is a NPL message
     {

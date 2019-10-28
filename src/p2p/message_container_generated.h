@@ -15,14 +15,28 @@ struct Container;
 struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
-    VT_SIGNATURE = 6,
-    VT_CONTENT = 8
+    VT_TIMESTAMP = 6,
+    VT_PUBKEY = 8,
+    VT_SIGNATURE = 10,
+    VT_CONTENT = 12
   };
   uint16_t version() const {
     return GetField<uint16_t>(VT_VERSION, 0);
   }
   bool mutate_version(uint16_t _version) {
     return SetField<uint16_t>(VT_VERSION, _version, 0);
+  }
+  uint64_t timestamp() const {
+    return GetField<uint64_t>(VT_TIMESTAMP, 0);
+  }
+  bool mutate_timestamp(uint64_t _timestamp) {
+    return SetField<uint64_t>(VT_TIMESTAMP, _timestamp, 0);
+  }
+  const flatbuffers::Vector<uint8_t> *pubkey() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
   }
   const flatbuffers::Vector<uint8_t> *signature() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIGNATURE);
@@ -39,6 +53,9 @@ struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint16_t>(verifier, VT_VERSION) &&
+           VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
+           VerifyOffset(verifier, VT_PUBKEY) &&
+           verifier.VerifyVector(pubkey()) &&
            VerifyOffset(verifier, VT_SIGNATURE) &&
            verifier.VerifyVector(signature()) &&
            VerifyOffset(verifier, VT_CONTENT) &&
@@ -52,6 +69,12 @@ struct ContainerBuilder {
   flatbuffers::uoffset_t start_;
   void add_version(uint16_t version) {
     fbb_.AddElement<uint16_t>(Container::VT_VERSION, version, 0);
+  }
+  void add_timestamp(uint64_t timestamp) {
+    fbb_.AddElement<uint64_t>(Container::VT_TIMESTAMP, timestamp, 0);
+  }
+  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
+    fbb_.AddOffset(Container::VT_PUBKEY, pubkey);
   }
   void add_signature(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature) {
     fbb_.AddOffset(Container::VT_SIGNATURE, signature);
@@ -74,11 +97,15 @@ struct ContainerBuilder {
 inline flatbuffers::Offset<Container> CreateContainer(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint16_t version = 0,
+    uint64_t timestamp = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = 0) {
   ContainerBuilder builder_(_fbb);
+  builder_.add_timestamp(timestamp);
   builder_.add_content(content);
   builder_.add_signature(signature);
+  builder_.add_pubkey(pubkey);
   builder_.add_version(version);
   return builder_.Finish();
 }
@@ -86,13 +113,18 @@ inline flatbuffers::Offset<Container> CreateContainer(
 inline flatbuffers::Offset<Container> CreateContainerDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint16_t version = 0,
+    uint64_t timestamp = 0,
+    const std::vector<uint8_t> *pubkey = nullptr,
     const std::vector<uint8_t> *signature = nullptr,
     const std::vector<uint8_t> *content = nullptr) {
+  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto signature__ = signature ? _fbb.CreateVector<uint8_t>(*signature) : 0;
   auto content__ = content ? _fbb.CreateVector<uint8_t>(*content) : 0;
   return p2p::CreateContainer(
       _fbb,
       version,
+      timestamp,
+      pubkey__,
       signature__,
       content__);
 }
