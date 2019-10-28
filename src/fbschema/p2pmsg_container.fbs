@@ -2,8 +2,8 @@
 /*Message content need to be serialised and parsed into container, we need two root types in flatbuffs to generat
  needed api methods. Since Flatbuff only support one rrot at each IDL files, we had to seperate message schema to 2 files.
 */
-include "message_content.fbs";
-namespace p2p;
+include "p2pmsg_content.fbs";
+namespace fbschema.p2pmsg;
 
 table Container { //root type for message
     version:uint16;

@@ -6,6 +6,7 @@
 #include "../util.hpp"
 #include "../hplog.hpp"
 #include "p2p.hpp"
+#include "peer_session_handler.hpp"
 
 namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 

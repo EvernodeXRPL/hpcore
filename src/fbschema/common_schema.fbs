@@ -1,0 +1,11 @@
+//IDL file for common types.
+namespace fbschema;
+
+table BytesKeyValuePair { //A key, value pair of byte[].
+    key:[ubyte];
+    value:[ubyte];
+}
+
+table ByteArray { //To represent list of byte arrays
+    array:[ubyte];
+}

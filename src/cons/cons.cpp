@@ -4,12 +4,14 @@
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
-#include "../p2p/peer_message_handler.hpp"
+#include "../fbschema/p2pmsg_helpers.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
 #include "../proc.hpp"
 #include "cons.hpp"
+
+namespace p2pmsg = fbschema::p2pmsg;
 
 namespace cons
 {
@@ -313,12 +315,12 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 
 /**
  * Broadcasts the given proposal to all connected peers.
- * @return 0 on success. -1 if not peers to broadcast.
+ * @return 0 on success. -1 if no peers to broadcast.
  */
 int broadcast_proposal(const p2p::proposal &p)
 {
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2p::create_msg_from_proposal(msg.builder(), p);
+    p2pmsg::create_msg_from_proposal(msg.builder(), p);
 
     {
         //Broadcast while locking the peer_connections.
