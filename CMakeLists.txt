@@ -17,7 +17,6 @@ add_executable(hpcore
     src/sock/socket_server.cpp
     src/sock/socket_session.cpp
     src/sock/socket_monitor.cpp
-    src/p2p/peer_message_handler.cpp
     src/p2p/peer_session_handler.cpp
     src/p2p/p2p.cpp
     src/usr/user_session_handler.cpp
