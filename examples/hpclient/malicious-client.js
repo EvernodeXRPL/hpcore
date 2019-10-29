@@ -90,8 +90,8 @@ function main() {
         }
 
         console.log('Sending challenge response...');
-
-        ws.send(JSON.stringify(response))
+        ws.send(JSON.stringify(response));
+        
         setInterval(() => {
             var message = generateRandomMessage(args[2]);
             console.log("Message :" + message);

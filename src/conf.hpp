@@ -49,13 +49,13 @@ struct contract_config
     std::string listenip;                                   // The IPs to listen on for incoming connections
     std::unordered_map<std::string, ip_port_pair> peers;    // Map of peers keyed by "<ip address>:<port>" concatenated format
     std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)
-    std::uint16_t peerport;                                 // Listening port for peer connections
-    std::uint16_t roundtime;                                // Consensus round time in ms
-    std::uint16_t pubport;                                  // Listening port for public user connections
-    std::uint64_t pubmaxsize;                               // User message max size in bytes
-    std::uint16_t pubmaxcpm;                                // User message rate (characters(bytes) per minute)
-    std::uint64_t peermaxsize;                              // Peer message max size in bytes
-    std::uint64_t peermaxcpm;                               // Peer message rate (characters(bytes) per minute)
+    uint16_t peerport;                                 // Listening port for peer connections
+    uint16_t roundtime;                                // Consensus round time in ms
+    uint16_t pubport;                                  // Listening port for public user connections
+    uint64_t pubmaxsize;                               // User message max size in bytes
+    uint16_t pubmaxcpm;                                // User message rate (characters(bytes) per minute)
+    uint64_t peermaxsize;                              // Peer message max size in bytes
+    uint64_t peermaxcpm;                               // Peer message rate (characters(bytes) per minute)
     std::string loglevel;                                   // Log severity level (debug, info, warn, error)
     std::unordered_set<std::string> loggers;                // List of enabled loggers (console, file)
 };

@@ -25,7 +25,7 @@ socket_session<T>::~socket_session()
  * protocol failure
 */
 template <class T>
-void socket_session<T>::set_message_max_size(std::uint64_t size)
+void socket_session<T>::set_message_max_size(uint64_t size)
 {
     ws.read_message_max(size);
 }
@@ -34,22 +34,13 @@ void socket_session<T>::set_message_max_size(std::uint64_t size)
  * Set thresholds to the socket session
 */
 template <class T>
-void socket_session<T>::set_threshold(util::SESSION_THRESHOLDS threshold, std::uint64_t threshold_limit, std::uint64_t interval_in_ms)
+void socket_session<T>::set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms)
 {
-
-    auto iterator = thresholds.find(threshold);
-    session_thresholds sess_threshold;
-    sess_threshold.threshold_limit = threshold_limit;
-    sess_threshold.interval_in_ms = interval_in_ms;
-    sess_threshold.counter_value = 0;
-    sess_threshold.timestamp = 0;
-
-    if (iterator == thresholds.end())
-
-        thresholds.emplace(threshold, std::move(sess_threshold));
-    else
-        iterator->second = std::move(sess_threshold);
+    thresholds[threshold_type].counter_value = 0;
+    thresholds[threshold_type].intervalms = intervalms;
+    thresholds[threshold_type].threshold_limit = threshold_limit;
 }
+
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
 void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts)
@@ -62,10 +53,11 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
         set_message_max_size(sess_opts.max_message_size);
     }
 
-    if (sess_opts.max_bytes_per_minute > 0)
-    {
-        set_threshold(util::SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE, sess_opts.max_bytes_per_minute, 60000);
-    }
+    // Create new session_threshold and insert it to thresholds array
+    // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
+    // since enum's value is used as index in the vector to update vector values
+    session_threshold max_byte_per_message_threshold{sess_opts.max_bytes_per_minute, 0, 0, 60000};
+    thresholds.push_back(std::move(max_byte_per_message_threshold));
 
     if (is_server_session)
     {
@@ -175,15 +167,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
         return fail(ec, "read");
     }
 
-    // Loop through thresholds, increment counter values of various thresholds and check whether counter exceeds threshold max value
-    for (auto &[key, threshold] : thresholds)
-    {
-        if (key == util::SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE)
-        {
-            threshold.counter_value += buffer.size();
-            this->threshold_validator(key, threshold);
-        }
-    }
+    increment(util::SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE, buffer.size());
 
     // Wrap the buffer data in a string_view and call session handler.
     // We DO NOT transfer ownership of buffer data to the session handler. It should
@@ -205,29 +189,29 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
 }
 
 /*
-* Checks whether threshold counters have exceed their max threshold values and if exceeds hand over the rest of work to socket_monitor
-* Initially timestamp is set to 0. So in intial checkup timestamp variable is assigned current timestamp and pass it. From second 
-* instance when this function gets hit it will check whether the timestamp difference between the current and last read is higher
-* than the interval and counter has exceeds the threshold limit and pass it to socket_monitor.
+* Increment the provided thresholds counter value with the provided amount and validate it
 */
 template <class T>
-void socket_session<T>::threshold_validator(util::SESSION_THRESHOLDS threshold_key, session_thresholds &threshold)
+void socket_session<T>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount)
 {
-    if (threshold.timestamp == 0)
+    thresholds[threshold_type].counter_value += amount;
+    if (thresholds[threshold_type].timestamp == 0)
     {
-        threshold.timestamp = util::get_epoch_milliseconds();
+        thresholds[threshold_type].timestamp = util::get_epoch_milliseconds();
     }
     else
     {
-        auto elapsed_time = util::get_epoch_milliseconds() - threshold.timestamp;
-        if (elapsed_time <= threshold.interval_in_ms && threshold.counter_value > threshold.threshold_limit)
+        auto elapsed_time = util::get_epoch_milliseconds() - thresholds[threshold_type].timestamp;
+        if (elapsed_time <= thresholds[threshold_type].intervalms && thresholds[threshold_type].counter_value > thresholds[threshold_type].threshold_limit)
         {
-            threshold_monitor(threshold_key, threshold.threshold_limit, this);
+            thresholds[threshold_type].timestamp = 0;
+            thresholds[threshold_type].counter_value = 0;
+            threshold_monitor(threshold_type, thresholds[threshold_type].threshold_limit, this);
         }
-        else if (elapsed_time > threshold.interval_in_ms)
+        else if (elapsed_time > thresholds[threshold_type].intervalms)
         {
-            threshold.timestamp = util::get_epoch_milliseconds();
-            threshold.counter_value = 0;
+            thresholds[threshold_type].timestamp = util::get_epoch_milliseconds();
+            thresholds[threshold_type].counter_value = buffer.size();
         }
     }
 }
@@ -302,7 +286,7 @@ void socket_session<T>::close()
 */
 //type will be used identify whether the error is due to failure in closing the web socket or transfer of another exception to this method
 template <class T>
-void socket_session<T>::on_close(error_code ec, std::int8_t type)
+void socket_session<T>::on_close(error_code ec, int8_t type)
 {
     if (type == 1)
         return;
@@ -340,19 +324,21 @@ void socket_session<T>::fail(error_code ec, char const *what)
  */
 template socket_session<p2p::peer_outbound_message>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<p2p::peer_outbound_message> &sess_handler);
 template socket_session<p2p::peer_outbound_message>::~socket_session();
-template void socket_session<p2p::peer_outbound_message>::set_message_max_size(std::uint64_t size);
+template void socket_session<p2p::peer_outbound_message>::set_message_max_size(uint64_t size);
 template void socket_session<p2p::peer_outbound_message>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
 template void socket_session<p2p::peer_outbound_message>::send(p2p::peer_outbound_message msg);
-template void socket_session<p2p::peer_outbound_message>::threshold_validator(util::SESSION_THRESHOLDS threshold_key, session_thresholds &threshold);
+template void socket_session<p2p::peer_outbound_message>::set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms);
+template void socket_session<p2p::peer_outbound_message>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount);
 template void socket_session<p2p::peer_outbound_message>::init_uniqueid();
 template void socket_session<p2p::peer_outbound_message>::close();
 
 template socket_session<usr::user_outbound_message>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<usr::user_outbound_message> &sess_handler);
 template socket_session<usr::user_outbound_message>::~socket_session();
-template void socket_session<usr::user_outbound_message>::set_message_max_size(std::uint64_t size);
+template void socket_session<usr::user_outbound_message>::set_message_max_size(uint64_t size);
 template void socket_session<usr::user_outbound_message>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
-template void socket_session<usr::user_outbound_message>::threshold_validator(util::SESSION_THRESHOLDS threshold_key, session_thresholds &threshold);
 template void socket_session<usr::user_outbound_message>::send(usr::user_outbound_message msg);
+template void socket_session<usr::user_outbound_message>::set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms);
+template void socket_session<usr::user_outbound_message>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount);
 template void socket_session<usr::user_outbound_message>::init_uniqueid();
 template void socket_session<usr::user_outbound_message>::close();
 

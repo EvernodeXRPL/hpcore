@@ -46,21 +46,24 @@ public:
 * threshold_limit - Maximum threshold value which is allowed
 * counter_value - Counter which keeps incrementing per every message
 * timestamp - Timestamp when counter value changes
-* interval_in_ms - Time interval in miliseconds in which the threshold and the counter value should be compared
+* intervalms - Time interval in miliseconds in which the threshold and the counter value should be compared
 */
-struct session_thresholds
+struct session_threshold
 {
-    std::uint64_t threshold_limit;
-    std::uint64_t counter_value;
-    std::uint64_t timestamp;
-    std::uint64_t interval_in_ms;
+    uint64_t threshold_limit;
+    uint64_t counter_value;
+    uint64_t timestamp;
+    uint64_t intervalms;
+
+    // session_threshold(uint64_t threshold_limit, uint64_t intervalms)
+    //     : threshold_limit(threshold_limit), intervalms(intervalms), counter_value(0), timestamp(0) {}
 };
 
 // Use this to feed the session with default options from the config file
 struct session_options
 {
-    std::uint64_t max_message_size;
-    std::uint64_t max_bytes_per_minute;
+    uint64_t max_message_size;
+    uint64_t max_bytes_per_minute;
 };
 
 //Forward Declaration
@@ -73,11 +76,11 @@ class socket_session_handler;
 template <class T>
 class socket_session : public std::enable_shared_from_this<socket_session<T>>
 {
-    beast::flat_buffer buffer;                                                   // used to store incoming messages
-    websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws;                  // websocket stream used send an recieve messages
-    std::vector<T> queue;                                                        // used to store messages temporarily until it is sent to the relevant party
-    socket_session_handler<T> &sess_handler;                                     // handler passed to gain access to websocket events
-    std::unordered_map<util::SESSION_THRESHOLDS, session_thresholds> thresholds; // track down various thresholdsls
+    beast::flat_buffer buffer;                                  // used to store incoming messages
+    websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws; // websocket stream used send an recieve messages
+    std::vector<T> queue;                                       // used to store messages temporarily until it is sent to the relevant party
+    socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
+    std::vector<session_threshold> thresholds;                  // track down various thresholdsls
 
     void fail(error_code ec, char const *what);
 
@@ -89,9 +92,8 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
 
     void on_write(error_code ec, std::size_t bytes_transferred);
 
-    void on_close(error_code ec, std::int8_t type);
-
-    void threshold_validator(util::SESSION_THRESHOLDS threshold_key, session_thresholds &threshold);
+    void on_close(error_code ec, int8_t type);
+   
 
 public:
     socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler);
@@ -120,9 +122,11 @@ public:
 
     void send(T msg);
 
-    void set_message_max_size(std::uint64_t size);
+    void set_message_max_size(uint64_t size);
 
-    void set_threshold(util::SESSION_THRESHOLDS threshold, std::uint64_t threshold_limit, std::uint64_t interval);
+    void set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t interval);
+
+     void increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount);
 
     // When called, initializes the unique id string for this session.
     void init_uniqueid();
