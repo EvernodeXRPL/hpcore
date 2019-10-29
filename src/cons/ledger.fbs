@@ -1,0 +1,14 @@
+include "../p2p/message_content.fbs";
+
+namespace cons;
+
+table Ledger {
+    time:uint64;
+    lcl:[ubyte];
+    users: [ByteArray];
+    inputs: [RawInputList]; 
+    outputs: [ByteArray];
+    state: State;
+}
+
+root_type Ledger;

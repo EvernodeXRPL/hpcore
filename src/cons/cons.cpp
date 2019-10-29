@@ -432,12 +432,14 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
     {
         LOG_DBG << "No votes";
         is_desync = true;
+        return;
     }
 
     if (total_lcl_votes)
     {
         LOG_DBG << "Not enough peers proposing to perform consensus";
         is_desync = true;
+        return;
     }
 
     int32_t winning_votes = 0;
@@ -456,6 +458,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
         // potential fork condition.
         LOG_DBG << "No consensus on lcl. Possible fork condition.";
         is_desync = true;
+        return;
     }
 
     //if winning lcl is not matched node lcl,
@@ -467,6 +470,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
         is_desync = true;
         //todo:create history request message and request request history from a random peer.
         should_request_history = true;
+        return;
     }
 }
 /**

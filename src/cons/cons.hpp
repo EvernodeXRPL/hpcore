@@ -38,6 +38,7 @@ struct consensus_context
     std::unordered_map<std::string, proc::contract_iobuf_pair> useriobufmap;
 
     int32_t next_sleep;
+    
 };
 
 struct vote_counter
