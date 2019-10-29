@@ -194,6 +194,9 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
 template <class T>
 void socket_session<T>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount)
 {
+    if (thresholds[threshold_type].threshold_limit == 0)
+        return;
+
     thresholds[threshold_type].counter_value += amount;
     if (thresholds[threshold_type].timestamp == 0)
     {
