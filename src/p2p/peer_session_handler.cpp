@@ -4,15 +4,17 @@
 #include "../crypto.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
+#include "../fbschema/p2pmsg_container_generated.h"
+#include "../fbschema/p2pmsg_content_generated.h"
+#include "../fbschema/p2pmsg_helpers.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
-#include "peer_message_handler.hpp"
-#include "message_content_generated.h"
-#include "message_container_generated.h"
+
+namespace p2pmsg = fbschema::p2pmsg;
 
 namespace p2p
 {
-    
+
 peer_outbound_message::peer_outbound_message(
     std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr)
 {
@@ -40,7 +42,7 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
 {
     if (!session->flags[util::SESSION_FLAG::INBOUND])
     {
-        // We init the session unique id to associate with the challenge.
+        // We init the session unique id to associate with the peer.
         session->init_uniqueid();
         {
             std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
@@ -48,23 +50,14 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
         }
         LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
-    else
-    {
-        // todo: set container builder defualt builder size to combination of serialized content length + signature length(which is fixed)
-        // peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-
-        // proposal p;
-        // create_msg_from_proposal(msg.builder(), p);
-        // session->send(msg);
-    }
 }
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
 void peer_session_handler::on_message(sock::socket_session<peer_outbound_message> *session, std::string_view message)
 {
-    const Container *container;
-    if (validate_and_extract_container(&container, message) != 0)
+    const p2pmsg::Container *container;
+    if (p2pmsg::validate_and_extract_container(&container, message) != 0)
         return;
 
     //Get serialised message content.
@@ -74,36 +67,32 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     const uint8_t *content_ptr = container_content->Data();
     flatbuffers::uoffset_t content_size = container_content->size();
 
-    const Content *content;
-    if (validate_and_extract_content(&content, content_ptr, content_size) != 0)
+    const p2pmsg::Content *content;
+    if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
         return;
 
-    p2p::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
+    if (is_message_duplicate(message))
+        return;
 
-    if (content_message_type == Message_Proposal_Message) //message is a proposal message
+    p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
+
+    if (content_message_type == p2pmsg::Message_Proposal_Message) //message is a proposal message
     {
-        const Proposal_Message *proposalmsg = content->message_as_Proposal_Message();
-        
-        //validate message for malleability, timeliness, signature and prune recieving messages.
-        bool val_result = validate_content_message(
-            flatbuff_bytes_to_sv(content_ptr, content_size),
-            flatbuff_bytes_to_sv(container->signature()),
-            flatbuff_bytes_to_sv(proposalmsg->pubkey()),
-            proposalmsg->timestamp());
+        // We only trust proposals coming from trusted peers.
+        if (p2pmsg::validate_container_trust(container) != 0)
+        {
+            LOG_DBG << "Proposal rejected due to trust failure.";
+            return;
+        }
 
-        if (val_result == 0)
-        {
-            std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex);
-            collected_msgs.proposals.push_back(create_proposal_from_msg(*proposalmsg));
-        }
-        else
-        {
-            LOG_DBG << "Message content field validation failed";
-        }
+        std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex); // Insert proposal with lock.
+
+        collected_msgs.proposals.push_back(
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey()));
     }
-    else if (content_message_type == Message_Npl_Message) //message is a NPL message
+    else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
     {
-        const Npl_Message *npl = content->message_as_Npl_Message();
+        const p2pmsg::Npl_Message *npl = content->message_as_Npl_Message();
         // execute npl logic here.
         //broadcast message.
     }

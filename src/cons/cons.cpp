@@ -4,12 +4,14 @@
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
-#include "../p2p/peer_message_handler.hpp"
+#include "../fbschema/p2pmsg_helpers.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
 #include "../proc.hpp"
 #include "cons.hpp"
+
+namespace p2pmsg = fbschema::p2pmsg;
 
 namespace cons
 {
@@ -154,7 +156,6 @@ p2p::proposal create_stage0_proposal()
     // The proposal we are going to emit in stage 0.
     p2p::proposal stg_prop;
     stg_prop.time = ctx.time_now;
-    stg_prop.timestamp = ctx.time_now;
     ctx.novel_proposal_time = ctx.time_now;
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
@@ -200,7 +201,6 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 {
     // The proposal to be emited at the end of this stage.
     p2p::proposal stg_prop;
-    stg_prop.timestamp = ctx.time_now;
     stg_prop.stage = ctx.stage;
 
     // we always vote for our current lcl regardless of what other peers are saying
@@ -315,12 +315,12 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 
 /**
  * Broadcasts the given proposal to all connected peers.
- * @return 0 on success. -1 if not peers to broadcast.
+ * @return 0 on success. -1 if no peers to broadcast.
  */
 int broadcast_proposal(const p2p::proposal &p)
 {
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2p::create_msg_from_proposal(msg.builder(), p);
+    p2pmsg::create_msg_from_proposal(msg.builder(), p);
 
     {
         //Broadcast while locking the peer_connections.
