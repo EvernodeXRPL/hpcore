@@ -6,6 +6,7 @@
 #include "../util.hpp"
 #include "../hplog.hpp"
 #include "p2p.hpp"
+#include "peer_session_handler.hpp"
 
 namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 
@@ -34,7 +35,7 @@ p2p::peer_session_handler global_peer_session_handler;
 net::io_context ioc;
 
 /**
- * SSL context used by the  boost library in providing tls support
+ * SSL context used by the boost library in providing tls support
  */
 ssl::context ctx{ssl::context::tlsv13};
 
@@ -52,9 +53,17 @@ std::thread peer_thread;
 /**
  * Used to pass down the default settings to the socket session
  */
- sock::session_options sess_opts;
+sock::session_options sess_opts;
 
-std::map<std::string, int64_t> recent_peer_msghash;
+// The set of recent peer message hashes used for duplicate detection.
+std::unordered_set<std::string> recent_peermsg_hashes;
+
+// The supporting list of recent peer message hashes used for adding and removing hashes from
+// the 'recent_peermsg_hashes' in a first-in-first-out manner.
+std::list<const std::string *> recent_peermsg_hashes_list;
+
+// Maximum number of recent message hashes to remember.
+static const int16_t MAX_RECENT_MSG_HASHES = 200;
 
 int init()
 {
@@ -108,6 +117,36 @@ void peer_connection_watchdog()
 
         std::this_thread::sleep_for(std::chrono::milliseconds(conf::cfg.roundtime * 4));
     }
+}
+
+bool is_message_duplicate(std::string_view message)
+{
+    // Get message hash and see whether message is already recieved -> abandon if duplicate.
+    std::string hash = crypto::sha_512_hash(message);
+
+    auto itr = recent_peermsg_hashes.find(hash);
+    if (itr == recent_peermsg_hashes.end()) // Not found
+    {
+        // Add the new message hash to the list.
+        auto [newitr, success] = recent_peermsg_hashes.emplace(hash);
+
+        // Insert a pointer to the stored hash value into the ordered list of hashes.
+        recent_peermsg_hashes_list.push_back(&(*newitr));
+
+        // Remove old hashes if exceeding max hash count.
+        if (recent_peermsg_hashes_list.size() > MAX_RECENT_MSG_HASHES)
+        {
+            const std::string &oldesthash = *recent_peermsg_hashes_list.front();
+            recent_peermsg_hashes.erase(oldesthash);
+
+            recent_peermsg_hashes_list.pop_front();
+        }
+
+        return false;
+    }
+
+    LOG_DBG << "Duplicate peer message.";
+    return true;
 }
 
 } // namespace p2p

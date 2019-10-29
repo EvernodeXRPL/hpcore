@@ -42,17 +42,14 @@ extern message_collection collected_msgs;
 extern std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
 extern std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
-/**
- * This is used to store hash of recent peer messages: messagehash -> timestamp of message
- */
-extern std::map<std::string, int64_t> recent_peer_msghash;
-
 int init();
 
 //p2p message handling
 void start_peer_connections();
 
 void peer_connection_watchdog();
+
+bool is_message_duplicate(std::string_view message);
 
 } // namespace p2p
 

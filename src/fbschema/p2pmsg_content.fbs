@@ -1,10 +1,6 @@
 //IDL file for p2p message content schema.
-namespace p2p;
-
-table BytesKeyValuePair { //A key, value pair of byte[].
-    key:[ubyte];
-    value:[ubyte];
-}
+include "common_schema.fbs";
+namespace fbschema.p2pmsg;
 
 table RawInputList { //Pubkey bytes with an array of key value pairs.
     pubkey:[ubyte];
@@ -16,10 +12,6 @@ table RawOutput { //Pubkey bytes with a output key value pair.
     output:BytesKeyValuePair;
 }
 
-table ByteArray { //To represent list of byte arrays
-    array:[ubyte];
-}
-
 union Message { Proposal_Message, Npl_Message } //message content type
 
 table Content {
@@ -27,15 +19,13 @@ table Content {
 }
 
 table Proposal_Message { //Proposal type message schema
-    pubkey:[ubyte];
-    timestamp:uint64;
     stage: int8;
     time:uint64;
     lcl:[ubyte];
     users: [ByteArray];
     raw_inputs: [RawInputList];  //stage 0 inputs (hash and raw value)
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
-    raw_outputs: [RawOutput]; //stage 0 outputs (hash and raw value)
+    raw_outputs: [RawOutput];    //stage 0 outputs (hash and raw value)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
     state: State;
 }

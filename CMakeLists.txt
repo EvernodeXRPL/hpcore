@@ -11,10 +11,11 @@ add_executable(hpcore
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
+    src/fbschema/common_helpers.cpp
+    src/fbschema/p2pmsg_helpers.cpp
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
     src/sock/socket_session.cpp
-    src/p2p/peer_message_handler.cpp
     src/p2p/peer_session_handler.cpp
     src/p2p/p2p.cpp
     src/usr/user_session_handler.cpp
