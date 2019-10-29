@@ -115,7 +115,7 @@ void peer_connection_watchdog()
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(conf::cfg.roundtime * 4));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }
 

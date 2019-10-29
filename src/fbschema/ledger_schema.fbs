@@ -1,6 +1,6 @@
 include "common_schema.fbs";
 
-namespace fbschema.cons;
+namespace fbschema.ledger;
 
 table Ledger {
     time:uint64;

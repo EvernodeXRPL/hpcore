@@ -112,6 +112,7 @@ void consensus()
         if (is_lcl_desync)
         {
             bool should_reset = (ctx.time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
+            //for now we are resetting to stage 0 to avoid possible deadlock situations
             timewait_stage(true);
             return;
         }

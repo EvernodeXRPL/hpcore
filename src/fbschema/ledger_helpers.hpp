@@ -7,10 +7,10 @@
 #include "ledger_schema_generated.h"
 #include "../p2p/p2p.hpp"
 
-namespace fbschema
+namespace fbschema::ledger
 {
 
-std::string_view create_ledger_from_proposal(const p2p::proposal &p);
+std::string_view create_ledger_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p);
 }
 
 #endif

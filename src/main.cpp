@@ -136,6 +136,8 @@ int main(int argc, char **argv)
                 cons::ctx.stage = 0;
                 cons::ctx.lcl = "genesis";
                 
+                sleep(3);
+
                 while (true)
                 {
                     cons::consensus();
