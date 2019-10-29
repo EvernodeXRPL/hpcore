@@ -1,6 +1,6 @@
-include "../p2p/message_content.fbs";
+include "common_schema.fbs";
 
-namespace cons;
+namespace fbschema.cons;
 
 table Ledger {
     time:uint64;
@@ -8,7 +8,11 @@ table Ledger {
     users: [ByteArray];
     inputs: [RawInputList]; 
     outputs: [ByteArray];
-    state: State;
+}
+
+table RawInputList {
+    hash:[ubyte];
+    inputs:[ByteArray];
 }
 
 root_type Ledger;

@@ -144,11 +144,12 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
  * @param The Flatbuffer poporal received from the peer.
  * @return A proposal struct representing the message.
  */
-const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey)
+const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, uint64_t timestamp)
 {
     p2p::proposal p;
 
     p.pubkey = flatbuff_bytes_to_sv(pubkey);
+    p.timestamp = timestamp;
     p.time = msg.time();
     p.stage = msg.stage();
 

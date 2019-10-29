@@ -134,8 +134,8 @@ int main(int argc, char **argv)
                 signal(SIGINT, signal_handler);
 
                 cons::ctx.stage = 0;
-                cons::ctx.lcl = "static_lcl";
-
+                cons::ctx.lcl = "genesis";
+                
                 while (true)
                 {
                     cons::consensus();

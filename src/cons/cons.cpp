@@ -9,6 +9,7 @@
 #include "../hplog.hpp"
 #include "../crypto.hpp"
 #include "../proc.hpp"
+#include "ledger_handler.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -50,6 +51,8 @@ void consensus()
         ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::collected_msgs.proposals);
     }
 
+    std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
+
     if (ctx.stage == 0)
     {
         // Stage 0 means begining of a consensus round.
@@ -89,7 +92,7 @@ void consensus()
 
         // check if we're ahead/behind of consensus stage
         bool is_stage_desync, reset_to_stage0;
-        int8_t majority_stage;
+        uint8_t majority_stage;
         check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
         if (is_stage_desync)
         {
@@ -100,7 +103,7 @@ void consensus()
         // check if we're ahead/behind of consensus lcl
         bool is_lcl_desync, should_request_history;
         std::string majority_lcl;
-        check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, ctx.time_now, votes);
+        check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes);
 
         if (should_request_history)
         {
@@ -109,7 +112,7 @@ void consensus()
         if (is_lcl_desync)
         {
             bool should_reset = (ctx.time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
-            timewait_stage(should_reset);
+            timewait_stage(true);
             return;
         }
 
@@ -365,7 +368,7 @@ int broadcast_proposal(const p2p::proposal &p)
 /**
  * Check whether our current stage is ahead or behind of the majority stage.
  */
-void check_majority_stage(bool &is_desync, bool &should_reset, int8_t &majority_stage, vote_counter &votes)
+void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority_stage, vote_counter &votes)
 {
     // Stage votes.
     for (const p2p::proposal &cp : ctx.candidate_proposals)
@@ -411,14 +414,25 @@ void check_majority_stage(bool &is_desync, bool &should_reset, int8_t &majority_
 /**
  * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
  */
-void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, int64_t &time_now, vote_counter &votes)
+void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes)
 {
     // Stage votes.
     int32_t total_lcl_votes = 0;
+
+    // for (auto p : ctx.candidate_proposals)
+    // {
+    //     bool self = p.pubkey == conf::cfg.pubkey;
+    //     std::cout << "[stage" << std::to_string(p.stage)
+    //               << "] timestamp:" << std::to_string(p.timestamp)
+    //               << " self:" << self
+    //               << "\n";
+    // }
+    // std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
+
     for (const p2p::proposal &cp : ctx.candidate_proposals)
     {
-        // Vote stages if only proposal lcl is match with node's last consensus lcl
-        if ((time_now - cp.timestamp < conf::cfg.roundtime * 4) && (cp.stage == ctx.stage - 1))
+        // only consider recent proposals and proposals from previous stage.
+        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && (cp.stage == ctx.stage - 1))
         {
             increment(votes.lcl, cp.lcl);
             total_lcl_votes++;
@@ -428,16 +442,10 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
     is_desync = false;
     should_request_history = false;
 
-    if (total_lcl_votes == 0)
-    {
-        LOG_DBG << "No votes";
-        is_desync = true;
-        return;
-    }
 
-    if (total_lcl_votes)
+    if (total_lcl_votes < (0.8 * conf::cfg.unl.size()))
     {
-        LOG_DBG << "Not enough peers proposing to perform consensus";
+        LOG_DBG << "Not enough peers proposing to perform consensus" << std::to_string(total_lcl_votes) << " needed " << std::to_string(0.8 * conf::cfg.unl.size());
         is_desync = true;
         return;
     }
@@ -477,7 +485,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
  * Returns the consensus percentage threshold for the specified stage.
  * @param stage The consensus stage [1, 2, 3]
  */
-float_t get_stage_threshold(int8_t stage)
+float_t get_stage_threshold(uint8_t stage)
 {
     switch (stage)
     {
@@ -506,6 +514,9 @@ void timewait_stage(bool reset)
 void apply_ledger(const p2p::proposal &cons_prop)
 {
     // todo:write lcl.
+    std::string lcl = cons::save_ledger(cons_prop);
+
+    ctx.lcl = lcl;
 
     // Send any output from the previous consensus round to users.
     for (const std::string &hash : cons_prop.hash_outputs)
