@@ -270,6 +270,7 @@ void start_listening()
 
     auto address = net::ip::make_address(conf::cfg.listenip);
     sess_opts.max_message_size = conf::cfg.pubmaxsize;
+    sess_opts.max_bytes_per_minute = conf::cfg.pubmaxcpm;
 
     std::make_shared<sock::socket_server<user_outbound_message>>(
         ioc,

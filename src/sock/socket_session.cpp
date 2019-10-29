@@ -1,10 +1,12 @@
 #include "socket_session.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../usr/user_session_handler.hpp"
+#include "socket_monitor.hpp"
 
-namespace sock{
+namespace sock
+{
 
-    template <class T>
+template <class T>
 socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler)
     : ws(std::move(websocket)), sess_handler(sess_handler)
 {
@@ -28,6 +30,26 @@ void socket_session<T>::set_message_max_size(std::uint64_t size)
     ws.read_message_max(size);
 }
 
+/**
+ * Set thresholds to the socket session
+*/
+template <class T>
+void socket_session<T>::set_threshold(util::SESSION_THRESHOLDS threshold, std::uint64_t threshold_limit, std::uint64_t interval_in_ms)
+{
+
+    auto iterator = thresholds.find(threshold);
+    session_thresholds sess_threshold;
+    sess_threshold.threshold_limit = threshold_limit;
+    sess_threshold.interval_in_ms = interval_in_ms;
+    sess_threshold.counter_value = 0;
+    sess_threshold.timestamp = 0;
+
+    if (iterator == thresholds.end())
+
+        thresholds.emplace(threshold, std::move(sess_threshold));
+    else
+        iterator->second = std::move(sess_threshold);
+}
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
 void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts)
@@ -38,6 +60,11 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     {
         // Setting maximum file size
         set_message_max_size(sess_opts.max_message_size);
+    }
+
+    if (sess_opts.max_bytes_per_minute > 0)
+    {
+        set_threshold(util::SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE, sess_opts.max_bytes_per_minute, 60000);
     }
 
     if (is_server_session)
@@ -94,7 +121,6 @@ void socket_session<T>::on_ssl_handshake(error_code ec)
     }
     else
     {
-
         ws.set_option(
             websocket::stream_base::timeout::suggested(
                 beast::role_type::client));
@@ -149,6 +175,16 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
         return fail(ec, "read");
     }
 
+    // Loop through thresholds, increment counter values of various thresholds and check whether counter exceeds threshold max value
+    for (auto &[key, threshold] : thresholds)
+    {
+        if (key == util::SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE)
+        {
+            threshold.counter_value += buffer.size();
+            this->threshold_validator(key, threshold);
+        }
+    }
+
     // Wrap the buffer data in a string_view and call session handler.
     // We DO NOT transfer ownership of buffer data to the session handler. It should
     // read and process the message and we will clear the buffer after its done with it.
@@ -166,6 +202,34 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
             error_code ec, std::size_t bytes) {
             sp->on_read(ec, bytes);
         });
+}
+
+/*
+* Checks whether threshold counters have exceed their max threshold values and if exceeds hand over the rest of work to socket_monitor
+* Initially timestamp is set to 0. So in intial checkup timestamp variable is assigned current timestamp and pass it. From second 
+* instance when this function gets hit it will check whether the timestamp difference between the current and last read is higher
+* than the interval and counter has exceeds the threshold limit and pass it to socket_monitor.
+*/
+template <class T>
+void socket_session<T>::threshold_validator(util::SESSION_THRESHOLDS threshold_key, session_thresholds &threshold)
+{
+    if (threshold.timestamp == 0)
+    {
+        threshold.timestamp = util::get_epoch_milliseconds();
+    }
+    else
+    {
+        auto elapsed_time = util::get_epoch_milliseconds() - threshold.timestamp;
+        if (elapsed_time <= threshold.interval_in_ms && threshold.counter_value > threshold.threshold_limit)
+        {
+            threshold_monitor(threshold_key, threshold.threshold_limit, this);
+        }
+        else if (elapsed_time > threshold.interval_in_ms)
+        {
+            threshold.timestamp = util::get_epoch_milliseconds();
+            threshold.counter_value = 0;
+        }
+    }
 }
 
 /*
@@ -273,12 +337,13 @@ void socket_session<T>::fail(error_code ec, char const *what)
 
 /**
  * Declaring templates with possible values for T because keeping all those in hpp file makes compile take a long time
- */ 
+ */
 template socket_session<p2p::peer_outbound_message>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<p2p::peer_outbound_message> &sess_handler);
 template socket_session<p2p::peer_outbound_message>::~socket_session();
 template void socket_session<p2p::peer_outbound_message>::set_message_max_size(std::uint64_t size);
 template void socket_session<p2p::peer_outbound_message>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
 template void socket_session<p2p::peer_outbound_message>::send(p2p::peer_outbound_message msg);
+template void socket_session<p2p::peer_outbound_message>::threshold_validator(util::SESSION_THRESHOLDS threshold_key, session_thresholds &threshold);
 template void socket_session<p2p::peer_outbound_message>::init_uniqueid();
 template void socket_session<p2p::peer_outbound_message>::close();
 
@@ -286,8 +351,9 @@ template socket_session<usr::user_outbound_message>::socket_session(websocket::s
 template socket_session<usr::user_outbound_message>::~socket_session();
 template void socket_session<usr::user_outbound_message>::set_message_max_size(std::uint64_t size);
 template void socket_session<usr::user_outbound_message>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
+template void socket_session<usr::user_outbound_message>::threshold_validator(util::SESSION_THRESHOLDS threshold_key, session_thresholds &threshold);
 template void socket_session<usr::user_outbound_message>::send(usr::user_outbound_message msg);
 template void socket_session<usr::user_outbound_message>::init_uniqueid();
 template void socket_session<usr::user_outbound_message>::close();
 
-}
+} // namespace sock

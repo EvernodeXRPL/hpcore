@@ -100,9 +100,9 @@ int create_contract()
     cfg.roundtime = 1000;
     cfg.pubport = 8080;
     cfg.pubmaxsize = 65536;
-    cfg.pubmaxmpm = 100;
+    cfg.pubmaxcpm = 1000;
     cfg.peermaxsize = 65536;
-    cfg.peermaxmpm = 1000;
+    cfg.peermaxcpm = 1000;
 
 #ifndef NDEBUG
     cfg.loglevel = "debug";
@@ -233,9 +233,9 @@ int load_config()
     cfg.roundtime = d["roundtime"].GetInt();
     cfg.pubport = d["pubport"].GetInt();
     cfg.pubmaxsize = d["pubmaxsize"].GetInt();
-    cfg.pubmaxmpm = d["pubmaxmpm"].GetInt();
+    cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
     cfg.peermaxsize = d["peermaxsize"].GetInt();
-    cfg.peermaxmpm = d["peermaxmpm"].GetInt();
+    cfg.peermaxcpm = d["peermaxcpm"].GetInt();
 
     cfg.loglevel = d["loglevel"].GetString();
     cfg.loggers.clear();
@@ -298,9 +298,9 @@ int save_config()
     d.AddMember("roundtime", cfg.roundtime, allocator);
     d.AddMember("pubport", cfg.pubport, allocator);
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
-    d.AddMember("pubmaxmpm", cfg.pubmaxmpm, allocator);
+    d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
     d.AddMember("peermaxsize", cfg.peermaxsize, allocator);
-    d.AddMember("peermaxmpm", cfg.peermaxmpm, allocator);
+    d.AddMember("peermaxcpm", cfg.peermaxcpm, allocator);
 
     d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
     rapidjson::Value loggers(rapidjson::kArrayType);
@@ -403,8 +403,8 @@ int validate_config()
 
     // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxmpm == 0 || cfg.peermaxsize == 0 || 
-        cfg.peermaxmpm == 0 || cfg.loglevel.empty() || cfg.loggers.empty())
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 || cfg.peermaxsize == 0 || 
+        cfg.peermaxcpm == 0 || cfg.loglevel.empty() || cfg.loggers.empty())
     {
         std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
         return -1;
@@ -489,8 +489,8 @@ int is_schema_valid(rapidjson::Document &d)
         "{"
         "\"type\": \"object\","
         "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
-        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxmpm\""
-        ", \"peermaxsize\", \"peermaxmpm\", \"loglevel\", \"loggers\" ],"
+        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\""
+        ", \"peermaxsize\", \"peermaxcpm\", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
@@ -510,9 +510,9 @@ int is_schema_valid(rapidjson::Document &d)
         "\"roundtime\": { \"type\": \"integer\" },"
         "\"pubport\": { \"type\": \"integer\" },"
         "\"pubmaxsize\": { \"type\": \"integer\" },"
-        "\"pubmaxmpm\": { \"type\": \"integer\" },"
+        "\"pubmaxcpm\": { \"type\": \"integer\" },"
         "\"peermaxsize\": { \"type\": \"integer\" },"
-        "\"peermaxmpm\": { \"type\": \"integer\" },"
+        "\"peermaxcpm\": { \"type\": \"integer\" },"
         "\"loglevel\": { \"type\": \"string\" },"
         "\"loggers\": {"
         "\"type\": \"array\","

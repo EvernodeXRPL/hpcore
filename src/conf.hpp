@@ -53,9 +53,9 @@ struct contract_config
     std::uint16_t roundtime;                                // Consensus round time in ms
     std::uint16_t pubport;                                  // Listening port for public user connections
     std::uint64_t pubmaxsize;                               // User message max size in bytes
-    std::uint16_t pubmaxmpm;                                // User message rate (in minutes)
+    std::uint16_t pubmaxcpm;                                // User message rate (characters(bytes) per minute)
     std::uint64_t peermaxsize;                              // Peer message max size in bytes
-    std::uint64_t peermaxmpm;                               // Peer message rate (in minutes)
+    std::uint64_t peermaxcpm;                               // Peer message rate (characters(bytes) per minute)
     std::string loglevel;                                   // Log severity level (debug, info, warn, error)
     std::unordered_set<std::string> loggers;                // List of enabled loggers (console, file)
 };
