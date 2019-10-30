@@ -194,27 +194,34 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
 template <class T>
 void socket_session<T>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount)
 {
-    if (thresholds[threshold_type].threshold_limit == 0)
+    sock::session_threshold &t = thresholds[threshold_type];
+
+    // Ignore the counter if limit is set as 0.
+    if (t.threshold_limit == 0)
         return;
 
-    thresholds[threshold_type].counter_value += amount;
-    if (thresholds[threshold_type].timestamp == 0)
+    uint64_t time_now = util::get_epoch_milliseconds();
+
+    t.counter_value += amount;
+    if (t.timestamp == 0)
     {
-        thresholds[threshold_type].timestamp = util::get_epoch_milliseconds();
+        t.timestamp = time_now;
     }
     else
     {
-        auto elapsed_time = util::get_epoch_milliseconds() - thresholds[threshold_type].timestamp;
-        if (elapsed_time <= thresholds[threshold_type].intervalms && thresholds[threshold_type].counter_value > thresholds[threshold_type].threshold_limit)
+        auto elapsed_time = time_now - t.timestamp;
+        if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
         {
-            thresholds[threshold_type].timestamp = 0;
-            thresholds[threshold_type].counter_value = 0;
-            threshold_monitor(threshold_type, thresholds[threshold_type].threshold_limit, this);
+            t.timestamp = 0;
+            t.counter_value = 0;
+
+            // Invoke the threshold monitor so any actions will be performed.
+            threshold_monitor(threshold_type, t.threshold_limit, this);
         }
-        else if (elapsed_time > thresholds[threshold_type].intervalms)
+        else if (elapsed_time > t.intervalms)
         {
-            thresholds[threshold_type].timestamp = util::get_epoch_milliseconds();
-            thresholds[threshold_type].counter_value = buffer.size();
+            t.timestamp = time_now;
+            t.counter_value = amount;
         }
     }
 }
