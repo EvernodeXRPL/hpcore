@@ -123,7 +123,7 @@ void peer_connection_watchdog()
 bool is_message_duplicate(std::string_view message)
 {
     // Get message hash and see whether message is already recieved -> abandon if duplicate.
-    std::string hash = crypto::sha_512_hash(message);
+    std::string hash = crypto::get_hash(message);
 
     auto itr = recent_peermsg_hashes.find(hash);
     if (itr == recent_peermsg_hashes.end()) // Not found

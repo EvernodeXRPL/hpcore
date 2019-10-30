@@ -29,7 +29,7 @@ int verify(std::string_view msg, std::string_view sig, std::string_view pubkey);
 
 int verify_hex(std::string_view msg, std::string_view sighex, std::string_view pubkeyhex);
 
-std::string sha_512_hash(std::string_view data);
+std::string get_hash(std::string_view data);
 
 } // namespace crypto
 

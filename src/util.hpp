@@ -80,7 +80,7 @@ struct hash_buffer
         stringtohash.append(buffer);
         stringtohash.append(timestr);
 
-        hash = crypto::sha_512_hash(stringtohash);
+        hash = crypto::get_hash(stringtohash);
     }
 };
 
