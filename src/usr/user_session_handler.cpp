@@ -7,6 +7,7 @@
 #include "../sock/socket_session.hpp"
 #include "../proc.hpp"
 #include "../hplog.hpp"
+#include "../jsonschema/usrmsg_helpers.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
