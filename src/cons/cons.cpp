@@ -43,7 +43,7 @@ int init()
     //set defualt lcl
     ctx.lcl = "genesis";
 
-    //load lcl detals from lcl history. 
+    //load lcl detals from lcl history.
     const ledger_history ldr_hist = load_ledger();
     ctx.led_seq_no = ldr_hist.led_seq_no;
     ctx.lcl = ldr_hist.lcl;
@@ -69,6 +69,20 @@ void consensus()
     }
 
     std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
+    for (auto p : ctx.candidate_proposals)
+    {
+        bool self = p.pubkey == conf::cfg.pubkey;
+        std::cout << "[stage" << std::to_string(p.stage)
+                  << "] users:" << p.users.size()
+                  << " rinp:" << p.raw_inputs.size()
+                  << " hinp:" << p.hash_inputs.size()
+                  << " rout:" << p.raw_outputs.size()
+                  << " hout:" << p.hash_outputs.size()
+                  << " lcl:" << p.lcl 
+                  << " self:" << self
+                  << "\n";
+    }
+    std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
 
     if (ctx.stage == 0)
     {

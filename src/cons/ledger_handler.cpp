@@ -19,7 +19,7 @@ std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no
     const std::string_view ledger_str = fbschema::ledger::create_ledger_from_proposal(builder, proposal);
 
     //Get binary hash of the the serialized lcl.
-    const std::string lcl = crypto::sha_512_hash(ledger_str);
+    const std::string lcl = crypto::get_hash(ledger_str);
 
     //Get hex from binary hash
     std::string lcl_hash;
