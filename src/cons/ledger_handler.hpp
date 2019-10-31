@@ -6,9 +6,15 @@
 namespace cons
 {
 
-std::string save_ledger(const p2p::proposal &proposal);
+struct ledger_history
+{
+    std::string lcl;
+    uint64_t led_seq_no;
+};
 
-void load_ledger();
+std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no);
+
+const ledger_history load_ledger();
 
 }
 

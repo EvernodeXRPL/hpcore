@@ -1,6 +1,8 @@
 #include <math.h>
 #include <thread>
 #include <flatbuffers/flatbuffers.h>
+#include <boost/filesystem.hpp>
+#include <fstream>
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
 #include "../p2p/p2p.hpp"
@@ -32,6 +34,21 @@ void increment(std::map<T, int32_t> &counter, const T &candidate)
         counter[candidate]++;
     else
         counter.try_emplace(candidate, 1);
+}
+
+int init()
+{
+    //set start stage
+    ctx.stage = 0;
+    //set defualt lcl
+    ctx.lcl = "genesis";
+
+    //load lcl detals from lcl history. 
+    const ledger_history ldr_hist = load_ledger();
+    ctx.led_seq_no = ldr_hist.led_seq_no;
+    ctx.lcl = ldr_hist.lcl;
+
+    return 0;
 }
 
 void consensus()
@@ -420,16 +437,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
     // Stage votes.
     int32_t total_lcl_votes = 0;
 
-    // for (auto p : ctx.candidate_proposals)
-    // {
-    //     bool self = p.pubkey == conf::cfg.pubkey;
-    //     std::cout << "[stage" << std::to_string(p.stage)
-    //               << "] timestamp:" << std::to_string(p.timestamp)
-    //               << " self:" << self
-    //               << "\n";
-    // }
-    // std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
-
     for (const p2p::proposal &cp : ctx.candidate_proposals)
     {
         // only consider recent proposals and proposals from previous stage.
@@ -442,7 +449,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
 
     is_desync = false;
     should_request_history = false;
-
 
     if (total_lcl_votes < (0.8 * conf::cfg.unl.size()))
     {
@@ -515,7 +521,8 @@ void timewait_stage(bool reset)
 void apply_ledger(const p2p::proposal &cons_prop)
 {
     // todo:write lcl.
-    std::string lcl = cons::save_ledger(cons_prop);
+    ctx.led_seq_no++;
+    std::string lcl = cons::save_ledger(cons_prop, ctx.led_seq_no);
 
     ctx.lcl = lcl;
 

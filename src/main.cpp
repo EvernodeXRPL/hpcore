@@ -79,8 +79,38 @@ void signal_handler(int signum)
     exit(signum);
 }
 
+/**
+ * Global exception handler for std exceptions.
+ */
+void terminate() noexcept
+{
+    std::exception_ptr exptr = std::current_exception();
+    if (exptr != 0)
+    {
+        try
+        {
+            std::rethrow_exception(exptr);
+        }
+        catch (std::exception &ex)
+        {
+            LOG_ERR << "std  error: " << ex.what();
+        }
+        catch (...)
+        {
+            LOG_ERR << "Terminated due to unknown exception";
+        }
+    }
+    else
+    {
+        LOG_ERR << "Terminated due to unknown reason";
+    }
+
+    exit(1);
+}
+
 int main(int argc, char **argv)
 {
+    std::set_terminate(&terminate);
     // Extract the CLI args
     // This call will populate conf::ctx
     if (parse_cmd(argc, argv) != 0)
@@ -130,12 +160,12 @@ int main(int argc, char **argv)
                 if (usr::init() != 0)
                     return -1;
 
+                if (cons::init() != 0)
+                    return 1;
+
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
 
-                cons::ctx.stage = 0;
-                cons::ctx.lcl = "genesis";
-                
                 sleep(3);
 
                 while (true)

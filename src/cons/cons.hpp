@@ -30,6 +30,7 @@ struct consensus_context
     uint64_t novel_proposal_time;
     uint64_t time_now;
     std::string lcl;
+    uint64_t led_seq_no;
     std::string novel_proposal;
 
     std::map<std::string, std::pair<const std::string, std::string>> possible_inputs;
@@ -38,7 +39,6 @@ struct consensus_context
     std::unordered_map<std::string, proc::contract_iobuf_pair> useriobufmap;
 
     int32_t next_sleep;
-    
 };
 
 struct vote_counter
@@ -52,6 +52,8 @@ struct vote_counter
 };
 
 extern consensus_context ctx;
+
+int init();
 
 void consensus();
 
