@@ -64,10 +64,6 @@ int init();
 
 void deinit();
 
-void create_user_challenge(std::string &msg, std::string &challengehex);
-
-int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge);
-
 int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey);
 
 int remove_user(const std::string &sessionid);

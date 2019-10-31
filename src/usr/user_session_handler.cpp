@@ -7,14 +7,13 @@
 #include "../sock/socket_session.hpp"
 #include "../proc.hpp"
 #include "../hplog.hpp"
+#include "../jsonschema/usrmsg_helpers.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
 namespace net = boost::asio;
 namespace beast = boost::beast;
-
-using tcp = net::ip::tcp;
-using error = boost::system::error_code;
+namespace jusrmsg = jsonschema::usrmsg;
 
 namespace usr
 {
@@ -42,7 +41,7 @@ void user_session_handler::on_connect(sock::socket_session<user_outbound_message
 
     std::string msgstr;
     std::string challengehex;
-    usr::create_user_challenge(msgstr, challengehex);
+    jusrmsg::create_user_challenge(msgstr, challengehex);
 
     // We init the session unique id to associate with the challenge.
     session->init_uniqueid();
@@ -74,7 +73,7 @@ void user_session_handler::on_message(
         {
             std::string userpubkeyhex;
             std::string_view original_challenge = itr->second;
-            if (usr::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
+            if (jusrmsg::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
             {
                 // Challenge singature verification successful.
 
