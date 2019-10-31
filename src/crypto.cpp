@@ -142,20 +142,8 @@ std::string get_hash(std::string_view data)
 {
     unsigned char hashchars[crypto_generichash_BYTES];
     crypto_generichash(hashchars, sizeof hashchars, (unsigned char *)data.data(), data.length(), NULL, 0);
-    return std::string(reinterpret_cast<char *>(hashchars), crypto_hash_sha512_BYTES);
+    return std::string(reinterpret_cast<char *>(hashchars), crypto_generichash_BYTES);
 }
 
-/**
- * Generate SHA 512 hash for message prepend with prefix before hashing.
- * 
- * @param data String to hash.
- * @return SHA 512 hash.
- */
-std::string sha_512_hash(std::string_view data)
-{
-    unsigned char hashchars[crypto_hash_sha512_BYTES];
-    crypto_hash_sha512(hashchars, (unsigned char *)data.data(), data.length());
-    return std::string(reinterpret_cast<char *>(hashchars), crypto_hash_sha512_BYTES);
-}
 
 } // namespace crypto
