@@ -89,9 +89,9 @@ int init();
 
 std::string issue_challenge(const std::string sessionid);
 
-bool verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session);
+int verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session);
 
-void handle_user_message(connected_user &user, std::string_view message);
+int handle_user_message(connected_user &user, std::string_view message);
 
 int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey);
 

@@ -46,14 +46,20 @@ std::string issue_challenge(const std::string sessionid)
     return msgstr;
 }
 
-bool verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session)
+/**
+ * Verifies the given message for a previously issued user challenge.
+ * @param message Challenge response.
+ * @param session The socket session that received the response.
+ * @return 0 for successful verification. -1 for failure.
+ */
+int verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session)
 {
     // The received message must be the challenge response. We need to verify it.
     auto itr = ctx.pending_challenges.find(session->uniqueid);
     if (itr == ctx.pending_challenges.end())
     {
         LOG_DBG << "No challenge found for the session " << session->uniqueid;
-        return false;
+        return -1;
     }
 
     std::string userpubkeyhex;
@@ -84,7 +90,7 @@ bool verify_challenge(std::string_view message, sock::socket_session<user_outbou
 
             LOG_INFO << "User connection " << session->uniqueid << " authenticated. Public key "
                      << userpubkeyhex;
-            return true;
+            return 0;
         }
         else
         {
@@ -96,18 +102,43 @@ bool verify_challenge(std::string_view message, sock::socket_session<user_outbou
         LOG_INFO << "Challenge verification failed " << session->uniqueid;
     }
 
-    return false;
+    return -1;
 }
 
-void handle_user_message(connected_user &user, std::string_view message)
+/**
+ * Processes a message sent by a connected user. This will be invoked by web socket on_message.
+ * @param user The authenticated user who sent the message.
+ * @param message The message sent by user.
+ * @return 0 on successful processing. -1 for failure.
+ */
+int handle_user_message(connected_user &user, std::string_view message)
 {
+    rapidjson::Document d;
+    if (jusrmsg::parse_user_message(d, message) != 0)
+        return -1;
+
+    // Contract input
+    if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
     {
-        std::lock_guard<std::mutex> lock(ctx.users_mutex);
-        //Add to the hashed input buffer list.
-        user.inputs.push_back(util::hash_buffer(message, user.pubkey));
+        std::string contentjson;
+        if (jusrmsg::verify_signed_input_container(contentjson, d, user.pubkey) == 0)
+        {
+            std::string nonce;
+            std::string contract_input;
+            uint64_t max_ledger_seqno;
+            if (jusrmsg::extract_input_container(nonce, contract_input, max_ledger_seqno, contentjson) == 0)
+            {
+                // std::lock_guard<std::mutex> lock(ctx.users_mutex);
+                // //Add to the hashed input buffer list.
+                // user.inputs.push_back(util::hash_buffer(message, user.pubkey));
+
+                return 0;
+            }
+        }
     }
 
-    LOG_DBG << "Collected " << message.length() << " bytes from user";
+    // Bad message.
+    return -1;
 }
 
 /**
