@@ -80,9 +80,18 @@ void signal_handler(int signum)
 }
 
 /**
+ * Global exception handler for boost exceptions.
+ */
+void boost::throw_exception(std::exception const &e)
+{
+    LOG_ERR << "Boost error:" << e.what();
+    exit(1);
+}
+
+/**
  * Global exception handler for std exceptions.
  */
-void terminate() noexcept
+void std_terminate() noexcept
 {
     std::exception_ptr exptr = std::current_exception();
     if (exptr != 0)
@@ -93,16 +102,16 @@ void terminate() noexcept
         }
         catch (std::exception &ex)
         {
-            LOG_ERR << "std  error: " << ex.what();
+            LOG_ERR << "std error: " << ex.what();
         }
         catch (...)
         {
-            LOG_ERR << "Terminated due to unknown exception";
+            LOG_ERR << "std error: Terminated due to unknown exception";
         }
     }
     else
     {
-        LOG_ERR << "Terminated due to unknown reason";
+        LOG_ERR << "std error: Terminated due to unknown reason";
     }
 
     exit(1);
@@ -110,7 +119,7 @@ void terminate() noexcept
 
 int main(int argc, char **argv)
 {
-    std::set_terminate(&terminate);
+    std::set_terminate(&std_terminate);
     // Extract the CLI args
     // This call will populate conf::ctx
     if (parse_cmd(argc, argv) != 0)
@@ -183,11 +192,3 @@ int main(int argc, char **argv)
     return 0;
 }
 
-/**
- * Global exception handler for boost exceptions.
- */
-void boost::throw_exception(std::exception const &e)
-{
-    LOG_ERR << "Boost error:" << e.what();
-    exit(-1);
-}
