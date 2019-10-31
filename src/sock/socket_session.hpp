@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <bitset>
+#include <unordered_map>
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <boost/beast/core.hpp>
@@ -40,10 +41,29 @@ public:
     virtual std::string_view buffer() = 0;
 };
 
+/*
+* Use this to keep in track of different thresholds which we need to deal with. e.g - maximum amount of bytes allowed per minute through a session
+* threshold_limit - Maximum threshold value which is allowed
+* counter_value - Counter which keeps incrementing per every message
+* timestamp - Timestamp when counter value changes
+* intervalms - Time interval in miliseconds in which the threshold and the counter value should be compared
+*/
+struct session_threshold
+{
+    uint64_t threshold_limit;
+    uint64_t counter_value;
+    uint64_t timestamp;
+    uint64_t intervalms;
+
+    // session_threshold(uint64_t threshold_limit, uint64_t intervalms)
+    //     : threshold_limit(threshold_limit), intervalms(intervalms), counter_value(0), timestamp(0) {}
+};
+
 // Use this to feed the session with default options from the config file
 struct session_options
 {
-    std::uint64_t max_message_size;
+    uint64_t max_message_size;
+    uint64_t max_bytes_per_minute;
 };
 
 //Forward Declaration
@@ -60,6 +80,7 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
     websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws; // websocket stream used send an recieve messages
     std::vector<T> queue;                                       // used to store messages temporarily until it is sent to the relevant party
     socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
+    std::vector<session_threshold> thresholds;                  // track down various thresholdsls
 
     void fail(error_code ec, char const *what);
 
@@ -71,7 +92,8 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
 
     void on_write(error_code ec, std::size_t bytes_transferred);
 
-    void on_close(error_code ec, std::int8_t type);
+    void on_close(error_code ec, int8_t type);
+   
 
 public:
     socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler);
@@ -100,15 +122,17 @@ public:
 
     void send(T msg);
 
-    void set_message_max_size(std::uint64_t size);
+    void set_message_max_size(uint64_t size);
+
+    void set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t interval);
+
+     void increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount);
 
     // When called, initializes the unique id string for this session.
     void init_uniqueid();
 
     void close();
 };
-
-
 
 } // namespace sock
 #endif

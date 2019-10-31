@@ -80,6 +80,7 @@ void start_peer_connections()
     //setting up the message max size. Retrieve it from config
     // At the moment same settings are used to initialize a new server and client
     sess_opts.max_message_size = conf::cfg.peermaxsize;
+    sess_opts.max_bytes_per_minute = conf::cfg.peermaxcpm;
 
     // Start listening to peers
     std::make_shared<sock::socket_server<peer_outbound_message>>(
@@ -122,7 +123,7 @@ void peer_connection_watchdog()
 bool is_message_duplicate(std::string_view message)
 {
     // Get message hash and see whether message is already recieved -> abandon if duplicate.
-    std::string hash = crypto::sha_512_hash(message);
+    std::string hash = crypto::get_hash(message);
 
     auto itr = recent_peermsg_hashes.find(hash);
     if (itr == recent_peermsg_hashes.end()) // Not found

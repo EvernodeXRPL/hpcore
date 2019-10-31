@@ -75,7 +75,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
 void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
-void run_contract_binary(std::int64_t time);
+void run_contract_binary(int64_t time);
 
 } // namespace cons
 

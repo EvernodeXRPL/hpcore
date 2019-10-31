@@ -33,48 +33,71 @@ struct connected_user
     sock::socket_session<user_outbound_message> *session;
 
     /**
+     * @session
      * @param _pubkey The public key of the user in binary format.
      */
-    connected_user(sock::socket_session<user_outbound_message> *_session, std::string_view _pubkey)
-        : pubkey(_pubkey)
+    connected_user(sock::socket_session<user_outbound_message> *session, std::string_view pubkey)
+        : pubkey(pubkey)
     {
-        session = _session;
+        this->session = session;
     }
 };
 
 /**
- * Connected (authenticated) user list. (Exposed to other sub systems)
- * Map key: User socket session id (<ip:port>)
+ * The context struct to hold global connected-users and related objects.
  */
-extern std::unordered_map<std::string, usr::connected_user> users;
-extern std::mutex users_mutex; // Mutex for users access race conditions.
+struct connected_context
+{
+    // Connected (authenticated) user list.
+    // Map key: User socket session id (<ip:port>)
+    std::unordered_map<std::string, usr::connected_user> users;
+    std::mutex users_mutex; // Mutex for users access race conditions.
+
+    // Holds set of connected user session ids and public keys for lookups.
+    // This is used for pubkey duplicate checks as well.
+    // Map key: User binary pubkey
+    std::unordered_map<std::string, const std::string> sessionids;
+
+    // Keep track of verification-pending challenges issued to newly connected users.
+    // Map key: User socket session id (<ip:port>)
+    std::unordered_map<std::string, const std::string> pending_challenges;
+};
+extern connected_context ctx;
 
 /**
- * Keep track of verification-pending challenges issued to newly connected users.
- * Map key: User socket session id (<ip:port>)
+ * Struct to hold objects used by socket listener.
  */
-extern std::unordered_map<std::string, const std::string> sessionids;
+struct listener_context
+{
+    // The SSL context holds certificates to facilitate TLS connections.
+    ssl::context ssl_ctx{ssl::context::tlsv13};
 
-/**
- * Keep track of verification-pending challenges issued to newly connected users.
- */
-extern std::unordered_map<std::string, const std::string> pending_challenges;
+    // User session handler instance. This instance's methods will be fired for any user socket activity.
+    usr::user_session_handler global_usr_session_handler;
+
+    // The IO context used by the websocket listener. (not exposed out of this namespace)
+    net::io_context ioc;
+
+    // The thread the websocket listener is running on. (not exposed out of this namespace)
+    std::thread listener_thread;
+
+    // Used to pass down the default settings to the socket session
+    sock::session_options sess_opts;
+};
 
 int init();
 
-void deinit();
+std::string issue_challenge(const std::string sessionid);
 
-void create_user_challenge(std::string &msg, std::string &challengehex);
+bool verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session);
 
-int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge);
+void handle_user_message(connected_user &user, std::string_view message);
 
 int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey);
 
 int remove_user(const std::string &sessionid);
 
 void start_listening();
-
-void stop_listening();
 
 } // namespace usr
 

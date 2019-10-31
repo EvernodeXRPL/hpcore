@@ -133,15 +133,15 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
 }
 
 /**
- * Generate SHA 512 hash for message prepend with prefix before hashing.
+ * Generate hash for message prepend with prefix before hashing.
  * 
  * @param data String to hash.
- * @return SHA 512 hash.
+ * @return The hash of the given string.
  */
-std::string sha_512_hash(std::string_view data)
+std::string get_hash(std::string_view data)
 {
-    unsigned char hashchars[crypto_hash_sha512_BYTES];
-    crypto_hash_sha512(hashchars, (unsigned char *)data.data(), data.length());
+    unsigned char hashchars[crypto_generichash_BYTES];
+    crypto_generichash(hashchars, sizeof hashchars, (unsigned char *)data.data(), data.length(), NULL, 0);
     return std::string(reinterpret_cast<char *>(hashchars), crypto_hash_sha512_BYTES);
 }
 

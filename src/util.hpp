@@ -37,6 +37,14 @@ enum SESSION_FLAG
     USER_AUTHED = 2
 };
 
+/**
+ * Enum used to track down various thresholds used in socket communication 
+ */
+enum SESSION_THRESHOLDS
+{
+    MAX_BYTES_PER_MINUTE = 0
+};
+
 int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_len);
 
 int hex2bin(unsigned char *decoded, size_t decoded_len, std::string_view hex_str);
@@ -72,7 +80,7 @@ struct hash_buffer
         stringtohash.append(buffer);
         stringtohash.append(timestr);
 
-        hash = crypto::sha_512_hash(stringtohash);
+        hash = crypto::get_hash(stringtohash);
     }
 };
 
