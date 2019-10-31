@@ -68,7 +68,6 @@ int parse_cmd(int argc, char **argv)
  */
 void deinit()
 {
-    usr::deinit();
     hplog::deinit();
 }
 

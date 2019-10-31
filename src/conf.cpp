@@ -99,10 +99,10 @@ int create_contract()
     cfg.peerport = 22860;
     cfg.roundtime = 1000;
     cfg.pubport = 8080;
-    cfg.pubmaxsize = 65536;
-    cfg.pubmaxcpm = 1000;
-    cfg.peermaxsize = 65536;
-    cfg.peermaxcpm = 1000;
+    cfg.pubmaxsize = 0;
+    cfg.pubmaxcpm = 0;
+    cfg.peermaxsize = 0;
+    cfg.peermaxcpm = 0;
 
 #ifndef NDEBUG
     cfg.loglevel = "debug";
@@ -403,8 +403,7 @@ int validate_config()
 
     // Other required fields.
     if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.pubmaxsize == 0 || cfg.pubmaxcpm == 0 || cfg.peermaxsize == 0 || 
-        cfg.peermaxcpm == 0 || cfg.loglevel.empty() || cfg.loggers.empty())
+        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.loglevel.empty() || cfg.loggers.empty())
     {
         std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
         return -1;

@@ -215,6 +215,8 @@ void socket_session<T>::increment(util::SESSION_THRESHOLDS threshold_type, uint6
             t.timestamp = 0;
             t.counter_value = 0;
 
+            LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+
             // Invoke the threshold monitor so any actions will be performed.
             threshold_monitor(threshold_type, t.threshold_limit, this);
         }

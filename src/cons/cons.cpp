@@ -138,8 +138,8 @@ void consensus()
 void populate_candidate_users_and_inputs()
 {
     // Lock the connected user list until we do this operation.
-    std::lock_guard<std::mutex> lock(usr::users_mutex);
-    for (auto &[sid, con_user] : usr::users)
+    std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
+    for (auto &[sid, con_user] : usr::ctx.users)
     {
         // Populate the user into candidate user inputs map.
         // We do this regardless of whether the user has any inputs or not.
@@ -445,12 +445,12 @@ void apply_ledger(const p2p::proposal &cons_prop)
             outputtosend.swap(output);
 
             {
-                std::lock_guard<std::mutex> lock(usr::users_mutex);
+                std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
 
                 // Find the user by session id.
-                const std::string sessionid = usr::sessionids[pubkey];
-                auto itr = usr::users.find(sessionid);
-                if (itr != usr::users.end())
+                const std::string sessionid = usr::ctx.sessionids[pubkey];
+                auto itr = usr::ctx.users.find(sessionid);
+                if (itr != usr::ctx.users.end())
                 {
                     const usr::connected_user &user = itr->second;
                     usr::user_outbound_message outmsg(std::move(outputtosend));
