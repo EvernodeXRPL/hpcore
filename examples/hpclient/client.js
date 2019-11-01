@@ -41,7 +41,7 @@ function main() {
 
     /* anatomy of a public challenge
        {
-       hotpocket: 0.1,
+       version: '0.1',
        type: 'public_challenge',
        challenge: '<hex string>'
        }
@@ -76,13 +76,14 @@ function main() {
         // sign the challenge and send back the response
         var sigbytes = sodium.crypto_sign_detached(m.challenge, keys.privateKey);
         var response = {
+            version: '0.1',
             type: 'challenge_response',
             challenge: m.challenge,
             sig: Buffer.from(sigbytes).toString('hex'),
             pubkey: pkhex
         }
 
-        console.log('Sending challenge response...');
+        console.log('Sending challenge response.');
         ws.send(JSON.stringify(response))
 
         // start listening for stdin
@@ -91,9 +92,28 @@ function main() {
             output: process.stdout
         });
 
+        // Capture user input from the console.
         var input_pump = () => {
-            rl.question('', (answer) => {
-                ws.send(answer)
+            rl.question('', (inp) => {
+
+                let inp_container = {
+                    nonce: (new Date()).getTime().toString(),
+                    input: Buffer.from(inp).toString('hex'),
+                    maxledgerseqno: 99999999999999
+                }
+                let inp_container_bytes = JSON.stringify(inp_container);
+                let sig_bytes = sodium.crypto_sign_detached(inp_container_bytes, keys.privateKey);
+
+                let signed_inp_container = {
+                    version: "0.1",
+                    type: "contract_input",
+                    content: inp_container_bytes.toString('hex'),
+                    sig: Buffer.from(sig_bytes).toString('hex')
+                }
+                console.log(JSON.stringify(signed_inp_container));
+
+                //ws.send(JSON.stringify(signed_inp_container))
+
                 input_pump()
             })
         }

@@ -129,9 +129,10 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
 }
 
 /**
- * Verifies a signed input container message sent by user.
+ * Verifies and extracts a signed input container message sent by user.
  * 
- * @param extracted_content The signed content extracted from the message if verification successful.
+ * @param extracted_content The content extracted from the message if verification successful.
+ * @param extracted_sig The signature extracted from the message if verification successful. 
  * @param d The json document holding the input container.
  *          Accepted signed input container format:
  *          {
@@ -143,7 +144,8 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
  * @param pubkey Binary pub key of the user.
  * @return 0 on successful verification. -1 for failure.
  */
-int verify_signed_input_container(std::string &extracted_content, const rapidjson::Document &d, std::string_view pubkey)
+int extract_signed_input_container(
+    std::string &extracted_content, std::string &extracted_sig, const rapidjson::Document &d, std::string_view pubkey)
 {
     if (!d.HasMember(FLD_CONTENT) || !d.HasMember(FLD_SIG))
     {
@@ -159,20 +161,21 @@ int verify_signed_input_container(std::string &extracted_content, const rapidjso
 
     // Verify the signature of the content.
 
-    std::string_view contenthex(d[FLD_CONTENT].GetString(), d[FLD_CONTENT].GetStringLength());
-    std::string content;
-    content.resize(contenthex.length() / 2);
-    util::hex2bin(reinterpret_cast<unsigned char *>(content.data()), content.length(), contenthex);
+    const std::string content(d[FLD_CONTENT].GetString(), d[FLD_CONTENT].GetStringLength());
 
-    std::string_view sighex(d[FLD_SIG].GetString(), d[FLD_SIG].GetStringLength());
+    const std::string_view sighex(d[FLD_SIG].GetString(), d[FLD_SIG].GetStringLength());
     std::string sig;
     sig.resize(crypto_sign_BYTES);
     util::hex2bin(reinterpret_cast<unsigned char *>(sig.data()), sig.length(), sighex);
 
     if (crypto::verify(content, sig, pubkey) != 0)
+    {
+        LOG_DBG << "User signed input signature verification failed.";
         return -1;
+    }
 
     extracted_content = std::move(content);
+    extracted_sig = std::move(sig);
     return 0;
 }
 
@@ -182,6 +185,11 @@ int verify_signed_input_container(std::string &extracted_content, const rapidjso
  * @param input The extracted input.
  * @param max_ledger_seqno The extracted max ledger sequence no.
  * @param contentjson The json string containing the input container message.
+ *                    {
+ *                      "nonce": "<random string with optional sorted order>",
+ *                      "input": "<hex encoded contract input content>",
+ *                      "maxledgerseqno": 4562712334
+ *                    }
  * @return 0 on succesful extraction. -1 on failure.
  */
 int extract_input_container(std::string &nonce, std::string &input, uint64_t &max_ledger_seqno, std::string_view contentjson)

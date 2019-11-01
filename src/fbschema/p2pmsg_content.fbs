@@ -2,9 +2,15 @@
 include "common_schema.fbs";
 namespace fbschema.p2pmsg;
 
-table RawInputList { //Pubkey bytes with an array of key value pairs.
+table UserRawInput {
+    hash:[ubyte]
+    input:[ubyte]
+    maxledgerseqno:uint64
+}
+
+table UserRawInputList { //Pubkey bytes with an array of key value pairs.
     pubkey:[ubyte];
-    inputs:[BytesKeyValuePair];
+    inputs:[UserRawInput];
 }
 
 table RawOutput { //Pubkey bytes with a output key value pair.

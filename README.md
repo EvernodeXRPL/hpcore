@@ -52,9 +52,9 @@ make
 4. Run `sudo snap install flatbuffers --edge`
 
 ##### Compiling FlatBuffers message definitions
-When you make a change to `message.fbc` defnition file, you need to run this:
+Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you need to run this:
 
-`flatc -o src/p2p/ --gen-mutable --cpp src/p2p/message.fbs`
+`flatc -o src/fbschema/ --cpp src/fbschema/p2pmsg_content.fbs`
 
 #### Install OpenSSL
 1. Download and extract OpenSSL-1.1.1d source from [here](https://www.openssl.org/source/openssl-1.1.1d.tar.gz).

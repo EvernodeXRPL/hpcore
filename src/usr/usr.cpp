@@ -106,7 +106,7 @@ int verify_challenge(std::string_view message, sock::socket_session<user_outboun
 }
 
 /**
- * Processes a message sent by a connected user. This will be invoked by web socket on_message.
+ * Processes a message sent by a connected user. This will be invoked by web socket on_message handler.
  * @param user The authenticated user who sent the message.
  * @param message The message sent by user.
  * @return 0 on successful processing. -1 for failure.
@@ -121,16 +121,25 @@ int handle_user_message(connected_user &user, std::string_view message)
     if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
     {
         std::string contentjson;
-        if (jusrmsg::verify_signed_input_container(contentjson, d, user.pubkey) == 0)
+        std::string sig;
+        if (jusrmsg::extract_signed_input_container(contentjson, sig, d, user.pubkey) == 0)
         {
             std::string nonce;
+            // Input thata must be fed into the contract.
             std::string contract_input;
+            // The maximum ledger seq no up to which this input is valid for.
             uint64_t max_ledger_seqno;
+
             if (jusrmsg::extract_input_container(nonce, contract_input, max_ledger_seqno, contentjson) == 0)
             {
-                // std::lock_guard<std::mutex> lock(ctx.users_mutex);
-                // //Add to the hashed input buffer list.
-                // user.inputs.push_back(util::hash_buffer(message, user.pubkey));
+                std::lock_guard<std::mutex> lock(ctx.users_mutex);
+                
+                //Add to the raw input list.
+                user.rawinputs.push_back(util::user_rawinput(
+                    std::move(contract_input),
+                    std::move(nonce),
+                    std::move(sig),
+                    max_ledger_seqno));
 
                 return 0;
             }

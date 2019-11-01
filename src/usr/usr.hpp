@@ -25,8 +25,8 @@ struct connected_user
     // User binary public key
     const std::string pubkey;
 
-    // Holds the unprocessed user inputs (and the hashes) collected from websocket.
-    std::list<util::hash_buffer> inputs;
+    // Holds the unprocessed user inputs collected from websocket.
+    std::list<util::user_rawinput> rawinputs;
 
     // Holds the websocket session of this user.
     // We don't need to own the session object since the lifetime of user and session are coupled.
