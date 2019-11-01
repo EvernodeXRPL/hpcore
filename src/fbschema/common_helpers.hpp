@@ -1,8 +1,7 @@
 #ifndef _HP_FBSCHEMA_COMMON_HELPERS_H_
 #define _HP_FBSCHEMA_COMMON_HELPERS_H_
 
-#include <string>
-#include <unordered_set>
+#include "../pchheader.hpp"
 #include <flatbuffers/flatbuffers.h>
 #include "common_schema_generated.h"
 

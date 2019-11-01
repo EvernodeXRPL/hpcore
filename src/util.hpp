@@ -1,9 +1,7 @@
 #ifndef _HP_UTIL_H_
 #define _HP_UTIL_H_
 
-#include <string>
-#include <vector>
-#include <rapidjson/document.h>
+#include "pchheader.hpp"
 #include "crypto.hpp"
 
 /**

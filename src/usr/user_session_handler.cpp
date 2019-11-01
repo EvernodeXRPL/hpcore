@@ -1,8 +1,4 @@
-#include <iostream>
-#include <string>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio.hpp>
+#include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
 #include "../proc.hpp"

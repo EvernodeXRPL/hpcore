@@ -1,7 +1,7 @@
 #ifndef _HP_JSONSCHEMA_USRMSG_HELPERS_H_
 #define _HP_JSONSCHEMA_USRMSG_HELPERS_H_
 
-#include <string>
+#include "../pchheader.hpp"
 
 namespace jsonschema::usrmsg
 {

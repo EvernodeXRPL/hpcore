@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.16)
 project(HPCore)
 
 add_definitions("-std=c++17")
@@ -47,3 +47,5 @@ target_link_libraries(hpcore
     crypto
     ssl
 )
+
+target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)

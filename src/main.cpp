@@ -2,13 +2,7 @@
     Entry point for HP Core
 **/
 
-// This will direct all boost exceptions to our error handler.
-#define BOOST_NO_EXCEPTIONS
-
-#include <cstdio>
-#include <iostream>
-#include <thread>
-#include <unistd.h>
+#include "pchheader.hpp"
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"

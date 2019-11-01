@@ -1,8 +1,8 @@
 #ifndef _HP_PEER_SESSION_HANDLER_H_
 #define _HP_PEER_SESSION_HANDLER_H_
 
-#include <boost/beast/core.hpp>
 #include <flatbuffers/flatbuffers.h>
+#include "../pchheader.hpp"
 #include "../sock/socket_session_handler.hpp"
 #include "../sock/socket_session.hpp"
 

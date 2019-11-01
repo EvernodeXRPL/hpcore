@@ -1,11 +1,7 @@
 #ifndef _HP_USR_H_
 #define _HP_USR_H_
 
-#include <cstdio>
-#include <string_view>
-#include <unordered_map>
-#include <list>
-#include <mutex>
+#include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
 #include "user_session_handler.hpp"

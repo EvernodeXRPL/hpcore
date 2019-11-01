@@ -1,11 +1,7 @@
 #ifndef _HP_PROC_H_
 #define _HP_PROC_H_
 
-#include <cstdio>
-#include <iostream>
-#include <unordered_map>
-#include <vector>
-#include <list>
+#include "pchheader.hpp"
 #include "usr/usr.hpp"
 #include "util.hpp"
 

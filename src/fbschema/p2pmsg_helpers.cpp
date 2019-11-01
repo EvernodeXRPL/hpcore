@@ -1,5 +1,5 @@
 #include <flatbuffers/flatbuffers.h>
-#include <string>
+#include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../util.hpp"

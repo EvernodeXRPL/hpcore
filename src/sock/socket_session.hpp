@@ -1,17 +1,7 @@
 #ifndef _SOCK_SERVER_SESSION_H_
 #define _SOCK_SERVER_SESSION_H_
 
-#include <memory>
-#include <vector>
-#include <bitset>
-#include <unordered_map>
-#include <boost/asio.hpp>
-#include <boost/beast.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/beast/ssl.hpp>
-#include <boost/beast/websocket/ssl.hpp>
-#include "socket_session_handler.hpp"
+#include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
 
@@ -20,8 +10,6 @@ namespace net = boost::asio;
 namespace websocket = boost::beast::websocket;
 namespace http = boost::beast::http;
 namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
-
-using tcp = net::ip::tcp;
 using error_code = boost::system::error_code;
 
 namespace sock
@@ -54,9 +42,6 @@ struct session_threshold
     uint64_t counter_value;
     uint64_t timestamp;
     uint64_t intervalms;
-
-    // session_threshold(uint64_t threshold_limit, uint64_t intervalms)
-    //     : threshold_limit(threshold_limit), intervalms(intervalms), counter_value(0), timestamp(0) {}
 };
 
 // Use this to feed the session with default options from the config file
