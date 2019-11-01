@@ -21,7 +21,7 @@ int init()
     return 0;
 }
 
-/**l
+/**
  * Generates a signing key pair using libsodium and assigns them to the provided strings.
  */
 void generate_signing_keys(std::string &pubkey, std::string &seckey)
@@ -35,7 +35,7 @@ void generate_signing_keys(std::string &pubkey, std::string &seckey)
     seckey.resize(PFXD_SECKEY_BYTES);
     seckey[0] = KEYPFX_ed25519;
 
-    crypto_sign_keypair(
+    crypto_sign_ed25519_keypair(
         reinterpret_cast<unsigned char *>(pubkey.data() + 1),   // +1 to skip the prefix byte.
         reinterpret_cast<unsigned char *>(seckey.data() + 1));  // +1 to skip the prefix byte.
 }
@@ -52,8 +52,8 @@ std::string sign(std::string_view msg, std::string_view seckey)
     //Generate the signature using libsodium.
 
     std::string sig;
-    sig.resize(crypto_sign_BYTES);
-    crypto_sign_detached(
+    sig.resize(crypto_sign_ed25519_BYTES);
+    crypto_sign_ed25519_detached(
         reinterpret_cast<unsigned char *>(sig.data()),
         NULL,
         reinterpret_cast<const unsigned char *>(msg.data()),
@@ -77,8 +77,8 @@ std::string sign_hex(std::string_view msg, std::string_view seckeyhex)
     unsigned char seckey[PFXD_SECKEY_BYTES];
     util::hex2bin(seckey, PFXD_SECKEY_BYTES, seckeyhex);
 
-    unsigned char sig[crypto_sign_BYTES];
-    crypto_sign_detached(
+    unsigned char sig[crypto_sign_ed25519_BYTES];
+    crypto_sign_ed25519_detached(
         sig,
         NULL,
         reinterpret_cast<const unsigned char *>(msg.data()),
@@ -86,7 +86,7 @@ std::string sign_hex(std::string_view msg, std::string_view seckeyhex)
         seckey + 1); // +1 to skip prefix byte.
 
     std::string sighex;
-    util::bin2hex(sighex, sig, crypto_sign_BYTES);
+    util::bin2hex(sighex, sig, crypto_sign_ed25519_BYTES);
     return sighex;
 }
 
@@ -100,7 +100,7 @@ std::string sign_hex(std::string_view msg, std::string_view seckeyhex)
  */
 int verify(std::string_view msg, std::string_view sig, std::string_view pubkey)
 {
-    return crypto_sign_verify_detached(
+    return crypto_sign_ed25519_verify_detached(
         reinterpret_cast<const unsigned char *>(sig.data()),
         reinterpret_cast<const unsigned char *>(msg.data()),
         msg.length(),
@@ -122,10 +122,10 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
     unsigned char decoded_pubkey[PFXD_PUBKEY_BYTES];
     util::hex2bin(decoded_pubkey, PFXD_PUBKEY_BYTES, pubkeyhex);
 
-    unsigned char decoded_sig[crypto_sign_BYTES];
-    util::hex2bin(decoded_sig, crypto_sign_BYTES, sighex);
+    unsigned char decoded_sig[crypto_sign_ed25519_BYTES];
+    util::hex2bin(decoded_sig, crypto_sign_ed25519_BYTES, sighex);
 
-    return crypto_sign_verify_detached(
+    return crypto_sign_ed25519_verify_detached(
         decoded_sig,
         reinterpret_cast<const unsigned char *>(msg.data()),
         msg.length(),
@@ -133,16 +133,22 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
 }
 
 /**
- * Generate hash for message prepend with prefix before hashing.
- * 
+ * Generate blake2b hash for a given message.
  * @param data String to hash.
- * @return The hash of the given string.
+ * @return The blake2b hash of the given string.
  */
 std::string get_hash(std::string_view data)
 {
     unsigned char hashchars[crypto_generichash_BYTES];
-    crypto_generichash(hashchars, sizeof hashchars, (unsigned char *)data.data(), data.length(), NULL, 0);
-    return std::string(reinterpret_cast<char *>(hashchars), crypto_generichash_BYTES);
+
+    crypto_generichash_blake2b(
+        hashchars,
+        sizeof hashchars,
+        reinterpret_cast<const unsigned char *>(data.data()),
+        data.length(),
+        NULL, 0);
+
+    return std::string(reinterpret_cast<char *>(hashchars), crypto_generichash_blake2b_BYTES);
 }
 
 } // namespace crypto
