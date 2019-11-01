@@ -28,15 +28,16 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
                   lcl.size());
 
     //create file path to save lcl.
-    //file name -> [ledger sequnce numer]-lcl[lcl hex]
+    //file name -> [ledger sequnce numer]-[lcl hex]
     std::string path;
     std::string seq_no = std::to_string(led_seq_no);
-    path.reserve(conf::ctx.histDir.size() + lcl_hash.size() + seq_no.size() + 5);
+    path.reserve(conf::ctx.histDir.size() + lcl_hash.size() + seq_no.size() + 6);
     path.append(conf::ctx.histDir);
     path.append("/");
     path.append(seq_no);
-    path.append("-lcl");
+    path.append("-");
     path.append(lcl_hash);
+    path.append(".lcl");
 
     //write lcl to file system
     std::ofstream ofs(std::move(path));
@@ -54,37 +55,56 @@ const ledger_history load_ledger()
     //std::unordered_map<std::string, std::string_view> lcl_history_files;
 
     //Get all records at lcl history direcory
-    std::string file_name;
-    std::string::size_type pos;
+    std::string latest_file_name;
+    std::string::size_type latest_pos = 0;
     for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
     {
         const boost::filesystem::path file_path = entry.path();
-        file_name = entry.path().filename().string();
+        const std::string file_name = entry.path().filename().string();
 
         if (boost::filesystem::is_directory(file_path))
         {
-            LOG_ERR << "found directory " << file_name << "in " << conf::ctx.histDir << "there should be no folders in this directory";
+            LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.histDir << ". There should be no folders in this directory";
         }
-
-        pos = file_name.find("-lcl");
-        uint64_t seq_no;
-
-        if (pos != std::string::npos)
+        else if (file_path.extension() != ".lcl")
         {
-            seq_no = std::stoull(file_name.substr(0, pos));
+            LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.histDir;
         }
         else
         {
-            //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-            LOG_ERR << "Invalid file name";
-        }
+            std::string::size_type pos = file_name.find("-");
+            uint64_t seq_no;
 
-        if (seq_no > ldg_hist.led_seq_no)
-        {
-            ldg_hist.led_seq_no = seq_no;
+            if (pos != std::string::npos)
+            {
+                seq_no = std::stoull(file_name.substr(0, pos));
+            }
+            else
+            {
+                //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
+                LOG_ERR << "Invalid file name: " << file_name;
+            }
+
+            if (seq_no > ldg_hist.led_seq_no)
+            {
+                ldg_hist.led_seq_no = seq_no;
+                latest_pos = pos;
+                latest_file_name = file_name;
+            }
         }
     }
-    ldg_hist.lcl = file_name.substr(pos + 4, (file_name.size() - 1));
+    
+    //check if there is a saved lcl file -> if no send genesis lcl.
+    if (latest_file_name.empty())
+    {
+        ldg_hist.lcl = "genesis";
+    }
+    else if (latest_file_name.size() - 6 > (latest_pos)) //validation to check position is not the end of the file name.
+        ldg_hist.lcl = latest_file_name.substr(latest_pos + 1, (latest_file_name.size() - 6));
+    else
+        LOG_ERR << "Invalid latest file name: " << latest_file_name;
+
+
     return ldg_hist;
 }
 

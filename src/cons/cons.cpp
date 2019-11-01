@@ -40,8 +40,6 @@ int init()
 {
     //set start stage
     ctx.stage = 0;
-    //set defualt lcl
-    ctx.lcl = "genesis";
 
     //load lcl detals from lcl history.
     const ledger_history ldr_hist = load_ledger();
