@@ -1,5 +1,5 @@
-#ifndef _SOCK_SERVER_SESSION_H_
-#define _SOCK_SERVER_SESSION_H_
+#ifndef _HP_SOCKET_SESSION_H_
+#define _HP_SOCKET_SESSION_H_
 
 #include "../pchheader.hpp"
 #include "../util.hpp"
@@ -14,20 +14,6 @@ using error_code = boost::system::error_code;
 
 namespace sock
 {
-
-/**
- * Represents an outbound message that is sent with a websocket.
- * We use this class to wrap different object types holding actual message contents.
- * We use this mechanism to achieve end-to-end zero-copy between original message
- * content generator and websocket flush.
- */
-class outbound_message
-{
-public:
-    // Returns a pointer to the internal buffer owned by the message object.
-    // Contents of this buffer is the message that is sent/received with the socket.
-    virtual std::string_view buffer() = 0;
-};
 
 /*
 * Use this to keep in track of different thresholds which we need to deal with. e.g - maximum amount of bytes allowed per minute through a session

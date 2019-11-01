@@ -1,7 +1,7 @@
 #include "socket_session.hpp"
-#include "../p2p/peer_session_handler.hpp"
-#include "../usr/user_session_handler.hpp"
+#include "socket_message.hpp"
 #include "socket_monitor.hpp"
+#include "socket_session_handler.hpp"
 
 namespace sock
 {
@@ -331,27 +331,8 @@ void socket_session<T>::fail(error_code ec, char const *what)
         return;
 }
 
-/**
- * Declaring templates with possible values for T because keeping all those in hpp file makes compile take a long time
- */
-template socket_session<p2p::peer_outbound_message>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<p2p::peer_outbound_message> &sess_handler);
-template socket_session<p2p::peer_outbound_message>::~socket_session();
-template void socket_session<p2p::peer_outbound_message>::set_message_max_size(uint64_t size);
-template void socket_session<p2p::peer_outbound_message>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
-template void socket_session<p2p::peer_outbound_message>::send(p2p::peer_outbound_message msg);
-template void socket_session<p2p::peer_outbound_message>::set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms);
-template void socket_session<p2p::peer_outbound_message>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount);
-template void socket_session<p2p::peer_outbound_message>::init_uniqueid();
-template void socket_session<p2p::peer_outbound_message>::close();
-
-template socket_session<usr::user_outbound_message>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<usr::user_outbound_message> &sess_handler);
-template socket_session<usr::user_outbound_message>::~socket_session();
-template void socket_session<usr::user_outbound_message>::set_message_max_size(uint64_t size);
-template void socket_session<usr::user_outbound_message>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
-template void socket_session<usr::user_outbound_message>::send(usr::user_outbound_message msg);
-template void socket_session<usr::user_outbound_message>::set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms);
-template void socket_session<usr::user_outbound_message>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount);
-template void socket_session<usr::user_outbound_message>::init_uniqueid();
-template void socket_session<usr::user_outbound_message>::close();
+// Template instentiations.
+template class socket_session<p2p::peer_outbound_message>;
+template class socket_session<usr::user_outbound_message>;
 
 } // namespace sock

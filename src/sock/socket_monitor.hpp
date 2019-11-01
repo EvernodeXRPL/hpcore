@@ -1,5 +1,5 @@
-#ifndef _SOCK_MONITOR_H_
-#define _SOCK_MONITOR_H_
+#ifndef _HP_SOCK_MONITOR_H_
+#define _HP_SOCK_MONITOR_H_
 
 #include "../util.hpp"
 #include "socket_session.hpp"

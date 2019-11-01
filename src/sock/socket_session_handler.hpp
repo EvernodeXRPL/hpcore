@@ -1,5 +1,5 @@
-#ifndef _SOCK_SESSION_HANDLER_H_
-#define _SOCK_SESSION_HANDLER_H_
+#ifndef _HP_SOCKET_SESSION_HANDLER_H_
+#define _HP_SOCKET_SESSION_HANDLER_H_
 
 #include "socket_session.hpp"
 

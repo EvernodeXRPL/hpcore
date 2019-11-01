@@ -1,5 +1,5 @@
-#ifndef _SOCK_SERVER_LISTENER_H_
-#define _SOCK_SERVER_LISTENER_H_
+#ifndef _HP_SOCKET_SERVER_H_
+#define _HP_SOCKET_SERVER_H_
 
 #include "socket_session_handler.hpp"
 #include "../conf.hpp"
