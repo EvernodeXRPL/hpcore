@@ -88,7 +88,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex); // Insert proposal with lock.
 
         collected_msgs.proposals.push_back(
-            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey()));
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp()));
     }
     else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
     {

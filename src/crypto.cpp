@@ -142,7 +142,7 @@ std::string get_hash(std::string_view data)
 {
     unsigned char hashchars[crypto_generichash_BYTES];
     crypto_generichash(hashchars, sizeof hashchars, (unsigned char *)data.data(), data.length(), NULL, 0);
-    return std::string(reinterpret_cast<char *>(hashchars), crypto_hash_sha512_BYTES);
+    return std::string(reinterpret_cast<char *>(hashchars), crypto_generichash_BYTES);
 }
 
 } // namespace crypto

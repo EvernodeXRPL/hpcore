@@ -14,9 +14,9 @@ namespace p2p
 struct proposal
 {
     std::string pubkey;
-    int64_t timestamp;
-    int64_t time;
-    int8_t stage;
+    uint64_t timestamp;
+    uint64_t time;
+    uint8_t stage;
     std::string lcl;
     std::unordered_set<std::string> users;
     std::unordered_map<std::string, const std::vector<util::hash_buffer>> raw_inputs;

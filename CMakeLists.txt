@@ -13,6 +13,7 @@ add_executable(hpcore
     src/hplog.cpp
     src/fbschema/common_helpers.cpp
     src/fbschema/p2pmsg_helpers.cpp
+    src/fbschema/ledger_helpers.cpp
     src/jsonschema/usrmsg_helpers.cpp
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
@@ -24,6 +25,7 @@ add_executable(hpcore
     src/usr/usr.cpp
     src/proc.cpp
     src/cons/cons.cpp
+    src/cons/ledger_handler.cpp
     src/main.cpp
 )
 

@@ -1,0 +1,18 @@
+include "common_schema.fbs";
+
+namespace fbschema.ledger;
+
+table Ledger {
+    time:uint64;
+    lcl:[ubyte];
+    users: [ByteArray];
+    inputs: [RawInputList]; 
+    outputs: [ByteArray];
+}
+
+table RawInputList {
+    hash:[ubyte];
+    inputs:[ByteArray];
+}
+
+root_type Ledger;

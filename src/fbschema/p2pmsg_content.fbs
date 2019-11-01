@@ -19,7 +19,7 @@ table Content {
 }
 
 table Proposal_Message { //Proposal type message schema
-    stage: int8;
+    stage:uint8;
     time:uint64;
     lcl:[ubyte];
     users: [ByteArray];
