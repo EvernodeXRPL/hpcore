@@ -145,5 +145,4 @@ std::string get_hash(std::string_view data)
     return std::string(reinterpret_cast<char *>(hashchars), crypto_generichash_BYTES);
 }
 
-
 } // namespace crypto

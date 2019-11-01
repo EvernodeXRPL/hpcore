@@ -174,6 +174,8 @@ int main(int argc, char **argv)
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
 
+                //we are waiting for peer to estasblish peer connections.
+                //otherwise we'll run into not enough peers propsing/stage desync deadlock directly now. 
                 sleep(3);
 
                 while (true)

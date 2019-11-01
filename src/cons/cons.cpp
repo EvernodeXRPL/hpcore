@@ -536,9 +536,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
 {
     // todo:write lcl.
     ctx.led_seq_no++;
-    std::string lcl = cons::save_ledger(cons_prop, ctx.led_seq_no);
-
-    ctx.lcl = lcl;
+    ctx.lcl = cons::save_ledger(cons_prop, ctx.led_seq_no);
 
     // Send any output from the previous consensus round to users.
     for (const std::string &hash : cons_prop.hash_outputs)

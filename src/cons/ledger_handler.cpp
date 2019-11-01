@@ -12,7 +12,7 @@
 namespace cons
 {
 
-std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no)
+const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no)
 {
     //Serialize lcl using flatbuffer ledger schema.
     flatbuffers::FlatBufferBuilder builder(1024);
@@ -39,11 +39,11 @@ std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no
     path.append(lcl_hash);
 
     //write lcl to file system
-    std::ofstream ofs(move(path));
+    std::ofstream ofs(std::move(path));
     ofs.write(ledger_str.data(), ledger_str.size());
     ofs.close();
 
-    return (move(lcl_hash));
+    return (lcl_hash);
 }
 
 const ledger_history load_ledger()
@@ -54,17 +54,19 @@ const ledger_history load_ledger()
     //std::unordered_map<std::string, std::string_view> lcl_history_files;
 
     //Get all records at lcl history direcory
+    std::string file_name;
+    std::string::size_type pos;
     for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
     {
         const boost::filesystem::path file_path = entry.path();
-        const std::string file_name = entry.path().filename().string();
+        file_name = entry.path().filename().string();
 
         if (boost::filesystem::is_directory(file_path))
         {
             LOG_ERR << "found directory " << file_name << "in " << conf::ctx.histDir << "there should be no folders in this directory";
         }
 
-        std::string::size_type pos = file_name.find("-lcl");
+        pos = file_name.find("-lcl");
         uint64_t seq_no;
 
         if (pos != std::string::npos)
@@ -80,9 +82,9 @@ const ledger_history load_ledger()
         if (seq_no > ldg_hist.led_seq_no)
         {
             ldg_hist.led_seq_no = seq_no;
-            ldg_hist.lcl = file_name.substr(pos + 4, (file_name.size() - 1));
         }
     }
+    ldg_hist.lcl = file_name.substr(pos + 4, (file_name.size() - 1));
     return ldg_hist;
 }
 
