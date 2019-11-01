@@ -54,7 +54,7 @@ const ledger_history load_ledger()
     // might need to load history in order to request response lcl history
     //std::unordered_map<std::string, std::string_view> lcl_history_files;
 
-    //Get all records at lcl history direcory
+    //Get all records at lcl history direcory and find the last closed ledger.
     std::string latest_file_name;
     std::string::size_type latest_pos = 0;
     for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
@@ -96,14 +96,11 @@ const ledger_history load_ledger()
     
     //check if there is a saved lcl file -> if no send genesis lcl.
     if (latest_file_name.empty())
-    {
         ldg_hist.lcl = "genesis";
-    }
-    else if (latest_file_name.size() - 6 > (latest_pos)) //validation to check position is not the end of the file name.
+    else if ((latest_file_name.size() - 6) > latest_pos) //validation to check position is not the end of the file name.
         ldg_hist.lcl = latest_file_name.substr(latest_pos + 1, (latest_file_name.size() - 6));
     else
         LOG_ERR << "Invalid latest file name: " << latest_file_name;
-
 
     return ldg_hist;
 }
