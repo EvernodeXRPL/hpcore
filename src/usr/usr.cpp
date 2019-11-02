@@ -1,6 +1,4 @@
 #include "../pchheader.hpp"
-#include "usr.hpp"
-#include "user_session_handler.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_session_handler.hpp"
@@ -8,6 +6,9 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
+#include "usr.hpp"
+#include "user_session_handler.hpp"
+#include "user_rawinput.hpp"
 
 namespace jusrmsg = jsonschema::usrmsg;
 
@@ -111,33 +112,21 @@ int verify_challenge(std::string_view message, sock::socket_session<user_outboun
 int handle_user_message(connected_user &user, std::string_view message)
 {
     rapidjson::Document d;
-    if (jusrmsg::parse_user_message(d, message) != 0)
-        return -1;
-
-    // Contract input
-    if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
+    if (jusrmsg::parse_user_message(d, message) == 0)
     {
-        std::string contentjson;
-        std::string sig;
-        if (jusrmsg::extract_signed_input_container(contentjson, sig, d, user.pubkey) == 0)
+        // Message is a contract input message.
+        if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
         {
-            std::string nonce;
-            // Input thata must be fed into the contract.
-            std::string contract_input;
-            // The maximum ledger seq no up to which this input is valid for.
-            uint64_t max_ledger_seqno;
-
-            if (jusrmsg::extract_input_container(nonce, contract_input, max_ledger_seqno, contentjson) == 0)
+            std::string contentjson;
+            std::string sig;
+            if (jusrmsg::extract_signed_input_container(contentjson, sig, d) == 0)
             {
                 std::lock_guard<std::mutex> lock(ctx.users_mutex);
                 
-                //Add to the raw input list.
-                user.rawinputs.push_back(util::user_rawinput(
-                    std::move(contract_input),
-                    std::move(nonce),
-                    std::move(sig),
-                    max_ledger_seqno));
-
+                //Add to the submitted input list.
+                user.submitted_inputs.push_back(user_submitted_message(
+                    std::move(contentjson),
+                    std::move(sig));
                 return 0;
             }
         }

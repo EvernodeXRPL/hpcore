@@ -150,4 +150,24 @@ bool is_message_duplicate(std::string_view message)
     return true;
 }
 
+/**
+ * Broadcasts the given message to all currently connected outbound peers.
+ * @return 0 on successful broadcast. -1 for failure.
+ */
+int broadcast_message(peer_outbound_message msg)
+{
+    //Broadcast while locking the peer_connections.
+    std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+
+    if (p2p::peer_connections.size() == 0)
+    {
+        LOG_DBG << "No peers to broadcast";
+        return -1;
+    }
+
+    for (auto &[k, session] : p2p::peer_connections)
+        session->send(msg);
+    return 0;
+}
+
 } // namespace p2p

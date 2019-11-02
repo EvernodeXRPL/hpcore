@@ -4,6 +4,7 @@
 #include "../pchheader.hpp"
 #include "../proc.hpp"
 #include "../p2p/p2p.hpp"
+#include "../usr/user_input.hpp"
 
 namespace cons
 {
@@ -21,7 +22,11 @@ static const float STAGE3_THRESHOLD = 0.8;
 struct consensus_context
 {
     std::list<p2p::proposal> candidate_proposals;
-    std::unordered_map<std::string, std::list<util::hash_buffer>> candidate_users;
+
+    // Map of candidate user inputs with input hash as map key. Inputs will stay here until they
+    // expire (due to maxledgerseqno) or achieve consensus. Input hash is globally unique among
+    // inputs from all users.
+    std::unordered_map<std::string, usr::user_candidate_input> candidate_user_inputs;
 
     uint8_t stage;
     uint64_t novel_proposal_time;
@@ -60,7 +65,9 @@ float_t get_stage_threshold(uint8_t stage);
 
 void timewait_stage(bool reset);
 
-void populate_candidate_users_and_inputs();
+int broadcast_nonunl_proposal();
+
+void verify_and_populate_candidate_user_inputs();
 
 p2p::proposal create_stage0_proposal();
 

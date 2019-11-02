@@ -2,6 +2,7 @@
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
+#include "../usr/user_input.hpp"
 #include "../p2p/p2p.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../p2p/peer_session_handler.hpp"
@@ -12,6 +13,7 @@
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
+namespace jusrmsg = jsonschema::usrmsg;
 
 namespace cons
 {
@@ -99,8 +101,8 @@ void consensus()
             }
         }
 
-        // Transfer connected user data onto consensus candidate data.
-        populate_candidate_users_and_inputs();
+        // Verify and transfer collected user inputs from incoming NUPs onto consensus candidate data.
+        verify_and_populate_candidate_user_inputs();
 
         // In stage 0 we create a novel proposal and broadcast it.
         const p2p::proposal stg_prop = create_stage0_proposal();
@@ -179,22 +181,63 @@ void consensus()
 }
 
 /**
- * Populate connected users and their inputs (if any) into consensus candidate data.
+ * Broadcasts any inputs from locally connected users via an NUP.
+ * @return 0 for successful broadcast. -1 for failure.
  */
-void populate_candidate_users_and_inputs()
+int broadcast_nonunl_proposal()
 {
-    // Lock the connected user list until we do this operation.
-    std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
-    for (auto &[sid, con_user] : usr::ctx.users)
+    // Construct NUP.
+    p2p:nonunl_proposal nup;
+    
+    std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
+    for (auto &[sid, user] : usr::ctx.users)
     {
-        // Populate the user into candidate user inputs map.
-        // We do this regardless of whether the user has any inputs or not.
-
-        std::list<util::hash_buffer> &inplist = ctx.candidate_users[con_user.pubkey];
-
-        // Transfer the connected user's inputs (if any) to the candidate user's inputs list.
-        inplist.splice(inplist.end(), con_user.inputs);
+        std::list<usr::user_submitted_message> usermsgs;
+        usermsgs.splice(usermsgs.end(), user.submitted_inputs);
+        nup.user_messages.try_emplace(user.pubkey, std::move(usermsgs));
     }
+
+    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+    p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
+    p2p::broadcast_message(msg);
+
+    LOG_DBG << "NUP sent." << " users:" << nup.user_messages.size();
+
+    return 0;
+}
+
+/**
+ * Verifies the collected user signatures and populate user inputs from collected
+ * non unl proposals (if any) into consensus candidate data.
+ */
+void verify_and_populate_candidate_user_inputs()
+{
+    // Lock the list
+    std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
+    for (const auto &[pubkey, umsg] : p2p::collected_msgs.nonunl_proposals)
+    {
+        for (usr::user_submitted_message umsg : p.user_messages)
+        {
+            // Verify the signature of the message content.
+            if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
+            {
+                std::string nonce;
+                std::string input;
+                uint64_t maxledgerseqno
+                jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
+
+                // Hash is prefixed with the nonce to support user-defined sort order.
+                std::string hash = std::move(nonce);
+                // Append the hash of the message signature to get the final hash.
+                inphash.append(crypto::get_hash(umsg.sig))
+
+                ctx.candidate_user_inputs.try_emplace(
+                    hash,
+                    usr::user_candidate_input(std::move(pubkey), std::move(input), maxledgerseqno));
+            }
+        }
+    }
+    p2p::collected_msgs.clear();
 }
 
 p2p::proposal create_stage0_proposal()
@@ -367,20 +410,7 @@ int broadcast_proposal(const p2p::proposal &p)
 {
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
-
-    {
-        //Broadcast while locking the peer_connections.
-        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-
-        if (p2p::peer_connections.size() == 0)
-        {
-            LOG_DBG << "No peers to broadcast";
-            return -1;
-        }
-
-        for (auto &[k, session] : p2p::peer_connections)
-            session->send(msg);
-    }
+    p2p::broadcast_message(msg);
 
     LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
             << "] users:" << p.users.size()

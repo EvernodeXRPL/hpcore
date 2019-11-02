@@ -28,7 +28,7 @@ void create_user_challenge(std::string &msg, std::string &challengehex);
 
 int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge);
 
-int extract_signed_input_container(std::string &extracted_content, std::string &extracted_sig, const rapidjson::Document &d, std::string_view pubkey);
+int extract_signed_input_container(std::string &extracted_content, std::string &extracted_sig, const rapidjson::Document &d);
 
 int extract_input_container(std::string &nonce, std::string &input, uint64_t &max_ledger_seqno, std::string_view contentjson);
 

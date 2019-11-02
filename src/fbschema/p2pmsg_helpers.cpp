@@ -140,6 +140,21 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
 }
 
 /**
+ * Creates a non-unl proposal stuct from the given non-unl proposal message.
+ * @param The Flatbuffer non-unl poporal received from the peer.
+ * @return A non-unl proposal struct representing the message.
+ */
+const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, uint64_t timestamp)
+{
+    p2p::nonunl_proposal nup;
+    
+    if (msg.usermessages())
+        nup.user_messages = flatbuf_usermsgsmap_to_usermsgsmap(msg.usermessages());
+
+    return nup;
+}
+
+/**
  * Creates a proposal stuct from the given proposal message.
  * @param The Flatbuffer poporal received from the peer.
  * @return A proposal struct representing the message.
@@ -176,6 +191,23 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
 
 //---Message creation helpers---//
 
+void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);xxxxxxxxxxc
+
+    flatbuffers::Offset<NonUnl_Proposal_Message> nupmsg =
+        CreateNonUnl_Proposal_Message(
+            builder,
+            usermsgsmap_to_flatbuf_usermsgsmap(builder, nup.user_messages));
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_NonUnl_Proposal_Message, nupmsg.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, false);
+}
+
 /**
  * Ctreat proposal peer message from the given proposal struct.
  * @param container_builder Flatbuffer builder for the container message.
@@ -186,7 +218,6 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    // Create dummy propsal message
     flatbuffers::Offset<Proposal_Message> proposal =
         CreateProposal_Message(
             builder,
@@ -249,6 +280,29 @@ void create_containermsg_from_content(
 
 //---Conversion helpers from flatbuffers data types to std data types---//
 
+const std::unordered_map<std::string, const std::list<usr::user_submitted_message>>
+flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>> *fbvec)
+{
+    std::unordered_map<std::string, const std::list<usr::user_submitted_message>> map;
+    map.reserve(fbvec->size());
+    for (const UserSubmittedMessageGroup *group : *fbvec)
+    {
+        std::list<usr::user_submitted_message> msglist;
+        msglist.reserve(group->messages()->size());
+
+        for (auto msg : *group->messages())
+        {
+            msglist.push_back(usr::user_submitted_message(
+                flatbuff_bytes_to_sv(msg->content()),
+                flatbuff_bytes_to_sv(msg->signature())
+            ));
+        }
+
+        map.emplace(flatbuff_bytes_to_sv(group->pubkey()), std::move(msglist));
+    }
+    return map;
+}
+
 /**
  * Returns a hash buffer map from Flatbuffer proposal raw inputs.
  */
@@ -297,6 +351,31 @@ flatbuf_rawoutputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offse
 
 //---Conversion helpers from std data types to flatbuffers data types---//
 //---These are used in constructing Flatbuffer messages using builders---//
+
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>>>
+usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_message>> &map)
+{
+    std::vector<flatbuffers::Offset<UserSubmittedMessageGroup>> fbvec;
+    fbvec.reserve(map.size());
+    for (auto const &[pubkey, msglist] : map)
+    {
+        std::vector<flatbuffers::Offset<UserSubmittedMessage>> fbmsgsvec;
+        for (const usr::user_submitted_message &msg : msglist)
+        {
+            fbmsgsvec.push_back(UserSubmittedMessage(
+                builder,
+                sv_to_flatbuff_bytes(builder, msg.content),
+                sv_to_flatbuff_bytes(builder, msg.sig)));
+        }
+
+        fbvec.push_back(CreateUserSubmittedMessageGroup(
+            builder,
+            sv_to_flatbuff_bytes(builder, pubkey),
+            builder.CreateVector(fbmsgsvec)));
+    }
+    return builder.CreateVector(fbvec);
+}
+
 
 /**
  * Returns Flatbuffer vector of RawInputs from a given map of hash buffer lists.

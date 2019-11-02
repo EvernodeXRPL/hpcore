@@ -5,6 +5,7 @@
 #include "../util.hpp"
 #include "../sock/socket_session.hpp"
 #include "user_session_handler.hpp"
+#include "user_input.hpp"
 
 /**
  * Maintains the global user list with pending input outputs and manages user connections.
@@ -22,15 +23,15 @@ struct connected_user
     const std::string pubkey;
 
     // Holds the unprocessed user inputs collected from websocket.
-    std::list<util::user_rawinput> rawinputs;
+    std::list<user_submitted_message> submitted_inputs;
 
     // Holds the websocket session of this user.
     // We don't need to own the session object since the lifetime of user and session are coupled.
     sock::socket_session<user_outbound_message> *session;
 
     /**
-     * @session
-     * @param _pubkey The public key of the user in binary format.
+     * @param session The web socket session the user is connected to.
+     * @param pubkey The public key of the user in binary format.
      */
     connected_user(sock::socket_session<user_outbound_message> *session, std::string_view pubkey)
         : pubkey(pubkey)

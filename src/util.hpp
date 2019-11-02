@@ -43,24 +43,6 @@ enum SESSION_THRESHOLDS
     MAX_BYTES_PER_MINUTE = 0
 };
 
-/**
- * Represents a contract input a user has submitted.
- */
-struct user_rawinput
-{
-    std::string hash;
-    std::string input;
-    uint64_t maxledgerseqno;
-
-    user_rawinput(std::string input, std::string nonce, std::string sig, uint64_t maxledgerseqno)
-    {
-        this->hash = std::move(nonce);      // Use nonce as the hash prefix so the hash would be ordered by the nonce.
-        this->hash.append(crypto::get_hash(sig));
-        this->input = std::move(input);
-        this->maxledgerseqno = maxledgerseqno;
-    }
-};
-
 int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_len);
 
 int hex2bin(unsigned char *decoded, size_t decoded_len, std::string_view hex_str);

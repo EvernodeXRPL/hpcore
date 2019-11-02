@@ -2,13 +2,22 @@
 include "common_schema.fbs";
 namespace fbschema.p2pmsg;
 
-table UserRawInput {
-    hash:[ubyte]
-    input:[ubyte]
-    maxledgerseqno:uint64
+table UserSubmittedMessage {
+    content:[ubyte];
+    signature:[ubyte];
 }
 
-table UserRawInputList { //Pubkey bytes with an array of key value pairs.
+table UserSubmittedMessageGroup {
+    pubkey:[ubyte];
+    messages:[UserSubmittedMessage];
+}
+
+table UserRawInput {
+    hash:[ubyte];
+    input:[ubyte];
+}
+
+table RawInputList { //Pubkey bytes with an array of key value pairs.
     pubkey:[ubyte];
     inputs:[UserRawInput];
 }
@@ -18,10 +27,14 @@ table RawOutput { //Pubkey bytes with a output key value pair.
     output:BytesKeyValuePair;
 }
 
-union Message { Proposal_Message, Npl_Message } //message content type
+union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message } //message content type
 
 table Content {
     message:Message;
+}
+
+table NonUnl_Proposal_Message {
+    usermessages:[UserSubmittedMessageGroup];
 }
 
 table Proposal_Message { //Proposal type message schema

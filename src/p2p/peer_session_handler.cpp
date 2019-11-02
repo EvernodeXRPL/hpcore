@@ -70,6 +70,13 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         collected_msgs.proposals.push_back(
             p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp()));
     }
+    else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
+    {
+        std::lock_guard<std::mutex> lock(collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+
+        collected_msgs.nonunl_proposals.push_back(
+            p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
+    }
     else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
     {
         const p2pmsg::Npl_Message *npl = content->message_as_Npl_Message();
