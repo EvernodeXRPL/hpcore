@@ -1,10 +1,7 @@
-#ifndef _HP_P2P_H_
-#define _HP_P2P_H_
+#ifndef _HP_P2P_
+#define _HP_P2P_
 
-#include <unordered_set>
-#include <unordered_map>
-#include <list>
-#include <mutex>
+#include "../pchheader.hpp"
 #include "../sock/socket_session.hpp"
 #include "peer_session_handler.hpp"
 

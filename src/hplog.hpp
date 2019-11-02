@@ -1,13 +1,7 @@
-#ifndef _HP_HPLOG_H_
-#define _HP_HPLOG_H_
+#ifndef _HP_HPLOG_
+#define _HP_HPLOG_
 
-#include <iostream>
-#include <string>
-#include <boost/log/core.hpp>
-#include <boost/log/expressions/keyword.hpp>
-#include <boost/log/sources/record_ostream.hpp>
-#include <boost/log/sources/global_logger_storage.hpp>
-#include <boost/log/sources/severity_channel_logger.hpp>
+#include "pchheader.hpp"
 #include "conf.hpp"
 
 namespace src = boost::log::sources;

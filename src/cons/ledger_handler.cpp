@@ -1,8 +1,5 @@
-
 #include <flatbuffers/flatbuffers.h>
-#include <iostream>
-#include <fstream>
-#include <boost/filesystem.hpp>
+#include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../p2p/p2p.hpp"

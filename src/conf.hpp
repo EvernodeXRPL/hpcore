@@ -1,10 +1,7 @@
-#ifndef _HP_CONF_H_
-#define _HP_CONF_H_
+#ifndef _HP_CONF_
+#define _HP_CONF_
 
-#include <rapidjson/document.h>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
+#include "pchheader.hpp"
 
 /**
  * Manages the central contract config and context structs.

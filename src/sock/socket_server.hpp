@@ -1,12 +1,12 @@
-#ifndef _SOCK_SERVER_LISTENER_H_
-#define _SOCK_SERVER_LISTENER_H_
+#ifndef _HP_SOCKET_SERVER_
+#define _HP_SOCKET_SERVER_
 
 #include "socket_session_handler.hpp"
 #include "../conf.hpp"
 #include "../hplog.hpp"
 
 namespace net = boost::asio;      // namespace asio
-namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
+namespace ssl = boost::asio::ssl;
 
 using tcp = net::ip::tcp;
 using error_code = boost::system::error_code;

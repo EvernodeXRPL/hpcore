@@ -1,10 +1,7 @@
-#ifndef _HP_CONS_H_
-#define _HP_CONS_H_
+#ifndef _HP_CONS_
+#define _HP_CONS_
 
-#include <vector>
-#include <unordered_map>
-#include <list>
-#include <ctime>
+#include "../pchheader.hpp"
 #include "../proc.hpp"
 #include "../p2p/p2p.hpp"
 

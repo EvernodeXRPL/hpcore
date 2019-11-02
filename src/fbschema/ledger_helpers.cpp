@@ -1,4 +1,5 @@
 #include <flatbuffers/flatbuffers.h>
+#include "../pchheader.hpp"
 #include "ledger_schema_generated.h"
 #include "../p2p/p2p.hpp"
 #include "common_helpers.hpp"

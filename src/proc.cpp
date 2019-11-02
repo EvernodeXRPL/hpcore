@@ -1,14 +1,4 @@
-#include <cstdio>
-#include <iostream>
-#include <stdlib.h>
-#include <vector>
-#include <unistd.h>
-#include <sstream>
-#include <fcntl.h>
-#include <sys/uio.h>
-#include <sys/ioctl.h>
-#include <sys/wait.h>
-#include <boost/filesystem.hpp>
+#include "pchheader.hpp"
 #include "proc.hpp"
 #include "conf.hpp"
 #include "hplog.hpp"

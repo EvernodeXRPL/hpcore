@@ -1,8 +1,8 @@
-#ifndef _HP_FBSCHEMA_P2PMSG_HELPERS_H_
-#define _HP_FBSCHEMA_P2PMSG_HELPERS_H_
+#ifndef _HP_FBSCHEMA_P2PMSG_HELPERS_
+#define _HP_FBSCHEMA_P2PMSG_HELPERS_
 
-#include <string>
 #include <flatbuffers/flatbuffers.h>
+#include "../pchheader.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
 #include "../p2p/p2p.hpp"
