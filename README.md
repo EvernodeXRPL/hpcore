@@ -15,6 +15,12 @@ A C++ version of hotpocket designed for production envrionments, original protot
 
 ## Steps to setup Hot Pocket
 
+#### Install CMAKE 3.16
+1. Download and extract [cmake-3.16.0-rc3-Linux-x86_64.tar.gz](https://github.com/Kitware/CMake/releases/download/v3.16.0-rc3/cmake-3.16.0-rc3-Linux-x86_64.tar.gz)
+2. Navigate into the extracted directory in a terminal.
+3. Run `sudo cp -r bin/* /usr/local/bin/`
+4. Run `sudo cp -r share/* /usr/local/share/`
+
 #### Install Libsodium
 Instructions are based on [this](https://libsodium.gitbook.io/doc/installation).
 
@@ -67,9 +73,6 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 `sudo ldconfig`
 
 This will update your library cache and avoid potential issues when running your compiled C++ program which links to newly installed libraries.
-
-#### Install CMAKE
-If you use apt, run `sudo apt install cmake` or follow [this](https://cmake.org/install/).
 
 #### Build and run Hot Pocket
 1. Navigate to hotpocket repo root.

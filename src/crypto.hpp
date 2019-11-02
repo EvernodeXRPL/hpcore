@@ -1,7 +1,7 @@
-#ifndef _HP_CRYPTO_H_
-#define _HP_CRYPTO_H_
+#ifndef _HP_CRYPTO_
+#define _HP_CRYPTO_
 
-#include <sodium.h>
+#include "pchheader.hpp"
 
 /**
  * Offers convenience functions for cryptographic operations wrapping libsodium.
@@ -13,9 +13,9 @@ namespace crypto
 // Prefix byte to append to ed25519 keys.
 static unsigned char KEYPFX_ed25519 = 0xED;
 // Prefixed public key bytes.
-static size_t PFXD_PUBKEY_BYTES = crypto_sign_PUBLICKEYBYTES + 1;
+static size_t PFXD_PUBKEY_BYTES = crypto_sign_ed25519_PUBLICKEYBYTES + 1;
 // Prefixed secret key bytes.
-static size_t PFXD_SECKEY_BYTES = crypto_sign_SECRETKEYBYTES + 1;
+static size_t PFXD_SECKEY_BYTES = crypto_sign_ed25519_SECRETKEYBYTES + 1;
 
 int init();
 

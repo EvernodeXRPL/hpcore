@@ -1,10 +1,7 @@
-#ifndef _HP_P2P_H_
-#define _HP_P2P_H_
+#ifndef _HP_P2P_
+#define _HP_P2P_
 
-#include <unordered_set>
-#include <unordered_map>
-#include <list>
-#include <mutex>
+#include "../pchheader.hpp"
 #include "../sock/socket_session.hpp"
 #include "peer_session_handler.hpp"
 
@@ -14,9 +11,9 @@ namespace p2p
 struct proposal
 {
     std::string pubkey;
-    int64_t timestamp;
-    int64_t time;
-    int8_t stage;
+    uint64_t timestamp;
+    uint64_t time;
+    uint8_t stage;
     std::string lcl;
     std::unordered_set<std::string> users;
     std::unordered_map<std::string, const std::vector<util::hash_buffer>> raw_inputs;

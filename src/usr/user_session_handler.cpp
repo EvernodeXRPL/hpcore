@@ -1,13 +1,9 @@
-#include <iostream>
-#include <string>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio.hpp>
+#include "../pchheader.hpp"
 #include "../util.hpp"
-#include "../sock/socket_session.hpp"
-#include "../proc.hpp"
 #include "../hplog.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
+#include "../sock/socket_session.hpp"
+#include "../sock/socket_message.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
@@ -16,17 +12,6 @@ namespace beast = boost::beast;
 
 namespace usr
 {
-
-user_outbound_message::user_outbound_message(std::string &&_msg)
-{
-    msg = std::move(_msg);
-}
-
-// Returns the buffer that should be written to the socket.
-std::string_view user_outbound_message::buffer()
-{
-    return msg;
-}
 
 /**
  * This gets hit every time a client connects to HP via the public port (configured in contract config).

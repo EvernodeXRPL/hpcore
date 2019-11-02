@@ -1,17 +1,7 @@
-#ifndef _SOCK_SERVER_SESSION_H_
-#define _SOCK_SERVER_SESSION_H_
+#ifndef _HP_SOCKET_SESSION_
+#define _HP_SOCKET_SESSION_
 
-#include <memory>
-#include <vector>
-#include <bitset>
-#include <unordered_map>
-#include <boost/asio.hpp>
-#include <boost/beast.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/beast/ssl.hpp>
-#include <boost/beast/websocket/ssl.hpp>
-#include "socket_session_handler.hpp"
+#include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
 
@@ -19,27 +9,11 @@ namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace websocket = boost::beast::websocket;
 namespace http = boost::beast::http;
-namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
-
-using tcp = net::ip::tcp;
+namespace ssl = boost::asio::ssl;
 using error_code = boost::system::error_code;
 
 namespace sock
 {
-
-/**
- * Represents an outbound message that is sent with a websocket.
- * We use this class to wrap different object types holding actual message contents.
- * We use this mechanism to achieve end-to-end zero-copy between original message
- * content generator and websocket flush.
- */
-class outbound_message
-{
-public:
-    // Returns a pointer to the internal buffer owned by the message object.
-    // Contents of this buffer is the message that is sent/received with the socket.
-    virtual std::string_view buffer() = 0;
-};
 
 /*
 * Use this to keep in track of different thresholds which we need to deal with. e.g - maximum amount of bytes allowed per minute through a session
@@ -54,9 +28,6 @@ struct session_threshold
     uint64_t counter_value;
     uint64_t timestamp;
     uint64_t intervalms;
-
-    // session_threshold(uint64_t threshold_limit, uint64_t intervalms)
-    //     : threshold_limit(threshold_limit), intervalms(intervalms), counter_value(0), timestamp(0) {}
 };
 
 // Use this to feed the session with default options from the config file
@@ -93,9 +64,26 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
     void on_write(error_code ec, std::size_t bytes_transferred);
 
     void on_close(error_code ec, int8_t type);
-   
+
+
+    // Websocket lambda expression helpers.
+    // Implementation of these are separated to a different .cpp to reduce regular compile time.
+
+    void ws_next_layer_async_handshake(ssl::stream_base::handshake_type handshake_type);
+
+    void ws_async_accept();
+
+    void ws_async_handshake();
+
+    void ws_async_read();
+
+    void ws_async_write(std::string_view message);
+
+    void ws_async_close();
+
 
 public:
+   
     socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler);
 
     ~socket_session();

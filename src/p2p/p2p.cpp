@@ -1,4 +1,4 @@
-#include <iostream>
+#include "../pchheader.hpp"
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_client.hpp"
 #include "../conf.hpp"
@@ -8,7 +8,7 @@
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 
-namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
+namespace ssl = boost::asio::ssl;
 
 namespace p2p
 {
@@ -116,7 +116,7 @@ void peer_connection_watchdog()
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(conf::cfg.roundtime * 4));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }
 

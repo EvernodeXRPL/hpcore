@@ -1,5 +1,4 @@
-#include <iostream>
-#include <flatbuffers/flatbuffers.h>
+#include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../util.hpp"
@@ -7,6 +6,7 @@
 #include "../fbschema/p2pmsg_container_generated.h"
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/p2pmsg_helpers.hpp"
+#include "../sock/socket_message.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 
@@ -14,26 +14,6 @@ namespace p2pmsg = fbschema::p2pmsg;
 
 namespace p2p
 {
-
-peer_outbound_message::peer_outbound_message(
-    std::shared_ptr<flatbuffers::FlatBufferBuilder> _fbbuilder_ptr)
-{
-    fbbuilder_ptr = _fbbuilder_ptr;
-}
-
-// Returns a reference to the flatbuffer builder object.
-flatbuffers::FlatBufferBuilder &peer_outbound_message::builder()
-{
-    return *fbbuilder_ptr;
-}
-
-// Returns a reference to the data buffer that must be written to the socket.
-std::string_view peer_outbound_message::buffer()
-{
-    return std::string_view(
-        reinterpret_cast<const char *>((*fbbuilder_ptr).GetBufferPointer()),
-        (*fbbuilder_ptr).GetSize());
-}
 
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
@@ -88,7 +68,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex); // Insert proposal with lock.
 
         collected_msgs.proposals.push_back(
-            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey()));
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp()));
     }
     else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
     {

@@ -3,9 +3,9 @@
 *.swo
 .*.sw?
 .DS_Store
-build/**
-release/**
-.vscode/**
+build
+hpsupport.dir
+.vscode
 **/Makefile
 **/CMakeCache.txt
 **/cmake_install.cmake

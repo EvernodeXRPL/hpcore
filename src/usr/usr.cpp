@@ -1,7 +1,4 @@
-#include <cstdio>
-#include <iostream>
-#include <unistd.h>
-#include <boost/thread/thread.hpp>
+#include "../pchheader.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"

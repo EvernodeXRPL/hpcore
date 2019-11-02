@@ -1,10 +1,7 @@
-#ifndef _HP_CONS_H_
-#define _HP_CONS_H_
+#ifndef _HP_CONS_
+#define _HP_CONS_
 
-#include <vector>
-#include <unordered_map>
-#include <list>
-#include <ctime>
+#include "../pchheader.hpp"
 #include "../proc.hpp"
 #include "../p2p/p2p.hpp"
 
@@ -26,10 +23,11 @@ struct consensus_context
     std::list<p2p::proposal> candidate_proposals;
     std::unordered_map<std::string, std::list<util::hash_buffer>> candidate_users;
 
-    int8_t stage;
-    int64_t novel_proposal_time;
-    int64_t time_now;
+    uint8_t stage;
+    uint64_t novel_proposal_time;
+    uint64_t time_now;
     std::string lcl;
+    uint64_t led_seq_no;
     std::string novel_proposal;
 
     std::map<std::string, std::pair<const std::string, std::string>> possible_inputs;
@@ -42,8 +40,8 @@ struct consensus_context
 
 struct vote_counter
 {
-    std::map<int8_t, int32_t> stage;
-    std::map<int64_t, int32_t> time;
+    std::map<uint8_t, int32_t> stage;
+    std::map<uint64_t, int32_t> time;
     std::map<std::string, int32_t> lcl;
     std::map<std::string, int32_t> users;
     std::map<std::string, int32_t> inputs;
@@ -52,11 +50,13 @@ struct vote_counter
 
 extern consensus_context ctx;
 
+int init();
+
 void consensus();
 
 void apply_ledger(const p2p::proposal &proposal);
 
-float_t get_stage_threshold(int8_t stage);
+float_t get_stage_threshold(uint8_t stage);
 
 void timewait_stage(bool reset);
 
@@ -68,7 +68,9 @@ p2p::proposal create_stage123_proposal(vote_counter &votes);
 
 int broadcast_proposal(const p2p::proposal &p);
 
-void check_majority_stage(bool &is_desync, bool &should_reset, int8_t &majority_stage, vote_counter &votes);
+void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority_stage, vote_counter &votes);
+
+void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
 void run_contract_binary(int64_t time);
 

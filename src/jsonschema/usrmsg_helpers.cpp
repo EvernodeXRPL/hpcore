@@ -1,4 +1,4 @@
-#include <sodium.h>
+#include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
