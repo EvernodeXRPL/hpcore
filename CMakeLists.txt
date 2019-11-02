@@ -33,8 +33,9 @@ add_library(hpsock
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
     src/sock/socket_message.cpp
-    src/sock/socket_session.cpp
     src/sock/socket_monitor.cpp
+    src/sock/socket_session.cpp
+    src/sock/socket_session_lambda.cpp
 )
 target_link_libraries(hpsock hpsupport)
 

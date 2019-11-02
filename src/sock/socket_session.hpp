@@ -9,7 +9,7 @@ namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace websocket = boost::beast::websocket;
 namespace http = boost::beast::http;
-namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
+namespace ssl = boost::asio::ssl;
 using error_code = boost::system::error_code;
 
 namespace sock
@@ -64,9 +64,26 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
     void on_write(error_code ec, std::size_t bytes_transferred);
 
     void on_close(error_code ec, int8_t type);
-   
+
+
+    // Websocket lambda expression helpers.
+    // Implementation of these are separated to a different .cpp to reduce regular compile time.
+
+    void ws_next_layer_async_handshake(ssl::stream_base::handshake_type handshake_type);
+
+    void ws_async_accept();
+
+    void ws_async_handshake();
+
+    void ws_async_read();
+
+    void ws_async_write(std::string_view message);
+
+    void ws_async_close();
+
 
 public:
+   
     socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler);
 
     ~socket_session();

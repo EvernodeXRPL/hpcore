@@ -45,8 +45,6 @@ void socket_session<T>::set_threshold(util::SESSION_THRESHOLDS threshold_type, u
 template <class T>
 void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts)
 {
-    ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
-
     if (sess_opts.max_message_size > 0)
     {
         // Setting maximum file size
@@ -59,6 +57,7 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     session_threshold max_byte_per_message_threshold{sess_opts.max_bytes_per_minute, 0, 0, 60000};
     thresholds.push_back(std::move(max_byte_per_message_threshold));
 
+    ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
     if (is_server_session)
     {
         /**
@@ -77,11 +76,7 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));
 
     // Perform the SSL handshake
-    ws.next_layer().async_handshake(
-        handshake_type,
-        [sp = this->shared_from_this()](error_code ec) {
-            sp->on_ssl_handshake(ec);
-        });
+    ws_next_layer_async_handshake(handshake_type);
 }
 
 /*
@@ -105,11 +100,7 @@ void socket_session<T>::on_ssl_handshake(error_code ec)
                 beast::role_type::server));
 
         // Accept the websocket handshake
-        ws.async_accept(
-            [sp = this->shared_from_this()](
-                error_code ec) {
-                sp->on_accept(ec);
-            });
+        ws_async_accept();
     }
     else
     {
@@ -118,11 +109,7 @@ void socket_session<T>::on_ssl_handshake(error_code ec)
                 beast::role_type::client));
 
         // Perform the websocket handshake
-        ws.async_handshake(this->address, "/",
-                           [sp = this->shared_from_this()](
-                               error_code ec) {
-                               sp->on_accept(ec);
-                           });
+        ws_async_handshake();
     }
 }
 
@@ -139,12 +126,7 @@ void socket_session<T>::on_accept(error_code ec)
     sess_handler.on_connect(this);
 
     // Read a message
-    ws.async_read(
-        buffer,
-        [sp = this->shared_from_this()](
-            error_code ec, std::size_t bytes) {
-            sp->on_read(ec, bytes);
-        });
+    ws_async_read();
 }
 
 /*
@@ -180,12 +162,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
     buffer.consume(buffer.size());
 
     // Read another message
-    ws.async_read(
-        buffer,
-        [sp = this->shared_from_this()](
-            error_code ec, std::size_t bytes) {
-            sp->on_read(ec, bytes);
-        });
+    ws_async_read();
 }
 
 /*
@@ -244,13 +221,7 @@ void socket_session<T>::send(T msg)
     std::string_view sv = queue.front().buffer();
 
     // We are not currently writing, so send this immediately
-    ws.async_write(
-        // Project the outbound_message buffer from the queue front into the asio buffer.
-        net::buffer(sv.data(), sv.length()),
-        [sp = this->shared_from_this()](
-            error_code ec, std::size_t bytes) {
-            sp->on_write(ec, bytes);
-        });
+    ws_async_write(sv);
 }
 
 /*
@@ -270,12 +241,7 @@ void socket_session<T>::on_write(error_code ec, std::size_t)
     if (!queue.empty())
     {
         std::string_view sv = queue.front().buffer();
-        ws.async_write(
-            net::buffer(sv.data(), sv.length()),
-            [sp = this->shared_from_this()](
-                error_code ec, std::size_t bytes) {
-                sp->on_write(ec, bytes);
-            });
+        ws_async_write(sv);
     }
 }
 
@@ -286,11 +252,7 @@ template <class T>
 void socket_session<T>::close()
 {
     // Close the WebSocket connection
-    ws.async_close(websocket::close_code::normal,
-                   [sp = this->shared_from_this()](
-                       error_code ec) {
-                       sp->on_close(ec, 0);
-                   });
+    ws_async_close();
 }
 
 /*
@@ -331,7 +293,7 @@ void socket_session<T>::fail(error_code ec, char const *what)
         return;
 }
 
-// Template instentiations.
+// Template instantiations.
 template class socket_session<p2p::peer_outbound_message>;
 template class socket_session<usr::user_outbound_message>;
 
