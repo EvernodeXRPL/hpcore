@@ -1,5 +1,5 @@
-#ifndef _HP_JSONSCHEMA_USRMSG_HELPERS_H_
-#define _HP_JSONSCHEMA_USRMSG_HELPERS_H_
+#ifndef _HP_JSONSCHEMA_USRMSG_HELPERS_
+#define _HP_JSONSCHEMA_USRMSG_HELPERS_
 
 #include "../pchheader.hpp"
 

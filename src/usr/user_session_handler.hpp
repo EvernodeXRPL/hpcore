@@ -1,5 +1,5 @@
-#ifndef _HP_USER_SESSION_HANDLER_H_
-#define _HP_USER_SESSION_HANDLER_H_
+#ifndef _HP_USER_SESSION_HANDLER_
+#define _HP_USER_SESSION_HANDLER_
 
 #include "../pchheader.hpp"
 #include "../sock/socket_session_handler.hpp"

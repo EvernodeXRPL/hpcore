@@ -1,5 +1,5 @@
-#ifndef _HP_SOCKET_CLIENT_H_
-#define _HP_SOCKET_CLIENT_H_
+#ifndef _HP_SOCKET_CLIENT_
+#define _HP_SOCKET_CLIENT_
 
 #include "socket_session_handler.hpp"
 #include "../hplog.hpp"

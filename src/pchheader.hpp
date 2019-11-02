@@ -1,5 +1,5 @@
-#ifndef _HP_PCHHEADER_H
-#define _HP_PCHHEADER_H
+#ifndef _HP_PCHHEADER_
+#define _HP_PCHHEADER_
 
 // This will direct all boost exceptions to our error handler.
 #define BOOST_NO_EXCEPTIONS

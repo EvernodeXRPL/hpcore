@@ -1,5 +1,5 @@
-#ifndef _HP_CRYPTO_H_
-#define _HP_CRYPTO_H_
+#ifndef _HP_CRYPTO_
+#define _HP_CRYPTO_
 
 #include "pchheader.hpp"
 

@@ -1,5 +1,5 @@
-#ifndef _HP_CONS_LEDGER_H_
-#define _HP_CONS_LEDGER_H_
+#ifndef _HP_CONS_LEDGER_
+#define _HP_CONS_LEDGER_
 
 #include "../p2p/p2p.hpp"
 

@@ -1,5 +1,5 @@
-#ifndef _HP_CONF_H_
-#define _HP_CONF_H_
+#ifndef _HP_CONF_
+#define _HP_CONF_
 
 #include "pchheader.hpp"
 

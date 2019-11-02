@@ -1,5 +1,5 @@
-#ifndef _HP_FBSCHEMA_COMMON_HELPERS_H_
-#define _HP_FBSCHEMA_COMMON_HELPERS_H_
+#ifndef _HP_FBSCHEMA_COMMON_HELPERS_
+#define _HP_FBSCHEMA_COMMON_HELPERS_
 
 #include "../pchheader.hpp"
 #include <flatbuffers/flatbuffers.h>

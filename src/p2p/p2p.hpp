@@ -1,5 +1,5 @@
-#ifndef _HP_P2P_H_
-#define _HP_P2P_H_
+#ifndef _HP_P2P_
+#define _HP_P2P_
 
 #include "../pchheader.hpp"
 #include "../sock/socket_session.hpp"

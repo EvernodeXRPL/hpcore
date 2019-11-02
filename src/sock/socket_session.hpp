@@ -1,5 +1,5 @@
-#ifndef _HP_SOCKET_SESSION_H_
-#define _HP_SOCKET_SESSION_H_
+#ifndef _HP_SOCKET_SESSION_
+#define _HP_SOCKET_SESSION_
 
 #include "../pchheader.hpp"
 #include "../util.hpp"

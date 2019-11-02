@@ -6,9 +6,10 @@
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "usr/usr.hpp"
 #include "proc.hpp"
 #include "hplog.hpp"
+#include "usr/usr.hpp"
+#include "p2p/p2p.hpp"
 #include "cons/cons.hpp"
 
 /**

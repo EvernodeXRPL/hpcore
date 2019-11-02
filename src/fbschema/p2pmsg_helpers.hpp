@@ -1,5 +1,5 @@
-#ifndef _HP_FBSCHEMA_P2PMSG_HELPERS_H_
-#define _HP_FBSCHEMA_P2PMSG_HELPERS_H_
+#ifndef _HP_FBSCHEMA_P2PMSG_HELPERS_
+#define _HP_FBSCHEMA_P2PMSG_HELPERS_
 
 #include <flatbuffers/flatbuffers.h>
 #include "../pchheader.hpp"

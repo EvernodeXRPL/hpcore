@@ -1,5 +1,5 @@
-#ifndef _HP_HPLOG_H_
-#define _HP_HPLOG_H_
+#ifndef _HP_HPLOG_
+#define _HP_HPLOG_
 
 #include "pchheader.hpp"
 #include "conf.hpp"

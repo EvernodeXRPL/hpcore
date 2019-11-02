@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Generate contract sub-directories within this script directory for the given no. of cluster nodes.
-# Usage (to generate 8-node cluster): ./cluster.sh 8
+# Usage (to generate 8-node cluster): ./cluster-create.sh 8
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then

@@ -1,5 +1,5 @@
-#ifndef _HP_USR_H_
-#define _HP_USR_H_
+#ifndef _HP_USR_
+#define _HP_USR_
 
 #include "../pchheader.hpp"
 #include "../util.hpp"

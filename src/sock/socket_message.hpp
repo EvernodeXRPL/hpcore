@@ -1,5 +1,5 @@
-#ifndef _HP_SOCKET_MESSAGE_H_
-#define _HP_SOCKET_MESSAGE_H_
+#ifndef _HP_SOCKET_MESSAGE_
+#define _HP_SOCKET_MESSAGE_
 
 #include <flatbuffers/flatbuffers.h>
 #include "../pchheader.hpp"

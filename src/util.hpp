@@ -1,5 +1,5 @@
-#ifndef _HP_UTIL_H_
-#define _HP_UTIL_H_
+#ifndef _HP_UTIL_
+#define _HP_UTIL_
 
 #include "pchheader.hpp"
 #include "crypto.hpp"
