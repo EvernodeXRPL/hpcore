@@ -8,12 +8,25 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY build)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 set(CMAKE_BUILD_TYPE "MinSizeRel" FORCE)
 
+link_directories(/usr/local/lib)
+
 add_library(hpsupport
     src/util.cpp
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
     src/proc.cpp
+)
+target_link_libraries(hpsupport
+    libsodium.a
+    libboost_system.a
+    libboost_thread.a
+    libboost_log.a
+    libboost_log_setup.a
+    libboost_filesystem.a
+    pthread
+    crypto
+    ssl
 )
 
 add_library(hpsock
@@ -61,15 +74,6 @@ target_link_libraries(hpcore
     hpp2p
     hpusr
     hpcons
-    libsodium.a
-    libboost_system.a
-    libboost_thread.a
-    libboost_log.a
-    libboost_log_setup.a
-    libboost_filesystem.a
-    pthread
-    crypto
-    ssl
 )
 
 target_precompile_headers(hpsupport PUBLIC src/pchheader.hpp)
