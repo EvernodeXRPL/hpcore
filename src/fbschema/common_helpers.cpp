@@ -25,10 +25,9 @@ std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer
 /**
  * Returns set from Flatbuffer vector of ByteArrays.
  */
-const std::unordered_set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec)
+const std::set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec)
 {
-    std::unordered_set<std::string> set;
-    set.reserve(fbvec->size());
+    std::set<std::string> set;
     for (auto el : *fbvec)
         set.emplace(std::string(flatbuff_bytes_to_sv(el->array())));
     return set;
@@ -63,7 +62,7 @@ sv_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, std::string_view s
  * Returns Flatbuffer vector of ByteArrays from given set of strings.
  */
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
-stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_set<std::string> &set)
+stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::set<std::string> &set)
 {
     std::vector<flatbuffers::Offset<ByteArray>> fbvec;
     fbvec.reserve(set.size());

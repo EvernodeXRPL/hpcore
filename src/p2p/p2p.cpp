@@ -166,7 +166,6 @@ void broadcast_message(peer_outbound_message msg)
     std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
     for (auto &[k, session] : p2p::peer_connections)
         session->send(msg);
-    return 0;
 }
 
 } // namespace p2p

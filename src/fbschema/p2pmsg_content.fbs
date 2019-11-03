@@ -12,11 +12,6 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-table RawOutput { //Pubkey bytes with a output key value pair.
-    pubkey:[ubyte];
-    output:BytesKeyValuePair;
-}
-
 union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message } //message content type
 
 table Content {
@@ -33,7 +28,6 @@ table Proposal_Message { //Proposal type message schema
     lcl:[ubyte];
     users:[ByteArray];
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
-    raw_outputs: [RawOutput];    //stage 0 outputs (hash and raw value)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
     state: State;
 }

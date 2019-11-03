@@ -177,9 +177,6 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
     if (msg.hash_inputs())
         p.hash_inputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_inputs());
 
-    if (msg.raw_outputs())
-        p.raw_outputs = flatbuf_rawoutputs_to_hashbuffermap(msg.raw_outputs());
-
     if (msg.hash_outputs())
         p.hash_outputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_outputs());
 
@@ -190,7 +187,7 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)
 {
-    flatbuffers::FlatBufferBuilder builder(1024);xxxxxxxxxxc
+    flatbuffers::FlatBufferBuilder builder(1024);
 
     flatbuffers::Offset<NonUnl_Proposal_Message> nupmsg =
         CreateNonUnl_Proposal_Message(
@@ -223,7 +220,6 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             sv_to_flatbuff_bytes(builder, p.lcl),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-            hashbuffermap_to_flatbuf_rawoutputs(builder, p.raw_outputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
@@ -284,7 +280,6 @@ flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset
     for (const UserSubmittedMessageGroup *group : *fbvec)
     {
         std::list<usr::user_submitted_message> msglist;
-        msglist.reserve(group->messages()->size());
 
         for (auto msg : *group->messages())
         {
@@ -295,52 +290,6 @@ flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset
         }
 
         map.emplace(flatbuff_bytes_to_sv(group->pubkey()), std::move(msglist));
-    }
-    return map;
-}
-
-/**
- * Returns a hash buffer map from Flatbuffer proposal raw inputs.
- */
-const std::unordered_map<std::string, const std::vector<util::hash_buffer>>
-flatbuf_rawinputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *fbvec)
-{
-    std::unordered_map<std::string, const std::vector<util::hash_buffer>> map;
-    map.reserve(fbvec->size());
-    for (const RawInputList *user : *fbvec)
-    {
-        std::vector<util::hash_buffer> bufvec;
-        bufvec.reserve(user->inputs()->size());
-
-        for (auto input : *user->inputs())
-        {
-            // Create hash_buffer object and manually assign the hash from the input.
-            util::hash_buffer buf(flatbuff_bytes_to_sv(input->value())); //input->value() is the raw input.
-            buf.hash = flatbuff_bytes_to_sv(input->key());               //input->key() is the hash of the input.
-
-            bufvec.push_back(buf);
-        }
-
-        map.emplace(flatbuff_bytes_to_sv(user->pubkey()), std::move(bufvec));
-    }
-    return map;
-}
-
-/**
- * Returns a hash buffer map from Flatbuffer proposal raw outputs.
- */
-const std::unordered_map<std::string, util::hash_buffer>
-flatbuf_rawoutputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawOutput>> *fbvec)
-{
-    std::unordered_map<std::string, util::hash_buffer> map;
-    map.reserve(fbvec->size());
-    for (const RawOutput *user : *fbvec)
-    {
-        // Create hash_buffer object and manually assign the hash from the output.
-        util::hash_buffer buf(flatbuff_bytes_to_sv(user->output()->value())); //output->value() is the raw output.
-        buf.hash = flatbuff_bytes_to_sv(user->output()->key());               //output->key() is the hash of the output.
-
-        map.emplace(flatbuff_bytes_to_sv(user->pubkey()), std::move(buf));
     }
     return map;
 }
@@ -358,7 +307,7 @@ usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, cons
         std::vector<flatbuffers::Offset<UserSubmittedMessage>> fbmsgsvec;
         for (const usr::user_submitted_message &msg : msglist)
         {
-            fbmsgsvec.push_back(UserSubmittedMessage(
+            fbmsgsvec.push_back(CreateUserSubmittedMessage(
                 builder,
                 sv_to_flatbuff_bytes(builder, msg.content),
                 sv_to_flatbuff_bytes(builder, msg.sig)));
@@ -368,55 +317,6 @@ usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, cons
             builder,
             sv_to_flatbuff_bytes(builder, pubkey),
             builder.CreateVector(fbmsgsvec)));
-    }
-    return builder.CreateVector(fbvec);
-}
-
-
-/**
- * Returns Flatbuffer vector of RawInputs from a given map of hash buffer lists.
- */
-const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawInputList>>>
-hashbuffermap_to_flatbuf_rawinputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::vector<util::hash_buffer>> &map)
-{
-    std::vector<flatbuffers::Offset<RawInputList>> fbvec;
-    fbvec.reserve(map.size());
-    for (auto const &[pubkey, bufvec] : map)
-    {
-        std::vector<flatbuffers::Offset<BytesKeyValuePair>> fbinputsvec;
-        for (const util::hash_buffer &buf : bufvec)
-        {
-            fbinputsvec.push_back(CreateBytesKeyValuePair(
-                builder,
-                sv_to_flatbuff_bytes(builder, buf.hash),
-                sv_to_flatbuff_bytes(builder, buf.buffer)));
-        }
-
-        fbvec.push_back(CreateRawInputList(
-            builder,
-            sv_to_flatbuff_bytes(builder, pubkey),
-            builder.CreateVector(fbinputsvec)));
-    }
-    return builder.CreateVector(fbvec);
-}
-
-/**
- * Returns Flatbuffer vector of RawOutputs from a given map of hash buffers.
- */
-const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawOutput>>>
-hashbuffermap_to_flatbuf_rawoutputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, util::hash_buffer> &map)
-{
-    std::vector<flatbuffers::Offset<RawOutput>> fbvec;
-    fbvec.reserve(map.size());
-    for (auto const &[pubkey, buf] : map)
-    {
-        fbvec.push_back(CreateRawOutput(
-            builder,
-            sv_to_flatbuff_bytes(builder, pubkey),
-            CreateBytesKeyValuePair(
-                builder,
-                sv_to_flatbuff_bytes(builder, buf.hash),
-                sv_to_flatbuff_bytes(builder, buf.buffer))));
     }
     return builder.CreateVector(fbvec);
 }

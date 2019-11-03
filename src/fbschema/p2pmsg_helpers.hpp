@@ -39,22 +39,10 @@ void create_containermsg_from_content(
 const std::unordered_map<std::string, const std::list<usr::user_submitted_message>>
 flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>> *fbvec);
 
-const std::unordered_map<std::string, const std::vector<util::hash_buffer>>
-flatbuf_rawinputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *fbvec);
-
-const std::unordered_map<std::string, util::hash_buffer>
-flatbuf_rawoutputs_to_hashbuffermap(const flatbuffers::Vector<flatbuffers::Offset<RawOutput>> *fbvec);
-
 //---Conversion helpers from std data types to flatbuffers data types---//
 
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>>>
 usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_message>> &map);
-
-const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawInputList>>>
-hashbuffermap_to_flatbuf_rawinputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::vector<util::hash_buffer>> &map);
-
-const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawOutput>>>
-hashbuffermap_to_flatbuf_rawoutputs(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, util::hash_buffer> &map);
 
 } // namespace fbschema::p2pmsg
 

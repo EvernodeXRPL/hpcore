@@ -8,7 +8,7 @@
 #include "../hplog.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
-#include "user_rawinput.hpp"
+#include "user_input.hpp"
 
 namespace jusrmsg = jsonschema::usrmsg;
 
@@ -126,7 +126,7 @@ int handle_user_message(connected_user &user, std::string_view message)
                 //Add to the submitted input list.
                 user.submitted_inputs.push_back(user_submitted_message(
                     std::move(contentjson),
-                    std::move(sig));
+                    std::move(sig)));
                 return 0;
             }
         }

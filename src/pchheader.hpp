@@ -27,6 +27,7 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
+#include <cstdarg>
 #include <cstdio>
 #include <fcntl.h>
 #include <fstream>

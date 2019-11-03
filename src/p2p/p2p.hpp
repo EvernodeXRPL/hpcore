@@ -11,14 +11,14 @@ namespace p2p
     
 struct proposal
 {
-    const std::string pubkey;
+    std::string pubkey;
     uint64_t timestamp;
     uint64_t time;
     uint8_t stage;
-    const std::string lcl;
-    const std::unordered_set<std::string> users;
-    const std::unordered_set<std::string> hash_inputs;
-    const std::unordered_set<std::string> hash_outputs;
+    std::string lcl;
+    std::set<std::string> users;
+    std::set<std::string> hash_inputs;
+    std::set<std::string> hash_outputs;
 };
 
 struct nonunl_proposal

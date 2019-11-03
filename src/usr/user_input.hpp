@@ -2,7 +2,6 @@
 #define _HP_USR_USER_INPUT_
 
 #include "../pchheader.hpp"
-#include "../crypto.hpp"
 
 namespace usr
 {
@@ -20,24 +19,13 @@ struct user_submitted_message
         this->content = std::move(content);
         this->sig = std::move(sig);
     }
-};
 
-/**
- * Represents a contract input that takes part in consensus.
- */
-struct user_candidate_input
-{
-    std::string userpubkey;
-    std::string input;
-    const uint64_t maxledgerseqno;
-
-    user_candidate_input(std::string userpubkey, std::string input, uint64_t maxledgerseqno)
+    user_submitted_message(std::string_view content, std::string_view sig)
     {
-        this->userpubkey = std::move(userpubkey);
-        this->input = std::move(input);
-        this->maxledgerseqno = maxledgerseqno;
+        this->content = content;
+        this->sig = sig;
     }
-}
+};
 
 } // namespace usr
 
