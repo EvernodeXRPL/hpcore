@@ -49,38 +49,11 @@ int hex2bin(unsigned char *decoded, size_t decoded_len, std::string_view hex_str
 
 int64_t get_epoch_milliseconds();
 
+void sleep(uint64_t milliseconds);
+
 int version_compare(const std::string &x, const std::string &y);
 
 std::string_view getsv(const rapidjson::Value &v);
-
-/**
- * Represents a data buffer which calculates the hash of the buffer.
- */
-struct hash_buffer
-{
-    std::string hash;
-    std::string buffer;
-
-    hash_buffer(std::string_view data)
-    {
-        buffer = data;
-    }
-
-    hash_buffer(std::string_view data, std::string_view hashprefix)
-    {
-        buffer = data;
-
-        std::string timestr = std::to_string(get_epoch_milliseconds());
-
-        std::string stringtohash;
-        stringtohash.reserve(hashprefix.length() + buffer.length() + timestr.length());
-        stringtohash.append(hashprefix);
-        stringtohash.append(buffer);
-        stringtohash.append(timestr);
-
-        hash = crypto::get_hash(stringtohash);
-    }
-};
 
 } // namespace util
 

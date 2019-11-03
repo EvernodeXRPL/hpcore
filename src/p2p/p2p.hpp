@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../sock/socket_session.hpp"
+#include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
 
 namespace p2p
@@ -15,17 +16,23 @@ struct proposal
     uint64_t time;
     uint8_t stage;
     std::string lcl;
-    std::unordered_set<std::string> users;
-    std::unordered_map<std::string, const std::vector<util::hash_buffer>> raw_inputs;
-    std::unordered_set<std::string> hash_inputs;
-    std::unordered_map<std::string, util::hash_buffer> raw_outputs;
-    std::unordered_set<std::string> hash_outputs;
+    std::set<std::string> users;
+    std::set<std::string> hash_inputs;
+    std::set<std::string> hash_outputs;
+};
+
+struct nonunl_proposal
+{
+    std::unordered_map<std::string, const std::list<usr::user_submitted_message>> user_messages;
 };
 
 struct message_collection
 {
     std::list<proposal> proposals;
-    std::mutex proposals_mutex;     // Mutex for proposals access race conditions.
+    std::mutex proposals_mutex;             // Mutex for proposals access race conditions.
+    
+    std::list<nonunl_proposal> nonunl_proposals;
+    std::mutex nonunl_proposals_mutex;      // Mutex for non-unl proposals access race conditions.
 };
 
 /**
@@ -47,6 +54,8 @@ void start_peer_connections();
 void peer_connection_watchdog();
 
 bool is_message_duplicate(std::string_view message);
+
+void broadcast_message(peer_outbound_message msg);
 
 } // namespace p2p
 

@@ -17,7 +17,7 @@ std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_
 
 std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer);
 
-const std::unordered_set<std::string>
+const std::set<std::string>
 flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
 
 const std::unordered_map<std::string, const std::string>
@@ -29,7 +29,7 @@ const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>
 sv_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, std::string_view sv);
 
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
-stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_set<std::string> &set);
+stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::set<std::string> &set);
 
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>>
 stringmap_to_flatbuf_bytepairvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::string> &map);

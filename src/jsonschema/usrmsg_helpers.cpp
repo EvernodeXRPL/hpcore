@@ -7,21 +7,9 @@
 namespace jsonschema::usrmsg
 {
 
-static const char *SCHEMA_VERSION = "0.1";
-
-// These fields are used on json messages response validation.
-static const char *FLD_TYPE = "type";
-static const char *FLD_CHALLENGE = "challenge";
-static const char *FLD_SIG = "sig";
-static const char *FLD_PUBKEY = "pubkey";
-static const char *FLD_INPUT = "input";
-static const char *FLD_CONTENT = "content";
-static const char *FLD_NONCE = "nonce";
-
-// Message types
-static const char *MSGTYPE_CHALLENGE = "public_challenge";
-static const char *MSGTYPE_CHALLENGE_RESP = "challenge_response";
-static const char *MSGTYPE_CONTRACT_INPUT = "contract_input";
+// Separators
+static const char *SEP_COMMA = "\",\"";
+static const char *SEP_COLON = "\":\"";
 
 // Length of user random challenge bytes.
 static const size_t CHALLENGE_LEN = 16;
@@ -58,15 +46,17 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
     // Only Hot Pocket version number is variable length. Therefore message size is roughly 95 bytes
     // so allocating 128bits for heap padding.
     msg.reserve(128);
-    msg.append("{\"version\":\"")
+    msg.append("{\"")
+        .append(FLD_VERSION)
+        .append(SEP_COLON)
         .append(SCHEMA_VERSION)
-        .append("\",\"")
+        .append(SEP_COMMA)
         .append(FLD_TYPE)
-        .append("\":\"")
+        .append(SEP_COLON)
         .append(MSGTYPE_CHALLENGE)
-        .append("\",\"")
+        .append(SEP_COMMA)
         .append(FLD_CHALLENGE)
-        .append("\":\"")
+        .append(SEP_COLON)
         .append(challengehex)
         .append("\"}");
 }
@@ -79,6 +69,7 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
  * @param response The response bytes to verify. This will be parsed as json.
  *                 Accepted response format:
  *                 {
+ *                   "version": "<protocol version>"
  *                   "type": "challenge_response",
  *                   "challenge": "<original hex challenge the user received>",
  *                   "sig": "<hex signature of the challenge>",
@@ -89,43 +80,35 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
  */
 int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge)
 {
-    // We load response raw bytes into json document.
     rapidjson::Document d;
-
-    // Because we project the response message directly from the binary socket buffer in a zero-copy manner, the response
-    // string is not null terminated. 'kParseStopWhenDoneFlag' avoids rapidjson error in this case.
-    d.Parse<rapidjson::kParseStopWhenDoneFlag>(response.data());
-    if (d.HasParseError())
-    {
-        LOG_INFO << "Challenge response json parsing failed.";
+    if (parse_user_message(d, response) != 0)
         return -1;
-    }
 
     // Validate msg type.
-    if (!d.HasMember(FLD_TYPE) || d[FLD_TYPE] != MSGTYPE_CHALLENGE_RESP)
+    if (d[FLD_TYPE] != MSGTYPE_CHALLENGE_RESP)
     {
-        LOG_INFO << "User challenge response type invalid. 'challenge_response' expected.";
+        LOG_DBG << "User challenge response type invalid. 'challenge_response' expected.";
         return -1;
     }
 
     // Compare the response challenge string with the original issued challenge.
     if (!d.HasMember(FLD_CHALLENGE) || d[FLD_CHALLENGE] != original_challenge.data())
     {
-        LOG_INFO << "User challenge response challenge invalid.";
+        LOG_DBG << "User challenge response challenge invalid.";
         return -1;
     }
 
     // Check for the 'sig' field existence.
     if (!d.HasMember(FLD_SIG) || !d[FLD_SIG].IsString())
     {
-        LOG_INFO << "User challenge response signature invalid.";
+        LOG_DBG << "User challenge response signature invalid.";
         return -1;
     }
 
     // Check for the 'pubkey' field existence.
     if (!d.HasMember(FLD_PUBKEY) || !d[FLD_PUBKEY].IsString())
     {
-        LOG_INFO << "User challenge response public key invalid.";
+        LOG_DBG << "User challenge response public key invalid.";
         return -1;
     }
 
@@ -136,11 +119,145 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
             util::getsv(d[FLD_SIG]),
             pubkeysv) != 0)
     {
-        LOG_INFO << "User challenge response signature verification failed.";
+        LOG_DBG << "User challenge response signature verification failed.";
         return -1;
     }
 
     extracted_pubkeyhex = pubkeysv;
+
+    return 0;
+}
+
+/**
+ * Extracts a signed input container message sent by user.
+ * 
+ * @param extracted_content The content extracted from the message.
+ * @param extracted_sig The binary signature extracted from the message. 
+ * @param d The json document holding the input container.
+ *          Accepted signed input container format:
+ *          {
+ *            "version": "<protocol version>"
+ *            "type": "contract_input",
+ *            "content": "<hex encoded input container message>",
+ *            "sig": "<hex encoded signature of the content>"
+ *          }
+ * @return 0 on successful extraction. -1 for failure.
+ */
+int extract_signed_input_container(
+    std::string &extracted_content, std::string &extracted_sig, const rapidjson::Document &d)
+{
+    if (!d.HasMember(FLD_CONTENT) || !d.HasMember(FLD_SIG))
+    {
+        LOG_DBG << "User signed input required fields missing.";
+        return -1;
+    }
+
+    if (!d[FLD_CONTENT].IsString() || !d[FLD_SIG].IsString())
+    {
+        LOG_DBG << "User signed input invaid field values.";
+        return -1;
+    }
+
+    // Verify the signature of the content.
+
+    const std::string content(d[FLD_CONTENT].GetString(), d[FLD_CONTENT].GetStringLength());
+
+    const std::string_view sighex(d[FLD_SIG].GetString(), d[FLD_SIG].GetStringLength());
+    std::string sig;
+    sig.resize(crypto_sign_ed25519_BYTES);
+    util::hex2bin(reinterpret_cast<unsigned char *>(sig.data()), sig.length(), sighex);
+
+    extracted_content = std::move(content);
+    extracted_sig = std::move(sig);
+    return 0;
+}
+
+/**
+ * Extract the individual components of a given input container json.
+ * @param nonce The extracted nonce.
+ * @param input The extracted input.
+ * @param max_ledger_seqno The extracted max ledger sequence no.
+ * @param contentjson The json string containing the input container message.
+ *                    {
+ *                      "nonce": "<random string with optional sorted order>",
+ *                      "input": "<hex encoded contract input content>",
+ *                      "maxledgerseqno": 4562712334
+ *                    }
+ * @return 0 on succesful extraction. -1 on failure.
+ */
+int extract_input_container(std::string &nonce, std::string &input, uint64_t &max_ledger_seqno, std::string_view contentjson)
+{
+    rapidjson::Document d;
+    d.Parse(contentjson.data());
+    if (d.HasParseError())
+    {
+        LOG_DBG << "User input container json parsing failed.";
+        return -1;
+    }
+
+    if (!d.HasMember(FLD_NONCE) || !d.HasMember(FLD_INPUT) || !d.HasMember(FLD_MAX_LED_SEQ))
+    {
+        LOG_DBG << "User input container required fields missing.";
+        return -1;
+    }
+
+    if (!d[FLD_NONCE].IsString() || !d[FLD_INPUT].IsString() || !d[FLD_MAX_LED_SEQ].IsUint64())
+    {
+        LOG_DBG << "User input container invaid field values.";
+        return -1;
+    }
+
+    rapidjson::Value &inputval = d[FLD_INPUT];
+    std::string_view inputhex(inputval.GetString(), inputval.GetStringLength());
+
+    // Convert hex input to binary.
+    input.resize(inputhex.length() / 2);
+    if (util::hex2bin(
+        reinterpret_cast<unsigned char *>(input.data()),
+        input.length(),
+        inputhex) != 0)
+    {
+        LOG_DBG << "Contract input format invalid.";
+        return -1;
+    }
+
+    nonce = d[FLD_NONCE].GetString();
+    max_ledger_seqno = d[FLD_MAX_LED_SEQ].GetUint64();
+
+    return 0;
+}
+
+/**
+ * Parses a json message sent by a user.
+ * @param d RapidJson document to which the parsed json should be loaded.
+ * @param message The message to parse.
+ * @return 0 on successful parsing. -1 for failure.
+ */
+int parse_user_message(rapidjson::Document &d, std::string_view message)
+{
+    // We load response raw bytes into json document.
+    // Because we project the response message directly from the binary socket buffer in a zero-copy manner, the response
+    // string is not null terminated. 'kParseStopWhenDoneFlag' avoids rapidjson error in this case.
+    d.Parse<rapidjson::kParseStopWhenDoneFlag>(message.data());
+    if (d.HasParseError())
+    {
+        LOG_DBG << "User json message parsing failed.";
+        return -1;
+    }
+
+    // Check existence of msg type field.
+    if (!d.HasMember(FLD_VERSION) || !d[FLD_VERSION].IsString())
+    {
+        LOG_DBG << "User json message 'version' missing or invalid.";
+        return -1;
+    }
+
+    // Check existence of msg type field.
+    if (!d.HasMember(FLD_TYPE) || !d[FLD_TYPE].IsString())
+    {
+        LOG_DBG << "User json message 'type' missing or invalid.";
+        return -1;
+    }
 
     return 0;
 }

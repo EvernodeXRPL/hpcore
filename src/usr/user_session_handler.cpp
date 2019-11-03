@@ -44,7 +44,7 @@ void user_session_handler::on_message(
     // Meaning we have previously issued a challenge to the client,
     if (session->flags[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
-        if (verify_challenge(message, session))
+        if (verify_challenge(message, session) == 0)
             return;
     }
     // Check whether this session belongs to an authenticated (challenge-verified) user.
@@ -58,12 +58,20 @@ void user_session_handler::on_message(
         {
             // This is an authed user.
             connected_user &user = itr->second;
-            handle_user_message(user, message);
-            return;
+            if (handle_user_message(user, message) == 0)
+                return;
+        
+            LOG_DBG << "Bad message from user " << session->uniqueid;
+            // TODO: Increase session bad message count.
+        }
+        else
+        {
+            LOG_DBG << "User session id not found: " << session->uniqueid;
         }
     }
 
-    // If for any reason we reach this point, we should drop the connection.
+    // If for any reason we reach this point, we should drop the connection because none of the
+    // valid cases match.
     session->close();
     LOG_INFO << "Dropped the user connection " << session->address << ":" << session->port;
 }
@@ -77,14 +85,11 @@ void user_session_handler::on_close(sock::socket_session<user_outbound_message> 
 
     // Session is awaiting challenge response.
     if (session->flags[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
-    {
         ctx.pending_challenges.erase(session->uniqueid);
-    }
+
     // Session belongs to an authed user.
     else if (session->flags[util::SESSION_FLAG::USER_AUTHED])
-    {
         remove_user(session->uniqueid);
-    }
 
     LOG_INFO << "User disconnected " << session->uniqueid;
 }

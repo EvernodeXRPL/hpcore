@@ -138,16 +138,41 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
  */
 std::string get_hash(std::string_view data)
 {
-    unsigned char hashchars[crypto_generichash_BYTES];
+    std::string hash;
+    hash.resize(crypto_generichash_blake2b_BYTES);
 
     crypto_generichash_blake2b(
-        hashchars,
-        sizeof hashchars,
+        reinterpret_cast<unsigned char *>(hash.data()),
+        hash.length(),
         reinterpret_cast<const unsigned char *>(data.data()),
         data.length(),
         NULL, 0);
 
-    return std::string(reinterpret_cast<char *>(hashchars), crypto_generichash_blake2b_BYTES);
+    return hash;
+}
+
+/**
+ * Generates blake2b hash for the given set of strings using stream hashing.
+ */
+std::string get_hash(std::string_view s1, std::string_view s2)
+{
+    std::string hash;
+    hash.resize(crypto_generichash_blake2b_BYTES);
+
+    // Init stream hashing.
+    crypto_generichash_blake2b_state state;
+    crypto_generichash_blake2b_init(&state, NULL, 0, hash.length());
+
+    crypto_generichash_blake2b_update(&state, reinterpret_cast<const unsigned char *>(s1.data()), s1.length());
+    crypto_generichash_blake2b_update(&state, reinterpret_cast<const unsigned char *>(s2.data()), s2.length());
+
+    // Get the final hash.
+    crypto_generichash_blake2b_final(
+        &state,
+        reinterpret_cast<unsigned char *>(hash.data()),
+        hash.length());
+
+    return hash;
 }
 
 } // namespace crypto

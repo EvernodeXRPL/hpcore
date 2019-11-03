@@ -116,7 +116,7 @@ void peer_connection_watchdog()
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        util::sleep(200);
     }
 }
 
@@ -148,6 +148,24 @@ bool is_message_duplicate(std::string_view message)
 
     LOG_DBG << "Duplicate peer message.";
     return true;
+}
+
+/**
+ * Broadcasts the given message to all currently connected outbound peers.
+ */
+void broadcast_message(peer_outbound_message msg)
+{
+    if (p2p::peer_connections.size() == 0)
+    {
+        LOG_DBG << "No peers to broadcast (not even self). Waiting until at least one peer connects.";
+        while (p2p::peer_connections.size() == 0)
+            util::sleep(100);
+    }
+
+    //Broadcast while locking the peer_connections.
+    std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+    for (auto &[k, session] : p2p::peer_connections)
+        session->send(msg);
 }
 
 } // namespace p2p

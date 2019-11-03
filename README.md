@@ -12,6 +12,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * Websockets - Boost|Beast https://github.com/boostorg/beast
 * RapidJSON - http://rapidjson.org
 * P2P Protocol - https://google.github.io/flatbuffers/
+* TLS - https://www.openssl.org/
 
 ## Steps to setup Hot Pocket
 
@@ -26,9 +27,8 @@ Instructions are based on [this](https://libsodium.gitbook.io/doc/installation).
 
 1. Download and extract Libsodium 1.0.18 from [here](https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable.tar.gz).
 2. Navigate to the extracted libsodium directory in a terminal.
-3. Run `./configure`
-4. Run `make && make check`
-5. Run `sudo make install`
+3. Run `./configure && make && make check`
+4. Run `sudo make install`
 
 #### Install Boost
 Following Instructions are based on Boost [getting started](https://www.boost.org/doc/libs/1_71_0/more/getting_started/unix-variants.html#prepare-to-use-a-boost-library-binary)
@@ -58,21 +58,20 @@ make
 4. Run `sudo snap install flatbuffers --edge`
 
 ##### Compiling FlatBuffers message definitions
-When you make a change to `message.fbc` defnition file, you need to run this:
+Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you need to run this:
 
-`flatc -o src/p2p/ --gen-mutable --cpp src/p2p/message.fbs`
+`flatc -o src/fbschema/ --gen-mutable --cpp src/fbschema/p2pmsg_content.fbs`
 
 #### Install OpenSSL
 1. Download and extract OpenSSL-1.1.1d source from [here](https://www.openssl.org/source/openssl-1.1.1d.tar.gz).
 2. Navigate to the extracted directory.
-3. Run `./config`
-4. Run `make`
-5. Run `make install`
+3. Run `./config && make`
+4. Run `sudo make install`
 
 #### Run ldconfig
 `sudo ldconfig`
 
-This will update your library cache and avoid potential issues when running your compiled C++ program which links to newly installed libraries.
+This will update your linker library cache and avoid potential issues when running your compiled C++ program which links to newly installed libraries.
 
 #### Build and run Hot Pocket
 1. Navigate to hotpocket repo root.

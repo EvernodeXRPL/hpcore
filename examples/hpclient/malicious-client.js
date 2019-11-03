@@ -48,7 +48,7 @@ function main() {
 
     /* anatomy of a public challenge
        {
-       hotpocket: 0.1,
+       version: '0.1',
        type: 'public_challenge',
        challenge: '<hex string>'
        }
@@ -83,13 +83,14 @@ function main() {
         // sign the challenge and send back the response
         var sigbytes = sodium.crypto_sign_detached(m.challenge, keys.privateKey);
         var response = {
+            version: '0.1',
             type: 'challenge_response',
             challenge: m.challenge,
             sig: Buffer.from(sigbytes).toString('hex'),
             pubkey: pkhex
         }
 
-        console.log('Sending challenge response...');
+        console.log('Sending challenge response.');
         ws.send(JSON.stringify(response));
         
         setInterval(() => {
