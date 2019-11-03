@@ -16,8 +16,6 @@ struct proposal
     uint64_t time;
     uint8_t stage;
     std::string lcl;
-    std::unordered_set<std::string> users;
-    std::unordered_map<std::string, const usr::user_rawinput_map_t> raw_inputs;
     std::unordered_set<std::string> hash_inputs;
     std::unordered_set<std::string> hash_outputs;
 };
@@ -56,7 +54,7 @@ void peer_connection_watchdog();
 
 bool is_message_duplicate(std::string_view message);
 
-int broadcast_message(peer_outbound_message msg);
+void broadcast_message(peer_outbound_message msg);
 
 } // namespace p2p
 

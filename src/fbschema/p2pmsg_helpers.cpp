@@ -171,12 +171,6 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
     if (msg.lcl())
         p.lcl = flatbuff_bytes_to_sv(msg.lcl());
 
-    if (msg.users())
-        p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
-
-    if (msg.raw_inputs())
-        p.raw_inputs = flatbuf_rawinputs_to_hashbuffermap(msg.raw_inputs());
-
     if (msg.hash_inputs())
         p.hash_inputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_inputs());
 
@@ -224,8 +218,6 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             p.stage,
             p.time,
             sv_to_flatbuff_bytes(builder, p.lcl),
-            stringlist_to_flatbuf_bytearrayvector(builder, p.users),
-            hashbuffermap_to_flatbuf_rawinputs(builder, p.raw_inputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
             hashbuffermap_to_flatbuf_rawoutputs(builder, p.raw_outputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));

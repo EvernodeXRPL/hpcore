@@ -60,6 +60,14 @@ int64_t get_epoch_milliseconds()
 }
 
 /**
+ * Sleeps the current thread for specified no. of milliseconds.
+ */
+void sleep(uint64_t milliseconds)
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+}
+
+/**
  * Compare two version strings in the format of "1.12.3".
  * v1 <  v2  -> returns -1
  * v1 == v2  -> returns  0
