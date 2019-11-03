@@ -130,6 +130,10 @@ int handle_user_message(connected_user &user, std::string_view message)
                 return 0;
             }
         }
+        else
+        {
+            LOG_DBG << "Invalid user message type: " << d[jusrmsg::FLD_TYPE].GetString();
+        }
     }
 
     // Bad message.

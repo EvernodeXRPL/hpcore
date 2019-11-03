@@ -195,21 +195,35 @@ int extract_input_container(std::string &nonce, std::string &input, uint64_t &ma
         return -1;
     }
 
-    if (!d.HasMember(FLD_NONCE) || !d.HasMember(FLD_INPUT) || !d.HasMember(FLD_MAX_LGR_SEQ))
+    if (!d.HasMember(FLD_NONCE) || !d.HasMember(FLD_INPUT) || !d.HasMember(FLD_MAX_LED_SEQ))
     {
         LOG_DBG << "User input container required fields missing.";
         return -1;
     }
 
-    if (!d[FLD_CONTENT].IsString() || !d[FLD_INPUT].IsString() || !d[FLD_MAX_LGR_SEQ].IsUint64())
+    if (!d[FLD_NONCE].IsString() || !d[FLD_INPUT].IsString() || !d[FLD_MAX_LED_SEQ].IsUint64())
     {
         LOG_DBG << "User input container invaid field values.";
         return -1;
     }
 
+    rapidjson::Value &inputval = d[FLD_INPUT];
+    std::string_view inputhex(inputval.GetString(), inputval.GetStringLength());
+
+    // Convert hex input to binary.
+    input.resize(inputhex.length() / 2);
+    if (util::hex2bin(
+        reinterpret_cast<unsigned char *>(input.data()),
+        input.length(),
+        inputhex) != 0)
+    {
+        LOG_DBG << "Contract input format invalid.";
+        return -1;
+    }
+
     nonce = d[FLD_NONCE].GetString();
-    input = d[FLD_INPUT].GetString();
-    max_ledger_seqno = d[FLD_MAX_LGR_SEQ].GetUint64();
+    max_ledger_seqno = d[FLD_MAX_LED_SEQ].GetUint64();
+
     return 0;
 }
 

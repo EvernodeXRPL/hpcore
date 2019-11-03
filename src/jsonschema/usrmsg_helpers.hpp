@@ -15,7 +15,7 @@ static const char *FLD_CHALLENGE = "challenge";
 static const char *FLD_SIG = "sig";
 static const char *FLD_PUBKEY = "pubkey";
 static const char *FLD_INPUT = "input";
-static const char *FLD_MAX_LGR_SEQ = "maxledgerseqno";
+static const char *FLD_MAX_LED_SEQ = "maxledgerseqno";
 static const char *FLD_CONTENT = "content";
 static const char *FLD_NONCE = "nonce";
 

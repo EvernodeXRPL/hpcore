@@ -94,12 +94,12 @@ function main() {
 
         // Capture user input from the console.
         var input_pump = () => {
-            rl.question('', (inp) => {
+            rl.question('\nProvide an input: ', (inp) => {
 
                 let inp_container = {
                     nonce: (new Date()).getTime().toString(),
                     input: Buffer.from(inp).toString('hex'),
-                    maxledgerseqno: 99999999999999
+                    maxledgerseqno: 9999999
                 }
                 let inp_container_bytes = JSON.stringify(inp_container);
                 let sig_bytes = sodium.crypto_sign_detached(inp_container_bytes, keys.privateKey);
@@ -110,9 +110,10 @@ function main() {
                     content: inp_container_bytes.toString('hex'),
                     sig: Buffer.from(sig_bytes).toString('hex')
                 }
-                console.log(JSON.stringify(signed_inp_container));
-
-                //ws.send(JSON.stringify(signed_inp_container))
+                
+                let msgtosend = JSON.stringify(signed_inp_container);
+                console.log("Sending message: " + msgtosend);
+                ws.send(msgtosend)
 
                 input_pump()
             })

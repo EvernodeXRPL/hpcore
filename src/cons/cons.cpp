@@ -43,10 +43,6 @@ void consensus()
     // Get the latest current time.
     ctx.time_now = util::get_epoch_milliseconds();
 
-    // Throughout consensus, we keep broadcasting non-unl proposals (NUP) containing inputs from
-    // locally connected users.
-    broadcast_nonunl_proposal();
-
     // Throughout consensus, we move over the incoming proposals collected via the network so far into
     // the candidate proposal set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming proposals.
@@ -88,6 +84,10 @@ void consensus()
                     ++itr;
             }
         }
+
+        // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
+        broadcast_nonunl_proposal();
+        util::sleep(conf::cfg.roundtime / 10);
 
         // Verify and transfer user inputs from incoming NUPs onto consensus candidate data.
         verify_and_populate_candidate_user_inputs();
@@ -614,13 +614,16 @@ void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
 {
     for (auto &[pubkey, bufpair] : bufmap)
     {
-        std::string output;
-        output.swap(bufpair.output);
+        if (!bufpair.output.empty())
+        {
+            std::string output;
+            output.swap(bufpair.output);
 
-        std::string hash = crypto::get_hash(pubkey, output);
-        ctx.candidate_user_outputs.try_emplace(
-            std::move(hash),
-            candidate_user_output(pubkey, std::move(output)));
+            std::string hash = crypto::get_hash(pubkey, output);
+            ctx.candidate_user_outputs.try_emplace(
+                std::move(hash),
+                candidate_user_output(pubkey, std::move(output)));
+        }
     }
 }
 

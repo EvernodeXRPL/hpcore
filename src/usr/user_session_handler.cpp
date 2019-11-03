@@ -58,11 +58,15 @@ void user_session_handler::on_message(
         {
             // This is an authed user.
             connected_user &user = itr->second;
-            if (handle_user_message(user, message) != 0)
-            {
-                LOG_DBG << "Bad message from user " << session->uniqueid;
-                // TODO: Increase session bad message count.
-            }
+            if (handle_user_message(user, message) == 0)
+                return;
+        
+            LOG_DBG << "Bad message from user " << session->uniqueid;
+            // TODO: Increase session bad message count.
+        }
+        else
+        {
+            LOG_DBG << "User session id not found: " << session->uniqueid;
         }
     }
 

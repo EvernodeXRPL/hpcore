@@ -119,7 +119,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop);
 
 void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
-void extract_outputs_from_contract_bufmap(const proc::contract_bufmap_t &bufmap);
+void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
 
 void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap);
 
