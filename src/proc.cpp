@@ -36,7 +36,7 @@ __pid_t contract_pid;
  * 
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
  */
-int exec_contract(const ContractExecArgs &args)
+int exec_contract(const contract_exec_args &args)
 {
     // Write any hp input messages to hp->sc pipe.
     if (write_contract_hp_inputs(args) != 0)
@@ -162,7 +162,7 @@ int await_contract_execution()
  *   "unl":[ "pkhex", ... ]
  * }
  */
-int write_contract_args(const ContractExecArgs &args)
+int write_contract_args(const contract_exec_args &args)
 {
     // Populate the json string with contract args.
     // We don't use a JSON parser here because it's lightweight to contrstuct the
@@ -230,7 +230,7 @@ int write_contract_args(const ContractExecArgs &args)
 /**
  * Writes any hp input messages to the contract.
  */
-int write_contract_hp_inputs(const ContractExecArgs &args)
+int write_contract_hp_inputs(const contract_exec_args &args)
 {
     if (create_and_write_iopipes(hpscfds, args.hpscbufs.inputs) != 0)
     {
@@ -246,7 +246,7 @@ int write_contract_hp_inputs(const ContractExecArgs &args)
  * 
  * @return 0 on success. -1 on failure.
  */
-int read_contract_hp_outputs(const ContractExecArgs &args)
+int read_contract_hp_outputs(const contract_exec_args &args)
 {
     // Clear the input buffers because we are sure the contract has finished reading from
     // that mapped memory portion.

@@ -35,7 +35,7 @@ typedef std::unordered_map<std::string, contract_iobuf_pair> contract_bufmap_t;
 /**
  * Holds information that should be passed into the contract process.
  */
-struct ContractExecArgs
+struct contract_exec_args
 {
     // Map of user I/O buffers (map key: user binary public key).
     // The value is a pair holding consensus-verified inputs and contract-generated outputs.
@@ -52,7 +52,7 @@ struct ContractExecArgs
     // Current HotPocket timestamp.
     int64_t timestamp;
 
-    ContractExecArgs(
+    contract_exec_args(
         int64_t _timestamp,
         contract_bufmap_t &_userbufs,
         contract_bufmap_t &_nplbufs,
@@ -65,17 +65,17 @@ struct ContractExecArgs
     }
 };
 
-int exec_contract(const ContractExecArgs &args);
+int exec_contract(const contract_exec_args &args);
 
 int await_contract_execution();
 
 //------Internal-use functions for this namespace.
 
-int write_contract_args(const ContractExecArgs &args);
+int write_contract_args(const contract_exec_args &args);
 
-int write_contract_hp_inputs(const ContractExecArgs &args);
+int write_contract_hp_inputs(const contract_exec_args &args);
 
-int read_contract_hp_outputs(const ContractExecArgs &args);
+int read_contract_hp_outputs(const contract_exec_args &args);
 
 // Common helper functions
 

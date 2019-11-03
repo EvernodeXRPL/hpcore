@@ -23,6 +23,9 @@ struct consensus_context
 {
     std::list<p2p::proposal> candidate_proposals;
 
+    // Set of user pubkeys that is said to be connected to the cluster.
+    std::unordered_set<std::string> candidate_users;
+
     // Map of candidate user inputs with input hash as map key. Inputs will stay here until they
     // achieve consensus or expire (due to maxledgerseqno). Input hash is globally unique among
     // inputs from all users.
@@ -36,8 +39,6 @@ struct consensus_context
     std::string novel_proposal;
 
     std::map<std::string, std::pair<const std::string, std::string>> possible_outputs;
-
-    std::unordered_map<std::string, proc::contract_iobuf_pair> useriobufmap;
 
     int32_t next_sleep;
 };
@@ -78,7 +79,9 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
 void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
-void run_contract_binary(int64_t time);
+proc::contract_bufmap_t prepare_userio_bufmap(const p2p::proposal &cons_prop);
+
+void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap);
 
 } // namespace cons
 

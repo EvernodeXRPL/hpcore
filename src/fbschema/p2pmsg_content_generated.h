@@ -432,10 +432,11 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_STAGE = 4,
     VT_TIME = 6,
     VT_LCL = 8,
-    VT_HASH_INPUTS = 10,
-    VT_RAW_OUTPUTS = 12,
-    VT_HASH_OUTPUTS = 14,
-    VT_STATE = 16
+    VT_USERS = 10,
+    VT_HASH_INPUTS = 12,
+    VT_RAW_OUTPUTS = 14,
+    VT_HASH_OUTPUTS = 16,
+    VT_STATE = 18
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -454,6 +455,12 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   flatbuffers::Vector<uint8_t> *mutable_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *users() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_USERS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *mutable_users() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_USERS);
   }
   const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_inputs() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_HASH_INPUTS);
@@ -485,6 +492,9 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
+           VerifyOffset(verifier, VT_USERS) &&
+           verifier.VerifyVector(users()) &&
+           verifier.VerifyVectorOfTables(users()) &&
            VerifyOffset(verifier, VT_HASH_INPUTS) &&
            verifier.VerifyVector(hash_inputs()) &&
            verifier.VerifyVectorOfTables(hash_inputs()) &&
@@ -511,6 +521,9 @@ struct Proposal_MessageBuilder {
   }
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
     fbb_.AddOffset(Proposal_Message::VT_LCL, lcl);
+  }
+  void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users) {
+    fbb_.AddOffset(Proposal_Message::VT_USERS, users);
   }
   void add_hash_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_inputs) {
     fbb_.AddOffset(Proposal_Message::VT_HASH_INPUTS, hash_inputs);
@@ -541,6 +554,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     uint8_t stage = 0,
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawOutput>>> raw_outputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs = 0,
@@ -551,6 +565,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
   builder_.add_hash_outputs(hash_outputs);
   builder_.add_raw_outputs(raw_outputs);
   builder_.add_hash_inputs(hash_inputs);
+  builder_.add_users(users);
   builder_.add_lcl(lcl);
   builder_.add_stage(stage);
   return builder_.Finish();
@@ -561,11 +576,13 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     uint8_t stage = 0,
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
+    const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_inputs = nullptr,
     const std::vector<flatbuffers::Offset<RawOutput>> *raw_outputs = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_outputs = nullptr,
     flatbuffers::Offset<State> state = 0) {
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
+  auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*users) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_inputs) : 0;
   auto raw_outputs__ = raw_outputs ? _fbb.CreateVector<flatbuffers::Offset<RawOutput>>(*raw_outputs) : 0;
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_outputs) : 0;
@@ -574,6 +591,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       stage,
       time,
       lcl__,
+      users__,
       hash_inputs__,
       raw_outputs__,
       hash_outputs__,
