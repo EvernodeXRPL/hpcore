@@ -15,6 +15,9 @@ namespace p2pmsg = fbschema::p2pmsg;
 namespace p2p
 {
 
+// The set of recent peer message hashes used for duplicate detection.
+util::rollover_hashset recent_peermsg_hashes(200);
+
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
@@ -51,8 +54,11 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
         return;
 
-    if (is_message_duplicate(message))
+    if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
+    {
+        LOG_DBG << "Duplicate peer message.";
         return;
+    }
 
     p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 

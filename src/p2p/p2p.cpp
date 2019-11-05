@@ -55,16 +55,6 @@ std::thread peer_thread;
  */
 sock::session_options sess_opts;
 
-// The set of recent peer message hashes used for duplicate detection.
-std::unordered_set<std::string> recent_peermsg_hashes;
-
-// The supporting list of recent peer message hashes used for adding and removing hashes from
-// the 'recent_peermsg_hashes' in a first-in-first-out manner.
-std::list<const std::string *> recent_peermsg_hashes_list;
-
-// Maximum number of recent message hashes to remember.
-static const int16_t MAX_RECENT_MSG_HASHES = 200;
-
 int init()
 {
     //Entry point for p2p which will start peer connections to other nodes
@@ -118,36 +108,6 @@ void peer_connection_watchdog()
 
         util::sleep(200);
     }
-}
-
-bool is_message_duplicate(std::string_view message)
-{
-    // Get message hash and see whether message is already recieved -> abandon if duplicate.
-    std::string hash = crypto::get_hash(message);
-
-    auto itr = recent_peermsg_hashes.find(hash);
-    if (itr == recent_peermsg_hashes.end()) // Not found
-    {
-        // Add the new message hash to the list.
-        auto [newitr, success] = recent_peermsg_hashes.emplace(hash);
-
-        // Insert a pointer to the stored hash value into the ordered list of hashes.
-        recent_peermsg_hashes_list.push_back(&(*newitr));
-
-        // Remove old hashes if exceeding max hash count.
-        if (recent_peermsg_hashes_list.size() > MAX_RECENT_MSG_HASHES)
-        {
-            const std::string &oldesthash = *recent_peermsg_hashes_list.front();
-            recent_peermsg_hashes.erase(oldesthash);
-
-            recent_peermsg_hashes_list.pop_front();
-        }
-
-        return false;
-    }
-
-    LOG_DBG << "Duplicate peer message.";
-    return true;
 }
 
 /**

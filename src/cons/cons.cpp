@@ -51,19 +51,18 @@ void consensus()
         ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::collected_msgs.proposals);
     }
 
-    std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
+    LOG_DBG << "Started stage " << std::to_string(ctx.stage);
     for (auto p : ctx.candidate_proposals)
     {
         bool self = p.pubkey == conf::cfg.pubkey;
-        std::cout << "[stage" << std::to_string(p.stage)
+        LOG_DBG << "[stage" << std::to_string(p.stage)
                   << "] users:" << p.users.size()
                   << " hinp:" << p.hash_inputs.size()
                   << " hout:" << p.hash_outputs.size()
                   << " lcl:" << p.lcl 
-                  << " self:" << self
-                  << "\n";
+                  << " self:" << self;
     }
-    std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
+    LOG_DBG << "timenow: " << std::to_string(ctx.time_now);
 
     if (ctx.stage == 0)
     {
@@ -207,28 +206,38 @@ void verify_and_populate_candidate_user_inputs()
 
             for (const usr::user_submitted_message &umsg : umsgs)
             {
-                // Verify the signature of the message content.
-                if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
+                std::string sig_hash = crypto::get_hash(umsg.sig);
+
+                // Check for duplicate messages using hash of the signature.
+                if (ctx.recent_userinput_hashes.try_emplace(sig_hash))
                 {
-                    // TODO: Also verify XRP payment token.
-
-                    std::string nonce;
-                    std::string input;
-                    uint64_t maxledgerseqno;
-                    jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
-
-                    // Ignore the input if our ledger has passed the input TTL.
-                    if (maxledgerseqno > ctx.led_seq_no)
+                    // Verify the signature of the message content.
+                    if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
                     {
-                        // Hash is prefixed with the nonce to support user-defined sort order.
-                        std::string hash = std::move(nonce);
-                        // Append the hash of the message signature to get the final hash.
-                        hash.append(crypto::get_hash(umsg.sig));
+                        // TODO: Also verify XRP payment token/AppBill requirements.
 
-                        ctx.candidate_user_inputs.try_emplace(
-                            hash,
-                            candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                        std::string nonce;
+                        std::string input;
+                        uint64_t maxledgerseqno;
+                        jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
+
+                        // Ignore the input if our ledger has passed the input TTL.
+                        if (maxledgerseqno > ctx.led_seq_no)
+                        {
+                            // Hash is prefixed with the nonce to support user-defined sort order.
+                            std::string hash = std::move(nonce);
+                            // Append the hash of the message signature to get the final hash.
+                            hash.append(sig_hash);
+
+                            ctx.candidate_user_inputs.try_emplace(
+                                hash,
+                                candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                        }
                     }
+                }
+                else
+                {
+                    LOG_DBG << "Duplicate user message.";
                 }
             }
         }

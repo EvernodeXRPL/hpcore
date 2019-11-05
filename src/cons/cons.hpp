@@ -2,6 +2,7 @@
 #define _HP_CONS_
 
 #include "../pchheader.hpp"
+#include "../util.hpp"
 #include "../proc.hpp"
 #include "../p2p/p2p.hpp"
 #include "../usr/user_input.hpp"
@@ -69,6 +70,8 @@ struct consensus_context
     // all users. We will use this map to distribute outputs back to connected users once consensus is achieved.
     std::unordered_map<std::string, candidate_user_output> candidate_user_outputs;
 
+    util::rollover_hashset recent_userinput_hashes;
+
     uint8_t stage;
     uint64_t novel_proposal_time;
     uint64_t time_now;
@@ -77,6 +80,10 @@ struct consensus_context
     std::string novel_proposal;
 
     int32_t next_sleep;
+
+    consensus_context() : recent_userinput_hashes(200)
+    {
+    }
 };
 
 struct vote_counter
