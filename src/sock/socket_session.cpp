@@ -1,11 +1,11 @@
 #include "socket_session.hpp"
 #include "socket_message.hpp"
-#include "socket_monitor.hpp"
 #include "socket_session_handler.hpp"
 
 namespace sock
 {
 
+// Constructor
 template <class T>
 socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler)
     : ws(std::move(websocket)), sess_handler(sess_handler)
@@ -14,18 +14,13 @@ socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp
     ws.binary(true);
 }
 
-template <class T>
-socket_session<T>::~socket_session()
-{
-    sess_handler.on_close(this);
-}
-
 /**
- * Sets the largest permissible incoming message size. If exceeds over this limit will cause a
- * protocol failure
+ * Sets the largest permissible incoming data length in a single receive. If exceeds over this limit will cause
+  * a protocol failure. Because this is internally handled by beast socket, we don't use socket_threshold struct
+  * to handle this.
 */
 template <class T>
-void socket_session<T>::set_message_max_size(uint64_t size)
+void socket_session<T>::set_max_socket_read_len(uint64_t size)
 {
     ws.read_message_max(size);
 }
@@ -34,21 +29,62 @@ void socket_session<T>::set_message_max_size(uint64_t size)
  * Set thresholds to the socket session
 */
 template <class T>
-void socket_session<T>::set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms)
+void socket_session<T>::set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms)
 {
     thresholds[threshold_type].counter_value = 0;
     thresholds[threshold_type].intervalms = intervalms;
     thresholds[threshold_type].threshold_limit = threshold_limit;
 }
 
+/*
+* Increment the provided thresholds counter value with the provided amount and validate it against the
+* configured threshold limit.
+*/
+template <class T>
+void socket_session<T>::increment_metric(SESSION_THRESHOLDS threshold_type, uint64_t amount)
+{
+    sock::session_threshold &t = thresholds[threshold_type];
+
+    // Ignore the counter if limit is set as 0.
+    if (t.threshold_limit == 0)
+        return;
+
+    uint64_t time_now = util::get_epoch_milliseconds();
+
+    t.counter_value += amount;
+    if (t.timestamp == 0)
+    {
+        // Reset counter timestamp.
+        t.timestamp = time_now;
+    }
+    else
+    {
+        // Check whether we have exceeded the threshold within the monitering interval.
+        auto elapsed_time = time_now - t.timestamp;
+        if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
+        {
+            t.timestamp = 0;
+            t.counter_value = 0;
+
+            LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+            this->close();
+        }
+        else if (elapsed_time > t.intervalms)
+        {
+            t.timestamp = time_now;
+            t.counter_value = amount;
+        }
+    }
+}
+
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
 void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts)
 {
-    if (sess_opts.max_message_size > 0)
+    if (sess_opts.max_socket_read_len > 0)
     {
-        // Setting maximum file size
-        set_message_max_size(sess_opts.max_message_size);
+        // Setting maximum data size within a single message. This is handled within the beast socket.
+        set_max_socket_read_len(sess_opts.max_socket_read_len);
     }
 
     // Create new session_threshold and insert it to thresholds array
@@ -65,12 +101,17 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
          * INBOUND true - when node acts as server
          * INBOUND false (OUTBOUND) - when node acts as client
          */
-        flags.set(util::SESSION_FLAG::INBOUND);
+        flags.set(SESSION_FLAG::INBOUND);
         handshake_type = ssl::stream_base::server;
     }
 
-    this->port = port;
-    this->address = address;
+    this->port = std::move(port);
+    this->address = std::move(address);
+
+    // Create a unique id for the session combining ip and port.
+    // We prepare this appended string here because we need to use it as an identifier of the session in various places.
+    this->unniqueid.reserve(port.size() + address.size() + 1);
+    this->uniqueid.append(address).append(":").append(port);
 
     // Set the timeout.
     beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));
@@ -92,7 +133,7 @@ void socket_session<T>::on_ssl_handshake(error_code ec)
     // the websocket stream has its own timeout system.
     beast::get_lowest_layer(ws).expires_never();
 
-    if (flags[util::SESSION_FLAG::INBOUND])
+    if (flags[SESSION_FLAG::INBOUND])
     {
         // Set suggested timeout settings for the websocket
         ws.set_option(
@@ -149,7 +190,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
         return fail(ec, "read");
     }
 
-    increment(util::SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE, buffer.size());
+    increment_metric(SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE, buffer.size());
 
     // Wrap the buffer data in a string_view and call session handler.
     // We DO NOT transfer ownership of buffer data to the session handler. It should
@@ -163,46 +204,6 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
 
     // Read another message
     ws_async_read();
-}
-
-/*
-* Increment the provided thresholds counter value with the provided amount and validate it
-*/
-template <class T>
-void socket_session<T>::increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount)
-{
-    sock::session_threshold &t = thresholds[threshold_type];
-
-    // Ignore the counter if limit is set as 0.
-    if (t.threshold_limit == 0)
-        return;
-
-    uint64_t time_now = util::get_epoch_milliseconds();
-
-    t.counter_value += amount;
-    if (t.timestamp == 0)
-    {
-        t.timestamp = time_now;
-    }
-    else
-    {
-        auto elapsed_time = time_now - t.timestamp;
-        if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
-        {
-            t.timestamp = 0;
-            t.counter_value = 0;
-
-            LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-
-            // Invoke the threshold monitor so any actions will be performed.
-            threshold_monitor(threshold_type, t.threshold_limit, this);
-        }
-        else if (elapsed_time > t.intervalms)
-        {
-            t.timestamp = time_now;
-            t.counter_value = amount;
-        }
-    }
 }
 
 /*
@@ -269,16 +270,6 @@ void socket_session<T>::on_close(error_code ec, int8_t type)
         return fail(ec, "close");
 }
 
-// When called, initializes the unique id string for this session.
-template <class T>
-void socket_session<T>::init_uniqueid()
-{
-    // Create a unique id for the session combining ip and port.
-    // We prepare this appended string here because we need to use it for finding elemends from the maps
-    // for validation purposes whenever a message is received.
-    uniqueid.append(address).append(":").append(port);
-}
-
 /**
  * Executes on error
 */
@@ -291,6 +282,12 @@ void socket_session<T>::fail(error_code ec, char const *what)
     if (ec == net::error::operation_aborted ||
         ec == websocket::error::closed)
         return;
+}
+
+template <class T>
+socket_session<T>::~socket_session()
+{
+    sess_handler.on_close(this);
 }
 
 // Template instantiations.

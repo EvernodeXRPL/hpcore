@@ -1,6 +1,7 @@
 #include "../pchheader.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
 #include "../sock/socket_server.hpp"
+#include "../sock/socket_session.hpp"
 #include "../sock/socket_session_handler.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
@@ -81,8 +82,8 @@ int verify_challenge(std::string_view message, sock::socket_session<user_outboun
             // All good. Unique public key.
             // Promote the connection from pending-challenges to authenticated users.
 
-            session->flags.reset(util::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
-            session->flags.set(util::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
+            session->flags.reset(sock::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
+            session->flags.set(sock::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
             add_user(session, userpubkey);                                   // Add the user to the global authed user list
             ctx.pending_challenges.erase(session->uniqueid);                 // Remove the stored challenge
 
@@ -203,7 +204,7 @@ void start_listening()
 {
 
     auto address = net::ip::make_address(conf::cfg.listenip);
-    listener_ctx.sess_opts.max_message_size = conf::cfg.pubmaxsize;
+    listener_ctx.sess_opts.max_socket_read_len = conf::cfg.pubmaxsize;
     listener_ctx.sess_opts.max_bytes_per_minute = conf::cfg.pubmaxcpm;
 
     std::make_shared<sock::socket_server<user_outbound_message>>(

@@ -15,6 +15,26 @@ using error_code = boost::system::error_code;
 namespace sock
 {
 
+/**
+ * Set of flags used to mark status information on the session.
+ * usr and p2p subsystems makes use of this to mark status information of user and peer sessions.
+ * Set flags are stored in 'flags' bitset of socket_session.
+ */
+enum SESSION_FLAG
+{
+    INBOUND = 0,
+    USER_CHALLENGE_ISSUED = 1,
+    USER_AUTHED = 2
+};
+
+/**
+ * Enum used to track down various thresholds used in socket communication.
+ */
+enum SESSION_THRESHOLDS
+{
+    MAX_BYTES_PER_MINUTE = 0
+};
+
 /*
 * Use this to keep in track of different thresholds which we need to deal with. e.g - maximum amount of bytes allowed per minute through a session
 * threshold_limit - Maximum threshold value which is allowed
@@ -33,7 +53,7 @@ struct session_threshold
 // Use this to feed the session with default options from the config file
 struct session_options
 {
-    uint64_t max_message_size;
+    uint64_t max_socket_read_len;
     uint64_t max_bytes_per_minute;
 };
 
@@ -101,7 +121,7 @@ public:
     // The unique identifier of the remote party (format <ip>:<port>).
     std::string uniqueid;
 
-    // The set of util::SESSION_FLAG enum flags that will be set by user-code of this calss.
+    // The set of sock::SESSION_FLAG enum flags that will be set by user-code of this calss.
     // We mainly use this to store contexual information about this session based on the use case.
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
@@ -110,14 +130,11 @@ public:
 
     void send(T msg);
 
-    void set_message_max_size(uint64_t size);
+    void set_max_socket_read_len(uint64_t size);
 
-    void set_threshold(util::SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t interval);
+    void set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t interval);
 
-     void increment(util::SESSION_THRESHOLDS threshold_type, uint64_t amount);
-
-    // When called, initializes the unique id string for this session.
-    void init_uniqueid();
+     void increment_metric(SESSION_THRESHOLDS threshold_type, uint64_t amount);
 
     void close();
 };

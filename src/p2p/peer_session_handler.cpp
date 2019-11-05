@@ -7,6 +7,7 @@
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../sock/socket_message.hpp"
+#include "../sock/socket_session.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 
@@ -23,14 +24,10 @@ util::rollover_hashset recent_peermsg_hashes(200);
  */
 void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
-    if (!session->flags[util::SESSION_FLAG::INBOUND])
+    if (!session->flags[sock::SESSION_FLAG::INBOUND])
     {
-        // We init the session unique id to associate with the peer.
-        session->init_uniqueid();
-        {
-            std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-            peer_connections.insert(std::make_pair(session->uniqueid, session));
-        }
+        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+        peer_connections.insert(std::make_pair(session->uniqueid, session));
         LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
 }

@@ -67,9 +67,8 @@ void start_peer_connections()
 {
     auto address = net::ip::make_address(conf::cfg.listenip);
 
-    //setting up the message max size. Retrieve it from config
-    // At the moment same settings are used to initialize a new server and client
-    sess_opts.max_message_size = conf::cfg.peermaxsize;
+    // Setting up the message max size. Retrieve it from config
+    sess_opts.max_socket_read_len = conf::cfg.peermaxsize;
     sess_opts.max_bytes_per_minute = conf::cfg.peermaxcpm;
 
     // Start listening to peers

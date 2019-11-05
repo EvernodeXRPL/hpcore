@@ -24,26 +24,6 @@ static const char *MIN_CONTRACT_VERSION = "0.1";
 static const int MIN_PEERMSG_VERSION = 1;
 
 /**
- * Set of flags used to mark status information on the session.
- * usr and p2p subsystems makes use of this to mark status information of user and peer sessions.
- * Set flags are stored in 'flags_' bitset.
- */
-enum SESSION_FLAG
-{
-    INBOUND = 0,
-    USER_CHALLENGE_ISSUED = 1,
-    USER_AUTHED = 2
-};
-
-/**
- * Enum used to track down various thresholds used in socket communication 
- */
-enum SESSION_THRESHOLDS
-{
-    MAX_BYTES_PER_MINUTE = 0
-};
-
-/**
  * FIFO hash set with a max size.
  */
 class rollover_hashset
