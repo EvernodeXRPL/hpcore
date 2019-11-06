@@ -57,7 +57,7 @@ const ledger_history load_ledger()
     for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
     {
         const boost::filesystem::path file_path = entry.path();
-        const std::string file_name = entry.path().filename().string();
+        const std::string file_name = entry.path().stem().string();
 
         if (boost::filesystem::is_directory(file_path))
         {
@@ -79,14 +79,14 @@ const ledger_history load_ledger()
             else
             {
                 //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-                LOG_ERR << "Invalid file name: " << file_name;
+                LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.histDir;
             }
 
             if (seq_no > ldg_hist.led_seq_no)
             {
                 ldg_hist.led_seq_no = seq_no;
                 latest_pos = pos;
-                latest_file_name = file_name;
+                latest_file_name = file_name; //get file name without extension.
             }
         }
     }
@@ -94,8 +94,8 @@ const ledger_history load_ledger()
     //check if there is a saved lcl file -> if no send genesis lcl.
     if (latest_file_name.empty())
         ldg_hist.lcl = "genesis";
-    else if ((latest_file_name.size() - 6) > latest_pos) //validation to check position is not the end of the file name.
-        ldg_hist.lcl = latest_file_name.substr(latest_pos + 1, (latest_file_name.size() - 6));
+    else if ((latest_file_name.size() - 1) > latest_pos) //check position is not the end of the file name.
+        ldg_hist.lcl = latest_file_name.substr(latest_pos + 1, (latest_file_name.size() - 1));
     else
         LOG_ERR << "Invalid latest file name: " << latest_file_name;
 
