@@ -32,7 +32,17 @@ enum SESSION_FLAG
  */
 enum SESSION_THRESHOLDS
 {
-    MAX_BYTES_PER_MINUTE = 0
+    // Max incoming bytes per minute.
+    MAX_RAWBYTES_PER_MINUTE = 0,
+
+    // Max duplicate messages per minute.
+    MAX_DUPMSGS_PER_MINUTE = 1,
+
+    // Max messages with invalid signature per minute.
+    MAX_BADSIGMSGS_PER_MINUTE = 2,
+
+    // Max messages with bad structure per minute.
+    MAX_BADMSGS_PER_MINUTE = 3
 };
 
 /*
@@ -47,14 +57,23 @@ struct session_threshold
     uint64_t threshold_limit;
     uint64_t counter_value;
     uint64_t timestamp;
-    uint64_t intervalms;
+    uint32_t intervalms;
+
+    session_threshold(uint64_t threshold_limit, uint32_t intervalms)
+    {
+        this->threshold_limit = threshold_limit;
+        this->intervalms = intervalms;
+    }
 };
 
 // Use this to feed the session with default options from the config file
 struct session_options
 {
     uint64_t max_socket_read_len;
-    uint64_t max_bytes_per_minute;
+    uint64_t max_rawbytes_per_minute;
+    uint64_t max_dupmsgs_per_minute;
+    uint64_t max_badsigmsgs_per_minute;
+    uint64_t max_badmsgs_per_minute;
 };
 
 //Forward Declaration
@@ -71,7 +90,7 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
     websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws; // websocket stream used send an recieve messages
     std::vector<T> queue;                                       // used to store messages temporarily until it is sent to the relevant party
     socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
-    std::vector<session_threshold> thresholds;                  // track down various thresholdsls
+    std::vector<session_threshold> thresholds;               // track down various communication thresholds
 
     void fail(error_code ec, char const *what);
 
@@ -132,7 +151,7 @@ public:
 
     void set_max_socket_read_len(uint64_t size);
 
-    void set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t interval);
+    void set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint32_t intervalms);
 
      void increment_metric(SESSION_THRESHOLDS threshold_type, uint64_t amount);
 

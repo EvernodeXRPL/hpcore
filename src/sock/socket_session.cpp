@@ -29,7 +29,7 @@ void socket_session<T>::set_max_socket_read_len(uint64_t size)
  * Set thresholds to the socket session
 */
 template <class T>
-void socket_session<T>::set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint64_t intervalms)
+void socket_session<T>::set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint32_t intervalms)
 {
     thresholds[threshold_type].counter_value = 0;
     thresholds[threshold_type].intervalms = intervalms;
@@ -87,11 +87,14 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
         set_max_socket_read_len(sess_opts.max_socket_read_len);
     }
 
-    // Create new session_threshold and insert it to thresholds array
+    // Create new session_thresholds and insert it to thresholds vector.
     // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
-    // since enum's value is used as index in the vector to update vector values
-    session_threshold max_byte_per_message_threshold{sess_opts.max_bytes_per_minute, 0, 0, 60000};
-    thresholds.push_back(std::move(max_byte_per_message_threshold));
+    // since enum's value is used as index in the vector to update vector values.
+    thresholds.reserve(4);
+    thresholds.push_back(session_threshold(sess_opts.max_rawbytes_per_minute, 60000));
+    thresholds.push_back(session_threshold(sess_opts.max_dupmsgs_per_minute, 60000));
+    thresholds.push_back(session_threshold(sess_opts.max_badsigmsgs_per_minute, 60000));
+    thresholds.push_back(session_threshold(sess_opts.max_badmsgs_per_minute, 60000));
 
     ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
     if (is_server_session)
@@ -110,7 +113,7 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
 
     // Create a unique id for the session combining ip and port.
     // We prepare this appended string here because we need to use it as an identifier of the session in various places.
-    this->unniqueid.reserve(port.size() + address.size() + 1);
+    this->uniqueid.reserve(port.size() + address.size() + 1);
     this->uniqueid.append(address).append(":").append(port);
 
     // Set the timeout.
@@ -190,7 +193,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
         return fail(ec, "read");
     }
 
-    increment_metric(SESSION_THRESHOLDS::MAX_BYTES_PER_MINUTE, buffer.size());
+    increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, buffer.size());
 
     // Wrap the buffer data in a string_view and call session handler.
     // We DO NOT transfer ownership of buffer data to the session handler. It should

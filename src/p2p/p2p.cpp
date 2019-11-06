@@ -53,7 +53,7 @@ std::thread peer_thread;
 /**
  * Used to pass down the default settings to the socket session
  */
-sock::session_options sess_opts;
+sock::session_options default_sess_opts;
 
 int init()
 {
@@ -68,8 +68,8 @@ void start_peer_connections()
     auto address = net::ip::make_address(conf::cfg.listenip);
 
     // Setting up the message max size. Retrieve it from config
-    sess_opts.max_socket_read_len = conf::cfg.peermaxsize;
-    sess_opts.max_bytes_per_minute = conf::cfg.peermaxcpm;
+    default_sess_opts.max_socket_read_len = conf::cfg.peermaxsize;
+    default_sess_opts.max_rawbytes_per_minute = conf::cfg.peermaxcpm;
 
     // Start listening to peers
     std::make_shared<sock::socket_server<peer_outbound_message>>(
@@ -77,7 +77,7 @@ void start_peer_connections()
         ctx,
         tcp::endpoint{address, conf::cfg.peerport},
         global_peer_session_handler,
-        sess_opts)
+        default_sess_opts)
         ->run();
 
     LOG_INFO << "Started listening for incoming peer connections on " << conf::cfg.listenip << ":" << conf::cfg.peerport;
@@ -100,7 +100,7 @@ void peer_connection_watchdog()
             if (peer_connections.find(v.first) == peer_connections.end())
             {
                 LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
-                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, ctx, global_peer_session_handler, sess_opts)
+                std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, ctx, global_peer_session_handler, default_sess_opts)
                     ->run(v.second.first, v.second.second);
             }
         }
@@ -122,7 +122,7 @@ void broadcast_message(peer_outbound_message msg)
     }
 
     //Broadcast while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+    std::lock_guard<std::mutex> lock(p2p::peler_connections_mutex);
     for (auto &[k, session] : p2p::peer_connections)
         session->send(msg);
 }

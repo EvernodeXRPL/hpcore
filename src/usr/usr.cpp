@@ -204,15 +204,15 @@ void start_listening()
 {
 
     auto address = net::ip::make_address(conf::cfg.listenip);
-    listener_ctx.sess_opts.max_socket_read_len = conf::cfg.pubmaxsize;
-    listener_ctx.sess_opts.max_bytes_per_minute = conf::cfg.pubmaxcpm;
+    listener_ctx.default_sess_opts.max_socket_read_len = conf::cfg.pubmaxsize;
+    listener_ctx.default_sess_opts.max_rawbytes_per_minute = conf::cfg.pubmaxcpm;
 
     std::make_shared<sock::socket_server<user_outbound_message>>(
         listener_ctx.ioc,
         listener_ctx.ssl_ctx,
         tcp::endpoint{address, conf::cfg.pubport},
         listener_ctx.global_usr_session_handler,
-        listener_ctx.sess_opts)
+        listener_ctx.default_sess_opts)
         ->run();
 
     listener_ctx.listener_thread = std::thread([&] { listener_ctx.ioc.run(); });
