@@ -51,25 +51,10 @@ void consensus()
         ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::collected_msgs.proposals);
     }
 
-    std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
-    for (auto p : ctx.candidate_proposals)
-    {
-        bool self = p.pubkey == conf::cfg.pubkey;
-        std::cout << "[stage" << std::to_string(p.stage)
-                  << "] users:" << p.users.size()
-                  << " hinp:" << p.hash_inputs.size()
-                  << " hout:" << p.hash_outputs.size()
-                  << " lcl:" << p.lcl 
-                  << " self:" << self
-                  << "\n";
-    }
-    std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
-
     if (ctx.stage == 0)
     {
         // Stage 0 means begining of a consensus round.
-
-        {
+       {
             // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
             // when we transition to stage 1.
             auto itr = ctx.candidate_proposals.begin();
@@ -98,6 +83,20 @@ void consensus()
     }
     else // Stage 1, 2, 3
     {
+
+        std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
+        for (auto p : ctx.candidate_proposals)
+        {
+            bool self = p.pubkey == conf::cfg.pubkey;
+            std::cout << "[stage" << std::to_string(p.stage)
+                      << "] users:" << p.users.size()
+                      << " hinp:" << p.hash_inputs.size()
+                      << " hout:" << p.hash_outputs.size()
+                      << " lcl:" << p.lcl
+                      << " self:" << self
+                      << "\n";
+        }
+        std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
         // Initialize vote counters
         vote_counter votes;
 
@@ -122,7 +121,9 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
+            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > floor(conf::cfg.roundtime);
+            if (should_reset)
+                should_reset = ramdom_reset_stage();
             //for now we are resetting to stage 0 to avoid possible deadlock situations
             timewait_stage(true);
             return;
@@ -133,21 +134,21 @@ void consensus()
         broadcast_proposal(stg_prop);
 
         // Remove all candidate proposals that are behind our current stage.
-        auto itr = ctx.candidate_proposals.begin();
-        while (itr != ctx.candidate_proposals.end())
-        {
-            if (itr->stage < ctx.stage)
-                ctx.candidate_proposals.erase(itr++);
-            else
-                ++itr;
-        }
-
+        // auto itr = ctx.candidate_proposals.begin();
+        // while (itr != ctx.candidate_proposals.end())
+        // {
+        //     if (itr->stage < ctx.stage)
+        //         ctx.candidate_proposals.erase(itr++);
+        //     else
+        //         ++itr;
+        // }
+        ctx.candidate_proposals.clear();
         if (ctx.stage == 3)
         {
             apply_ledger(stg_prop);
 
             // We have finished a consensus round (all 4 stages).
-            LOG_DBG << "****Stage 3 consensus reached****";
+            LOG_INFO << "****Stage 3 consensus reached****";
         }
     }
 
@@ -171,7 +172,7 @@ void broadcast_nonunl_proposal()
 {
     // Construct NUP.
     p2p::nonunl_proposal nup;
-    
+
     std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
     for (auto &[sid, user] : usr::ctx.users)
     {
@@ -187,7 +188,8 @@ void broadcast_nonunl_proposal()
     p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
     p2p::broadcast_message(msg);
 
-    LOG_DBG << "NUP sent." << " users:" << nup.user_messages.size();
+    LOG_DBG << "NUP sent."
+            << " users:" << nup.user_messages.size();
 }
 
 /**
@@ -202,7 +204,7 @@ void verify_and_populate_candidate_user_inputs()
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
-             // Populate user list.
+            // Populate user list.
             ctx.candidate_users.emplace(pubkey);
 
             for (const usr::user_submitted_message &umsg : umsgs)
@@ -367,8 +369,6 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
         // Vote stages if only proposal lcl is match with node's last consensus lcl
         if (cp.lcl == ctx.lcl)
             increment(votes.stage, cp.stage);
-
-        // todo:vote for lcl checking condtion
     }
 
     majority_stage = -1;
@@ -386,7 +386,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
     if (majority_stage < ctx.stage - 1)
     {
-        should_reset = (ctx.time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
+        should_reset = (ctx.time_now - ctx.novel_proposal_time) > floor(conf::cfg.roundtime);
         is_desync = true;
 
         LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
@@ -479,6 +479,12 @@ float_t get_stage_threshold(uint8_t stage)
     return -1;
 }
 
+bool ramdom_reset_stage()
+{
+    std::mt19937 rng(std::random_device{}());
+    bool rand_bool = std::uniform_int_distribution<>{0, 1}(rng);
+}
+
 void timewait_stage(bool reset)
 {
     if (reset)
@@ -527,7 +533,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
 void dispatch_user_outputs(const p2p::proposal &cons_prop)
 {
     std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
-    
+
     for (const std::string &hash : cons_prop.hash_outputs)
     {
         auto cu_itr = ctx.candidate_user_outputs.find(hash);
@@ -547,8 +553,8 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
             if (sess_itr != usr::ctx.sessionids.end()) // match found
             {
-                auto user_itr = usr::ctx.users.find(sess_itr->second);  // sess_itr->second is the session id.
-                if (user_itr != usr::ctx.users.end()) // match found
+                auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
+                if (user_itr != usr::ctx.users.end())                  // match found
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
@@ -560,7 +566,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             }
         }
     }
-    
+
     // now we can safely clear our candidate outputs.
     ctx.candidate_user_outputs.clear();
 }
