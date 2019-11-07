@@ -646,6 +646,9 @@ void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &userio
     // todo:implement exchange of npl and hpsc bufs
     proc::contract_bufmap_t nplbufmap;
     proc::contract_iobuf_pair hpscbufpair;
+    hpscbufpair.inputs.push_back("A");
+    hpscbufpair.inputs.push_back("B");
+    hpscbufpair.inputs.push_back("C");
 
     proc::exec_contract(
         proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair));
