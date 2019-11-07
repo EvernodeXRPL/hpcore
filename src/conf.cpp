@@ -117,8 +117,8 @@ void set_contract_dir_paths(std::string basedir)
     ctx.contractDir = basedir;
     ctx.configDir = basedir + "/cfg";
     ctx.configFile = ctx.configDir + "/hp.cfg";
-    ctx.tlsKeyFile = ctx.configDir + "/key.pem";
-    ctx.tlsCertFile = ctx.configDir + "/cert.pem";
+    ctx.tlsKeyFile = ctx.configDir + "/tlskey.pem";
+    ctx.tlsCertFile = ctx.configDir + "/tlscert.pem";
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
     ctx.logDir = basedir + "/log";
@@ -459,7 +459,7 @@ int validate_contract_dir_paths()
             if (path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
             {
                 std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
-                          << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem\n"
+                          << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
                           << "and add it to " + ctx.configDir << std::endl;
             }
             else

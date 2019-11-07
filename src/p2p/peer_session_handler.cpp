@@ -45,7 +45,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
     //Accessing message content and size.
     const uint8_t *content_ptr = container_content->Data();
-    flatbuffers::uoffset_t content_size = container_content->size();
+    const flatbuffers::uoffset_t content_size = container_content->size();
 
     const p2pmsg::Content *content;
     if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
@@ -58,7 +58,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         return;
     }
 
-    p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
+    const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
     if (content_message_type == p2pmsg::Message_Proposal_Message) //message is a proposal message
     {

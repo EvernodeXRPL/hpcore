@@ -92,23 +92,23 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
     socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
     std::vector<session_threshold> thresholds;               // track down various communication thresholds
 
-    void fail(error_code ec, char const *what);
+    void fail(const error_code ec, char const *what);
 
-    void on_ssl_handshake(error_code ec);
+    void on_ssl_handshake(const error_code ec);
 
-    void on_accept(error_code ec);
+    void on_accept(const error_code ec);
 
-    void on_read(error_code ec, std::size_t bytes_transferred);
+    void on_read(const error_code ec, const std::size_t bytes_transferred);
 
-    void on_write(error_code ec, std::size_t bytes_transferred);
+    void on_write(const error_code ec, const std::size_t bytes_transferred);
 
-    void on_close(error_code ec, int8_t type);
+    void on_close(const error_code ec, const int8_t type);
 
 
     // Websocket lambda expression helpers.
     // Implementation of these are separated to a different .cpp to reduce regular compile time.
 
-    void ws_next_layer_async_handshake(ssl::stream_base::handshake_type handshake_type);
+    void ws_next_layer_async_handshake(const ssl::stream_base::handshake_type handshake_type);
 
     void ws_async_accept();
 
@@ -145,15 +145,15 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    void run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts);
+    void set_max_socket_read_len(const uint64_t size);
 
-    void send(T msg);
+    void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
 
-    void set_max_socket_read_len(uint64_t size);
+    void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
 
-    void set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint32_t intervalms);
+    void run(const std::string &&address, const std::string &&port, const bool is_server_session, const session_options &sess_opts);
 
-     void increment_metric(SESSION_THRESHOLDS threshold_type, uint64_t amount);
+    void send(const T msg);
 
     void close();
 };

@@ -20,7 +20,7 @@ socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp
   * to handle this.
 */
 template <class T>
-void socket_session<T>::set_max_socket_read_len(uint64_t size)
+void socket_session<T>::set_max_socket_read_len(const uint64_t size)
 {
     ws.read_message_max(size);
 }
@@ -29,11 +29,12 @@ void socket_session<T>::set_max_socket_read_len(uint64_t size)
  * Set thresholds to the socket session
 */
 template <class T>
-void socket_session<T>::set_threshold(SESSION_THRESHOLDS threshold_type, uint64_t threshold_limit, uint32_t intervalms)
+void socket_session<T>::set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms)
 {
-    thresholds[threshold_type].counter_value = 0;
-    thresholds[threshold_type].intervalms = intervalms;
-    thresholds[threshold_type].threshold_limit = threshold_limit;
+    session_threshold &t = thresholds[threshold_type];
+    t.counter_value = 0;
+    t.intervalms = intervalms;
+    t.threshold_limit = threshold_limit;
 }
 
 /*
@@ -41,15 +42,15 @@ void socket_session<T>::set_threshold(SESSION_THRESHOLDS threshold_type, uint64_
 * configured threshold limit.
 */
 template <class T>
-void socket_session<T>::increment_metric(SESSION_THRESHOLDS threshold_type, uint64_t amount)
+void socket_session<T>::increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount)
 {
-    sock::session_threshold &t = thresholds[threshold_type];
+    session_threshold &t = thresholds[threshold_type];
 
     // Ignore the counter if limit is set as 0.
     if (t.threshold_limit == 0)
         return;
 
-    uint64_t time_now = util::get_epoch_milliseconds();
+    const uint64_t time_now = util::get_epoch_milliseconds();
 
     t.counter_value += amount;
     if (t.timestamp == 0)
@@ -60,7 +61,7 @@ void socket_session<T>::increment_metric(SESSION_THRESHOLDS threshold_type, uint
     else
     {
         // Check whether we have exceeded the threshold within the monitering interval.
-        auto elapsed_time = time_now - t.timestamp;
+        const uint64_t elapsed_time = time_now - t.timestamp;
         if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
         {
             t.timestamp = 0;
@@ -79,7 +80,7 @@ void socket_session<T>::increment_metric(SESSION_THRESHOLDS threshold_type, uint
 
 //port and address will be used to identify from which remote party the message recieved in the handler
 template <class T>
-void socket_session<T>::run(const std::string &&address, const std::string &&port, bool is_server_session, const session_options &sess_opts)
+void socket_session<T>::run(const std::string &&address, const std::string &&port, const bool is_server_session, const session_options &sess_opts)
 {
     if (sess_opts.max_socket_read_len > 0)
     {
@@ -96,17 +97,14 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     thresholds.push_back(session_threshold(sess_opts.max_badsigmsgs_per_minute, 60000));
     thresholds.push_back(session_threshold(sess_opts.max_badmsgs_per_minute, 60000));
 
-    ssl::stream_base::handshake_type handshake_type = ssl::stream_base::client;
+    const ssl::stream_base::handshake_type handshake_type =
+        is_server_session ? ssl::stream_base::server : ssl::stream_base::client;
+
+    // Set this flag to identify whether this socket session created when node acts as a server
+    // INBOUND true - when node acts as server
+    // INBOUND false (OUTBOUND) - when node acts as client
     if (is_server_session)
-    {
-        /**
-         * Set this flag to identify whether this socket session created when node acts as a server
-         * INBOUND true - when node acts as server
-         * INBOUND false (OUTBOUND) - when node acts as client
-         */
         flags.set(SESSION_FLAG::INBOUND);
-        handshake_type = ssl::stream_base::server;
-    }
 
     this->port = std::move(port);
     this->address = std::move(address);
@@ -127,7 +125,7 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
 * Close an active websocket connection gracefully
 */
 template <class T>
-void socket_session<T>::on_ssl_handshake(error_code ec)
+void socket_session<T>::on_ssl_handshake(const error_code ec)
 {
     if (ec)
         return fail(ec, "handshake");
@@ -161,7 +159,7 @@ void socket_session<T>::on_ssl_handshake(error_code ec)
  * Executes on acceptance of new connection
 */
 template <class T>
-void socket_session<T>::on_accept(error_code ec)
+void socket_session<T>::on_accept(const error_code ec)
 {
     // Handle the error, if any
     if (ec)
@@ -177,7 +175,7 @@ void socket_session<T>::on_accept(error_code ec)
 * Executes on completion of recieiving a new message
 */
 template <class T>
-void socket_session<T>::on_read(error_code ec, std::size_t)
+void socket_session<T>::on_read(const error_code ec, const std::size_t)
 {
     //if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
     // read may get called when operation_aborted as well.
@@ -213,7 +211,7 @@ void socket_session<T>::on_read(error_code ec, std::size_t)
 * Send message through an active websocket connection
 */
 template <class T>
-void socket_session<T>::send(T msg)
+void socket_session<T>::send(const T msg)
 {
     // Always add to queue
     queue.push_back(std::move(msg));
@@ -232,7 +230,7 @@ void socket_session<T>::send(T msg)
 * Executes on completion of write operation to a socket
 */
 template <class T>
-void socket_session<T>::on_write(error_code ec, std::size_t)
+void socket_session<T>::on_write(const error_code ec, const std::size_t)
 {
     // Handle the error, if any
     if (ec)
@@ -264,7 +262,7 @@ void socket_session<T>::close()
 */
 //type will be used identify whether the error is due to failure in closing the web socket or transfer of another exception to this method
 template <class T>
-void socket_session<T>::on_close(error_code ec, int8_t type)
+void socket_session<T>::on_close(const error_code ec, const int8_t type)
 {
     if (type == 1)
         return;
@@ -277,7 +275,7 @@ void socket_session<T>::on_close(error_code ec, int8_t type)
  * Executes on error
 */
 template <class T>
-void socket_session<T>::fail(error_code ec, char const *what)
+void socket_session<T>::fail(const error_code ec, char const *what)
 {
     LOG_ERR << what << ": " << ec.message();
 

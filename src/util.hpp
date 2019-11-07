@@ -39,17 +39,17 @@ private:
     uint32_t maxsize;
 
 public:
-    rollover_hashset(uint32_t maxsize);
-    bool try_emplace(std::string hash);
+    rollover_hashset(const uint32_t maxsize);
+    bool try_emplace(const std::string hash);
 };
 
-int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_len);
+int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len);
 
-int hex2bin(unsigned char *decoded, size_t decoded_len, std::string_view hex_str);
+int hex2bin(unsigned char *decoded, const size_t decoded_len, std::string_view hex_str);
 
 int64_t get_epoch_milliseconds();
 
-void sleep(uint64_t milliseconds);
+void sleep(const uint64_t milliseconds);
 
 int version_compare(const std::string &x, const std::string &y);
 

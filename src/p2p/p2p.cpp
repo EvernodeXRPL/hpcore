@@ -65,7 +65,7 @@ int init()
 
 void start_peer_connections()
 {
-    auto address = net::ip::make_address(conf::cfg.listenip);
+    boost::asio::ip::address address = net::ip::make_address(conf::cfg.listenip);
 
     // Setting up the message max size. Retrieve it from config
     default_sess_opts.max_socket_read_len = conf::cfg.peermaxsize;
@@ -98,24 +98,24 @@ void peer_connection_watchdog()
     //todo: implement exit gracefully.
     while (true)
     {
-        for (auto &v : conf::cfg.peers)
+        for (const auto &[peerid, ipport] : conf::cfg.peers)
         {
-            if (peer_connections.find(v.first) == peer_connections.end())
+            if (peer_connections.find(peerid) == peer_connections.end())
             {
-                LOG_DBG << "Trying to connect :" << v.second.first << ":" << v.second.second;
+                LOG_DBG << "Trying to connect : " << peerid;
                 std::make_shared<sock::socket_client<peer_outbound_message>>(ioc, ctx, global_peer_session_handler, default_sess_opts)
-                    ->run(v.second.first, v.second.second);
+                    ->run(ipport.first, ipport.second);
             }
         }
 
-        util::sleep(200);
+        util::sleep(conf::cfg.roundtime * 4);
     }
 }
 
 /**
  * Broadcasts the given message to all currently connected outbound peers.
  */
-void broadcast_message(peer_outbound_message msg)
+void broadcast_message(const peer_outbound_message msg)
 {
     if (p2p::peer_connections.size() == 0)
     {
@@ -126,7 +126,7 @@ void broadcast_message(peer_outbound_message msg)
 
     //Broadcast while locking the peer_connections.
     std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-    for (auto &[k, session] : p2p::peer_connections)
+    for (const auto &[k, session] : p2p::peer_connections)
         session->send(msg);
 }
 

@@ -61,7 +61,7 @@ int exec_contract(const contract_exec_args &args)
         return -1;
     }
 
-    __pid_t pid = fork();
+    const __pid_t pid = fork();
     if (pid > 0)
     {
         // HotPocket process.
@@ -73,7 +73,7 @@ int exec_contract(const contract_exec_args &args)
         // Wait for child process (contract process) to complete execution.
 
         LOG_INFO << "Contract process started.";
-        int presult = await_contract_execution();
+        const int presult = await_contract_execution();
         LOG_INFO << "Contract process ended.";
 
         contract_pid = 0;
@@ -201,7 +201,7 @@ int write_contract_args(const contract_exec_args &args)
     os << "]}";
 
     // Get the json string that should be written to contract input pipe.
-    std::string json = os.str();
+    const std::string json = os.str();
 
     // Establish contract input pipe.
     int stdinpipe[2];
@@ -383,7 +383,7 @@ int create_and_write_iopipes(std::vector<int> &fds, std::list<std::string> &inpu
 
     // Write the inputs (if any) into the contract and close the writefd.
 
-    int writefd = fds[FDTYPE::HPWRITE];
+    const int writefd = fds[FDTYPE::HPWRITE];
     bool vmsplice_error = false;
 
     for (std::string &input : inputs)
@@ -420,7 +420,7 @@ int read_iopipe(std::vector<int> &fds, std::string &output)
     // from the output pipe and store in the output buffer.
     // Outputs will be read by the consensus process later when it wishes so.
 
-    int readfd = fds[FDTYPE::HPREAD];
+    const int readfd = fds[FDTYPE::HPREAD];
     int bytes_available = 0;
     ioctl(readfd, FIONREAD, &bytes_available);
     bool vmsplice_error = false;
@@ -446,7 +446,7 @@ int read_iopipe(std::vector<int> &fds, std::string &output)
     return vmsplice_error ? -1 : 0;
 }
 
-void close_unused_fds(bool is_hp)
+void close_unused_fds(const bool is_hp)
 {
     close_unused_vectorfds(is_hp, hpscfds);
 
@@ -464,7 +464,7 @@ void close_unused_fds(bool is_hp)
  * @param is_hp Specify 'true' when calling from HP process. 'false' from SC process.
  * @param fds Vector of fds to close.
  */
-void close_unused_vectorfds(bool is_hp, std::vector<int> &fds)
+void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds)
 {
     if (is_hp)
     {

@@ -12,9 +12,9 @@ struct ledger_history
     uint64_t led_seq_no;
 };
 
-const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no);
+std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no);
 
-const ledger_history load_ledger();
+ledger_history load_ledger();
 
 }
 

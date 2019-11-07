@@ -54,7 +54,7 @@ std::string issue_challenge(const std::string sessionid)
 int verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session)
 {
     // The received message must be the challenge response. We need to verify it.
-    auto itr = ctx.pending_challenges.find(session->uniqueid);
+    const auto itr = ctx.pending_challenges.find(session->uniqueid);
     if (itr == ctx.pending_challenges.end())
     {
         LOG_DBG << "No challenge found for the session " << session->uniqueid;
@@ -178,7 +178,7 @@ int add_user(sock::socket_session<user_outbound_message> *session, const std::st
  */
 int remove_user(const std::string &sessionid)
 {
-    auto itr = ctx.users.find(sessionid);
+    const auto itr = ctx.users.find(sessionid);
 
     if (itr == ctx.users.end())
     {

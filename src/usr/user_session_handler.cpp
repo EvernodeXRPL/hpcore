@@ -21,9 +21,8 @@ void user_session_handler::on_connect(sock::socket_session<user_outbound_message
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
-
-    user_outbound_message outmsg(issue_challenge(session->uniqueid));
-    session->send(std::move(outmsg));
+    session->send(
+        user_outbound_message(issue_challenge(session->uniqueid)));
 
     // Set the challenge-issued flag to help later checks in on_message.
     session->flags.set(sock::SESSION_FLAG::USER_CHALLENGE_ISSUED);
@@ -49,7 +48,7 @@ void user_session_handler::on_message(
         // Check whether this user is among authenticated users
         // and perform authenticated msg processing.
 
-        auto itr = ctx.users.find(session->uniqueid);
+        const auto itr = ctx.users.find(session->uniqueid);
         if (itr != ctx.users.end())
         {
             // This is an authed user.

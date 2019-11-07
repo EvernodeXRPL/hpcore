@@ -113,7 +113,9 @@ void std_terminate() noexcept
 
 int main(int argc, char **argv)
 {
+    // Register exception handler for std exceptions.
     std::set_terminate(&std_terminate);
+
     // Extract the CLI args
     // This call will populate conf::ctx
     if (parse_cmd(argc, argv) != 0)
@@ -157,14 +159,8 @@ int main(int argc, char **argv)
 
                 hplog::init();
 
-                if (p2p::init() != 0)
+                if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
                     return -1;
-
-                if (usr::init() != 0)
-                    return -1;
-
-                if (cons::init() != 0)
-                    return 1;
 
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);

@@ -26,7 +26,7 @@ static const size_t CHALLENGE_LEN = 16;
  *              "type": "public_challenge",
  *              "challenge": "<hex challenge string>"
  *            }
- * @param challenge String reference to copy the generated hex challenge string into.
+ * @param challengehex String reference to copy the generated hex challenge string into.
  */
 void create_user_challenge(std::string &msg, std::string &challengehex)
 {
@@ -207,7 +207,7 @@ int extract_input_container(std::string &nonce, std::string &input, uint64_t &ma
         return -1;
     }
 
-    rapidjson::Value &inputval = d[FLD_INPUT];
+    const rapidjson::Value &inputval = d[FLD_INPUT];
     std::string_view inputhex(inputval.GetString(), inputval.GetStringLength());
 
     // Convert hex input to binary.
