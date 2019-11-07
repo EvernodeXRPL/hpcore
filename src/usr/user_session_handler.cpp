@@ -54,16 +54,19 @@ void user_session_handler::on_message(
         {
             // This is an authed user.
             connected_user &user = itr->second;
-            if (handle_user_message(user, message) == 0)
-                return;
-        
-            LOG_DBG << "Bad message from user " << session->uniqueid;
-            // TODO: Increase session bad message count.
+            if (handle_user_message(user, message) != 0)
+            {
+                session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+                LOG_DBG << "Bad message from user " << session->uniqueid;
+            }
         }
         else
         {
+            session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
             LOG_DBG << "User session id not found: " << session->uniqueid;
         }
+
+        return;
     }
 
     // If for any reason we reach this point, we should drop the connection because none of the

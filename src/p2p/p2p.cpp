@@ -70,6 +70,9 @@ void start_peer_connections()
     // Setting up the message max size. Retrieve it from config
     default_sess_opts.max_socket_read_len = conf::cfg.peermaxsize;
     default_sess_opts.max_rawbytes_per_minute = conf::cfg.peermaxcpm;
+    default_sess_opts.max_dupmsgs_per_minute = conf::cfg.peermaxdupmpm;
+    default_sess_opts.max_badmsgs_per_minute = conf::cfg.peermaxbadmpm;
+    default_sess_opts.max_badsigmsgs_per_minute = conf::cfg.peermaxbadsigpm;
 
     // Start listening to peers
     std::make_shared<sock::socket_server<peer_outbound_message>>(
@@ -122,7 +125,7 @@ void broadcast_message(peer_outbound_message msg)
     }
 
     //Broadcast while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(p2p::peler_connections_mutex);
+    std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
     for (auto &[k, session] : p2p::peer_connections)
         session->send(msg);
 }

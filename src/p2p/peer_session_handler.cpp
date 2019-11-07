@@ -53,6 +53,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
     if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
     {
+        session->increment_metric(sock::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
         LOG_DBG << "Duplicate peer message.";
         return;
     }
@@ -64,6 +65,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         // We only trust proposals coming from trusted peers.
         if (p2pmsg::validate_container_trust(container) != 0)
         {
+            session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
             LOG_DBG << "Proposal rejected due to trust failure.";
             return;
         }
@@ -88,9 +90,8 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else
     {
-        //warn received invalid message from peer.
+        session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
         LOG_DBG << "Received invalid message type from peer";
-        //TODO: remove/penalize node who sent the message.
     }
 }
 

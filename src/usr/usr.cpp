@@ -206,6 +206,7 @@ void start_listening()
     auto address = net::ip::make_address(conf::cfg.listenip);
     listener_ctx.default_sess_opts.max_socket_read_len = conf::cfg.pubmaxsize;
     listener_ctx.default_sess_opts.max_rawbytes_per_minute = conf::cfg.pubmaxcpm;
+    listener_ctx.default_sess_opts.max_badmsgs_per_minute = conf::cfg.pubmaxbadmpm;
 
     std::make_shared<sock::socket_server<user_outbound_message>>(
         listener_ctx.ioc,
