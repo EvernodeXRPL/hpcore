@@ -65,9 +65,7 @@ void start_peer_connections();
 
 void peer_connection_watchdog();
 
-bool is_message_duplicate(std::string_view message);
-
-void broadcast_message(peer_outbound_message msg);
+void broadcast_message(const peer_outbound_message msg);
 
 } // namespace p2p
 

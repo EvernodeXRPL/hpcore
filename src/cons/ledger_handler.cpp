@@ -9,7 +9,7 @@
 namespace cons
 {
 
-const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no)
+std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no)
 {
     //Serialize lcl using flatbuffer ledger schema.
     flatbuffers::FlatBufferBuilder builder(1024);
@@ -27,7 +27,7 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
     //create file path to save lcl.
     //file name -> [ledger sequnce numer]-[lcl hex]
     std::string path;
-    std::string seq_no = std::to_string(led_seq_no);
+    const std::string seq_no = std::to_string(led_seq_no);
     path.reserve(conf::ctx.histDir.size() + lcl_hash.size() + seq_no.size() + 6);
     path.append(conf::ctx.histDir);
     path.append("/");
@@ -41,10 +41,10 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
     ofs.write(ledger_str.data(), ledger_str.size());
     ofs.close();
 
-    return (lcl_hash);
+    return lcl_hash;
 }
 
-const ledger_history load_ledger()
+ledger_history load_ledger()
 {
     ledger_history ldg_hist;
     ldg_hist.led_seq_no = 0;
@@ -53,8 +53,8 @@ const ledger_history load_ledger()
 
     //Get all records at lcl history direcory and find the last closed ledger.
     std::string latest_file_name;
-    std::string::size_type latest_pos = 0;
-    for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
+    size_t latest_pos = 0;
+    for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
     {
         const boost::filesystem::path file_path = entry.path();
         const std::string file_name = entry.path().filename().string();
@@ -69,7 +69,7 @@ const ledger_history load_ledger()
         }
         else
         {
-            std::string::size_type pos = file_name.find("-");
+            const size_t pos = file_name.find("-");
             uint64_t seq_no;
 
             if (pos != std::string::npos)

@@ -8,7 +8,7 @@ namespace fbschema
 /**
  * Returns string_view from flat buffer data pointer and length.
  */
-std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_t length)
+std::string_view flatbuff_bytes_to_sv(const uint8_t *data, const flatbuffers::uoffset_t length)
 {
     const char *signature_content_str = reinterpret_cast<const char *>(data);
     return std::string_view(signature_content_str, length);

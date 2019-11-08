@@ -1,5 +1,4 @@
 #include "../pchheader.hpp"
-#include "../util.hpp"
 #include "../hplog.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
 #include "../sock/socket_session.hpp"
@@ -22,15 +21,11 @@ void user_session_handler::on_connect(sock::socket_session<user_outbound_message
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
-
-    // We init the session unique id to associate with the challenge.
-    session->init_uniqueid();
-
-    user_outbound_message outmsg(issue_challenge(session->uniqueid));
-    session->send(std::move(outmsg));
+    session->send(
+        user_outbound_message(issue_challenge(session->uniqueid)));
 
     // Set the challenge-issued flag to help later checks in on_message.
-    session->flags.set(util::SESSION_FLAG::USER_CHALLENGE_ISSUED);
+    session->flags.set(sock::SESSION_FLAG::USER_CHALLENGE_ISSUED);
 }
 
 /**
@@ -42,32 +37,35 @@ void user_session_handler::on_message(
 {
     // First check whether this session is pending challenge.
     // Meaning we have previously issued a challenge to the client,
-    if (session->flags[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
+    if (session->flags[sock::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
         if (verify_challenge(message, session) == 0)
             return;
     }
     // Check whether this session belongs to an authenticated (challenge-verified) user.
-    else if (session->flags[util::SESSION_FLAG::USER_AUTHED])
+    else if (session->flags[sock::SESSION_FLAG::USER_AUTHED])
     {
         // Check whether this user is among authenticated users
         // and perform authenticated msg processing.
 
-        auto itr = ctx.users.find(session->uniqueid);
+        const auto itr = ctx.users.find(session->uniqueid);
         if (itr != ctx.users.end())
         {
             // This is an authed user.
             connected_user &user = itr->second;
-            if (handle_user_message(user, message) == 0)
-                return;
-        
-            LOG_DBG << "Bad message from user " << session->uniqueid;
-            // TODO: Increase session bad message count.
+            if (handle_user_message(user, message) != 0)
+            {
+                session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+                LOG_DBG << "Bad message from user " << session->uniqueid;
+            }
         }
         else
         {
+            session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
             LOG_DBG << "User session id not found: " << session->uniqueid;
         }
+
+        return;
     }
 
     // If for any reason we reach this point, we should drop the connection because none of the
@@ -84,11 +82,11 @@ void user_session_handler::on_close(sock::socket_session<user_outbound_message> 
     // Cleanup any resources related to this session.
 
     // Session is awaiting challenge response.
-    if (session->flags[util::SESSION_FLAG::USER_CHALLENGE_ISSUED])
+    if (session->flags[sock::SESSION_FLAG::USER_CHALLENGE_ISSUED])
         ctx.pending_challenges.erase(session->uniqueid);
 
     // Session belongs to an authed user.
-    else if (session->flags[util::SESSION_FLAG::USER_AUTHED])
+    else if (session->flags[sock::SESSION_FLAG::USER_AUTHED])
         remove_user(session->uniqueid);
 
     LOG_INFO << "User disconnected " << session->uniqueid;

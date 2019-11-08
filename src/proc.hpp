@@ -72,6 +72,10 @@ int await_contract_execution();
 
 int write_contract_args(const contract_exec_args &args);
 
+int feed_inputs(const contract_exec_args &args);
+
+int fetch_outputs(const contract_exec_args &args);
+
 int write_contract_hp_inputs(const contract_exec_args &args);
 
 int read_contract_hp_outputs(const contract_exec_args &args);
@@ -80,19 +84,23 @@ int read_contract_hp_outputs(const contract_exec_args &args);
 
 void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os);
 
+int create_iopipes_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
+
 int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
 int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
 void cleanup_fdmap(contract_fdmap_t &fdmap);
 
-int create_and_write_iopipes(std::vector<int> &fds, std::list<std::string> &inputs);
+int create_iopipes(std::vector<int> &fds);
+
+int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
 
 int read_iopipe(std::vector<int> &fds, std::string &output);
 
-void close_unused_fds(bool is_hp);
+void close_unused_fds(const bool is_hp);
 
-void close_unused_vectorfds(bool is_hp, std::vector<int> &fds);
+void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds);
 
 } // namespace proc
 

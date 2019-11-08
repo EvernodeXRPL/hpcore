@@ -33,35 +33,19 @@ __pid_t contract_pid;
 
 /**
  * Executes the contract process and passes the specified arguments.
- * 
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
  */
 int exec_contract(const contract_exec_args &args)
 {
-    // Write any hp input messages to hp->sc pipe.
-    if (write_contract_hp_inputs(args) != 0)
-    {
-        LOG_ERR << "Failed to write HP input to contract.";
-        return -1;
-    }
+    // Setup io pipes and feed all inputs to them.
+    create_iopipes_for_fdmap(nplfds, args.nplbufs);
+    create_iopipes_for_fdmap(userfds, args.userbufs);
+    create_iopipes(hpscfds);
 
-    // Write any npl inputs to npl pipes.
-    if (write_contract_fdmap_inputs(nplfds, args.nplbufs) != 0)
-    {
-        cleanup_fdmap(nplfds);
-        LOG_ERR << "Failed to write NPL inputs to contract.";
+    if (feed_inputs(args) != 0)
         return -1;
-    }
 
-    // Write any verified (consensus-reached) user inputs to user pipes.
-    if (write_contract_fdmap_inputs(userfds, args.userbufs) != 0)
-    {
-        cleanup_fdmap(userfds);
-        LOG_ERR << "Failed to write user inputs to contract.";
-        return -1;
-    }
-
-    __pid_t pid = fork();
+    const __pid_t pid = fork();
     if (pid > 0)
     {
         // HotPocket process.
@@ -71,9 +55,7 @@ int exec_contract(const contract_exec_args &args)
         close_unused_fds(true);
 
         // Wait for child process (contract process) to complete execution.
-
-        LOG_INFO << "Contract process started.";
-        int presult = await_contract_execution();
+        const int presult = await_contract_execution();
         LOG_INFO << "Contract process ended.";
 
         contract_pid = 0;
@@ -84,27 +66,8 @@ int exec_contract(const contract_exec_args &args)
         }
 
         // After contract execution, collect contract outputs.
-
-        if (read_contract_hp_outputs(args) != 0)
-        {
-            LOG_ERR << "Error reading HP output from the contract.";
+        if (fetch_outputs(args) != 0)
             return -1;
-        }
-
-        if (read_contract_fdmap_outputs(nplfds, args.nplbufs) != 0)
-        {
-            LOG_ERR << "Error reading NPL output from the contract.";
-            return -1;
-        }
-
-        if (read_contract_fdmap_outputs(userfds, args.userbufs) != 0)
-        {
-            LOG_ERR << "Error reading User output from the contract.";
-            return -1;
-        }
-
-        nplfds.clear();
-        userfds.clear();
     }
     else if (pid == 0)
     {
@@ -119,6 +82,8 @@ int exec_contract(const contract_exec_args &args)
 
         // Write the contract input message from HotPocket to the stdin (0) of the contract process.
         write_contract_args(args);
+
+        LOG_INFO << "Starting contract process...";
 
         char *execv_args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
         execv(execv_args[0], execv_args);
@@ -201,7 +166,7 @@ int write_contract_args(const contract_exec_args &args)
     os << "]}";
 
     // Get the json string that should be written to contract input pipe.
-    std::string json = os.str();
+    const std::string json = os.str();
 
     // Establish contract input pipe.
     int stdinpipe[2];
@@ -227,12 +192,65 @@ int write_contract_args(const contract_exec_args &args)
     return 0;
 }
 
+int feed_inputs(const contract_exec_args &args)
+{
+    // Write any hp input messages to hp->sc pipe.
+    if (write_contract_hp_inputs(args) != 0)
+    {
+        LOG_ERR << "Failed to write HP input to contract.";
+        return -1;
+    }
+
+    // Write any npl inputs to npl pipes.
+    if (write_contract_fdmap_inputs(nplfds, args.nplbufs) != 0)
+    {
+        cleanup_fdmap(nplfds);
+        LOG_ERR << "Failed to write NPL inputs to contract.";
+        return -1;
+    }
+
+    // Write any verified (consensus-reached) user inputs to user pipes.
+    if (write_contract_fdmap_inputs(userfds, args.userbufs) != 0)
+    {
+        cleanup_fdmap(userfds);
+        LOG_ERR << "Failed to write user inputs to contract.";
+        return -1;
+    }
+
+    return 0;
+}
+
+int fetch_outputs(const contract_exec_args &args)
+{
+    if (read_contract_hp_outputs(args) != 0)
+    {
+        LOG_ERR << "Error reading HP output from the contract.";
+        return -1;
+    }
+
+    if (read_contract_fdmap_outputs(nplfds, args.nplbufs) != 0)
+    {
+        LOG_ERR << "Error reading NPL output from the contract.";
+        return -1;
+    }
+
+    if (read_contract_fdmap_outputs(userfds, args.userbufs) != 0)
+    {
+        LOG_ERR << "Error reading User output from the contract.";
+        return -1;
+    }
+
+    nplfds.clear();
+    userfds.clear();
+    return 0;
+}
+
 /**
  * Writes any hp input messages to the contract.
  */
 int write_contract_hp_inputs(const contract_exec_args &args)
 {
-    if (create_and_write_iopipes(hpscfds, args.hpscbufs.inputs) != 0)
+    if (write_iopipe(hpscfds, args.hpscbufs.inputs) != 0)
     {
         LOG_ERR << "Error writing HP inputs to SC";
         return -1;
@@ -286,6 +304,26 @@ void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os)
 }
 
 /**
+ * Creates io pipes for all pubkeys specified in bufmap.
+ * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
+ * @param bufmap A map which has a public key and input/output buffer lists for that public key.
+ * @return 0 on success. -1 on failure.
+ */
+int create_iopipes_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
+{
+    for (auto &[pubkey, buflist] : bufmap)
+    {
+        std::vector<int> fds = std::vector<int>();
+        if (create_iopipes(fds) != 0)
+            return -1;
+
+        fdmap.emplace(pubkey, std::move(fds));
+    }
+
+    return 0;
+}
+
+/**
  * Common function to create the pipes and write buffer inputs to the fdmap.
  * We take mutable parameters since the internal entries in the maps will be
  * modified (eg. fd close, buffer clear).
@@ -299,11 +337,8 @@ int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufm
     // Loop through input buffers for each pubkey.
     for (auto &[pubkey, buflist] : bufmap)
     {
-        std::vector<int> fds = std::vector<int>();
-        if (create_and_write_iopipes(fds, buflist.inputs) != 0)
+        if (write_iopipe(fdmap[pubkey], buflist.inputs) != 0)
             return -1;
-
-        fdmap.emplace(pubkey, std::move(fds));
     }
 
     return 0;
@@ -353,13 +388,11 @@ void cleanup_fdmap(contract_fdmap_t &fdmap)
 }
 
 /**
- * Common function to create a pair of pipes (Hp->SC, SC->HP) and write the
- * given input buffer into the write fd from the HP side.
- * 
+ * Common function to create a pair of pipes (Hp->SC, SC->HP).
  * @param fds Vector to populate fd list.
  * @param inputbuffer Buffer to write into the HP write fd.
  */
-int create_and_write_iopipes(std::vector<int> &fds, std::list<std::string> &inputs)
+int create_iopipes(std::vector<int> &fds)
 {
     int inpipe[2];
     if (pipe(inpipe) != 0)
@@ -381,19 +414,35 @@ int create_and_write_iopipes(std::vector<int> &fds, std::list<std::string> &inpu
     fds.push_back(outpipe[0]); //HPREAD
     fds.push_back(outpipe[1]); //SCWRITE
 
+    return 0;
+}
+
+/**
+ * Common function to write the given input buffer into the write fd from the HP side.
+ * @param fds Vector of fd list.
+ * @param inputbuffer Buffer to write into the HP write fd.
+ */
+int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
+{
     // Write the inputs (if any) into the contract and close the writefd.
 
-    int writefd = fds[FDTYPE::HPWRITE];
+    const int writefd = fds[FDTYPE::HPWRITE];
     bool vmsplice_error = false;
 
-    for (std::string &input : inputs)
+    if (!inputs.empty())
     {
-        // We use vmsplice to map (zero-copy) the input into the fd.
-        iovec memsegs[1];
-        memsegs[0].iov_base = input.data();
-        memsegs[0].iov_len = input.length();
+        // Prepare the input memory segments to map with vmsplice.
+        size_t i = 0;
+        iovec memsegs[inputs.size()];
+        for (std::string &input : inputs)
+        {
+            memsegs[i].iov_base = input.data();
+            memsegs[i].iov_len = input.length();
+            i++;
+        }
 
-        if (vmsplice(writefd, memsegs, 1, 0) == -1)
+        // We use vmsplice to map (zero-copy) the inputs into the fd.
+        if (vmsplice(writefd, memsegs, inputs.size(), 0) == -1)
             vmsplice_error = true;
 
         // It's important that we DO NOT clear the input buffer string until the contract
@@ -420,7 +469,7 @@ int read_iopipe(std::vector<int> &fds, std::string &output)
     // from the output pipe and store in the output buffer.
     // Outputs will be read by the consensus process later when it wishes so.
 
-    int readfd = fds[FDTYPE::HPREAD];
+    const int readfd = fds[FDTYPE::HPREAD];
     int bytes_available = 0;
     ioctl(readfd, FIONREAD, &bytes_available);
     bool vmsplice_error = false;
@@ -446,7 +495,7 @@ int read_iopipe(std::vector<int> &fds, std::string &output)
     return vmsplice_error ? -1 : 0;
 }
 
-void close_unused_fds(bool is_hp)
+void close_unused_fds(const bool is_hp)
 {
     close_unused_vectorfds(is_hp, hpscfds);
 
@@ -464,7 +513,7 @@ void close_unused_fds(bool is_hp)
  * @param is_hp Specify 'true' when calling from HP process. 'false' from SC process.
  * @param fds Vector of fds to close.
  */
-void close_unused_vectorfds(bool is_hp, std::vector<int> &fds)
+void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds)
 {
     if (is_hp)
     {
