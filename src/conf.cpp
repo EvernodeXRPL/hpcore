@@ -2,6 +2,8 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util.hpp"
+#include <limits.h>
+#include <stdlib.h>
 
 namespace conf
 {
@@ -11,6 +13,15 @@ contract_ctx ctx;
 
 // Global configuration struct exposed to the application.
 contract_config cfg;
+
+// provide a safe std::string overload for realpath
+std::string realpath(std::string path) {
+    std::array<char, PATH_MAX> buffer;
+    ::realpath(path.c_str(), buffer.data());
+    buffer[PATH_MAX] = '\0';
+    return buffer.data();
+}
+
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -96,6 +107,8 @@ int create_contract()
     cfg.loglevel = "warn";
 #endif
     cfg.loggers.emplace("console");
+    
+    cfg.binary = "<your contract binary here>";
 
     //Save the default settings into the config file.
     if (save_config() != 0)
@@ -112,8 +125,14 @@ int create_contract()
  */
 void set_contract_dir_paths(std::string basedir)
 {
-    if (basedir[basedir.size() - 1] == '/')
-        basedir = basedir.substr(0, basedir.size() - 1);
+    if (basedir == "") {
+        // this code branch will never execute the way main is currently coded, but it might change in future
+        std::cerr << "a contract directory must be specified\n";
+        exit(1);
+    }
+    
+    // resolving the path through realpath will remove any trailing slash if present
+    basedir = realpath(basedir);
 
     ctx.contractDir = basedir;
     ctx.configDir = basedir + "/cfg";
@@ -178,9 +197,11 @@ int load_config()
 
     cfg.pubkeyhex = d["pubkeyhex"].GetString();
     cfg.seckeyhex = d["seckeyhex"].GetString();
-    cfg.binary = d["binary"].GetString();
-    cfg.binargs = d["binargs"].GetString();
     cfg.listenip = d["listenip"].GetString();
+    
+    cfg.binary = realpath(d["binary"].GetString());
+    cfg.binargs = d["binargs"].GetString();
+
 
     // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
     // seperately to retrieve easily when handling peer connections.
@@ -401,8 +422,18 @@ int validate_config()
     }
 
     // Other required fields.
-    if (cfg.binary.empty() || cfg.listenip.empty() ||
-        cfg.peerport == 0 || cfg.roundtime == 0 || cfg.pubport == 0 || cfg.loglevel.empty() || cfg.loggers.empty())
+    
+    bool fields_missing = false;
+
+    fields_missing |= cfg.binary.empty()    && std::cout << "Missing cfg field: binary\n";
+    fields_missing |= cfg.listenip.empty()  && std::cout << "Missing cfg field: listenip\n";
+    fields_missing |= cfg.peerport ==0      && std::cout << "Missing cfg field: peerport\n";
+    fields_missing |= cfg.roundtime == 0    && std::cout << "Missing cfg field: roundtime\n";
+    fields_missing |= cfg.pubport == 0      && std::cout << "Missing cfg field: pubport\n";
+    fields_missing |= cfg.loglevel.empty()  && std::cout << "Missing cfg field: loglevel\n";
+    fields_missing |= cfg.loggers.empty()   && std::cout << "Missing cfg field: loggers\n";
+    
+    if (fields_missing)
     {
         std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
         return -1;
