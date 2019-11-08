@@ -3,6 +3,7 @@
 #include "../jsonschema/usrmsg_helpers.hpp"
 #include "../sock/socket_session.hpp"
 #include "../sock/socket_message.hpp"
+#include "../bill/corebill.h"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
@@ -17,7 +18,7 @@ namespace usr
  */
 void user_session_handler::on_connect(sock::socket_session<user_outbound_message> *session)
 {
-    LOG_INFO << "User client connected " << session->address << ":" << session->port;
+    LOG_DBG << "User client connected " << session->address << ":" << session->port;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
@@ -71,7 +72,8 @@ void user_session_handler::on_message(
     // If for any reason we reach this point, we should drop the connection because none of the
     // valid cases match.
     session->close();
-    LOG_INFO << "Dropped the user connection " << session->address << ":" << session->port;
+    LOG_DBG << "Dropped the user connection " << session->uniqueid;
+    corebill::report_violation(session->address);
 }
 
 /**
@@ -89,7 +91,7 @@ void user_session_handler::on_close(sock::socket_session<user_outbound_message> 
     else if (session->flags[sock::SESSION_FLAG::USER_AUTHED])
         remove_user(session->uniqueid);
 
-    LOG_INFO << "User disconnected " << session->uniqueid;
+    LOG_DBG << "User disconnected " << session->uniqueid;
 }
 
 } // namespace usr

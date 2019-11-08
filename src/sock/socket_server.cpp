@@ -93,7 +93,7 @@ void socket_server<T>::on_accept(error_code ec, tcp::socket socket)
 
         // Launch a new session for this connection
         std::make_shared<socket_session<T>>(std::move(ws), sess_handler)
-            ->run(std::move(port), std::move(address), true, sess_opts);
+            ->run(std::move(address), std::move(port), true, sess_opts);
     }
 
     // Accept another connection

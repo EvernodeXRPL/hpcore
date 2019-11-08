@@ -17,11 +17,11 @@ static const char *HP_VERSION = "0.1";
 static const char *MIN_CONTRACT_VERSION = "0.1";
 
 // Current version of the peer message protocol.
-static const int PEERMSG_VERSION = 1;
+static const uint8_t PEERMSG_VERSION = 1;
 
 // Minimum compatible peer message version (this will be used to accept/reject incoming peer connections)
 // (Keeping this as int for effcient msg payload and comparison)
-static const int MIN_PEERMSG_VERSION = 1;
+static const uint8_t MIN_PEERMSG_VERSION = 1;
 
 /**
  * FIFO hash set with a max size.
@@ -41,6 +41,21 @@ private:
 public:
     rollover_hashset(const uint32_t maxsize);
     bool try_emplace(const std::string hash);
+};
+
+/**
+ * A string set with expiration for elements.
+ */
+class ttl_set
+{
+private:
+    // Keeps short-lived items with their absolute expiration time.
+    std::unordered_map<std::string, uint64_t> ttlmap;
+
+public:
+    void emplace(const std::string key, uint64_t ttl_milli);
+    void erase(const std::string &key);
+    bool exists(const std::string &key);
 };
 
 int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len);

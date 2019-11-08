@@ -87,18 +87,18 @@ int verify_challenge(std::string_view message, sock::socket_session<user_outboun
             add_user(session, userpubkey);                                   // Add the user to the global authed user list
             ctx.pending_challenges.erase(session->uniqueid);                 // Remove the stored challenge
 
-            LOG_INFO << "User connection " << session->uniqueid << " authenticated. Public key "
+            LOG_DBG << "User connection " << session->uniqueid << " authenticated. Public key "
                      << userpubkeyhex;
             return 0;
         }
         else
         {
-            LOG_INFO << "Duplicate user public key " << session->uniqueid;
+            LOG_DBG << "Duplicate user public key " << session->uniqueid;
         }
     }
     else
     {
-        LOG_INFO << "Challenge verification failed " << session->uniqueid;
+        LOG_DBG << "Challenge verification failed " << session->uniqueid;
     }
 
     return -1;

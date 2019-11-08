@@ -39,6 +39,11 @@ target_link_libraries(hpsupport
     ssl
 )
 
+add_library(hpbill
+    src/bill/corebill.cpp
+)
+target_link_libraries(hpbill hpsupport)
+
 add_library(hpsock
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
@@ -46,7 +51,7 @@ add_library(hpsock
     src/sock/socket_session.cpp
     src/sock/socket_session_lambda.cpp
 )
-target_link_libraries(hpsock hpsupport)
+target_link_libraries(hpsock hpsupport hpbill)
 
 add_library(hpschema
     src/fbschema/common_helpers.cpp
@@ -79,6 +84,7 @@ add_executable(hpcore
 )
 target_link_libraries(hpcore
     hpsupport
+    hpbill
     hpschema
     hpsock
     hpp2p
