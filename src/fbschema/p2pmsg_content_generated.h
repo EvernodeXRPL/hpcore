@@ -511,23 +511,9 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PUBKEY = 4,
-    VT_TIMESTAMP = 6,
-    VT_DATA = 8,
-    VT_LCL = 10
+    VT_DATA = 4,
+    VT_LCL = 6
   };
-  const flatbuffers::Vector<uint8_t> *pubkey() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  uint64_t timestamp() const {
-    return GetField<uint64_t>(VT_TIMESTAMP, 0);
-  }
-  bool mutate_timestamp(uint64_t _timestamp) {
-    return SetField<uint64_t>(VT_TIMESTAMP, _timestamp, 0);
-  }
   const flatbuffers::Vector<uint8_t> *data() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_DATA);
   }
@@ -542,9 +528,6 @@ struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_PUBKEY) &&
-           verifier.VerifyVector(pubkey()) &&
-           VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
            VerifyOffset(verifier, VT_DATA) &&
            verifier.VerifyVector(data()) &&
            VerifyOffset(verifier, VT_LCL) &&
@@ -556,12 +539,6 @@ struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct Npl_MessageBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
-    fbb_.AddOffset(Npl_Message::VT_PUBKEY, pubkey);
-  }
-  void add_timestamp(uint64_t timestamp) {
-    fbb_.AddElement<uint64_t>(Npl_Message::VT_TIMESTAMP, timestamp, 0);
-  }
   void add_data(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data) {
     fbb_.AddOffset(Npl_Message::VT_DATA, data);
   }
@@ -582,31 +559,22 @@ struct Npl_MessageBuilder {
 
 inline flatbuffers::Offset<Npl_Message> CreateNpl_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    uint64_t timestamp = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0) {
   Npl_MessageBuilder builder_(_fbb);
-  builder_.add_timestamp(timestamp);
   builder_.add_lcl(lcl);
   builder_.add_data(data);
-  builder_.add_pubkey(pubkey);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Npl_Message> CreateNpl_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *pubkey = nullptr,
-    uint64_t timestamp = 0,
     const std::vector<uint8_t> *data = nullptr,
     const std::vector<uint8_t> *lcl = nullptr) {
-  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto data__ = data ? _fbb.CreateVector<uint8_t>(*data) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   return fbschema::p2pmsg::CreateNpl_Message(
       _fbb,
-      pubkey__,
-      timestamp,
       data__,
       lcl__);
 }

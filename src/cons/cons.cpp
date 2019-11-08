@@ -59,11 +59,19 @@ void consensus()
                   << "] users:" << p.users.size()
                   << " hinp:" << p.hash_inputs.size()
                   << " hout:" << p.hash_outputs.size()
-                  << " lcl:" << p.lcl 
+                  << " lcl:" << p.lcl
                   << " self:" << self
                   << "\n";
     }
     std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
+
+    // Throughout consensus, we move over the incoming npl messages collected via the network so far into
+    // the candidate npl message set (move and append). This is to have a private working set for the consensus
+    // and avoid threading conflicts with network incoming npl messages.
+    {
+        std::lock_guard<std::mutex> lock(p2p::collected_msgs.npl_messages_mutex);
+        ctx.candidate_npl_messages.splice(ctx.candidate_npl_messages.end(), p2p::collected_msgs.npl_messages);
+    }
 
     if (ctx.stage == 0)
     {
@@ -171,7 +179,7 @@ void broadcast_nonunl_proposal()
 {
     // Construct NUP.
     p2p::nonunl_proposal nup;
-    
+
     std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
     for (auto &[sid, user] : usr::ctx.users)
     {
@@ -187,7 +195,8 @@ void broadcast_nonunl_proposal()
     p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
     p2p::broadcast_message(msg);
 
-    LOG_DBG << "NUP sent." << " users:" << nup.user_messages.size();
+    LOG_DBG << "NUP sent."
+            << " users:" << nup.user_messages.size();
 }
 
 /**
@@ -202,7 +211,7 @@ void verify_and_populate_candidate_user_inputs()
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
-             // Populate user list.
+            // Populate user list.
             ctx.candidate_users.emplace(pubkey);
 
             for (const usr::user_submitted_message &umsg : umsgs)
@@ -515,9 +524,10 @@ void apply_ledger(const p2p::proposal &cons_prop)
     // and act accordingly (rollback, ask state from peer, etc.)
 
     proc::contract_bufmap_t useriobufmap;
-    feed_inputs_to_contract_bufmap(useriobufmap, cons_prop);
-    run_contract_binary(cons_prop.time, useriobufmap);
-    extract_outputs_from_contract_bufmap(useriobufmap);
+    proc::contract_bufmap_t nplbufmap;
+    feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
+    run_contract_binary(cons_prop.time, useriobufmap, nplbufmap);
+    extract_user_outputs_from_contract_bufmap(useriobufmap);
 }
 
 /**
@@ -527,7 +537,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
 void dispatch_user_outputs(const p2p::proposal &cons_prop)
 {
     std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
-    
+
     for (const std::string &hash : cons_prop.hash_outputs)
     {
         auto cu_itr = ctx.candidate_user_outputs.find(hash);
@@ -547,8 +557,8 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
             if (sess_itr != usr::ctx.sessionids.end()) // match found
             {
-                auto user_itr = usr::ctx.users.find(sess_itr->second);  // sess_itr->second is the session id.
-                if (user_itr != usr::ctx.users.end()) // match found
+                auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
+                if (user_itr != usr::ctx.users.end())                  // match found
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
@@ -560,7 +570,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             }
         }
     }
-    
+
     // now we can safely clear our candidate outputs.
     ctx.candidate_user_outputs.clear();
 }
@@ -570,7 +580,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
  * @param bufmap The contract bufmap which needs to be populated with inputs.
  * @param cons_prop The proposal that achieved consensus.
  */
-void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
+void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
 {
     // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
     // This is in case the contract wanted to emit some data to a user without needing any input.
@@ -610,10 +620,11 @@ void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::
  * for the next consensus round.
  * @param bufmap The contract bufmap containing the outputs produced by the contract.
  */
-void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
+void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
 {
     for (auto &[pubkey, bufpair] : bufmap)
     {
+
         if (!bufpair.output.empty())
         {
             std::string output;
@@ -632,10 +643,9 @@ void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap)
+void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_bufmap_t &nplbufmap)
 {
-    // todo:implement exchange of npl and hpsc bufs
-    proc::contract_bufmap_t nplbufmap;
+    // todo:implement exchange of hpsc bufs
     proc::contract_iobuf_pair hpscbufpair;
 
     proc::contract_exec_args eargs(time_now, useriobufmap, nplbufmap, hpscbufpair);

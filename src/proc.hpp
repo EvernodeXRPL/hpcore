@@ -41,9 +41,8 @@ struct contract_exec_args
     // The value is a pair holding consensus-verified inputs and contract-generated outputs.
     contract_bufmap_t &userbufs;
 
-    // Map of NPL I/O buffers (map key: Peer binary public key).
-    // The value is a pair holding NPL inputs and contract-generated outputs.
-    contract_bufmap_t &nplbufs;
+
+    std::list<std::string> &nplbuff;
 
     // Pair of HP<->SC JSON message buffers (mainly used for control messages).
     // Input buffers for HP->SC messages, Output buffers for SC->HP messages.

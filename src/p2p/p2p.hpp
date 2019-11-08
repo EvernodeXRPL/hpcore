@@ -26,13 +26,25 @@ struct nonunl_proposal
     std::unordered_map<std::string, const std::list<usr::user_submitted_message>> user_messages;
 };
 
+struct npl_message
+{
+    std::string pubkey;
+    uint64_t timestamp;
+    std::string data;
+    std::string lcl;
+};
+
 struct message_collection
 {
     std::list<proposal> proposals;
-    std::mutex proposals_mutex;             // Mutex for proposals access race conditions.
+    std::mutex proposals_mutex;                    // Mutex for proposals access race conditions.
     
     std::list<nonunl_proposal> nonunl_proposals;
-    std::mutex nonunl_proposals_mutex;      // Mutex for non-unl proposals access race conditions.
+    std::mutex nonunl_proposals_mutex;            // Mutex for non-unl proposals access race conditions.
+
+    // NPL messages are stored as string list because we are feeding the npl messages as it is (byte array) to the contract.
+    std::list<std::string> npl_messages;          
+    std::mutex npl_messages_mutex;                 // Mutex for npl_messages access race conditions.
 };
 
 /**
