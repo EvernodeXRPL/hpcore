@@ -21,6 +21,7 @@ struct contract_ctx
     std::string contractDir; // Contract base directory
     std::string histDir;     // Contract history dir
     std::string stateDir;    // Contract state dir
+    std::string stateMapDir;    // Contract state map dir (.merkel files)
     std::string logDir;      // Contract log dir
     std::string configDir;   // Contract config dir
     std::string configFile;  // Full path to the contract config file

@@ -11,6 +11,7 @@
 #include "../crypto.hpp"
 #include "../proc/proc.hpp"
 #include "ledger_handler.hpp"
+#include "statemap_handler.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -56,11 +57,11 @@ void consensus()
     {
         const bool self = p.pubkey == conf::cfg.pubkey;
         LOG_DBG << "[stage" << std::to_string(p.stage)
-                  << "] users:" << p.users.size()
-                  << " hinp:" << p.hash_inputs.size()
-                  << " hout:" << p.hash_outputs.size()
-                  << " lcl:" << p.lcl 
-                  << " self:" << self;
+                << "] users:" << p.users.size()
+                << " hinp:" << p.hash_inputs.size()
+                << " hout:" << p.hash_outputs.size()
+                << " lcl:" << p.lcl
+                << " self:" << self;
     }
     LOG_DBG << "timenow: " << std::to_string(ctx.time_now);
 
@@ -170,7 +171,7 @@ void broadcast_nonunl_proposal()
 {
     // Construct NUP.
     p2p::nonunl_proposal nup;
-    
+
     std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
     for (auto &[sid, user] : usr::ctx.users)
     {
@@ -186,7 +187,8 @@ void broadcast_nonunl_proposal()
     p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
     p2p::broadcast_message(msg);
 
-    LOG_DBG << "NUP sent." << " users:" << nup.user_messages.size();
+    LOG_DBG << "NUP sent."
+            << " users:" << nup.user_messages.size();
 }
 
 /**
@@ -201,7 +203,7 @@ void verify_and_populate_candidate_user_inputs()
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
-             // Populate user list.
+            // Populate user list.
             ctx.candidate_users.emplace(pubkey);
 
             for (const usr::user_submitted_message &umsg : umsgs)
@@ -523,10 +525,17 @@ void apply_ledger(const p2p::proposal &cons_prop)
     // todo:check  state against the winning / canonical state
     // and act accordingly (rollback, ask state from peer, etc.)
 
+    // This will hold a list of file blocks that was updated by the contract process.
+    // We then feed this information to state tracking logic.
+    proc::contract_fblockmap_t updated_blocks;
+
     proc::contract_bufmap_t useriobufmap;
     feed_inputs_to_contract_bufmap(useriobufmap, cons_prop);
-    run_contract_binary(cons_prop.time, useriobufmap);
+
+    run_contract_binary(cons_prop.time, useriobufmap, updated_blocks);
+
     extract_outputs_from_contract_bufmap(useriobufmap);
+    update_state_blockmap(updated_blocks);
 }
 
 /**
@@ -536,7 +545,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
 void dispatch_user_outputs(const p2p::proposal &cons_prop)
 {
     std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
-    
+
     for (const std::string &hash : cons_prop.hash_outputs)
     {
         const auto cu_itr = ctx.candidate_user_outputs.find(hash);
@@ -556,8 +565,8 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             const auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
             if (sess_itr != usr::ctx.sessionids.end()) // match found
             {
-                const auto user_itr = usr::ctx.users.find(sess_itr->second);  // sess_itr->second is the session id.
-                if (user_itr != usr::ctx.users.end()) // match found
+                const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
+                if (user_itr != usr::ctx.users.end())                        // match found
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
@@ -569,7 +578,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             }
         }
     }
-    
+
     // now we can safely clear our candidate outputs.
     ctx.candidate_user_outputs.clear();
 }
@@ -641,15 +650,11 @@ void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap)
+void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_fblockmap_t &state_updates)
 {
     // todo:implement exchange of npl and hpsc bufs
     proc::contract_bufmap_t nplbufmap;
     proc::contract_iobuf_pair hpscbufpair;
-
-    // This will hold a list of file blocks that was updated by the contract process.
-    // We then feed this information to state tracking logic.
-    proc::contract_fblockmap_t state_updates;
 
     proc::exec_contract(
         proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair, state_updates));

@@ -75,6 +75,7 @@ int create_contract()
     boost::filesystem::create_directories(ctx.configDir);
     boost::filesystem::create_directories(ctx.histDir);
     boost::filesystem::create_directories(ctx.stateDir);
+    boost::filesystem::create_directories(ctx.stateMapDir);
 
     //Create config file with default settings.
 
@@ -121,6 +122,7 @@ void set_contract_dir_paths(std::string basedir)
     ctx.tlsCertFile = ctx.configDir + "/tlscert.pem";
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
+    ctx.stateMapDir = basedir + "/statemap";
     ctx.logDir = basedir + "/log";
 }
 
@@ -217,7 +219,7 @@ int load_config()
     cfg.peerport = d["peerport"].GetInt();
     cfg.roundtime = d["roundtime"].GetInt();
     cfg.pubport = d["pubport"].GetInt();
-    
+
     cfg.pubmaxsize = d["pubmaxsize"].GetUint64();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetUint64();
     cfg.pubmaxbadmpm = d["pubmaxbadmpm"].GetUint64();
@@ -450,7 +452,14 @@ int validate_config()
  */
 int validate_contract_dir_paths()
 {
-    const std::string paths[6] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir, ctx.tlsKeyFile, ctx.tlsCertFile};
+    const std::string paths[7] = {
+        ctx.contractDir,
+        ctx.configFile,
+        ctx.histDir,
+        ctx.stateDir,
+        ctx.stateMapDir,
+        ctx.tlsKeyFile,
+        ctx.tlsCertFile};
 
     for (const std::string &path : paths)
     {
@@ -506,7 +515,7 @@ int is_schema_valid(const rapidjson::Document &d)
         "\"peerport\": { \"type\": \"integer\" },"
         "\"roundtime\": { \"type\": \"integer\" },"
         "\"pubport\": { \"type\": \"integer\" },"
-        
+
         "\"pubmaxsize\": { \"type\": \"integer\" },"
         "\"pubmaxcpm\": { \"type\": \"integer\" },"
         "\"pubmaxbadmpm\": { \"type\": \"integer\" },"

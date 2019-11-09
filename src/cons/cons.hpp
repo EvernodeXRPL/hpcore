@@ -122,7 +122,7 @@ void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::
 
 void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
 
-void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap);
+void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_fblockmap_t &state_updates);
 
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);
