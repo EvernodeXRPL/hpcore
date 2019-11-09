@@ -3,7 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../util.hpp"
-#include "../proc.hpp"
+#include "../proc/proc.hpp"
 #include "../p2p/p2p.hpp"
 #include "../usr/user_input.hpp"
 

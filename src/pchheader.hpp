@@ -47,8 +47,13 @@
 #include <string>
 #include <string_view>
 #include <sys/ioctl.h>
+#include <sys/ptrace.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/user.h>
 #include <sys/wait.h>
+#include <syscall.h>
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>

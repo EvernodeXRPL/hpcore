@@ -9,7 +9,7 @@
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
-#include "../proc.hpp"
+#include "../proc/proc.hpp"
 #include "ledger_handler.hpp"
 #include "cons.hpp"
 
@@ -646,12 +646,13 @@ void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &userio
     // todo:implement exchange of npl and hpsc bufs
     proc::contract_bufmap_t nplbufmap;
     proc::contract_iobuf_pair hpscbufpair;
-    hpscbufpair.inputs.push_back("A");
-    hpscbufpair.inputs.push_back("B");
-    hpscbufpair.inputs.push_back("C");
+
+    // This will hold a list of file blocks that was updated by the contract process.
+    // We then feed this information to state tracking logic.
+    proc::contract_fblockmap_t state_updates;
 
     proc::exec_contract(
-        proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair));
+        proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair, state_updates));
 }
 
 /**

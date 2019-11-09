@@ -25,7 +25,6 @@ add_library(hpsupport
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
-    src/proc.cpp
 )
 target_link_libraries(hpsupport
     libsodium.a
@@ -38,6 +37,12 @@ target_link_libraries(hpsupport
     crypto
     ssl
 )
+
+add_library(hpproc
+    src/proc/proc.cpp
+    src/proc/ptrace_capture.cpp
+)
+target_link_libraries(hpproc hpsupport)
 
 add_library(hpbill
     src/bill/corebill.cpp
@@ -77,13 +82,14 @@ add_library(hpcons
     src/cons/cons.cpp
     src/cons/ledger_handler.cpp
 )
-target_link_libraries(hpcons hpsupport hpp2p hpusr)
+target_link_libraries(hpcons hpsupport hpproc hpp2p hpusr)
 
 add_executable(hpcore
     src/main.cpp
 )
 target_link_libraries(hpcore
     hpsupport
+    hpproc
     hpbill
     hpschema
     hpsock
