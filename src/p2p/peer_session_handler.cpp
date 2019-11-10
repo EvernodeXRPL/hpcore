@@ -26,8 +26,8 @@ void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message
 {
     if (!session->flags[sock::SESSION_FLAG::INBOUND])
     {
-        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-        peer_connections.insert(std::make_pair(session->uniqueid, session));
+        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+        ctx.peer_connections.try_emplace(session->uniqueid, session);
         LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
 }
@@ -70,16 +70,16 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             return;
         }
 
-        std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex); // Insert proposal with lock.
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
 
-        collected_msgs.proposals.push_back(
+        ctx.collected_msgs.proposals.push_back(
             p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp()));
     }
     else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
     {
-        std::lock_guard<std::mutex> lock(collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
 
-        collected_msgs.nonunl_proposals.push_back(
+        ctx.collected_msgs.nonunl_proposals.push_back(
             p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
     }
     else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
@@ -99,8 +99,8 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 void peer_session_handler::on_close(sock::socket_session<peer_outbound_message> *session)
 {
     {
-        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-        peer_connections.erase(session->uniqueid);
+        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+        ctx.peer_connections.erase(session->uniqueid);
     }
     LOG_DBG << "Peer disonnected: " << session->uniqueid;
 }

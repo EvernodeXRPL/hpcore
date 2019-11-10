@@ -48,8 +48,8 @@ void consensus()
     // the candidate proposal set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming proposals.
     {
-        std::lock_guard<std::mutex> lock(p2p::collected_msgs.proposals_mutex);
-        ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::collected_msgs.proposals);
+        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
+        ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::ctx.collected_msgs.proposals);
     }
 
     LOG_DBG << "Started stage " << std::to_string(ctx.stage);
@@ -172,7 +172,7 @@ void broadcast_nonunl_proposal()
     // Construct NUP.
     p2p::nonunl_proposal nup;
 
-    std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
+    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
     for (auto &[sid, user] : usr::ctx.users)
     {
         std::list<usr::user_submitted_message> usermsgs;
@@ -198,8 +198,8 @@ void broadcast_nonunl_proposal()
 void verify_and_populate_candidate_user_inputs()
 {
     // Lock the list so any network activity is blocked.
-    std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
-    for (const p2p::nonunl_proposal &p : p2p::collected_msgs.nonunl_proposals)
+    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+    for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
@@ -244,7 +244,7 @@ void verify_and_populate_candidate_user_inputs()
             }
         }
     }
-    p2p::collected_msgs.nonunl_proposals.clear();
+    p2p::ctx.collected_msgs.nonunl_proposals.clear();
 }
 
 p2p::proposal create_stage0_proposal()
