@@ -238,18 +238,20 @@ int load_config()
     }
 
     cfg.peerport = d["peerport"].GetInt();
-    cfg.roundtime = d["roundtime"].GetInt();
     cfg.pubport = d["pubport"].GetInt();
+    cfg.roundtime = d["roundtime"].GetInt();
 
     cfg.pubmaxsize = d["pubmaxsize"].GetUint64();
     cfg.pubmaxcpm = d["pubmaxcpm"].GetUint64();
     cfg.pubmaxbadmpm = d["pubmaxbadmpm"].GetUint64();
+    cfg.pubmaxcons = d["pubmaxcons"].GetUint();
 
     cfg.peermaxsize = d["peermaxsize"].GetUint64();
     cfg.peermaxcpm = d["peermaxcpm"].GetUint64();
     cfg.peermaxdupmpm = d["peermaxdupmpm"].GetUint64();
     cfg.peermaxbadmpm = d["peermaxbadmpm"].GetUint64();
     cfg.peermaxbadsigpm = d["peermaxbadsigpm"].GetUint64();
+    cfg.peermaxcons = d["peermaxcons"].GetUint();
 
     cfg.loglevel = d["loglevel"].GetString();
     cfg.loggers.clear();
@@ -309,18 +311,20 @@ int save_config()
     d.AddMember("unl", unl, allocator);
 
     d.AddMember("peerport", cfg.peerport, allocator);
-    d.AddMember("roundtime", cfg.roundtime, allocator);
     d.AddMember("pubport", cfg.pubport, allocator);
+    d.AddMember("roundtime", cfg.roundtime, allocator);
 
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
     d.AddMember("pubmaxbadmpm", cfg.pubmaxbadmpm, allocator);
+    d.AddMember("pubmaxcons", cfg.pubmaxcons, allocator);
 
     d.AddMember("peermaxsize", cfg.peermaxsize, allocator);
     d.AddMember("peermaxcpm", cfg.peermaxcpm, allocator);
     d.AddMember("peermaxdupmpm", cfg.peermaxdupmpm, allocator);
     d.AddMember("peermaxbadmpm", cfg.peermaxbadmpm, allocator);
     d.AddMember("peermaxbadsigpm", cfg.peermaxbadsigpm, allocator);
+    d.AddMember("peermaxcons", cfg.peermaxcons, allocator);
 
     d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
     rapidjson::Value loggers(rapidjson::kArrayType);
@@ -525,9 +529,10 @@ int is_schema_valid(const rapidjson::Document &d)
         "{"
         "\"type\": \"object\","
         "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
-        ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\""
-        ", \"pubmaxbadmpm\", \"peermaxsize\", \"peermaxcpm\""
-        ", \"peermaxdupmpm\", \"peermaxbadmpm\", \"peermaxbadsigpm\", \"loglevel\", \"loggers\" ],"
+        ", \"peers\", \"unl\", \"pubport\", \"peerport\", \"roundtime\""
+        ", \"pubmaxsize\", \"pubmaxcpm\", \"pubmaxbadmpm\", \"pubmaxcons\""
+        ", \"peermaxsize\", \"peermaxcpm\", \"peermaxdupmpm\", \"peermaxbadmpm\", \"peermaxbadsigpm\", \"peermaxcons\""
+        ", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"

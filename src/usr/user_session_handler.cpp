@@ -18,7 +18,14 @@ namespace usr
  */
 void user_session_handler::on_connect(sock::socket_session<user_outbound_message> *session)
 {
-    LOG_DBG << "User client connected " << session->address << ":" << session->port;
+    if (conf::cfg.pubmaxcons > 0 && ctx.users.size() >= conf::cfg.pubmaxcons)
+    {
+        session->close();
+        LOG_DBG << "Max user connections reached. Dropped connection " << session->uniqueid;
+        return;
+    }
+
+    LOG_DBG << "User client connected " << session->uniqueid;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.

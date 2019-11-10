@@ -24,7 +24,16 @@ util::rollover_hashset recent_peermsg_hashes(200);
  */
 void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
-    if (!session->flags[sock::SESSION_FLAG::INBOUND])
+    if (session->flags[sock::SESSION_FLAG::INBOUND])
+    {
+        // Limit max number of inbound connections.
+        if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
+        {
+            session->close();
+            LOG_DBG << "Max peer connections reached. Dropped connection " << session->uniqueid;
+        }
+    }
+    else
     {
         std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
         ctx.peer_connections.try_emplace(session->uniqueid, session);

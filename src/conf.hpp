@@ -54,12 +54,14 @@ struct contract_config
     uint64_t pubmaxsize;                                    // User message max size in bytes
     uint64_t pubmaxcpm;                                     // User message rate (characters(bytes) per minute)
     uint64_t pubmaxbadmpm;                                  // User bad messages per minute
+    uint16_t pubmaxcons;                                    // Max inbound user connections
     
     uint64_t peermaxsize;                                   // Peer message max size in bytes
     uint64_t peermaxcpm;                                    // Peer message rate (characters(bytes) per minute)
     uint64_t peermaxdupmpm;                                 // Peer max duplicate messages per minute
     uint64_t peermaxbadmpm;                                 // Peer bad messages per minute
     uint64_t peermaxbadsigpm;                               // Peer bad signatures per minute
+    uint16_t peermaxcons;                                   // Max inbound peer connections
 
     std::string loglevel;                                   // Log severity level (debug, info, warn, error)
     std::unordered_set<std::string> loggers;                // List of enabled loggers (console, file)
