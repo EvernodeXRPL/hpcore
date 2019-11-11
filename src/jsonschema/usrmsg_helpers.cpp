@@ -1,18 +1,37 @@
 #include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../crypto.hpp"
+#include "../cons/cons.hpp"
 #include "../hplog.hpp"
 #include "usrmsg_helpers.hpp"
 
 namespace jsonschema::usrmsg
 {
 
+// User JSON message schema version
+const char* const SCHEMA_VERSION = "0.1";
+
 // Separators
-static const char *SEP_COMMA = "\",\"";
-static const char *SEP_COLON = "\":\"";
+const char* const SEP_COMMA = "\",\"";
+const char* const SEP_COLON = "\":\"";
+const char* const SEP_COMMA_NOQUOTE = ",";
+const char* const SEP_COLON_NOQUOTE = "\":";
+
+// Message field names
+const char* const FLD_VERSION = "version";
+const char* const FLD_TYPE = "type";
+const char* const FLD_CHALLENGE = "challenge";
+const char* const FLD_SIG = "sig";
+const char* const FLD_PUBKEY = "pubkey";
+const char* const FLD_INPUT = "input";
+const char* const FLD_MAX_LED_SEQ = "max_ledger_seqno";
+const char* const FLD_CONTENT = "content";
+const char* const FLD_NONCE = "nonce";
+const char* const FLD_LCL = "lcl";
+const char* const FLD_LCL_SEQ = "lcl_seqno";
 
 // Length of user random challenge bytes.
-static const size_t CHALLENGE_LEN = 16;
+const size_t CHALLENGE_LEN = 16;
 
 /**
  * Constructs user challenge message json and the challenge string required for
@@ -43,8 +62,8 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
     // We do not use RapidJson here in favour of performance because this is a simple json message.
 
     // Since we know the rough size of the challenge massage we reserve adequate amount for the holder.
-    // Only Hot Pocket version number is variable length. Therefore message size is roughly 95 bytes
-    // so allocating 128bits for heap padding.
+    // Only Hot Pocket version number is variable length. Therefore message size is roughly 90 bytes
+    // so allocating 128bytes for heap padding.
     msg.reserve(128);
     msg.append("{\"")
         .append(FLD_VERSION)
@@ -61,6 +80,28 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
         .append("\"}");
 }
 
+void create_status_response(std::string &msg)
+{
+    msg.reserve(128);
+    msg.append("{\"")
+        .append(FLD_VERSION)
+        .append(SEP_COLON)
+        .append(SCHEMA_VERSION)
+        .append(SEP_COMMA)
+        .append(FLD_TYPE)
+        .append(SEP_COLON)
+        .append(MSGTYPE_STAT_RESP)
+        .append(SEP_COMMA)
+        .append(FLD_LCL)
+        .append(SEP_COLON)
+        .append(cons::ctx.lcl)
+        .append(SEP_COMMA)
+        .append(FLD_LCL_SEQ)
+        .append(SEP_COLON_NOQUOTE)
+        .append(std::to_string(cons::ctx.led_seq_no))
+        .append("}");
+}
+
 /**
  * Verifies the user challenge response with the original challenge issued to the user
  * and the user public key contained in the response.
@@ -69,8 +110,7 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
  * @param response The response bytes to verify. This will be parsed as json.
  *                 Accepted response format:
  *                 {
- *                   "version": "<protocol version>"
- *                   "type": "challenge_response",
+ *                   "type": "challenge_resp",
  *                   "challenge": "<original hex challenge the user received>",
  *                   "sig": "<hex signature of the challenge>",
  *                   "pubkey": "<hex public key of the user>"
@@ -136,7 +176,6 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
  * @param d The json document holding the input container.
  *          Accepted signed input container format:
  *          {
- *            "version": "<protocol version>"
  *            "type": "contract_input",
  *            "content": "<hex encoded input container message>",
  *            "sig": "<hex encoded signature of the content>"
@@ -176,12 +215,12 @@ int extract_signed_input_container(
  * Extract the individual components of a given input container json.
  * @param nonce The extracted nonce.
  * @param input The extracted input.
- * @param max_ledger_seqno The extracted max ledger sequence no.
+ * @param max_ledger_seqno Themaxledgerseqno extracted max ledger sequence no.
  * @param contentjson The json string containing the input container message.
  *                    {
  *                      "nonce": "<random string with optional sorted order>",
  *                      "input": "<hex encoded contract input content>",
- *                      "maxledgerseqno": 4562712334
+ *                      "max_ledger_seqno": 4562712334
  *                    }
  * @return 0 on succesful extraction. -1 on failure.
  */
@@ -213,9 +252,9 @@ int extract_input_container(std::string &nonce, std::string &input, uint64_t &ma
     // Convert hex input to binary.
     input.resize(inputhex.length() / 2);
     if (util::hex2bin(
-        reinterpret_cast<unsigned char *>(input.data()),
-        input.length(),
-        inputhex) != 0)
+            reinterpret_cast<unsigned char *>(input.data()),
+            input.length(),
+            inputhex) != 0)
     {
         LOG_DBG << "Contract input format invalid.";
         return -1;
@@ -231,6 +270,11 @@ int extract_input_container(std::string &nonce, std::string &input, uint64_t &ma
  * Parses a json message sent by a user.
  * @param d RapidJson document to which the parsed json should be loaded.
  * @param message The message to parse.
+ *                Accepted message format:
+ *                {
+ *                  'type': '<message type>'
+ *                  ...
+ *                }
  * @return 0 on successful parsing. -1 for failure.
  */
 int parse_user_message(rapidjson::Document &d, std::string_view message)
@@ -242,13 +286,6 @@ int parse_user_message(rapidjson::Document &d, std::string_view message)
     if (d.HasParseError())
     {
         LOG_DBG << "User json message parsing failed.";
-        return -1;
-    }
-
-    // Check existence of msg type field.
-    if (!d.HasMember(FLD_VERSION) || !d[FLD_VERSION].IsString())
-    {
-        LOG_DBG << "User json message 'version' missing or invalid.";
         return -1;
     }
 
