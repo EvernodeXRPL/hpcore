@@ -20,6 +20,13 @@ namespace jusrmsg = jsonschema::usrmsg;
 namespace cons
 {
 
+/**
+ * Voting thresholds for consensus stages.
+ */
+constexpr float STAGE1_THRESHOLD = 0.5;
+constexpr float STAGE2_THRESHOLD = 0.65;
+constexpr float STAGE3_THRESHOLD = 0.8;
+
 consensus_context ctx;
 
 int init()

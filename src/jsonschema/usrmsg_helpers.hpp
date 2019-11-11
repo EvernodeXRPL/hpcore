@@ -10,11 +10,11 @@ namespace jsonschema::usrmsg
 extern const char* const FLD_TYPE;
 
 // Message types
-const char* const MSGTYPE_CHALLENGE = "public_challenge";
-const char* const MSGTYPE_CHALLENGE_RESP = "challenge_resp";
-const char* const MSGTYPE_CONTRACT_INPUT = "contract_input";
-const char* const MSGTYPE_STAT = "stat";
-const char* const MSGTYPE_STAT_RESP = "stat_resp";
+constexpr const char* MSGTYPE_CHALLENGE = "public_challenge";
+constexpr const char* MSGTYPE_CHALLENGE_RESP = "challenge_resp";
+constexpr const char* MSGTYPE_CONTRACT_INPUT = "contract_input";
+constexpr const char* MSGTYPE_STAT = "stat";
+constexpr const char* MSGTYPE_STAT_RESP = "stat_resp";
 
 void create_user_challenge(std::string &msg, std::string &challengehex);
 

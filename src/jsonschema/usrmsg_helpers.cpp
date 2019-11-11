@@ -9,26 +9,26 @@ namespace jsonschema::usrmsg
 {
 
 // User JSON message schema version
-const char* const SCHEMA_VERSION = "0.1";
+constexpr const char* SCHEMA_VERSION = "0.1";
 
 // Separators
-const char* const SEP_COMMA = "\",\"";
-const char* const SEP_COLON = "\":\"";
-const char* const SEP_COMMA_NOQUOTE = ",";
-const char* const SEP_COLON_NOQUOTE = "\":";
+constexpr const char* SEP_COMMA = "\",\"";
+constexpr const char* SEP_COLON = "\":\"";
+constexpr const char* SEP_COMMA_NOQUOTE = ",";
+constexpr const char* SEP_COLON_NOQUOTE = "\":";
 
 // Message field names
 const char* const FLD_VERSION = "version";
-const char* const FLD_TYPE = "type";
-const char* const FLD_CHALLENGE = "challenge";
-const char* const FLD_SIG = "sig";
-const char* const FLD_PUBKEY = "pubkey";
-const char* const FLD_INPUT = "input";
-const char* const FLD_MAX_LED_SEQ = "max_ledger_seqno";
-const char* const FLD_CONTENT = "content";
-const char* const FLD_NONCE = "nonce";
-const char* const FLD_LCL = "lcl";
-const char* const FLD_LCL_SEQ = "lcl_seqno";
+constexpr const char* FLD_TYPE = "type";
+constexpr const char* FLD_CHALLENGE = "challenge";
+constexpr const char* FLD_SIG = "sig";
+constexpr const char* FLD_PUBKEY = "pubkey";
+constexpr const char* FLD_INPUT = "input";
+constexpr const char* FLD_MAX_LED_SEQ = "max_ledger_seqno";
+constexpr const char* FLD_CONTENT = "content";
+constexpr const char* FLD_NONCE = "nonce";
+constexpr const char* FLD_LCL = "lcl";
+constexpr const char* FLD_LCL_SEQ = "lcl_seqno";
 
 // Length of user random challenge bytes.
 const size_t CHALLENGE_LEN = 16;

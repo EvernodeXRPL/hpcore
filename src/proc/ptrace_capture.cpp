@@ -17,7 +17,7 @@ struct fd_info
 };
 
 // File modifications are tracked in 4MB blocks.
-static const int BLOCK_SIZE = 4 * 1024 * 1024;
+constexpr int BLOCK_SIZE = 4 * 1024 * 1024;
 
 /**
  * Blocks the calling thread and captures the child process activity until it exits.
