@@ -137,6 +137,7 @@ int handle_user_message(connected_user &user, std::string_view message)
             LOG_DBG << msg;
             jusrmsg::create_status_response(msg);
             user.session->send(user_outbound_message(std::move(msg)));
+            return 0;
         }
         else
         {

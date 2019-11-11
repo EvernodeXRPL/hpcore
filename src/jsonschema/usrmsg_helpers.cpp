@@ -14,7 +14,7 @@ constexpr const char* SCHEMA_VERSION = "0.1";
 // Separators
 constexpr const char* SEP_COMMA = "\",\"";
 constexpr const char* SEP_COLON = "\":\"";
-constexpr const char* SEP_COMMA_NOQUOTE = ",";
+constexpr const char* SEP_COMMA_NOQUOTE = ",\"";
 constexpr const char* SEP_COLON_NOQUOTE = "\":";
 
 // Message field names
@@ -80,14 +80,14 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
         .append("\"}");
 }
 
+/**
+ * Constructs a status response message.
+ * @param msg String reference to copy the generated json message string into.
+ */
 void create_status_response(std::string &msg)
 {
     msg.reserve(128);
     msg.append("{\"")
-        .append(FLD_VERSION)
-        .append(SEP_COLON)
-        .append(SCHEMA_VERSION)
-        .append(SEP_COMMA)
         .append(FLD_TYPE)
         .append(SEP_COLON)
         .append(MSGTYPE_STAT_RESP)
@@ -100,6 +100,33 @@ void create_status_response(std::string &msg)
         .append(SEP_COLON_NOQUOTE)
         .append(std::to_string(cons::ctx.led_seq_no))
         .append("}");
+}
+
+/**
+ * Constructs a contract output container message.
+ * @param msg String reference to copy the generated json message string into.
+ * @param content The contract output content to be put in the message.
+ */
+void create_contract_output_container(std::string &msg, std::string_view content)
+{
+    msg.reserve(128);
+    msg.append("{\"")
+        .append(FLD_TYPE)
+        .append(SEP_COLON)
+        .append(MSGTYPE_CONTRACT_OUTPUT)
+        .append(SEP_COMMA)
+        .append(FLD_LCL)
+        .append(SEP_COLON)
+        .append(cons::ctx.lcl)
+        .append(SEP_COMMA)
+        .append(FLD_LCL_SEQ)
+        .append(SEP_COLON_NOQUOTE)
+        .append(std::to_string(cons::ctx.led_seq_no))
+        .append(SEP_COMMA_NOQUOTE)
+        .append(FLD_CONTENT)
+        .append(SEP_COLON)
+        .append(content)
+        .append("\"}");
 }
 
 /**

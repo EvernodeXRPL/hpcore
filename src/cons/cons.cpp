@@ -581,10 +581,12 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
-                    usr::user_outbound_message outmsg(std::move(outputtosend));
+
+                    std::string msg;
+                    jusrmsg::create_contract_output_container(msg, outputtosend);
 
                     const usr::connected_user &user = user_itr->second;
-                    user.session->send(std::move(outmsg));
+                    user.session->send(usr::user_outbound_message(std::move(msg)));
                 }
             }
         }
