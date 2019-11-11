@@ -20,6 +20,13 @@ namespace jusrmsg = jsonschema::usrmsg;
 namespace cons
 {
 
+/**
+ * Voting thresholds for consensus stages.
+ */
+constexpr float STAGE1_THRESHOLD = 0.5;
+constexpr float STAGE2_THRESHOLD = 0.65;
+constexpr float STAGE3_THRESHOLD = 0.8;
+
 consensus_context ctx;
 
 int init()
@@ -574,10 +581,12 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
-                    usr::user_outbound_message outmsg(std::move(outputtosend));
+
+                    std::string msg;
+                    jusrmsg::create_contract_output_container(msg, outputtosend);
 
                     const usr::connected_user &user = user_itr->second;
-                    user.session->send(std::move(outmsg));
+                    user.session->send(usr::user_outbound_message(std::move(msg)));
                 }
             }
         }

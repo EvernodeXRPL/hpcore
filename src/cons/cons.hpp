@@ -10,13 +10,6 @@
 namespace cons
 {
 
-//stage 1 vote threshold
-static const float STAGE1_THRESHOLD = 0.5;
-//stage 2 vote threshold
-static const float STAGE2_THRESHOLD = 0.65;
-//stage 3 vote threshold
-static const float STAGE3_THRESHOLD = 0.8;
-
 /**
  * Represents a contract input that takes part in consensus.
  */
