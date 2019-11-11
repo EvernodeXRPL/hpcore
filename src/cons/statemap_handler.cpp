@@ -46,10 +46,10 @@ int update_file_blockmap(const std::string &filepath, const std::set<uint32_t> &
 {
     // .merkel file path will be corresponding path in "statemap" directory.
     std::string merkle_fn;
-    const size_t relative_path_len = filepath.length() - conf::ctx.stateDir.length();
-    merkle_fn.reserve(conf::ctx.stateMapDir.length() + relative_path_len + 7);
-    merkle_fn.append(conf::ctx.stateMapDir);
-    merkle_fn.append(filepath.substr(conf::ctx.stateDir.length(), relative_path_len));
+    const size_t relative_path_len = filepath.length() - conf::ctx.statedir.length();
+    merkle_fn.reserve(conf::ctx.statemapdir.length() + relative_path_len + 7);
+    merkle_fn.append(conf::ctx.statemapdir);
+    merkle_fn.append(filepath.substr(conf::ctx.statedir.length(), relative_path_len));
     merkle_fn.append(MERKLE_EXTENSION);
 
     // To benefit from hint mode, the .merkle file must already exist. If not we simply disable hint mode

@@ -28,8 +28,8 @@ std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no
     //file name -> [ledger sequnce numer]-[lcl hex]
     std::string path;
     const std::string seq_no = std::to_string(led_seq_no);
-    path.reserve(conf::ctx.histDir.size() + lcl_hash.size() + seq_no.size() + 6);
-    path.append(conf::ctx.histDir);
+    path.reserve(conf::ctx.histdir.size() + lcl_hash.size() + seq_no.size() + 6);
+    path.append(conf::ctx.histdir);
     path.append("/");
     path.append(seq_no);
     path.append("-");
@@ -54,18 +54,18 @@ ledger_history load_ledger()
     //Get all records at lcl history direcory and find the last closed ledger.
     std::string latest_file_name;
     size_t latest_pos = 0;
-    for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
+    for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.histdir))
     {
         const boost::filesystem::path file_path = entry.path();
         const std::string file_name = entry.path().filename().string();
 
         if (boost::filesystem::is_directory(file_path))
         {
-            LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.histDir << ". There should be no folders in this directory";
+            LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.histdir << ". There should be no folders in this directory";
         }
         else if (file_path.extension() != ".lcl")
         {
-            LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.histDir;
+            LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.histdir;
         }
         else
         {

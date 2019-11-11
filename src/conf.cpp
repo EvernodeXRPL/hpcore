@@ -14,14 +14,17 @@ contract_ctx ctx;
 // Global configuration struct exposed to the application.
 contract_config cfg;
 
+const static char *MODE_PASSIVE = "passive";
+const static char *MODE_ACTIVE = "active";
+
 // provide a safe std::string overload for realpath
-std::string realpath(std::string path) {
+std::string realpath(std::string path)
+{
     std::array<char, PATH_MAX> buffer;
     ::realpath(path.c_str(), buffer.data());
     buffer[PATH_MAX] = '\0';
     return buffer.data();
 }
-
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -37,13 +40,16 @@ int init()
     if (validate_contract_dir_paths() != 0 || load_config() != 0 || validate_config() != 0)
         return -1;
 
-    // Append self peer to peer list.
-    const std::string portstr = std::to_string(cfg.peerport);
-    const std::string peerid = "0.0.0.0:" + portstr;
-    cfg.peers.emplace(std::move(peerid), std::make_pair("0.0.0.0", portstr));
+    if (cfg.mode == OPERATING_MODE::ACTIVE)
+    {
+        // Append self peer to peer list.
+        const std::string portstr = std::to_string(cfg.peerport);
+        const std::string peerid = "0.0.0.0:" + portstr;
+        cfg.peers.emplace(std::move(peerid), std::make_pair("0.0.0.0", portstr));
 
-    // Append self pubkey to unl list.
-    cfg.unl.emplace(cfg.pubkey);
+        // Append self pubkey to unl list.
+        cfg.unl.emplace(cfg.pubkey);
+    }
 
     return 0;
 }
@@ -65,7 +71,7 @@ int rekey()
     if (save_config() != 0)
         return -1;
 
-    std::cout << "New signing keys generated at " << ctx.configFile << std::endl;
+    std::cout << "New signing keys generated at " << ctx.configfile << std::endl;
 
     return 0;
 }
@@ -77,16 +83,16 @@ int rekey()
  */
 int create_contract()
 {
-    if (boost::filesystem::exists(ctx.contractDir))
+    if (boost::filesystem::exists(ctx.contractdir))
     {
         std::cout << "Contract dir already exists. Cannot create contract at the same location.\n";
         return -1;
     }
 
-    boost::filesystem::create_directories(ctx.configDir);
-    boost::filesystem::create_directories(ctx.histDir);
-    boost::filesystem::create_directories(ctx.stateDir);
-    boost::filesystem::create_directories(ctx.stateMapDir);
+    boost::filesystem::create_directories(ctx.configdir);
+    boost::filesystem::create_directories(ctx.histdir);
+    boost::filesystem::create_directories(ctx.statedir);
+    boost::filesystem::create_directories(ctx.statemapdir);
 
     //Create config file with default settings.
 
@@ -96,6 +102,7 @@ int create_contract()
     if (binpair_to_hex() != 0)
         return -1;
 
+    cfg.mode = OPERATING_MODE::ACTIVE;
     cfg.listenip = "0.0.0.0";
     cfg.peerport = 22860;
     cfg.roundtime = 1000;
@@ -107,14 +114,14 @@ int create_contract()
     cfg.loglevel = "warn";
 #endif
     cfg.loggers.emplace("console");
-    
+
     cfg.binary = "<your contract binary here>";
 
     //Save the default settings into the config file.
     if (save_config() != 0)
         return -1;
 
-    std::cout << "Contract directory created at " << ctx.contractDir << std::endl;
+    std::cout << "Contract directory created at " << ctx.contractdir << std::endl;
 
     return 0;
 }
@@ -125,24 +132,25 @@ int create_contract()
  */
 void set_contract_dir_paths(std::string basedir)
 {
-    if (basedir == "") {
+    if (basedir == "")
+    {
         // this code branch will never execute the way main is currently coded, but it might change in future
         std::cerr << "a contract directory must be specified\n";
         exit(1);
     }
-    
+
     // resolving the path through realpath will remove any trailing slash if present
     basedir = realpath(basedir);
 
-    ctx.contractDir = basedir;
-    ctx.configDir = basedir + "/cfg";
-    ctx.configFile = ctx.configDir + "/hp.cfg";
-    ctx.tlsKeyFile = ctx.configDir + "/tlskey.pem";
-    ctx.tlsCertFile = ctx.configDir + "/tlscert.pem";
-    ctx.histDir = basedir + "/hist";
-    ctx.stateDir = basedir + "/state";
-    ctx.stateMapDir = basedir + "/statemap";
-    ctx.logDir = basedir + "/log";
+    ctx.contractdir = basedir;
+    ctx.configdir = basedir + "/cfg";
+    ctx.configfile = ctx.configdir + "/hp.cfg";
+    ctx.tlskeyfile = ctx.configdir + "/tlskey.pem";
+    ctx.tlscertfile = ctx.configdir + "/tlscert.pem";
+    ctx.histdir = basedir + "/hist";
+    ctx.statedir = basedir + "/state";
+    ctx.statemapdir = basedir + "/statemap";
+    ctx.logdir = basedir + "/log";
 }
 
 /**
@@ -154,7 +162,7 @@ int load_config()
 {
     // Read the file into json document object.
 
-    std::ifstream ifs(ctx.configFile);
+    std::ifstream ifs(ctx.configfile);
     rapidjson::IStreamWrapper isw(ifs);
 
     rapidjson::Document d;
@@ -195,13 +203,22 @@ int load_config()
 
     // Load up the values into the struct.
 
+    if (d["mode"] == MODE_PASSIVE)
+        cfg.mode = OPERATING_MODE::PASSIVE;
+    else if (d["mode"] == MODE_ACTIVE)
+        cfg.mode = OPERATING_MODE::ACTIVE;
+    else
+    {
+        std::cout << "Invalid mode. 'passive' or 'active' expected.\n";
+        return -1;
+    }
+
     cfg.pubkeyhex = d["pubkeyhex"].GetString();
     cfg.seckeyhex = d["seckeyhex"].GetString();
     cfg.listenip = d["listenip"].GetString();
-    
-    cfg.binary = realpath(d["binary"].GetString());
-    cfg.binargs = d["binargs"].GetString();
 
+    cfg.binary = d["binary"].GetString();
+    cfg.binargs = d["binargs"].GetString();
 
     // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
     // seperately to retrieve easily when handling peer connections.
@@ -277,6 +294,9 @@ int save_config()
     d.SetObject();
     rapidjson::Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
+    d.AddMember("mode", rapidjson::StringRef(cfg.mode == OPERATING_MODE::PASSIVE ? MODE_PASSIVE : MODE_ACTIVE),
+                allocator);
+
     d.AddMember("pubkeyhex", rapidjson::StringRef(cfg.pubkeyhex.data()), allocator);
     d.AddMember("seckeyhex", rapidjson::StringRef(cfg.seckeyhex.data()), allocator);
     d.AddMember("binary", rapidjson::StringRef(cfg.binary.data()), allocator);
@@ -338,13 +358,13 @@ int save_config()
 
     // Write the json doc to file.
 
-    std::ofstream ofs(ctx.configFile);
+    std::ofstream ofs(ctx.configfile);
     rapidjson::OStreamWrapper osw(ofs);
 
     rapidjson::PrettyWriter<rapidjson::OStreamWrapper> writer(osw);
     if (!d.Accept(writer))
     {
-        std::cout << "Writing to config file failed. " << ctx.configFile << std::endl;
+        std::cout << "Writing to config file failed. " << ctx.configfile << std::endl;
         return -1;
     }
     ofs.close();
@@ -426,20 +446,20 @@ int validate_config()
     }
 
     // Other required fields.
-    
+
     bool fields_missing = false;
 
-    fields_missing |= cfg.binary.empty()    && std::cout << "Missing cfg field: binary\n";
-    fields_missing |= cfg.listenip.empty()  && std::cout << "Missing cfg field: listenip\n";
-    fields_missing |= cfg.peerport ==0      && std::cout << "Missing cfg field: peerport\n";
-    fields_missing |= cfg.roundtime == 0    && std::cout << "Missing cfg field: roundtime\n";
-    fields_missing |= cfg.pubport == 0      && std::cout << "Missing cfg field: pubport\n";
-    fields_missing |= cfg.loglevel.empty()  && std::cout << "Missing cfg field: loglevel\n";
-    fields_missing |= cfg.loggers.empty()   && std::cout << "Missing cfg field: loggers\n";
-    
+    fields_missing |= cfg.binary.empty() && std::cout << "Missing cfg field: binary\n";
+    fields_missing |= cfg.listenip.empty() && std::cout << "Missing cfg field: listenip\n";
+    fields_missing |= cfg.peerport == 0 && std::cout << "Missing cfg field: peerport\n";
+    fields_missing |= cfg.roundtime == 0 && std::cout << "Missing cfg field: roundtime\n";
+    fields_missing |= cfg.pubport == 0 && std::cout << "Missing cfg field: pubport\n";
+    fields_missing |= cfg.loglevel.empty() && std::cout << "Missing cfg field: loglevel\n";
+    fields_missing |= cfg.loggers.empty() && std::cout << "Missing cfg field: loggers\n";
+
     if (fields_missing)
     {
-        std::cout << "Required configuration fields missing at " << ctx.configFile << std::endl;
+        std::cout << "Required configuration fields missing at " << ctx.configfile << std::endl;
         return -1;
     }
 
@@ -488,23 +508,23 @@ int validate_config()
 int validate_contract_dir_paths()
 {
     const std::string paths[7] = {
-        ctx.contractDir,
-        ctx.configFile,
-        ctx.histDir,
-        ctx.stateDir,
-        ctx.stateMapDir,
-        ctx.tlsKeyFile,
-        ctx.tlsCertFile};
+        ctx.contractdir,
+        ctx.configfile,
+        ctx.histdir,
+        ctx.statedir,
+        ctx.statemapdir,
+        ctx.tlskeyfile,
+        ctx.tlscertfile};
 
     for (const std::string &path : paths)
     {
         if (!boost::filesystem::exists(path))
         {
-            if (path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
+            if (path == ctx.tlskeyfile || path == ctx.tlscertfile)
             {
                 std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
                           << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
-                          << "and add it to " + ctx.configDir << std::endl;
+                          << "and add it to " + ctx.configdir << std::endl;
             }
             else
             {
@@ -528,12 +548,13 @@ int is_schema_valid(const rapidjson::Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
+        "\"required\": [ \"mode\", \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
         ", \"peers\", \"unl\", \"pubport\", \"peerport\", \"roundtime\""
         ", \"pubmaxsize\", \"pubmaxcpm\", \"pubmaxbadmpm\", \"pubmaxcons\""
         ", \"peermaxsize\", \"peermaxcpm\", \"peermaxdupmpm\", \"peermaxbadmpm\", \"peermaxbadsigpm\", \"peermaxcons\""
         ", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
+        "\"mode\": { \"type\": \"string\" },"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
         "\"seckeyhex\": { \"type\": \"string\" },"
@@ -566,7 +587,7 @@ int is_schema_valid(const rapidjson::Document &d)
         "\"loggers\": {"
         "\"type\": \"array\","
         "\"items\": { \"type\": \"string\" }"
-        "},"
+        "}"
         "}"
         "}";
 

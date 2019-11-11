@@ -357,6 +357,10 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
+    // In passive mode, we do not send out any propopsals.
+    if (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE)
+        return;
+
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
     p2p::broadcast_message(msg);
@@ -382,7 +386,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
         // todo:vote for lcl checking condtion
     }
 
-    majority_stage = -1;
+    majority_stage = 0;
     is_desync = false;
 
     int32_t highest_votes = 0;

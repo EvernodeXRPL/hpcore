@@ -139,7 +139,7 @@ int ptrace_capture(const pid_t child, contract_fblockmap_t &updated_blocks)
             realpath(filenameptr, buf);
 
             // We ignore anything outside the state dir.
-            if (strncmp (buf, conf::ctx.stateDir.c_str(), conf::ctx.stateDir.size()) != 0)
+            if (strncmp (buf, conf::ctx.statedir.c_str(), conf::ctx.statedir.size()) != 0)
                 continue;
 
             fd_map[fd] = {std::string(buf), 0};
