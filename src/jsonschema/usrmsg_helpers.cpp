@@ -9,26 +9,26 @@ namespace jsonschema::usrmsg
 {
 
 // User JSON message schema version
-constexpr const char* SCHEMA_VERSION = "0.1";
+constexpr const char *SCHEMA_VERSION = "0.1";
 
 // Separators
-constexpr const char* SEP_COMMA = "\",\"";
-constexpr const char* SEP_COLON = "\":\"";
-constexpr const char* SEP_COMMA_NOQUOTE = ",\"";
-constexpr const char* SEP_COLON_NOQUOTE = "\":";
+constexpr const char *SEP_COMMA = "\",\"";
+constexpr const char *SEP_COLON = "\":\"";
+constexpr const char *SEP_COMMA_NOQUOTE = ",\"";
+constexpr const char *SEP_COLON_NOQUOTE = "\":";
 
 // Message field names
-const char* const FLD_VERSION = "version";
-constexpr const char* FLD_TYPE = "type";
-constexpr const char* FLD_CHALLENGE = "challenge";
-constexpr const char* FLD_SIG = "sig";
-constexpr const char* FLD_PUBKEY = "pubkey";
-constexpr const char* FLD_INPUT = "input";
-constexpr const char* FLD_MAX_LED_SEQ = "max_ledger_seqno";
-constexpr const char* FLD_CONTENT = "content";
-constexpr const char* FLD_NONCE = "nonce";
-constexpr const char* FLD_LCL = "lcl";
-constexpr const char* FLD_LCL_SEQ = "lcl_seqno";
+const char *const FLD_VERSION = "version";
+constexpr const char *FLD_TYPE = "type";
+constexpr const char *FLD_CHALLENGE = "challenge";
+constexpr const char *FLD_SIG = "sig";
+constexpr const char *FLD_PUBKEY = "pubkey";
+constexpr const char *FLD_INPUT = "input";
+constexpr const char *FLD_MAX_LED_SEQ = "max_ledger_seqno";
+constexpr const char *FLD_CONTENT = "content";
+constexpr const char *FLD_NONCE = "nonce";
+constexpr const char *FLD_LCL = "lcl";
+constexpr const char *FLD_LCL_SEQ = "lcl_seqno";
 
 // Length of user random challenge bytes.
 const size_t CHALLENGE_LEN = 16;
@@ -41,7 +41,7 @@ const size_t CHALLENGE_LEN = 16;
  * @param msg String reference to copy the generated json message string into.
  *            Message format:
  *            {
- *              "version": "<HP version>",
+ *              "version": "<protocol version>",
  *              "type": "public_challenge",
  *              "challenge": "<hex challenge string>"
  *            }
@@ -83,6 +83,12 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
 /**
  * Constructs a status response message.
  * @param msg String reference to copy the generated json message string into.
+ *            Message format:
+ *            {
+ *              "type": "stat_resp",
+ *              "lcl": "<lcl id>"
+ *              "lcl_seqno": <integer>
+ *            }
  */
 void create_status_response(std::string &msg)
 {
@@ -105,11 +111,24 @@ void create_status_response(std::string &msg)
 /**
  * Constructs a contract output container message.
  * @param msg String reference to copy the generated json message string into.
- * @param content The contract output content to be put in the message.
+ *            Message format:
+ *            {
+ *              "type": "contract_output",
+ *              "lcl": "<lcl id>"
+ *              "lcl_seqno": <integer>,
+ *              "content": "<hex encoded contract output>"
+ *            }
+ * @param content The contract binary output content to be put in the message.
  */
 void create_contract_output_container(std::string &msg, std::string_view content)
 {
-    msg.reserve(128);
+    std::string contenthex;
+    util::bin2hex(
+        contenthex,
+        reinterpret_cast<const unsigned char *>(content.data()),
+        content.length());
+
+    msg.reserve(256);
     msg.append("{\"")
         .append(FLD_TYPE)
         .append(SEP_COLON)
@@ -125,7 +144,7 @@ void create_contract_output_container(std::string &msg, std::string_view content
         .append(SEP_COMMA_NOQUOTE)
         .append(FLD_CONTENT)
         .append(SEP_COLON)
-        .append(content)
+        .append(contenthex)
         .append("\"}");
 }
 
@@ -204,7 +223,7 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
  *          Accepted signed input container format:
  *          {
  *            "type": "contract_input",
- *            "content": "<hex encoded input container message>",
+ *            "content": "<stringified json input container message>",
  *            "sig": "<hex encoded signature of the content>"
  *          }
  * @return 0 on successful extraction. -1 for failure.
@@ -247,7 +266,7 @@ int extract_signed_input_container(
  *                    {
  *                      "nonce": "<random string with optional sorted order>",
  *                      "input": "<hex encoded contract input content>",
- *                      "max_ledger_seqno": 4562712334
+ *                      "max_ledger_seqno": <integer>
  *                    }
  * @return 0 on succesful extraction. -1 on failure.
  */

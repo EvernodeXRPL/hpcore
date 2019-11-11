@@ -65,8 +65,7 @@ int rekey()
         return -1;
 
     crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-    if (binpair_to_hex() != 0)
-        return -1;
+    binpair_to_hex();
 
     if (save_config() != 0)
         return -1;
@@ -99,8 +98,7 @@ int create_contract()
     //We populate the in-memory struct with default settings and then save it to the file.
 
     crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-    if (binpair_to_hex() != 0)
-        return -1;
+    binpair_to_hex();
 
     cfg.mode = OPERATING_MODE::ACTIVE;
     cfg.listenip = "0.0.0.0";
@@ -317,14 +315,11 @@ int save_config()
     {
         rapidjson::Value v;
         std::string hex_pubkey;
-        if (util::bin2hex(
-                hex_pubkey,
-                reinterpret_cast<const unsigned char *>(nodepk.data()),
-                nodepk.length()) != 0)
-        {
-            std::cerr << "Error encoding npl list.\n";
-            return -1;
-        }
+        util::bin2hex(
+            hex_pubkey,
+            reinterpret_cast<const unsigned char *>(nodepk.data()),
+            nodepk.length());
+
         v.SetString(rapidjson::StringRef(hex_pubkey.data()), allocator);
         unl.PushBack(v, allocator);
     }
@@ -375,27 +370,19 @@ int save_config()
 /**
  * Decode current binary keys in 'cfg' and populate the it with hex keys.
  * 
- * @return 0 for successful conversion. -1 for failure.
+ * @return Always returns 0.
  */
 int binpair_to_hex()
 {
-    if (util::bin2hex(
-            cfg.pubkeyhex,
-            reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
-            cfg.pubkey.length()) != 0)
-    {
-        std::cout << "Error encoding public key bytes.\n";
-        return -1;
-    }
+    util::bin2hex(
+        cfg.pubkeyhex,
+        reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
+        cfg.pubkey.length());
 
-    if (util::bin2hex(
-            cfg.seckeyhex,
-            reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
-            cfg.seckey.length()) != 0)
-    {
-        std::cout << "Error encoding secret key bytes.\n";
-        return -1;
-    }
+    util::bin2hex(
+        cfg.seckeyhex,
+        reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
+        cfg.seckey.length());
 
     return 0;
 }
