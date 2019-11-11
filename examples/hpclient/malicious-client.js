@@ -83,8 +83,7 @@ function main() {
         // sign the challenge and send back the response
         var sigbytes = sodium.crypto_sign_detached(m.challenge, keys.privateKey);
         var response = {
-            version: '0.1',
-            type: 'challenge_response',
+            type: 'challenge_resp',
             challenge: m.challenge,
             sig: Buffer.from(sigbytes).toString('hex'),
             pubkey: pkhex

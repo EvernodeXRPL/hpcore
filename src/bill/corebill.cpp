@@ -7,10 +7,10 @@ namespace corebill
 {
 
 // How many violations can occur for a host before being escalated.
-static const uint32_t VIOLATION_THRESHOLD = 10;
+constexpr uint32_t VIOLATION_THRESHOLD = 10;
 
 // Violation cooldown interval.
-static const uint32_t VIOLATION_REFRESH_INTERVAL = 600 * 1000; // 10 minutes
+constexpr uint32_t VIOLATION_REFRESH_INTERVAL = 600 * 1000; // 10 minutes
 
 // Keeps track of violation count against offending hosts.
 std::unordered_map<std::string, violation_stat> violation_counter;

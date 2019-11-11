@@ -6,25 +6,22 @@
 namespace jsonschema::usrmsg
 {
 
-static const char *SCHEMA_VERSION = "0.1";
-
-// These fields are used on json messages response validation.
-static const char *FLD_VERSION = "version";
-static const char *FLD_TYPE = "type";
-static const char *FLD_CHALLENGE = "challenge";
-static const char *FLD_SIG = "sig";
-static const char *FLD_PUBKEY = "pubkey";
-static const char *FLD_INPUT = "input";
-static const char *FLD_MAX_LED_SEQ = "maxledgerseqno";
-static const char *FLD_CONTENT = "content";
-static const char *FLD_NONCE = "nonce";
+// Message field names exposed out of this namespace.
+extern const char* const FLD_TYPE;
 
 // Message types
-static const char *MSGTYPE_CHALLENGE = "public_challenge";
-static const char *MSGTYPE_CHALLENGE_RESP = "challenge_response";
-static const char *MSGTYPE_CONTRACT_INPUT = "contract_input";
+constexpr const char* MSGTYPE_CHALLENGE = "public_challenge";
+constexpr const char* MSGTYPE_CHALLENGE_RESP = "challenge_resp";
+constexpr const char* MSGTYPE_CONTRACT_INPUT = "contract_input";
+constexpr const char* MSGTYPE_CONTRACT_OUTPUT = "contract_output";
+constexpr const char* MSGTYPE_STAT = "stat";
+constexpr const char* MSGTYPE_STAT_RESP = "stat_resp";
 
 void create_user_challenge(std::string &msg, std::string &challengehex);
+
+void create_status_response(std::string &msg);
+
+void create_contract_output_container(std::string &msg, std::string_view content);
 
 int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge);
 

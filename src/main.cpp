@@ -157,10 +157,14 @@ int main(int argc, char **argv)
                 if (conf::init() != 0)
                     return -1;
 
-                // Set HP process cwd to the contract directory.
-                chdir(conf::ctx.contractDir.c_str());
+                // Set HP process cwd to the contract directory. This will make both HP and contract process
+                // both have the same cwd.
+                chdir(conf::ctx.contractdir.c_str());
 
                 hplog::init();
+
+                LOG_INFO << "Operating mode: "
+                         << (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE ? "Passive" : "Active");
 
                 if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
                     return -1;

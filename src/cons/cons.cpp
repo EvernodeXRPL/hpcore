@@ -20,6 +20,13 @@ namespace jusrmsg = jsonschema::usrmsg;
 namespace cons
 {
 
+/**
+ * Voting thresholds for consensus stages.
+ */
+constexpr float STAGE1_THRESHOLD = 0.5;
+constexpr float STAGE2_THRESHOLD = 0.65;
+constexpr float STAGE3_THRESHOLD = 0.8;
+
 consensus_context ctx;
 
 int init()
@@ -357,6 +364,10 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
+    // In passive mode, we do not send out any propopsals.
+    if (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE)
+        return;
+
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
     p2p::broadcast_message(msg);
@@ -382,7 +393,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
         // todo:vote for lcl checking condtion
     }
 
-    majority_stage = -1;
+    majority_stage = 0;
     is_desync = false;
 
     int32_t highest_votes = 0;
@@ -570,10 +581,12 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
-                    usr::user_outbound_message outmsg(std::move(outputtosend));
+
+                    std::string msg;
+                    jusrmsg::create_contract_output_container(msg, outputtosend);
 
                     const usr::connected_user &user = user_itr->second;
-                    user.session->send(std::move(outmsg));
+                    user.session->send(usr::user_outbound_message(std::move(msg)));
                 }
             }
         }
