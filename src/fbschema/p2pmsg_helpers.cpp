@@ -147,7 +147,7 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
 const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, uint64_t timestamp)
 {
     p2p::nonunl_proposal nup;
-    
+
     if (msg.usermessages())
         nup.user_messages = flatbuf_usermsgsmap_to_usermsgsmap(msg.usermessages());
 
@@ -183,6 +183,16 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
     return p;
 }
 
+const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg)
+{
+    p2p::history_request hr;
+
+    if (msg.lcl())
+        hr.lcl = flatbuff_bytes_to_sv(msg.lcl());
+
+    return hr;
+}
+
 //---Message creation helpers---//
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)
@@ -203,7 +213,7 @@ void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_b
 }
 
 /**
- * Ctreat proposal peer message from the given proposal struct.
+ * Create proposal peer message from the given proposal struct.
  * @param container_builder Flatbuffer builder for the container message.
  * @param p The proposal struct to be placed in the container message.
  */
@@ -223,6 +233,28 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, true);
+}
+
+/**
+ * Create history request message from the given proposal struct.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param hr The History request struct to be placed in the container message.
+ */
+void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_request &hr)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    flatbuffers::Offset<History_Request_Message> hrmsg =
+        CreateHistory_Request_Message(
+            builder,
+            sv_to_flatbuff_bytes(builder, hr.lcl));
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Request_Message, hrmsg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
 
     // Now that we have built the content message,
@@ -285,8 +317,7 @@ flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset
         {
             msglist.push_back(usr::user_submitted_message(
                 flatbuff_bytes_to_sv(msg->content()),
-                flatbuff_bytes_to_sv(msg->signature())
-            ));
+                flatbuff_bytes_to_sv(msg->signature())));
         }
 
         map.emplace(flatbuff_bytes_to_sv(group->pubkey()), std::move(msglist));

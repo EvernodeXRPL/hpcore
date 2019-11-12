@@ -9,6 +9,7 @@
 #include "../sock/socket_message.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
+#include "../cons/ledger_handler.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
 
@@ -82,6 +83,12 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         const p2pmsg::Npl_Message *npl = content->message_as_Npl_Message();
         // execute npl logic here.
         //broadcast message.
+    }
+    else if(content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
+    {
+        //session->send
+        cons::retrieve_ledger_history(
+            p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message()));
     }
     else
     {

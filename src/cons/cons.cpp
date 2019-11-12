@@ -117,7 +117,8 @@ void consensus()
 
         if (should_request_history)
         {
-            //todo:create history request message and request request history from a random peer.
+            //create history request message and request history from a random peer.
+            send_ledger_history_request(majority_lcl);
         }
         if (is_lcl_desync)
         {

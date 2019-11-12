@@ -25,11 +25,15 @@ const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal
 
 const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, uint64_t timestamp);
 
+const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg);
+
 //---Message creation helpers---//
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);
 
 void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::proposal &p);
+
+void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_request &hr);
 
 void create_containermsg_from_content(
     flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, bool sign);

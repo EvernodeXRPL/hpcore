@@ -16,6 +16,10 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
 
 const ledger_history load_ledger();
 
+void send_ledger_history_request(const std::string &lcl);
+
+std::map<uint64_t,p2p::history_ledger> retrieve_ledger_history(const p2p::history_request &hr);
+
 }
 
 #endif

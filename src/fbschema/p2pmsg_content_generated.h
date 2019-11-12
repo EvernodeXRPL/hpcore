@@ -23,6 +23,8 @@ struct Proposal_Message;
 
 struct Npl_Message;
 
+struct History_Request_Message;
+
 struct StateDifference;
 
 struct State;
@@ -32,16 +34,18 @@ enum Message {
   Message_NonUnl_Proposal_Message = 1,
   Message_Proposal_Message = 2,
   Message_Npl_Message = 3,
+  Message_History_Request_Message = 4,
   Message_MIN = Message_NONE,
-  Message_MAX = Message_Npl_Message
+  Message_MAX = Message_History_Request_Message
 };
 
-inline const Message (&EnumValuesMessage())[4] {
+inline const Message (&EnumValuesMessage())[5] {
   static const Message values[] = {
     Message_NONE,
     Message_NonUnl_Proposal_Message,
     Message_Proposal_Message,
-    Message_Npl_Message
+    Message_Npl_Message,
+    Message_History_Request_Message
   };
   return values;
 }
@@ -52,13 +56,14 @@ inline const char * const *EnumNamesMessage() {
     "NonUnl_Proposal_Message",
     "Proposal_Message",
     "Npl_Message",
+    "History_Request_Message",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMessage(Message e) {
-  if (e < Message_NONE || e > Message_Npl_Message) return "";
+  if (e < Message_NONE || e > Message_History_Request_Message) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessage()[index];
 }
@@ -77,6 +82,10 @@ template<> struct MessageTraits<Proposal_Message> {
 
 template<> struct MessageTraits<Npl_Message> {
   static const Message enum_value = Message_Npl_Message;
+};
+
+template<> struct MessageTraits<History_Request_Message> {
+  static const Message enum_value = Message_History_Request_Message;
 };
 
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
@@ -247,6 +256,9 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const Npl_Message *message_as_Npl_Message() const {
     return message_type() == Message_Npl_Message ? static_cast<const Npl_Message *>(message()) : nullptr;
   }
+  const History_Request_Message *message_as_History_Request_Message() const {
+    return message_type() == Message_History_Request_Message ? static_cast<const History_Request_Message *>(message()) : nullptr;
+  }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
   }
@@ -269,6 +281,10 @@ template<> inline const Proposal_Message *Content::message_as<Proposal_Message>(
 
 template<> inline const Npl_Message *Content::message_as<Npl_Message>() const {
   return message_as_Npl_Message();
+}
+
+template<> inline const History_Request_Message *Content::message_as<History_Request_Message>() const {
+  return message_as_History_Request_Message();
 }
 
 struct ContentBuilder {
@@ -611,6 +627,59 @@ inline flatbuffers::Offset<Npl_Message> CreateNpl_MessageDirect(
       lcl__);
 }
 
+struct History_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_LCL = 4
+  };
+  const flatbuffers::Vector<uint8_t> *lcl() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LCL);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_lcl() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_LCL) &&
+           verifier.VerifyVector(lcl()) &&
+           verifier.EndTable();
+  }
+};
+
+struct History_Request_MessageBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
+    fbb_.AddOffset(History_Request_Message::VT_LCL, lcl);
+  }
+  explicit History_Request_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  History_Request_MessageBuilder &operator=(const History_Request_MessageBuilder &);
+  flatbuffers::Offset<History_Request_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<History_Request_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<History_Request_Message> CreateHistory_Request_Message(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0) {
+  History_Request_MessageBuilder builder_(_fbb);
+  builder_.add_lcl(lcl);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<History_Request_Message> CreateHistory_Request_MessageDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *lcl = nullptr) {
+  auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
+  return fbschema::p2pmsg::CreateHistory_Request_Message(
+      _fbb,
+      lcl__);
+}
+
 struct StateDifference FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CREATED = 4,
@@ -820,6 +889,10 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
     }
     case Message_Npl_Message: {
       auto ptr = reinterpret_cast<const Npl_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Message_History_Request_Message: {
+      auto ptr = reinterpret_cast<const History_Request_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return false;

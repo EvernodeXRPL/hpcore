@@ -12,7 +12,7 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message } //message content type
+union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, History_Request_Message } //message content type
 
 table Content {
     message:Message;
@@ -36,6 +36,10 @@ table Npl_Message { //NPL type message schema
     pubkey:[ubyte];
     timestamp:uint64;
     data:[ubyte];
+    lcl:[ubyte];
+}
+
+table History_Request_Message { //Ledger History request type message schema
     lcl:[ubyte];
 }
 

@@ -26,6 +26,23 @@ struct nonunl_proposal
     std::unordered_map<std::string, const std::list<usr::user_submitted_message>> user_messages;
 };
 
+struct history_request
+{
+    std::string lcl;
+};
+
+struct history_ledger
+{
+    std::string lcl;
+    std::vector<uint8_t> raw_ledger;
+};
+
+struct history_response
+{ 
+std::map<uint64_t,history_ledger> hist_ledgers;
+};
+
+
 struct message_collection
 {
     std::list<proposal> proposals;
@@ -56,6 +73,8 @@ void peer_connection_watchdog();
 bool is_message_duplicate(std::string_view message);
 
 void broadcast_message(peer_outbound_message msg);
+
+void send_message_to_random_peer(peer_outbound_message msg);
 
 } // namespace p2p
 
