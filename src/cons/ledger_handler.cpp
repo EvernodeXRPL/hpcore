@@ -135,9 +135,9 @@ void send_ledger_history_request(const std::string &lcl)
  * Retrieve lcl(last closed ledger) information from ledger history.
  * @return A ledger_history struct representing the lcl.
  */
-std::map<uint64_t,p2p::history_ledger> retrieve_ledger_history(const p2p::history_request &hr)
+const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr)
 {
-    std::map<uint64_t,p2p::history_ledger> ledgers;
+    p2p::history_response history_response;
     uint64_t hr_seq_no;
     for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
     {
@@ -172,7 +172,7 @@ std::map<uint64_t,p2p::history_ledger> retrieve_ledger_history(const p2p::histor
                 p2p::history_ledger ledger;
                 ledger.lcl = file_name.substr(pos + 1, (file_name.size() - 1));
 
-                if(ledger.lcl == hr.lcl)
+                if (ledger.lcl == hr.lcl)
                     hr_seq_no = seq_no;
 
                 //read file
@@ -184,7 +184,7 @@ std::map<uint64_t,p2p::history_ledger> retrieve_ledger_history(const p2p::histor
                 if (file.read(buffer.data(), size))
                 {
                     ledger.raw_ledger = reinterpret_cast<std::vector<uint8_t> &>(buffer);
-                    ledgers.emplace(seq_no, ledger);
+                    history_response.hist_ledgers.emplace(seq_no, ledger);
                 }
             }
             else
@@ -192,14 +192,18 @@ std::map<uint64_t,p2p::history_ledger> retrieve_ledger_history(const p2p::histor
         }
     }
 
-    ledgers.erase(ledgers.upper_bound(hr_seq_no), ledgers.end());
-    return ledgers;
+    history_response.hist_ledgers.erase(
+        history_response.hist_ledgers.upper_bound(hr_seq_no),
+        history_response.hist_ledgers.end());
+
+    return history_response;
 }
 
-void ledger_history_proposal(){
-
+void ledger_history_proposal(std::string peer_session_id, const p2p::history_request &hr)
+{
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
-    // p2pmsg::create_msg_from_proposal(msg.builder(), p);
-    // p2p::broadcast_message(msg);
+
+    p2pmsg::create_msg_from_history_response(msg.builder(), retrieve_ledger_history(hr));
+    p2p::send_message_to_peer(peer_session_id, msg);
 }
 } // namespace cons

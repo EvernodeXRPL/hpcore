@@ -43,6 +43,20 @@ table History_Request_Message { //Ledger History request type message schema
     lcl:[ubyte];
 }
 
+table History_Response_Message { //Ledger History request type message schema
+    hist_ledgers:[HistoryLedgerPair];
+}
+
+table HistoryLedgerPair { //A key, value pair of byte[].
+    seq_no:uint64;
+    ledger:HistoryLedger;
+}
+
+table HistoryLedger {
+   lcl:[ubyte];
+   raw_ledger:[ubyte];
+}
+
 table StateDifference { //Represent state difference by tracking created,updated and deleted state files.
     created: [BytesKeyValuePair]; //list of { fn => hash }
     updated: [BytesKeyValuePair]; 

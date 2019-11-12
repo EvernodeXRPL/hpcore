@@ -154,6 +154,16 @@ const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal
     return nup;
 }
 
+const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg, uint64_t timestamp)
+{
+    p2p::history_response hr;
+
+    if (msg.hist_ledgers())
+        hr.hist_ledgers = flatbuf_historyledgermap_to_historyledgermap(msg.hist_ledgers());
+
+    return hr;
+}
+
 /**
  * Creates a proposal stuct from the given proposal message.
  * @param The Flatbuffer poporal received from the peer.
@@ -241,7 +251,7 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
 }
 
 /**
- * Create history request message from the given proposal struct.
+ * Create history request message from the given history request struct.
  * @param container_builder Flatbuffer builder for the container message.
  * @param hr The History request struct to be placed in the container message.
  */
@@ -262,6 +272,27 @@ void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_b
     create_containermsg_from_content(container_builder, builder, true);
 }
 
+/**
+ * Create history response message from the given history response struct.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param hr The History response struct to be placed in the container message.
+ */
+void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_response &hr)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+    
+    flatbuffers::Offset<History_Response_Message> hrmsg =
+        CreateHistory_Response_Message(
+            builder,
+            historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledgers));
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Request_Message, hrmsg.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, true);
+}
 /**
  * Creates a Flatbuffer container message from the given Content message.
  * @param container_builder The Flatbuffer builder to which the final container message should be written to.
@@ -348,6 +379,49 @@ usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, cons
             builder,
             sv_to_flatbuff_bytes(builder, pubkey),
             builder.CreateVector(fbmsgsvec)));
+    }
+    return builder.CreateVector(fbvec);
+}
+
+const std::map<uint64_t, const p2p::history_ledger>
+flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *fbvec)
+{
+    std::map<uint64_t, const p2p::history_ledger> map;
+
+    for (const HistoryLedgerPair *pair : *fbvec)
+    {
+        std::list<usr::user_submitted_message> msglist;
+
+        p2p::history_ledger ledger;
+
+        ledger.lcl = flatbuff_bytes_to_sv(pair->ledger()->lcl());
+        auto raw = pair->ledger()->raw_ledger();
+        ledger.raw_ledger = std::vector<uint8_t>(raw->begin(), raw->end());
+
+        map.emplace(pair->seq_no(), std::move(ledger));
+    }
+    return map;
+}
+
+//---Conversion helpers from std data types to flatbuffers data types---//
+//---These are used in constructing Flatbuffer messages using builders---//
+
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
+historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map)
+{
+    std::vector<flatbuffers::Offset<HistoryLedgerPair>> fbvec;
+    fbvec.reserve(map.size());
+    for (auto const &[seq_no, ledger] : map)
+    {
+        flatbuffers::Offset<HistoryLedger> history_ledger = CreateHistoryLedger(
+            builder,
+            sv_to_flatbuff_bytes(builder, ledger.lcl),
+            builder.CreateVector(ledger.raw_ledger));
+
+        fbvec.push_back(CreateHistoryLedgerPair(
+            builder,
+            seq_no,
+            history_ledger));
     }
     return builder.CreateVector(fbvec);
 }

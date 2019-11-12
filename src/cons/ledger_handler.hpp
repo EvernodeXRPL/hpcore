@@ -18,7 +18,9 @@ const ledger_history load_ledger();
 
 void send_ledger_history_request(const std::string &lcl);
 
-std::map<uint64_t,p2p::history_ledger> retrieve_ledger_history(const p2p::history_request &hr);
+const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr);
+
+void ledger_history_proposal(std::string peer_session_id, const p2p::history_request &hr);
 
 }
 

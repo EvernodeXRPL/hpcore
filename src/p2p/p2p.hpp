@@ -8,7 +8,7 @@
 
 namespace p2p
 {
-    
+
 struct proposal
 {
     std::string pubkey;
@@ -38,18 +38,17 @@ struct history_ledger
 };
 
 struct history_response
-{ 
-std::map<uint64_t,history_ledger> hist_ledgers;
+{
+    std::map<uint64_t,const history_ledger> hist_ledgers;
 };
-
 
 struct message_collection
 {
     std::list<proposal> proposals;
-    std::mutex proposals_mutex;             // Mutex for proposals access race conditions.
-    
+    std::mutex proposals_mutex; // Mutex for proposals access race conditions.
+
     std::list<nonunl_proposal> nonunl_proposals;
-    std::mutex nonunl_proposals_mutex;      // Mutex for non-unl proposals access race conditions.
+    std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 };
 
 /**
@@ -75,6 +74,8 @@ bool is_message_duplicate(std::string_view message);
 void broadcast_message(peer_outbound_message msg);
 
 void send_message_to_random_peer(peer_outbound_message msg);
+
+void send_message_to_peer(std::string peer_session_id, peer_outbound_message msg);
 
 } // namespace p2p
 

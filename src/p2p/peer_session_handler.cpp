@@ -87,7 +87,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     else if(content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
     {
         //session->send
-        cons::retrieve_ledger_history(
+        cons::ledger_history_proposal(session->uniqueid,
             p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message()));
     }
     else
