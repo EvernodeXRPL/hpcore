@@ -23,6 +23,10 @@ static const int PEERMSG_VERSION = 1;
 // (Keeping this as int for effcient msg payload and comparison)
 static const int MIN_PEERMSG_VERSION = 1;
 
+// Minimum compatible npl contract input version (this will be used to generate the npl input to feed the contract)
+// (Keeping this as int for effcient msg payload and comparison)
+static const int MIN_NPL_INPUT_VERSION = 1;
+
 /**
  * FIFO hash set with a max size.
  */

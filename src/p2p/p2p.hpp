@@ -28,10 +28,7 @@ struct nonunl_proposal
 
 struct npl_message
 {
-    std::string pubkey;
-    uint64_t timestamp;
     std::string data;
-    std::string lcl;
 };
 
 struct message_collection

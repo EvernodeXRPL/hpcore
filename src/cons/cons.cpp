@@ -56,11 +56,11 @@ void consensus()
     {
         const bool self = p.pubkey == conf::cfg.pubkey;
         LOG_DBG << "[stage" << std::to_string(p.stage)
-                  << "] users:" << p.users.size()
-                  << " hinp:" << p.hash_inputs.size()
-                  << " hout:" << p.hash_outputs.size()
-                  << " lcl:" << p.lcl 
-                  << " self:" << self;
+                << "] users:" << p.users.size()
+                << " hinp:" << p.hash_inputs.size()
+                << " hout:" << p.hash_outputs.size()
+                << " lcl:" << p.lcl
+                << " self:" << self;
     }
     LOG_DBG << "timenow: " << std::to_string(ctx.time_now);
 
@@ -533,10 +533,13 @@ void apply_ledger(const p2p::proposal &cons_prop)
     // and act accordingly (rollback, ask state from peer, etc.)
 
     proc::contract_bufmap_t useriobufmap;
-    proc::contract_bufmap_t nplbufmap;
+    proc::contract_iobuf_pair nplbufpair;
+    nplbufpair.inputs = std::move(ctx.candidate_npl_messages);
+
     feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
-    run_contract_binary(cons_prop.time, useriobufmap, nplbufmap);
+    run_contract_binary(cons_prop.time, useriobufmap, nplbufpair);
     extract_user_outputs_from_contract_bufmap(useriobufmap);
+    broadcast_npl_output(nplbufpair.output);
 }
 
 /**
@@ -566,8 +569,8 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             const auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
             if (sess_itr != usr::ctx.sessionids.end()) // match found
             {
-                const auto user_itr = usr::ctx.users.find(sess_itr->second);  // sess_itr->second is the session id.
-                if (user_itr != usr::ctx.users.end()) // match found
+                const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
+                if (user_itr != usr::ctx.users.end())                        // match found
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
@@ -647,18 +650,31 @@ void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
     }
 }
 
+void broadcast_npl_output(std::string &output)
+{
+    if (output.size() > 0)
+    {
+        p2p::npl_message npl;
+        npl.data = output;
+
+        p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+        p2pmsg::create_msg_from_npl_output(msg.builder(), npl, ctx.lcl);
+        p2p::broadcast_message(msg);
+    }
+}
+
 /**
  * Executes the smart contract with the specified time and provided I/O buf maps.
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_bufmap_t &nplbufmap)
+void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair)
 {
     // todo:implement exchange of hpsc bufs
     proc::contract_iobuf_pair hpscbufpair;
 
     proc::exec_contract(
-        proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair));
+        proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair));
 }
 
 /**

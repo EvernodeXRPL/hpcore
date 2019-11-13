@@ -20,6 +20,13 @@ Object.keys(hpargs.usrfd).forEach(function (key, index) {
     }
 });
 
+let nplinput = fs.readFileSync(hpargs.nplfd[0], 'utf8');
+if (nplinput.length > 0) {
+    console.log("Input received from hp:");
+    console.log(nplinput);
+    fs.writeSync(hpargs.nplfd[1], "Echoing: " + nplinput);
+}
+
 let hpinput = fs.readFileSync(hpargs.hpfd[0], 'utf8');
 if (hpinput.length > 0) {
     //console.log("Input received from hp:");

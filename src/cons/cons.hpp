@@ -125,7 +125,9 @@ void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const 
 
 void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
 
-void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_bufmap_t &nplbufmap);
+void broadcast_npl_output(std::string &output);
+
+void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair);
 
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);

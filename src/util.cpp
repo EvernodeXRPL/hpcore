@@ -92,8 +92,8 @@ int hex2bin(unsigned char *decodedbuf, const size_t decodedbuf_len, std::string_
 int64_t get_epoch_milliseconds()
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
-                  std::chrono::system_clock::now().time_since_epoch())
-                  .count();
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
 }
 
 /**

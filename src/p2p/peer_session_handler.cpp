@@ -73,7 +73,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
         std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex); // Insert proposal with lock.
         collected_msgs.proposals.push_back(
-            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp()));
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
     }
     else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
     {
@@ -81,7 +81,6 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
         collected_msgs.nonunl_proposals.push_back(
             p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
-
     }
     else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
     {
@@ -92,8 +91,10 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         }
 
         std::lock_guard<std::mutex> lock(collected_msgs.npl_messages_mutex); // Insert proposal with lock.
-        std::string message(reinterpret_cast<const char *>(content_ptr),content_size);
-        collected_msgs.npl_messages.push_back(std::move(message));
+        const uint8_t *container_buf_ptr = reinterpret_cast<const uint8_t *>(message.data());
+        const size_t container_buf_size = message.length();
+        const std::string npl_message(reinterpret_cast<const char *>(container_buf_ptr), container_buf_size);
+        collected_msgs.npl_messages.push_back(std::move(npl_message));
     }
     else
     {

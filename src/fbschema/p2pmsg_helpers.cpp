@@ -147,7 +147,7 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
 const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp)
 {
     p2p::nonunl_proposal nup;
-    
+
     if (msg.usermessages())
         nup.user_messages = flatbuf_usermsgsmap_to_usermsgsmap(msg.usermessages());
 
@@ -159,7 +159,7 @@ const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal
  * @param The Flatbuffer poporal received from the peer.
  * @return A proposal struct representing the message.
  */
-const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp)
+const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const flatbuffers::Vector<uint8_t> *lcl)
 {
     p2p::proposal p;
 
@@ -167,9 +167,7 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
     p.timestamp = timestamp;
     p.time = msg.time();
     p.stage = msg.stage();
-
-    if (msg.lcl())
-        p.lcl = flatbuff_bytes_to_sv(msg.lcl());
+    p.lcl = flatbuff_bytes_to_sv(lcl);
 
     if (msg.users())
         p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
@@ -199,7 +197,7 @@ void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_b
 
     // Now that we have built the content message,
     // we need to sign it and place it inside a container message.
-    create_containermsg_from_content(container_builder, builder, false);
+    create_containermsg_from_content(container_builder, builder, nullptr, false);
 }
 
 /**
@@ -217,7 +215,6 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             builder,
             p.stage,
             p.time,
-            sv_to_flatbuff_bytes(builder, p.lcl),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
@@ -227,7 +224,30 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
 
     // Now that we have built the content message,
     // we need to sign it and place it inside a container message.
-    create_containermsg_from_content(container_builder, builder, true);
+    create_containermsg_from_content(container_builder, builder, p.lcl, true);
+}
+
+/**
+ * Ctreat npl message from the given npl output srtuct.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param n The npl struct to be placed in the container message.
+ */
+void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const p2p::npl_message &n, std::string_view lcl)
+{
+    // todo:get a average propsal message size and allocate content builder based on that.
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    const flatbuffers::Offset<Npl_Message> npl =
+        CreateNpl_Message(
+            builder,
+            sv_to_flatbuff_bytes(builder, n.data));
+
+    const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Npl_Message, npl.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, lcl, true);
 }
 
 /**
@@ -238,7 +258,7 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
  * @param sign Whether to sign the message content.
  */
 void create_containermsg_from_content(
-    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, const bool sign)
+    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign)
 {
     const uint8_t *content_buf = content_builder.GetBufferPointer();
     const flatbuffers::uoffset_t content_size = content_builder.GetSize();
@@ -249,6 +269,8 @@ void create_containermsg_from_content(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey_offset = 0;
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig_offset = 0;
 
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl_offset = 0;
+
     if (sign)
     {
         // Sign message content with this node's private key.
@@ -258,10 +280,14 @@ void create_containermsg_from_content(
         pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.pubkey);
     }
 
+    if (lcl.size() > 0)
+        lcl_offset = sv_to_flatbuff_bytes(container_builder, lcl);
+
     const flatbuffers::Offset<Container> container_message = CreateContainer(
         container_builder,
         util::PEERMSG_VERSION,
         util::get_epoch_milliseconds(),
+        lcl_offset,
         pubkey_offset,
         sig_offset,
         content);
@@ -285,8 +311,7 @@ flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset
         {
             msglist.push_back(usr::user_submitted_message(
                 flatbuff_bytes_to_sv(msg->content()),
-                flatbuff_bytes_to_sv(msg->signature())
-            ));
+                flatbuff_bytes_to_sv(msg->signature())));
         }
 
         map.emplace(flatbuff_bytes_to_sv(group->pubkey()), std::move(msglist));

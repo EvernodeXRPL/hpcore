@@ -21,7 +21,7 @@ struct contract_iobuf_pair
 
     // Output emitted by contract after execution. (Because we are reading output at the end, there's no way to
     // get a "list" of outputs. So it's always a one contingous output.)
-    std::string output;    
+    std::string output;
 };
 
 // Common typedef for a map of pubkey->fdlist.
@@ -41,24 +41,24 @@ struct contract_exec_args
     // The value is a pair holding consensus-verified inputs and contract-generated outputs.
     contract_bufmap_t &userbufs;
 
-
-    std::list<std::string> &nplbuff;
+    // Pair of NPL<->SC byte array message buffers.
+    // Input buffers for NPL->SC messages, Output buffers for SC->NPL messages.
+    contract_iobuf_pair &nplbuff;
 
     // Pair of HP<->SC JSON message buffers (mainly used for control messages).
     // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
     contract_iobuf_pair &hpscbufs;
-    
+
     // Current HotPocket timestamp.
     int64_t timestamp;
 
     contract_exec_args(
         int64_t _timestamp,
         contract_bufmap_t &_userbufs,
-        contract_bufmap_t &_nplbufs,
-        contract_iobuf_pair &_hpscbufs) :
-            userbufs(_userbufs),
-            nplbufs(_nplbufs),
-            hpscbufs(_hpscbufs)
+        contract_iobuf_pair &_nplbuff,
+        contract_iobuf_pair &_hpscbufs) : userbufs(_userbufs),
+                                          nplbuff(_nplbuff),
+                                          hpscbufs(_hpscbufs)
     {
         timestamp = _timestamp;
     }
@@ -76,9 +76,9 @@ int feed_inputs(const contract_exec_args &args);
 
 int fetch_outputs(const contract_exec_args &args);
 
-int write_contract_hp_inputs(const contract_exec_args &args);
+int write_contract_hp_npl_inputs(const contract_exec_args &args);
 
-int read_contract_hp_outputs(const contract_exec_args &args);
+int read_contract_hp_npl_outputs(const contract_exec_args &args);
 
 // Common helper functions
 
@@ -95,6 +95,8 @@ void cleanup_fdmap(contract_fdmap_t &fdmap);
 int create_iopipes(std::vector<int> &fds);
 
 int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
+
+int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
 
 int read_iopipe(std::vector<int> &fds, std::string &output);
 

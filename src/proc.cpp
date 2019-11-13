@@ -2,6 +2,9 @@
 #include "proc.hpp"
 #include "conf.hpp"
 #include "hplog.hpp"
+#include "fbschema/common_helpers.hpp"
+#include "fbschema/p2pmsg_container_generated.h"
+#include "fbschema/p2pmsg_content_generated.h"
 
 namespace proc
 {
@@ -22,8 +25,8 @@ enum FDTYPE
 // Map of user pipe fds (map key: user public key)
 contract_fdmap_t userfds;
 
-// Map of NPL pipe fds (map key: user public key)
-contract_fdmap_t nplfds;
+// Pipe fds for NPL <--> messages.
+std::vector<int> nplfds;
 
 // Pipe fds for HP <--> messages.
 std::vector<int> hpscfds;
@@ -38,8 +41,8 @@ __pid_t contract_pid;
 int exec_contract(const contract_exec_args &args)
 {
     // Setup io pipes and feed all inputs to them.
-    create_iopipes_for_fdmap(nplfds, args.nplbufs);
     create_iopipes_for_fdmap(userfds, args.userbufs);
+    create_iopipes(nplfds);
     create_iopipes(hpscfds);
 
     if (feed_inputs(args) != 0)
@@ -142,11 +145,8 @@ int write_contract_args(const contract_exec_args &args)
 
     fdmap_json_to_stream(userfds, os);
 
-    os << "},\"nplfd\":{";
-
-    fdmap_json_to_stream(nplfds, os);
-
-    os << "},\"unl\":[";
+    os << "},\"nplfd\":[" << nplfds[FDTYPE::SCREAD] << "," << nplfds[FDTYPE::SCWRITE]
+       << "],\"unl\":[";
 
     for (auto nodepk = conf::cfg.unl.begin(); nodepk != conf::cfg.unl.end(); nodepk++)
     {
@@ -195,17 +195,9 @@ int write_contract_args(const contract_exec_args &args)
 int feed_inputs(const contract_exec_args &args)
 {
     // Write any hp input messages to hp->sc pipe.
-    if (write_contract_hp_inputs(args) != 0)
+    if (write_contract_hp_npl_inputs(args) != 0)
     {
-        LOG_ERR << "Failed to write HP input to contract.";
-        return -1;
-    }
-
-    // Write any npl inputs to npl pipes.
-    if (write_contract_fdmap_inputs(nplfds, args.nplbufs) != 0)
-    {
-        cleanup_fdmap(nplfds);
-        LOG_ERR << "Failed to write NPL inputs to contract.";
+        LOG_ERR << "Failed to write HP or NPL inputs to contract.";
         return -1;
     }
 
@@ -222,15 +214,9 @@ int feed_inputs(const contract_exec_args &args)
 
 int fetch_outputs(const contract_exec_args &args)
 {
-    if (read_contract_hp_outputs(args) != 0)
+    if (read_contract_hp_npl_outputs(args) != 0)
     {
-        LOG_ERR << "Error reading HP output from the contract.";
-        return -1;
-    }
-
-    if (read_contract_fdmap_outputs(nplfds, args.nplbufs) != 0)
-    {
-        LOG_ERR << "Error reading NPL output from the contract.";
+        LOG_ERR << "Error reading HP or NPL output from the contract.";
         return -1;
     }
 
@@ -248,13 +234,20 @@ int fetch_outputs(const contract_exec_args &args)
 /**
  * Writes any hp input messages to the contract.
  */
-int write_contract_hp_inputs(const contract_exec_args &args)
+int write_contract_hp_npl_inputs(const contract_exec_args &args)
 {
     if (write_iopipe(hpscfds, args.hpscbufs.inputs) != 0)
     {
         LOG_ERR << "Error writing HP inputs to SC";
         return -1;
     }
+
+    if (write_npl_iopipe(nplfds, args.nplbuff.inputs) != 0)
+    {
+        LOG_ERR << "Error writing NPL inputs to SC";
+        return -1;
+    }
+
     return 0;
 }
 
@@ -264,14 +257,23 @@ int write_contract_hp_inputs(const contract_exec_args &args)
  * 
  * @return 0 on success. -1 on failure.
  */
-int read_contract_hp_outputs(const contract_exec_args &args)
+int read_contract_hp_npl_outputs(const contract_exec_args &args)
 {
     // Clear the input buffers because we are sure the contract has finished reading from
     // that mapped memory portion.
     args.hpscbufs.inputs.clear();
 
     if (read_iopipe(hpscfds, args.hpscbufs.output) != 0) // hpscbufs.second is the output buffer.
+    {
+        LOG_ERR << "Error reading HP output from the contract.";
         return -1;
+    }
+
+    if (read_iopipe(nplfds, args.nplbuff.output) != 0) // hpscbufs.second is the output buffer.
+    {
+        LOG_ERR << "Error reading NPL output from the contract.";
+        return -1;
+    }
 
     return 0;
 }
@@ -459,6 +461,66 @@ int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
 }
 
 /**
+ * Write the given input buffer into the write fd from the HP side.
+ * @param fds Vector of fd list.
+ * @param inputbuffer Buffer to write into the HP write fd.
+ */
+int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
+{
+    const int writefd = fds[FDTYPE::HPWRITE];
+    bool vmsplice_error = false;
+
+    if (!inputs.empty())
+    {
+        iovec memsegs[inputs.size() * 3];
+        size_t i = 0;
+        size_t total_msg_length = 0;
+
+        for (auto &input : inputs)
+        {
+            std::bitset<8> version(util::MIN_NPL_INPUT_VERSION);
+            std::string stringified_version = version.to_string();
+
+            std::bitset<8> reserve(0);
+            std::string stringified_reserve = reserve.to_string();
+
+            //Get message container
+            const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(input.data());
+            const flatbuffers::Vector<uint8_t> *container_content = container->content();
+
+            std::bitset<16> msg_length(container_content->size());
+            std::string stringified_msg_length = msg_length.to_string();
+
+            stringified_version.append(stringified_reserve).append(stringified_msg_length);
+
+            std::bitset<32> ver_res_msglen_bitset(stringified_version);
+            std::int32_t numeric_pre_header = ver_res_msglen_bitset.to_ulong();
+            memsegs[i * 3].iov_base = &numeric_pre_header;
+            memsegs[i * 3].iov_len = 4;
+
+            std::string_view msg_pubkey = fbschema::flatbuff_bytes_to_sv(container->pubkey());
+            memsegs[i * 3 + 1].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));
+            memsegs[i * 3 + 1].iov_len = msg_pubkey.size();
+
+            memsegs[i * 3 + 2].iov_base = reinterpret_cast<void *>(const_cast<uint8_t *>(container_content->Data()));
+            memsegs[i * 3 + 2].iov_len = container_content->size();
+
+            i++;
+            total_msg_length = total_msg_length + 4 + msg_pubkey.size() + container_content->size();
+        }
+
+        if (vmsplice(writefd, memsegs, total_msg_length, 0) == -1)
+            vmsplice_error = true;
+    }
+
+    // Close the writefd since we no longer need it.
+    close(writefd);
+    fds[FDTYPE::HPWRITE] = 0;
+
+    return vmsplice_error ? -1 : 0;
+}
+
+/**
  * Common function to read and close SC output from the pipe and populate the output list.
  * @param fds Vector representing the pipes fd list.
  * @param output The buffer to place the read output.
@@ -504,8 +566,8 @@ void close_unused_fds(const bool is_hp)
         close_unused_vectorfds(is_hp, fds);
 
     // Loop through npl fds.
-    for (auto &[pubkey, fds] : nplfds)
-        close_unused_vectorfds(is_hp, fds);
+    // for (auto &[pubkey, fds] : nplfds)
+    //     close_unused_vectorfds(is_hp, fds);
 }
 
 /**
