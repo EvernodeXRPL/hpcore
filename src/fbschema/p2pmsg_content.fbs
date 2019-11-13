@@ -12,7 +12,7 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, History_Request_Message } //message content type
+union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, History_Request_Message, History_Response_Message } //message content type
 
 table Content {
     message:Message;

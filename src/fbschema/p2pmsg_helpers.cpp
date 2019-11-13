@@ -154,7 +154,7 @@ const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal
     return nup;
 }
 
-const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg, uint64_t timestamp)
+const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg)
 {
     p2p::history_response hr;
 

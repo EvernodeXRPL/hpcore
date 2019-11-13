@@ -27,6 +27,8 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
 
 const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg);
 
+const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg);
+
 //---Message creation helpers---//
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);

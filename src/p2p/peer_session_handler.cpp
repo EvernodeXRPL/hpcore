@@ -84,11 +84,19 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         // execute npl logic here.
         //broadcast message.
     }
-    else if(content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
+    else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
     {
         //session->send
-        cons::ledger_history_proposal(session->uniqueid,
-            p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message()));
+        if(session->uniqueid.empty())
+         LOG_DBG << "session unique id empty ";
+
+         LOG_DBG << "Received history request message type from peer "<< session->uniqueid;
+        cons::send_ledger_history(session->uniqueid,
+                                      p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message()));
+    }
+    else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
+    {
+        p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
     }
     else
     {

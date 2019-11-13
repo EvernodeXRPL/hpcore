@@ -11,11 +11,12 @@ namespace cons
 {
 
 namespace p2pmsg = fbschema::p2pmsg;
+std::string last_requested_lcl;
 
 /**
  * Create and save ledger from the given proposal message.
  * @param proposal consensus reached Satge 3 proposal.
- * @param led_seq_no next ledger sequence number.
+ * @param led_seq_no current ledger sequence number.
  * @return hash of the saved lcl.
  */
 const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no)
@@ -33,6 +34,20 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
                   reinterpret_cast<const unsigned char *>(lcl.data()),
                   lcl.size());
 
+    write_ledger(led_seq_no, lcl_hash, ledger_str.data(), ledger_str.size());
+
+    return (lcl_hash);
+}
+
+/**
+ * Create and save ledger from the given proposal message.
+ * @param led_seq_no current ledger sequence number.
+ * @param lcl_hash hex name of lcl.
+ * @param ledger_raw raw lcl data.
+ * @param ledger_size size of raw lcl data.
+ */
+void write_ledger(uint64_t led_seq_no, const std::string &lcl_hash, const char *ledger_raw, size_t ledger_size)
+{
     //create file path to save lcl.
     //file name -> [ledger sequnce numer]-[lcl hex]
     std::string path;
@@ -47,10 +62,8 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
 
     //write lcl to file system
     std::ofstream ofs(std::move(path));
-    ofs.write(ledger_str.data(), ledger_str.size());
+    ofs.write(ledger_raw, ledger_size);
     ofs.close();
-
-    return (lcl_hash);
 }
 
 /**
@@ -127,7 +140,9 @@ void send_ledger_history_request(const std::string &lcl)
     p2pmsg::create_msg_from_history_request(msg.builder(), hr);
     p2p::send_message_to_random_peer(msg);
 
-    LOG_DBG << "NUP sent."
+    last_requested_lcl = lcl;
+
+    LOG_DBG << "Ledger history request sent."
             << " lcl:" << lcl;
 }
 
@@ -196,14 +211,47 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         history_response.hist_ledgers.upper_bound(hr_seq_no),
         history_response.hist_ledgers.end());
 
+         LOG_WARN << "hr requesy file count " <<  history_response.hist_ledgers.size();
+
     return history_response;
 }
 
-void ledger_history_proposal(std::string peer_session_id, const p2p::history_request &hr)
+void send_ledger_history(std::string peer_session_id, const p2p::history_request &hr)
 {
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
-
+    LOG_DBG << "hr lcl: " << hr.lcl;
     p2pmsg::create_msg_from_history_response(msg.builder(), retrieve_ledger_history(hr));
     p2p::send_message_to_peer(peer_session_id, msg);
 }
+
+void handle_ledger_history_response(const p2p::history_response &hr)
+{
+    if (last_requested_lcl.empty())
+    {
+        LOG_DBG << "peer sent us a history response but we never asked for one!";
+        return;
+    }
+
+    bool have_equested_lcl = false;
+    for (auto &[seq_no, ledger] : hr.hist_ledgers)
+    {
+        if (last_requested_lcl == ledger.lcl)
+        {
+            have_equested_lcl = true;
+            break;
+        }
+    }
+
+    if (!have_equested_lcl)
+    {
+        LOG_DBG << "peer send us a history response but not containing the lcl we asked for!";
+        return;
+    }
+
+    for (auto &[seq_no, ledger] : hr.hist_ledgers)
+    {
+        write_ledger(seq_no, ledger.lcl, reinterpret_cast<const char *>(&ledger.raw_ledger[0]), ledger.raw_ledger.size());
+    }
+}
+
 } // namespace cons

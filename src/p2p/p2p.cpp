@@ -215,6 +215,11 @@ void send_message_to_peer(std::string peer_session_id, peer_outbound_message msg
         return;
     }
 
+    LOG_DBG << "peer_session_id " << peer_session_id;
+    LOG_DBG << "peer 1 " << peer_connections.begin()->first;
+    LOG_DBG << "peer 2 " << peer_connections.end()->first;
+
+
     //Send while locking the peer_connections.
     std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
 

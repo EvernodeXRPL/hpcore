@@ -27,11 +27,11 @@ struct History_Request_Message;
 
 struct History_Response_Message;
 
-struct StateDifference;
-
 struct HistoryLedgerPair;
 
 struct HistoryLedger;
+
+struct StateDifference;
 
 struct State;
 
@@ -41,17 +41,19 @@ enum Message {
   Message_Proposal_Message = 2,
   Message_Npl_Message = 3,
   Message_History_Request_Message = 4,
+  Message_History_Response_Message = 5,
   Message_MIN = Message_NONE,
-  Message_MAX = Message_History_Request_Message
+  Message_MAX = Message_History_Response_Message
 };
 
-inline const Message (&EnumValuesMessage())[5] {
+inline const Message (&EnumValuesMessage())[6] {
   static const Message values[] = {
     Message_NONE,
     Message_NonUnl_Proposal_Message,
     Message_Proposal_Message,
     Message_Npl_Message,
-    Message_History_Request_Message
+    Message_History_Request_Message,
+    Message_History_Response_Message
   };
   return values;
 }
@@ -63,13 +65,14 @@ inline const char * const *EnumNamesMessage() {
     "Proposal_Message",
     "Npl_Message",
     "History_Request_Message",
+    "History_Response_Message",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMessage(Message e) {
-  if (e < Message_NONE || e > Message_History_Request_Message) return "";
+  if (e < Message_NONE || e > Message_History_Response_Message) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessage()[index];
 }
@@ -92,6 +95,10 @@ template<> struct MessageTraits<Npl_Message> {
 
 template<> struct MessageTraits<History_Request_Message> {
   static const Message enum_value = Message_History_Request_Message;
+};
+
+template<> struct MessageTraits<History_Response_Message> {
+  static const Message enum_value = Message_History_Response_Message;
 };
 
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
@@ -265,6 +272,9 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const History_Request_Message *message_as_History_Request_Message() const {
     return message_type() == Message_History_Request_Message ? static_cast<const History_Request_Message *>(message()) : nullptr;
   }
+  const History_Response_Message *message_as_History_Response_Message() const {
+    return message_type() == Message_History_Response_Message ? static_cast<const History_Response_Message *>(message()) : nullptr;
+  }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
   }
@@ -291,6 +301,10 @@ template<> inline const Npl_Message *Content::message_as<Npl_Message>() const {
 
 template<> inline const History_Request_Message *Content::message_as<History_Request_Message>() const {
   return message_as_History_Request_Message();
+}
+
+template<> inline const History_Response_Message *Content::message_as<History_Response_Message>() const {
+  return message_as_History_Response_Message();
 }
 
 struct ContentBuilder {
@@ -740,96 +754,6 @@ inline flatbuffers::Offset<History_Response_Message> CreateHistory_Response_Mess
       hist_ledgers__);
 }
 
-struct StateDifference FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_CREATED = 4,
-    VT_UPDATED = 6,
-    VT_DELETED = 8
-  };
-  const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *created() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_CREATED);
-  }
-  flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *mutable_created() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_CREATED);
-  }
-  const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *updated() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_UPDATED);
-  }
-  flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *mutable_updated() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_UPDATED);
-  }
-  const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *deleted() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_DELETED);
-  }
-  flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *mutable_deleted() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_DELETED);
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_CREATED) &&
-           verifier.VerifyVector(created()) &&
-           verifier.VerifyVectorOfTables(created()) &&
-           VerifyOffset(verifier, VT_UPDATED) &&
-           verifier.VerifyVector(updated()) &&
-           verifier.VerifyVectorOfTables(updated()) &&
-           VerifyOffset(verifier, VT_DELETED) &&
-           verifier.VerifyVector(deleted()) &&
-           verifier.VerifyVectorOfTables(deleted()) &&
-           verifier.EndTable();
-  }
-};
-
-struct StateDifferenceBuilder {
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_created(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> created) {
-    fbb_.AddOffset(StateDifference::VT_CREATED, created);
-  }
-  void add_updated(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> updated) {
-    fbb_.AddOffset(StateDifference::VT_UPDATED, updated);
-  }
-  void add_deleted(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> deleted) {
-    fbb_.AddOffset(StateDifference::VT_DELETED, deleted);
-  }
-  explicit StateDifferenceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  StateDifferenceBuilder &operator=(const StateDifferenceBuilder &);
-  flatbuffers::Offset<StateDifference> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<StateDifference>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<StateDifference> CreateStateDifference(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> created = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> updated = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> deleted = 0) {
-  StateDifferenceBuilder builder_(_fbb);
-  builder_.add_deleted(deleted);
-  builder_.add_updated(updated);
-  builder_.add_created(created);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<StateDifference> CreateStateDifferenceDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *created = nullptr,
-    const std::vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *updated = nullptr,
-    const std::vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *deleted = nullptr) {
-  auto created__ = created ? _fbb.CreateVector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>(*created) : 0;
-  auto updated__ = updated ? _fbb.CreateVector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>(*updated) : 0;
-  auto deleted__ = deleted ? _fbb.CreateVector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>(*deleted) : 0;
-  return fbschema::p2pmsg::CreateStateDifference(
-      _fbb,
-      created__,
-      updated__,
-      deleted__);
-}
-
 struct HistoryLedgerPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEQ_NO = 4,
@@ -957,6 +881,96 @@ inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedgerDirect(
       raw_ledger__);
 }
 
+struct StateDifference FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CREATED = 4,
+    VT_UPDATED = 6,
+    VT_DELETED = 8
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *created() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_CREATED);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *mutable_created() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_CREATED);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *updated() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_UPDATED);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *mutable_updated() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_UPDATED);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *deleted() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_DELETED);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *mutable_deleted() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_DELETED);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_CREATED) &&
+           verifier.VerifyVector(created()) &&
+           verifier.VerifyVectorOfTables(created()) &&
+           VerifyOffset(verifier, VT_UPDATED) &&
+           verifier.VerifyVector(updated()) &&
+           verifier.VerifyVectorOfTables(updated()) &&
+           VerifyOffset(verifier, VT_DELETED) &&
+           verifier.VerifyVector(deleted()) &&
+           verifier.VerifyVectorOfTables(deleted()) &&
+           verifier.EndTable();
+  }
+};
+
+struct StateDifferenceBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_created(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> created) {
+    fbb_.AddOffset(StateDifference::VT_CREATED, created);
+  }
+  void add_updated(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> updated) {
+    fbb_.AddOffset(StateDifference::VT_UPDATED, updated);
+  }
+  void add_deleted(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> deleted) {
+    fbb_.AddOffset(StateDifference::VT_DELETED, deleted);
+  }
+  explicit StateDifferenceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  StateDifferenceBuilder &operator=(const StateDifferenceBuilder &);
+  flatbuffers::Offset<StateDifference> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<StateDifference>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<StateDifference> CreateStateDifference(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> created = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> updated = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> deleted = 0) {
+  StateDifferenceBuilder builder_(_fbb);
+  builder_.add_deleted(deleted);
+  builder_.add_updated(updated);
+  builder_.add_created(created);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<StateDifference> CreateStateDifferenceDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *created = nullptr,
+    const std::vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *updated = nullptr,
+    const std::vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *deleted = nullptr) {
+  auto created__ = created ? _fbb.CreateVector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>(*created) : 0;
+  auto updated__ = updated ? _fbb.CreateVector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>(*updated) : 0;
+  auto deleted__ = deleted ? _fbb.CreateVector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>(*deleted) : 0;
+  return fbschema::p2pmsg::CreateStateDifference(
+      _fbb,
+      created__,
+      updated__,
+      deleted__);
+}
+
 struct State FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PREVIOUS = 4,
@@ -1080,6 +1094,10 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
     }
     case Message_History_Request_Message: {
       auto ptr = reinterpret_cast<const History_Request_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Message_History_Response_Message: {
+      auto ptr = reinterpret_cast<const History_Response_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return false;
