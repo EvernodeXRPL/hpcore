@@ -1,10 +1,13 @@
-#include "pchheader.hpp"
+#include "../pchheader.hpp"
+#include "../conf.hpp"
+#include "../hplog.hpp"
 #include "proc.hpp"
 #include "conf.hpp"
 #include "hplog.hpp"
 #include "fbschema/common_helpers.hpp"
 #include "fbschema/p2pmsg_container_generated.h"
 #include "fbschema/p2pmsg_content_generated.h"
+#include "ptrace_capture.hpp"
 
 namespace proc
 {
@@ -32,7 +35,7 @@ std::vector<int> nplfds;
 std::vector<int> hpscfds;
 
 // Holds the contract process id (if currently executing).
-__pid_t contract_pid;
+pid_t contract_pid;
 
 /**
  * Executes the contract process and passes the specified arguments.
@@ -48,7 +51,7 @@ int exec_contract(const contract_exec_args &args)
     if (feed_inputs(args) != 0)
         return -1;
 
-    const __pid_t pid = fork();
+    const pid_t pid = fork();
     if (pid > 0)
     {
         // HotPocket process.
@@ -57,8 +60,9 @@ int exec_contract(const contract_exec_args &args)
         // Close all fds unused by HP process.
         close_unused_fds(true);
 
-        // Wait for child process (contract process) to complete execution.
-        const int presult = await_contract_execution();
+        // Capture child process (contract process) until it completes execution.
+        // This call will return when the contract process exits.
+        const int presult = ptrace_capture(contract_pid, args.state_updates);
         LOG_INFO << "Contract process ended.";
 
         contract_pid = 0;
@@ -80,15 +84,14 @@ int exec_contract(const contract_exec_args &args)
         // Close all fds unused by SC process.
         close_unused_fds(false);
 
-        // Set the contract process working directory.
-        boost::filesystem::current_path(conf::ctx.contractDir);
-
         // Write the contract input message from HotPocket to the stdin (0) of the contract process.
         write_contract_args(args);
 
         LOG_INFO << "Starting contract process...";
 
         char *execv_args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
+
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
         execv(execv_args[0], execv_args);
     }
     else
@@ -97,23 +100,6 @@ int exec_contract(const contract_exec_args &args)
         return -1;
     }
 
-    return 0;
-}
-
-/**
- * Blocks the calling thread until the contract process compelted exeution (if running).
- * 
- * @return 0 if contract process exited normally, exit code of contract process if abnormally exited.
- */
-int await_contract_execution()
-{
-    if (contract_pid > 0)
-    {
-        int scstatus;
-        waitpid(contract_pid, &scstatus, 0);
-        if (!WIFEXITED(scstatus))
-            return WEXITSTATUS(scstatus);
-    }
     return 0;
 }
 

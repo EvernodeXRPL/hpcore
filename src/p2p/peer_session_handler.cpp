@@ -25,10 +25,19 @@ util::rollover_hashset recent_peermsg_hashes(200);
  */
 void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
-    if (!session->flags[sock::SESSION_FLAG::INBOUND])
+    if (session->flags[sock::SESSION_FLAG::INBOUND])
     {
-        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-        peer_connections.insert(std::make_pair(session->uniqueid, session));
+        // Limit max number of inbound connections.
+        if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
+        {
+            session->close();
+            LOG_DBG << "Max peer connections reached. Dropped connection " << session->uniqueid;
+        }
+    }
+    else
+    {
+        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+        ctx.peer_connections.try_emplace(session->uniqueid, session);
         LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
 }
@@ -71,15 +80,16 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             return;
         }
 
-        std::lock_guard<std::mutex> lock(collected_msgs.proposals_mutex); // Insert proposal with lock.
-        collected_msgs.proposals.push_back(
-            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
+
+        ctx.collected_msgs.proposals.push_back(
+             p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
     }
     else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
     {
-        std::lock_guard<std::mutex> lock(collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
 
-        collected_msgs.nonunl_proposals.push_back(
+        ctx.collected_msgs.nonunl_proposals.push_back(
             p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
     }
     else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
@@ -90,7 +100,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             return;
         }
 
-        std::lock_guard<std::mutex> lock(collected_msgs.npl_messages_mutex); // Insert proposal with lock.
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.npl_messages_mutex); // Insert proposal with lock.
         const uint8_t *container_buf_ptr = reinterpret_cast<const uint8_t *>(message.data());
         const size_t container_buf_size = message.length();
         const std::string npl_message(reinterpret_cast<const char *>(container_buf_ptr), container_buf_size);
@@ -107,8 +117,8 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 void peer_session_handler::on_close(sock::socket_session<peer_outbound_message> *session)
 {
     {
-        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-        peer_connections.erase(session->uniqueid);
+        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+        ctx.peer_connections.erase(session->uniqueid);
     }
     LOG_DBG << "Peer disonnected: " << session->uniqueid;
 }

@@ -6,7 +6,7 @@
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "proc.hpp"
+#include "proc/proc.hpp"
 #include "hplog.hpp"
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
@@ -157,7 +157,14 @@ int main(int argc, char **argv)
                 if (conf::init() != 0)
                     return -1;
 
+                // Set HP process cwd to the contract directory. This will make both HP and contract process
+                // both have the same cwd.
+                chdir(conf::ctx.contractdir.c_str());
+
                 hplog::init();
+
+                LOG_INFO << "Operating mode: "
+                         << (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE ? "Passive" : "Active");
 
                 if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
                     return -1;
@@ -166,7 +173,7 @@ int main(int argc, char **argv)
                 signal(SIGINT, signal_handler);
 
                 //we are waiting for peer to estasblish peer connections.
-                //otherwise we'll run into not enough peers propsing/stage desync deadlock directly now. 
+                //otherwise we'll run into not enough peers propsing/stage desync deadlock directly now.
                 sleep(3);
 
                 while (true)
@@ -183,4 +190,3 @@ int main(int argc, char **argv)
     std::cout << "exited normally\n";
     return 0;
 }
-

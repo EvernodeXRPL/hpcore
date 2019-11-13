@@ -1,9 +1,9 @@
 #ifndef _HP_PROC_
 #define _HP_PROC_
 
-#include "pchheader.hpp"
-#include "usr/usr.hpp"
-#include "util.hpp"
+#include "../pchheader.hpp"
+#include "../usr/usr.hpp"
+#include "../util.hpp"
 
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
@@ -32,6 +32,11 @@ typedef std::unordered_map<std::string, std::vector<int>> contract_fdmap_t;
 // This is used to keep track of input/output buffers for a given public key (eg. user, npl)
 typedef std::unordered_map<std::string, contract_iobuf_pair> contract_bufmap_t;
 
+// Common typedef for a map of updated blocks of state files by the contract process.
+// This is used as a hint in updating the state merkle tree.
+// filename->modified blocks
+typedef std::unordered_map<std::string, std::set<uint32_t>> contract_fblockmap_t;
+
 /**
  * Holds information that should be passed into the contract process.
  */
@@ -49,24 +54,29 @@ struct contract_exec_args
     // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
     contract_iobuf_pair &hpscbufs;
 
+    // The map of state files that was updated with updated block ids.
+    // Each block id N represents Nth 4MB block of the file.
+    contract_fblockmap_t &state_updates;
+    
     // Current HotPocket timestamp.
-    int64_t timestamp;
+    const int64_t timestamp;
 
     contract_exec_args(
-        int64_t _timestamp,
-        contract_bufmap_t &_userbufs,
+        int64_t timestamp,
+        contract_bufmap_t &userbufs,
         contract_iobuf_pair &_nplbuff,
-        contract_iobuf_pair &_hpscbufs) : userbufs(_userbufs),
-                                          nplbuff(_nplbuff),
-                                          hpscbufs(_hpscbufs)
+        contract_iobuf_pair &hpscbufs,
+        contract_fblockmap_t &state_updates) :
+            userbufs(userbufs),
+            nplbuff(nplbuff),
+            hpscbufs(hpscbufs),
+            state_updates(state_updates),
+            timestamp(timestamp)
     {
-        timestamp = _timestamp;
     }
 };
 
 int exec_contract(const contract_exec_args &args);
-
-int await_contract_execution();
 
 //------Internal-use functions for this namespace.
 

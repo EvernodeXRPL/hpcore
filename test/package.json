@@ -1,0 +1,6 @@
+{
+    "dependencies": {
+        "libsodium-wrappers": "0.7.5",
+        "ws": "7.1.2"
+    }
+}

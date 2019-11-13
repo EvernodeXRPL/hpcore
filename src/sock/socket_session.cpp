@@ -1,3 +1,4 @@
+#include "../bill/corebill.h"
 #include "socket_session.hpp"
 #include "socket_message.hpp"
 #include "socket_session_handler.hpp"
@@ -64,11 +65,14 @@ void socket_session<T>::increment_metric(const SESSION_THRESHOLDS threshold_type
         const uint64_t elapsed_time = time_now - t.timestamp;
         if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
         {
+            this->close();
+
             t.timestamp = 0;
             t.counter_value = 0;
 
             LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-            this->close();
+            corebill::report_violation(this->address);
+
         }
         else if (elapsed_time > t.intervalms)
         {
@@ -164,6 +168,12 @@ void socket_session<T>::on_accept(const error_code ec)
     // Handle the error, if any
     if (ec)
         return fail(ec, "accept");
+
+    if (corebill::is_banned(this->address))
+    {
+        LOG_DBG << "Dropping connection for banned host " << this->address;
+        this->close();
+    }
 
     sess_handler.on_connect(this);
 
