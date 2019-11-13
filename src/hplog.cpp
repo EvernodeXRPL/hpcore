@@ -39,7 +39,7 @@ void init()
         severity = LOG_SEVERITY::ERROR;
 
     // Log line format expression.
-    auto format_expr = (expr::stream
+    const auto format_expr = (expr::stream
                         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S")
                         //<< ":" << expr::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID")
                         << " [" << expr::attr<std::string>("Channel")

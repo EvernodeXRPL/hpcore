@@ -13,7 +13,7 @@ namespace fbschema
 
 //---Conversion helpers from flatbuffers data types to std data types---//
 
-std::string_view flatbuff_bytes_to_sv(const uint8_t *data, flatbuffers::uoffset_t length);
+std::string_view flatbuff_bytes_to_sv(const uint8_t *data, const flatbuffers::uoffset_t length);
 
 std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer);
 

@@ -16,7 +16,7 @@ namespace sock
 // This reduces lambda expression compilation time in regular code changes as long as this file is not touched.
 
 template <class T>
-void socket_session<T>::ws_next_layer_async_handshake(ssl::stream_base::handshake_type handshake_type)
+void socket_session<T>::ws_next_layer_async_handshake(const ssl::stream_base::handshake_type handshake_type)
 {
     // Perform the SSL handshake
     ws.next_layer().async_handshake(

@@ -85,15 +85,14 @@ void socket_server<T>::on_accept(error_code ec, tcp::socket socket)
     }
     else
     {
-        std::string port = std::to_string(socket.remote_endpoint().port());
-        std::string address = socket.remote_endpoint().address().to_string();
+        const std::string port = std::to_string(socket.remote_endpoint().port());
+        const std::string address = socket.remote_endpoint().address().to_string();
 
         //Creating websocket stream required to pass to initiate a new session
         websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws(std::move(socket), ctx);
 
         // Launch a new session for this connection
-        std::make_shared<socket_session<T>>(
-            std::move(ws), sess_handler)
+        std::make_shared<socket_session<T>>(std::move(ws), sess_handler)
             ->run(std::move(port), std::move(address), true, sess_opts);
     }
 

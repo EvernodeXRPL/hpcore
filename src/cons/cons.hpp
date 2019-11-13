@@ -2,6 +2,7 @@
 #define _HP_CONS_
 
 #include "../pchheader.hpp"
+#include "../util.hpp"
 #include "../proc.hpp"
 #include "../p2p/p2p.hpp"
 #include "../usr/user_input.hpp"
@@ -21,15 +22,13 @@ static const float STAGE3_THRESHOLD = 0.8;
  */
 struct candidate_user_input
 {
-    std::string userpubkey;
+    const std::string userpubkey;
+    const uint64_t maxledgerseqno;
     std::string input;
-    uint64_t maxledgerseqno;
 
-    candidate_user_input(std::string userpubkey, std::string input, uint64_t maxledgerseqno)
+    candidate_user_input(const std::string userpubkey, const std::string input, const uint64_t maxledgerseqno)
+        : userpubkey(std::move(userpubkey)), input(std::move(input)), maxledgerseqno(maxledgerseqno)
     {
-        this->userpubkey = std::move(userpubkey);
-        this->input = std::move(input);
-        this->maxledgerseqno = maxledgerseqno;
     }
 };
 
@@ -38,13 +37,12 @@ struct candidate_user_input
  */
 struct candidate_user_output
 {
-    std::string userpubkey;
+    const std::string userpubkey;
     std::string output;
 
-    candidate_user_output(std::string userpubkey, std::string output)
+    candidate_user_output(const std::string userpubkey, const std::string output)
+        : userpubkey(std::move(userpubkey)), output(std::move(output))
     {
-        this->userpubkey = std::move(userpubkey);
-        this->output = std::move(output);
     }
 };
 
@@ -69,14 +67,17 @@ struct consensus_context
     // all users. We will use this map to distribute outputs back to connected users once consensus is achieved.
     std::unordered_map<std::string, candidate_user_output> candidate_user_outputs;
 
+    util::rollover_hashset recent_userinput_hashes;
+
     uint8_t stage;
     uint64_t novel_proposal_time;
     uint64_t time_now;
     std::string lcl;
     uint64_t led_seq_no;
-    std::string novel_proposal;
 
-    int32_t next_sleep;
+    consensus_context() : recent_userinput_hashes(200)
+    {
+    }
 };
 
 struct vote_counter
@@ -109,11 +110,11 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
 void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
-float_t get_stage_threshold(uint8_t stage);
+float_t get_stage_threshold(const uint8_t stage);
 
 bool ramdom_reset_stage();
 
-void timewait_stage(bool reset);
+void timewait_stage(const bool reset);
 
 void apply_ledger(const p2p::proposal &proposal);
 
@@ -123,7 +124,7 @@ void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::
 
 void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
 
-void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap);
+void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap);
 
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);

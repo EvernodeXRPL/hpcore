@@ -69,9 +69,7 @@ void start_peer_connections();
 
 void peer_connection_watchdog();
 
-bool is_message_duplicate(std::string_view message);
-
-void broadcast_message(peer_outbound_message msg);
+void broadcast_message(const peer_outbound_message msg);
 
 void send_message_to_random_peer(peer_outbound_message msg);
 

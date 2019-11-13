@@ -51,7 +51,7 @@ void write_ledger(uint64_t led_seq_no, const std::string &lcl_hash, const char *
     //create file path to save lcl.
     //file name -> [ledger sequnce numer]-[lcl hex]
     std::string path;
-    std::string seq_no = std::to_string(led_seq_no);
+    const std::string seq_no = std::to_string(led_seq_no);
     path.reserve(conf::ctx.histDir.size() + lcl_hash.size() + seq_no.size() + 6);
     path.append(conf::ctx.histDir);
     path.append("/");
@@ -79,8 +79,8 @@ const ledger_history load_ledger()
 
     //Get all records at lcl history direcory and find the last closed ledger.
     std::string latest_file_name;
-    std::string::size_type latest_pos = 0;
-    for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
+    size_t latest_pos = 0;
+    for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
     {
         const boost::filesystem::path file_path = entry.path();
         const std::string file_name = entry.path().stem().string();
@@ -95,7 +95,7 @@ const ledger_history load_ledger()
         }
         else
         {
-            std::string::size_type pos = file_name.find("-");
+            const size_t pos = file_name.find("-");
             uint64_t seq_no;
 
             if (pos != std::string::npos)

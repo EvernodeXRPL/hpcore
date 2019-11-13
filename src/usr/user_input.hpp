@@ -11,19 +11,17 @@ namespace usr
  */
 struct user_submitted_message
 {
-    std::string content;
-    std::string sig;
+    const std::string content;
+    const std::string sig;
 
-    user_submitted_message(std::string content, std::string sig)
+    user_submitted_message(const std::string content, const std::string sig)
+        : content(std::move(content)), sig(std::move(sig))
     {
-        this->content = std::move(content);
-        this->sig = std::move(sig);
     }
 
     user_submitted_message(std::string_view content, std::string_view sig)
+        : content(content), sig(sig)
     {
-        this->content = content;
-        this->sig = sig;
     }
 };
 

@@ -7,6 +7,7 @@
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../sock/socket_message.hpp"
+#include "../sock/socket_session.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 #include "../cons/ledger_handler.hpp"
@@ -16,19 +17,18 @@ namespace p2pmsg = fbschema::p2pmsg;
 namespace p2p
 {
 
+// The set of recent peer message hashes used for duplicate detection.
+util::rollover_hashset recent_peermsg_hashes(200);
+
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
 void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
 {
-    if (!session->flags[util::SESSION_FLAG::INBOUND])
+    if (!session->flags[sock::SESSION_FLAG::INBOUND])
     {
-        // We init the session unique id to associate with the peer.
-        session->init_uniqueid();
-        {
-            std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-            peer_connections.insert(std::make_pair(session->uniqueid, session));
-        }
+        std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+        peer_connections.insert(std::make_pair(session->uniqueid, session));
         LOG_DBG << "Adding peer to list: " << session->uniqueid;
     }
 }
@@ -46,22 +46,27 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
     //Accessing message content and size.
     const uint8_t *content_ptr = container_content->Data();
-    flatbuffers::uoffset_t content_size = container_content->size();
+    const flatbuffers::uoffset_t content_size = container_content->size();
 
     const p2pmsg::Content *content;
     if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
         return;
 
-    if (is_message_duplicate(message))
+    if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
+    {
+        session->increment_metric(sock::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
+        LOG_DBG << "Duplicate peer message.";
         return;
+    }
 
-    p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
+    const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
     if (content_message_type == p2pmsg::Message_Proposal_Message) //message is a proposal message
     {
         // We only trust proposals coming from trusted peers.
         if (p2pmsg::validate_container_trust(container) != 0)
         {
+            session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
             LOG_DBG << "Proposal rejected due to trust failure.";
             return;
         }
@@ -100,9 +105,8 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else
     {
-        //warn received invalid message from peer.
+        session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
         LOG_DBG << "Received invalid message type from peer";
-        //TODO: remove/penalize node who sent the message.
     }
 }
 

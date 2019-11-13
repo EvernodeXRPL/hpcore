@@ -1,7 +1,44 @@
 #include "pchheader.hpp"
+#include "util.hpp"
 
 namespace util
 {
+
+// rollover_hashset class methods
+
+rollover_hashset::rollover_hashset(const uint32_t maxsize)
+{
+    this->maxsize = maxsize == 0 ? 1 : maxsize;
+}
+
+/**
+ * Inserts the given hash to the list.
+ * @return True on succesful insertion. False if hash already exists.
+ */
+bool rollover_hashset::try_emplace(const std::string hash)
+{
+    const auto itr = recent_hashes.find(hash);
+    if (itr == recent_hashes.end()) // Not found
+    {
+        // Add the new message hash to the set.
+        const auto [newitr, success] = recent_hashes.emplace(std::move(hash));
+
+        // Insert a pointer to the stored hash value to the back of the ordered list of hashes.
+        recent_hashes_list.push_back(&(*newitr));
+
+        // Remove oldest hash if exceeding max size.
+        if (recent_hashes_list.size() > maxsize)
+        {
+            const std::string &oldest_hash = *recent_hashes_list.front();
+            recent_hashes.erase(oldest_hash);
+            recent_hashes_list.pop_front();
+        }
+
+        return true; // Hash was inserted successfuly.
+    }
+
+    return false; // Hash already exists.
+}
 
 /**
  * Encodes provided bytes to hex string.
@@ -11,7 +48,7 @@ namespace util
  * @param bin_len Bytes length.
  * @return Always returns 0.
  */
-int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_len)
+int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len)
 {
     // Allocate the target string.
     encoded_string.resize(bin_len * 2);
@@ -33,7 +70,7 @@ int bin2hex(std::string &encoded_string, const unsigned char *bin, size_t bin_le
  * @param decodedbuf_len Decoded buffer size.
  * @param hex_str hex string to decode.
  */
-int hex2bin(unsigned char *decodedbuf, size_t decodedbuf_len, std::string_view hex_str)
+int hex2bin(unsigned char *decodedbuf, const size_t decodedbuf_len, std::string_view hex_str)
 {
     const char *hex_end;
     size_t bin_len;
@@ -62,7 +99,7 @@ int64_t get_epoch_milliseconds()
 /**
  * Sleeps the current thread for specified no. of milliseconds.
  */
-void sleep(uint64_t milliseconds)
+void sleep(const uint64_t milliseconds)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }

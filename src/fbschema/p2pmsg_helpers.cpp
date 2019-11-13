@@ -42,7 +42,7 @@ int validate_and_extract_container(const Container **container_ref, std::string_
 {
     //Accessing message buffer
     const uint8_t *container_buf_ptr = reinterpret_cast<const uint8_t *>(container_buf.data());
-    size_t container_buf_size = container_buf.length();
+    const size_t container_buf_size = container_buf.length();
 
     //Defining Flatbuffer verifier (default max depth = 64, max_tables = 1000000,)
     flatbuffers::Verifier container_verifier(container_buf_ptr, container_buf_size);
@@ -66,7 +66,7 @@ int validate_and_extract_container(const Container **container_ref, std::string_
     }
 
     //check message timestamp.
-    int64_t time_now = util::get_epoch_milliseconds();
+    const int64_t time_now = util::get_epoch_milliseconds();
     if (container->timestamp() < (time_now - conf::cfg.roundtime * 4))
     {
         LOG_DBG << "Peer message is too old.";
@@ -122,7 +122,7 @@ int validate_container_trust(const Container *container)
  * @param content_size Data buffer size.
  * @return 0 on successful verification. -1 for failure.
  */
-int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, flatbuffers::uoffset_t content_size)
+int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, const flatbuffers::uoffset_t content_size)
 {
     //Defining Flatbuffer verifier for message content verification.
     //Since content is also serialised by using Flatbuffer we can verify it using Flatbuffer.
@@ -144,7 +144,7 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
  * @param The Flatbuffer non-unl poporal received from the peer.
  * @return A non-unl proposal struct representing the message.
  */
-const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, uint64_t timestamp)
+const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp)
 {
     p2p::nonunl_proposal nup;
 
@@ -169,7 +169,7 @@ const p2p::history_response create_history_response_from_msg(const History_Respo
  * @param The Flatbuffer poporal received from the peer.
  * @return A proposal struct representing the message.
  */
-const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, uint64_t timestamp)
+const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp)
 {
     p2p::proposal p;
 
@@ -209,12 +209,12 @@ void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_b
 {
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    flatbuffers::Offset<NonUnl_Proposal_Message> nupmsg =
+    const flatbuffers::Offset<NonUnl_Proposal_Message> nupmsg =
         CreateNonUnl_Proposal_Message(
             builder,
             usermsgsmap_to_flatbuf_usermsgsmap(builder, nup.user_messages));
 
-    flatbuffers::Offset<Content> message = CreateContent(builder, Message_NonUnl_Proposal_Message, nupmsg.Union());
+    const flatbuffers::Offset<Content> message = CreateContent(builder, Message_NonUnl_Proposal_Message, nupmsg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
 
     // Now that we have built the content message,
@@ -232,7 +232,7 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    flatbuffers::Offset<Proposal_Message> proposal =
+    const flatbuffers::Offset<Proposal_Message> proposal =
         CreateProposal_Message(
             builder,
             p.stage,
@@ -242,7 +242,7 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
-    flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
+    const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
 
     // Now that we have built the content message,
@@ -301,13 +301,13 @@ void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_
  * @param sign Whether to sign the message content.
  */
 void create_containermsg_from_content(
-    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, bool sign)
+    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, const bool sign)
 {
-    uint8_t *content_buf = content_builder.GetBufferPointer();
-    flatbuffers::uoffset_t content_size = content_builder.GetSize();
+    const uint8_t *content_buf = content_builder.GetBufferPointer();
+    const flatbuffers::uoffset_t content_size = content_builder.GetSize();
 
     // Create container message content from serialised content from previous step.
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = container_builder.CreateVector(content_buf, content_size);
+    const flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = container_builder.CreateVector(content_buf, content_size);
 
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey_offset = 0;
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig_offset = 0;
@@ -321,7 +321,7 @@ void create_containermsg_from_content(
         pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.pubkey);
     }
 
-    flatbuffers::Offset<Container> container_message = CreateContainer(
+    const flatbuffers::Offset<Container> container_message = CreateContainer(
         container_builder,
         util::PEERMSG_VERSION,
         util::get_epoch_milliseconds(),
@@ -344,7 +344,7 @@ flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset
     {
         std::list<usr::user_submitted_message> msglist;
 
-        for (auto msg : *group->messages())
+        for (const auto msg : *group->messages())
         {
             msglist.push_back(usr::user_submitted_message(
                 flatbuff_bytes_to_sv(msg->content()),
@@ -364,7 +364,7 @@ usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, cons
 {
     std::vector<flatbuffers::Offset<UserSubmittedMessageGroup>> fbvec;
     fbvec.reserve(map.size());
-    for (auto const &[pubkey, msglist] : map)
+    for (const auto &[pubkey, msglist] : map)
     {
         std::vector<flatbuffers::Offset<UserSubmittedMessage>> fbmsgsvec;
         for (const usr::user_submitted_message &msg : msglist)

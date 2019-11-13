@@ -27,8 +27,8 @@ int init()
         return -1;
 
     // Append self peer to peer list.
-    std::string portstr = std::to_string(cfg.peerport);
-    std::string peerid = "0.0.0.0:" + portstr;
+    const std::string portstr = std::to_string(cfg.peerport);
+    const std::string peerid = "0.0.0.0:" + portstr;
     cfg.peers.emplace(std::move(peerid), std::make_pair("0.0.0.0", portstr));
 
     // Append self pubkey to unl list.
@@ -88,10 +88,6 @@ int create_contract()
     cfg.peerport = 22860;
     cfg.roundtime = 1000;
     cfg.pubport = 8080;
-    cfg.pubmaxsize = 0;
-    cfg.pubmaxcpm = 0;
-    cfg.peermaxsize = 0;
-    cfg.peermaxcpm = 0;
 
 #ifndef NDEBUG
     cfg.loglevel = "debug";
@@ -121,8 +117,8 @@ void set_contract_dir_paths(std::string basedir)
     ctx.contractDir = basedir;
     ctx.configDir = basedir + "/cfg";
     ctx.configFile = ctx.configDir + "/hp.cfg";
-    ctx.tlsKeyFile = ctx.configDir + "/key.pem";
-    ctx.tlsCertFile = ctx.configDir + "/cert.pem";
+    ctx.tlsKeyFile = ctx.configDir + "/tlskey.pem";
+    ctx.tlsCertFile = ctx.configDir + "/tlscert.pem";
     ctx.histDir = basedir + "/hist";
     ctx.stateDir = basedir + "/state";
     ctx.logDir = basedir + "/log";
@@ -221,10 +217,16 @@ int load_config()
     cfg.peerport = d["peerport"].GetInt();
     cfg.roundtime = d["roundtime"].GetInt();
     cfg.pubport = d["pubport"].GetInt();
-    cfg.pubmaxsize = d["pubmaxsize"].GetInt();
-    cfg.pubmaxcpm = d["pubmaxcpm"].GetInt();
-    cfg.peermaxsize = d["peermaxsize"].GetInt();
-    cfg.peermaxcpm = d["peermaxcpm"].GetInt();
+    
+    cfg.pubmaxsize = d["pubmaxsize"].GetUint64();
+    cfg.pubmaxcpm = d["pubmaxcpm"].GetUint64();
+    cfg.pubmaxbadmpm = d["pubmaxbadmpm"].GetUint64();
+
+    cfg.peermaxsize = d["peermaxsize"].GetUint64();
+    cfg.peermaxcpm = d["peermaxcpm"].GetUint64();
+    cfg.peermaxdupmpm = d["peermaxdupmpm"].GetUint64();
+    cfg.peermaxbadmpm = d["peermaxbadmpm"].GetUint64();
+    cfg.peermaxbadsigpm = d["peermaxbadsigpm"].GetUint64();
 
     cfg.loglevel = d["loglevel"].GetString();
     cfg.loggers.clear();
@@ -257,7 +259,7 @@ int save_config()
     d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
 
     rapidjson::Value peers(rapidjson::kArrayType);
-    for (auto &[ipport_concat, ipport_pair] : cfg.peers)
+    for (const auto &[ipport_concat, ipport_pair] : cfg.peers)
     {
         rapidjson::Value v;
         v.SetString(rapidjson::StringRef(ipport_concat.data()), allocator);
@@ -266,7 +268,7 @@ int save_config()
     d.AddMember("peers", peers, allocator);
 
     rapidjson::Value unl(rapidjson::kArrayType);
-    for (auto &nodepk : cfg.unl)
+    for (const auto &nodepk : cfg.unl)
     {
         rapidjson::Value v;
         std::string hex_pubkey;
@@ -286,14 +288,20 @@ int save_config()
     d.AddMember("peerport", cfg.peerport, allocator);
     d.AddMember("roundtime", cfg.roundtime, allocator);
     d.AddMember("pubport", cfg.pubport, allocator);
+
     d.AddMember("pubmaxsize", cfg.pubmaxsize, allocator);
     d.AddMember("pubmaxcpm", cfg.pubmaxcpm, allocator);
+    d.AddMember("pubmaxbadmpm", cfg.pubmaxbadmpm, allocator);
+
     d.AddMember("peermaxsize", cfg.peermaxsize, allocator);
     d.AddMember("peermaxcpm", cfg.peermaxcpm, allocator);
+    d.AddMember("peermaxdupmpm", cfg.peermaxdupmpm, allocator);
+    d.AddMember("peermaxbadmpm", cfg.peermaxbadmpm, allocator);
+    d.AddMember("peermaxbadsigpm", cfg.peermaxbadsigpm, allocator);
 
     d.AddMember("loglevel", rapidjson::StringRef(cfg.loglevel.data()), allocator);
     rapidjson::Value loggers(rapidjson::kArrayType);
-    for (const std::string &logger : cfg.loggers)
+    for (std::string_view logger : cfg.loggers)
     {
         rapidjson::Value v;
         v.SetString(rapidjson::StringRef(logger.data()), allocator);
@@ -424,8 +432,8 @@ int validate_config()
     }
 
     //Sign and verify a sample message to ensure we have a matching signing key pair.
-    std::string msg = "hotpocket";
-    std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
+    const std::string msg = "hotpocket";
+    const std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
     if (crypto::verify_hex(msg, sighex, cfg.pubkeyhex) != 0)
     {
         std::cout << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
@@ -442,16 +450,16 @@ int validate_config()
  */
 int validate_contract_dir_paths()
 {
-    std::string paths[6] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir, ctx.tlsKeyFile, ctx.tlsCertFile};
+    const std::string paths[6] = {ctx.contractDir, ctx.configFile, ctx.histDir, ctx.stateDir, ctx.tlsKeyFile, ctx.tlsCertFile};
 
-    for (std::string &path : paths)
+    for (const std::string &path : paths)
     {
         if (!boost::filesystem::exists(path))
         {
             if (path == ctx.tlsKeyFile || path == ctx.tlsCertFile)
             {
                 std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
-                          << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem\n"
+                          << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
                           << "and add it to " + ctx.configDir << std::endl;
             }
             else
@@ -471,14 +479,15 @@ int validate_contract_dir_paths()
  * 
  * @return 0 for successful validation. -1 for failure.
  */
-int is_schema_valid(rapidjson::Document &d)
+int is_schema_valid(const rapidjson::Document &d)
 {
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
         "\"required\": [ \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
         ", \"peers\", \"unl\", \"peerport\", \"roundtime\", \"pubport\", \"pubmaxsize\", \"pubmaxcpm\""
-        ", \"peermaxsize\", \"peermaxcpm\", \"loglevel\", \"loggers\" ],"
+        ", \"pubmaxbadmpm\", \"peermaxsize\", \"peermaxcpm\""
+        ", \"peermaxdupmpm\", \"peermaxbadmpm\", \"peermaxbadsigpm\", \"loglevel\", \"loggers\" ],"
         "\"properties\": {"
         "\"version\": { \"type\": \"string\" },"
         "\"pubkeyhex\": { \"type\": \"string\" },"
@@ -497,10 +506,17 @@ int is_schema_valid(rapidjson::Document &d)
         "\"peerport\": { \"type\": \"integer\" },"
         "\"roundtime\": { \"type\": \"integer\" },"
         "\"pubport\": { \"type\": \"integer\" },"
+        
         "\"pubmaxsize\": { \"type\": \"integer\" },"
         "\"pubmaxcpm\": { \"type\": \"integer\" },"
+        "\"pubmaxbadmpm\": { \"type\": \"integer\" },"
+
         "\"peermaxsize\": { \"type\": \"integer\" },"
         "\"peermaxcpm\": { \"type\": \"integer\" },"
+        "\"peermaxdupmpm\": { \"type\": \"integer\" },"
+        "\"peermaxbadmpm\": { \"type\": \"integer\" },"
+        "\"peermaxbadsigpm\": { \"type\": \"integer\" },"
+
         "\"loglevel\": { \"type\": \"string\" },"
         "\"loggers\": {"
         "\"type\": \"array\","

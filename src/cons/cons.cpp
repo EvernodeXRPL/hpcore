@@ -210,28 +210,38 @@ void verify_and_populate_candidate_user_inputs()
 
             for (const usr::user_submitted_message &umsg : umsgs)
             {
-                // Verify the signature of the message content.
-                if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
+                const std::string sig_hash = crypto::get_hash(umsg.sig);
+
+                // Check for duplicate messages using hash of the signature.
+                if (ctx.recent_userinput_hashes.try_emplace(sig_hash))
                 {
-                    // TODO: Also verify XRP payment token.
-
-                    std::string nonce;
-                    std::string input;
-                    uint64_t maxledgerseqno;
-                    jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
-
-                    // Ignore the input if our ledger has passed the input TTL.
-                    if (maxledgerseqno > ctx.led_seq_no)
+                    // Verify the signature of the message content.
+                    if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
                     {
-                        // Hash is prefixed with the nonce to support user-defined sort order.
-                        std::string hash = std::move(nonce);
-                        // Append the hash of the message signature to get the final hash.
-                        hash.append(crypto::get_hash(umsg.sig));
+                        // TODO: Also verify XRP payment token/AppBill requirements.
 
-                        ctx.candidate_user_inputs.try_emplace(
-                            hash,
-                            candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                        std::string nonce;
+                        std::string input;
+                        uint64_t maxledgerseqno;
+                        jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
+
+                        // Ignore the input if our ledger has passed the input TTL.
+                        if (maxledgerseqno > ctx.led_seq_no)
+                        {
+                            // Hash is prefixed with the nonce to support user-defined sort order.
+                            std::string hash = std::move(nonce);
+                            // Append the hash of the message signature to get the final hash.
+                            hash.append(sig_hash);
+
+                            ctx.candidate_user_inputs.try_emplace(
+                                hash,
+                                candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                        }
                     }
+                }
+                else
+                {
+                    LOG_DBG << "Duplicate user message.";
                 }
             }
         }
@@ -305,7 +315,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         // todo: repeat above for state
     }
 
-    float_t vote_threshold = get_stage_threshold(ctx.stage);
+    const float_t vote_threshold = get_stage_threshold(ctx.stage);
 
     // todo: check if inputs being proposed by another node are actually spoofed inputs
     // from a user locally connected to this node.
@@ -313,17 +323,17 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
     // if we're at proposal stage 1 we'll accept any input and connection that has 1 or more vote.
 
     // Add user pubkeys which have votes over stage threshold to proposal.
-    for (auto &[pubkey, numvotes] : votes.users)
+    for (const auto &[pubkey, numvotes] : votes.users)
         if (numvotes >= vote_threshold || (ctx.stage == 1 && numvotes > 0))
             stg_prop.users.emplace(pubkey);
 
     // Add inputs which have votes over stage threshold to proposal.
-    for (auto &[hash, numvotes] : votes.inputs)
+    for (const auto &[hash, numvotes] : votes.inputs)
         if (numvotes >= vote_threshold || (ctx.stage == 1 && numvotes > 0))
             stg_prop.hash_inputs.emplace(hash);
 
     // Add outputs which have votes over stage threshold to proposal.
-    for (auto &[hash, numvotes] : votes.outputs)
+    for (const auto &[hash, numvotes] : votes.outputs)
         if (numvotes >= vote_threshold)
             stg_prop.hash_outputs.emplace(hash);
 
@@ -331,7 +341,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 
     // time is voted on a simple sorted and majority basis, since there will always be disagreement.
     int32_t highest_votes = 0;
-    for (auto [time, numvotes] : votes.time)
+    for (const auto [time, numvotes] : votes.time)
     {
         if (numvotes > highest_votes)
         {
@@ -466,7 +476,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
  * Returns the consensus percentage threshold for the specified stage.
  * @param stage The consensus stage [1, 2, 3]
  */
-float_t get_stage_threshold(uint8_t stage)
+float_t get_stage_threshold(const uint8_t stage)
 {
     switch (stage)
     {
@@ -486,7 +496,7 @@ bool ramdom_reset_stage()
     bool rand_bool = std::uniform_int_distribution<>{0, 1}(rng);
 }
 
-void timewait_stage(bool reset)
+void timewait_stage(const bool reset)
 {
     if (reset)
         ctx.stage = 0;
@@ -537,8 +547,8 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
 
     for (const std::string &hash : cons_prop.hash_outputs)
     {
-        auto cu_itr = ctx.candidate_user_outputs.find(hash);
-        bool hashfound = (cu_itr != ctx.candidate_user_outputs.end());
+        const auto cu_itr = ctx.candidate_user_outputs.find(hash);
+        const bool hashfound = (cu_itr != ctx.candidate_user_outputs.end());
         if (!hashfound)
         {
             LOG_ERR << "Output required but wasn't in our candidate outputs map, this will potentially cause desync.";
@@ -551,11 +561,11 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             candidate_user_output &cand_output = cu_itr->second;
 
             // Find the user session by user pubkey.
-            auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
+            const auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
             if (sess_itr != usr::ctx.sessionids.end()) // match found
             {
-                auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
-                if (user_itr != usr::ctx.users.end())                  // match found
+                const auto user_itr = usr::ctx.users.find(sess_itr->second);  // sess_itr->second is the session id.
+                if (user_itr != usr::ctx.users.end()) // match found
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
@@ -587,8 +597,8 @@ void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::
     for (const std::string &hash : cons_prop.hash_inputs)
     {
         // For each consensus input hash, we need to find the actual input content to feed the contract.
-        auto itr = ctx.candidate_user_inputs.find(hash);
-        bool hashfound = (itr != ctx.candidate_user_inputs.end());
+        const auto itr = ctx.candidate_user_inputs.find(hash);
+        const bool hashfound = (itr != ctx.candidate_user_inputs.end());
         if (!hashfound)
         {
             LOG_ERR << "input required but wasn't in our candidate inputs map, this will potentially cause desync.";
@@ -626,7 +636,7 @@ void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
             std::string output;
             output.swap(bufpair.output);
 
-            std::string hash = crypto::get_hash(pubkey, output);
+            const std::string hash = crypto::get_hash(pubkey, output);
             ctx.candidate_user_outputs.try_emplace(
                 std::move(hash),
                 candidate_user_output(pubkey, std::move(output)));
@@ -639,14 +649,17 @@ void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-void run_contract_binary(int64_t time_now, proc::contract_bufmap_t &useriobufmap)
+void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap)
 {
     // todo:implement exchange of npl and hpsc bufs
     proc::contract_bufmap_t nplbufmap;
     proc::contract_iobuf_pair hpscbufpair;
+    hpscbufpair.inputs.push_back("A");
+    hpscbufpair.inputs.push_back("B");
+    hpscbufpair.inputs.push_back("C");
 
-    proc::contract_exec_args eargs(time_now, useriobufmap, nplbufmap, hpscbufpair);
-    proc::exec_contract(eargs);
+    proc::exec_contract(
+        proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair));
 }
 
 /**

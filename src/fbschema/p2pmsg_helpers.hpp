@@ -19,11 +19,11 @@ int validate_and_extract_container(const Container **container_ref, std::string_
 
 int validate_container_trust(const Container *container);
 
-int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, flatbuffers::uoffset_t content_size);
+int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, const flatbuffers::uoffset_t content_size);
 
-const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, uint64_t timestamp);
+const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp);
 
-const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, uint64_t timestamp);
+const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp);
 
 const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg);
 
@@ -40,7 +40,7 @@ void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_b
 void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_response &hr);
 
 void create_containermsg_from_content(
-    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, bool sign);
+    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, const bool sign);
 
 //---Conversion helpers from flatbuffers data types to std data types---//
 

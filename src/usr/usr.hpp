@@ -79,7 +79,7 @@ struct listener_context
     std::thread listener_thread;
 
     // Used to pass down the default settings to the socket session
-    sock::session_options sess_opts;
+    sock::session_options default_sess_opts;
 };
 
 int init();
