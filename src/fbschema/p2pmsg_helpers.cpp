@@ -197,8 +197,11 @@ const p2p::history_request create_history_request_from_msg(const History_Request
 {
     p2p::history_request hr;
 
-    if (msg.lcl())
-        hr.lcl = flatbuff_bytes_to_sv(msg.lcl());
+    if (msg.minimum_lcl())
+        hr.minimum_lcl = flatbuff_bytes_to_sv(msg.minimum_lcl());
+
+    if (msg.required_lcl())
+        hr.required_lcl = flatbuff_bytes_to_sv(msg.required_lcl());
 
     return hr;
 }
@@ -262,7 +265,8 @@ void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_b
     flatbuffers::Offset<History_Request_Message> hrmsg =
         CreateHistory_Request_Message(
             builder,
-            sv_to_flatbuff_bytes(builder, hr.lcl));
+            sv_to_flatbuff_bytes(builder, hr.minimum_lcl),
+            sv_to_flatbuff_bytes(builder, hr.required_lcl));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Request_Message, hrmsg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -280,13 +284,13 @@ void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_b
 void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_response &hr)
 {
     flatbuffers::FlatBufferBuilder builder(1024);
-    
+
     flatbuffers::Offset<History_Response_Message> hrmsg =
         CreateHistory_Response_Message(
             builder,
             historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledgers));
 
-    flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Request_Message, hrmsg.Union());
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Response_Message, hrmsg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
 
     // Now that we have built the content message,

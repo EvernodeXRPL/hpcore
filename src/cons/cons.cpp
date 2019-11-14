@@ -27,9 +27,10 @@ int init()
     ctx.stage = 0;
 
     //load lcl details from lcl history.
-    const ledger_history ldr_hist = load_ledger();
+    ledger_history ldr_hist = load_ledger();
     ctx.led_seq_no = ldr_hist.led_seq_no;
     ctx.lcl = ldr_hist.lcl;
+    ctx.lcl_list.swap(ldr_hist.lcl_list);
 
     return 0;
 }
@@ -118,7 +119,7 @@ void consensus()
         if (should_request_history)
         {
             //create history request message and request history from a random peer.
-            send_ledger_history_request(majority_lcl);
+            send_ledger_history_request(ctx.lcl, majority_lcl);
         }
         if (is_lcl_desync)
         {
@@ -510,8 +511,9 @@ void timewait_stage(const bool reset)
  */
 void apply_ledger(const p2p::proposal &cons_prop)
 {
-    ctx.led_seq_no++;
-    ctx.lcl = cons::save_ledger(cons_prop, ctx.led_seq_no);
+    const std::tuple<const uint64_t, std::string> lcl_details  = save_ledger(cons_prop);
+    ctx.led_seq_no = std::get<0>(lcl_details);
+    ctx.lcl = std::get<1>(lcl_details);
 
     // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
     {

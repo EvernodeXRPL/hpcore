@@ -6,6 +6,7 @@
 #include "../fbschema/ledger_helpers.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "ledger_handler.hpp"
+#include "cons.hpp"
 
 namespace cons
 {
@@ -17,13 +18,27 @@ std::string last_requested_lcl;
  * Create and save ledger from the given proposal message.
  * @param proposal consensus reached Satge 3 proposal.
  * @param led_seq_no current ledger sequence number.
- * @return hash of the saved lcl.
+ * @return tuple of current lcl sequence number and file name of the saved lcl.
  */
-const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_seq_no)
+const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &proposal)
 {
+    const size_t pos = proposal.lcl.find("-");
+    uint64_t led_seq_no;
+
+    if (pos != std::string::npos)
+    {
+        led_seq_no = std::stoull(proposal.lcl.substr(0, pos)); //get previous lcl sequence number
+        led_seq_no++;                                          //current lcl sequence number
+    }
+    else
+    {
+        //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
+        LOG_ERR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
+    }
+
     //Serialize lcl using flatbuffer ledger schema.
     flatbuffers::FlatBufferBuilder builder(1024);
-    const std::string_view ledger_str = fbschema::ledger::create_ledger_from_proposal(builder, proposal);
+    const std::string_view ledger_str = fbschema::ledger::create_ledger_from_proposal(builder, proposal, led_seq_no);
 
     //Get binary hash of the the serialized lcl.
     const std::string lcl = crypto::get_hash(ledger_str);
@@ -34,9 +49,42 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
                   reinterpret_cast<const unsigned char *>(lcl.data()),
                   lcl.size());
 
-    write_ledger(led_seq_no, lcl_hash, ledger_str.data(), ledger_str.size());
+    std::string file_name = write_ledger(led_seq_no, lcl_hash, ledger_str.data(), ledger_str.size());
 
-    return (lcl_hash);
+    cons::ctx.lcl_list.emplace(led_seq_no, file_name);
+
+    if (led_seq_no > MAX_LEDGER_SEQUENCE)
+    {
+        remove_old_ledgers(led_seq_no);
+    }
+
+    return std::make_tuple(led_seq_no, lcl_hash);
+}
+
+void remove_old_ledgers(const uint64_t led_seq_no)
+{
+    std::map<uint64_t, std::string>::iterator itr;
+
+    std::string dir_path;
+
+    dir_path.reserve(conf::ctx.histDir.size() + 1);
+    dir_path.append(conf::ctx.histDir);
+    dir_path.append("/");
+
+    for (itr = cons::ctx.lcl_list.begin();
+         itr != cons::ctx.lcl_list.lower_bound(led_seq_no - MAX_LEDGER_SEQUENCE);
+         itr++)
+    {
+        const std::string file_name = itr->second;
+        std::string file_path;
+        file_path.reserve(dir_path.size() + itr->second.size() + 4);
+        file_path.append(dir_path);
+        file_path.append(file_name);
+        file_path.append(".lcl");
+        boost::filesystem::remove(file_path);
+
+        cons::ctx.lcl_list.erase(itr++);
+    }
 }
 
 /**
@@ -45,25 +93,34 @@ const std::string save_ledger(const p2p::proposal &proposal, const uint64_t led_
  * @param lcl_hash hex name of lcl.
  * @param ledger_raw raw lcl data.
  * @param ledger_size size of raw lcl data.
+ * @return file name of the saved lcl.
  */
-void write_ledger(uint64_t led_seq_no, const std::string &lcl_hash, const char *ledger_raw, size_t ledger_size)
+std::string write_ledger(uint64_t led_seq_no, const std::string &lcl_hash, const char *ledger_raw, size_t ledger_size)
 {
     //create file path to save lcl.
     //file name -> [ledger sequnce numer]-[lcl hex]
-    std::string path;
+
     const std::string seq_no = std::to_string(led_seq_no);
-    path.reserve(conf::ctx.histDir.size() + lcl_hash.size() + seq_no.size() + 6);
+    std::string file_name;
+    file_name.reserve(seq_no.size() + lcl_hash.size() + 1);
+    file_name.append(seq_no);
+    file_name.append("-");
+    file_name.append(lcl_hash);
+
+    std::string path;
+
+    path.reserve(conf::ctx.histDir.size() + file_name.size() + 5);
     path.append(conf::ctx.histDir);
     path.append("/");
-    path.append(seq_no);
-    path.append("-");
-    path.append(lcl_hash);
+    path.append(file_name);
     path.append(".lcl");
 
     //write lcl to file system
     std::ofstream ofs(std::move(path));
     ofs.write(ledger_raw, ledger_size);
     ofs.close();
+
+    return file_name;
 }
 
 /**
@@ -73,12 +130,7 @@ void write_ledger(uint64_t led_seq_no, const std::string &lcl_hash, const char *
 const ledger_history load_ledger()
 {
     ledger_history ldg_hist;
-    ldg_hist.led_seq_no = 0;
-    // might need to load history in order to request response lcl history
-    //std::unordered_map<std::string, std::string_view> lcl_history_files;
-
     //Get all records at lcl history direcory and find the last closed ledger.
-    std::string latest_file_name;
     size_t latest_pos = 0;
     for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
     {
@@ -101,29 +153,29 @@ const ledger_history load_ledger()
             if (pos != std::string::npos)
             {
                 seq_no = std::stoull(file_name.substr(0, pos));
+                ldg_hist.lcl_list.emplace(seq_no, file_name); //lcl -> [seq_no-hash]
             }
             else
             {
                 //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
                 LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.histDir;
             }
-
-            if (seq_no > ldg_hist.led_seq_no)
-            {
-                ldg_hist.led_seq_no = seq_no;
-                latest_pos = pos;
-                latest_file_name = file_name; //get file name without extension.
-            }
         }
     }
 
     //check if there is a saved lcl file -> if no send genesis lcl.
-    if (latest_file_name.empty())
-        ldg_hist.lcl = "genesis";
-    else if ((latest_file_name.size() - 1) > latest_pos) //check position is not the end of the file name.
-        ldg_hist.lcl = latest_file_name.substr(latest_pos + 1, (latest_file_name.size() - 1));
+    if (ldg_hist.lcl_list.empty())
+    {
+        ldg_hist.led_seq_no = 0;
+        ldg_hist.lcl = "0-genesis";
+    }
     else
-        LOG_ERR << "Invalid latest file name: " << latest_file_name;
+    {
+        ldg_hist.led_seq_no = ldg_hist.lcl_list.rbegin()->first;
+        ldg_hist.lcl = ldg_hist.lcl_list.rbegin()->second;
+
+        remove_old_ledgers(ldg_hist.led_seq_no);
+    }
 
     return ldg_hist;
 }
@@ -132,19 +184,90 @@ const ledger_history load_ledger()
  * Send ledger history request.
  * @param lcl hash of the lcl from which going to retrieve lcl history.
  */
-void send_ledger_history_request(const std::string &lcl)
+void send_ledger_history_request(const std::string &minimum_lcl, const std::string &required_lcl)
 {
     p2p::history_request hr;
-    hr.lcl = lcl;
+    hr.required_lcl = required_lcl;
+    hr.minimum_lcl = minimum_lcl;
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_history_request(msg.builder(), hr);
     p2p::send_message_to_random_peer(msg);
 
-    last_requested_lcl = lcl;
+    last_requested_lcl = required_lcl;
 
     LOG_DBG << "Ledger history request sent."
-            << " lcl:" << lcl;
+            << " lcl:" << required_lcl;
 }
+
+/**
+ * Retrieve lcl(last closed ledger) information from ledger history.
+ * @return A ledger_history struct representing the lcl.
+ */
+// const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr)
+// {
+//     p2p::history_response history_response;
+//     uint64_t hr_seq_no;
+//     for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
+//     {
+//         const boost::filesystem::path file_path = entry.path();
+//         const std::string file_name = entry.path().stem().string();
+
+//         if (boost::filesystem::is_directory(file_path))
+//         {
+//             LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.histDir << ". There should be no folders in this directory";
+//         }
+//         else if (file_path.extension() != ".lcl")
+//         {
+//             LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.histDir;
+//         }
+//         else
+//         {
+//             std::string::size_type pos = file_name.find("-");
+//             uint64_t seq_no;
+
+//             if (pos != std::string::npos)
+//             {
+//                 seq_no = std::stoull(file_name.substr(0, pos));
+//             }
+//             else
+//             {
+//                 //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
+//                 LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.histDir;
+//             }
+//             if ((file_name.size() - 1) > pos)
+//             { //check position is not the end of the file name.
+
+//                 p2p::history_ledger ledger;
+//                 ledger.lcl = file_name.substr(pos + 1, (file_name.size() - 1));
+
+//                 if (ledger.lcl == hr.required_lcl)
+//                     hr_seq_no = seq_no;
+
+//                 //read file
+//                 std::ifstream file(entry.path().string(), std::ios::binary | std::ios::ate);
+//                 std::streamsize size = file.tellg();
+//                 file.seekg(0, std::ios::beg);
+
+//                 std::vector<char> buffer(size);
+//                 if (file.read(buffer.data(), size))
+//                 {
+//                     ledger.raw_ledger = reinterpret_cast<std::vector<uint8_t> &>(buffer);
+//                     history_response.hist_ledgers.emplace(seq_no, ledger);
+//                 }
+//             }
+//             else
+//                 LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.histDir;
+//         }
+//     }
+
+//     history_response.hist_ledgers.erase(
+//         history_response.hist_ledgers.lower_bound(hr_seq_no),
+//         history_response.hist_ledgers.end());
+
+//     LOG_WARN << "hr requesy file count " << history_response.hist_ledgers.size();
+
+//     return history_response;
+// }
 
 /**
  * Retrieve lcl(last closed ledger) information from ledger history.
@@ -153,75 +276,63 @@ void send_ledger_history_request(const std::string &lcl)
 const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr)
 {
     p2p::history_response history_response;
-    uint64_t hr_seq_no;
-    for (auto &entry : boost::filesystem::directory_iterator(conf::ctx.histDir))
+
+    size_t pos = hr.required_lcl.find("-");
+    uint64_t req_seq_no;
+
+    if (pos != std::string::npos)
     {
-        const boost::filesystem::path file_path = entry.path();
-        const std::string file_name = entry.path().stem().string();
+        req_seq_no = std::stoull(hr.required_lcl.substr(0, pos)); //get required lcl sequence number
+    }
 
-        if (boost::filesystem::is_directory(file_path))
+    if (req_seq_no > 0)
+    {
+        const auto itr = cons::ctx.lcl_list.find(req_seq_no);
+        if (itr == cons::ctx.lcl_list.end())
         {
-            LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.histDir << ". There should be no folders in this directory";
+            LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
+            //either this node is also not in consesnsus ledger or other node requesting a ledger that is older than maximum ledger range.
+            return history_response;
         }
-        else if (file_path.extension() != ".lcl")
+        else if (itr->second != hr.required_lcl)
         {
-            LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.histDir;
-        }
-        else
-        {
-            std::string::size_type pos = file_name.find("-");
-            uint64_t seq_no;
-
-            if (pos != std::string::npos)
-            {
-                seq_no = std::stoull(file_name.substr(0, pos));
-            }
-            else
-            {
-                //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-                LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.histDir;
-            }
-            if ((file_name.size() - 1) > pos)
-            { //check position is not the end of the file name.
-
-                p2p::history_ledger ledger;
-                ledger.lcl = file_name.substr(pos + 1, (file_name.size() - 1));
-
-                if (ledger.lcl == hr.lcl)
-                    hr_seq_no = seq_no;
-
-                //read file
-                std::ifstream file(entry.path().string(), std::ios::binary | std::ios::ate);
-                std::streamsize size = file.tellg();
-                file.seekg(0, std::ios::beg);
-
-                std::vector<char> buffer(size);
-                if (file.read(buffer.data(), size))
-                {
-                    ledger.raw_ledger = reinterpret_cast<std::vector<uint8_t> &>(buffer);
-                    history_response.hist_ledgers.emplace(seq_no, ledger);
-                }
-            }
-            else
-                LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.histDir;
+            LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
+            //either this node or requesting node is in a fork condition.
+            return history_response;
         }
     }
 
-    history_response.hist_ledgers.erase(
-        history_response.hist_ledgers.upper_bound(hr_seq_no),
-        history_response.hist_ledgers.end());
+    pos = hr.minimum_lcl.find("-");
+    uint64_t min_seq_no;
 
-         LOG_WARN << "hr requesy file count " <<  history_response.hist_ledgers.size();
+    if (pos != std::string::npos)
+    {
+        min_seq_no = std::stoull(hr.required_lcl.substr(0, pos)); //get required lcl sequence number
+    }
+
+    const auto itr = cons::ctx.lcl_list.find(min_seq_no);
+    if (itr != cons::ctx.lcl_list.end())
+    {
+        LOG_DBG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
+
+        min_seq_no = itr->first;
+    }
+    else
+    {
+        min_seq_no = cons::ctx.lcl_list.begin()->first;
+    }
+
+    //filter out cache and get raw files here.
 
     return history_response;
-}
+} // namespace cons
 
-void send_ledger_history(std::string peer_session_id, const p2p::history_request &hr)
+p2p::peer_outbound_message send_ledger_history(const p2p::history_request &hr)
 {
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
-    LOG_DBG << "hr lcl: " << hr.lcl;
     p2pmsg::create_msg_from_history_response(msg.builder(), retrieve_ledger_history(hr));
-    p2p::send_message_to_peer(peer_session_id, msg);
+
+    return msg;
 }
 
 void handle_ledger_history_response(const p2p::history_response &hr)
@@ -252,6 +363,9 @@ void handle_ledger_history_response(const p2p::history_response &hr)
     {
         write_ledger(seq_no, ledger.lcl, reinterpret_cast<const char *>(&ledger.raw_ledger[0]), ledger.raw_ledger.size());
     }
+
+    last_requested_lcl = "";
+    cons::ctx.lcl = hr.hist_ledgers.rbegin()->second.lcl;
 }
 
 } // namespace cons

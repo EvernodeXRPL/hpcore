@@ -108,7 +108,7 @@ void peer_connection_watchdog()
             }
         }
 
-        util::sleep(conf::cfg.roundtime * 4);
+        util::sleep(200);
     }
 }
 
@@ -157,44 +157,9 @@ void send_message_to_random_peer(peer_outbound_message msg)
 
     //send message to selecte peer.
     auto session = it->second;
-    session->send(msg);
-}
-
-/**
- * Send the given message to a specific peer.
- */
-void send_message_to_peer(std::string peer_session_id, peer_outbound_message msg)
-{
-    size_t connected_peers = p2p::peer_connections.size();
-    if (connected_peers == 0)
+    if (session->address != "0.0.0.0")
     {
-        LOG_DBG << "No peers to send (not even self).";
-        return;
-    }
-    else if (connected_peers == 1)
-    {
-        LOG_DBG << "Only self is connected."; //todo:check self connection.
-        return;
-    }
-
-    LOG_DBG << "peer_session_id " << peer_session_id;
-    LOG_DBG << "peer 1 " << peer_connections.begin()->first;
-    LOG_DBG << "peer 2 " << peer_connections.end()->first;
-
-
-    //Send while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
-
-    auto itr = p2p::peer_connections.find(peer_session_id);
-    if (itr != p2p::peer_connections.end())
-    {
-        auto session = itr->second;
         session->send(msg);
-    }
-    else
-    {
-        LOG_DBG << "Peer is disconnected.";
-        return;
     }
 }
 

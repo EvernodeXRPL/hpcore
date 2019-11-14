@@ -28,7 +28,8 @@ struct nonunl_proposal
 
 struct history_request
 {
-    std::string lcl;
+    std::string minimum_lcl;
+    std::string required_lcl;
 };
 
 struct history_ledger

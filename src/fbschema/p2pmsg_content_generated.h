@@ -649,18 +649,27 @@ inline flatbuffers::Offset<Npl_Message> CreateNpl_MessageDirect(
 
 struct History_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_LCL = 4
+    VT_MINIMUM_LCL = 4,
+    VT_REQUIRED_LCL = 6
   };
-  const flatbuffers::Vector<uint8_t> *lcl() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LCL);
+  const flatbuffers::Vector<uint8_t> *minimum_lcl() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_MINIMUM_LCL);
   }
-  flatbuffers::Vector<uint8_t> *mutable_lcl() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
+  flatbuffers::Vector<uint8_t> *mutable_minimum_lcl() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_MINIMUM_LCL);
+  }
+  const flatbuffers::Vector<uint8_t> *required_lcl() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_REQUIRED_LCL);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_required_lcl() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_REQUIRED_LCL);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_LCL) &&
-           verifier.VerifyVector(lcl()) &&
+           VerifyOffset(verifier, VT_MINIMUM_LCL) &&
+           verifier.VerifyVector(minimum_lcl()) &&
+           VerifyOffset(verifier, VT_REQUIRED_LCL) &&
+           verifier.VerifyVector(required_lcl()) &&
            verifier.EndTable();
   }
 };
@@ -668,8 +677,11 @@ struct History_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
 struct History_Request_MessageBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
-    fbb_.AddOffset(History_Request_Message::VT_LCL, lcl);
+  void add_minimum_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> minimum_lcl) {
+    fbb_.AddOffset(History_Request_Message::VT_MINIMUM_LCL, minimum_lcl);
+  }
+  void add_required_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> required_lcl) {
+    fbb_.AddOffset(History_Request_Message::VT_REQUIRED_LCL, required_lcl);
   }
   explicit History_Request_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -685,19 +697,24 @@ struct History_Request_MessageBuilder {
 
 inline flatbuffers::Offset<History_Request_Message> CreateHistory_Request_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> minimum_lcl = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> required_lcl = 0) {
   History_Request_MessageBuilder builder_(_fbb);
-  builder_.add_lcl(lcl);
+  builder_.add_required_lcl(required_lcl);
+  builder_.add_minimum_lcl(minimum_lcl);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<History_Request_Message> CreateHistory_Request_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *lcl = nullptr) {
-  auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
+    const std::vector<uint8_t> *minimum_lcl = nullptr,
+    const std::vector<uint8_t> *required_lcl = nullptr) {
+  auto minimum_lcl__ = minimum_lcl ? _fbb.CreateVector<uint8_t>(*minimum_lcl) : 0;
+  auto required_lcl__ = required_lcl ? _fbb.CreateVector<uint8_t>(*required_lcl) : 0;
   return fbschema::p2pmsg::CreateHistory_Request_Message(
       _fbb,
-      lcl__);
+      minimum_lcl__,
+      required_lcl__);
 }
 
 struct History_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
