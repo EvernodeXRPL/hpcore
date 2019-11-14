@@ -181,7 +181,6 @@ int feed_inputs(const contract_exec_args &args)
     // Write any hp or npl input messages to hp->sc and npl->sc pipe.
     if (write_contract_hp_npl_inputs(args) != 0)
     {
-        LOG_ERR << "Failed to write HP or NPL inputs to contract.";
         return -1;
     }
 
@@ -200,7 +199,6 @@ int fetch_outputs(const contract_exec_args &args)
 {
     if (read_contract_hp_npl_outputs(args) != 0)
     {
-        LOG_ERR << "Error reading HP or NPL output from the contract.";
         return -1;
     }
 
@@ -466,32 +464,36 @@ int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
         for (auto &input : inputs)
         {
             int8_t pre_header_index = i * 3;
-            int8_t pubkey_index = i * 3 + 1;
-            int8_t msg_index = i * 3 + 2;
+            int8_t pubkey_index = pre_header_index + 1;
+            int8_t msg_index = pre_header_index + 2;
 
             // First binary representation of version, reserve and message length is constructed and feed it into
             // memory segment. Then the public key and at last the message data
-
-            std::bitset<8> version(util::MIN_NPL_INPUT_VERSION);
-            std::string stringified_version = version.to_string();
-
+            std::bitset<8> ver(util::MIN_NPL_INPUT_VERSION);
+            std::cout << "Version :" << ver << std::endl;
             // At the moment no data is inserted as reserve
-            std::bitset<8> reserve(0);
-            std::string stringified_reserve = reserve.to_string();
+            uint8_t reserve = 2;
+            std::bitset<8> res(2);
+            std::cout << "Reserve :" << res << std::endl;
 
             //Get message container
             const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(input.data());
             const flatbuffers::Vector<uint8_t> *container_content = container->content();
 
-            std::bitset<16> msg_length(container_content->size());
-            std::string stringified_msg_length = msg_length.to_string();
+            uint16_t msg_length = container_content->size();
+            std::bitset<16> ml(msg_length);
+            std::cout << "Msg Length :" << ml << std::endl;
 
-            stringified_version.append(stringified_reserve).append(stringified_msg_length);
+            uint32_t pre_header = util::MIN_NPL_INPUT_VERSION;
+            pre_header = pre_header << 8;
+            pre_header += reserve;
 
-            std::bitset<32> ver_res_msglen_bitset(stringified_version);
-            std::int32_t numeric_pre_header = ver_res_msglen_bitset.to_ulong();
-            memsegs[pre_header_index].iov_base = &numeric_pre_header;
+            pre_header = pre_header << 16;
+            pre_header += msg_length;
+            memsegs[pre_header_index].iov_base = &pre_header;
             memsegs[pre_header_index].iov_len = 4;
+            std::bitset<32> fin(pre_header);
+            std::cout << "Final :" << fin << std::endl;
 
             std::string_view msg_pubkey = fbschema::flatbuff_bytes_to_sv(container->pubkey());
             memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));

@@ -231,10 +231,10 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
  * Ctreat npl message from the given npl output srtuct.
  * @param container_builder Flatbuffer builder for the container message.
  * @param n The npl struct to be placed in the container message.
+ * @param lcl Lcl value to be passed in the container message.
  */
 void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const p2p::npl_message &n, std::string_view lcl)
 {
-    // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
     const flatbuffers::Offset<Npl_Message> npl =

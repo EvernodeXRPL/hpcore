@@ -83,7 +83,7 @@ void start_peer_connections();
 
 void peer_connection_watchdog();
 
-void broadcast_message(const peer_outbound_message msg, bool self_recieve);
+void broadcast_message(const peer_outbound_message msg, bool send_to_self);
 
 } // namespace p2p
 

@@ -78,7 +78,7 @@ void consensus()
     // and avoid threading conflicts with network incoming npl messages.
     {
         std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
-        for (auto &npl : p2p::ctx.collected_msgs.npl_messages)
+        for (const auto &npl : p2p::ctx.collected_msgs.npl_messages)
         {
             const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(npl.data());
             // Only the npl messages with a valid lcl will be passed down to the contract. lcl should match the previous round's lcl
@@ -559,9 +559,9 @@ void apply_ledger(const p2p::proposal &cons_prop)
     proc::contract_fblockmap_t updated_blocks;
 
     proc::contract_bufmap_t useriobufmap;
-    
+
     proc::contract_iobuf_pair nplbufpair;
-    nplbufpair.inputs = std::move(ctx.candidate_npl_messages);
+    nplbufpair.inputs.splice(nplbufpair.inputs.end(), ctx.candidate_npl_messages);
 
     feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
 
@@ -686,7 +686,7 @@ void broadcast_npl_output(std::string &output)
     if (!output.empty())
     {
         p2p::npl_message npl;
-        npl.data = output;
+        npl.data.swap(output);
 
         p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
         p2pmsg::create_msg_from_npl_output(msg.builder(), npl, ctx.lcl);
