@@ -469,20 +469,15 @@ int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
 
             // First binary representation of version, reserve and message length is constructed and feed it into
             // memory segment. Then the public key and at last the message data
-            std::bitset<8> ver(util::MIN_NPL_INPUT_VERSION);
-            std::cout << "Version :" << ver << std::endl;
+
             // At the moment no data is inserted as reserve
             uint8_t reserve = 2;
-            std::bitset<8> res(2);
-            std::cout << "Reserve :" << res << std::endl;
 
             //Get message container
             const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(input.data());
             const flatbuffers::Vector<uint8_t> *container_content = container->content();
 
             uint16_t msg_length = container_content->size();
-            std::bitset<16> ml(msg_length);
-            std::cout << "Msg Length :" << ml << std::endl;
 
             uint32_t pre_header = util::MIN_NPL_INPUT_VERSION;
             pre_header = pre_header << 8;
@@ -492,8 +487,6 @@ int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
             pre_header += msg_length;
             memsegs[pre_header_index].iov_base = &pre_header;
             memsegs[pre_header_index].iov_len = 4;
-            std::bitset<32> fin(pre_header);
-            std::cout << "Final :" << fin << std::endl;
 
             std::string_view msg_pubkey = fbschema::flatbuff_bytes_to_sv(container->pubkey());
             memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));
