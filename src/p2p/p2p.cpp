@@ -78,7 +78,7 @@ void peer_connection_watchdog()
 /**
  * Broadcasts the given message to all currently connected outbound peers.
  */
-void broadcast_message(const peer_outbound_message msg)
+void broadcast_message(const peer_outbound_message msg, bool self_recieve)
 {
     if (ctx.peer_connections.size() == 0)
     {
@@ -90,7 +90,12 @@ void broadcast_message(const peer_outbound_message msg)
     //Broadcast while locking the peer_connections.
     std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
     for (const auto &[k, session] : ctx.peer_connections)
+    {
+        if (!self_recieve && session->address == "0.0.0.0")
+            continue;
+        std::cout << "Sending to peer :" << session->uniqueid << std::endl;
         session->send(msg);
+    }
 }
 
 } // namespace p2p

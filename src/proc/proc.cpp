@@ -1,12 +1,10 @@
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../hplog.hpp"
+#include "../fbschema/common_helpers.hpp"
+#include "../fbschema/p2pmsg_container_generated.h"
+#include "../fbschema/p2pmsg_content_generated.h"
 #include "proc.hpp"
-#include "conf.hpp"
-#include "hplog.hpp"
-#include "fbschema/common_helpers.hpp"
-#include "fbschema/p2pmsg_container_generated.h"
-#include "fbschema/p2pmsg_content_generated.h"
 #include "ptrace_capture.hpp"
 
 namespace proc
@@ -112,7 +110,7 @@ int exec_contract(const contract_exec_args &args)
  *   "ts": <this node's timestamp (unix milliseconds)>,
  *   "hpfd": [fd0, fd1],
  *   "usrfd":{ "<pkhex>":[fd0, fd1], ... },
- *   "nplfd":{ "<pkhex>":[fd0, fd1], ... },
+ *   "nplfd":[fd0, fd1],
  *   "unl":[ "pkhex", ... ]
  * }
  */
@@ -180,7 +178,7 @@ int write_contract_args(const contract_exec_args &args)
 
 int feed_inputs(const contract_exec_args &args)
 {
-    // Write any hp input messages to hp->sc pipe.
+    // Write any hp or npl input messages to hp->sc and npl->sc pipe.
     if (write_contract_hp_npl_inputs(args) != 0)
     {
         LOG_ERR << "Failed to write HP or NPL inputs to contract.";
@@ -408,7 +406,7 @@ int create_iopipes(std::vector<int> &fds)
 /**
  * Common function to write the given input buffer into the write fd from the HP side.
  * @param fds Vector of fd list.
- * @param inputbuffer Buffer to write into the HP write fd.
+ * @param inputs Buffer to write into the HP write fd.
  */
 int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
 {
@@ -449,24 +447,35 @@ int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
 /**
  * Write the given input buffer into the write fd from the HP side.
  * @param fds Vector of fd list.
- * @param inputbuffer Buffer to write into the HP write fd.
+ * @param inputs Buffer to write into the HP write fd.
  */
 int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
 {
+    /**
+     * npl inputs are feed into the contract in a binary protocol. It follows the following pattern
+     * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (4 bytes)**|**Npl message data**|
+     * Length of the message is calculated without including public key length
+     */
     const int writefd = fds[FDTYPE::HPWRITE];
     bool vmsplice_error = false;
-
     if (!inputs.empty())
     {
-        iovec memsegs[inputs.size() * 3];
+        int8_t total_memsegs = inputs.size() * 3;
+        iovec memsegs[total_memsegs];
         size_t i = 0;
-        size_t total_msg_length = 0;
-
         for (auto &input : inputs)
         {
+            int8_t pre_header_index = i * 3;
+            int8_t pubkey_index = i * 3 + 1;
+            int8_t msg_index = i * 3 + 2;
+
+            // First binary representation of version, reserve and message length is constructed and feed it into
+            // memory segment. Then the public key and at last the message data
+
             std::bitset<8> version(util::MIN_NPL_INPUT_VERSION);
             std::string stringified_version = version.to_string();
 
+            // At the moment no data is inserted as reserve
             std::bitset<8> reserve(0);
             std::string stringified_reserve = reserve.to_string();
 
@@ -481,23 +490,26 @@ int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
 
             std::bitset<32> ver_res_msglen_bitset(stringified_version);
             std::int32_t numeric_pre_header = ver_res_msglen_bitset.to_ulong();
-            memsegs[i * 3].iov_base = &numeric_pre_header;
-            memsegs[i * 3].iov_len = 4;
+            memsegs[pre_header_index].iov_base = &numeric_pre_header;
+            memsegs[pre_header_index].iov_len = 4;
 
             std::string_view msg_pubkey = fbschema::flatbuff_bytes_to_sv(container->pubkey());
-            memsegs[i * 3 + 1].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));
-            memsegs[i * 3 + 1].iov_len = msg_pubkey.size();
+            memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));
+            memsegs[pubkey_index].iov_len = msg_pubkey.size();
 
-            memsegs[i * 3 + 2].iov_base = reinterpret_cast<void *>(const_cast<uint8_t *>(container_content->Data()));
-            memsegs[i * 3 + 2].iov_len = container_content->size();
+            memsegs[msg_index].iov_base = reinterpret_cast<void *>(const_cast<uint8_t *>(container_content->Data()));
+            memsegs[msg_index].iov_len = container_content->size();
 
             i++;
-            total_msg_length = total_msg_length + 4 + msg_pubkey.size() + container_content->size();
         }
 
-        if (vmsplice(writefd, memsegs, total_msg_length, 0) == -1)
+        if (vmsplice(writefd, memsegs, total_memsegs, 0) == -1)
             vmsplice_error = true;
     }
+    // It's important that we DO NOT clear the input buffer string until the contract
+    // process has actually read from the fd. Because the OS is just mapping our
+    // input buffer memory portion into the fd, if we clear it now, the contract process
+    // will get invaid bytes when reading the fd.
 
     // Close the writefd since we no longer need it.
     close(writefd);
@@ -546,6 +558,8 @@ int read_iopipe(std::vector<int> &fds, std::string &output)
 void close_unused_fds(const bool is_hp)
 {
     close_unused_vectorfds(is_hp, hpscfds);
+
+    close_unused_vectorfds(is_hp, nplfds);
 
     // Loop through user fds.
     for (auto &[pubkey, fds] : userfds)

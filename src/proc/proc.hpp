@@ -64,7 +64,7 @@ struct contract_exec_args
     contract_exec_args(
         int64_t timestamp,
         contract_bufmap_t &userbufs,
-        contract_iobuf_pair &_nplbuff,
+        contract_iobuf_pair &nplbuff,
         contract_iobuf_pair &hpscbufs,
         contract_fblockmap_t &state_updates) :
             userbufs(userbufs),

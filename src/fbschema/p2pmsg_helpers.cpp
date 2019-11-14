@@ -287,8 +287,8 @@ void create_containermsg_from_content(
         container_builder,
         util::PEERMSG_VERSION,
         util::get_epoch_milliseconds(),
-        lcl_offset,
         pubkey_offset,
+        lcl_offset,
         sig_offset,
         content);
 

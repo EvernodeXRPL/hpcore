@@ -5,6 +5,7 @@
 #include "../usr/user_input.hpp"
 #include "../p2p/p2p.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
+#include "../fbschema/common_helpers.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
@@ -77,7 +78,16 @@ void consensus()
     // and avoid threading conflicts with network incoming npl messages.
     {
         std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
-        ctx.candidate_npl_messages.splice(ctx.candidate_npl_messages.end(), p2p::ctx.collected_msgs.npl_messages);
+        for (auto &npl : p2p::ctx.collected_msgs.npl_messages)
+        {
+            const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(npl.data());
+            // Only the npl messages with a valid lcl will be passed down to the contract. lcl should match the previous round's lcl
+            if (fbschema::flatbuff_bytes_to_sv(container->lcl()) != ctx.lcl)
+                continue;
+
+            ctx.candidate_npl_messages.push_back(std::move(npl));
+        }
+        p2p::ctx.collected_msgs.npl_messages.clear();
     }
 
     if (ctx.stage == 0)
@@ -200,7 +210,7 @@ void broadcast_nonunl_proposal()
 
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
-    p2p::broadcast_message(msg);
+    p2p::broadcast_message(msg, true);
 
     LOG_DBG << "NUP sent."
             << " users:" << nup.user_messages.size();
@@ -378,7 +388,7 @@ void broadcast_proposal(const p2p::proposal &p)
 
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
-    p2p::broadcast_message(msg);
+    p2p::broadcast_message(msg, true);
 
     LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
             << "] users:" << p.users.size()
@@ -549,6 +559,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
     proc::contract_fblockmap_t updated_blocks;
 
     proc::contract_bufmap_t useriobufmap;
+    
     proc::contract_iobuf_pair nplbufpair;
     nplbufpair.inputs = std::move(ctx.candidate_npl_messages);
 
@@ -657,7 +668,6 @@ void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
 {
     for (auto &[pubkey, bufpair] : bufmap)
     {
-
         if (!bufpair.output.empty())
         {
             std::string output;
@@ -673,14 +683,14 @@ void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
 
 void broadcast_npl_output(std::string &output)
 {
-    if (output.size() > 0)
+    if (!output.empty())
     {
         p2p::npl_message npl;
         npl.data = output;
 
         p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
         p2pmsg::create_msg_from_npl_output(msg.builder(), npl, ctx.lcl);
-        p2p::broadcast_message(msg);
+        p2p::broadcast_message(msg, false);
     }
 }
 
@@ -693,9 +703,8 @@ void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &userio
 {
     // todo:implement exchange of hpsc bufs
     proc::contract_iobuf_pair hpscbufpair;
-
     proc::exec_contract(
-        proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair, state_updates));
+        proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair, state_updates));
 }
 
 /**
