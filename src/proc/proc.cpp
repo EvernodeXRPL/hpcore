@@ -564,10 +564,6 @@ void close_unused_fds(const bool is_hp)
     // Loop through user fds.
     for (auto &[pubkey, fds] : userfds)
         close_unused_vectorfds(is_hp, fds);
-
-    // Loop through npl fds.
-    // for (auto &[pubkey, fds] : nplfds)
-    //     close_unused_vectorfds(is_hp, fds);
 }
 
 /**
