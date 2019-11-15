@@ -140,6 +140,9 @@ public:
     // The unique identifier of the remote party (format <ip>:<port>).
     std::string uniqueid;
 
+    // Boolean value to store whether the session is self connection (connect to the same node)
+    bool is_self;
+
     // The set of sock::SESSION_FLAG enum flags that will be set by user-code of this calss.
     // We mainly use this to store contexual information about this session based on the use case.
     // Setting and reading flags to this is completely managed by user-code.

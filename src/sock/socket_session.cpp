@@ -17,8 +17,8 @@ socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp
 
 /**
  * Sets the largest permissible incoming data length in a single receive. If exceeds over this limit will cause
-  * a protocol failure. Because this is internally handled by beast socket, we don't use socket_threshold struct
-  * to handle this.
+ * a protocol failure. Because this is internally handled by beast socket, we don't use socket_threshold struct
+ * to handle this.
 */
 template <class T>
 void socket_session<T>::set_max_socket_read_len(const uint64_t size)
@@ -117,6 +117,10 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     // We prepare this appended string here because we need to use it as an identifier of the session in various places.
     this->uniqueid.reserve(port.size() + address.size() + 1);
     this->uniqueid.append(address).append(":").append(port);
+
+    // This indicates the connection is a self connection (node connects to the same node through server port)
+    if(address == "0.0.0.0")
+        this->is_self = true;
 
     // Set the timeout.
     beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));

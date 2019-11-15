@@ -47,6 +47,9 @@ struct consensus_context
     // The set of proposals that are being collected as consensus stages are progressing.
     std::list<p2p::proposal> candidate_proposals;
 
+    // The set of npl messages that are being collected as consensus stages are progressing.
+    std::list<std::string> candidate_npl_messages;
+
     // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
     std::unordered_set<std::string> candidate_users;
 
@@ -111,11 +114,13 @@ void apply_ledger(const p2p::proposal &proposal);
 
 void dispatch_user_outputs(const p2p::proposal &cons_prop);
 
-void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
+void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
-void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
+void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
 
-void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_fblockmap_t &state_updates);
+void broadcast_npl_output(std::string &output);
+
+void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair, proc::contract_fblockmap_t &state_updates);
 
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);

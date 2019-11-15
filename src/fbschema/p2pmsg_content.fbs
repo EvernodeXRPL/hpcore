@@ -25,7 +25,6 @@ table NonUnl_Proposal_Message {
 table Proposal_Message { //Proposal type message schema
     stage:uint8;
     time:uint64;
-    lcl:[ubyte];
     users:[ByteArray];
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
@@ -33,10 +32,7 @@ table Proposal_Message { //Proposal type message schema
 }
 
 table Npl_Message { //NPL type message schema
-    pubkey:[ubyte];
-    timestamp:uint64;
     data:[ubyte];
-    lcl:[ubyte];
 }
 
 table StateDifference { //Represent state difference by tracking created,updated and deleted state files.

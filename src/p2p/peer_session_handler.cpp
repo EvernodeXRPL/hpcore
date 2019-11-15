@@ -6,6 +6,7 @@
 #include "../fbschema/p2pmsg_container_generated.h"
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/p2pmsg_helpers.hpp"
+#include "../fbschema/common_helpers.hpp"
 #include "../sock/socket_message.hpp"
 #include "../sock/socket_session.hpp"
 #include "p2p.hpp"
@@ -82,7 +83,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
 
         ctx.collected_msgs.proposals.push_back(
-            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp()));
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
     }
     else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
     {
@@ -93,9 +94,20 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
     {
-        const p2pmsg::Npl_Message *npl = content->message_as_Npl_Message();
-        // execute npl logic here.
-        //broadcast message.
+        if (p2pmsg::validate_container_trust(container) != 0)
+        {
+            LOG_DBG << "NPL message rejected due to trust failure.";
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.npl_messages_mutex); // Insert npl message with lock.
+
+        // Npl messages are added to the npl message array as it is without deserealizing the content. The same content will be passed down
+        // to the contract as input in a binary format
+        const uint8_t *container_buf_ptr = reinterpret_cast<const uint8_t *>(message.data());
+        const size_t container_buf_size = message.length();
+        const std::string npl_message(reinterpret_cast<const char *>(container_buf_ptr), container_buf_size);
+        ctx.collected_msgs.npl_messages.push_back(std::move(npl_message));
     }
     else
     {
