@@ -280,7 +280,7 @@ void create_containermsg_from_content(
         pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.pubkey);
     }
 
-    if (lcl.size() > 0)
+    if (!lcl.empty())
         lcl_offset = sv_to_flatbuff_bytes(container_builder, lcl);
 
     const flatbuffers::Offset<Container> container_message = CreateContainer(
