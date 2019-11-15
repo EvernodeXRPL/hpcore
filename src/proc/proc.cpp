@@ -480,12 +480,12 @@ int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
             uint16_t msg_length = container_content->size();
 
             /**
-             *  Pre header is constructed using bit shifting. This will generate a bit pattern as explain in the example below 
+             * Pre header is constructed using bit shifting. This will generate a bit pattern as explain in the example below 
              * version = 00000001
              * reserve = 00000000
              * msg_length = 0000000010001101
              * pre_header = 00000001000000000000000010001101
-            */
+             */
             uint32_t pre_header = util::MIN_NPL_INPUT_VERSION;
             pre_header = pre_header << 8;
             pre_header += reserve;
