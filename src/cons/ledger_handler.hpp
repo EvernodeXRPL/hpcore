@@ -22,11 +22,13 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
 
 void remove_old_ledgers(const uint64_t led_seq_no);
 
-std::string write_ledger(uint64_t led_seq_no, const std::string &lcl_hash, const char *ledger_raw, size_t ledger_size);
+void write_ledger(const std::string &file_name, const char *ledger_raw, size_t ledger_size);
 
 const ledger_history load_ledger();
 
 void send_ledger_history_request(const std::string &minimum_lcl, const std::string &required_lcl);
+
+bool check_required_lcl_availability(const p2p::history_request &hr);
 
 const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr);
 

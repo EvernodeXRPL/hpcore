@@ -93,8 +93,13 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     {
         //session->send
         LOG_DBG << "Received history request message type from peer ";
-        p2p::peer_outbound_message hr_msg = cons::send_ledger_history(p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message()));
-        session->send(hr_msg);
+        const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
+        bool req_lcl_avail = cons::check_required_lcl_availability(hr);
+        if (req_lcl_avail > 0)
+        {
+            p2p::peer_outbound_message hr_msg = cons::send_ledger_history(hr);
+            session->send(hr_msg);
+        }
     }
     else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
     {

@@ -31,6 +31,8 @@ int verify_hex(std::string_view msg, std::string_view sighex, std::string_view p
 
 std::string get_hash(std::string_view data);
 
+std::string get_hash(const unsigned char * data, size_t data_length);
+
 std::string get_hash(std::string_view s1, std::string_view s2);
 
 } // namespace crypto

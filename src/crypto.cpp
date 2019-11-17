@@ -152,6 +152,27 @@ std::string get_hash(std::string_view data)
 }
 
 /**
+ * Generate blake2b hash for a given message.
+ * @param data char array pointer to hash data.
+ * @param data_length hash data length.
+ * @return The blake2b hash of the given string.
+ */
+std::string get_hash(const unsigned char * data, size_t data_length)
+{
+    std::string hash;
+    hash.resize(crypto_generichash_blake2b_BYTES);
+
+    crypto_generichash_blake2b(
+        reinterpret_cast<unsigned char *>(hash.data()),
+        hash.length(),
+        data,
+        data_length,
+        NULL, 0);
+
+    return hash;
+}
+
+/**
  * Generates blake2b hash for the given set of strings using stream hashing.
  */
 std::string get_hash(std::string_view s1, std::string_view s2)
