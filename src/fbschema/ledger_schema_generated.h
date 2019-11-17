@@ -48,11 +48,11 @@ struct Ledger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *mutable_users() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_USERS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *inputs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *>(VT_INPUTS);
+  const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *inputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_INPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *mutable_inputs() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<RawInputList>> *>(VT_INPUTS);
+  flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *mutable_inputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_INPUTS);
   }
   const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *outputs() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_OUTPUTS);
@@ -94,7 +94,7 @@ struct LedgerBuilder {
   void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users) {
     fbb_.AddOffset(Ledger::VT_USERS, users);
   }
-  void add_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawInputList>>> inputs) {
+  void add_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> inputs) {
     fbb_.AddOffset(Ledger::VT_INPUTS, inputs);
   }
   void add_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> outputs) {
@@ -118,7 +118,7 @@ inline flatbuffers::Offset<Ledger> CreateLedger(
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<RawInputList>>> inputs = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> outputs = 0) {
   LedgerBuilder builder_(_fbb);
   builder_.add_time(time);
@@ -136,11 +136,11 @@ inline flatbuffers::Offset<Ledger> CreateLedgerDirect(
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *users = nullptr,
-    const std::vector<flatbuffers::Offset<RawInputList>> *inputs = nullptr,
+    const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *inputs = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *outputs = nullptr) {
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*users) : 0;
-  auto inputs__ = inputs ? _fbb.CreateVector<flatbuffers::Offset<RawInputList>>(*inputs) : 0;
+  auto inputs__ = inputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*inputs) : 0;
   auto outputs__ = outputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*outputs) : 0;
   return fbschema::ledger::CreateLedger(
       _fbb,

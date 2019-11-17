@@ -127,7 +127,7 @@ void consensus()
             if (should_reset)
                 should_reset = ramdom_reset_stage();
             //for now we are resetting to stage 0 to avoid possible deadlock situations
-            timewait_stage(true);
+            timewait_stage(should_reset);
             return;
         }
 

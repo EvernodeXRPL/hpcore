@@ -7,7 +7,7 @@ table Ledger {
     time:uint64;
     lcl:[ubyte];
     users: [ByteArray];
-    inputs: [RawInputList]; 
+    inputs: [ByteArray]; 
     outputs: [ByteArray];
 }
 

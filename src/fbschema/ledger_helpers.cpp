@@ -20,9 +20,9 @@ std::string_view create_ledger_from_proposal(flatbuffers::FlatBufferBuilder &bui
             seq_no,
             p.time,
             sv_to_flatbuff_bytes(builder, p.lcl),
-            stringlist_to_flatbuf_bytearrayvector(builder, p.users), 0, 0
-            //p2p::hashbuffermap_to_flatbuf_rawinputs(builder, p.raw_inputs),
-            //stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs)
+            stringlist_to_flatbuf_bytearrayvector(builder, p.users),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs)
         );
 
     builder.Finish(ledger); // Finished building message content to get serialised content.
