@@ -61,19 +61,6 @@ void consensus()
         ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::ctx.collected_msgs.proposals);
     }
 
-    LOG_DBG << "Started stage " << std::to_string(ctx.stage);
-    for (const auto p : ctx.candidate_proposals)
-    {
-        const bool self = p.pubkey == conf::cfg.pubkey;
-        LOG_DBG << "[stage" << std::to_string(p.stage)
-                << "] users:" << p.users.size()
-                << " hinp:" << p.hash_inputs.size()
-                << " hout:" << p.hash_outputs.size()
-                << " lcl:" << p.lcl
-                << " self:" << self;
-    }
-    LOG_DBG << "timenow: " << std::to_string(ctx.time_now);
-
     // Throughout consensus, we move over the incoming npl messages collected via the network so far into
     // the candidate npl message set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming npl messages.
@@ -94,7 +81,7 @@ void consensus()
     if (ctx.stage == 0)
     {
         // Stage 0 means begining of a consensus round.
-       {
+        {
             // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
             // when we transition to stage 1.
             auto itr = ctx.candidate_proposals.begin();
@@ -128,15 +115,16 @@ void consensus()
         for (auto p : ctx.candidate_proposals)
         {
             bool self = p.pubkey == conf::cfg.pubkey;
-            std::cout << "[stage" << std::to_string(p.stage)
-                      << "] users:" << p.users.size()
-                      << " hinp:" << p.hash_inputs.size()
-                      << " hout:" << p.hash_outputs.size()
-                      << " lcl:" << p.lcl
-                      << " self:" << self
-                      << "\n";
+            LOG_DBG << "[stage" << std::to_string(p.stage)
+                    << "] users:" << p.users.size()
+                    << " hinp:" << p.hash_inputs.size()
+                    << " hout:" << p.hash_outputs.size()
+                    << " lcl:" << p.lcl
+                    << " self:" << self
+                    << "\n";
         }
-        std::cout << "timenow:" << std::to_string(ctx.time_now) << "\n";
+
+        LOG_DBG << "timenow:" << std::to_string(ctx.time_now) << "\n";
         // Initialize vote counters
         vote_counter votes;
 
@@ -162,7 +150,7 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand()%conf::cfg.roundtime));
+            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
             //for now we are resetting to stage 0 to avoid possible deadlock situations
             timewait_stage(should_reset);
             return;
@@ -173,15 +161,16 @@ void consensus()
         broadcast_proposal(stg_prop);
 
         // Remove all candidate proposals that are behind our current stage.
-        // auto itr = ctx.candidate_proposals.begin();
-        // while (itr != ctx.candidate_proposals.end())
-        // {
-        //     if (itr->stage < ctx.stage)
-        //         ctx.candidate_proposals.erase(itr++);
-        //     else
-        //         ++itr;
-        // }
-        ctx.candidate_proposals.clear();
+        auto itr = ctx.candidate_proposals.begin();
+        while (itr != ctx.candidate_proposals.end())
+        {
+            if (itr->stage < ctx.stage)
+                ctx.candidate_proposals.erase(itr++);
+            else
+                ++itr;
+        }
+        //ctx.candidate_proposals.clear();
+
         if (ctx.stage == 3)
         {
             apply_ledger(stg_prop);
@@ -439,7 +428,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
     if (majority_stage < ctx.stage - 1)
     {
-        should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand()%conf::cfg.roundtime));
+        should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
         is_desync = true;
 
         LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
@@ -547,7 +536,7 @@ void timewait_stage(const bool reset)
  */
 void apply_ledger(const p2p::proposal &cons_prop)
 {
-    const std::tuple<const uint64_t, std::string> new_lcl  = save_ledger(cons_prop);
+    const std::tuple<const uint64_t, std::string> new_lcl = save_ledger(cons_prop);
     ctx.led_seq_no = std::get<0>(new_lcl);
     ctx.lcl = std::get<1>(new_lcl);
 

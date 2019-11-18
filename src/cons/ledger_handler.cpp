@@ -59,15 +59,15 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
 
     write_ledger(file_name, ledger_str.data(), ledger_str.size());
 
-    cons::ctx.lcl_list.emplace(led_seq_no, std::move(file_name));
+    cons::ctx.lcl_list.emplace(led_seq_no, file_name);
 
     //Remove old ledgers that exceeds max sequence range.
     if (led_seq_no > MAX_LEDGER_SEQUENCE)
     {
         remove_old_ledgers(led_seq_no - MAX_LEDGER_SEQUENCE);
     }
-
-    return std::make_tuple(led_seq_no, std::move(lcl_hash));
+    
+    return std::make_tuple(led_seq_no, std::move(file_name));
 }
 
 /**
