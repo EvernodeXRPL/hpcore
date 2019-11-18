@@ -303,7 +303,7 @@ void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_b
 
     // Now that we have built the content message,
     // we need to sign it and place it inside a container message.
-    create_containermsg_from_content(container_builder, builder, true);
+    create_containermsg_from_content(container_builder, builder, nullptr, true);
 }
 
 /**
@@ -325,7 +325,7 @@ void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_
 
     // Now that we have built the content message,
     // we need to sign it and place it inside a container message.
-    create_containermsg_from_content(container_builder, builder, true);
+    create_containermsg_from_content(container_builder, builder, nullptr, true);
 }
 
 /**

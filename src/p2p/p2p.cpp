@@ -104,29 +104,29 @@ void broadcast_message(const peer_outbound_message msg, bool send_to_self)
  */
 void send_message_to_random_peer(peer_outbound_message msg)
 {
-    size_t connected_peers = p2p::peer_connections.size();
+    size_t connected_peers = ctx.peer_connections.size();
     if (connected_peers == 0)
     {
         LOG_DBG << "No peers to send (not even self).";
         return;
     }
-    else if (connected_peers == 1)
+    else if (connected_peers == 1 && ctx.peer_connections.begin()->second->is_self)
     {
         LOG_DBG << "Only self is connected."; //todo:check self connection.
         return;
     }
 
     //Send while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
+    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
     // Initialize random number generator with current timestamp.
     int random_peer_index = (rand() % connected_peers); // select a random peer index.
-    auto it = p2p::peer_connections.begin();
+    auto it = ctx.peer_connections.begin();
     std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 
     //send message to selecte peer.
     auto session = it->second;
-    if (session->address != "0.0.0.0")
+    if (!session->is_self)
     {
         session->send(msg);
     }
