@@ -1,9 +1,9 @@
 #ifndef _HP_PROC_
 #define _HP_PROC_
 
-#include "pchheader.hpp"
-#include "usr/usr.hpp"
-#include "util.hpp"
+#include "../pchheader.hpp"
+#include "../usr/usr.hpp"
+#include "../util.hpp"
 
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
@@ -21,7 +21,7 @@ struct contract_iobuf_pair
 
     // Output emitted by contract after execution. (Because we are reading output at the end, there's no way to
     // get a "list" of outputs. So it's always a one contingous output.)
-    std::string output;    
+    std::string output;
 };
 
 // Common typedef for a map of pubkey->fdlist.
@@ -32,6 +32,11 @@ typedef std::unordered_map<std::string, std::vector<int>> contract_fdmap_t;
 // This is used to keep track of input/output buffers for a given public key (eg. user, npl)
 typedef std::unordered_map<std::string, contract_iobuf_pair> contract_bufmap_t;
 
+// Common typedef for a map of updated blocks of state files by the contract process.
+// This is used as a hint in updating the state merkle tree.
+// filename->modified blocks
+typedef std::unordered_map<std::string, std::set<uint32_t>> contract_fblockmap_t;
+
 /**
  * Holds information that should be passed into the contract process.
  */
@@ -41,33 +46,37 @@ struct contract_exec_args
     // The value is a pair holding consensus-verified inputs and contract-generated outputs.
     contract_bufmap_t &userbufs;
 
-    // Map of NPL I/O buffers (map key: Peer binary public key).
-    // The value is a pair holding NPL inputs and contract-generated outputs.
-    contract_bufmap_t &nplbufs;
+    // Pair of NPL<->SC byte array message buffers.
+    // Input buffers for NPL->SC messages, Output buffers for SC->NPL messages.
+    contract_iobuf_pair &nplbuff;
 
     // Pair of HP<->SC JSON message buffers (mainly used for control messages).
     // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
     contract_iobuf_pair &hpscbufs;
+
+    // The map of state files that was updated with updated block ids.
+    // Each block id N represents Nth 4MB block of the file.
+    contract_fblockmap_t &state_updates;
     
     // Current HotPocket timestamp.
-    int64_t timestamp;
+    const int64_t timestamp;
 
     contract_exec_args(
-        int64_t _timestamp,
-        contract_bufmap_t &_userbufs,
-        contract_bufmap_t &_nplbufs,
-        contract_iobuf_pair &_hpscbufs) :
-            userbufs(_userbufs),
-            nplbufs(_nplbufs),
-            hpscbufs(_hpscbufs)
+        int64_t timestamp,
+        contract_bufmap_t &userbufs,
+        contract_iobuf_pair &nplbuff,
+        contract_iobuf_pair &hpscbufs,
+        contract_fblockmap_t &state_updates) :
+            userbufs(userbufs),
+            nplbuff(nplbuff),
+            hpscbufs(hpscbufs),
+            state_updates(state_updates),
+            timestamp(timestamp)
     {
-        timestamp = _timestamp;
     }
 };
 
 int exec_contract(const contract_exec_args &args);
-
-int await_contract_execution();
 
 //------Internal-use functions for this namespace.
 
@@ -77,9 +86,9 @@ int feed_inputs(const contract_exec_args &args);
 
 int fetch_outputs(const contract_exec_args &args);
 
-int write_contract_hp_inputs(const contract_exec_args &args);
+int write_contract_hp_npl_inputs(const contract_exec_args &args);
 
-int read_contract_hp_outputs(const contract_exec_args &args);
+int read_contract_hp_npl_outputs(const contract_exec_args &args);
 
 // Common helper functions
 
@@ -96,6 +105,8 @@ void cleanup_fdmap(contract_fdmap_t &fdmap);
 int create_iopipes(std::vector<int> &fds);
 
 int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
+
+int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
 
 int read_iopipe(std::vector<int> &fds, std::string &output);
 

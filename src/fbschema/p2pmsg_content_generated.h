@@ -396,11 +396,10 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_STAGE = 4,
     VT_TIME = 6,
-    VT_LCL = 8,
-    VT_USERS = 10,
-    VT_HASH_INPUTS = 12,
-    VT_HASH_OUTPUTS = 14,
-    VT_STATE = 16
+    VT_USERS = 8,
+    VT_HASH_INPUTS = 10,
+    VT_HASH_OUTPUTS = 12,
+    VT_STATE = 14
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -413,12 +412,6 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool mutate_time(uint64_t _time) {
     return SetField<uint64_t>(VT_TIME, _time, 0);
-  }
-  const flatbuffers::Vector<uint8_t> *lcl() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LCL);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_lcl() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
   const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *users() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_USERS);
@@ -448,8 +441,6 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
            VerifyField<uint64_t>(verifier, VT_TIME) &&
-           VerifyOffset(verifier, VT_LCL) &&
-           verifier.VerifyVector(lcl()) &&
            VerifyOffset(verifier, VT_USERS) &&
            verifier.VerifyVector(users()) &&
            verifier.VerifyVectorOfTables(users()) &&
@@ -473,9 +464,6 @@ struct Proposal_MessageBuilder {
   }
   void add_time(uint64_t time) {
     fbb_.AddElement<uint64_t>(Proposal_Message::VT_TIME, time, 0);
-  }
-  void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
-    fbb_.AddOffset(Proposal_Message::VT_LCL, lcl);
   }
   void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users) {
     fbb_.AddOffset(Proposal_Message::VT_USERS, users);
@@ -505,7 +493,6 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint8_t stage = 0,
     uint64_t time = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs = 0,
@@ -516,7 +503,6 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
   builder_.add_hash_outputs(hash_outputs);
   builder_.add_hash_inputs(hash_inputs);
   builder_.add_users(users);
-  builder_.add_lcl(lcl);
   builder_.add_stage(stage);
   return builder_.Finish();
 }
@@ -525,12 +511,10 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint8_t stage = 0,
     uint64_t time = 0,
-    const std::vector<uint8_t> *lcl = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_inputs = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_outputs = nullptr,
     flatbuffers::Offset<State> state = 0) {
-  auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*users) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_inputs) : 0;
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_outputs) : 0;
@@ -538,7 +522,6 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       _fbb,
       stage,
       time,
-      lcl__,
       users__,
       hash_inputs__,
       hash_outputs__,
@@ -547,44 +530,18 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PUBKEY = 4,
-    VT_TIMESTAMP = 6,
-    VT_DATA = 8,
-    VT_LCL = 10
+    VT_DATA = 4
   };
-  const flatbuffers::Vector<uint8_t> *pubkey() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  uint64_t timestamp() const {
-    return GetField<uint64_t>(VT_TIMESTAMP, 0);
-  }
-  bool mutate_timestamp(uint64_t _timestamp) {
-    return SetField<uint64_t>(VT_TIMESTAMP, _timestamp, 0);
-  }
   const flatbuffers::Vector<uint8_t> *data() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_DATA);
   }
   flatbuffers::Vector<uint8_t> *mutable_data() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_DATA);
   }
-  const flatbuffers::Vector<uint8_t> *lcl() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LCL);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_lcl() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_PUBKEY) &&
-           verifier.VerifyVector(pubkey()) &&
-           VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
            VerifyOffset(verifier, VT_DATA) &&
            verifier.VerifyVector(data()) &&
-           VerifyOffset(verifier, VT_LCL) &&
-           verifier.VerifyVector(lcl()) &&
            verifier.EndTable();
   }
 };
@@ -592,17 +549,8 @@ struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct Npl_MessageBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
-    fbb_.AddOffset(Npl_Message::VT_PUBKEY, pubkey);
-  }
-  void add_timestamp(uint64_t timestamp) {
-    fbb_.AddElement<uint64_t>(Npl_Message::VT_TIMESTAMP, timestamp, 0);
-  }
   void add_data(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data) {
     fbb_.AddOffset(Npl_Message::VT_DATA, data);
-  }
-  void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
-    fbb_.AddOffset(Npl_Message::VT_LCL, lcl);
   }
   explicit Npl_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -618,33 +566,19 @@ struct Npl_MessageBuilder {
 
 inline flatbuffers::Offset<Npl_Message> CreateNpl_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    uint64_t timestamp = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data = 0) {
   Npl_MessageBuilder builder_(_fbb);
-  builder_.add_timestamp(timestamp);
-  builder_.add_lcl(lcl);
   builder_.add_data(data);
-  builder_.add_pubkey(pubkey);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Npl_Message> CreateNpl_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *pubkey = nullptr,
-    uint64_t timestamp = 0,
-    const std::vector<uint8_t> *data = nullptr,
-    const std::vector<uint8_t> *lcl = nullptr) {
-  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
+    const std::vector<uint8_t> *data = nullptr) {
   auto data__ = data ? _fbb.CreateVector<uint8_t>(*data) : 0;
-  auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   return fbschema::p2pmsg::CreateNpl_Message(
       _fbb,
-      pubkey__,
-      timestamp,
-      data__,
-      lcl__);
+      data__);
 }
 
 struct History_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

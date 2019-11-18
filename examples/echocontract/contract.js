@@ -3,22 +3,32 @@ process.on('uncaughtException', (err) => {
 })
 const fs = require('fs')
 
-let input = fs.readFileSync(0, 'utf8');
 //console.log("===Sample contract started===");
 //console.log("Contract args received from hp: " + input);
 
-let hpargs = JSON.parse(input);
+let hpargsstr = fs.readFileSync(0, 'utf8');
+let hpargs = JSON.parse(hpargsstr);
+
+// We just save execution args as an example state file change.
+fs.appendFileSync("state/execargs.txt", hpargsstr + "\n");
 
 Object.keys(hpargs.usrfd).forEach(function (key, index) {
     let userfds = hpargs.usrfd[key];
     let userinput = fs.readFileSync(userfds[0], 'utf8');
 
     if (userinput.length > 0) {
-        console.log("Input received from user " + key + ":");
-        console.log(userinput);
+        // Append user input to a state file.
+        fs.appendFileSync("state/userinputs.txt", userinput + "\n");
         fs.writeSync(userfds[1], "Echoing: " + userinput);
     }
 });
+
+let nplinput = fs.readFileSync(hpargs.nplfd[0], 'utf8');
+if (nplinput.length > 0) {
+    console.log("Input received from hp:");
+    console.log(nplinput);
+    fs.writeSync(hpargs.nplfd[1], "Echoing: " + nplinput);
+}
 
 let hpinput = fs.readFileSync(hpargs.hpfd[0], 'utf8');
 if (hpinput.length > 0) {

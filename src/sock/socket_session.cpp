@@ -1,3 +1,4 @@
+#include "../bill/corebill.h"
 #include "socket_session.hpp"
 #include "socket_message.hpp"
 #include "socket_session_handler.hpp"
@@ -16,8 +17,8 @@ socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp
 
 /**
  * Sets the largest permissible incoming data length in a single receive. If exceeds over this limit will cause
-  * a protocol failure. Because this is internally handled by beast socket, we don't use socket_threshold struct
-  * to handle this.
+ * a protocol failure. Because this is internally handled by beast socket, we don't use socket_threshold struct
+ * to handle this.
 */
 template <class T>
 void socket_session<T>::set_max_socket_read_len(const uint64_t size)
@@ -64,11 +65,14 @@ void socket_session<T>::increment_metric(const SESSION_THRESHOLDS threshold_type
         const uint64_t elapsed_time = time_now - t.timestamp;
         if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
         {
+            this->close();
+
             t.timestamp = 0;
             t.counter_value = 0;
 
             LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-            this->close();
+            corebill::report_violation(this->address);
+
         }
         else if (elapsed_time > t.intervalms)
         {
@@ -113,6 +117,10 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     // We prepare this appended string here because we need to use it as an identifier of the session in various places.
     this->uniqueid.reserve(port.size() + address.size() + 1);
     this->uniqueid.append(address).append(":").append(port);
+
+    // This indicates the connection is a self connection (node connects to the same node through server port)
+    if(address == "0.0.0.0")
+        this->is_self = true;
 
     // Set the timeout.
     beast::get_lowest_layer(ws).expires_after(std::chrono::seconds(30));
@@ -164,6 +172,12 @@ void socket_session<T>::on_accept(const error_code ec)
     // Handle the error, if any
     if (ec)
         return fail(ec, "accept");
+
+    if (corebill::is_banned(this->address))
+    {
+        LOG_DBG << "Dropping connection for banned host " << this->address;
+        this->close();
+    }
 
     sess_handler.on_connect(this);
 

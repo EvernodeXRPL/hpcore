@@ -5,12 +5,14 @@
 #include "../usr/user_input.hpp"
 #include "../p2p/p2p.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
+#include "../fbschema/common_helpers.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
-#include "../proc.hpp"
+#include "../proc/proc.hpp"
 #include "ledger_handler.hpp"
+#include "statemap_handler.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -18,6 +20,13 @@ namespace jusrmsg = jsonschema::usrmsg;
 
 namespace cons
 {
+
+/**
+ * Voting thresholds for consensus stages.
+ */
+constexpr float STAGE1_THRESHOLD = 0.5;
+constexpr float STAGE2_THRESHOLD = 0.65;
+constexpr float STAGE3_THRESHOLD = 0.8;
 
 consensus_context ctx;
 
@@ -48,8 +57,38 @@ void consensus()
     // the candidate proposal set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming proposals.
     {
-        std::lock_guard<std::mutex> lock(p2p::collected_msgs.proposals_mutex);
-        ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::collected_msgs.proposals);
+        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
+        ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::ctx.collected_msgs.proposals);
+    }
+
+    LOG_DBG << "Started stage " << std::to_string(ctx.stage);
+    for (const auto p : ctx.candidate_proposals)
+    {
+        const bool self = p.pubkey == conf::cfg.pubkey;
+        LOG_DBG << "[stage" << std::to_string(p.stage)
+                << "] users:" << p.users.size()
+                << " hinp:" << p.hash_inputs.size()
+                << " hout:" << p.hash_outputs.size()
+                << " lcl:" << p.lcl
+                << " self:" << self;
+    }
+    LOG_DBG << "timenow: " << std::to_string(ctx.time_now);
+
+    // Throughout consensus, we move over the incoming npl messages collected via the network so far into
+    // the candidate npl message set (move and append). This is to have a private working set for the consensus
+    // and avoid threading conflicts with network incoming npl messages.
+    {
+        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
+        for (const auto &npl : p2p::ctx.collected_msgs.npl_messages)
+        {
+            const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(npl.data());
+            // Only the npl messages with a valid lcl will be passed down to the contract. lcl should match the previous round's lcl
+            if (fbschema::flatbuff_bytes_to_sv(container->lcl()) != ctx.lcl)
+                continue;
+
+            ctx.candidate_npl_messages.push_back(std::move(npl));
+        }
+        p2p::ctx.collected_msgs.npl_messages.clear();
     }
 
     if (ctx.stage == 0)
@@ -173,7 +212,7 @@ void broadcast_nonunl_proposal()
     // Construct NUP.
     p2p::nonunl_proposal nup;
 
-    std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
+    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
     for (auto &[sid, user] : usr::ctx.users)
     {
         std::list<usr::user_submitted_message> usermsgs;
@@ -186,7 +225,7 @@ void broadcast_nonunl_proposal()
 
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
-    p2p::broadcast_message(msg);
+    p2p::broadcast_message(msg, true);
 
     LOG_DBG << "NUP sent."
             << " users:" << nup.user_messages.size();
@@ -199,8 +238,8 @@ void broadcast_nonunl_proposal()
 void verify_and_populate_candidate_user_inputs()
 {
     // Lock the list so any network activity is blocked.
-    std::lock_guard<std::mutex> lock(p2p::collected_msgs.nonunl_proposals_mutex);
-    for (const p2p::nonunl_proposal &p : p2p::collected_msgs.nonunl_proposals)
+    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+    for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
@@ -245,7 +284,7 @@ void verify_and_populate_candidate_user_inputs()
             }
         }
     }
-    p2p::collected_msgs.nonunl_proposals.clear();
+    p2p::ctx.collected_msgs.nonunl_proposals.clear();
 }
 
 p2p::proposal create_stage0_proposal()
@@ -358,9 +397,13 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
+    // In passive mode, we do not send out any propopsals.
+    if (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE)
+        return;
+
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
-    p2p::broadcast_message(msg);
+    p2p::broadcast_message(msg, true);
 
     LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
             << "] users:" << p.users.size()
@@ -381,7 +424,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
             increment(votes.stage, cp.stage);
     }
 
-    majority_stage = -1;
+    majority_stage = 0;
     is_desync = false;
 
     int32_t highest_votes = 0;
@@ -526,10 +569,22 @@ void apply_ledger(const p2p::proposal &cons_prop)
     // todo:check  state against the winning / canonical state
     // and act accordingly (rollback, ask state from peer, etc.)
 
+    // This will hold a list of file blocks that was updated by the contract process.
+    // We then feed this information to state tracking logic.
+    proc::contract_fblockmap_t updated_blocks;
+
     proc::contract_bufmap_t useriobufmap;
-    feed_inputs_to_contract_bufmap(useriobufmap, cons_prop);
-    run_contract_binary(cons_prop.time, useriobufmap);
-    extract_outputs_from_contract_bufmap(useriobufmap);
+
+    proc::contract_iobuf_pair nplbufpair;
+    nplbufpair.inputs.splice(nplbufpair.inputs.end(), ctx.candidate_npl_messages);
+
+    feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
+
+    run_contract_binary(cons_prop.time, useriobufmap, nplbufpair, updated_blocks);
+
+    extract_user_outputs_from_contract_bufmap(useriobufmap);
+    broadcast_npl_output(nplbufpair.output);
+    update_state_blockmap(updated_blocks);
 }
 
 /**
@@ -559,15 +614,17 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
             const auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
             if (sess_itr != usr::ctx.sessionids.end()) // match found
             {
-                const auto user_itr = usr::ctx.users.find(sess_itr->second);  // sess_itr->second is the session id.
-                if (user_itr != usr::ctx.users.end()) // match found
+                const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
+                if (user_itr != usr::ctx.users.end())                        // match found
                 {
                     std::string outputtosend;
                     outputtosend.swap(cand_output.output);
-                    usr::user_outbound_message outmsg(std::move(outputtosend));
+
+                    std::string msg;
+                    jusrmsg::create_contract_output_container(msg, outputtosend);
 
                     const usr::connected_user &user = user_itr->second;
-                    user.session->send(std::move(outmsg));
+                    user.session->send(usr::user_outbound_message(std::move(msg)));
                 }
             }
         }
@@ -582,7 +639,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
  * @param bufmap The contract bufmap which needs to be populated with inputs.
  * @param cons_prop The proposal that achieved consensus.
  */
-void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
+void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
 {
     // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
     // This is in case the contract wanted to emit some data to a user without needing any input.
@@ -622,7 +679,7 @@ void feed_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::
  * for the next consensus round.
  * @param bufmap The contract bufmap containing the outputs produced by the contract.
  */
-void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
+void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
 {
     for (auto &[pubkey, bufpair] : bufmap)
     {
@@ -639,22 +696,30 @@ void extract_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
     }
 }
 
+void broadcast_npl_output(std::string &output)
+{
+    if (!output.empty())
+    {
+        p2p::npl_message npl;
+        npl.data.swap(output);
+
+        p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+        p2pmsg::create_msg_from_npl_output(msg.builder(), npl, ctx.lcl);
+        p2p::broadcast_message(msg, false);
+    }
+}
+
 /**
  * Executes the smart contract with the specified time and provided I/O buf maps.
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap)
+void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair, proc::contract_fblockmap_t &state_updates)
 {
-    // todo:implement exchange of npl and hpsc bufs
-    proc::contract_bufmap_t nplbufmap;
+    // todo:implement exchange of hpsc bufs
     proc::contract_iobuf_pair hpscbufpair;
-    hpscbufpair.inputs.push_back("A");
-    hpscbufpair.inputs.push_back("B");
-    hpscbufpair.inputs.push_back("C");
-
     proc::exec_contract(
-        proc::contract_exec_args(time_now, useriobufmap, nplbufmap, hpscbufpair));
+        proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair, state_updates));
 }
 
 /**

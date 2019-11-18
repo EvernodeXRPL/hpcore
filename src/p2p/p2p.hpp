@@ -42,26 +42,57 @@ struct history_response
 {
     std::map<uint64_t,const history_ledger> hist_ledgers;
 };
+    
+struct npl_message
+{
+    std::string data;
+};
 
 struct message_collection
 {
     std::list<proposal> proposals;
-    std::mutex proposals_mutex; // Mutex for proposals access race conditions.
-
+    std::mutex proposals_mutex;                    // Mutex for proposals access race conditions.
+    
     std::list<nonunl_proposal> nonunl_proposals;
-    std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
+    std::mutex nonunl_proposals_mutex;            // Mutex for non-unl proposals access race conditions.
+
+    // NPL messages are stored as string list because we are feeding the npl messages as it is (byte array) to the contract.
+    std::list<std::string> npl_messages;          
+    std::mutex npl_messages_mutex;                 // Mutex for npl_messages access race conditions.
 };
 
-/**
- * Holds all the messages until they are processed by consensus.
- */
-extern message_collection collected_msgs;
+struct connected_context
+{
+    // Holds all the messages until they are processed by consensus.
+    message_collection collected_msgs;
 
-/**
- * This is used to store active peer connections mapped by the unique key of socket session
- */
-extern std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
-extern std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
+    // Set of currently connected outbound peer connections mapped by the uniqueid of socket session.
+    std::unordered_map<std::string, sock::socket_session<peer_outbound_message> *> peer_connections;
+    std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
+
+    // Peer connection watchdog runs on this thread.
+    std::thread peer_watchdog_thread;
+};
+
+extern connected_context ctx;
+
+struct listener_context
+{
+    // Peer session handler instance. This instance's methods will be fired for any peer socket activity.
+    p2p::peer_session_handler global_peer_session_handler;
+
+    // IO context used by the  boost library in creating sockets
+    net::io_context ioc;
+
+    // SSL context used by the boost library in providing tls support
+    ssl::context ssl_ctx{ssl::context::tlsv13};
+
+    // The thread the peer listener is running on.
+    std::thread listener_thread;
+
+    // Used to pass down the default settings to the socket session
+    sock::session_options default_sess_opts;
+};
 
 int init();
 
@@ -70,7 +101,7 @@ void start_peer_connections();
 
 void peer_connection_watchdog();
 
-void broadcast_message(const peer_outbound_message msg);
+void broadcast_message(const peer_outbound_message msg, bool send_to_self);
 
 void send_message_to_random_peer(peer_outbound_message msg);
 
