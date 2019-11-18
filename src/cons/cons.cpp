@@ -123,9 +123,7 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > floor(conf::cfg.roundtime);
-            if (should_reset)
-                should_reset = ramdom_reset_stage();
+            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand()%conf::cfg.roundtime));
             //for now we are resetting to stage 0 to avoid possible deadlock situations
             timewait_stage(should_reset);
             return;
@@ -398,7 +396,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
     if (majority_stage < ctx.stage - 1)
     {
-        should_reset = (ctx.time_now - ctx.novel_proposal_time) > floor(conf::cfg.roundtime);
+        should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand()%conf::cfg.roundtime));
         is_desync = true;
 
         LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
@@ -468,11 +466,12 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
     {
         LOG_DBG << "We are not on the consensus ledger, requesting history from a random peer";
         is_desync = true;
-        //todo:create history request message and request request history from a random peer.
+
         should_request_history = true;
         return;
     }
 }
+
 /**
  * Returns the consensus percentage threshold for the specified stage.
  * @param stage The consensus stage [1, 2, 3]
@@ -491,12 +490,6 @@ float_t get_stage_threshold(const uint8_t stage)
     return -1;
 }
 
-bool ramdom_reset_stage()
-{
-    std::mt19937 rng(std::random_device{}());
-    bool rand_bool = std::uniform_int_distribution<>{0, 1}(rng);
-}
-
 void timewait_stage(const bool reset)
 {
     if (reset)
@@ -511,9 +504,9 @@ void timewait_stage(const bool reset)
  */
 void apply_ledger(const p2p::proposal &cons_prop)
 {
-    const std::tuple<const uint64_t, std::string> lcl_details  = save_ledger(cons_prop);
-    ctx.led_seq_no = std::get<0>(lcl_details);
-    ctx.lcl = std::get<1>(lcl_details);
+    const std::tuple<const uint64_t, std::string> new_lcl  = save_ledger(cons_prop);
+    ctx.led_seq_no = std::get<0>(new_lcl);
+    ctx.lcl = std::get<1>(new_lcl);
 
     // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
     {

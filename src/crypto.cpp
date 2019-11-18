@@ -153,9 +153,9 @@ std::string get_hash(std::string_view data)
 
 /**
  * Generate blake2b hash for a given message.
- * @param data char array pointer to hash data.
+ * @param data unsigned char array pointer to hash data.
  * @param data_length hash data length.
- * @return The blake2b hash of the given string.
+ * @return The blake2b hash of the pointed buffer.
  */
 std::string get_hash(const unsigned char * data, size_t data_length)
 {

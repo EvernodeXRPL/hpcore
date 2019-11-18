@@ -113,6 +113,9 @@ void std_terminate() noexcept
 
 int main(int argc, char **argv)
 {
+    //seed rand
+    srand(time(0));   
+
     // Register exception handler for std exceptions.
     std::set_terminate(&std_terminate);
 

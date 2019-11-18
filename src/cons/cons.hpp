@@ -113,8 +113,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
 
 float_t get_stage_threshold(const uint8_t stage);
 
-bool ramdom_reset_stage();
-
 void timewait_stage(const bool reset);
 
 void apply_ledger(const p2p::proposal &proposal);

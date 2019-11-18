@@ -154,6 +154,11 @@ const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal
     return nup;
 }
 
+/**
+ * Creates a history response stuct from the given proposal message.
+ * @param msg Flatbuffer History response message received from the peer.
+ * @return A History response struct representing the message.
+ */
 const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg)
 {
     p2p::history_response hr;
@@ -193,6 +198,11 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
     return p;
 }
 
+/**
+ * Creates a history response stuct from the given proposal message.
+ * @param msg Flatbuffer History request message received from the peer.
+ * @return A History request struct representing the message.
+ */
 const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg)
 {
     p2p::history_request hr;
@@ -297,6 +307,7 @@ void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_
     // we need to sign it and place it inside a container message.
     create_containermsg_from_content(container_builder, builder, true);
 }
+
 /**
  * Creates a Flatbuffer container message from the given Content message.
  * @param container_builder The Flatbuffer builder to which the final container message should be written to.
@@ -406,9 +417,6 @@ flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffe
     }
     return map;
 }
-
-//---Conversion helpers from std data types to flatbuffers data types---//
-//---These are used in constructing Flatbuffer messages using builders---//
 
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
 historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map)

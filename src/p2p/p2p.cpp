@@ -108,6 +108,7 @@ void peer_connection_watchdog()
             }
         }
 
+        //util::sleep(conf::cfg.roundtime * 4);
         util::sleep(200);
     }
 }
@@ -132,6 +133,7 @@ void broadcast_message(const peer_outbound_message msg)
 
 /**
  * Send the given message to a random peer from currently connected outbound peers.
+ * @param msg peer outbound message to be sent to peer
  */
 void send_message_to_random_peer(peer_outbound_message msg)
 {
@@ -150,7 +152,7 @@ void send_message_to_random_peer(peer_outbound_message msg)
     //Send while locking the peer_connections.
     std::lock_guard<std::mutex> lock(p2p::peer_connections_mutex);
 
-    srand(time(0));                                     // Initialize random number generator with current timestamp.
+    // Initialize random number generator with current timestamp.
     int random_peer_index = (rand() % connected_peers); // select a random peer index.
     auto it = p2p::peer_connections.begin();
     std::advance(it, random_peer_index); //move iterator to point to random selected peer.
