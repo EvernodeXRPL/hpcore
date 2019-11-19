@@ -12,7 +12,7 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message } //message content type
+union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message } //message content type
 
 table Content {
     message:Message;
@@ -33,6 +33,10 @@ table Proposal_Message { //Proposal type message schema
 
 table Npl_Message { //NPL type message schema
     data:[ubyte];
+}
+
+table State_Request_Message { //State request message schema
+    state_hash:[ByteArray];
 }
 
 table StateDifference { //Represent state difference by tracking created,updated and deleted state files.

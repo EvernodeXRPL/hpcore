@@ -109,6 +109,15 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         const std::string npl_message(reinterpret_cast<const char *>(container_buf_ptr), container_buf_size);
         ctx.collected_msgs.npl_messages.push_back(std::move(npl_message));
     }
+    else if(content_message_type == p2pmsg::Message_State_Request_Message)
+    {
+         if (p2pmsg::validate_container_trust(container) != 0)
+        {
+            LOG_DBG << "State request message rejected due to trust failure.";
+            return;
+        }
+        
+    }
     else
     {
         session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
