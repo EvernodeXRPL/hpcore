@@ -22,7 +22,7 @@ std::string last_requested_lcl;
 const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &proposal)
 {
     const size_t pos = proposal.lcl.find("-");
-    uint64_t led_seq_no;
+    uint64_t led_seq_no = 0;
 
     if (pos != std::string::npos)
     {
@@ -53,9 +53,9 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
     const std::string seq_no_str = std::to_string(led_seq_no);
     std::string file_name;
     file_name.reserve(lcl_hash.size() + seq_no_str.size() + 1);
-    file_name.append(seq_no_str);
-    file_name.append("-");
-    file_name.append(lcl_hash);
+    file_name.append(seq_no_str)
+        .append("-")
+        .append(lcl_hash);
 
     write_ledger(file_name, ledger_str.data(), ledger_str.size());
 
@@ -66,7 +66,7 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
     {
         remove_old_ledgers(led_seq_no - MAX_LEDGER_SEQUENCE);
     }
-    
+
     return std::make_tuple(led_seq_no, std::move(file_name));
 }
 
@@ -81,8 +81,8 @@ void remove_old_ledgers(const uint64_t led_seq_no)
     std::string dir_path;
 
     dir_path.reserve(conf::ctx.histdir.size() + 1);
-    dir_path.append(conf::ctx.histdir);
-    dir_path.append("/");
+    dir_path.append(conf::ctx.histdir)
+        .append("/");
 
     for (itr = cons::ctx.lcl_list.begin();
          itr != cons::ctx.lcl_list.lower_bound(led_seq_no);
@@ -91,9 +91,9 @@ void remove_old_ledgers(const uint64_t led_seq_no)
         const std::string file_name = itr->second;
         std::string file_path;
         file_path.reserve(dir_path.size() + itr->second.size() + 4);
-        file_path.append(dir_path);
-        file_path.append(file_name);
-        file_path.append(".lcl");
+        file_path.append(dir_path)
+            .append(file_name)
+            .append(".lcl");
         boost::filesystem::remove(file_path);
 
         cons::ctx.lcl_list.erase(itr++);
@@ -112,16 +112,32 @@ void write_ledger(const std::string &file_name, const char *ledger_raw, size_t l
     //file name -> [ledger sequnce numer]-[lcl hex]
 
     std::string path;
+
     path.reserve(file_name.size() + conf::ctx.histdir.size() + 5);
-    path.append(conf::ctx.histdir);
-    path.append("/");
-    path.append(file_name);
-    path.append(".lcl");
+    path.append(conf::ctx.histdir)
+        .append("/")
+        .append(file_name)
+        .append(".lcl");
 
     //write ledger to file system
     std::ofstream ofs(std::move(path));
     ofs.write(ledger_raw, ledger_size);
     ofs.close();
+}
+
+/**
+ * Delete ledger from file system.
+ * @param file_name name of ledger to be deleted.
+ */
+void remove_ledger(const std::string &file_name)
+{
+    std::string file_path;
+    file_path.reserve(conf::ctx.histdir.size() + file_name.size() + 5);
+    file_path.append(conf::ctx.histdir)
+        .append("/")
+        .append(file_name)
+        .append(".lcl");
+    boost::filesystem::remove(file_path);
 }
 
 /**
@@ -149,7 +165,7 @@ const ledger_history load_ledger()
         else
         {
             const size_t pos = file_name.find("-");
-            uint64_t seq_no;
+            uint64_t seq_no = 0;
 
             if (pos != std::string::npos)
             {
@@ -213,7 +229,7 @@ void send_ledger_history_request(const std::string &minimum_lcl, const std::stri
 bool check_required_lcl_availability(const p2p::history_request &hr)
 {
     size_t pos = hr.required_lcl.find("-");
-    uint64_t req_seq_no;
+    uint64_t req_seq_no = 0;
 
     //get sequence number of required lcl
     if (pos != std::string::npos)
@@ -250,7 +266,7 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
     p2p::history_response history_response;
 
     size_t pos = hr.minimum_lcl.find("-");
-    uint64_t min_seq_no;
+    uint64_t min_seq_no = 0;
 
     //get sequence number of minimum lcl required
     if (pos != std::string::npos)
@@ -275,7 +291,7 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
     //filter out cache and get raw files here.
     lcl_list.erase(
         lcl_list.begin(),
-        lcl_list.lower_bound(min_seq_no + 1));
+        lcl_list.lower_bound(min_seq_no));
 
     for (auto &[seq_no, lcl_hash] : lcl_list)
     {
@@ -285,10 +301,10 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         std::string path;
 
         path.reserve(conf::ctx.histdir.size() + lcl_hash.size() + 5);
-        path.append(conf::ctx.histdir);
-        path.append("/");
-        path.append(lcl_hash);
-        path.append(".lcl");
+        path.append(conf::ctx.histdir)
+            .append("/")
+            .append(lcl_hash)
+            .append(".lcl");
 
         //read lcl file
         std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -334,17 +350,17 @@ void handle_ledger_history_response(const p2p::history_response &hr)
     }
 
     //check whether recieved lcl history contains the current lcl node required.
-    bool have_equested_lcl = false;
+    bool have_requested_lcl = false;
     for (auto &[seq_no, ledger] : hr.hist_ledgers)
     {
         if (last_requested_lcl == ledger.lcl)
         {
-            have_equested_lcl = true;
+            have_requested_lcl = true;
             break;
         }
     }
 
-    if (!have_equested_lcl)
+    if (!have_requested_lcl)
     {
         LOG_DBG << "Peer sent us a history response but not containing the lcl we asked for!";
         return;
@@ -382,6 +398,12 @@ void handle_ledger_history_response(const p2p::history_response &hr)
     //Save recieved lcl in file system and update lcl history cache
     for (auto &[seq_no, ledger] : hr.hist_ledgers)
     {
+        auto prev_dup_itr = cons::ctx.lcl_list.find(seq_no);
+        if (prev_dup_itr != cons::ctx.lcl_list.end())
+        {
+            remove_ledger(prev_dup_itr->second);
+            cons::ctx.lcl_list.erase(prev_dup_itr);
+        }
         write_ledger(ledger.lcl, reinterpret_cast<const char *>(&ledger.raw_ledger[0]), ledger.raw_ledger.size());
         cons::ctx.lcl_list.emplace(seq_no, ledger.lcl);
     }

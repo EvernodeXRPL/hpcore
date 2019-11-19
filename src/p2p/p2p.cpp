@@ -112,7 +112,7 @@ void send_message_to_random_peer(peer_outbound_message msg)
     }
     else if (connected_peers == 1 && ctx.peer_connections.begin()->second->is_self)
     {
-        LOG_DBG << "Only self is connected."; //todo:check self connection.
+        LOG_DBG << "Only self is connected.";
         return;
     }
 

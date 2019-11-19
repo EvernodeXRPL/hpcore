@@ -155,7 +155,7 @@ const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal
 }
 
 /**
- * Creates a history response stuct from the given proposal message.
+ * Creates a history response stuct from the given histrory response message.
  * @param msg Flatbuffer History response message received from the peer.
  * @return A History response struct representing the message.
  */
@@ -197,7 +197,7 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
 }
 
 /**
- * Creates a history response stuct from the given proposal message.
+ * Creates a history request struct from the given history request message.
  * @param msg Flatbuffer History request message received from the peer.
  * @return A History request struct representing the message.
  */

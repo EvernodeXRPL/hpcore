@@ -1,13 +1,14 @@
 #ifndef _HP_CONS_LEDGER_
 #define _HP_CONS_LEDGER_
 
+#include "../pchheader.hpp"
 #include "../p2p/p2p.hpp"
 
 namespace cons
 {
 
 //max ledger count
-static const uint64_t MAX_LEDGER_SEQUENCE = 250;
+constexpr uint64_t MAX_LEDGER_SEQUENCE = 200;
 
 struct ledger_history
 {
@@ -23,6 +24,8 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
 void remove_old_ledgers(const uint64_t led_seq_no);
 
 void write_ledger(const std::string &file_name, const char *ledger_raw, size_t ledger_size);
+
+void remove_ledger(const std::string &file_name);
 
 const ledger_history load_ledger();
 
