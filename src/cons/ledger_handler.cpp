@@ -62,7 +62,7 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
     cons::ctx.lcl_list.emplace(led_seq_no, file_name);
 
     //Remove old ledgers that exceeds max sequence range.
-    if (led_seq_no > MAX_LEDGER_SEQUENCE)
+    if (led_seq_no > MAX_LEDGER_SEQUENCE) 
     {
         remove_old_ledgers(led_seq_no - MAX_LEDGER_SEQUENCE);
     }
@@ -85,7 +85,7 @@ void remove_old_ledgers(const uint64_t led_seq_no)
         .append("/");
 
     for (itr = cons::ctx.lcl_list.begin();
-         itr != cons::ctx.lcl_list.lower_bound(led_seq_no);
+         itr != cons::ctx.lcl_list.lower_bound(led_seq_no + 1);
          itr++)
     {
         const std::string file_name = itr->second;
@@ -94,10 +94,11 @@ void remove_old_ledgers(const uint64_t led_seq_no)
         file_path.append(dir_path)
             .append(file_name)
             .append(".lcl");
-        boost::filesystem::remove(file_path);
 
-        cons::ctx.lcl_list.erase(itr++);
+        if (boost::filesystem::exists(file_path))
+            boost::filesystem::remove(file_path);
     }
+     cons::ctx.lcl_list.erase(cons::ctx.lcl_list.begin(), cons::ctx.lcl_list.lower_bound(led_seq_no + 1));
 }
 
 /**
