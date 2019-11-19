@@ -3,10 +3,11 @@ include "common_schema.fbs";
 namespace fbschema.ledger;
 
 table Ledger {
+    seq_no:uint64;
     time:uint64;
     lcl:[ubyte];
     users: [ByteArray];
-    inputs: [RawInputList]; 
+    inputs: [ByteArray]; 
     outputs: [ByteArray];
 }
 

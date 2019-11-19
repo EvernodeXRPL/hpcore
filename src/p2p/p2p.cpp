@@ -71,7 +71,8 @@ void peer_connection_watchdog()
             }
         }
 
-        util::sleep(conf::cfg.roundtime * 4);
+        //util::sleep(conf::cfg.roundtime * 4);
+        util::sleep(200);
     }
 }
 
@@ -93,6 +94,40 @@ void broadcast_message(const peer_outbound_message msg, bool send_to_self)
     {
         if (!send_to_self && session->is_self)
             continue;
+        session->send(msg);
+    }
+}
+
+/**
+ * Send the given message to a random peer from currently connected outbound peers.
+ * @param msg peer outbound message to be sent to peer
+ */
+void send_message_to_random_peer(peer_outbound_message msg)
+{
+    size_t connected_peers = ctx.peer_connections.size();
+    if (connected_peers == 0)
+    {
+        LOG_DBG << "No peers to send (not even self).";
+        return;
+    }
+    else if (connected_peers == 1 && ctx.peer_connections.begin()->second->is_self)
+    {
+        LOG_DBG << "Only self is connected.";
+        return;
+    }
+
+    //Send while locking the peer_connections.
+    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+
+    // Initialize random number generator with current timestamp.
+    int random_peer_index = (rand() % connected_peers); // select a random peer index.
+    auto it = ctx.peer_connections.begin();
+    std::advance(it, random_peer_index); //move iterator to point to random selected peer.
+
+    //send message to selecte peer.
+    auto session = it->second;
+    if (!session->is_self)
+    {
         session->send(msg);
     }
 }

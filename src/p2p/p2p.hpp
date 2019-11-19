@@ -8,7 +8,7 @@
 
 namespace p2p
 {
-    
+
 struct proposal
 {
     std::string pubkey;
@@ -26,6 +26,23 @@ struct nonunl_proposal
     std::unordered_map<std::string, const std::list<usr::user_submitted_message>> user_messages;
 };
 
+struct history_request
+{
+    std::string minimum_lcl;
+    std::string required_lcl;
+};
+
+struct history_ledger
+{
+    std::string lcl;
+    std::vector<uint8_t> raw_ledger;
+};
+
+struct history_response
+{
+    std::map<uint64_t,const history_ledger> hist_ledgers;
+};
+    
 struct npl_message
 {
     std::string data;
@@ -56,6 +73,7 @@ struct connected_context
     // Peer connection watchdog runs on this thread.
     std::thread peer_watchdog_thread;
 };
+
 extern connected_context ctx;
 
 struct listener_context
@@ -84,6 +102,10 @@ void start_peer_connections();
 void peer_connection_watchdog();
 
 void broadcast_message(const peer_outbound_message msg, bool send_to_self);
+
+void send_message_to_random_peer(peer_outbound_message msg);
+
+void send_message_to_peer(std::string peer_session_id, peer_outbound_message msg);
 
 } // namespace p2p
 

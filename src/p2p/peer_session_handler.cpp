@@ -11,6 +11,7 @@
 #include "../sock/socket_session.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
+#include "../cons/ledger_handler.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
 
@@ -108,6 +109,26 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         const size_t container_buf_size = message.length();
         const std::string npl_message(reinterpret_cast<const char *>(container_buf_ptr), container_buf_size);
         ctx.collected_msgs.npl_messages.push_back(std::move(npl_message));
+    }
+    else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
+    {
+        LOG_DBG << "Received history request message type from peer.";
+
+        const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
+        //first check node has the required lcl available. -> if so send lcl history accordingly.
+        bool req_lcl_avail = cons::check_required_lcl_availability(hr);
+        if (req_lcl_avail > 0)
+        {
+            p2p::peer_outbound_message hr_msg = cons::send_ledger_history(hr);
+            session->send(hr_msg);
+        }
+    }
+    else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
+    {
+        LOG_DBG << "Received history response message type from peer.";
+
+        cons::handle_ledger_history_response(
+            p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message()));
     }
     else
     {
