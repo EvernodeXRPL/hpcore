@@ -129,14 +129,14 @@ void consensus()
         vote_counter votes;
 
         // check if we're ahead/behind of consensus stage
-        bool is_stage_desync, reset_to_stage0;
-        uint8_t majority_stage;
-        check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
-        if (is_stage_desync)
-        {
-            timewait_stage(reset_to_stage0);
-            return;
-        }
+        // bool is_stage_desync, reset_to_stage0;
+        // uint8_t majority_stage;
+        // check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
+        // if (is_stage_desync)
+        // {
+        //     timewait_stage(reset_to_stage0);
+        //     return;
+        // }
 
         // check if we're ahead/behind of consensus lcl
         bool is_lcl_desync, should_request_history;
@@ -161,15 +161,15 @@ void consensus()
         broadcast_proposal(stg_prop);
 
         // Remove all candidate proposals that are behind our current stage.
-        auto itr = ctx.candidate_proposals.begin();
-        while (itr != ctx.candidate_proposals.end())
-        {
-            if (itr->stage < ctx.stage)
-                ctx.candidate_proposals.erase(itr++);
-            else
-                ++itr;
-        }
-        //ctx.candidate_proposals.clear();
+        // auto itr = ctx.candidate_proposals.begin();
+        // while (itr != ctx.candidate_proposals.end())
+        // {
+        //     if (itr->stage < ctx.stage)
+        //         ctx.candidate_proposals.erase(itr++);
+        //     else
+        //         ++itr;
+        // }
+        ctx.candidate_proposals.clear();
 
         if (ctx.stage == 3)
         {
@@ -187,7 +187,7 @@ void consensus()
 
     // after a stage 0 novel proposal we will just busy wait for proposals
     if (ctx.stage == 0)
-        util::sleep(conf::cfg.roundtime / 100);
+        util::sleep(conf::cfg.roundtime / 4);
     else
         util::sleep(conf::cfg.roundtime / 4);
 }
@@ -455,7 +455,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
     for (const p2p::proposal &cp : ctx.candidate_proposals)
     {
         // only consider recent proposals and proposals from previous stage.
-        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && (cp.stage == ctx.stage - 1))
+        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4))
         {
             increment(votes.lcl, cp.lcl);
             total_lcl_votes++;
@@ -524,8 +524,10 @@ float_t get_stage_threshold(const uint8_t stage)
 
 void timewait_stage(const bool reset)
 {
-    if (reset)
+    if (reset){
+        ctx.candidate_proposals.clear();
         ctx.stage = 0;
+    }
 
     util::sleep(conf::cfg.roundtime / 100);
 }
