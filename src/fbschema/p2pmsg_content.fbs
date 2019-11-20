@@ -12,7 +12,7 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message } //message content type
+union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, History_Request_Message, History_Response_Message } //message content type
 
 table Content {
     message:Message;
@@ -37,6 +37,25 @@ table Npl_Message { //NPL type message schema
 
 table State_Request_Message { //State request message schema
     state_hash:[ByteArray];
+}
+
+table History_Request_Message { //Ledger History request type message schema
+    minimum_lcl:[ubyte];
+    required_lcl:[ubyte];
+}
+
+table History_Response_Message { //Ledger History request type message schema
+    hist_ledgers:[HistoryLedgerPair];
+}
+
+table HistoryLedgerPair { //A key, value pair of byte[].
+    seq_no:uint64;
+    ledger:HistoryLedger;
+}
+
+table HistoryLedger {
+   lcl:[ubyte];
+   raw_ledger:[ubyte];
 }
 
 table StateDifference { //Represent state difference by tracking created,updated and deleted state files.

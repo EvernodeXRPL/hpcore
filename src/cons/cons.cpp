@@ -36,9 +36,10 @@ int init()
     ctx.stage = 0;
 
     //load lcl details from lcl history.
-    const ledger_history ldr_hist = load_ledger();
+    ledger_history ldr_hist = load_ledger();
     ctx.led_seq_no = ldr_hist.led_seq_no;
     ctx.lcl = ldr_hist.lcl;
+    ctx.lcl_list.swap(ldr_hist.lcl_list);
 
     // todo: get the previous state and assign it here
     ctx.state = "state avalanche";
@@ -63,19 +64,6 @@ void consensus()
         ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::ctx.collected_msgs.proposals);
     }
 
-    LOG_DBG << "Started stage " << std::to_string(ctx.stage);
-    for (const auto p : ctx.candidate_proposals)
-    {
-        const bool self = p.pubkey == conf::cfg.pubkey;
-        LOG_DBG << "[stage" << std::to_string(p.stage)
-                << "] users:" << p.users.size()
-                << " hinp:" << p.hash_inputs.size()
-                << " hout:" << p.hash_outputs.size()
-                << " lcl:" << p.lcl
-                << " self:" << self;
-    }
-    LOG_DBG << "timenow: " << std::to_string(ctx.time_now);
-
     // Throughout consensus, we move over the incoming npl messages collected via the network so far into
     // the candidate npl message set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming npl messages.
@@ -96,7 +84,6 @@ void consensus()
     if (ctx.stage == 0)
     {
         // Stage 0 means begining of a consensus round.
-
         {
             // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
             // when we transition to stage 1.
@@ -126,6 +113,21 @@ void consensus()
     }
     else // Stage 1, 2, 3
     {
+
+        std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
+        for (auto p : ctx.candidate_proposals)
+        {
+            bool self = p.pubkey == conf::cfg.pubkey;
+            LOG_DBG << "[stage" << std::to_string(p.stage)
+                    << "] users:" << p.users.size()
+                    << " hinp:" << p.hash_inputs.size()
+                    << " hout:" << p.hash_outputs.size()
+                    << " lcl:" << p.lcl
+                    << " self:" << self
+                    << "\n";
+        }
+
+        LOG_DBG << "timenow:" << std::to_string(ctx.time_now) << "\n";
         // Initialize vote counters
         vote_counter votes;
 
@@ -146,13 +148,14 @@ void consensus()
 
         if (should_request_history)
         {
-            //todo:create history request message and request request history from a random peer.
+            //create history request message and request history from a random peer.
+            send_ledger_history_request(ctx.lcl, majority_lcl);
         }
         if (is_lcl_desync)
         {
-            const bool should_reset = (ctx.time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
+            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
             //for now we are resetting to stage 0 to avoid possible deadlock situations
-            timewait_stage(true);
+            timewait_stage(should_reset);
             return;
         }
 
@@ -169,13 +172,14 @@ void consensus()
             else
                 ++itr;
         }
+        //ctx.candidate_proposals.clear();
 
         if (ctx.stage == 3)
         {
             apply_ledger(stg_prop);
 
             // We have finished a consensus round (all 4 stages).
-            LOG_DBG << "****Stage 3 consensus reached****";
+            LOG_INFO << "****Stage 3 consensus reached****";
         }
     }
 
@@ -420,8 +424,6 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
         // Vote stages if only proposal lcl is match with node's last consensus lcl
         if (cp.lcl == ctx.lcl)
             increment(votes.stage, cp.stage);
-
-        // todo:vote for lcl checking condtion
     }
 
     majority_stage = 0;
@@ -439,7 +441,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
     if (majority_stage < ctx.stage - 1)
     {
-        should_reset = (ctx.time_now - ctx.novel_proposal_time) < floor(conf::cfg.roundtime / 4);
+        should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
         is_desync = true;
 
         LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
@@ -509,11 +511,12 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
     {
         LOG_DBG << "We are not on the consensus ledger, requesting history from a random peer";
         is_desync = true;
-        //todo:create history request message and request request history from a random peer.
+
         should_request_history = true;
         return;
     }
 }
+
 /**
  * Returns the consensus percentage threshold for the specified stage.
  * @param stage The consensus stage [1, 2, 3]
@@ -546,8 +549,9 @@ void timewait_stage(const bool reset)
  */
 void apply_ledger(const p2p::proposal &cons_prop)
 {
-    ctx.led_seq_no++;
-    ctx.lcl = cons::save_ledger(cons_prop, ctx.led_seq_no);
+    const std::tuple<const uint64_t, std::string> new_lcl = save_ledger(cons_prop);
+    ctx.led_seq_no = std::get<0>(new_lcl);
+    ctx.lcl = std::get<1>(new_lcl);
 
     // todo : Get the latest state hash and assign to ctx.state
 

@@ -83,6 +83,7 @@ struct consensus_context
     uint64_t time_now;
     std::string lcl;
     uint64_t led_seq_no;
+    std::map<uint64_t, std::string> lcl_list;
 
     consensus_context() : recent_userinput_hashes(200)
     {
