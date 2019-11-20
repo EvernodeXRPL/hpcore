@@ -40,6 +40,15 @@ struct candidate_user_output
 };
 
 /**
+ * Stores hash of the current state and hash of the state of previous consensus round
+ */
+struct state
+{
+    std::string prev_hash;
+    std::string curr_hash;
+};
+
+/**
  * This is used to store consensus information
  */
 struct consensus_context
@@ -65,6 +74,10 @@ struct consensus_context
 
     util::rollover_hashset recent_userinput_hashes;
 
+    // Holds hash of the current state and previous round state. When current state of the node is mismatched with the consensus winning
+    // state it will compare with the previous state if they match state will be rollback.
+    state con_state;
+
     uint8_t stage;
     uint64_t novel_proposal_time;
     uint64_t time_now;
@@ -84,6 +97,7 @@ struct vote_counter
     std::map<std::string, int32_t> users;
     std::map<std::string, int32_t> inputs;
     std::map<std::string, int32_t> outputs;
+    std::map<std::string, int32_t> state;
 };
 
 extern consensus_context ctx;
@@ -106,6 +120,8 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 
 void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
+void check_majority_state();
+
 float_t get_stage_threshold(const uint8_t stage);
 
 void timewait_stage(const bool reset);
@@ -113,6 +129,8 @@ void timewait_stage(const bool reset);
 void apply_ledger(const p2p::proposal &proposal);
 
 void dispatch_user_outputs(const p2p::proposal &cons_prop);
+
+void check_state(const p2p::proposal &cons_prop);
 
 void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 

@@ -16,6 +16,7 @@ struct proposal
     uint64_t time;
     uint8_t stage;
     std::string lcl;
+    std::string state;
     std::set<std::string> users;
     std::set<std::string> hash_inputs;
     std::set<std::string> hash_outputs;

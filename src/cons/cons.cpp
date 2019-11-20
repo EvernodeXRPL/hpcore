@@ -40,6 +40,9 @@ int init()
     ctx.led_seq_no = ldr_hist.led_seq_no;
     ctx.lcl = ldr_hist.lcl;
 
+    // todo: get the previous state and assign it here
+    ctx.state = "state avalanche";
+
     return 0;
 }
 
@@ -335,7 +338,8 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
             if (ctx.candidate_user_outputs.count(hash) > 0)
                 increment(votes.outputs, hash);
 
-        // todo: repeat above for state
+        // Vote for the state
+        increment(votes.state, cp.state);
     }
 
     const float_t vote_threshold = get_stage_threshold(ctx.stage);
@@ -360,15 +364,24 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         if (numvotes >= vote_threshold)
             stg_prop.hash_outputs.emplace(hash);
 
-    // todo:add states which have votes over stage threshold to proposal.
+    // Among all the voted states, state which passes the vote threshold and which got the highest vote will be selected.
+    int32_t highest_state_vote = 0;
+    for (const auto [state, numvotes] : votes.state)
+    {
+        if (numvotes > highest_state_vote && numvotes >= vote_threshold)
+        {
+            highest_state_vote = numvotes;
+            stg_prop.state = state;
+        }
+    }
 
     // time is voted on a simple sorted and majority basis, since there will always be disagreement.
-    int32_t highest_votes = 0;
+    int32_t highest_time_vote = 0;
     for (const auto [time, numvotes] : votes.time)
     {
-        if (numvotes > highest_votes)
+        if (numvotes > highest_time_vote)
         {
-            highest_votes = numvotes;
+            highest_time_vote = numvotes;
             stg_prop.time = time;
         }
     }
@@ -536,6 +549,8 @@ void apply_ledger(const p2p::proposal &cons_prop)
     ctx.led_seq_no++;
     ctx.lcl = cons::save_ledger(cons_prop, ctx.led_seq_no);
 
+    // todo : Get the latest state hash and assign to ctx.state
+
     // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
     {
         auto itr = ctx.candidate_user_inputs.begin();
@@ -551,8 +566,9 @@ void apply_ledger(const p2p::proposal &cons_prop)
     // Send any output from the previous consensus round to locally connected users.
     dispatch_user_outputs(cons_prop);
 
-    // todo:check  state against the winning / canonical state
+    // Check state against the winning / canonical state
     // and act accordingly (rollback, ask state from peer, etc.)
+    check_state(cons_prop);
 
     // This will hold a list of file blocks that was updated by the contract process.
     // We then feed this information to state tracking logic.
@@ -617,6 +633,24 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
 
     // now we can safely clear our candidate outputs.
     ctx.candidate_user_outputs.clear();
+}
+
+/**
+ * Check state against the winning and canonical state
+ * @param cons_prop The proposal that achieved consensus.
+ */
+void check_state(const p2p::proposal &cons_prop)
+{
+
+    if (cons_prop.state.empty())
+    {
+        LOG_ERR << "Could not find consensus state, this will potentially cause desync.";
+        return;
+    }
+    else if (cons_prop.state != ctx.state)
+    {
+        
+    }
 }
 
 /**
