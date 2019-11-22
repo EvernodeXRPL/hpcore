@@ -5,7 +5,6 @@
 #include "../fbschema/p2pmsg_container_generated.h"
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "proc.hpp"
-#include "ptrace_capture.hpp"
 
 namespace proc
 {
@@ -58,9 +57,8 @@ int exec_contract(const contract_exec_args &args)
         // Close all fds unused by HP process.
         close_unused_fds(true);
 
-        // Capture child process (contract process) until it completes execution.
-        // This call will return when the contract process exits.
-        const int presult = ptrace_capture(contract_pid, args.state_updates);
+        // Wait for child process (contract process) to complete execution.
+        const int presult = await_contract_execution();
         LOG_INFO << "Contract process ended.";
 
         contract_pid = 0;
@@ -87,10 +85,14 @@ int exec_contract(const contract_exec_args &args)
 
         LOG_INFO << "Starting contract process...";
 
-        char *execv_args[] = {conf::cfg.binary.data(), conf::cfg.binargs.data(), NULL};
+        // Fill process args.
+        char *execv_args[conf::cfg.runtime_binexec_args.size() + 1];
+        for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++)
+            execv_args[i] = conf::cfg.runtime_binexec_args[i].data();
+        execv_args[conf::cfg.runtime_binexec_args.size()] = NULL;
 
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        execv(execv_args[0], execv_args);
+        int ret = execv(execv_args[0], execv_args);
+        LOG_ERR << "Execv failed: " << ret;
     }
     else
     {
@@ -98,6 +100,22 @@ int exec_contract(const contract_exec_args &args)
         return -1;
     }
 
+    return 0;
+}
+
+/**
+ * Blocks the calling thread until the contract process compelted exeution (if running).
+ * @return 0 if contract process exited normally, exit code of contract process if abnormally exited.
+ */
+int await_contract_execution()
+{
+    if (contract_pid > 0)
+    {
+        int scstatus;
+        waitpid(contract_pid, &scstatus, 0);
+        if (!WIFEXITED(scstatus))
+            return WEXITSTATUS(scstatus);
+    }
     return 0;
 }
 

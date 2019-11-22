@@ -42,7 +42,6 @@ target_link_libraries(hpsupport
 
 add_library(hpproc
     src/proc/proc.cpp
-    src/proc/ptrace_capture.cpp
 )
 target_link_libraries(hpproc hpsupport)
 

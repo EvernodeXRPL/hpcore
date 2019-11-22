@@ -198,10 +198,14 @@ void consensus()
  */
 void broadcast_nonunl_proposal()
 {
+    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+
+    if (usr::ctx.users.empty())
+        return;
+
     // Construct NUP.
     p2p::nonunl_proposal nup;
 
-    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
     for (auto &[sid, user] : usr::ctx.users)
     {
         std::list<usr::user_submitted_message> usermsgs;

@@ -218,6 +218,17 @@ int load_config()
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
 
+    // Populate runtime contract execution args.
+    if (!cfg.binargs.empty())
+        boost::split(cfg.runtime_binexec_args, cfg.binargs, boost::is_any_of(" "));
+    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), cfg.binary);
+
+    // Uncomment for docker-based execution.
+    // std::string volumearg;
+    // volumearg.append("type=bind,source=").append(ctx.statedir).append(",target=/state");
+    // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.binary.data()};
+    // cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
+
     // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
     // seperately to retrieve easily when handling peer connections.
     std::vector<std::string> splitted_peers;
@@ -466,13 +477,6 @@ int validate_config()
             std::cout << "Invalid logger. Valid values: console|file\n";
             return -1;
         }
-    }
-
-    // Check whether the contract binary actually exists.
-    if (!boost::filesystem::exists(cfg.binary))
-    {
-        std::cout << "Contract binary does not exist: " << cfg.binary << std::endl;
-        return -1;
     }
 
     //Sign and verify a sample message to ensure we have a matching signing key pair.

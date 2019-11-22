@@ -43,6 +43,7 @@ struct contract_config
 
     std::string pubkey;                 // Contract public key bytes
     std::string seckey;                 // Contract secret key bytes
+    std::vector<std::string> runtime_binexec_args;   // Contract binary execution args used during runtime.
 
     // Config elements which are loaded from the config file.
 
