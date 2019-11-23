@@ -27,7 +27,8 @@ struct contract_ctx
 
     std::string contractdir;    // Contract base directory full path
     std::string histdir;        // Contract history dir full path
-    std::string statedir;       // Contract state dir full path
+    std::string statedir;       // Contract executing state dir full path (This is the fuse mount point)
+    std::string statehistdir;    // Contract state history dir full path
     std::string statemapdir;    // Contract state map dir (.merkel files) full path
     std::string logdir;         // Contract log dir full path
     std::string configdir;      // Contract config dir full path
