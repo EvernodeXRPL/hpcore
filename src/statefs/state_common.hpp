@@ -9,7 +9,7 @@ namespace statefs
 {
 
 // Cache block size.
-constexpr size_t BLOCK_SIZE = 4 * 1024; //* 1024; // 4MB
+constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB
 
 // Cache block index entry bytes length.
 constexpr size_t BLOCKINDEX_ENTRY_SIZE = 44;
@@ -49,7 +49,7 @@ struct statedir_context
     std::string deltadir;
 };
 
-statedir_context init(const std::string &statehist_dir_root);
+void init(const std::string &statehist_dir_root);
 std::string get_statedir_root(const int16_t checkpointid);
 statedir_context get_statedir_context(int16_t checkpointid = 0, bool createdirs = false);
 std::string get_relpath(const std::string &fullpath, const std::string &base_path);

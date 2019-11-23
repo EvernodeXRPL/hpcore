@@ -83,7 +83,6 @@ int create_contract()
     boost::filesystem::create_directories(ctx.histdir);
     boost::filesystem::create_directories(ctx.statedir);
     boost::filesystem::create_directories(ctx.statehistdir);
-    boost::filesystem::create_directories(ctx.statemapdir);
 
     //Create config file with default settings.
 
@@ -120,8 +119,15 @@ int create_contract()
  * Updates the contract context with directory paths based on provided base directory.
  * This is called after parsing HP command line arg in order to populate the ctx.
  */
-void set_contract_dir_paths(std::string basedir)
+void set_contract_dir_paths(std::string exepath, std::string basedir)
 {
+    if (exepath.empty())
+    {
+        // this code branch will never execute the way main is currently coded, but it might change in future
+        std::cerr << "Executable path must be specified\n";
+        exit(1);
+    }
+
     if (basedir.empty())
     {
         // this code branch will never execute the way main is currently coded, but it might change in future
@@ -132,6 +138,9 @@ void set_contract_dir_paths(std::string basedir)
     // resolving the path through realpath will remove any trailing slash if present
     basedir = util::realpath(basedir);
 
+    ctx.exedir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
+    ctx.statemonexepath = ctx.exedir + "/" + "hpstatemon";
+
     ctx.contractdir = basedir;
     ctx.configdir = basedir + "/cfg";
     ctx.configfile = ctx.configdir + "/hp.cfg";
@@ -140,7 +149,6 @@ void set_contract_dir_paths(std::string basedir)
     ctx.histdir = basedir + "/hist";
     ctx.statedir = basedir + "/state";
     ctx.statehistdir = basedir + "/statehist";
-    ctx.statemapdir = basedir + "/statemap";
     ctx.logdir = basedir + "/log";
 }
 
@@ -496,7 +504,7 @@ int validate_contract_dir_paths()
         ctx.configfile,
         ctx.histdir,
         ctx.statedir,
-        ctx.statemapdir,
+        ctx.statehistdir,
         ctx.tlskeyfile,
         ctx.tlscertfile};
 

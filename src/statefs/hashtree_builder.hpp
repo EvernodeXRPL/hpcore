@@ -14,7 +14,7 @@ typedef std::unordered_map<std::string, std::unordered_set<std::string>> hintpat
 class hashtree_builder
 {
 private:
-    const statedir_context &ctx;
+    const statedir_context ctx;
     hashmap_builder hmapbuilder;
 
     // Hint path map with parent dir as key and list of file paths under each parent dir.

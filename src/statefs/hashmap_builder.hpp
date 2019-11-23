@@ -15,7 +15,7 @@ namespace statefs
 class hashmap_builder
 {
 private:
-    const statedir_context &ctx;
+    const statedir_context ctx;
     // List of new block hash map sub directories created during the session.
     std::unordered_set<std::string> created_bhmapsubdirs;
 

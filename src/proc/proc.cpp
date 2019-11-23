@@ -4,6 +4,8 @@
 #include "../fbschema/common_helpers.hpp"
 #include "../fbschema/p2pmsg_container_generated.h"
 #include "../fbschema/p2pmsg_content_generated.h"
+#include "../statefs/state_common.hpp"
+#include "../statefs/hashtree_builder.hpp"
 #include "proc.hpp"
 
 namespace proc
@@ -34,6 +36,9 @@ std::vector<int> hpscfds;
 // Holds the contract process id (if currently executing).
 pid_t contract_pid;
 
+// Holds the state monitor process id (if currently executing).
+pid_t statemon_pid;
+
 /**
  * Executes the contract process and passes the specified arguments.
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -48,6 +53,10 @@ int exec_contract(const contract_exec_args &args)
     if (feed_inputs(args) != 0)
         return -1;
 
+    // Start the state monitor before starting the contract process.
+    if (start_state_monitor() != 0)
+        return -1;
+
     const pid_t pid = fork();
     if (pid > 0)
     {
@@ -58,7 +67,7 @@ int exec_contract(const contract_exec_args &args)
         close_unused_fds(true);
 
         // Wait for child process (contract process) to complete execution.
-        const int presult = await_contract_execution();
+        const int presult = await_process_execution(contract_pid);
         LOG_INFO << "Contract process ended.";
 
         contract_pid = 0;
@@ -67,6 +76,9 @@ int exec_contract(const contract_exec_args &args)
             LOG_ERR << "Contract process exited with non-normal status code: " << presult;
             return -1;
         }
+
+        if (stop_state_monitor() != 0)
+            return -1;
 
         // After contract execution, collect contract outputs.
         if (fetch_outputs(args) != 0)
@@ -92,11 +104,12 @@ int exec_contract(const contract_exec_args &args)
         execv_args[conf::cfg.runtime_binexec_args.size()] = NULL;
 
         int ret = execv(execv_args[0], execv_args);
-        LOG_ERR << "Execv failed: " << ret;
+        LOG_ERR << "Contract process execv failed: " << ret;
+        exit(1);
     }
     else
     {
-        LOG_ERR << "fork() failed.";
+        LOG_ERR << "fork() failed when starting contract process.";
         return -1;
     }
 
@@ -104,18 +117,78 @@ int exec_contract(const contract_exec_args &args)
 }
 
 /**
- * Blocks the calling thread until the contract process compelted exeution (if running).
- * @return 0 if contract process exited normally, exit code of contract process if abnormally exited.
+ * Blocks the calling thread until the specified process compelted exeution (if running).
+ * @return 0 if process exited normally or exit code of process if abnormally exited.
  */
-int await_contract_execution()
+int await_process_execution(pid_t pid)
 {
-    if (contract_pid > 0)
+    if (pid > 0)
     {
         int scstatus;
-        waitpid(contract_pid, &scstatus, 0);
+        waitpid(pid, &scstatus, 0);
         if (!WIFEXITED(scstatus))
             return WEXITSTATUS(scstatus);
     }
+    return 0;
+}
+
+/**
+ * Mounts the fuse file system at the contract state dir by starting the state monitor process.
+ * State monitor will automatically create a state history checkpoint as well.
+ */
+int start_state_monitor()
+{
+    pid_t pid = fork();
+    if (pid > 0)
+    {
+        // HP process.
+        statemon_pid = pid;
+        return 0;
+    }
+    else if (pid == 0)
+    {
+        // State monitor process.
+        LOG_DBG << "Starting state monitor...";
+
+        // Fill process args.
+        char *execv_args[4];
+        execv_args[0] = conf::ctx.statemonexepath.data();
+        execv_args[1] = conf::ctx.statehistdir.data();
+        execv_args[2] = conf::ctx.statedir.data();
+        execv_args[3] = NULL;
+
+        int ret = execv(execv_args[0], execv_args);
+        LOG_ERR << "State monitor execv failed: " << ret;
+        exit(1);
+    }
+    else if (pid < 0)
+    {
+        LOG_ERR << "fork() failed when starting state monitor.";
+        return -1;
+    }
+}
+
+/**
+ * Terminate the state monitor and update the latest state hash tree.
+ */
+int stop_state_monitor()
+{
+    kill(statemon_pid, SIGINT);
+
+    // Wait for state monitor process to complete execution after the SIGINT.
+    const int presult = await_process_execution(statemon_pid);
+    LOG_DBG << "State monitor stopped.";
+
+    statemon_pid = 0;
+
+    if (presult != 0)
+        LOG_ERR << "State monitor process exited with non-normal status code: " << presult;
+
+    // Update the hash tree.
+    statefs::hashtree_builder htreebuilder(statefs::get_statedir_context());
+    if (htreebuilder.generate() != 0)
+        return -1;
+
     return 0;
 }
 

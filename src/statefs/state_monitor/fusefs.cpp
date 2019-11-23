@@ -1261,9 +1261,9 @@ int start(const char *arg0, const char *statehistdir, const char *fusemntdir)
     // We consider this as the first run of the history dir is empty.
     const bool firstrun = boost::filesystem::is_empty(statehistdir);
 
-    statefs::statedir_context dirctx = statefs::init(statehistdir);
-    fs.source = dirctx.datadir;
-    statemonitor.ctx = dirctx;
+    statefs::init(statehistdir);
+    statemonitor.ctx = statefs::get_statedir_context();
+    fs.source = statemonitor.ctx.datadir;
 
     // Create a checkpoint from the second run onwards.
     if (!firstrun)
@@ -1291,7 +1291,7 @@ int start(const char *arg0, const char *statehistdir, const char *fusemntdir)
     fuse_args args = FUSE_ARGS_INIT(0, nullptr);
     if (fuse_opt_add_arg(&args, arg0) ||
         fuse_opt_add_arg(&args, "-o") ||
-        fuse_opt_add_arg(&args, "default_permissions,fsname=statefs")
+        fuse_opt_add_arg(&args, "default_permissions,fsname=hpstatefs")
         /*|| fuse_opt_add_arg(&args, "-odebug")*/)
         errx(3, "ERROR: Out of memory");
 
