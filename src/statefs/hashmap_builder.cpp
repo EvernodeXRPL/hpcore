@@ -180,7 +180,7 @@ int hashmap_builder::update_hashes(
 
     // Calculate the new file hash: filehash = HASH(filename + XOR(block hashes))
     hasher::B2H filehash{0, 0, 0, 0};
-    for (int i = 1; i < blockcount; i++)
+    for (int i = 1; i <= blockcount; i++)
         filehash ^= hashes[i];
 
     // Rehash the file hash with filename included.
@@ -195,13 +195,14 @@ int hashmap_builder::compute_blockhash(hasher::B2H &hash, uint32_t blockid, int 
 {
     char block[BLOCK_SIZE];
     const off_t blockoffset = BLOCK_SIZE * blockid;
-    if (pread(filefd, block, BLOCK_SIZE, blockoffset) == -1)
+    size_t bytesread = pread(filefd, block, BLOCK_SIZE, blockoffset);
+    if (bytesread == -1)
     {
         std::cerr << errno << ": Read failed " << relpath << '\n';
         return -1;
     }
 
-    hash = hasher::hash(&blockoffset, 8, block, BLOCK_SIZE);
+    hash = hasher::hash(&blockoffset, 8, block, bytesread);
     return 0;
 }
 

@@ -8,6 +8,8 @@
 namespace statefs
 {
 
+constexpr int16_t MAX_CHECKPOINTS = 5;
+
 // Cache block size.
 constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB
 
@@ -35,8 +37,6 @@ const char *const DATA_DIR = "/data";
 const char *const BHMAP_DIR = "/bhmap";
 const char *const HTREE_DIR = "/htree";
 const char *const DELTA_DIR = "/delta";
-
-constexpr int16_t MAX_CHECKPOINTS = 5;
 
 extern std::string statehistdir;
 

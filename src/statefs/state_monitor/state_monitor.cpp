@@ -303,15 +303,20 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
         // Read the block being replaced and send to cache file.
         char blockbuf[BLOCK_SIZE];
         off_t blockoffset = BLOCK_SIZE * i;
-        if (pread(fi.readfd, blockbuf, BLOCK_SIZE, BLOCK_SIZE * i) < 0)
+        size_t bytesread = pread(fi.readfd, blockbuf, BLOCK_SIZE, BLOCK_SIZE * i);
+        if (bytesread < 0)
         {
             std::cerr << errno << ": Read failed " << fi.filepath << "\n";
             return -1;
         }
 
-        if (write(fi.cachefd, blockbuf, BLOCK_SIZE) < 0)
+        // No more bytes to read in this file.
+        if (bytesread == 0)
+            return 0;
+
+        if (write(fi.cachefd, blockbuf, bytesread) < 0)
         {
-            std::cerr << errno << ": Write to block cache failed\n";
+            std::cerr << errno << ": Write to block cache failed. " << fi.filepath << "\n";
             return -1;
         }
 
@@ -321,15 +326,18 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
         // Entry format: [blocknum(4 bytes) | cacheoffset(8 bytes) | blockhash(32 bytes)]
 
         char entrybuf[BLOCKINDEX_ENTRY_SIZE];
-        off_t cacheoffset = fi.cached_blockids.size() * BLOCK_SIZE;
-        hasher::B2H hash = hasher::hash(&blockoffset, 8, blockbuf, BLOCK_SIZE);
+        hasher::B2H hash = hasher::hash(&blockoffset, 8, blockbuf, bytesread);
 
+        // Original file block id.
         memcpy(entrybuf, &i, 4);
+        // Position of the block within the cache file.
+        off_t cacheoffset = fi.cached_blockids.size() * BLOCK_SIZE;
         memcpy(entrybuf + 4, &cacheoffset, 8);
+        // The block hash.
         memcpy(entrybuf + 12, hash.data, 32);
         if (write(fi.indexfd, entrybuf, BLOCKINDEX_ENTRY_SIZE) < 0)
         {
-            std::cerr << errno << ": Write to block index failed\n";
+            std::cerr << errno << ": Write to block index failed. " << fi.filepath << "\n";
             return -1;
         }
 
