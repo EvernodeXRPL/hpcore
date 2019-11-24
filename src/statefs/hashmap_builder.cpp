@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <cmath>
 #include <boost/filesystem.hpp>
+#include "../hplog.hpp"
 #include "state_common.hpp"
 #include "hashmap_builder.hpp"
 #include "hasher.hpp"
@@ -31,7 +32,7 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
     int orifd = open(filepath.data(), O_RDONLY);
     if (orifd == -1)
     {
-        std::cerr << errno << ": Open failed " << filepath << '\n';
+        LOG_ERR << errno << ": Open failed " << filepath << '\n';
         return -1;
     }
     const off_t orifilelength = lseek(orifd, 0, SEEK_END);
@@ -78,7 +79,7 @@ int hashmap_builder::read_blockhashmap(std::vector<char> &bhmapdata, std::string
         int hmapfd = open(bhmapfile.c_str(), O_RDONLY);
         if (hmapfd == -1)
         {
-            std::cerr << errno << ": Open failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Open failed " << bhmapfile << '\n';
             return -1;
         }
 
@@ -87,7 +88,7 @@ int hashmap_builder::read_blockhashmap(std::vector<char> &bhmapdata, std::string
 
         if (pread(hmapfd, bhmapdata.data(), size, 0) == -1)
         {
-            std::cerr << errno << ": Read failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Read failed " << bhmapfile << '\n';
             return -1;
         }
     }
@@ -140,7 +141,7 @@ int hashmap_builder::get_blockindex(std::map<uint32_t, hasher::B2H> &idxmap, uin
         }
         else
         {
-            std::cerr << errno << ": Read failed " << bindexfile << '\n';
+            LOG_ERR << errno << ": Read failed " << bindexfile << '\n';
             return -1;
         }
 
@@ -198,7 +199,7 @@ int hashmap_builder::compute_blockhash(hasher::B2H &hash, uint32_t blockid, int 
     size_t bytesread = pread(filefd, block, BLOCK_SIZE, blockoffset);
     if (bytesread == -1)
     {
-        std::cerr << errno << ": Read failed " << relpath << '\n';
+        LOG_ERR << errno << ": Read failed " << relpath << '\n';
         return -1;
     }
 
@@ -211,14 +212,14 @@ int hashmap_builder::write_blockhashmap(const std::string &bhmapfile, const hash
     int hmapfd = open(bhmapfile.c_str(), O_RDWR | O_TRUNC | O_CREAT, FILE_PERMS);
     if (hmapfd == -1)
     {
-        std::cerr << errno << ": Open failed " << bhmapfile << '\n';
+        LOG_ERR << errno << ": Open failed " << bhmapfile << '\n';
         return -1;
     }
 
     // Write the updated hash list into the block hash map file.
     if (pwrite(hmapfd, hashes, hashes_size, 0) == -1)
     {
-        std::cerr << errno << ": Write failed " << bhmapfile << '\n';
+        LOG_ERR << errno << ": Write failed " << bhmapfile << '\n';
         return -1;
     }
 }
@@ -268,21 +269,21 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parentdirhash, const std::s
         int hmapfd = open(bhmapfile.data(), O_RDONLY);
         if (hmapfd == -1)
         {
-            std::cerr << errno << ": Open failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Open failed " << bhmapfile << '\n';
             return -1;
         }
 
         hasher::B2H filehash;
         if (read(hmapfd, &filehash, hasher::HASH_SIZE) == -1)
         {
-            std::cerr << errno << ": Read failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Read failed " << bhmapfile << '\n';
             return -1;
         }
 
         // Delete the .bhmap file.
         if (remove(bhmapfile.c_str()) == -1)
         {
-            std::cerr << errno << ": Delete failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Delete failed " << bhmapfile << '\n';
             return -1;
         }
 
@@ -299,7 +300,7 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parentdirhash, const std::s
         hlpath << hardlinkdir << filehash << ".rh";
         if (remove(hlpath.str().c_str()) == -1)
         {
-            std::cerr << errno << ": Delete failed for halrd link " << filehash << " of " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Delete failed for halrd link " << filehash << " of " << bhmapfile << '\n';
             return -1;
         }
 

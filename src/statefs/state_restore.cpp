@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <vector>
 #include <boost/filesystem.hpp>
+#include "../hplog.hpp"
 #include "state_restore.hpp"
 #include "hashtree_builder.hpp"
 #include "state_common.hpp"
@@ -74,7 +75,7 @@ int state_restore::read_blockindex(std::vector<char> &buffer, std::string_view f
     buffer.resize(idxsize);
     if (!infile.read(buffer.data(), idxsize))
     {
-        std::cerr << errno << ": Read failed " << bindexfile << "\n";
+        LOG_ERR << errno << ": Read failed " << bindexfile << "\n";
         return -1;
     }
 
@@ -98,7 +99,7 @@ int state_restore::restore_blocks(std::string_view file, const std::vector<char>
         bcachefd = open(bcachefile.c_str(), O_RDONLY);
         if (bcachefd <= 0)
         {
-            std::cerr << errno << ": Open failed " << bcachefile << "\n";
+            LOG_ERR << errno << ": Open failed " << bcachefile << "\n";
             return -1;
         }
     }
@@ -119,7 +120,7 @@ int state_restore::restore_blocks(std::string_view file, const std::vector<char>
         orifilefd = open(originalfile.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
         if (orifilefd <= 0)
         {
-            std::cerr << errno << ": Open failed " << originalfile << "\n";
+            LOG_ERR << errno << ": Open failed " << originalfile << "\n";
             return -1;
         }
     }

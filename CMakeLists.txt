@@ -47,11 +47,7 @@ add_library(hpstatefs
     src/statefs/hashtree_builder.cpp
     src/statefs/state_restore.cpp
 )
-target_link_libraries(hpstatefs
-    libsodium.a
-    libboost_system.a
-    libboost_filesystem.a
-)
+target_link_libraries(hpstatefs hpsupport)
 
 add_library(hpproc
     src/proc/proc.cpp
@@ -122,7 +118,8 @@ target_link_libraries(hpstatemon
     libfuse3.so.3
     libsodium.a
     libboost_system.a
-    libboost_filesystem.a)
+    libboost_filesystem.a
+)
 
 add_dependencies(hpcore
     hpstatemon)
