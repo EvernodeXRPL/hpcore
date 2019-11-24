@@ -41,8 +41,8 @@ struct history_ledger
 enum LEDGER_RESPONSE_ERROR
 {
     NONE = 0,
-    INVALID_MIN_LEDGER = 0,
-    REQ_LEDGER_NOT_FOUND = 1
+    INVALID_MIN_LEDGER = 1,
+    REQ_LEDGER_NOT_FOUND = 2
 };
 
 

@@ -45,7 +45,7 @@ struct candidate_user_output
 struct consensus_context
 {
     // The set of proposals that are being collected as consensus stages are progressing.
-    std::unordered_map<std::string,const p2p::proposal> candidate_proposals;
+    std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
     // The set of npl messages that are being collected as consensus stages are progressing.
     std::list<std::string> candidate_npl_messages;
@@ -70,12 +70,13 @@ struct consensus_context
     uint64_t time_now;
     std::string lcl;
     uint64_t led_seq_no;
-    //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key. 
+    //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
     //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.
     //this is loaded when node started and updated throughout consensus - delete ledgers that falls behind MAX_LEDGER_SEQUENCE range.
     //We will use this to track lcls related logic.- track state, lcl request, response.
     std::map<uint64_t, std::string> lcl_list;
-    
+    //ledger close time of previous hash
+    uint64_t prev_close_time;
 
     consensus_context() : recent_userinput_hashes(200)
     {
@@ -115,6 +116,8 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
 float_t get_stage_threshold(const uint8_t stage);
 
 void timewait_stage(const bool reset, const uint64_t time);
+
+const uint64_t apply_ledger_time_resolution(uint64_t close_time);
 
 void apply_ledger(const p2p::proposal &proposal);
 

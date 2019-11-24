@@ -40,7 +40,7 @@ int init()
     ctx.led_seq_no = ldr_hist.led_seq_no;
     ctx.lcl = ldr_hist.lcl;
     ctx.lcl_list.swap(ldr_hist.lcl_list);
-
+    ctx.prev_close_time = util::get_epoch_milliseconds();
     return 0;
 }
 
@@ -64,7 +64,7 @@ void consensus()
     for (auto &proposal : collected_proposals)
     {
         auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
-         if (prop_itr != ctx.candidate_proposals.end())
+        if (prop_itr != ctx.candidate_proposals.end())
         {
             ctx.candidate_proposals.erase(prop_itr);
             ctx.candidate_proposals.emplace(proposal.pubkey, proposal);
@@ -146,7 +146,7 @@ void consensus()
         check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
         if (is_stage_desync)
         {
-            timewait_stage(reset_to_stage0, floor(conf::cfg.roundtime/10));
+            timewait_stage(reset_to_stage0, floor(conf::cfg.roundtime / 10));
             return;
         }
 
@@ -189,6 +189,7 @@ void consensus()
 
         if (ctx.stage == 3)
         {
+            ctx.prev_close_time = stg_prop.time;
             apply_ledger(stg_prop);
 
             // We have finished a consensus round (all 4 stages).
@@ -393,6 +394,9 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         }
     }
 
+    if (ctx.stage == 3)
+        apply_ledger_time_resolution(stg_prop.time);
+
     return stg_prop;
 }
 
@@ -521,7 +525,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
         is_desync = true;
         return;
     }
-
 }
 
 /**
@@ -542,7 +545,7 @@ float_t get_stage_threshold(const uint8_t stage)
     return -1;
 }
 
-void timewait_stage(const bool reset, uint64_t time)
+void timewait_stage(const bool reset, const uint64_t time)
 {
     if (reset)
     {
@@ -551,6 +554,16 @@ void timewait_stage(const bool reset, uint64_t time)
     }
 
     util::sleep(time);
+}
+
+const uint64_t apply_ledger_time_resolution(uint64_t close_time)
+{
+    uint64_t closeResolution = conf::cfg.roundtime / 4;
+
+    close_time += (closeResolution / 2);
+    close_time -= (close_time % closeResolution);
+
+    return std::max(close_time, (ctx.prev_close_time + conf::cfg.roundtime));
 }
 
 /**
