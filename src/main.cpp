@@ -177,7 +177,7 @@ int main(int argc, char **argv)
 
                 //we are waiting for peer to estasblish peer connections.
                 //otherwise we'll run into not enough peers propsing/stage desync deadlock directly now.
-                sleep(3);
+                sleep(10);
 
                 while (true)
                 {

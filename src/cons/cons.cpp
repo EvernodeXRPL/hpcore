@@ -52,15 +52,27 @@ void consensus()
 
     // Get the latest current time.
     ctx.time_now = util::get_epoch_milliseconds();
-
+    std::list<p2p::proposal> collected_proposals;
     // Throughout consensus, we move over the incoming proposals collected via the network so far into
     // the candidate proposal set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming proposals.
     {
         std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
-        ctx.candidate_proposals.splice(ctx.candidate_proposals.end(), p2p::ctx.collected_msgs.proposals);
+        collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
     }
 
+    for (auto &proposal : collected_proposals)
+    {
+        auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
+         if (prop_itr != ctx.candidate_proposals.end())
+        {
+            ctx.candidate_proposals.erase(prop_itr);
+            ctx.candidate_proposals.emplace(proposal.pubkey, proposal);
+        }
+
+        else
+            ctx.candidate_proposals.emplace(proposal.pubkey, proposal);
+    }
     // Throughout consensus, we move over the incoming npl messages collected via the network so far into
     // the candidate npl message set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming npl messages.
@@ -81,21 +93,21 @@ void consensus()
     if (ctx.stage == 0)
     {
         // Stage 0 means begining of a consensus round.
-        {
-            // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
-            // when we transition to stage 1.
-            auto itr = ctx.candidate_proposals.begin();
-            while (itr != ctx.candidate_proposals.end())
-            {
-                // Remove any proposal from previous round's stage 3.
-                // Remove any proposal from self (pubkey match).
-                // todo: check the state of these to ensure we're running consensus ledger
-                if (itr->stage == 3 || conf::cfg.pubkey == itr->pubkey)
-                    ctx.candidate_proposals.erase(itr++);
-                else
-                    ++itr;
-            }
-        }
+        // {
+        //     // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
+        //     // when we transition to stage 1.
+        //     auto itr = ctx.candidate_proposals.begin();
+        //     while (itr != ctx.candidate_proposals.end())
+        //     {
+        //         // Remove any proposal from previous round's stage 3.
+        //         // Remove any proposal from self (pubkey match).
+        //         // todo: check the state of these to ensure we're running consensus ledger
+        //         if (itr->second.stage == 3 || conf::cfg.pubkey == itr->second.pubkey)
+        //             ctx.candidate_proposals.erase(itr++);
+        //         else
+        //             ++itr;
+        //     }
+        //}
 
         // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
         broadcast_nonunl_proposal();
@@ -112,7 +124,7 @@ void consensus()
     {
 
         std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
-        for (auto p : ctx.candidate_proposals)
+        for (auto &[pubkey, p] : ctx.candidate_proposals)
         {
             bool self = p.pubkey == conf::cfg.pubkey;
             LOG_DBG << "[stage" << std::to_string(p.stage)
@@ -129,19 +141,20 @@ void consensus()
         vote_counter votes;
 
         // check if we're ahead/behind of consensus stage
-        // bool is_stage_desync, reset_to_stage0;
-        // uint8_t majority_stage;
-        // check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
-        // if (is_stage_desync)
-        // {
-        //     timewait_stage(reset_to_stage0);
-        //     return;
-        // }
+        bool is_stage_desync, reset_to_stage0;
+        uint8_t majority_stage;
+        check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
+        if (is_stage_desync)
+        {
+            timewait_stage(reset_to_stage0, floor(conf::cfg.roundtime/10));
+            return;
+        }
 
         // check if we're ahead/behind of consensus lcl
         bool is_lcl_desync, should_request_history;
         std::string majority_lcl;
-        check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes);
+        uint64_t time_off = 0;
+        check_lcl_votes(is_lcl_desync, should_request_history, time_off, majority_lcl, votes);
 
         if (should_request_history)
         {
@@ -150,9 +163,12 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
+            //bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
             //for now we are resetting to stage 0 to avoid possible deadlock situations
-            timewait_stage(should_reset);
+            //timewait_stage(should_reset);
+            timewait_stage(true, (time_off - ctx.time_now));
+            LOG_DBG << "time off: " << std::to_string(time_off);
+
             return;
         }
 
@@ -187,7 +203,7 @@ void consensus()
 
     // after a stage 0 novel proposal we will just busy wait for proposals
     if (ctx.stage == 0)
-        util::sleep(conf::cfg.roundtime / 4);
+        util::sleep(conf::cfg.roundtime / 10);
     else
         util::sleep(conf::cfg.roundtime / 4);
 }
@@ -318,7 +334,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
     stg_prop.lcl = ctx.lcl;
 
     // Vote for rest of the proposal fields by looking at candidate proposals.
-    for (const p2p::proposal &cp : ctx.candidate_proposals)
+    for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
         // Vote for times.
         // Everyone votes on an arbitrary time, as long as its within the round time and not in the future.
@@ -406,7 +422,7 @@ void broadcast_proposal(const p2p::proposal &p)
 void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority_stage, vote_counter &votes)
 {
     // Stage votes.
-    for (const p2p::proposal &cp : ctx.candidate_proposals)
+    for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
         // Vote stages if only proposal lcl is match with node's last consensus lcl
         if (cp.lcl == ctx.lcl)
@@ -434,33 +450,37 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
         LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
                 << " is ahead of majority stage:" << std::to_string(majority_stage);
     }
-    else if (majority_stage > ctx.stage - 1)
-    {
-        should_reset = true;
-        is_desync = true;
+    // else if (majority_stage > ctx.stage)
+    // {
+    //     should_reset = true;
+    //     is_desync = true;
 
-        LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
-                << " is behind majority stage:" << std::to_string(majority_stage);
-    }
+    //     LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
+    //             << " is behind majority stage:" << std::to_string(majority_stage);
+    // }
 }
 
 /**
  * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
  */
-void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes)
+void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &time_off, std::string &majority_lcl, vote_counter &votes)
 {
-    // Stage votes.
     int32_t total_lcl_votes = 0;
 
-    for (const p2p::proposal &cp : ctx.candidate_proposals)
+    for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
         // only consider recent proposals and proposals from previous stage.
-        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4))
+        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && cp.stage >= (ctx.stage - 1))
         {
             increment(votes.lcl, cp.lcl);
             total_lcl_votes++;
         }
+
+        if (cp.time > time_off)
+            time_off = cp.time;
     }
+
+    time_off = time_off / ctx.candidate_proposals.size();
 
     is_desync = false;
     should_request_history = false;
@@ -482,15 +502,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
         }
     }
 
-    double wining_votes_unl_ratio = winning_votes / conf::cfg.unl.size();
-    if (wining_votes_unl_ratio < 0.8)
-    {
-        // potential fork condition.
-        LOG_DBG << "No consensus on lcl. Possible fork condition.";
-        is_desync = true;
-        return;
-    }
-
     //if winning lcl is not matched node lcl,
     //that means vode is not on the consensus ledger.
     //Should request history from a peer.
@@ -502,6 +513,15 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
         should_request_history = true;
         return;
     }
+
+    if (winning_votes < 0.8 * ctx.candidate_proposals.size())
+    {
+        // potential fork condition.
+        LOG_DBG << "No consensus on lcl. Possible fork condition. " << std::to_string(winning_votes) << std::to_string(ctx.candidate_proposals.size());
+        is_desync = true;
+        return;
+    }
+
 }
 
 /**
@@ -522,14 +542,15 @@ float_t get_stage_threshold(const uint8_t stage)
     return -1;
 }
 
-void timewait_stage(const bool reset)
+void timewait_stage(const bool reset, uint64_t time)
 {
-    if (reset){
+    if (reset)
+    {
         ctx.candidate_proposals.clear();
         ctx.stage = 0;
     }
 
-    util::sleep(conf::cfg.roundtime / 100);
+    util::sleep(time);
 }
 
 /**
