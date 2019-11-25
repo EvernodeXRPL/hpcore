@@ -38,9 +38,19 @@ struct history_ledger
     std::vector<uint8_t> raw_ledger;
 };
 
+enum LEDGER_RESPONSE_ERROR
+{
+    NONE = 0,
+    INVALID_MIN_LEDGER = 1,
+    REQ_LEDGER_NOT_FOUND = 2
+};
+
+
 struct history_response
 {
     std::map<uint64_t,const history_ledger> hist_ledgers;
+    LEDGER_RESPONSE_ERROR error;
+
 };
     
 struct npl_message
@@ -50,7 +60,7 @@ struct npl_message
 
 struct message_collection
 {
-    std::list<proposal> proposals;
+     std::list<proposal> proposals;
     std::mutex proposals_mutex;                    // Mutex for proposals access race conditions.
     
     std::list<nonunl_proposal> nonunl_proposals;
