@@ -12,7 +12,6 @@
 #include "../crypto.hpp"
 #include "../proc/proc.hpp"
 #include "ledger_handler.hpp"
-#include "statemap_handler.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -590,7 +589,6 @@ void apply_ledger(const p2p::proposal &cons_prop)
 
     extract_user_outputs_from_contract_bufmap(useriobufmap);
     broadcast_npl_output(nplbufpair.output);
-    update_state_blockmap(updated_blocks);
 }
 
 /**

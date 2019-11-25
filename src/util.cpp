@@ -188,4 +188,13 @@ std::string_view getsv(const rapidjson::Value &v)
     return std::string_view(v.GetString(), v.GetStringLength());
 }
 
+// provide a safe std::string overload for realpath
+std::string realpath(std::string path)
+{
+    std::array<char, PATH_MAX> buffer;
+    ::realpath(path.c_str(), buffer.data());
+    buffer[PATH_MAX] = '\0';
+    return buffer.data();
+}
+
 } // namespace util

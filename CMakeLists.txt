@@ -40,10 +40,19 @@ target_link_libraries(hpsupport
     ${CMAKE_DL_LIBS}
 )
 
+add_library(hpstatefs
+    src/statefs/hasher.cpp
+    src/statefs/state_common.cpp
+    src/statefs/hashmap_builder.cpp
+    src/statefs/hashtree_builder.cpp
+    src/statefs/state_restore.cpp
+)
+target_link_libraries(hpstatefs hpsupport)
+
 add_library(hpproc
     src/proc/proc.cpp
 )
-target_link_libraries(hpproc hpsupport)
+target_link_libraries(hpproc hpsupport hpstatefs)
 
 add_library(hpbill
     src/bill/corebill.cpp
@@ -82,7 +91,6 @@ target_link_libraries(hpusr hpsupport hpsock hpschema)
 add_library(hpcons
     src/cons/cons.cpp
     src/cons/ledger_handler.cpp
-    src/cons/statemap_handler.cpp
 )
 target_link_libraries(hpcons hpsupport hpproc hpp2p hpusr)
 
@@ -100,6 +108,21 @@ target_link_libraries(hpcore
     hpcons
 )
 
+add_executable(hpstatemon
+    src/statefs/state_monitor/fusefs.cpp
+    src/statefs/state_monitor/state_monitor.cpp
+    src/statefs/hasher.cpp
+    src/statefs/state_common.cpp
+)
+target_link_libraries(hpstatemon
+    hpsupport
+    libfuse3.so.3
+)
+
+add_dependencies(hpcore
+    hpstatemon
+)
+    
 target_precompile_headers(hpsupport PUBLIC src/pchheader.hpp)
 target_precompile_headers(hpcore REUSE_FROM hpsupport)
 target_precompile_headers(hpsock REUSE_FROM hpsupport)
@@ -107,6 +130,7 @@ target_precompile_headers(hpschema REUSE_FROM hpsupport)
 target_precompile_headers(hpp2p REUSE_FROM hpsupport)
 target_precompile_headers(hpusr REUSE_FROM hpsupport)
 target_precompile_headers(hpcons REUSE_FROM hpsupport)
+target_precompile_headers(hpstatemon REUSE_FROM hpsupport)
 
 # Create docker image from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'
