@@ -44,7 +44,9 @@ struct candidate_user_output
  */
 struct consensus_context
 {
-    // The set of proposals that are being collected as consensus stages are progressing.
+    // The map of proposals that are being collected as consensus stages are progressing.
+    // peer public key is the key.
+    // todo: having a queue of proposals against peer pubkey.
     std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
     // The set of npl messages that are being collected as consensus stages are progressing.

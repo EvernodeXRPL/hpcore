@@ -72,7 +72,6 @@ void consensus()
             ctx.candidate_proposals.erase(prop_itr);
             ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
         }
-
         else
             ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
     }
@@ -93,10 +92,8 @@ void consensus()
         p2p::ctx.collected_msgs.npl_messages.clear();
     }
 
-    if (ctx.stage == 0)
-    {
-        // Stage 0 means begining of a consensus round.
-
+    if (ctx.stage == 0)  // Stage 0 means begining of a consensus round.
+    {   
         // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
         broadcast_nonunl_proposal();
         util::sleep(conf::cfg.roundtime / 10);
@@ -111,14 +108,14 @@ void consensus()
     else // Stage 1, 2, 3
     {
         std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
-        for (auto &[pubkey, p] : ctx.candidate_proposals)
+        for (auto &[pubkey, proposal] : ctx.candidate_proposals)
         {
-            bool self = p.pubkey == conf::cfg.pubkey;
-            LOG_DBG << "[stage" << std::to_string(p.stage)
-                    << "] users:" << p.users.size()
-                    << " hinp:" << p.hash_inputs.size()
-                    << " hout:" << p.hash_outputs.size()
-                    << " lcl:" << p.lcl
+            bool self = proposal.pubkey == conf::cfg.pubkey;
+            LOG_DBG << "[stage" << std::to_string(proposal.stage)
+                    << "] users:" << proposal.users.size()
+                    << " hinp:" << proposal.hash_inputs.size()
+                    << " hout:" << proposal.hash_outputs.size()
+                    << " lcl:" << proposal.lcl
                     << " self:" << self
                     << "\n";
         }
@@ -149,12 +146,11 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            //For now we are resetting to stage 0 to avoid possible deadlock situations.
-            //Also we try to converge consensus by trying to reset every node in a quick succession
-            //By resetting node to max close time of candidate list of unl list peers.
+            //We are resetting to stage 0 to avoid possible deadlock situations.
+            //Also we try to converge consensus by trying to reset every node in same time(close time range)
+            //by resetting node to max close time of candidate list of unl list peers.
             timewait_stage(true, (time_off - ctx.time_now));
             //LOG_DBG << "time off: " << std::to_string(time_off);
-
             return;
         }
 
@@ -369,7 +365,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         }
     }
     
-    //todo:apply a round time resolution to increase close time reliability(for stage 1,3)
+    //todo:apply a round time resolution to increase close time reliability(for stage 1,2)
     if (ctx.stage == 3)
         get_ledger_time_resolution(stg_prop.time);
 
@@ -441,7 +437,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
-        // only consider recent proposals and proposals from previous stage.
+        // only consider recent proposals and proposals from previous stage and current stage.
         if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && cp.stage >= (ctx.stage - 1))
         {
             increment(votes.lcl, cp.lcl);
@@ -453,8 +449,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
         if (cp.time > time_off)
             time_off = cp.time;
     }
-
-    time_off = time_off / ctx.candidate_proposals.size();
 
     is_desync = false;
     should_request_history = false;

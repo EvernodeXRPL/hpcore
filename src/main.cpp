@@ -176,8 +176,7 @@ int main(int argc, char **argv)
                 signal(SIGINT, signal_handler);
 
                 //we are waiting for peer to estasblish peer connections.
-                //otherwise we'll run into not enough peers propsing/stage desync deadlock directly now.
-                sleep(10);
+                sleep(10); //todo: replace waiting with a check to peer check.
 
                 while (true)
                 {
