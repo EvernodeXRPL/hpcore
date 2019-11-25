@@ -26,7 +26,7 @@ private:
     // List of new root hash map sub directories created during the session.
     std::unordered_set<std::string> created_htreesubdirs;
 
-    int update_hashtree();
+    int update_hashtree(hasher::B2H &roothash);
     int update_hashtree_fordir(hasher::B2H &parentdirhash, const std::string &relpath, const hintpath_map::iterator hintdir_itr, const bool isrootlevel);
 
     hasher::B2H get_existingdirhash(const std::string &dirhashfile);
@@ -40,7 +40,7 @@ private:
 
 public:
     hashtree_builder(const statedir_context &ctx);
-    int generate();
+    int generate(hasher::B2H &roothash);
 };
 
 } // namespace statefs

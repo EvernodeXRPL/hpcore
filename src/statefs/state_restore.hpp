@@ -2,6 +2,7 @@
 #define _STATEFS_STATE_RESTORE_
 
 #include "../pchheader.hpp"
+#include "hasher.hpp"
 #include "state_common.hpp"
 
 namespace statefs
@@ -19,7 +20,7 @@ private:
     void rewind_checkpoints();
 
 public:
-    int rollback();
+    int rollback(hasher::B2H &roothash);
 };
 
 } // namespace statefs

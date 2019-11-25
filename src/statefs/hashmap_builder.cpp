@@ -26,11 +26,11 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
     int orifd = open(filepath.data(), O_RDONLY);
     if (orifd == -1)
     {
-        LOG_ERR << errno << ": Open failed " << filepath << '\n';
+        LOG_ERR << errno << ": Open failed " << filepath;
         return -1;
     }
-    const off_t orifilelength = lseek(orifd, 0, SEEK_END);
-    uint32_t blockcount = ceil((double)orifilelength / (double)BLOCK_SIZE);
+    const off_t filelength = lseek(orifd, 0, SEEK_END);
+    uint32_t blockcount = ceil((double)filelength / (double)BLOCK_SIZE);
 
     // Attempt to read the existing block hash map file.
     std::string bhmapfile;
@@ -44,15 +44,16 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
 
     // Attempt to read the delta block index file.
     std::map<uint32_t, hasher::B2H> bindex;
-    if (get_blockindex(bindex, blockcount, relpath) == -1)
+    uint32_t original_blockcount;
+    if (get_blockindex(bindex, original_blockcount, relpath) == -1)
         return -1;
 
     // Array to contain the updated block hashes. Slot 0 is for the root hash.
     // Allocating hash array on the heap to avoid filling limited stack space.
     std::unique_ptr<hasher::B2H[]> hashes = std::make_unique<hasher::B2H[]>(1 + blockcount);
     const size_t hashes_size = (1 + blockcount) * hasher::HASH_SIZE;
-    
-    if (update_hashes(hashes.get(), hashes_size, relpath, orifd, blockcount, bindex, bhmapdata) == -1)
+
+    if (update_hashes(hashes.get(), hashes_size, relpath, orifd, blockcount, original_blockcount, bindex, bhmapdata) == -1)
         return -1;
 
     if (write_blockhashmap(bhmapfile, hashes.get(), hashes_size) == -1)
@@ -74,7 +75,7 @@ int hashmap_builder::read_blockhashmap(std::vector<char> &bhmapdata, std::string
         int hmapfd = open(bhmapfile.c_str(), O_RDONLY);
         if (hmapfd == -1)
         {
-            LOG_ERR << errno << ": Open failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Open failed " << bhmapfile;
             return -1;
         }
 
@@ -83,7 +84,7 @@ int hashmap_builder::read_blockhashmap(std::vector<char> &bhmapdata, std::string
 
         if (pread(hmapfd, bhmapdata.data(), size, 0) == -1)
         {
-            LOG_ERR << errno << ": Read failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Read failed " << bhmapfile;
             return -1;
         }
     }
@@ -101,7 +102,7 @@ int hashmap_builder::read_blockhashmap(std::vector<char> &bhmapdata, std::string
     return 0;
 }
 
-int hashmap_builder::get_blockindex(std::map<uint32_t, hasher::B2H> &idxmap, uint32_t &blockcount, const std::string &filerelpath)
+int hashmap_builder::get_blockindex(std::map<uint32_t, hasher::B2H> &idxmap, uint32_t &totalblockcount, const std::string &filerelpath)
 {
     std::string bindexfile;
     bindexfile.reserve(ctx.deltadir.length() + filerelpath.length() + BLOCKINDEX_EXT_LEN);
@@ -117,7 +118,11 @@ int hashmap_builder::get_blockindex(std::map<uint32_t, hasher::B2H> &idxmap, uin
         std::vector<char> bindex(idxsize);
         if (infile.read(bindex.data(), idxsize))
         {
-            // First 8 bytes contain the original file length. Skip it.
+            // First 8 bytes contain the original file length.
+            off_t orifilelen;
+            memcpy(&orifilelen, bindex.data(), 8);
+            totalblockcount = ceil((double)orifilelen / (double)BLOCK_SIZE);
+
             // Skip the first 8 bytes and loop through index entries.
             for (uint32_t idxoffset = 8; idxoffset < bindex.size();)
             {
@@ -136,7 +141,7 @@ int hashmap_builder::get_blockindex(std::map<uint32_t, hasher::B2H> &idxmap, uin
         }
         else
         {
-            LOG_ERR << errno << ": Read failed " << bindexfile << '\n';
+            LOG_ERR << errno << ": Read failed " << bindexfile;
             return -1;
         }
 
@@ -148,10 +153,13 @@ int hashmap_builder::get_blockindex(std::map<uint32_t, hasher::B2H> &idxmap, uin
 
 int hashmap_builder::update_hashes(
     hasher::B2H *hashes, const off_t hashes_size, const std::string &relpath, const int orifd,
-    const uint32_t blockcount, const std::map<uint32_t, hasher::B2H> &bindex, const std::vector<char> &bhmapdata)
+    const uint32_t blockcount, const uint32_t original_blockcount, const std::map<uint32_t, hasher::B2H> &bindex, const std::vector<char> &bhmapdata)
 {
+    uint32_t nohint_blockstart = 0;
+
     // If both existing delta block index and block hash map is available, we can just overlay the
     // changed block hashes (mentioned in the delta block index) on top of the old block hashes.
+    // This would prevent unncessarily hashing lot of blocks.
     if (!bhmapdata.empty() && !bindex.empty())
     {
         // Load old hashes.
@@ -160,18 +168,28 @@ int hashmap_builder::update_hashes(
         // Refer to the block index and rehash the changed blocks.
         for (const auto [blockid, oldhash] : bindex)
         {
+            // If the blockid from the block index is no longer there, that means the current file is
+            // shorter than the previous version. So we can stop hashing at this point.
+            if (blockid >= blockcount)
+                break;
+
             if (compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
                 return -1;
         }
+
+        // If the current file has more blocks than the previous version, we need to hash those
+        // additional blocks as well.
+        if (blockcount > original_blockcount)
+            nohint_blockstart = original_blockcount;
+        else
+            nohint_blockstart = blockcount; // No additional blocks remaining.
     }
-    else
+
+    //Hash any additional blocks that has to be hashed without the guidance of block index.
+    for (uint32_t blockid = nohint_blockstart; blockid < blockcount; blockid++)
     {
-        //block index is empty. So we need to rehash the entire file.
-        for (uint32_t blockid = 0; blockid < blockcount; blockid++)
-        {
-            if (compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
-                return -1;
-        }
+        if (compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
+            return -1;
     }
 
     // Calculate the new file hash: filehash = HASH(filename + XOR(block hashes))
@@ -195,7 +213,7 @@ int hashmap_builder::compute_blockhash(hasher::B2H &hash, uint32_t blockid, int 
     size_t bytesread = pread(filefd, blockbuf.get(), BLOCK_SIZE, blockoffset);
     if (bytesread == -1)
     {
-        LOG_ERR << errno << ": Read failed " << relpath << '\n';
+        LOG_ERR << errno << ": Read failed " << relpath;
         return -1;
     }
 
@@ -208,14 +226,20 @@ int hashmap_builder::write_blockhashmap(const std::string &bhmapfile, const hash
     int hmapfd = open(bhmapfile.c_str(), O_RDWR | O_TRUNC | O_CREAT, FILE_PERMS);
     if (hmapfd == -1)
     {
-        LOG_ERR << errno << ": Open failed " << bhmapfile << '\n';
+        LOG_ERR << errno << ": Open failed " << bhmapfile;
         return -1;
     }
 
     // Write the updated hash list into the block hash map file.
     if (pwrite(hmapfd, hashes, hashes_size, 0) == -1)
     {
-        LOG_ERR << errno << ": Write failed " << bhmapfile << '\n';
+        LOG_ERR << errno << ": Write failed " << bhmapfile;
+        return -1;
+    }
+
+    if (ftruncate(hmapfd, hashes_size) == -1)
+    {
+        LOG_ERR << errno << ": Truncate failed " << bhmapfile;
         return -1;
     }
 }
@@ -265,21 +289,21 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parentdirhash, const std::s
         int hmapfd = open(bhmapfile.data(), O_RDONLY);
         if (hmapfd == -1)
         {
-            LOG_ERR << errno << ": Open failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Open failed " << bhmapfile;
             return -1;
         }
 
         hasher::B2H filehash;
         if (read(hmapfd, &filehash, hasher::HASH_SIZE) == -1)
         {
-            LOG_ERR << errno << ": Read failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Read failed " << bhmapfile;
             return -1;
         }
 
         // Delete the .bhmap file.
         if (remove(bhmapfile.c_str()) == -1)
         {
-            LOG_ERR << errno << ": Delete failed " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Delete failed " << bhmapfile;
             return -1;
         }
 
@@ -296,7 +320,7 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parentdirhash, const std::s
         hlpath << hardlinkdir << filehash << ".rh";
         if (remove(hlpath.str().c_str()) == -1)
         {
-            LOG_ERR << errno << ": Delete failed for halrd link " << filehash << " of " << bhmapfile << '\n';
+            LOG_ERR << errno << ": Delete failed for halrd link " << filehash << " of " << bhmapfile;
             return -1;
         }
 

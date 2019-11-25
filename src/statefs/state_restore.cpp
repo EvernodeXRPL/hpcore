@@ -1,5 +1,6 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
+#include "hasher.hpp"
 #include "state_restore.hpp"
 #include "hashtree_builder.hpp"
 #include "state_common.hpp"
@@ -67,7 +68,7 @@ int state_restore::read_blockindex(std::vector<char> &buffer, std::string_view f
     buffer.resize(idxsize);
     if (!infile.read(buffer.data(), idxsize))
     {
-        LOG_ERR << errno << ": Read failed " << bindexfile << "\n";
+        LOG_ERR << errno << ": Read failed " << bindexfile;
         return -1;
     }
 
@@ -91,7 +92,7 @@ int state_restore::restore_blocks(std::string_view file, const std::vector<char>
         bcachefd = open(bcachefile.c_str(), O_RDONLY);
         if (bcachefd <= 0)
         {
-            LOG_ERR << errno << ": Open failed " << bcachefile << "\n";
+            LOG_ERR << errno << ": Open failed " << bcachefile;
             return -1;
         }
     }
@@ -112,7 +113,7 @@ int state_restore::restore_blocks(std::string_view file, const std::vector<char>
         orifilefd = open(originalfile.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
         if (orifilefd <= 0)
         {
-            LOG_ERR << errno << ": Open failed " << originalfile << "\n";
+            LOG_ERR << errno << ": Open failed " << originalfile;
             return -1;
         }
     }
@@ -179,7 +180,7 @@ void state_restore::rewind_checkpoints()
 }
 
 // Rolls back current state to previous state.
-int state_restore::rollback()
+int state_restore::rollback(hasher::B2H &roothash)
 {
     ctx = get_statedir_context();
 
@@ -189,7 +190,7 @@ int state_restore::rollback()
 
     // Update hash tree.
     hashtree_builder htreebuilder(ctx);
-    htreebuilder.generate();
+    htreebuilder.generate(roothash);
 
     rewind_checkpoints();
 

@@ -4,6 +4,7 @@
 #include "../fbschema/common_helpers.hpp"
 #include "../fbschema/p2pmsg_container_generated.h"
 #include "../fbschema/p2pmsg_content_generated.h"
+#include "../statefs/hasher.hpp"
 #include "../statefs/state_common.hpp"
 #include "../statefs/hashtree_builder.hpp"
 #include "proc.hpp"
@@ -185,9 +186,12 @@ int stop_state_monitor()
         LOG_ERR << "State monitor process exited with non-normal status code: " << presult;
 
     // Update the hash tree.
+    hasher::B2H statehash = {0, 0, 0, 0};
     statefs::hashtree_builder htreebuilder(statefs::get_statedir_context());
-    if (htreebuilder.generate() != 0)
+    if (htreebuilder.generate(statehash) != 0)
         return -1;
+
+    LOG_DBG << "State hash: " << std::hex << statehash << std::dec;
 
     return 0;
 }

@@ -10,7 +10,7 @@ hashtree_builder::hashtree_builder(const statedir_context &ctx) : ctx(ctx), hmap
 {
 }
 
-int hashtree_builder::generate()
+int hashtree_builder::generate(hasher::B2H &roothash)
 {
     // Load modified file path hints if available.
     populate_hintpaths(IDX_TOUCHEDFILES);
@@ -19,7 +19,8 @@ int hashtree_builder::generate()
 
     traversel_rootdir = ctx.datadir;
     removal_mode = false;
-    update_hashtree();
+    if (update_hashtree(roothash) != 0)
+        return -1;
 
     // If there are any remaining hint files directly under this directory, that means
     // those files are no longer there. So we need to delete the corresponding .bhmap and rh files
@@ -28,20 +29,20 @@ int hashtree_builder::generate()
     {
         traversel_rootdir = ctx.blockhashmapdir;
         removal_mode = true;
-        update_hashtree();
+        if (update_hashtree(roothash) != 0)
+            return -1;
     }
 
     return 0;
 }
 
-int hashtree_builder::update_hashtree()
+int hashtree_builder::update_hashtree(hasher::B2H &roothash)
 {
     hintpath_map::iterator hintdir_itr = hintpaths.end();
     if (!should_process_dir(hintdir_itr, traversel_rootdir))
         return 0;
 
-    hasher::B2H emptyhash{0, 0, 0, 0};
-    if (update_hashtree_fordir(emptyhash, traversel_rootdir, hintdir_itr, true) == -1)
+    if (update_hashtree_fordir(roothash, traversel_rootdir, hintdir_itr, true) != 0)
         return -1;
 
     return 0;
@@ -71,7 +72,7 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
             if (!should_process_dir(hintsubdir_itr, pathstr))
                 continue;
 
-            if (update_hashtree_fordir(dirhash, pathstr, hintsubdir_itr, false) == -1)
+            if (update_hashtree_fordir(dirhash, pathstr, hintsubdir_itr, false) != 0)
                 return -1;
         }
         else
@@ -79,7 +80,7 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
             if (!should_process_file(hintdir_itr, pathstr))
                 continue;
 
-            if (process_file(dirhash, pathstr, htreedirpath) == -1)
+            if (process_file(dirhash, pathstr, htreedirpath) != 0)
                 return -1;
         }
     }
