@@ -71,7 +71,7 @@ void peer_connection_watchdog()
             }
         }
 
-        util::sleep(conf::cfg.roundtime);
+        util::sleep(conf::cfg.roundtime * 4);
     }
 }
 

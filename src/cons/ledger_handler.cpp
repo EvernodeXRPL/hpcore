@@ -245,7 +245,8 @@ bool check_required_lcl_availability(const p2p::history_request &hr)
         if (itr == cons::ctx.lcl_list.end())
         {
             LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
-            //either this node is also not in consesnsus ledger or other node requesting a lcl that is older than maximum ledger range.
+            //either this node is also not in consesnsus ledger or other node requesting a lcl that is older than node's current
+            // minimum lcl sequence becuase of maximum ledger history range.
             return false;
         }
         else if (itr->second != hr.required_lcl)
@@ -284,13 +285,14 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         //eventhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
         if (hr.minimum_lcl != itr->second)
         {
-            LOG_DBG << "Bbbbbb recieved: s"<< min_lcl_hash << "cache: " << itr->second;
+            LOG_DBG << "Invalid minimum ledger. Recieved min hash: "<< min_lcl_hash << " Node hash: " << itr->second;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
             return history_response;
         }
     }
-    else if (min_seq_no > cons::ctx.lcl_list.rbegin()->first)
+    else if (min_seq_no > cons::ctx.lcl_list.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence. 
     {
+        LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. hash: "<< min_lcl_hash;
         history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
         return history_response;
     }
@@ -300,16 +302,18 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         min_seq_no = cons::ctx.lcl_list.begin()->first;
     }
 
-    LOG_DBG << "history request min seq: " << std::to_string(min_seq_no);
+    //LOG_DBG << "history request min seq: " << std::to_string(min_seq_no);
+
     //copy current history cache.
     std::map<uint64_t, std::string>
         lcl_list = cons::ctx.lcl_list;
 
-    //filter out cache and get raw files here.
+    //filter out cache from finalized minimum sequence.
     lcl_list.erase(
         lcl_list.begin(),
         lcl_list.lower_bound(min_seq_no));
 
+    //Get raw content of lcls that going to be send. 
     for (auto &[seq_no, lcl_hash] : lcl_list)
     {
         p2p::history_ledger ledger;
@@ -366,11 +370,10 @@ void handle_ledger_history_response(const p2p::history_response &hr)
         return;
     }
 
-    LOG_DBG << "history response error: " << (int)hr.error;
-
     if (hr.error == p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER)
     {
-        //This means we are in a fork ledger.Remove/rollback current ledger.
+        // This means we are in a fork ledger.Remove/rollback current ledger.
+        // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger .
         remove_ledger(ctx.lcl);
         cons::ctx.lcl_list.erase(ctx.lcl_list.rbegin()->first);
     }

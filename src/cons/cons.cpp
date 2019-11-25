@@ -53,6 +53,7 @@ void consensus()
     // Get the latest current time.
     ctx.time_now = util::get_epoch_milliseconds();
     std::list<p2p::proposal> collected_proposals;
+
     // Throughout consensus, we move over the incoming proposals collected via the network so far into
     // the candidate proposal set (move and append). This is to have a private working set for the consensus
     // and avoid threading conflicts with network incoming proposals.
@@ -61,17 +62,19 @@ void consensus()
         collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
     }
 
-    for (auto &proposal : collected_proposals)
+    //Copy collected propsals to candidate set of proposals.
+    //Add mpropsals of new nodes and Replace messages from old nodes to  reflect current status of nodes.
+    for (const auto &proposal : collected_proposals)
     {
         auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
         if (prop_itr != ctx.candidate_proposals.end())
         {
             ctx.candidate_proposals.erase(prop_itr);
-            ctx.candidate_proposals.emplace(proposal.pubkey, proposal);
+            ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
         }
 
         else
-            ctx.candidate_proposals.emplace(proposal.pubkey, proposal);
+            ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
     }
     // Throughout consensus, we move over the incoming npl messages collected via the network so far into
     // the candidate npl message set (move and append). This is to have a private working set for the consensus
@@ -93,21 +96,6 @@ void consensus()
     if (ctx.stage == 0)
     {
         // Stage 0 means begining of a consensus round.
-        // {
-        //     // Remove any useless candidate proposals so we'll have a cleaner proposal set to look at
-        //     // when we transition to stage 1.
-        //     auto itr = ctx.candidate_proposals.begin();
-        //     while (itr != ctx.candidate_proposals.end())
-        //     {
-        //         // Remove any proposal from previous round's stage 3.
-        //         // Remove any proposal from self (pubkey match).
-        //         // todo: check the state of these to ensure we're running consensus ledger
-        //         if (itr->second.stage == 3 || conf::cfg.pubkey == itr->second.pubkey)
-        //             ctx.candidate_proposals.erase(itr++);
-        //         else
-        //             ++itr;
-        //     }
-        //}
 
         // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
         broadcast_nonunl_proposal();
@@ -122,7 +110,6 @@ void consensus()
     }
     else // Stage 1, 2, 3
     {
-
         std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
         for (auto &[pubkey, p] : ctx.candidate_proposals)
         {
@@ -136,7 +123,6 @@ void consensus()
                     << "\n";
         }
 
-        LOG_DBG << "timenow:" << std::to_string(ctx.time_now) << "\n";
         // Initialize vote counters
         vote_counter votes;
 
@@ -163,11 +149,11 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            //bool should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
-            //for now we are resetting to stage 0 to avoid possible deadlock situations
-            //timewait_stage(should_reset);
+            //For now we are resetting to stage 0 to avoid possible deadlock situations.
+            //Also we try to converge consensus by trying to reset every node in a quick succession
+            //By resetting node to max close time of candidate list of unl list peers.
             timewait_stage(true, (time_off - ctx.time_now));
-            LOG_DBG << "time off: " << std::to_string(time_off);
+            //LOG_DBG << "time off: " << std::to_string(time_off);
 
             return;
         }
@@ -175,17 +161,6 @@ void consensus()
         // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
         const p2p::proposal stg_prop = create_stage123_proposal(votes);
         broadcast_proposal(stg_prop);
-
-        // Remove all candidate proposals that are behind our current stage.
-        // auto itr = ctx.candidate_proposals.begin();
-        // while (itr != ctx.candidate_proposals.end())
-        // {
-        //     if (itr->stage < ctx.stage)
-        //         ctx.candidate_proposals.erase(itr++);
-        //     else
-        //         ++itr;
-        // }
-        ctx.candidate_proposals.clear();
 
         if (ctx.stage == 3)
         {
@@ -393,9 +368,10 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
             stg_prop.time = time;
         }
     }
-
+    
+    //todo:apply a round time resolution to increase close time reliability(for stage 1,3)
     if (ctx.stage == 3)
-        apply_ledger_time_resolution(stg_prop.time);
+        get_ledger_time_resolution(stg_prop.time);
 
     return stg_prop;
 }
@@ -454,14 +430,6 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
         LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
                 << " is ahead of majority stage:" << std::to_string(majority_stage);
     }
-    // else if (majority_stage > ctx.stage)
-    // {
-    //     should_reset = true;
-    //     is_desync = true;
-
-    //     LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
-    //             << " is behind majority stage:" << std::to_string(majority_stage);
-    // }
 }
 
 /**
@@ -480,6 +448,8 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
             total_lcl_votes++;
         }
 
+        //keep track of max time of peers, so we can reset nodes in a close time range to increase reliability.
+        //This is very usefull especially boostrapping a node cluster.
         if (cp.time > time_off)
             time_off = cp.time;
     }
@@ -507,13 +477,12 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     }
 
     //if winning lcl is not matched node lcl,
-    //that means vode is not on the consensus ledger.
+    //that means vote is not on the consensus ledger.
     //Should request history from a peer.
     if (ctx.lcl != majority_lcl)
     {
         LOG_DBG << "We are not on the consensus ledger, requesting history from a random peer";
         is_desync = true;
-
         should_request_history = true;
         return;
     }
@@ -521,7 +490,8 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     if (winning_votes < 0.8 * ctx.candidate_proposals.size())
     {
         // potential fork condition.
-        LOG_DBG << "No consensus on lcl. Possible fork condition. " << std::to_string(winning_votes) << std::to_string(ctx.candidate_proposals.size());
+        // critical!!!
+        LOG_WARN << "No consensus on lcl. Possible fork condition. " << std::to_string(winning_votes) << std::to_string(ctx.candidate_proposals.size());
         is_desync = true;
         return;
     }
@@ -545,6 +515,11 @@ float_t get_stage_threshold(const uint8_t stage)
     return -1;
 }
 
+/**
+* Awiat/Sleep consensus to time milliseconds and reset consensus.
+* @param reset reset consensus stage to 0 or not.
+* @param time milliseconds to sleep/await.
+*/
 void timewait_stage(const bool reset, const uint64_t time)
 {
     if (reset)
@@ -556,9 +531,17 @@ void timewait_stage(const bool reset, const uint64_t time)
     util::sleep(time);
 }
 
-const uint64_t apply_ledger_time_resolution(uint64_t close_time)
+/**
+* Calculate the effective ledger close time
+* After adjusting the ledger close time based on the current resolution,
+* also ensure it is sufficiently separated from the prior close time.
+* @param close_time voted/agreed closed time
+*/
+const uint64_t get_ledger_time_resolution(uint64_t close_time)
 {
-    uint64_t closeResolution = conf::cfg.roundtime / 4;
+    uint64_t closeResolution = conf::cfg.roundtime / 4; 
+    //todo: change time resolution dynamically. 
+    //When nodes agree often reduce resolution time and increase if they don't.
 
     close_time += (closeResolution / 2);
     close_time -= (close_time % closeResolution);
