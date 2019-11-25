@@ -1,9 +1,7 @@
 #ifndef _STATEFS_STATE_RESTORE_
 #define _STATEFS_STATE_RESTORE_
 
-#include <string>
-#include <unordered_set>
-#include <vector>
+#include "../pchheader.hpp"
 #include "state_common.hpp"
 
 namespace statefs

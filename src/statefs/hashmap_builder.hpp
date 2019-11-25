@@ -1,11 +1,7 @@
 #ifndef _STATEFS_HASHMAP_BUILDER_
 #define _STATEFS_HASHMAP_BUILDER_
 
-#include <string>
-#include <list>
-#include <map>
-#include <vector>
-#include <unordered_set>
+#include "../pchheader.hpp"
 #include "hasher.hpp"
 #include "state_common.hpp"
 

@@ -1,9 +1,7 @@
 #ifndef _HASHER_
 #define _HASHER_
 
-#include <sodium.h>
-#include <iostream>
-#include <sstream>
+#include "../pchheader.hpp"
 
 namespace hasher
 {

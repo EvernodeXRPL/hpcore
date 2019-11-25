@@ -1,12 +1,4 @@
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <unistd.h>
-#include <fcntl.h>
-#include <fstream>
-#include <unordered_set>
-#include <vector>
-#include <boost/filesystem.hpp>
+#include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "state_restore.hpp"
 #include "hashtree_builder.hpp"

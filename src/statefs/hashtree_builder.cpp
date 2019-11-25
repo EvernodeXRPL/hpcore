@@ -1,8 +1,4 @@
-#include <iostream>
-#include <string>
-#include <unistd.h>
-#include <fcntl.h>
-#include <boost/filesystem.hpp>
+#include "../pchheader.hpp"
 #include "hashtree_builder.hpp"
 #include "state_restore.hpp"
 #include "state_common.hpp"

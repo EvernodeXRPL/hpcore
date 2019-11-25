@@ -115,14 +115,13 @@ add_executable(hpstatemon
     src/statefs/state_common.cpp
 )
 target_link_libraries(hpstatemon
+    hpsupport
     libfuse3.so.3
-    libsodium.a
-    libboost_system.a
-    libboost_filesystem.a
 )
 
 add_dependencies(hpcore
-    hpstatemon)
+    hpstatemon
+)
     
 target_precompile_headers(hpsupport PUBLIC src/pchheader.hpp)
 target_precompile_headers(hpcore REUSE_FROM hpsupport)
@@ -131,6 +130,7 @@ target_precompile_headers(hpschema REUSE_FROM hpsupport)
 target_precompile_headers(hpp2p REUSE_FROM hpsupport)
 target_precompile_headers(hpusr REUSE_FROM hpsupport)
 target_precompile_headers(hpcons REUSE_FROM hpsupport)
+target_precompile_headers(hpstatemon REUSE_FROM hpsupport)
 
 # Create docker image from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'

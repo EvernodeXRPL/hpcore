@@ -301,9 +301,10 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
             continue;
 
         // Read the block being replaced and send to cache file.
-        char blockbuf[BLOCK_SIZE];
+        // Allocating block buffer on the heap to avoid filling limited stack space.
+        std::unique_ptr<char[]> blockbuf = std::make_unique<char[]>(BLOCK_SIZE);
         off_t blockoffset = BLOCK_SIZE * i;
-        size_t bytesread = pread(fi.readfd, blockbuf, BLOCK_SIZE, BLOCK_SIZE * i);
+        size_t bytesread = pread(fi.readfd, blockbuf.get(), BLOCK_SIZE, BLOCK_SIZE * i);
         if (bytesread < 0)
         {
             std::cerr << errno << ": Read failed " << fi.filepath << "\n";
@@ -314,7 +315,7 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
         if (bytesread == 0)
             return 0;
 
-        if (write(fi.cachefd, blockbuf, bytesread) < 0)
+        if (write(fi.cachefd, blockbuf.get(), bytesread) < 0)
         {
             std::cerr << errno << ": Write to block cache failed. " << fi.filepath << "\n";
             return -1;
@@ -326,7 +327,7 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
         // Entry format: [blocknum(4 bytes) | cacheoffset(8 bytes) | blockhash(32 bytes)]
 
         char entrybuf[BLOCKINDEX_ENTRY_SIZE];
-        hasher::B2H hash = hasher::hash(&blockoffset, 8, blockbuf, bytesread);
+        hasher::B2H hash = hasher::hash(&blockoffset, 8, blockbuf.get(), bytesread);
 
         // Original file block id.
         memcpy(entrybuf, &i, 4);

@@ -1,10 +1,4 @@
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <unistd.h>
-#include <fcntl.h>
-#include <cmath>
-#include <boost/filesystem.hpp>
+#include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "state_common.hpp"
 #include "hashmap_builder.hpp"
@@ -53,14 +47,15 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
     if (get_blockindex(bindex, blockcount, relpath) == -1)
         return -1;
 
-    // Array to contain the updated block hashes.
-    hasher::B2H hashes[1 + blockcount]; // slot 0 is for the root hash.
+    // Array to contain the updated block hashes. Slot 0 is for the root hash.
+    // Allocating hash array on the heap to avoid filling limited stack space.
+    std::unique_ptr<hasher::B2H[]> hashes = std::make_unique<hasher::B2H[]>(1 + blockcount);
     const size_t hashes_size = (1 + blockcount) * hasher::HASH_SIZE;
     
-    if (update_hashes(hashes, hashes_size, relpath, orifd, blockcount, bindex, bhmapdata) == -1)
+    if (update_hashes(hashes.get(), hashes_size, relpath, orifd, blockcount, bindex, bhmapdata) == -1)
         return -1;
 
-    if (write_blockhashmap(bhmapfile, hashes, hashes_size) == -1)
+    if (write_blockhashmap(bhmapfile, hashes.get(), hashes_size) == -1)
         return -1;
 
     if (update_hashtree_entry(parentdirhash, !bhmapdata.empty(), oldfilehash, hashes[0], bhmapfile, relpath) == -1)
@@ -194,16 +189,17 @@ int hashmap_builder::update_hashes(
 
 int hashmap_builder::compute_blockhash(hasher::B2H &hash, uint32_t blockid, int filefd, const std::string &relpath)
 {
-    char block[BLOCK_SIZE];
+    // Allocating block buffer on the heap to avoid filling limited stack space.
+    std::unique_ptr<char[]> blockbuf = std::make_unique<char[]>(BLOCK_SIZE);
     const off_t blockoffset = BLOCK_SIZE * blockid;
-    size_t bytesread = pread(filefd, block, BLOCK_SIZE, blockoffset);
+    size_t bytesread = pread(filefd, blockbuf.get(), BLOCK_SIZE, blockoffset);
     if (bytesread == -1)
     {
         LOG_ERR << errno << ": Read failed " << relpath << '\n';
         return -1;
     }
 
-    hash = hasher::hash(&blockoffset, 8, block, bytesread);
+    hash = hasher::hash(&blockoffset, 8, blockbuf.get(), bytesread);
     return 0;
 }
 
