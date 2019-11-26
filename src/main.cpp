@@ -168,7 +168,7 @@ int main(int argc, char **argv)
                 hplog::init();
 
                 LOG_INFO << "Operating mode: "
-                         << (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE ? "Passive" : "Active");
+                         << (conf::cfg.mode == conf::OPERATING_MODE::OBSERVING ? "Passive" : "Active");
 
                 if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
                     return -1;

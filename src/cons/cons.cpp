@@ -91,8 +91,8 @@ void consensus()
         p2p::ctx.collected_msgs.npl_messages.clear();
     }
 
-    if (ctx.stage == 0)  // Stage 0 means begining of a consensus round.
-    {   
+    if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
+    {
         // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
         broadcast_nonunl_proposal();
         util::sleep(conf::cfg.roundtime / 10);
@@ -151,6 +151,11 @@ void consensus()
             timewait_stage(true, (time_off - ctx.time_now));
             //LOG_DBG << "time off: " << std::to_string(time_off);
             return;
+        }
+        else
+        {
+            //Node is in sync with current lcl ->switch to proposing mode.
+            conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);
         }
 
         // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
@@ -367,10 +372,13 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
             stg_prop.time = time;
         }
     }
-    
+
     //todo:apply a round time resolution to increase close time reliability(for stage 1,2)
     if (ctx.stage == 3)
         get_ledger_time_resolution(stg_prop.time);
+
+    else
+        get_stage_time_resolution(stg_prop.time);
 
     return stg_prop;
 }
@@ -381,8 +389,8 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
-    // In passive mode, we do not send out any propopsals.
-    if (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE)
+    // In observing mode, we do not send out any proposals.
+    if (conf::cfg.mode == conf::OPERATING_MODE::OBSERVING)
         return;
 
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
@@ -460,6 +468,10 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     {
         LOG_DBG << "Not enough peers proposing to perform consensus" << std::to_string(total_lcl_votes) << " needed " << std::to_string(0.8 * conf::cfg.unl.size());
         is_desync = true;
+
+        //Not enough nodes are propsing. So Node is switching to Proposing if it's in observing mode.
+        conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);
+
         return;
     }
 
@@ -480,6 +492,10 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     {
         LOG_DBG << "We are not on the consensus ledger, requesting history from a random peer";
         is_desync = true;
+
+        //Node is in not sync with current lcl ->switch to observing mode.
+        conf::change_operating_mode(conf::OPERATING_MODE::OBSERVING);
+
         should_request_history = true;
         return;
     }
@@ -536,14 +552,29 @@ void timewait_stage(const bool reset, const uint64_t time)
 */
 const uint64_t get_ledger_time_resolution(uint64_t close_time)
 {
-    uint64_t closeResolution = conf::cfg.roundtime / 4; 
-    //todo: change time resolution dynamically. 
+    uint64_t closeResolution = conf::cfg.roundtime / 4;
+    //todo: change time resolution dynamically.
     //When nodes agree often reduce resolution time and increase if they don't.
 
     close_time += (closeResolution / 2);
     close_time -= (close_time % closeResolution);
 
     return std::max(close_time, (ctx.prev_close_time + conf::cfg.roundtime));
+}
+
+/**
+* Calculate the stage time
+* Adjusting the stage time based on the current resolution.
+* @param stage_time voted/agreed closed time
+*/
+const uint64_t get_stage_time_resolution(uint64_t stage_time)
+{
+    uint64_t closeResolution = conf::cfg.roundtime / 8;
+
+    stage_time += (closeResolution / 2);
+    stage_time -= (stage_time % closeResolution);
+
+    return stage_time;
 }
 
 /**
