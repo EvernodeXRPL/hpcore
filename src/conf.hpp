@@ -24,11 +24,13 @@ enum OPERATING_MODE
 struct contract_ctx
 {
     std::string command;        // The CLI command issued to launch HotPocket
+    std::string exedir;         // Hot Pocket executable dir.
+    std::string statemonexepath;// State monitor executable file path.
 
     std::string contractdir;    // Contract base directory full path
     std::string histdir;        // Contract history dir full path
-    std::string statedir;       // Contract state dir full path
-    std::string statemapdir;    // Contract state map dir (.merkel files) full path
+    std::string statedir;       // Contract executing state dir full path (This is the fuse mount point)
+    std::string statehistdir;   // Contract state history dir full path
     std::string logdir;         // Contract log dir full path
     std::string configdir;      // Contract config dir full path
     std::string configfile;     // Full path to the contract config file
@@ -43,6 +45,7 @@ struct contract_config
 
     std::string pubkey;                 // Contract public key bytes
     std::string seckey;                 // Contract secret key bytes
+    std::vector<std::string> runtime_binexec_args;   // Contract binary execution args used during runtime.
 
     // Config elements which are loaded from the config file.
 
@@ -89,7 +92,7 @@ int rekey();
 
 int create_contract();
 
-void set_contract_dir_paths(std::string basedir);
+void set_contract_dir_paths(std::string exepath, std::string basedir);
 
 //------Internal-use functions for this namespace.
 

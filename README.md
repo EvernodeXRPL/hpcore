@@ -13,6 +13,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * RapidJSON - http://rapidjson.org
 * P2P Protocol - https://google.github.io/flatbuffers/
 * TLS - https://www.openssl.org/
+* Fuse filesystem - https://github.com/libfuse/libfuse
 
 ## Steps to setup Hot Pocket
 
@@ -68,6 +69,13 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 3. Run `./config && make`
 4. Run `sudo make install`
 
+#### Install libfuse
+1. `sudo apt-get install -y meson ninja-build pkg-config`
+2. Download [libfuse 3.8](https://github.com/libfuse/libfuse/releases/download/fuse-3.8.0/fuse-3.8.0.tar.xz) and extract.
+3. `mkdir build; cd build`
+4. `meson .. && ninja`
+6. `sudo ninja install`
+
 #### Run ldconfig
 `sudo ldconfig`
 
@@ -99,3 +107,5 @@ Code is divided into subsystems via namespaces.
 **sock::** Handles generic web sockets functionality. Mainly acts as a wrapper for boost/beast.
 
 **util::** Contains shared data structures/helper functions used by multiple subsystems.
+
+**statefs::** Fuse-based state filesystem monitoring and contract state maintenence subsystem.

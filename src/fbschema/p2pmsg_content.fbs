@@ -45,8 +45,16 @@ table History_Request_Message { //Ledger History request type message schema
     required_lcl:[ubyte];
 }
 
+enum Ledger_Response_Error : ubyte
+{
+    None = 0,
+    Invalid_Min_Ledger = 1,
+    Req_Ledger_Not_Found = 2
+}
+
 table History_Response_Message { //Ledger History request type message schema
     hist_ledgers:[HistoryLedgerPair];
+    error: Ledger_Response_Error;
 }
 
 table HistoryLedgerPair { //A key, value pair of byte[].

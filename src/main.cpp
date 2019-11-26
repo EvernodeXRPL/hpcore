@@ -11,6 +11,7 @@
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
 #include "cons/cons.hpp"
+#include "statefs/state_common.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -35,7 +36,7 @@ int parse_cmd(int argc, char **argv)
             {
                 // We inform the conf subsystem to populate the contract directory context values
                 // based on the directory argument from the command line.
-                conf::set_contract_dir_paths(argv[2]);
+                conf::set_contract_dir_paths(argv[0], argv[2]);
 
                 return 0;
             }
@@ -114,7 +115,7 @@ void std_terminate() noexcept
 int main(int argc, char **argv)
 {
     //seed rand
-    srand(time(0));   
+    srand(time(0));
 
     // Register exception handler for std exceptions.
     std::set_terminate(&std_terminate);
@@ -172,12 +173,13 @@ int main(int argc, char **argv)
                 if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
                     return -1;
 
+                statefs::init(conf::ctx.statehistdir);
+
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
 
                 //we are waiting for peer to estasblish peer connections.
-                //otherwise we'll run into not enough peers propsing/stage desync deadlock directly now.
-                sleep(3);
+                sleep(10); //todo: replace waiting with a check to peer check.
 
                 while (true)
                 {

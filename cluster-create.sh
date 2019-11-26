@@ -50,8 +50,9 @@ do
             binargs: './bin/contract.js', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 10000,
-            loglevel: 'debug'
+            roundtime: 1000, \
+            loglevel: 'debug', \
+            loggers:['console'] \
             }, null, 2)" > hp.cfg
     rm tmp.json
 

@@ -111,6 +111,39 @@ template<> struct MessageTraits<History_Response_Message> {
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
 bool VerifyMessageVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
+enum Ledger_Response_Error {
+  Ledger_Response_Error_None = 0,
+  Ledger_Response_Error_Invalid_Min_Ledger = 1,
+  Ledger_Response_Error_Req_Ledger_Not_Found = 2,
+  Ledger_Response_Error_MIN = Ledger_Response_Error_None,
+  Ledger_Response_Error_MAX = Ledger_Response_Error_Req_Ledger_Not_Found
+};
+
+inline const Ledger_Response_Error (&EnumValuesLedger_Response_Error())[3] {
+  static const Ledger_Response_Error values[] = {
+    Ledger_Response_Error_None,
+    Ledger_Response_Error_Invalid_Min_Ledger,
+    Ledger_Response_Error_Req_Ledger_Not_Found
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesLedger_Response_Error() {
+  static const char * const names[] = {
+    "None",
+    "Invalid_Min_Ledger",
+    "Req_Ledger_Not_Found",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameLedger_Response_Error(Ledger_Response_Error e) {
+  if (e < Ledger_Response_Error_None || e > Ledger_Response_Error_Req_Ledger_Not_Found) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesLedger_Response_Error()[index];
+}
+
 struct UserSubmittedMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CONTENT = 4,
@@ -739,7 +772,8 @@ inline flatbuffers::Offset<History_Request_Message> CreateHistory_Request_Messag
 
 struct History_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_HIST_LEDGERS = 4
+    VT_HIST_LEDGERS = 4,
+    VT_ERROR = 6
   };
   const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *hist_ledgers() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *>(VT_HIST_LEDGERS);
@@ -747,11 +781,18 @@ struct History_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *mutable_hist_ledgers() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *>(VT_HIST_LEDGERS);
   }
+  Ledger_Response_Error error() const {
+    return static_cast<Ledger_Response_Error>(GetField<uint8_t>(VT_ERROR, 0));
+  }
+  bool mutate_error(Ledger_Response_Error _error) {
+    return SetField<uint8_t>(VT_ERROR, static_cast<uint8_t>(_error), 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_HIST_LEDGERS) &&
            verifier.VerifyVector(hist_ledgers()) &&
            verifier.VerifyVectorOfTables(hist_ledgers()) &&
+           VerifyField<uint8_t>(verifier, VT_ERROR) &&
            verifier.EndTable();
   }
 };
@@ -761,6 +802,9 @@ struct History_Response_MessageBuilder {
   flatbuffers::uoffset_t start_;
   void add_hist_ledgers(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>> hist_ledgers) {
     fbb_.AddOffset(History_Response_Message::VT_HIST_LEDGERS, hist_ledgers);
+  }
+  void add_error(Ledger_Response_Error error) {
+    fbb_.AddElement<uint8_t>(History_Response_Message::VT_ERROR, static_cast<uint8_t>(error), 0);
   }
   explicit History_Response_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -776,19 +820,23 @@ struct History_Response_MessageBuilder {
 
 inline flatbuffers::Offset<History_Response_Message> CreateHistory_Response_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>> hist_ledgers = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>> hist_ledgers = 0,
+    Ledger_Response_Error error = Ledger_Response_Error_None) {
   History_Response_MessageBuilder builder_(_fbb);
   builder_.add_hist_ledgers(hist_ledgers);
+  builder_.add_error(error);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<History_Response_Message> CreateHistory_Response_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<HistoryLedgerPair>> *hist_ledgers = nullptr) {
+    const std::vector<flatbuffers::Offset<HistoryLedgerPair>> *hist_ledgers = nullptr,
+    Ledger_Response_Error error = Ledger_Response_Error_None) {
   auto hist_ledgers__ = hist_ledgers ? _fbb.CreateVector<flatbuffers::Offset<HistoryLedgerPair>>(*hist_ledgers) : 0;
   return fbschema::p2pmsg::CreateHistory_Response_Message(
       _fbb,
-      hist_ledgers__);
+      hist_ledgers__,
+      error);
 }
 
 struct HistoryLedgerPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

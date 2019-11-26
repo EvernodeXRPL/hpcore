@@ -17,15 +17,6 @@ contract_config cfg;
 const static char *MODE_PASSIVE = "passive";
 const static char *MODE_ACTIVE = "active";
 
-// provide a safe std::string overload for realpath
-std::string realpath(std::string path)
-{
-    std::array<char, PATH_MAX> buffer;
-    ::realpath(path.c_str(), buffer.data());
-    buffer[PATH_MAX] = '\0';
-    return buffer.data();
-}
-
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
  * @return 0 for success. -1 for failure.
@@ -91,7 +82,7 @@ int create_contract()
     boost::filesystem::create_directories(ctx.configdir);
     boost::filesystem::create_directories(ctx.histdir);
     boost::filesystem::create_directories(ctx.statedir);
-    boost::filesystem::create_directories(ctx.statemapdir);
+    boost::filesystem::create_directories(ctx.statehistdir);
 
     //Create config file with default settings.
 
@@ -128,9 +119,16 @@ int create_contract()
  * Updates the contract context with directory paths based on provided base directory.
  * This is called after parsing HP command line arg in order to populate the ctx.
  */
-void set_contract_dir_paths(std::string basedir)
+void set_contract_dir_paths(std::string exepath, std::string basedir)
 {
-    if (basedir == "")
+    if (exepath.empty())
+    {
+        // this code branch will never execute the way main is currently coded, but it might change in future
+        std::cerr << "Executable path must be specified\n";
+        exit(1);
+    }
+
+    if (basedir.empty())
     {
         // this code branch will never execute the way main is currently coded, but it might change in future
         std::cerr << "a contract directory must be specified\n";
@@ -138,7 +136,10 @@ void set_contract_dir_paths(std::string basedir)
     }
 
     // resolving the path through realpath will remove any trailing slash if present
-    basedir = realpath(basedir);
+    basedir = util::realpath(basedir);
+
+    ctx.exedir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
+    ctx.statemonexepath = ctx.exedir + "/" + "hpstatemon";
 
     ctx.contractdir = basedir;
     ctx.configdir = basedir + "/cfg";
@@ -147,7 +148,7 @@ void set_contract_dir_paths(std::string basedir)
     ctx.tlscertfile = ctx.configdir + "/tlscert.pem";
     ctx.histdir = basedir + "/hist";
     ctx.statedir = basedir + "/state";
-    ctx.statemapdir = basedir + "/statemap";
+    ctx.statehistdir = basedir + "/statehist";
     ctx.logdir = basedir + "/log";
 }
 
@@ -217,6 +218,17 @@ int load_config()
 
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
+
+    // Populate runtime contract execution args.
+    if (!cfg.binargs.empty())
+        boost::split(cfg.runtime_binexec_args, cfg.binargs, boost::is_any_of(" "));
+    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), cfg.binary);
+
+    // Uncomment for docker-based execution.
+    // std::string volumearg;
+    // volumearg.append("type=bind,source=").append(ctx.statedir).append(",target=/state");
+    // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.binary.data()};
+    // cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
 
     // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
     // seperately to retrieve easily when handling peer connections.
@@ -468,13 +480,6 @@ int validate_config()
         }
     }
 
-    // Check whether the contract binary actually exists.
-    if (!boost::filesystem::exists(cfg.binary))
-    {
-        std::cout << "Contract binary does not exist: " << cfg.binary << std::endl;
-        return -1;
-    }
-
     //Sign and verify a sample message to ensure we have a matching signing key pair.
     const std::string msg = "hotpocket";
     const std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
@@ -499,7 +504,7 @@ int validate_contract_dir_paths()
         ctx.configfile,
         ctx.histdir,
         ctx.statedir,
-        ctx.statemapdir,
+        ctx.statehistdir,
         ctx.tlskeyfile,
         ctx.tlscertfile};
 

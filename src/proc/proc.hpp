@@ -80,6 +80,12 @@ int exec_contract(const contract_exec_args &args);
 
 //------Internal-use functions for this namespace.
 
+int await_process_execution(pid_t pid);
+
+int start_state_monitor();
+
+int stop_state_monitor();
+
 int write_contract_args(const contract_exec_args &args);
 
 int feed_inputs(const contract_exec_args &args);

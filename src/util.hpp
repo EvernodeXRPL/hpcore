@@ -11,10 +11,10 @@ namespace util
 {
 
 // Hot Pocket version. Displayed on 'hotpocket version' and written to new contract configs.
-constexpr const char* HP_VERSION = "0.1";
+constexpr const char *HP_VERSION = "0.1";
 
 // Minimum compatible contract config version (this will be used to validate contract configs)
-constexpr const char* MIN_CONTRACT_VERSION = "0.1";
+constexpr const char *MIN_CONTRACT_VERSION = "0.1";
 
 // Current version of the peer message protocol.
 constexpr uint8_t PEERMSG_VERSION = 1;
@@ -80,6 +80,8 @@ void sleep(const uint64_t milliseconds);
 int version_compare(const std::string &x, const std::string &y);
 
 std::string_view getsv(const rapidjson::Value &v);
+
+std::string realpath(std::string path);
 
 } // namespace util
 

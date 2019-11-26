@@ -166,6 +166,9 @@ const p2p::history_response create_history_response_from_msg(const History_Respo
     if (msg.hist_ledgers())
         hr.hist_ledgers = flatbuf_historyledgermap_to_historyledgermap(msg.hist_ledgers());
 
+        if (msg.error())
+        hr.error = (p2p::LEDGER_RESPONSE_ERROR)msg.error();
+
     return hr;
 }
 
@@ -322,7 +325,8 @@ void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_
     flatbuffers::Offset<History_Response_Message> hrmsg =
         CreateHistory_Response_Message(
             builder,
-            historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledgers));
+            historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledgers),
+            (Ledger_Response_Error)hr.error);
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Response_Message, hrmsg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.

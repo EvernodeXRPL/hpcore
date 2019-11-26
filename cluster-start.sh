@@ -23,5 +23,6 @@ let pubport=8080+$n
 # We specify --name for each node so it will be the virtual dns name for each node.
 docker run --rm -t -i --network=hpnet --name=node${n} \
     -p ${pubport}:${pubport} \
+    --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
     --mount type=bind,source=${clusterloc}/node${n},target=/contract \
     hpcore:latest run /contract
