@@ -30,6 +30,8 @@ constexpr float STAGE3_THRESHOLD = 0.8;
 
 consensus_context ctx;
 
+std::unordered_map<std::string, std::string> state_map;
+
 int init()
 {
     //set start stage
@@ -39,10 +41,11 @@ int init()
     ledger_history ldr_hist = load_ledger();
     ctx.led_seq_no = ldr_hist.led_seq_no;
     ctx.lcl = ldr_hist.lcl;
-    ctx.lcl_list.swap(ldr_hist.lcl_list);
+    ctx.cache.swap(ldr_hist.cache);
 
-    // todo: get the previous state and assign it here
-    ctx.state = "state avalanche";
+    // todo: get the current state and assign here
+    ctx.curr_hash_state = "state avalanche";
+    ctx.prev_hash_state = ctx.curr_hash_state;
 
     return 0;
 }
@@ -287,6 +290,8 @@ p2p::proposal create_stage0_proposal()
     ctx.novel_proposal_time = ctx.time_now;
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
+    stg_prop.prev_hash_state = ctx.prev_hash_state;
+    stg_prop.curr_hash_state = ctx.curr_hash_state;
 
     // Populate the proposal with set of candidate user pubkeys.
     for (const std::string &pubkey : ctx.candidate_users)
@@ -303,7 +308,6 @@ p2p::proposal create_stage0_proposal()
     for (const auto &[hash, cand_output] : ctx.candidate_user_outputs)
         stg_prop.hash_outputs.emplace(hash);
 
-    // todo: set propsal states
     // todo: generate stg_prop hash and check with ctx.novel_proposal, we are sending same proposal again.
 
     return stg_prop;
@@ -343,7 +347,8 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
                 increment(votes.outputs, hash);
 
         // Vote for the state
-        increment(votes.state, cp.state);
+        state_map.try_emplace(cp.curr_hash_state, cp.prev_hash_state);
+        increment(votes.state, cp.curr_hash_state);
     }
 
     const float_t vote_threshold = get_stage_threshold(ctx.stage);
@@ -375,7 +380,8 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         if (numvotes > highest_state_vote && numvotes >= vote_threshold)
         {
             highest_state_vote = numvotes;
-            stg_prop.state = state;
+            stg_prop.curr_hash_state = state;
+            stg_prop.prev_hash_state = state_map[state];
         }
     }
 
@@ -495,8 +501,8 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
         }
     }
 
-    double wining_votes_unl_ratio = winning_votes / conf::cfg.unl.size();
-    if (wining_votes_unl_ratio < 0.8)
+    double winning_votes_unl_ratio = winning_votes / conf::cfg.unl.size();
+    if (winning_votes_unl_ratio < 0.8)
     {
         // potential fork condition.
         LOG_DBG << "No consensus on lcl. Possible fork condition.";
@@ -552,8 +558,6 @@ void apply_ledger(const p2p::proposal &cons_prop)
     const std::tuple<const uint64_t, std::string> new_lcl = save_ledger(cons_prop);
     ctx.led_seq_no = std::get<0>(new_lcl);
     ctx.lcl = std::get<1>(new_lcl);
-
-    // todo : Get the latest state hash and assign to ctx.state
 
     // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
     {
@@ -646,14 +650,42 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
 void check_state(const p2p::proposal &cons_prop)
 {
 
-    if (cons_prop.state.empty())
+    if (cons_prop.curr_hash_state.empty())
     {
         LOG_ERR << "Could not find consensus state, this will potentially cause desync.";
         return;
     }
-    else if (cons_prop.state != ctx.state)
+    else if (cons_prop.curr_hash_state != ctx.curr_hash_state)
     {
-        
+        if (cons_prop.prev_hash_state == ctx.prev_hash_state)
+        {
+            // todo: rollback current state and request changeset from random peer
+        }
+        else if (cons_prop.curr_hash_state == ctx.prev_hash_state)
+        {
+            // todo: rollback current state
+        }
+        else if (cons_prop.prev_hash_state == ctx.curr_hash_state)
+        {
+            // todo: request latest changeset from random peer
+        }
+        else
+        {
+            if (ctx.cache.size() > 2)
+            {
+                for (int i = 2; i < util::MAX_STATE_CHECK; ++i)
+                {
+                    if (ctx.cache[i].state == ctx.curr_hash_state){
+                        // Im behind the actual state
+                        //todo: request changeset from that state to current state
+                    }else if(ctx.cache[i].state == ctx.prev_hash_state)
+                    {
+                        // my current status is wrong and im behind rollback and retrieve missing states
+                    }
+                    
+                }
+            }
+        }
     }
 }
 

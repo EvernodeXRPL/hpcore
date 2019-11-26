@@ -28,7 +28,8 @@ table Proposal_Message { //Proposal type message schema
     users:[ByteArray];
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
-    state: State;
+    prev_state_hash: [ubyte];
+    curr_state_hash: [ubyte];
 }
 
 table Npl_Message { //NPL type message schema
@@ -54,6 +55,7 @@ table HistoryLedgerPair { //A key, value pair of byte[].
 }
 
 table HistoryLedger {
+   state:[ubyte];
    lcl:[ubyte];
    raw_ledger:[ubyte];
 }
@@ -64,11 +66,5 @@ table StateDifference { //Represent state difference by tracking created,updated
     deleted: [BytesKeyValuePair]; 
 }
 
-table State {
-    previous: [ubyte];  // hash of the previous state
-    current: [ubyte];  //  hash of the current state
-    difference: StateDifference; 
-    patch: [BytesKeyValuePair];   // fn -> bsdiff patch going from previous state to new state
-}
 
 root_type Content; //root type for message content

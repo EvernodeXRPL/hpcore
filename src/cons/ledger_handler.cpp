@@ -3,6 +3,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../p2p/p2p.hpp"
+#include "../fbschema/common_helpers.hpp"
 #include "../fbschema/ledger_helpers.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "ledger_handler.hpp"
@@ -59,10 +60,13 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
 
     write_ledger(file_name, ledger_str.data(), ledger_str.size());
 
-    cons::ctx.lcl_list.emplace(led_seq_no, file_name);
+    ledger_cache c;
+    c.lcl = file_name;
+    c.state = proposal.curr_hash_state;
+    cons::ctx.cache.emplace(led_seq_no, std::move(c));
 
     //Remove old ledgers that exceeds max sequence range.
-    if (led_seq_no > MAX_LEDGER_SEQUENCE) 
+    if (led_seq_no > MAX_LEDGER_SEQUENCE)
     {
         remove_old_ledgers(led_seq_no - MAX_LEDGER_SEQUENCE);
     }
@@ -76,7 +80,7 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
  */
 void remove_old_ledgers(const uint64_t led_seq_no)
 {
-    std::map<uint64_t, std::string>::iterator itr;
+    std::map<uint64_t, ledger_cache>::iterator itr;
 
     std::string dir_path;
 
@@ -84,13 +88,13 @@ void remove_old_ledgers(const uint64_t led_seq_no)
     dir_path.append(conf::ctx.histdir)
         .append("/");
 
-    for (itr = cons::ctx.lcl_list.begin();
-         itr != cons::ctx.lcl_list.lower_bound(led_seq_no + 1);
+    for (itr = cons::ctx.cache.begin();
+         itr != cons::ctx.cache.lower_bound(led_seq_no + 1);
          itr++)
     {
-        const std::string file_name = itr->second;
+        const std::string file_name = itr->second.lcl;
         std::string file_path;
-        file_path.reserve(dir_path.size() + itr->second.size() + 4);
+        file_path.reserve(dir_path.size() + itr->second.lcl.size() + 4);
         file_path.append(dir_path)
             .append(file_name)
             .append(".lcl");
@@ -98,7 +102,7 @@ void remove_old_ledgers(const uint64_t led_seq_no)
         if (boost::filesystem::exists(file_path))
             boost::filesystem::remove(file_path);
     }
-     cons::ctx.lcl_list.erase(cons::ctx.lcl_list.begin(), cons::ctx.lcl_list.lower_bound(led_seq_no + 1));
+    cons::ctx.cache.erase(cons::ctx.cache.begin(), cons::ctx.cache.lower_bound(led_seq_no + 1));
 }
 
 /**
@@ -153,7 +157,7 @@ const ledger_history load_ledger()
     for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.histdir))
     {
         const boost::filesystem::path file_path = entry.path();
-        const std::string file_name = entry.path().stem().string();
+        const std::string file_name = file_path.stem().string();
 
         if (boost::filesystem::is_directory(file_path))
         {
@@ -171,7 +175,22 @@ const ledger_history load_ledger()
             if (pos != std::string::npos)
             {
                 seq_no = std::stoull(file_name.substr(0, pos));
-                ldg_hist.lcl_list.emplace(seq_no, file_name); //lcl -> [seq_no-hash]
+
+                std::ifstream file(file_path.string(), std::ios::binary | std::ios::ate);
+                std::streamsize size = file.tellg();
+                file.seekg(0, std::ios::beg);
+
+                std::vector<char> buffer(size);
+                if (file.read(buffer.data(), size))
+                {
+                    const uint8_t *ledger_buf_ptr = reinterpret_cast<const uint8_t *>(buffer.data());
+                    const fbschema::ledger::Ledger *ledger = fbschema::ledger::GetLedger(ledger_buf_ptr);
+                    ledger_cache c;
+                    c.lcl = file_name;
+                    c.state = fbschema::flatbuff_bytes_to_sv(ledger->state());
+
+                    ldg_hist.cache.emplace(seq_no, std::move(c)); //lcl_cache -> [seq_no-hash]
+                }
             }
             else
             {
@@ -182,15 +201,15 @@ const ledger_history load_ledger()
     }
 
     //check if there is a saved lcl file -> if no send genesis lcl.
-    if (ldg_hist.lcl_list.empty())
+    if (ldg_hist.cache.empty())
     {
         ldg_hist.led_seq_no = 0;
         ldg_hist.lcl = "0-genesis";
     }
     else
     {
-        ldg_hist.led_seq_no = ldg_hist.lcl_list.rbegin()->first;
-        ldg_hist.lcl = ldg_hist.lcl_list.rbegin()->second;
+        ldg_hist.led_seq_no = ldg_hist.cache.rbegin()->first;
+        ldg_hist.lcl = ldg_hist.cache.rbegin()->second.lcl;
 
         //Remove old ledgers that exceeds max sequence range.
         if (ldg_hist.led_seq_no > MAX_LEDGER_SEQUENCE)
@@ -240,14 +259,14 @@ bool check_required_lcl_availability(const p2p::history_request &hr)
 
     if (req_seq_no > 0)
     {
-        const auto itr = cons::ctx.lcl_list.find(req_seq_no);
-        if (itr == cons::ctx.lcl_list.end())
+        const auto itr = cons::ctx.cache.find(req_seq_no);
+        if (itr == cons::ctx.cache.end())
         {
             LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
             //either this node is also not in consesnsus ledger or other node requesting a lcl that is older than maximum ledger range.
             return false;
         }
-        else if (itr->second != hr.required_lcl)
+        else if (itr->second.lcl != hr.required_lcl)
         {
             LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
             //either this node or requesting node is in a fork condition.
@@ -275,36 +294,37 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         min_seq_no = std::stoull(hr.minimum_lcl.substr(0, pos)); //get required lcl sequence number
     }
 
-    const auto itr = cons::ctx.lcl_list.find(min_seq_no);
-    if (itr != cons::ctx.lcl_list.end()) //requested minimum lcl is not in our lcl history cache
+    const auto itr = cons::ctx.cache.find(min_seq_no);
+    if (itr != cons::ctx.cache.end()) //requested minimum lcl is not in our lcl history cache
     {
         LOG_DBG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
         min_seq_no = itr->first;
     }
     else
     {
-        min_seq_no = cons::ctx.lcl_list.begin()->first;
+        min_seq_no = cons::ctx.cache.begin()->first;
     }
 
     //copy current history cache.
-    std::map<uint64_t, std::string> lcl_list = cons::ctx.lcl_list;
+    std::map<uint64_t, ledger_cache> led_cache = cons::ctx.cache;
 
     //filter out cache and get raw files here.
-    lcl_list.erase(
-        lcl_list.begin(),
-        lcl_list.lower_bound(min_seq_no));
+    led_cache.erase(
+        led_cache.begin(),
+        led_cache.lower_bound(min_seq_no));
 
-    for (auto &[seq_no, lcl_hash] : lcl_list)
+    for (auto &[seq_no, cache] : led_cache)
     {
         p2p::history_ledger ledger;
-        ledger.lcl = lcl_hash;
+        ledger.lcl = cache.lcl;
+        ledger.state = cache.state;
 
         std::string path;
 
-        path.reserve(conf::ctx.histdir.size() + lcl_hash.size() + 5);
+        path.reserve(conf::ctx.histdir.size() + cache.lcl.size() + 5);
         path.append(conf::ctx.histdir)
             .append("/")
-            .append(lcl_hash)
+            .append(cache.lcl)
             .append(".lcl");
 
         //read lcl file
@@ -399,19 +419,22 @@ void handle_ledger_history_response(const p2p::history_response &hr)
     //Save recieved lcl in file system and update lcl history cache
     for (auto &[seq_no, ledger] : hr.hist_ledgers)
     {
-        auto prev_dup_itr = cons::ctx.lcl_list.find(seq_no);
-        if (prev_dup_itr != cons::ctx.lcl_list.end())
+        auto prev_dup_itr = cons::ctx.cache.find(seq_no);
+        if (prev_dup_itr != cons::ctx.cache.end())
         {
-            remove_ledger(prev_dup_itr->second);
-            cons::ctx.lcl_list.erase(prev_dup_itr);
+            remove_ledger(prev_dup_itr->second.lcl);
+            cons::ctx.cache.erase(prev_dup_itr);
         }
         write_ledger(ledger.lcl, reinterpret_cast<const char *>(&ledger.raw_ledger[0]), ledger.raw_ledger.size());
-        cons::ctx.lcl_list.emplace(seq_no, ledger.lcl);
+        ledger_cache l;
+        l.lcl = ledger.lcl;
+        l.state = ledger.state;
+        cons::ctx.cache.emplace(seq_no, std::move(l));
     }
 
     last_requested_lcl = "";
-    const auto latest_lcl_itr = cons::ctx.lcl_list.rbegin();
-    cons::ctx.lcl = latest_lcl_itr->second;
+    const auto latest_lcl_itr = cons::ctx.cache.rbegin();
+    cons::ctx.lcl = latest_lcl_itr->second.lcl;
     cons::ctx.led_seq_no = latest_lcl_itr->first;
 }
 

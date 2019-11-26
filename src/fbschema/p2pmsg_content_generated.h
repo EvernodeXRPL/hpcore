@@ -24,16 +24,16 @@ struct Proposal_Message;
 struct Npl_Message;
 
 struct State_Request_Message;
+
 struct History_Request_Message;
 
 struct History_Response_Message;
 
 struct HistoryLedgerPair;
 
-struct HistoryLedger
-struct StateDifference;
+struct HistoryLedger;
 
-struct State;
+struct StateDifference;
 
 enum Message {
   Message_NONE = 0,
@@ -41,18 +41,13 @@ enum Message {
   Message_Proposal_Message = 2,
   Message_Npl_Message = 3,
   Message_State_Request_Message = 4,
-  Message_MIN = Message_NONE,
-  Message_MAX = Message_State_Request_Message
-};
-
-inline const Message (&EnumValuesMessage())[5] {
-  Message_History_Request_Message = 4,
-  Message_History_Response_Message = 5,
+  Message_History_Request_Message = 5,
+  Message_History_Response_Message = 6,
   Message_MIN = Message_NONE,
   Message_MAX = Message_History_Response_Message
 };
 
-inline const Message (&EnumValuesMessage())[6] {
+inline const Message (&EnumValuesMessage())[7] {
   static const Message values[] = {
     Message_NONE,
     Message_NonUnl_Proposal_Message,
@@ -99,6 +94,10 @@ template<> struct MessageTraits<Proposal_Message> {
 
 template<> struct MessageTraits<Npl_Message> {
   static const Message enum_value = Message_Npl_Message;
+};
+
+template<> struct MessageTraits<State_Request_Message> {
+  static const Message enum_value = Message_State_Request_Message;
 };
 
 template<> struct MessageTraits<History_Request_Message> {
@@ -279,6 +278,7 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   const State_Request_Message *message_as_State_Request_Message() const {
     return message_type() == Message_State_Request_Message ? static_cast<const State_Request_Message *>(message()) : nullptr;
+  }
   const History_Request_Message *message_as_History_Request_Message() const {
     return message_type() == Message_History_Request_Message ? static_cast<const History_Request_Message *>(message()) : nullptr;
   }
@@ -307,6 +307,10 @@ template<> inline const Proposal_Message *Content::message_as<Proposal_Message>(
 
 template<> inline const Npl_Message *Content::message_as<Npl_Message>() const {
   return message_as_Npl_Message();
+}
+
+template<> inline const State_Request_Message *Content::message_as<State_Request_Message>() const {
+  return message_as_State_Request_Message();
 }
 
 template<> inline const History_Request_Message *Content::message_as<History_Request_Message>() const {
@@ -409,7 +413,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_USERS = 8,
     VT_HASH_INPUTS = 10,
     VT_HASH_OUTPUTS = 12,
-    VT_STATE = 14
+    VT_PREV_STATE_HASH = 14,
+    VT_CURR_STATE_HASH = 16
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -441,11 +446,17 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *mutable_hash_outputs() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_HASH_OUTPUTS);
   }
-  const State *state() const {
-    return GetPointer<const State *>(VT_STATE);
+  const flatbuffers::Vector<uint8_t> *prev_state_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PREV_STATE_HASH);
   }
-  State *mutable_state() {
-    return GetPointer<State *>(VT_STATE);
+  flatbuffers::Vector<uint8_t> *mutable_prev_state_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PREV_STATE_HASH);
+  }
+  const flatbuffers::Vector<uint8_t> *curr_state_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CURR_STATE_HASH);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_curr_state_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CURR_STATE_HASH);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -460,8 +471,10 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_HASH_OUTPUTS) &&
            verifier.VerifyVector(hash_outputs()) &&
            verifier.VerifyVectorOfTables(hash_outputs()) &&
-           VerifyOffset(verifier, VT_STATE) &&
-           verifier.VerifyTable(state()) &&
+           VerifyOffset(verifier, VT_PREV_STATE_HASH) &&
+           verifier.VerifyVector(prev_state_hash()) &&
+           VerifyOffset(verifier, VT_CURR_STATE_HASH) &&
+           verifier.VerifyVector(curr_state_hash()) &&
            verifier.EndTable();
   }
 };
@@ -484,8 +497,11 @@ struct Proposal_MessageBuilder {
   void add_hash_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs) {
     fbb_.AddOffset(Proposal_Message::VT_HASH_OUTPUTS, hash_outputs);
   }
-  void add_state(flatbuffers::Offset<State> state) {
-    fbb_.AddOffset(Proposal_Message::VT_STATE, state);
+  void add_prev_state_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> prev_state_hash) {
+    fbb_.AddOffset(Proposal_Message::VT_PREV_STATE_HASH, prev_state_hash);
+  }
+  void add_curr_state_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> curr_state_hash) {
+    fbb_.AddOffset(Proposal_Message::VT_CURR_STATE_HASH, curr_state_hash);
   }
   explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -506,10 +522,12 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs = 0,
-    flatbuffers::Offset<State> state = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> prev_state_hash = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> curr_state_hash = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
-  builder_.add_state(state);
+  builder_.add_curr_state_hash(curr_state_hash);
+  builder_.add_prev_state_hash(prev_state_hash);
   builder_.add_hash_outputs(hash_outputs);
   builder_.add_hash_inputs(hash_inputs);
   builder_.add_users(users);
@@ -524,10 +542,13 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_inputs = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_outputs = nullptr,
-    flatbuffers::Offset<State> state = 0) {
+    const std::vector<uint8_t> *prev_state_hash = nullptr,
+    const std::vector<uint8_t> *curr_state_hash = nullptr) {
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*users) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_inputs) : 0;
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_outputs) : 0;
+  auto prev_state_hash__ = prev_state_hash ? _fbb.CreateVector<uint8_t>(*prev_state_hash) : 0;
+  auto curr_state_hash__ = curr_state_hash ? _fbb.CreateVector<uint8_t>(*curr_state_hash) : 0;
   return fbschema::p2pmsg::CreateProposal_Message(
       _fbb,
       stage,
@@ -535,7 +556,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       users__,
       hash_inputs__,
       hash_outputs__,
-      state);
+      prev_state_hash__,
+      curr_state_hash__);
 }
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -606,6 +628,45 @@ struct State_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            VerifyOffset(verifier, VT_STATE_HASH) &&
            verifier.VerifyVector(state_hash()) &&
            verifier.VerifyVectorOfTables(state_hash()) &&
+           verifier.EndTable();
+  }
+};
+
+struct State_Request_MessageBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_state_hash(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> state_hash) {
+    fbb_.AddOffset(State_Request_Message::VT_STATE_HASH, state_hash);
+  }
+  explicit State_Request_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  State_Request_MessageBuilder &operator=(const State_Request_MessageBuilder &);
+  flatbuffers::Offset<State_Request_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<State_Request_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<State_Request_Message> CreateState_Request_Message(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> state_hash = 0) {
+  State_Request_MessageBuilder builder_(_fbb);
+  builder_.add_state_hash(state_hash);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<State_Request_Message> CreateState_Request_MessageDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *state_hash = nullptr) {
+  auto state_hash__ = state_hash ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*state_hash) : 0;
+  return fbschema::p2pmsg::CreateState_Request_Message(
+      _fbb,
+      state_hash__);
+}
+
 struct History_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MINIMUM_LCL = 4,
@@ -789,9 +850,16 @@ inline flatbuffers::Offset<HistoryLedgerPair> CreateHistoryLedgerPair(
 
 struct HistoryLedger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_LCL = 4,
-    VT_RAW_LEDGER = 6
+    VT_STATE = 4,
+    VT_LCL = 6,
+    VT_RAW_LEDGER = 8
   };
+  const flatbuffers::Vector<uint8_t> *state() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_state() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE);
+  }
   const flatbuffers::Vector<uint8_t> *lcl() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
@@ -806,6 +874,8 @@ struct HistoryLedger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_STATE) &&
+           verifier.VerifyVector(state()) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
            VerifyOffset(verifier, VT_RAW_LEDGER) &&
@@ -814,23 +884,12 @@ struct HistoryLedger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct State_Request_MessageBuilder {
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_state_hash(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> state_hash) {
-    fbb_.AddOffset(State_Request_Message::VT_STATE_HASH, state_hash);
-  }
-  explicit State_Request_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  State_Request_MessageBuilder &operator=(const State_Request_MessageBuilder &);
-  flatbuffers::Offset<State_Request_Message> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<State_Request_Message>(end);
 struct HistoryLedgerBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
+    fbb_.AddOffset(HistoryLedger::VT_STATE, state);
+  }
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
     fbb_.AddOffset(HistoryLedger::VT_LCL, lcl);
   }
@@ -849,39 +908,29 @@ struct HistoryLedgerBuilder {
   }
 };
 
-inline flatbuffers::Offset<State_Request_Message> CreateState_Request_Message(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> state_hash = 0) {
-  State_Request_MessageBuilder builder_(_fbb);
-  builder_.add_state_hash(state_hash);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<State_Request_Message> CreateState_Request_MessageDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *state_hash = nullptr) {
-  auto state_hash__ = state_hash ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*state_hash) : 0;
-  return fbschema::p2pmsg::CreateState_Request_Message(
-      _fbb,
-      state_hash__);
 inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedger(
     flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> raw_ledger = 0) {
   HistoryLedgerBuilder builder_(_fbb);
   builder_.add_raw_ledger(raw_ledger);
   builder_.add_lcl(lcl);
+  builder_.add_state(state);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedgerDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *state = nullptr,
     const std::vector<uint8_t> *lcl = nullptr,
     const std::vector<uint8_t> *raw_ledger = nullptr) {
+  auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto raw_ledger__ = raw_ledger ? _fbb.CreateVector<uint8_t>(*raw_ledger) : 0;
   return fbschema::p2pmsg::CreateHistoryLedger(
       _fbb,
+      state__,
       lcl__,
       raw_ledger__);
 }
@@ -976,110 +1025,6 @@ inline flatbuffers::Offset<StateDifference> CreateStateDifferenceDirect(
       deleted__);
 }
 
-struct State FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PREVIOUS = 4,
-    VT_CURRENT = 6,
-    VT_DIFFERENCE = 8,
-    VT_PATCH = 10
-  };
-  const flatbuffers::Vector<uint8_t> *previous() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PREVIOUS);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_previous() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PREVIOUS);
-  }
-  const flatbuffers::Vector<uint8_t> *current() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CURRENT);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_current() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CURRENT);
-  }
-  const StateDifference *difference() const {
-    return GetPointer<const StateDifference *>(VT_DIFFERENCE);
-  }
-  StateDifference *mutable_difference() {
-    return GetPointer<StateDifference *>(VT_DIFFERENCE);
-  }
-  const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *patch() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_PATCH);
-  }
-  flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *mutable_patch() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *>(VT_PATCH);
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_PREVIOUS) &&
-           verifier.VerifyVector(previous()) &&
-           VerifyOffset(verifier, VT_CURRENT) &&
-           verifier.VerifyVector(current()) &&
-           VerifyOffset(verifier, VT_DIFFERENCE) &&
-           verifier.VerifyTable(difference()) &&
-           VerifyOffset(verifier, VT_PATCH) &&
-           verifier.VerifyVector(patch()) &&
-           verifier.VerifyVectorOfTables(patch()) &&
-           verifier.EndTable();
-  }
-};
-
-struct StateBuilder {
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_previous(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> previous) {
-    fbb_.AddOffset(State::VT_PREVIOUS, previous);
-  }
-  void add_current(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> current) {
-    fbb_.AddOffset(State::VT_CURRENT, current);
-  }
-  void add_difference(flatbuffers::Offset<StateDifference> difference) {
-    fbb_.AddOffset(State::VT_DIFFERENCE, difference);
-  }
-  void add_patch(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> patch) {
-    fbb_.AddOffset(State::VT_PATCH, patch);
-  }
-  explicit StateBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  StateBuilder &operator=(const StateBuilder &);
-  flatbuffers::Offset<State> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<State>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<State> CreateState(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> previous = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> current = 0,
-    flatbuffers::Offset<StateDifference> difference = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>> patch = 0) {
-  StateBuilder builder_(_fbb);
-  builder_.add_patch(patch);
-  builder_.add_difference(difference);
-  builder_.add_current(current);
-  builder_.add_previous(previous);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<State> CreateStateDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *previous = nullptr,
-    const std::vector<uint8_t> *current = nullptr,
-    flatbuffers::Offset<StateDifference> difference = 0,
-    const std::vector<flatbuffers::Offset<fbschema::BytesKeyValuePair>> *patch = nullptr) {
-  auto previous__ = previous ? _fbb.CreateVector<uint8_t>(*previous) : 0;
-  auto current__ = current ? _fbb.CreateVector<uint8_t>(*current) : 0;
-  auto patch__ = patch ? _fbb.CreateVector<flatbuffers::Offset<fbschema::BytesKeyValuePair>>(*patch) : 0;
-  return fbschema::p2pmsg::CreateState(
-      _fbb,
-      previous__,
-      current__,
-      difference,
-      patch__);
-}
-
 inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type) {
   switch (type) {
     case Message_NONE: {
@@ -1099,6 +1044,8 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
     }
     case Message_State_Request_Message: {
       auto ptr = reinterpret_cast<const State_Request_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     case Message_History_Request_Message: {
       auto ptr = reinterpret_cast<const History_Request_Message *>(obj);
       return verifier.VerifyTable(ptr);

@@ -171,7 +171,7 @@ const p2p::history_response create_history_response_from_msg(const History_Respo
 
 /**
  * Creates a proposal stuct from the given proposal message.
- * @param The Flatbuffer poporal received from the peer.
+ * @param The Flatbuffer poposal received from the peer.
  * @return A proposal struct representing the message.
  */
 const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const flatbuffers::Vector<uint8_t> *lcl)
@@ -183,6 +183,8 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
     p.time = msg.time();
     p.stage = msg.stage();
     p.lcl = flatbuff_bytes_to_sv(lcl);
+    p.prev_hash_state = flatbuff_bytes_to_sv(msg.prev_state_hash());
+    p.curr_hash_state = flatbuff_bytes_to_sv(msg.curr_state_hash());
 
     if (msg.users())
         p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
@@ -250,7 +252,9 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             p.time,
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-            stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
+            stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
+            sv_to_flatbuff_bytes(builder, p.prev_hash_state),
+            sv_to_flatbuff_bytes(builder, p.curr_hash_state) );
 
     const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -453,6 +457,7 @@ historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &bui
     {
         flatbuffers::Offset<HistoryLedger> history_ledger = CreateHistoryLedger(
             builder,
+            sv_to_flatbuff_bytes(builder, ledger.state),
             sv_to_flatbuff_bytes(builder, ledger.lcl),
             builder.CreateVector(ledger.raw_ledger));
 

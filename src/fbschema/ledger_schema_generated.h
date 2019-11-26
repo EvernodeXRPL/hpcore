@@ -20,9 +20,10 @@ struct Ledger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SEQ_NO = 4,
     VT_TIME = 6,
     VT_LCL = 8,
-    VT_USERS = 10,
-    VT_INPUTS = 12,
-    VT_OUTPUTS = 14
+    VT_STATE = 10,
+    VT_USERS = 12,
+    VT_INPUTS = 14,
+    VT_OUTPUTS = 16
   };
   uint64_t seq_no() const {
     return GetField<uint64_t>(VT_SEQ_NO, 0);
@@ -41,6 +42,12 @@ struct Ledger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   flatbuffers::Vector<uint8_t> *mutable_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
+  }
+  const flatbuffers::Vector<uint8_t> *state() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_state() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE);
   }
   const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *users() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_USERS);
@@ -66,6 +73,8 @@ struct Ledger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
+           VerifyOffset(verifier, VT_STATE) &&
+           verifier.VerifyVector(state()) &&
            VerifyOffset(verifier, VT_USERS) &&
            verifier.VerifyVector(users()) &&
            verifier.VerifyVectorOfTables(users()) &&
@@ -90,6 +99,9 @@ struct LedgerBuilder {
   }
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
     fbb_.AddOffset(Ledger::VT_LCL, lcl);
+  }
+  void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
+    fbb_.AddOffset(Ledger::VT_STATE, state);
   }
   void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users) {
     fbb_.AddOffset(Ledger::VT_USERS, users);
@@ -117,6 +129,7 @@ inline flatbuffers::Offset<Ledger> CreateLedger(
     uint64_t seq_no = 0,
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> outputs = 0) {
@@ -126,6 +139,7 @@ inline flatbuffers::Offset<Ledger> CreateLedger(
   builder_.add_outputs(outputs);
   builder_.add_inputs(inputs);
   builder_.add_users(users);
+  builder_.add_state(state);
   builder_.add_lcl(lcl);
   return builder_.Finish();
 }
@@ -135,10 +149,12 @@ inline flatbuffers::Offset<Ledger> CreateLedgerDirect(
     uint64_t seq_no = 0,
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
+    const std::vector<uint8_t> *state = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *inputs = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *outputs = nullptr) {
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
+  auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*users) : 0;
   auto inputs__ = inputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*inputs) : 0;
   auto outputs__ = outputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*outputs) : 0;
@@ -147,6 +163,7 @@ inline flatbuffers::Offset<Ledger> CreateLedgerDirect(
       seq_no,
       time,
       lcl__,
+      state__,
       users__,
       inputs__,
       outputs__);

@@ -6,6 +6,7 @@
 #include "../proc/proc.hpp"
 #include "../p2p/p2p.hpp"
 #include "../usr/user_input.hpp"
+#include "ledger_handler.hpp"
 
 namespace cons
 {
@@ -40,15 +41,6 @@ struct candidate_user_output
 };
 
 /**
- * Stores hash of the current state and hash of the state of previous consensus round
- */
-struct state
-{
-    std::string prev_hash;
-    std::string curr_hash;
-};
-
-/**
  * This is used to store consensus information
  */
 struct consensus_context
@@ -74,16 +66,14 @@ struct consensus_context
 
     util::rollover_hashset recent_userinput_hashes;
 
-    // Holds hash of the current state and previous round state. When current state of the node is mismatched with the consensus winning
-    // state it will compare with the previous state if they match state will be rollback.
-    state con_state;
-
     uint8_t stage;
     uint64_t novel_proposal_time;
     uint64_t time_now;
     std::string lcl;
     uint64_t led_seq_no;
-    std::map<uint64_t, std::string> lcl_list;
+    std::map<uint64_t, ledger_cache> cache;
+    std::string prev_hash_state;
+    std::string curr_hash_state;
 
     consensus_context() : recent_userinput_hashes(200)
     {
@@ -102,6 +92,8 @@ struct vote_counter
 };
 
 extern consensus_context ctx;
+
+extern std::unordered_map<std::string,std::string> state_map;  // store prev_statehash and curr_state_hash keyed by curr_state_hash
 
 int init();
 
@@ -125,7 +117,7 @@ void check_majority_state();
 
 float_t get_stage_threshold(const uint8_t stage);
 
-void timewait_stage(const bool reset);
+void timewait_stage(const bool reset); 
 
 void apply_ledger(const p2p::proposal &proposal);
 

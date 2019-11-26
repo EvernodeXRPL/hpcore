@@ -6,6 +6,7 @@ table Ledger {
     seq_no:uint64;
     time:uint64;
     lcl:[ubyte];
+    state:[ubyte];
     users: [ByteArray];
     inputs: [ByteArray]; 
     outputs: [ByteArray];

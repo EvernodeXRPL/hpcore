@@ -16,7 +16,8 @@ struct proposal
     uint64_t time;
     uint8_t stage;
     std::string lcl;
-    std::string state;
+    std::string prev_hash_state;               
+    std::string curr_hash_state;                    
     std::set<std::string> users;
     std::set<std::string> hash_inputs;
     std::set<std::string> hash_outputs;
@@ -35,6 +36,7 @@ struct history_request
 
 struct history_ledger
 {
+    std::string state;
     std::string lcl;
     std::vector<uint8_t> raw_ledger;
 };
