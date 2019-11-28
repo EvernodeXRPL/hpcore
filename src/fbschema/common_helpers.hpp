@@ -17,6 +17,11 @@ std::string_view flatbuff_bytes_to_sv(const uint8_t *data, const flatbuffers::uo
 
 std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer);
 
+std::string_view flatbuff_str_to_sv(const flatbuffers::String *buffer);
+
+const flatbuffers::Offset<flatbuffers::String>
+sv_to_flatbuff_str(flatbuffers::FlatBufferBuilder &builder, std::string_view sv);
+
 const std::set<std::string>
 flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
 

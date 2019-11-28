@@ -12,6 +12,7 @@
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 #include "../cons/ledger_handler.hpp"
+#include "../cons/cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
 
@@ -116,6 +117,21 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         {
             LOG_DBG << "State request message rejected due to trust failure.";
             return;
+        }
+
+        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl)
+        {
+            const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
+        }
+    }
+    else if (content_message_type == p2pmsg::Message_State_Response_Message)
+    {
+        const p2pmsg::State_Response_Message *sr_message = content->message_as_State_Response_Message();
+        const p2pmsg::State_Response state_response_type = sr_message->state_response_type();
+        if(state_response_type == p2pmsg::State_Response_Block_Response){
+             std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
+            //  ctx.collected_msgs.state_response.try_emplace(std::make_pair(std::make_pair(sr_message->state_response_as_Block_Response()->full_path, STATE_RESPONSE_TYPE::FILE_BLOCK_RESPONSE)), sr_message->state_response_as_Block_Response()->);
+
         }
     }
     else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message

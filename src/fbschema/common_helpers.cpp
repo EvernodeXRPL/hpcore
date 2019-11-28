@@ -59,6 +59,23 @@ sv_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, std::string_view s
 }
 
 /**
+ * Returns return string_view from Flat Buffer string.
+ */
+std::string_view flatbuff_str_to_sv(const flatbuffers::String *buffer)
+{
+    return flatbuff_bytes_to_sv(buffer->Data(), buffer->size());
+}
+
+/**
+ * Returns Flatbuffer string from string_view.
+ */
+const flatbuffers::Offset<flatbuffers::String>
+sv_to_flatbuff_str(flatbuffers::FlatBufferBuilder &builder, std::string_view sv)
+{
+    return builder.CreateString(sv);
+}
+
+/**
  * Returns Flatbuffer vector of ByteArrays from given set of strings.
  */
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>

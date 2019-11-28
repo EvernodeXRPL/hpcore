@@ -29,6 +29,8 @@ const p2p::history_request create_history_request_from_msg(const History_Request
 
 const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg);
 
+const p2p::state_request create_state_request_from_msg(const State_Request_Message &msg);
+
 //---Message creation helpers---//
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);
@@ -40,6 +42,8 @@ void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_b
 void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_response &hr);
 
 void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const p2p::npl_message &npl, std::string_view lcl);
+
+void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::state_request &hr, std::string_view lcl);
 
 void create_containermsg_from_content(
     flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign);

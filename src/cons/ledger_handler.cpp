@@ -305,7 +305,7 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         //eventhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
         if (hr.minimum_lcl != itr->second.lcl)
         {
-            LOG_DBG << "Invalid minimum ledger. Recieved min hash: "<< min_lcl_hash << " Node hash: " << itr->second;
+            LOG_DBG << "Invalid minimum ledger. Recieved min hash: "<< min_lcl_hash << " Node hash: " << itr->second.lcl;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
             return history_response;
         }

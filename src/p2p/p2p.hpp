@@ -16,8 +16,7 @@ struct proposal
     uint64_t time;
     uint8_t stage;
     std::string lcl;
-    std::string prev_hash_state;               
-    std::string curr_hash_state;                    
+    std::string curr_hash_state;
     std::set<std::string> users;
     std::set<std::string> hash_inputs;
     std::set<std::string> hash_outputs;
@@ -48,30 +47,50 @@ enum LEDGER_RESPONSE_ERROR
     REQ_LEDGER_NOT_FOUND = 2
 };
 
-
 struct history_response
 {
-    std::map<uint64_t,const history_ledger> hist_ledgers;
+    std::map<uint64_t, const history_ledger> hist_ledgers;
     LEDGER_RESPONSE_ERROR error;
-
 };
-    
+
 struct npl_message
 {
     std::string data;
 };
 
+struct state_request
+{
+    std::string parent_path;
+    int32_t block_id;
+};
+
+struct state_response
+{
+    std::string full_path;
+    bool is_file;
+};
+
+enum STATE_RESPONSE_TYPE
+{
+    STATE_PATH_RESPONSE = 0,
+    FILE_HASHAMAP_RESPONSE = 1,
+    FILE_BLOCK_RESPONSE = 2
+};
+
 struct message_collection
 {
-     std::list<proposal> proposals;
-    std::mutex proposals_mutex;                    // Mutex for proposals access race conditions.
-    
+    std::list<proposal> proposals;
+    std::mutex proposals_mutex; // Mutex for proposals access race conditions.
+
     std::list<nonunl_proposal> nonunl_proposals;
-    std::mutex nonunl_proposals_mutex;            // Mutex for non-unl proposals access race conditions.
+    std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 
     // NPL messages are stored as string list because we are feeding the npl messages as it is (byte array) to the contract.
-    std::list<std::string> npl_messages;          
-    std::mutex npl_messages_mutex;                 // Mutex for npl_messages access race conditions.
+    std::list<std::string> npl_messages;
+    std::mutex npl_messages_mutex; // Mutex for npl_messages access race conditions.
+
+    std::map<std::pair<std::string, STATE_RESPONSE_TYPE>, std::string> state_response;
+    std::mutex state_response_mutex; // Mutex for state response access race conditions.
 };
 
 struct connected_context

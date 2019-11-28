@@ -166,7 +166,7 @@ const p2p::history_response create_history_response_from_msg(const History_Respo
     if (msg.hist_ledgers())
         hr.hist_ledgers = flatbuf_historyledgermap_to_historyledgermap(msg.hist_ledgers());
 
-        if (msg.error())
+    if (msg.error())
         hr.error = (p2p::LEDGER_RESPONSE_ERROR)msg.error();
 
     return hr;
@@ -186,7 +186,6 @@ const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const 
     p.time = msg.time();
     p.stage = msg.stage();
     p.lcl = flatbuff_bytes_to_sv(lcl);
-    p.prev_hash_state = flatbuff_bytes_to_sv(msg.prev_state_hash());
     p.curr_hash_state = flatbuff_bytes_to_sv(msg.curr_state_hash());
 
     if (msg.users())
@@ -217,6 +216,20 @@ const p2p::history_request create_history_request_from_msg(const History_Request
         hr.required_lcl = flatbuff_bytes_to_sv(msg.required_lcl());
 
     return hr;
+}
+
+/**
+ * Creates a state request struct from the given state request message.
+ * @param msg Flatbuffer State request message received from the peer.
+ * @return A State request struct representing the message.
+ */
+const p2p::state_request create_state_request_from_msg(const State_Request_Message &msg)
+{
+    p2p::state_request sr;
+
+    sr.block_id = msg.block_id();
+    sr.parent_path = flatbuff_str_to_sv( msg.parent_path());
+    return sr;
 }
 
 //---Message creation helpers---//
@@ -256,8 +269,7 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
-            sv_to_flatbuff_bytes(builder, p.prev_hash_state),
-            sv_to_flatbuff_bytes(builder, p.curr_hash_state) );
+            sv_to_flatbuff_bytes(builder, p.curr_hash_state));
 
     const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -334,6 +346,28 @@ void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_
     // Now that we have built the content message,
     // we need to sign it and place it inside a container message.
     create_containermsg_from_content(container_builder, builder, nullptr, true);
+}
+
+/**
+ * Create state request message from the given state request struct.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param sr The state request struct to be placed in the container message.
+ */
+void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::state_request &hr, std::string_view lcl)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    flatbuffers::Offset<State_Request_Message> srmsg =
+        CreateState_Request_Message(
+            builder,
+            sv_to_flatbuff_str(builder, hr.parent_path));
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Request_Message, srmsg.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, lcl, true);
 }
 
 /**

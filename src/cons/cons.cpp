@@ -12,6 +12,7 @@
 #include "../crypto.hpp"
 #include "../proc/proc.hpp"
 #include "ledger_handler.hpp"
+#include "state_handler.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -28,8 +29,6 @@ constexpr float STAGE2_THRESHOLD = 0.65;
 constexpr float STAGE3_THRESHOLD = 0.8;
 
 consensus_context ctx;
-
-std::unordered_map<std::string, std::string> state_map;
 
 int init()
 {
@@ -98,8 +97,8 @@ void consensus()
         p2p::ctx.collected_msgs.npl_messages.clear();
     }
 
-    if (ctx.stage == 0)  // Stage 0 means begining of a consensus round.
-    {   
+    if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
+    {
         // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
         broadcast_nonunl_proposal();
         util::sleep(conf::cfg.roundtime / 10);
@@ -159,6 +158,9 @@ void consensus()
             //LOG_DBG << "time off: " << std::to_string(time_off);
             return;
         }
+
+        bool should_request_state;
+        check_state(votes);
 
         // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
         const p2p::proposal stg_prop = create_stage123_proposal(votes);
@@ -282,14 +284,13 @@ p2p::proposal create_stage0_proposal()
     ctx.novel_proposal_time = ctx.time_now;
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
-    stg_prop.prev_hash_state = ctx.prev_hash_state;
     stg_prop.curr_hash_state = ctx.curr_hash_state;
 
     // Populate the proposal with set of candidate user pubkeys.
     for (const std::string &pubkey : ctx.candidate_users)
         stg_prop.users.emplace(pubkey);
 
-    // We don't need candidate_users anymore, so clear it. It will be repopulated during next censensus round.
+    // We don't need candidate_users anymore, so clear it. It will be repopulated during next consensus round.
     ctx.candidate_users.clear();
 
     // Populate the proposal with hashes of user inputs.
@@ -337,10 +338,6 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         for (const std::string &hash : cp.hash_outputs)
             if (ctx.candidate_user_outputs.count(hash) > 0)
                 increment(votes.outputs, hash);
-
-        // Vote for the state
-        state_map.try_emplace(cp.curr_hash_state, cp.prev_hash_state);
-        increment(votes.state, cp.curr_hash_state);
     }
 
     const float_t vote_threshold = get_stage_threshold(ctx.stage);
@@ -365,18 +362,6 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         if (numvotes >= vote_threshold)
             stg_prop.hash_outputs.emplace(hash);
 
-    // Among all the voted states, state which passes the vote threshold and which got the highest vote will be selected.
-    int32_t highest_state_vote = 0;
-    for (const auto [state, numvotes] : votes.state)
-    {
-        if (numvotes > highest_state_vote && numvotes >= vote_threshold)
-        {
-            highest_state_vote = numvotes;
-            stg_prop.curr_hash_state = state;
-            stg_prop.prev_hash_state = state_map[state];
-        }
-    }
-
     // time is voted on a simple sorted and majority basis, since there will always be disagreement.
     int32_t highest_time_vote = 0;
     for (const auto [time, numvotes] : votes.time)
@@ -387,7 +372,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
             stg_prop.time = time;
         }
     }
-    
+
     //todo:apply a round time resolution to increase close time reliability(for stage 1,2)
     if (ctx.stage == 3)
         get_ledger_time_resolution(stg_prop.time);
@@ -556,8 +541,8 @@ void timewait_stage(const bool reset, const uint64_t time)
 */
 const uint64_t get_ledger_time_resolution(uint64_t close_time)
 {
-    uint64_t closeResolution = conf::cfg.roundtime / 4; 
-    //todo: change time resolution dynamically. 
+    uint64_t closeResolution = conf::cfg.roundtime / 4;
+    //todo: change time resolution dynamically.
     //When nodes agree often reduce resolution time and increase if they don't.
 
     close_time += (closeResolution / 2);
@@ -590,10 +575,6 @@ void apply_ledger(const p2p::proposal &cons_prop)
 
     // Send any output from the previous consensus round to locally connected users.
     dispatch_user_outputs(cons_prop);
-
-    // Check state against the winning / canonical state
-    // and act accordingly (rollback, ask state from peer, etc.)
-    check_state(cons_prop);
 
     // This will hold a list of file blocks that was updated by the contract process.
     // We then feed this information to state tracking logic.
@@ -663,45 +644,52 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
  * Check state against the winning and canonical state
  * @param cons_prop The proposal that achieved consensus.
  */
-void check_state(const p2p::proposal &cons_prop)
+void check_state(vote_counter &votes)
 {
+    std::string majority_state;
 
-    if (cons_prop.curr_hash_state.empty())
+    // Moving here means lcl matches and ctx.cache empty means this is the initial run otherwise at the end of each consensus round
+    // if node reaches consensus cache is updated.
+    // cache contains the previous round's consensus passed state. We have to compare it with this node's previous state because at the
+    // end of the previous consensus round state might update and we store the state before modification in prev_hash_state variable.
+    if (!ctx.cache.empty() && ctx.prev_hash_state != ctx.cache.rbegin()->second.state)
     {
-        LOG_ERR << "Could not find consensus state, this will potentially cause desync.";
+        // request_state_from_peer(conf::ctx.statehistdir, ctx.lcl);
+
+        // Change the mode to passive and not sending out proposals till the state is synced
+        conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
         return;
     }
-    else if (cons_prop.curr_hash_state != ctx.curr_hash_state)
+
+    for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
-        if (cons_prop.prev_hash_state == ctx.prev_hash_state)
+        increment(votes.state, cp.curr_hash_state);
+    }
+
+    const float_t vote_threshold = get_stage_threshold(ctx.stage);
+
+    // Among all the voted states, state which passes the vote threshold and which got the highest vote will be selected.
+    int32_t highest_state_vote = 0;
+    for (const auto [state, numvotes] : votes.state)
+    {
+        if (numvotes > highest_state_vote && numvotes >= vote_threshold)
         {
-            // todo: rollback current state and request changeset from random peer
+            highest_state_vote = numvotes;
+            majority_state = state;
         }
-        else if (cons_prop.curr_hash_state == ctx.prev_hash_state)
-        {
-            // todo: rollback current state
-        }
-        else if (cons_prop.prev_hash_state == ctx.curr_hash_state)
-        {
-            // todo: request latest changeset from random peer
-        }
-        else
-        {
-            if (ctx.cache.size() > 2)
-            {
-                for (int i = 2; i < util::MAX_STATE_CHECK; ++i)
-                {
-                    if (ctx.cache[i].state == ctx.curr_hash_state){
-                        // Im behind the actual state
-                        //todo: request changeset from that state to current state
-                    }else if(ctx.cache[i].state == ctx.prev_hash_state)
-                    {
-                        // my current status is wrong and im behind rollback and retrieve missing states
-                    }
-                    
-                }
-            }
-        }
+    }
+
+    if (majority_state != ctx.curr_hash_state)
+    {
+        //rollback();
+        // request_state_from_peer(conf::ctx.statehistdir, ctx.lcl);
+
+        // Change the mode to passive and not sending out proposals till the state is synced
+        conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
+    }
+    else
+    {
+        conf::cfg.mode == conf::OPERATING_MODE::ACTIVE;
     }
 }
 

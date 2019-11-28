@@ -12,7 +12,7 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, History_Request_Message, History_Response_Message } //message content type
+union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, State_Response_Message, History_Request_Message, History_Response_Message } //message content type
 
 table Content {
     message:Message;
@@ -37,7 +37,8 @@ table Npl_Message { //NPL type message schema
 }
 
 table State_Request_Message { //State request message schema
-    state_hash:[ByteArray];
+    parent_path:string;
+    block_id:int32;
 }
 
 table History_Request_Message { //Ledger History request type message schema
@@ -68,11 +69,32 @@ table HistoryLedger {
    raw_ledger:[ubyte];
 }
 
-table StateDifference { //Represent state difference by tracking created,updated and deleted state files.
-    created: [BytesKeyValuePair]; //list of { fn => hash }
-    updated: [BytesKeyValuePair]; 
-    deleted: [BytesKeyValuePair]; 
+union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
+
+table State_Response_Message{
+    state_response:State_Response;
 }
 
+table Content_Response{
+     full_path: string;
+     content: [State_File_Hash];
+}
+
+table File_HashMap_Response{
+    full_path: string;
+    hash_map:[ubyte];
+}
+
+table Block_Response{
+    full_path: string;
+    block_id:uint32;
+    data: [ubyte];
+}
+
+table State_File_Hash{
+    full_path: string;
+    is_file: bool;
+    file_hash: [ubyte];
+}
 
 root_type Content; //root type for message content
