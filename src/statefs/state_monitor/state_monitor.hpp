@@ -1,5 +1,5 @@
-#ifndef _STATEFS_STATE_MONITOR_
-#define _STATEFS_STATE_MONITOR_
+#ifndef _HP_STATEFS_STATE_MONITOR_
+#define _HP_STATEFS_STATE_MONITOR_
 
 #include <cstdint>
 #include <sys/types.h>

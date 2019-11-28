@@ -20,7 +20,7 @@ void state_restore::delete_newfiles()
         std::string filepath(ctx.datadir);
         filepath.append(file);
 
-        std::remove(filepath.c_str());
+        remove(filepath.c_str());
     }
 
     infile.close();

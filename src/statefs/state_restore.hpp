@@ -1,5 +1,5 @@
-#ifndef _STATEFS_STATE_RESTORE_
-#define _STATEFS_STATE_RESTORE_
+#ifndef _HP_STATEFS_STATE_RESTORE_
+#define _HP_STATEFS_STATE_RESTORE_
 
 #include "../pchheader.hpp"
 #include "hasher.hpp"
