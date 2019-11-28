@@ -1,9 +1,11 @@
 #!/bin/bash
 vmpass=""
-#ip locations: aueast aueast uswest uswest seasia
 vmips=(ip list)
 
+vmcount=${#vmips[@]}
 mode=$1
+
+hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "run" ] || [ "$mode" = "update" ]; then
     echo ""
@@ -13,15 +15,11 @@ else
 fi
 
 if [ $mode = "run" ]; then
-    let n=$2-1
-    vmip=${vmips[$n]}
-    sshpass -p $vmpass ssh geveo@$vmip './hpcore run contract'
-    exit
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo ./hpcore run contract'
+    exit 0
 fi
-
-hpcore=$(realpath ../..)
-vmcount=${#vmips[@]}
-#vmcount=2
 
 mkdir ./cfg > /dev/null 2>&1
 
@@ -29,21 +27,12 @@ for (( i=0; i<$vmcount; i++ ))
 do
     vmip=${vmips[i]}
     let n=$i+1
-
-    #if [ $mode = "update" ]; then
-    #    /bin/bash ./setup-vm.sh $mode $n $vmpass $vmip $hpcore &
-    #else
-        /bin/bash ./setup-vm.sh $mode $n $vmpass $vmip $hpcore
-    #fi
+    /bin/bash ./setup-vm.sh $mode $n $vmpass $vmip $hpcore
 
     # Collect each node's pub key and peer address.
     pubkeys[i]=$(node -p "require('./cfg/node$n.json').pubkeyhex")
     peers[i]="$vmip:22860"
 done
-
-if [ $mode = "update" ]; then
-    exit
-fi
 
 # Function to generate JSON array string while skiping a given index.
 function joinarr {

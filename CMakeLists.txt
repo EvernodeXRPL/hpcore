@@ -122,6 +122,10 @@ target_link_libraries(hpstatemon
 add_dependencies(hpcore
     hpstatemon
 )
+add_custom_command(TARGET hpcore POST_BUILD
+    COMMAND strip ./build/hpcore
+    COMMAND strip ./build/hpstatemon
+)
     
 target_precompile_headers(hpsupport PUBLIC src/pchheader.hpp)
 target_precompile_headers(hpcore REUSE_FROM hpsupport)
@@ -135,7 +139,6 @@ target_precompile_headers(hpstatemon REUSE_FROM hpsupport)
 # Create docker image from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'
 add_custom_target(docker
-  COMMAND strip ./build/hpcore
   COMMAND docker build -t hpcore:latest .
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)
