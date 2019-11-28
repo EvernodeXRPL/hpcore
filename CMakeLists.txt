@@ -46,6 +46,7 @@ add_library(hpstatefs
     src/statefs/hashmap_builder.cpp
     src/statefs/hashtree_builder.cpp
     src/statefs/state_restore.cpp
+    src/statefs/state_store.cpp
 )
 target_link_libraries(hpstatefs hpsupport)
 

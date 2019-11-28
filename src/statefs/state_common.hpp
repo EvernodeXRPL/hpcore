@@ -1,5 +1,5 @@
-#ifndef _STATEFS_STATE_COMMON_
-#define _STATEFS_STATE_COMMON_
+#ifndef _HP_STATEFS_STATE_COMMON_
+#define _HP_STATEFS_STATE_COMMON_
 
 #include <sys/types.h>
 #include <string>
@@ -38,8 +38,6 @@ const char *const BHMAP_DIR = "/bhmap";
 const char *const HTREE_DIR = "/htree";
 const char *const DELTA_DIR = "/delta";
 
-extern std::string statehistdir;
-
 struct statedir_context
 {
     std::string rootdir;
@@ -48,6 +46,9 @@ struct statedir_context
     std::string hashtreedir;
     std::string deltadir;
 };
+
+extern std::string statehistdir;
+extern statedir_context current_ctx;
 
 void init(const std::string &statehist_dir_root);
 std::string get_statedir_root(const int16_t checkpointid);

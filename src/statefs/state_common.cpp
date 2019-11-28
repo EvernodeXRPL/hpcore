@@ -6,13 +6,14 @@ namespace statefs
 {
 
 std::string statehistdir;
+statedir_context current_ctx;
 
 void init(const std::string &statehist_dir_root)
 {
     statehistdir = realpath(statehist_dir_root.c_str(), NULL);
 
     // Initialize 0 state (current state) directory.
-    get_statedir_context(0, true);
+    current_ctx = get_statedir_context(0, true);
 }
 
 std::string get_statedir_root(const int16_t checkpointid)
