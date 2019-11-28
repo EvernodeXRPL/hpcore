@@ -18,14 +18,26 @@ void request_state_from_peer(std::string &path, std::string &lcl)
 
 void send_state_response(p2p::state_request &sr)
 {
-    if(sr.block_id > -1){
-
-    }else{
-        
+    if (sr.block_id > -1)
+    {
+    }
+    else
+    {
     }
 }
 
-void handle_state_response(){
-    
+void handle_state_response()
+{
+    while (true)
+    {
+
+        {
+            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+            candidate_state_responses.clear();
+            p2p::ctx.collected_msgs.state_response.splice(candidate_state_responses);
+        }
+
+
+    }
 }
 } // namespace cons

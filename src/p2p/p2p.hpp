@@ -70,13 +70,6 @@ struct state_response
     bool is_file;
 };
 
-enum STATE_RESPONSE_TYPE
-{
-    STATE_PATH_RESPONSE = 0,
-    FILE_HASHAMAP_RESPONSE = 1,
-    FILE_BLOCK_RESPONSE = 2
-};
-
 struct message_collection
 {
     std::list<proposal> proposals;
@@ -89,7 +82,7 @@ struct message_collection
     std::list<std::string> npl_messages;
     std::mutex npl_messages_mutex; // Mutex for npl_messages access race conditions.
 
-    std::map<std::pair<std::string, STATE_RESPONSE_TYPE>, std::string> state_response;
+    std::list<std::string> state_response;
     std::mutex state_response_mutex; // Mutex for state response access race conditions.
 };
 

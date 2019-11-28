@@ -1,0 +1,31 @@
+namespace fbschema.p2pmsg;
+
+union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
+
+table State_Response_Message{
+    state_response:State_Response;
+}
+
+table Content_Response{
+     full_path: string;
+     content: [State_File_Hash];
+}
+
+table File_HashMap_Response{
+    full_path: string;
+    hash_map:[ubyte];
+}
+
+table Block_Response{
+    full_path: string;
+    block_id:uint32;
+    data: [ubyte];
+}
+
+table State_File_Hash{
+    full_path: string;
+    is_file: bool;
+    file_hash: [ubyte];
+}
+
+root_type State_Response_Message;
