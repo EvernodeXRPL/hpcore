@@ -106,7 +106,7 @@ void consensus()
     }
     else // Stage 1, 2, 3
     {
-        std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
+        LOG_DBG << "Started stage " << std::to_string(ctx.stage) << "\n";
         for (auto &[pubkey, proposal] : ctx.candidate_proposals)
         {
             bool self = proposal.pubkey == conf::cfg.pubkey;
@@ -397,10 +397,10 @@ void broadcast_proposal(const p2p::proposal &p)
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
     p2p::broadcast_message(msg, true);
 
-    LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
-            << "] users:" << p.users.size()
-            << " hinp:" << p.hash_inputs.size()
-            << " hout:" << p.hash_outputs.size();
+        LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
+                 << "] users:" << p.users.size()
+                 << " hinp:" << p.hash_inputs.size()
+                 << " hout:" << p.hash_outputs.size();
 }
 
 /**
@@ -662,11 +662,11 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
                     user.session->send(usr::user_outbound_message(std::move(msg)));
                 }
             }
+
+            // now we can safely delete this candidate output.
+            ctx.candidate_user_outputs.erase(cu_itr);
         }
     }
-
-    // now we can safely clear our candidate outputs.
-    ctx.candidate_user_outputs.clear();
 }
 
 /**
@@ -704,6 +704,7 @@ void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const 
             bufpair.inputs.push_back(std::move(inputtofeed));
 
             // Remove the input from the candidate set because we no longer need it.
+            LOG_WARN << "candidate input deleted.";
             ctx.candidate_user_inputs.erase(itr);
         }
     }
