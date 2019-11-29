@@ -2,12 +2,14 @@
 #define _HP_STATEFS_STATE_STORE_
 
 #include "../pchheader.hpp"
+#include "../p2p/p2p.hpp"
 
 namespace statefs
 {
 
-//int get_fsentry_hashes(std::vector<fs_hash_entry> &hashlist, const std::string &dirrelpath);
+int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dirrelpath);
 int get_block_hashes(std::vector<uint8_t> &vec, const std::string &filerelpath);
+
 int delete_folder(const std::string &dirrelpath);
 int delete_file(const std::string &filerelpath);
 int truncate_file(const std::string &filerelpath, const size_t newsize);

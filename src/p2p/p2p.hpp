@@ -5,6 +5,7 @@
 #include "../sock/socket_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
+#include "../statefs/hasher.hpp"
 
 namespace p2p
 {
@@ -68,6 +69,12 @@ struct state_response
 {
     std::string full_path;
     bool is_file;
+};
+
+struct state_fs_hash_entry
+{
+    bool is_file;
+    hasher::B2H hash;
 };
 
 struct message_collection

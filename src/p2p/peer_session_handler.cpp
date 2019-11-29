@@ -5,7 +5,6 @@
 #include "../hplog.hpp"
 #include "../fbschema/p2pmsg_container_generated.h"
 #include "../fbschema/p2pmsg_content_generated.h"
-#include "../fbschema/state_response_schema_generated.h"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/common_helpers.hpp"
 #include "../sock/socket_message.hpp"
@@ -129,8 +128,8 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     {
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
         std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-         ctx.collected_msgs.state_response.push_back(std::move(response));
-      
+        ctx.collected_msgs.state_response.push_back(std::move(response));
+        
     }
     else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
     {

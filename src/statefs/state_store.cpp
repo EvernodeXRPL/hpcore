@@ -2,15 +2,11 @@
 #include "hasher.hpp"
 #include "state_common.hpp"
 #include "../hplog.hpp"
+#include "state_store.hpp"
+
 
 namespace statefs
 {
-struct fs_hash_entry
-{
-    bool isfile;
-    std::string path;
-    hasher::B2H hash;
-};
 
 struct block_hash_entry
 {
@@ -69,15 +65,17 @@ int read_file_bytes(std::vector<uint8_t> &vec, const char *bhmapfile, const off_
     return readbytes;
 }
 
-int get_fsentry_hashes(std::vector<fs_hash_entry> &hashlist, const std::string &dirrelpath)
+
+int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dirrelpath)
 {
+
     const std::string fullpath = current_ctx.datadir + "/" + dirrelpath;
     for (const boost::filesystem::directory_entry &dentry : boost::filesystem::directory_iterator(fullpath))
     {
         const boost::filesystem::path p = dentry.path();
-        fs_hash_entry hashentry;
+        p2p::state_fs_hash_entry hashentry;
         hashentry.path = dirrelpath + "/" + p.filename().string();
-        hashentry.isfile == !boost::filesystem::is_directory(p);
+        hashentry.is_file == !boost::filesystem::is_directory(p);
 
         // Read the first 32 bytes of the .bhmap file or dir.hash file.
 
@@ -98,7 +96,8 @@ int get_fsentry_hashes(std::vector<fs_hash_entry> &hashlist, const std::string &
 
         if (read_file_bytes(&hashentry.hash, hashmap_path.c_str(), 0, hasher::HASH_SIZE) == -1)
             return -1;
-        hashlist.push_back(std::move(hashentry));
+
+        fs_entries.emplace(hashentry.path, std::move(hashentry));
     }
     return 0;
 }

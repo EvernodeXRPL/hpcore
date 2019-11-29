@@ -1,6 +1,5 @@
 //IDL file for p2p message content schema.
 include "common_schema.fbs";
-include "state_response_schema.fbs";
 namespace fbschema.p2pmsg;
 
 table UserSubmittedMessage {
@@ -37,11 +36,6 @@ table Npl_Message { //NPL type message schema
     data:[ubyte];
 }
 
-table State_Request_Message { //State request message schema
-    parent_path:string;
-    block_id:int32;
-}
-
 table History_Request_Message { //Ledger History request type message schema
     minimum_lcl:[ubyte];
     required_lcl:[ubyte];
@@ -70,5 +64,37 @@ table HistoryLedger {
    raw_ledger:[ubyte];
 }
 
+table State_Request_Message { //State request message schema
+    parent_path:string;
+    block_id:int32;
+}
+
+union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
+
+table State_Response_Message{
+    state_response:State_Response;
+}
+
+table Content_Response{
+     full_path: string;
+     content: [State_FS_Hash_Entry];
+}
+
+table File_HashMap_Response{
+    full_path: string;
+    hash_map:[ubyte];
+}
+
+table Block_Response{
+    full_path: string;
+    block_id:uint32;
+    data: [ubyte];
+}
+
+table State_FS_Hash_Entry{
+    path: string;
+    is_file: bool;
+    hash: [ubyte];
+}
 
 root_type Content; //root type for message content

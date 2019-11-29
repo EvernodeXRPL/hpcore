@@ -228,7 +228,7 @@ const p2p::state_request create_state_request_from_msg(const State_Request_Messa
     p2p::state_request sr;
 
     sr.block_id = msg.block_id();
-    sr.parent_path = flatbuff_str_to_sv( msg.parent_path());
+    sr.parent_path = flatbuff_str_to_sv(msg.parent_path());
     return sr;
 }
 
@@ -370,6 +370,19 @@ void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_bui
     create_containermsg_from_content(container_builder, builder, lcl, true);
 }
 
+// flatbuffers::Offset<Content_Response>
+//  create_msg_from_content_response(flatbuffers::FlatBufferBuilder &builder, const std::string &fullpath, std::vector<flatbuffers::Offset<State_File_Hash>> &content)
+// {
+
+//     flatbuffers::Offset<Content_Response> conresp =
+//         CreateContent_Response(
+//             builder,
+//             sv_to_flatbuff_str(builder, fullpath),
+//             builder.CreateVector(content));
+
+//     return conresp;
+// }
+
 /**
  * Creates a Flatbuffer container message from the given Content message.
  * @param container_builder The Flatbuffer builder to which the final container message should be written to.
@@ -505,6 +518,58 @@ historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &bui
             history_ledger));
     }
     return builder.CreateVector(fbvec);
+}
+
+// void
+// statefilehash_to_flatbuf_statefilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<State_File_Hash>> &list, std::string_view full_path, bool is_file, std::string_view hash)
+// {
+   
+//         flatbuffers::Offset<State_File_Hash> file_hash = CreateState_File_Hash(
+//             builder,
+//             sv_to_flatbuff_str(builder, full_path),
+//             is_file,
+//             sv_to_flatbuff_bytes(builder,hash));
+
+//         list.push_back(file_hash);
+    
+// }
+
+const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
+historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map)
+{
+    std::vector<flatbuffers::Offset<HistoryLedgerPair>> fbvec;
+    fbvec.reserve(map.size());
+    for (auto const &[seq_no, ledger] : map)
+    {
+        flatbuffers::Offset<HistoryLedger> history_ledger = CreateHistoryLedger(
+            builder,
+            sv_to_flatbuff_bytes(builder, ledger.state),
+            sv_to_flatbuff_bytes(builder, ledger.lcl),
+            builder.CreateVector(ledger.raw_ledger));
+
+        fbvec.push_back(CreateHistoryLedgerPair(
+            builder,
+            seq_no,
+            history_ledger));
+    }
+    return builder.CreateVector(fbvec);
+}
+
+std::unordered_map<std::string, p2p::state_fs_hash_entry>
+flatbuf_statefshashentry_to_statefshashentry(const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes)
+{
+    std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entries;
+
+    for (const State_FS_Hash_Entry *f_hash : *fhashes)
+    {
+        p2p::state_fs_hash_entry h;
+
+        h.is_file = f_hash->is_file();
+        h.hash = *reinterpret_cast<const hasher::B2H *>(f_hash->file_hash());
+
+        fs_entries.emplace(f_hash->full_path(), std::move(h));
+    }
+    return fs_entries;
 }
 
 } // namespace fbschema::p2pmsg
