@@ -33,20 +33,20 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
     {
         const boost::filesystem::path p = dentry.path();
         p2p::state_fs_hash_entry hashentry;
-        hashentry.path = dirrelpath + "/" + p.filename().string();
+        std::string path = dirrelpath + "/" + p.filename().string(); // remove copying 
         hashentry.is_file == !boost::filesystem::is_directory(p);
 
         // Read the first 32 bytes of the .bhmap file or dir.hash file.
 
         std::string hashmap_path;
 
-        if (hashentry.isfile)
+        if (hashentry.is_file)
         {
-            hashmap_path = hashentry.path + HASHMAP_EXT;
+            hashmap_path = path + HASHMAP_EXT;
         }
         else
         {
-            hashmap_path = hashentry.path + "/" + DIRHASH_FNAME;
+            hashmap_path = path + "/" + DIRHASH_FNAME;
             // Skip the directory if it doesn't contain the dir.hash file.
             // By that we assume the directory is empty so we're not interested in it.
             if (!boost::filesystem::exists(hashmap_path))
@@ -56,7 +56,7 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
         if (read_file_bytes(&hashentry.hash, hashmap_path.c_str(), 0, hasher::HASH_SIZE) == -1)
             return -1;
 
-        fs_entries.emplace(hashentry.path, std::move(hashentry));
+        fs_entries.emplace(path, std::move(hashentry));
     }
     return 0;
 }

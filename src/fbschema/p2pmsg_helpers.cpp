@@ -534,26 +534,6 @@ historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &bui
     
 // }
 
-const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
-historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map)
-{
-    std::vector<flatbuffers::Offset<HistoryLedgerPair>> fbvec;
-    fbvec.reserve(map.size());
-    for (auto const &[seq_no, ledger] : map)
-    {
-        flatbuffers::Offset<HistoryLedger> history_ledger = CreateHistoryLedger(
-            builder,
-            sv_to_flatbuff_bytes(builder, ledger.state),
-            sv_to_flatbuff_bytes(builder, ledger.lcl),
-            builder.CreateVector(ledger.raw_ledger));
-
-        fbvec.push_back(CreateHistoryLedgerPair(
-            builder,
-            seq_no,
-            history_ledger));
-    }
-    return builder.CreateVector(fbvec);
-}
 
 std::unordered_map<std::string, p2p::state_fs_hash_entry>
 flatbuf_statefshashentry_to_statefshashentry(const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes)
