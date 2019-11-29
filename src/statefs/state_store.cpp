@@ -2,6 +2,7 @@
 #include "hasher.hpp"
 #include "state_common.hpp"
 #include "hashtree_builder.hpp"
+#include "state_store.hpp"
 #include "../hplog.hpp"
 
 namespace statefs
@@ -70,15 +71,33 @@ int get_blockhashmap(std::vector<uint8_t> &vec, const std::string &filerelpath)
     return 0;
 }
 
+int get_filelength(const std::string &filerelpath)
+{
+    std::string fullpath = current_ctx.datadir + "/" + filerelpath;
+    int fd = open(fullpath.c_str(), O_RDONLY);
+    if (fd == -1)
+    {
+        LOG_ERR << errno << "Open failed " << fullpath;
+        return -1;
+    }
+
+    const off_t totallen = lseek(fd, 0, SEEK_END);
+    close(fd);
+
+    return totallen;
+}
+
 /**
  * Retrieves the specified data block from a state file.
  * @return Number of bytes read on success. -1 on failure.
  */
-int get_block(const std::string &filerelpath, const uint32_t blockid)
+int get_block(std::vector<uint8_t> &vec, const std::string &filerelpath, const uint32_t blockid)
 {
     std::string fullpath = current_ctx.datadir + "/" + filerelpath;
-    char buf[BLOCK_SIZE]; // Replace this with flatbuffer.
-    return read_file_bytes(buf, fullpath.c_str(), blockid * BLOCK_SIZE, BLOCK_SIZE);
+    vec.resize(BLOCK_SIZE);
+    int readbytes = read_file_bytes(vec.data(), fullpath.c_str(), blockid * BLOCK_SIZE, BLOCK_SIZE);
+    vec.resize(readbytes);
+    return readbytes;
 }
 
 /**
