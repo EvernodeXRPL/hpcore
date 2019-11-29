@@ -1,6 +1,7 @@
 #!/bin/bash
 
-#ac login
+# Azure vm creation.s
+#az login
 #az account list
 #az account set --subscription ''
 
