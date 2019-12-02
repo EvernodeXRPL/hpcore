@@ -682,7 +682,7 @@ void check_state(vote_counter &votes)
     if (majority_state != ctx.curr_hash_state)
     {
         //rollback();
-        // request_state_from_peer(conf::ctx.statehistdir, ctx.lcl);
+        //  request_state_from_peer(conf::ctx.statehistdir, false, ctx.lcl);
 
         // Change the mode to passive and not sending out proposals till the state is synced
         conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;

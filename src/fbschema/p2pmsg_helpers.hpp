@@ -64,8 +64,9 @@ flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffe
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
 historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map);
 
-std::unordered_map<std::string, p2p::state_fs_hash_entry>
-flatbuf_statefshashentry_to_statefshashentry(const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
+void
+flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry>, 
+const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
 
 void statefilehash_to_flatbuf_statefilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> &list,
                                             std::string_view full_path, bool is_file, std::string_view hash);

@@ -8,6 +8,6 @@ std::list<std::string> candidate_state_responses;
 
 void send_state_response(p2p::state_request &sr);
 
-void request_state_from_peer(std::string &path, std::string &lcl);
+void request_state_from_peer(const std::string &path, bool is_file, std::string &lcl, int32_t block_id = -1);
 
 } // namespace cons

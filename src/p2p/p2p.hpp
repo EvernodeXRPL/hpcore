@@ -62,6 +62,7 @@ struct npl_message
 struct state_request
 {
     std::string parent_path;
+    bool is_file;
     int32_t block_id;
 };
 

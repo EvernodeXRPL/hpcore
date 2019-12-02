@@ -535,21 +535,19 @@ historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &bui
 // }
 
 
-std::unordered_map<std::string, p2p::state_fs_hash_entry>
-flatbuf_statefshashentry_to_statefshashentry(const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes)
+void
+flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entries, const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes)
 {
-    std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entries;
 
     for (const State_FS_Hash_Entry *f_hash : *fhashes)
     {
         p2p::state_fs_hash_entry h;
 
         h.is_file = f_hash->is_file();
-        h.hash = *reinterpret_cast<const hasher::B2H *>(f_hash->file_hash());
+        h.hash = *reinterpret_cast<const hasher::B2H *>(f_hash->hash());
 
-        fs_entries.emplace(f_hash->full_path(), std::move(h));
+        fs_entries.emplace(flatbuff_str_to_sv(f_hash->path()), std::move(h));
     }
-    return fs_entries;
 }
 
-} // namespace fbschema::p2pmsg
+} // namespace fbschema::p2pmsgl

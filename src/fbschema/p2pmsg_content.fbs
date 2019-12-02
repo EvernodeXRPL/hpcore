@@ -76,17 +76,17 @@ table State_Response_Message{
 }
 
 table Content_Response{
-     full_path: string;
+     path: string;
      content: [State_FS_Hash_Entry];
 }
 
 table File_HashMap_Response{
-    full_path: string;
+    path: string;
     hash_map:[ubyte];
 }
 
 table Block_Response{
-    full_path: string;
+    path: string;
     block_id:uint32;
     data: [ubyte];
 }
