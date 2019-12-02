@@ -1227,13 +1227,20 @@ inline flatbuffers::Offset<Content_Response> CreateContent_ResponseDirect(
 struct File_HashMap_Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PATH = 4,
-    VT_HASH_MAP = 6
+    VT_FILE_LENGTH = 6,
+    VT_HASH_MAP = 8
   };
   const flatbuffers::String *path() const {
     return GetPointer<const flatbuffers::String *>(VT_PATH);
   }
   flatbuffers::String *mutable_path() {
     return GetPointer<flatbuffers::String *>(VT_PATH);
+  }
+  uint64_t file_length() const {
+    return GetField<uint64_t>(VT_FILE_LENGTH, 0);
+  }
+  bool mutate_file_length(uint64_t _file_length) {
+    return SetField<uint64_t>(VT_FILE_LENGTH, _file_length, 0);
   }
   const flatbuffers::Vector<uint8_t> *hash_map() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
@@ -1245,6 +1252,7 @@ struct File_HashMap_Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_PATH) &&
            verifier.VerifyString(path()) &&
+           VerifyField<uint64_t>(verifier, VT_FILE_LENGTH) &&
            VerifyOffset(verifier, VT_HASH_MAP) &&
            verifier.VerifyVector(hash_map()) &&
            verifier.EndTable();
@@ -1256,6 +1264,9 @@ struct File_HashMap_ResponseBuilder {
   flatbuffers::uoffset_t start_;
   void add_path(flatbuffers::Offset<flatbuffers::String> path) {
     fbb_.AddOffset(File_HashMap_Response::VT_PATH, path);
+  }
+  void add_file_length(uint64_t file_length) {
+    fbb_.AddElement<uint64_t>(File_HashMap_Response::VT_FILE_LENGTH, file_length, 0);
   }
   void add_hash_map(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map) {
     fbb_.AddOffset(File_HashMap_Response::VT_HASH_MAP, hash_map);
@@ -1275,8 +1286,10 @@ struct File_HashMap_ResponseBuilder {
 inline flatbuffers::Offset<File_HashMap_Response> CreateFile_HashMap_Response(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> path = 0,
+    uint64_t file_length = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0) {
   File_HashMap_ResponseBuilder builder_(_fbb);
+  builder_.add_file_length(file_length);
   builder_.add_hash_map(hash_map);
   builder_.add_path(path);
   return builder_.Finish();
@@ -1285,12 +1298,14 @@ inline flatbuffers::Offset<File_HashMap_Response> CreateFile_HashMap_Response(
 inline flatbuffers::Offset<File_HashMap_Response> CreateFile_HashMap_ResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *path = nullptr,
+    uint64_t file_length = 0,
     const std::vector<uint8_t> *hash_map = nullptr) {
   auto path__ = path ? _fbb.CreateString(path) : 0;
   auto hash_map__ = hash_map ? _fbb.CreateVector<uint8_t>(*hash_map) : 0;
   return fbschema::p2pmsg::CreateFile_HashMap_Response(
       _fbb,
       path__,
+      file_length,
       hash_map__);
 }
 

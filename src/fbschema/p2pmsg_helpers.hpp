@@ -31,6 +31,8 @@ const p2p::history_response create_history_response_from_msg(const History_Respo
 
 const p2p::state_request create_state_request_from_msg(const State_Request_Message &msg);
 
+const p2p::block_response create_block_response_from_msg(const Block_Response &msg);
+
 //---Message creation helpers---//
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);
@@ -44,6 +46,13 @@ void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_
 void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const p2p::npl_message &npl, std::string_view lcl);
 
 void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::state_request &hr, std::string_view lcl);
+
+void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, 
+std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, std::string_view lcl);
+
+void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, std::string_view lcl);
+
+void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl);
 
 void create_containermsg_from_content(
     flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign);
@@ -71,8 +80,9 @@ const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
 void statefilehash_to_flatbuf_statefilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> &list,
                                             std::string_view full_path, bool is_file, std::string_view hash);
 
-flatbuffers::Offset<Content_Response>
-create_msg_from_content_response(flatbuffers::FlatBufferBuilder &builder, const std::string &fullpath, std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> &content);
+
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>>
+statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &builder, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries);
 
 } // namespace fbschema::p2pmsg
 

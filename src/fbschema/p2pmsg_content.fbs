@@ -82,6 +82,7 @@ table Content_Response{
 
 table File_HashMap_Response{
     path: string;
+    file_length:uint64;
     hash_map:[ubyte];
 }
 

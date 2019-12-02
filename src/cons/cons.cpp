@@ -14,6 +14,7 @@
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 #include "cons.hpp"
+#include "../statefs/state_store.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
 namespace jusrmsg = jsonschema::usrmsg;
@@ -159,7 +160,6 @@ void consensus()
             return;
         }
 
-        bool should_request_state;
         check_state(votes);
 
         // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
@@ -647,6 +647,14 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
 void check_state(vote_counter &votes)
 {
     std::string majority_state;
+
+    if (ctx.last_lcl != ctx.lcl)
+    {
+        statefs::compute_hashtree();
+
+        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+        p2p::ctx.collected_msgs.state_response.clear();
+    }
 
     // Moving here means lcl matches and ctx.cache empty means this is the initial run otherwise at the end of each consensus round
     // if node reaches consensus cache is updated.

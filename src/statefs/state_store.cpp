@@ -6,21 +6,11 @@
 #include "../hplog.hpp"
 #include "state_store.hpp"
 
-
 namespace statefs
 {
 
-// Should be replaced with flatbuffer.
-struct fs_hash_entry
-{
-    bool isfile;
-    std::string path;
-    hasher::B2H hash;
-};
-
 // Map of modified/deleted files with updated blockids and hashes (if modified).
 extern std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedfiles;
-
 
 /**
  * Retrieves the hash list of the file system entries at a given directory.
@@ -34,7 +24,7 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
     {
         const boost::filesystem::path p = dentry.path();
         p2p::state_fs_hash_entry hashentry;
-        std::string path = dirrelpath + "/" + p.filename().string(); // remove copying 
+        const std::string path = dirrelpath + "/" + p.filename().string();
         hashentry.is_file == !boost::filesystem::is_directory(p);
 
         // Read the first 32 bytes of the .bhmap file or dir.hash file.

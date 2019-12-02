@@ -232,6 +232,21 @@ const p2p::state_request create_state_request_from_msg(const State_Request_Messa
     return sr;
 }
 
+/**
+ * Creates a block response struct from the given block response message.
+ * @param msg Flatbuffer block response message received from the peer.
+ * @return A Block response struct representing the message.
+ */
+const p2p::block_response create_block_response_from_msg(const Block_Response &msg)
+{
+    p2p::block_response br;
+
+    br.path = flatbuff_str_to_sv(msg.path());
+    br.block_id = msg.block_id();
+    br.data = *reinterpret_cast<const std::vector<uint8_t> *>(msg.data());
+    return br;
+}
+
 //---Message creation helpers---//
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)
@@ -370,18 +385,94 @@ void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_bui
     create_containermsg_from_content(container_builder, builder, lcl, true);
 }
 
-// flatbuffers::Offset<Content_Response>
-//  create_msg_from_content_response(flatbuffers::FlatBufferBuilder &builder, const std::string &fullpath, std::vector<flatbuffers::Offset<State_File_Hash>> &content)
-// {
+/**
+ * Create content response message from the given content response.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param path The path of the directory.
+ * @param fs_entries File or directory entries in the given parent path.
+ * @param lcl Lcl to be include in the container msg.
+ */
+void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, std::string_view lcl)
+{
+    // todo:get a average propsal message size and allocate content builder based on that.
+    flatbuffers::FlatBufferBuilder builder(1024);
 
-//     flatbuffers::Offset<Content_Response> conresp =
-//         CreateContent_Response(
-//             builder,
-//             sv_to_flatbuff_str(builder, fullpath),
-//             builder.CreateVector(content));
+    const flatbuffers::Offset<Content_Response> resp =
+        CreateContent_Response(
+            builder,
+            sv_to_flatbuff_str(builder, path),
+            statefshashentry_to_flatbuff_statefshashentry(builder, fs_entries));
 
-//     return conresp;
-// }
+    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_Content_Response, resp.Union());
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, lcl, true);
+}
+
+/**
+ * Create content response message from the given content response.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param path The path of the directory.
+ * @param hashmap Hashmap of the file
+ * @param lcl Lcl to be include in the container msg.
+ */
+void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, std::string_view lcl)
+{
+    // todo:get a average propsal message size and allocate content builder based on that.
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    std::string_view conv_hashmap(reinterpret_cast<char *>(hashmap[0]), hashmap.size());
+
+    const flatbuffers::Offset<File_HashMap_Response> resp =
+        CreateFile_HashMap_Response(
+            builder,
+            sv_to_flatbuff_str(builder, path),
+            file_length,
+            sv_to_flatbuff_bytes(builder, conv_hashmap));
+
+    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_File_HashMap_Response, resp.Union());
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, lcl, true);
+}
+
+/**
+ * Create content response message from the given content response.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param block_resp Block response struct to place in the message
+ * @param lcl Lcl to be include in the container message.
+ */
+void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl)
+{
+    // todo:get a average propsal message size and allocate content builder based on that.
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    std::string_view data(reinterpret_cast<char *>(block_resp.data[0]), block_resp.data.size());
+
+    const flatbuffers::Offset<Block_Response> resp =
+        CreateBlock_Response(
+            builder,
+            sv_to_flatbuff_str(builder, block_resp.path),
+            block_resp.block_id,
+            sv_to_flatbuff_bytes(builder, data));
+
+    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_Block_Response, resp.Union());
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, lcl, true);
+}
 
 /**
  * Creates a Flatbuffer container message from the given Content message.
@@ -520,23 +611,7 @@ historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &bui
     return builder.CreateVector(fbvec);
 }
 
-// void
-// statefilehash_to_flatbuf_statefilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<State_File_Hash>> &list, std::string_view full_path, bool is_file, std::string_view hash)
-// {
-   
-//         flatbuffers::Offset<State_File_Hash> file_hash = CreateState_File_Hash(
-//             builder,
-//             sv_to_flatbuff_str(builder, full_path),
-//             is_file,
-//             sv_to_flatbuff_bytes(builder,hash));
-
-//         list.push_back(file_hash);
-    
-// }
-
-
-void
-flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entries, const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes)
+void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes)
 {
 
     for (const State_FS_Hash_Entry *f_hash : *fhashes)
@@ -550,4 +625,24 @@ flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p
     }
 }
 
-} // namespace fbschema::p2pmsgl
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>>
+statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &builder, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries)
+{
+    std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> fbvec;
+    fbvec.reserve(fs_entries.size());
+    for (auto const &[path, fs_entry] : fs_entries)
+    {
+        std::string_view entry(reinterpret_cast<char *>(fs_entry.hash.data[0]), hasher::HASH_SIZE);
+        
+        flatbuffers::Offset<State_FS_Hash_Entry> state_fs_entry = CreateState_FS_Hash_Entry(
+            builder,
+            sv_to_flatbuff_str(builder, path),
+            fs_entry.is_file,
+            sv_to_flatbuff_bytes(builder, entry));
+
+        fbvec.push_back(state_fs_entry);
+    }
+    return builder.CreateVector(fbvec);
+}
+
+} // namespace fbschema::p2pmsg

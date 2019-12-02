@@ -78,6 +78,13 @@ struct state_fs_hash_entry
     hasher::B2H hash;
 };
 
+struct block_response
+{
+    std::string path;
+    uint32_t block_id;
+    std::vector<uint8_t> data;
+};
+
 struct message_collection
 {
     std::list<proposal> proposals;
