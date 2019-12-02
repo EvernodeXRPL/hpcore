@@ -28,33 +28,36 @@ extern std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedf
  */
 int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dirrelpath)
 {
-
+    // TODO: instead of iterating the data dir, we could simply query the hash tree directory
+    // listing and get the hashes using the hardlink names straight away. But then we don't have
+    // a way to get the file names. If we could implement a mechanism for that we could make this efficient.
+ 
     const std::string fullpath = current_ctx.datadir + "/" + dirrelpath;
     for (const boost::filesystem::directory_entry &dentry : boost::filesystem::directory_iterator(fullpath))
     {
         const boost::filesystem::path p = dentry.path();
         p2p::state_fs_hash_entry hashentry;
-        std::string path = dirrelpath + "/" + p.filename().string(); // remove copying 
+        std::string path = dirrelpath + "/" + p.filename().string();
         hashentry.is_file == !boost::filesystem::is_directory(p);
 
         // Read the first 32 bytes of the .bhmap file or dir.hash file.
 
-        std::string hashmap_path;
+        std::string hash_path;
 
         if (hashentry.is_file)
         {
-            hashmap_path = path + HASHMAP_EXT;
+            hash_path = current_ctx.blockhashmapdir + "/" + path + HASHMAP_EXT;
         }
         else
         {
-            hashmap_path = path + "/" + DIRHASH_FNAME;
+            hash_path =  current_ctx.hashtreedir + "/" + path + "/" + DIRHASH_FNAME;
             // Skip the directory if it doesn't contain the dir.hash file.
             // By that we assume the directory is empty so we're not interested in it.
-            if (!boost::filesystem::exists(hashmap_path))
+            if (!boost::filesystem::exists(hash_path))
                 continue;
         }
 
-        if (read_file_bytes(&hashentry.hash, hashmap_path.c_str(), 0, hasher::HASH_SIZE) == -1)
+        if (read_file_bytes(&hashentry.hash, hash_path.c_str(), 0, hasher::HASH_SIZE) == -1)
             return -1;
 
         fs_entries.emplace(path, std::move(hashentry));

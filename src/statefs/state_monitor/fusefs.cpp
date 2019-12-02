@@ -553,6 +553,7 @@ static void sfs_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
         return;
     }
 
+    // state monitor hook.
     std::string oldfilepath, newfilepath;
     if (helpers::getfilepath(oldfilepath, inode_p.fd, name) == 0 &&
         helpers::getfilepath(newfilepath, inode_np.fd, newname) == 0)
@@ -568,6 +569,7 @@ static void sfs_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
     Inode &inode_p = get_inode(parent);
 
+    // state monitor hook.
     std::string filepath;
     if (helpers::getfilepath(filepath, inode_p.fd, name) == 0)
         statemonitor.ondelete(filepath);
@@ -867,6 +869,7 @@ static void sfs_create(fuse_req_t req, fuse_ino_t parent, const char *name,
     }
     else
     {
+        // state monitor hook.
         statemonitor.oncreate(fd);
         fuse_reply_create(req, &e, fi);
     }
@@ -911,6 +914,7 @@ static void sfs_open(fuse_req_t req, fuse_ino_t ino, fuse_file_info *fi)
     char buf[64];
     sprintf(buf, "/proc/self/fd/%i", inode.fd);
 
+    // state monitor hook.
     statemonitor.onopen(inode.fd, fi->flags);
 
     auto fd = open(buf, fi->flags & ~O_NOFOLLOW);
@@ -933,7 +937,10 @@ static void sfs_release(fuse_req_t req, fuse_ino_t ino, fuse_file_info *fi)
 {
     (void)ino;
     close(fi->fh);
+
+    // state monitor hook.
     statemonitor.onclose(fi->fh);
+
     fuse_reply_err(req, 0);
 }
 
@@ -997,6 +1004,7 @@ static void sfs_write_buf(fuse_req_t req, fuse_ino_t ino, fuse_bufvec *in_buf,
     (void)ino;
     auto size{fuse_buf_size(in_buf)};
 
+    // state monitor hook.
     statemonitor.onwrite(fi->fh, off, size);
 
     do_write_buf(req, size, off, in_buf, fi);
@@ -1251,7 +1259,14 @@ void maximize_fd_limit()
         warn("WARNING: setrlimit() failed with");
 }
 
-int start(const char *arg0, const char *statehistdir, const char *fusemntdir)
+/**
+ * Starts hosting the fuse file system along with the state monitor.
+ * @param arg0 First CLI argument to be passed into fuse main.
+ * @param state_hist_dir Hot pocket state history directory.
+ * @param fuse_mnt_dir Directory to mound the fuse filesystem.
+ * @return 0 on success. 1 on failure.
+ */
+int start(const char *arg0, const char *state_hist_dir, const char *fuse_mnt_dir)
 {
     // We need an fd for every entry in our the filesystem that the
     // kernel knows about. This is way more than most processes need,
@@ -1259,14 +1274,14 @@ int start(const char *arg0, const char *statehistdir, const char *fusemntdir)
     maximize_fd_limit();
 
     // We consider this as the first run of the history dir is empty.
-    const bool firstrun = boost::filesystem::is_empty(statehistdir);
+    const bool is_first_run = boost::filesystem::is_empty(state_hist_dir);
 
-    statefs::init(statehistdir);
+    statefs::init(state_hist_dir);
     statemonitor.ctx = statefs::get_statedir_context();
     fs.source = statemonitor.ctx.datadir;
 
     // Create a checkpoint from the second run onwards.
-    if (!firstrun)
+    if (!is_first_run)
         statemonitor.create_checkpoint();
 
     // Initialize filesystem root
@@ -1311,7 +1326,7 @@ int start(const char *arg0, const char *statehistdir, const char *fusemntdir)
     struct fuse_loop_config loop_config;
     loop_config.clone_fd = 0;
     loop_config.max_idle_threads = 10;
-    if (fuse_session_mount(se, fusemntdir) != 0)
+    if (fuse_session_mount(se, fuse_mnt_dir) != 0)
         goto err_out3;
 
     ret = fuse_session_loop_mt(se, &loop_config);
@@ -1338,5 +1353,5 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    fusefs::start(argv[0], argv[1], argv[2]);
+    return fusefs::start(argv[0], argv[1], argv[2]);
 }
