@@ -1,6 +1,6 @@
 #!/bin/bash
-vmpass=""
-vmips=(ip list)
+vmpass=$(cat vmpass.txt)
+readarray -t vmips < iplist.txt
 
 vmcount=${#vmips[@]}
 mode=$1
@@ -11,7 +11,7 @@ if [ "$mode" = "new" ] || [ "$mode" = "run" ] || [ "$mode" = "update" ]; then
     echo ""
 else
     echo "Invalid command. new | run | update expected."
-    exit
+    exit 1
 fi
 
 if [ $mode = "run" ]; then
@@ -27,7 +27,19 @@ for (( i=0; i<$vmcount; i++ ))
 do
     vmip=${vmips[i]}
     let n=$i+1
-    /bin/bash ./setup-vm.sh $mode $n $vmpass $vmip $hpcore
+    /bin/bash ./setup-vm.sh $mode $n $vmpass $vmip $hpcore &
+done
+
+wait
+
+if [ $mode = "update" ]; then
+    exit 0
+fi
+
+for (( i=0; i<$vmcount; i++ ))
+do
+    vmip=${vmips[i]}
+    let n=$i+1
 
     # Collect each node's pub key and peer address.
     pubkeys[i]=$(node -p "require('./cfg/node$n.json').pubkeyhex")
