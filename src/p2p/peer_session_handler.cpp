@@ -126,13 +126,10 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else if (content_message_type == p2pmsg::Message_State_Response_Message)
     {
-        const p2pmsg::State_Response_Message *sr_message = content->message_as_State_Response_Message();
-        const p2pmsg::State_Response state_response_type = sr_message->state_response_type();
-        if(state_response_type == p2pmsg::State_Response_Block_Response){
-             std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
-            //  ctx.collected_msgs.state_response.try_emplace(std::make_pair(std::make_pair(sr_message->state_response_as_Block_Response()->full_path, STATE_RESPONSE_TYPE::FILE_BLOCK_RESPONSE)), sr_message->state_response_as_Block_Response()->);
-
-        }
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
+        std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
+        ctx.collected_msgs.state_response.push_back(std::move(response));
+        
     }
     else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
     {

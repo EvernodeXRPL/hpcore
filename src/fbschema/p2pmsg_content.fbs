@@ -36,11 +36,6 @@ table Npl_Message { //NPL type message schema
     data:[ubyte];
 }
 
-table State_Request_Message { //State request message schema
-    parent_path:string;
-    block_id:int32;
-}
-
 table History_Request_Message { //Ledger History request type message schema
     minimum_lcl:[ubyte];
     required_lcl:[ubyte];
@@ -69,6 +64,11 @@ table HistoryLedger {
    raw_ledger:[ubyte];
 }
 
+table State_Request_Message { //State request message schema
+    parent_path:string;
+    block_id:int32;
+}
+
 union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
 
 table State_Response_Message{
@@ -77,7 +77,7 @@ table State_Response_Message{
 
 table Content_Response{
      full_path: string;
-     content: [State_File_Hash];
+     content: [State_FS_Hash_Entry];
 }
 
 table File_HashMap_Response{
@@ -91,10 +91,10 @@ table Block_Response{
     data: [ubyte];
 }
 
-table State_File_Hash{
-    full_path: string;
+table State_FS_Hash_Entry{
+    path: string;
     is_file: bool;
-    file_hash: [ubyte];
+    hash: [ubyte];
 }
 
 root_type Content; //root type for message content

@@ -2,6 +2,7 @@
 #define _HP_STATEFS_STATE_STORE_
 
 #include "../pchheader.hpp"
+#include "../p2p/p2p.hpp"
 #include "hasher.hpp"
 
 namespace statefs

@@ -5,6 +5,7 @@
 #include "../sock/socket_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
+#include "../statefs/hasher.hpp"
 
 namespace p2p
 {
@@ -70,11 +71,10 @@ struct state_response
     bool is_file;
 };
 
-enum STATE_RESPONSE_TYPE
+struct state_fs_hash_entry
 {
-    STATE_PATH_RESPONSE = 0,
-    FILE_HASHAMAP_RESPONSE = 1,
-    FILE_BLOCK_RESPONSE = 2
+    bool is_file;
+    hasher::B2H hash;
 };
 
 struct message_collection
@@ -89,7 +89,7 @@ struct message_collection
     std::list<std::string> npl_messages;
     std::mutex npl_messages_mutex; // Mutex for npl_messages access race conditions.
 
-    std::map<std::pair<std::string, STATE_RESPONSE_TYPE>, std::string> state_response;
+    std::list<std::string> state_response;
     std::mutex state_response_mutex; // Mutex for state response access race conditions.
 };
 

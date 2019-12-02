@@ -23,8 +23,6 @@ struct Proposal_Message;
 
 struct Npl_Message;
 
-struct State_Request_Message;
-
 struct History_Request_Message;
 
 struct History_Response_Message;
@@ -32,6 +30,8 @@ struct History_Response_Message;
 struct HistoryLedgerPair;
 
 struct HistoryLedger;
+
+struct State_Request_Message;
 
 struct State_Response_Message;
 
@@ -41,7 +41,7 @@ struct File_HashMap_Response;
 
 struct Block_Response;
 
-struct State_File_Hash;
+struct State_FS_Hash_Entry;
 
 enum Message {
   Message_NONE = 0,
@@ -723,74 +723,6 @@ inline flatbuffers::Offset<Npl_Message> CreateNpl_MessageDirect(
       data__);
 }
 
-struct State_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PARENT_PATH = 4,
-    VT_BLOCK_ID = 6
-  };
-  const flatbuffers::String *parent_path() const {
-    return GetPointer<const flatbuffers::String *>(VT_PARENT_PATH);
-  }
-  flatbuffers::String *mutable_parent_path() {
-    return GetPointer<flatbuffers::String *>(VT_PARENT_PATH);
-  }
-  int32_t block_id() const {
-    return GetField<int32_t>(VT_BLOCK_ID, 0);
-  }
-  bool mutate_block_id(int32_t _block_id) {
-    return SetField<int32_t>(VT_BLOCK_ID, _block_id, 0);
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_PARENT_PATH) &&
-           verifier.VerifyString(parent_path()) &&
-           VerifyField<int32_t>(verifier, VT_BLOCK_ID) &&
-           verifier.EndTable();
-  }
-};
-
-struct State_Request_MessageBuilder {
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_parent_path(flatbuffers::Offset<flatbuffers::String> parent_path) {
-    fbb_.AddOffset(State_Request_Message::VT_PARENT_PATH, parent_path);
-  }
-  void add_block_id(int32_t block_id) {
-    fbb_.AddElement<int32_t>(State_Request_Message::VT_BLOCK_ID, block_id, 0);
-  }
-  explicit State_Request_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  State_Request_MessageBuilder &operator=(const State_Request_MessageBuilder &);
-  flatbuffers::Offset<State_Request_Message> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<State_Request_Message>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<State_Request_Message> CreateState_Request_Message(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> parent_path = 0,
-    int32_t block_id = 0) {
-  State_Request_MessageBuilder builder_(_fbb);
-  builder_.add_block_id(block_id);
-  builder_.add_parent_path(parent_path);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<State_Request_Message> CreateState_Request_MessageDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const char *parent_path = nullptr,
-    int32_t block_id = 0) {
-  auto parent_path__ = parent_path ? _fbb.CreateString(parent_path) : 0;
-  return fbschema::p2pmsg::CreateState_Request_Message(
-      _fbb,
-      parent_path__,
-      block_id);
-}
-
 struct History_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MINIMUM_LCL = 4,
@@ -1074,6 +1006,74 @@ inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedgerDirect(
       raw_ledger__);
 }
 
+struct State_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PARENT_PATH = 4,
+    VT_BLOCK_ID = 6
+  };
+  const flatbuffers::String *parent_path() const {
+    return GetPointer<const flatbuffers::String *>(VT_PARENT_PATH);
+  }
+  flatbuffers::String *mutable_parent_path() {
+    return GetPointer<flatbuffers::String *>(VT_PARENT_PATH);
+  }
+  int32_t block_id() const {
+    return GetField<int32_t>(VT_BLOCK_ID, 0);
+  }
+  bool mutate_block_id(int32_t _block_id) {
+    return SetField<int32_t>(VT_BLOCK_ID, _block_id, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_PARENT_PATH) &&
+           verifier.VerifyString(parent_path()) &&
+           VerifyField<int32_t>(verifier, VT_BLOCK_ID) &&
+           verifier.EndTable();
+  }
+};
+
+struct State_Request_MessageBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_parent_path(flatbuffers::Offset<flatbuffers::String> parent_path) {
+    fbb_.AddOffset(State_Request_Message::VT_PARENT_PATH, parent_path);
+  }
+  void add_block_id(int32_t block_id) {
+    fbb_.AddElement<int32_t>(State_Request_Message::VT_BLOCK_ID, block_id, 0);
+  }
+  explicit State_Request_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  State_Request_MessageBuilder &operator=(const State_Request_MessageBuilder &);
+  flatbuffers::Offset<State_Request_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<State_Request_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<State_Request_Message> CreateState_Request_Message(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> parent_path = 0,
+    int32_t block_id = 0) {
+  State_Request_MessageBuilder builder_(_fbb);
+  builder_.add_block_id(block_id);
+  builder_.add_parent_path(parent_path);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<State_Request_Message> CreateState_Request_MessageDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *parent_path = nullptr,
+    int32_t block_id = 0) {
+  auto parent_path__ = parent_path ? _fbb.CreateString(parent_path) : 0;
+  return fbschema::p2pmsg::CreateState_Request_Message(
+      _fbb,
+      parent_path__,
+      block_id);
+}
+
 struct State_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_STATE_RESPONSE_TYPE = 4,
@@ -1164,11 +1164,11 @@ struct Content_Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::String *mutable_full_path() {
     return GetPointer<flatbuffers::String *>(VT_FULL_PATH);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<State_File_Hash>> *content() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<State_File_Hash>> *>(VT_CONTENT);
+  const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *content() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *>(VT_CONTENT);
   }
-  flatbuffers::Vector<flatbuffers::Offset<State_File_Hash>> *mutable_content() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<State_File_Hash>> *>(VT_CONTENT);
+  flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *mutable_content() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *>(VT_CONTENT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1187,7 +1187,7 @@ struct Content_ResponseBuilder {
   void add_full_path(flatbuffers::Offset<flatbuffers::String> full_path) {
     fbb_.AddOffset(Content_Response::VT_FULL_PATH, full_path);
   }
-  void add_content(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_File_Hash>>> content) {
+  void add_content(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>> content) {
     fbb_.AddOffset(Content_Response::VT_CONTENT, content);
   }
   explicit Content_ResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1205,7 +1205,7 @@ struct Content_ResponseBuilder {
 inline flatbuffers::Offset<Content_Response> CreateContent_Response(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> full_path = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_File_Hash>>> content = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>> content = 0) {
   Content_ResponseBuilder builder_(_fbb);
   builder_.add_content(content);
   builder_.add_full_path(full_path);
@@ -1215,9 +1215,9 @@ inline flatbuffers::Offset<Content_Response> CreateContent_Response(
 inline flatbuffers::Offset<Content_Response> CreateContent_ResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *full_path = nullptr,
-    const std::vector<flatbuffers::Offset<State_File_Hash>> *content = nullptr) {
+    const std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> *content = nullptr) {
   auto full_path__ = full_path ? _fbb.CreateString(full_path) : 0;
-  auto content__ = content ? _fbb.CreateVector<flatbuffers::Offset<State_File_Hash>>(*content) : 0;
+  auto content__ = content ? _fbb.CreateVector<flatbuffers::Offset<State_FS_Hash_Entry>>(*content) : 0;
   return fbschema::p2pmsg::CreateContent_Response(
       _fbb,
       full_path__,
@@ -1379,7 +1379,7 @@ inline flatbuffers::Offset<Block_Response> CreateBlock_ResponseDirect(
       data__);
 }
 
-struct State_File_Hash FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct State_FS_Hash_Entry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FULL_PATH = 4,
     VT_IS_FILE = 6,
@@ -1414,50 +1414,50 @@ struct State_File_Hash FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct State_File_HashBuilder {
+struct State_FS_Hash_EntryBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_full_path(flatbuffers::Offset<flatbuffers::String> full_path) {
-    fbb_.AddOffset(State_File_Hash::VT_FULL_PATH, full_path);
+    fbb_.AddOffset(State_FS_Hash_Entry::VT_FULL_PATH, full_path);
   }
   void add_is_file(bool is_file) {
-    fbb_.AddElement<uint8_t>(State_File_Hash::VT_IS_FILE, static_cast<uint8_t>(is_file), 0);
+    fbb_.AddElement<uint8_t>(State_FS_Hash_Entry::VT_IS_FILE, static_cast<uint8_t>(is_file), 0);
   }
   void add_file_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> file_hash) {
-    fbb_.AddOffset(State_File_Hash::VT_FILE_HASH, file_hash);
+    fbb_.AddOffset(State_FS_Hash_Entry::VT_FILE_HASH, file_hash);
   }
-  explicit State_File_HashBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit State_FS_Hash_EntryBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  State_File_HashBuilder &operator=(const State_File_HashBuilder &);
-  flatbuffers::Offset<State_File_Hash> Finish() {
+  State_FS_Hash_EntryBuilder &operator=(const State_FS_Hash_EntryBuilder &);
+  flatbuffers::Offset<State_FS_Hash_Entry> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<State_File_Hash>(end);
+    auto o = flatbuffers::Offset<State_FS_Hash_Entry>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<State_File_Hash> CreateState_File_Hash(
+inline flatbuffers::Offset<State_FS_Hash_Entry> CreateState_FS_Hash_Entry(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> full_path = 0,
     bool is_file = false,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> file_hash = 0) {
-  State_File_HashBuilder builder_(_fbb);
+  State_FS_Hash_EntryBuilder builder_(_fbb);
   builder_.add_file_hash(file_hash);
   builder_.add_full_path(full_path);
   builder_.add_is_file(is_file);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<State_File_Hash> CreateState_File_HashDirect(
+inline flatbuffers::Offset<State_FS_Hash_Entry> CreateState_FS_Hash_EntryDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *full_path = nullptr,
     bool is_file = false,
     const std::vector<uint8_t> *file_hash = nullptr) {
   auto full_path__ = full_path ? _fbb.CreateString(full_path) : 0;
   auto file_hash__ = file_hash ? _fbb.CreateVector<uint8_t>(*file_hash) : 0;
-  return fbschema::p2pmsg::CreateState_File_Hash(
+  return fbschema::p2pmsg::CreateState_FS_Hash_Entry(
       _fbb,
       full_path__,
       is_file,

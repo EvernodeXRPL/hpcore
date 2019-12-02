@@ -4,6 +4,8 @@
 #include "hashtree_builder.hpp"
 #include "state_store.hpp"
 #include "../hplog.hpp"
+#include "state_store.hpp"
+
 
 namespace statefs
 {
@@ -19,31 +21,33 @@ struct fs_hash_entry
 // Map of modified/deleted files with updated blockids and hashes (if modified).
 extern std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedfiles;
 
+
 /**
  * Retrieves the hash list of the file system entries at a given directory.
  * @return 0 on success. -1 on failure.
  */
-int get_fsentry_hashes(std::vector<fs_hash_entry> &hashlist, const std::string &dirrelpath)
+int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dirrelpath)
 {
+
     const std::string fullpath = current_ctx.datadir + "/" + dirrelpath;
     for (const boost::filesystem::directory_entry &dentry : boost::filesystem::directory_iterator(fullpath))
     {
         const boost::filesystem::path p = dentry.path();
-        fs_hash_entry hashentry;
-        hashentry.path = dirrelpath + "/" + p.filename().string();
-        hashentry.isfile == !boost::filesystem::is_directory(p);
+        p2p::state_fs_hash_entry hashentry;
+        std::string path = dirrelpath + "/" + p.filename().string(); // remove copying 
+        hashentry.is_file == !boost::filesystem::is_directory(p);
 
         // Read the first 32 bytes of the .bhmap file or dir.hash file.
 
         std::string hashmap_path;
 
-        if (hashentry.isfile)
+        if (hashentry.is_file)
         {
-            hashmap_path = hashentry.path + HASHMAP_EXT;
+            hashmap_path = path + HASHMAP_EXT;
         }
         else
         {
-            hashmap_path = hashentry.path + "/" + DIRHASH_FNAME;
+            hashmap_path = path + "/" + DIRHASH_FNAME;
             // Skip the directory if it doesn't contain the dir.hash file.
             // By that we assume the directory is empty so we're not interested in it.
             if (!boost::filesystem::exists(hashmap_path))
@@ -52,7 +56,8 @@ int get_fsentry_hashes(std::vector<fs_hash_entry> &hashlist, const std::string &
 
         if (read_file_bytes(&hashentry.hash, hashmap_path.c_str(), 0, hasher::HASH_SIZE) == -1)
             return -1;
-        hashlist.push_back(std::move(hashentry));
+
+        fs_entries.emplace(path, std::move(hashentry));
     }
     return 0;
 }
