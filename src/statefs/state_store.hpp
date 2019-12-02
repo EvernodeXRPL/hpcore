@@ -8,14 +8,10 @@
 namespace statefs
 {
 
-int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dirrelpath);
-int get_block_hashes(std::vector<uint8_t> &vec, const std::string &filerelpath);
-
-std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedfiles;
-
 //int get_fsentry_hashes(std::vector<fs_hash_entry> &hashlist, const std::string &dirrelpath);
 int get_blockhashmap(std::vector<uint8_t> &vec, const std::string &filerelpath);
-int get_block(const std::string &filerelpath, const uint32_t blockid);
+int get_filelength(const std::string &filerelpath);
+int get_block(std::vector<uint8_t> &vec, const std::string &filerelpath, const uint32_t blockid);
 int delete_folder(const std::string &dirrelpath);
 int delete_file(const std::string &filerelpath);
 int truncate_file(const std::string &filerelpath, const size_t newsize);
@@ -26,8 +22,8 @@ int compute_hashtree();
  * Private helper functions.
  */
 
-int read_file_bytes(void *buf, const char *bhmapfile, const off_t start, const size_t len);
-int read_file_bytes_toend(std::vector<uint8_t> &vec, const char *bhmapfile, const off_t start);
+int read_file_bytes(void *buf, const char *filepath, const off_t start, const size_t len);
+int read_file_bytes_toend(std::vector<uint8_t> &vec, const char *filepath, const off_t start);
 
 } // namespace statefs
 
