@@ -42,9 +42,14 @@ int init()
     ctx.lcl = ldr_hist.lcl;
     ctx.cache.swap(ldr_hist.cache);
 
-    // todo: get the current state and assign here
-    ctx.curr_hash_state = "state avalanche";
+    hasher::B2H root_hash;
+    statefs::compute_hashtree(root_hash);
+
+    std::string str_root_hash(root_hash.data[0], hasher::HASH_SIZE);
+    str_root_hash.swap(ctx.curr_hash_state);
     ctx.prev_hash_state = ctx.curr_hash_state;
+
+    ctx.state_syncing_thread = std::thread([&] { handle_state_response(); });
 
     ctx.prev_close_time = util::get_epoch_milliseconds();
     return 0;
@@ -160,19 +165,24 @@ void consensus()
             return;
         }
 
+        std::cout << "Checking state "<<std::endl;
         check_state(votes);
-
-        // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
-        const p2p::proposal stg_prop = create_stage123_proposal(votes);
-        broadcast_proposal(stg_prop);
-
-        if (ctx.stage == 3)
+        std::cout << "Completed Checking state "<<std::endl;
+        
+        if (!ctx.is_state_syncing)
         {
-            ctx.prev_close_time = stg_prop.time;
-            apply_ledger(stg_prop);
+            // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
+            const p2p::proposal stg_prop = create_stage123_proposal(votes);
+            broadcast_proposal(stg_prop);
 
-            // We have finished a consensus round (all 4 stages).
-            LOG_INFO << "****Stage 3 consensus reached****";
+            if (ctx.stage == 3)
+            {
+                ctx.prev_close_time = stg_prop.time;
+                apply_ledger(stg_prop);
+
+                // We have finished a consensus round (all 4 stages).
+                LOG_INFO << "****Stage 3 consensus reached****";
+            }
         }
     }
 
@@ -648,26 +658,21 @@ void check_state(vote_counter &votes)
 {
     std::string majority_state;
 
-    if (ctx.last_lcl != ctx.lcl)
-    {
-        statefs::compute_hashtree();
+    // // Moving here means lcl matches and ctx.cache empty means this is the initial run otherwise at the end of each consensus round
+    // // if node reaches consensus cache is updated.
+    // // cache contains the previous round's consensus passed state. We have to compare it with this node's previous state because at the
+    // // end of the previous consensus round state might update and we store the state before modification in prev_hash_state variable.
+    // if (!ctx.cache.empty() && ctx.prev_hash_state != ctx.cache.rbegin()->second.state)
+    // {
+    //     statefs::compute_hashtree();
+    //     request_state_from_peer(conf::ctx.statehistdir, false, ctx.lcl);
 
-        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
-        p2p::ctx.collected_msgs.state_response.clear();
-    }
+    //     ctx.is_state_syncing =
 
-    // Moving here means lcl matches and ctx.cache empty means this is the initial run otherwise at the end of each consensus round
-    // if node reaches consensus cache is updated.
-    // cache contains the previous round's consensus passed state. We have to compare it with this node's previous state because at the
-    // end of the previous consensus round state might update and we store the state before modification in prev_hash_state variable.
-    if (!ctx.cache.empty() && ctx.prev_hash_state != ctx.cache.rbegin()->second.state)
-    {
-        // request_state_from_peer(conf::ctx.statehistdir, ctx.lcl);
-
-        // Change the mode to passive and not sending out proposals till the state is synced
-        conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
-        return;
-    }
+    //     // Change the mode to passive and not sending out proposals till the state is synced
+    //     conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
+    //     return;
+    // }
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
@@ -687,16 +692,33 @@ void check_state(vote_counter &votes)
         }
     }
 
+    if (ctx.is_state_syncing)
+    {
+        hasher::B2H root_hash;
+        statefs::compute_hashtree(root_hash);
+
+        std::string str_root_hash(root_hash.data[0], hasher::HASH_SIZE);
+        str_root_hash.swap(ctx.curr_hash_state);
+    }
+
     if (majority_state != ctx.curr_hash_state)
     {
-        //rollback();
-        //  request_state_from_peer(conf::ctx.statehistdir, false, ctx.lcl);
+        if (ctx.prev_lcl != ctx.lcl)
+        {
+            ctx.prev_lcl = ctx.lcl;
+            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+            p2p::ctx.collected_msgs.state_response.clear();
+
+            ctx.is_state_syncing = true;
+           request_state_from_peer(conf::ctx.statehistdir, false, ctx.lcl, -1);
+        }
 
         // Change the mode to passive and not sending out proposals till the state is synced
         conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
     }
     else
     {
+        ctx.is_state_syncing = false;
         conf::cfg.mode == conf::OPERATING_MODE::ACTIVE;
     }
 }

@@ -10,7 +10,7 @@ namespace statefs
 {
 
 // Map of modified/deleted files with updated blockids and hashes (if modified).
-extern std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedfiles;
+std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedfiles;
 
 /**
  * Retrieves the hash list of the file system entries at a given directory.
@@ -188,11 +188,11 @@ int write_block(const std::string &filerelpath, const uint32_t blockid, const vo
  * Computes the latest hash tree with any changes recorded in touched files index.
  * @return 0 on success. -1 on failure.
  */
-int compute_hashtree()
+int compute_hashtree(hasher::B2H &statehash)
 {
     hashtree_builder htreebuilder(current_ctx);
 
-    hasher::B2H statehash = {0, 0, 0, 0};
+    statehash = {0, 0, 0, 0};
     int ret = htreebuilder.generate(statehash, touchedfiles);
 
     touchedfiles.clear();

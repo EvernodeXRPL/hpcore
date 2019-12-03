@@ -8,6 +8,7 @@
 #include "../statefs/state_common.hpp"
 #include "../statefs/hashtree_builder.hpp"
 #include "proc.hpp"
+#include "../cons/cons.hpp"
 
 namespace proc
 {
@@ -191,6 +192,9 @@ int stop_state_monitor()
     if (htreebuilder.generate(statehash) != 0)
         return -1;
 
+    std::string root_hash(statehash.data[0], hasher::HASH_SIZE);
+    root_hash.swap(cons::ctx.curr_hash_state);
+    
     LOG_DBG << "State hash: " << std::hex << statehash << std::dec;
 
     return 0;

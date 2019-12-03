@@ -7,6 +7,7 @@
 #include "../p2p/p2p.hpp"
 #include "../usr/user_input.hpp"
 #include "ledger_handler.hpp"
+#include "state_handler.hpp"
 
 namespace cons
 {
@@ -85,8 +86,9 @@ struct consensus_context
     uint64_t prev_close_time;
 
     // Used to store last round lcl to check whether to re-new the state check
-    std::string last_lcl;
-    bool is_stste_syncing;
+    std::string prev_lcl;
+    bool is_state_syncing;
+    std::thread state_syncing_thread;
 
     consensus_context() : recent_userinput_hashes(200)
     {

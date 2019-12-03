@@ -11,7 +11,9 @@
 namespace cons
 {
 
-void request_state_from_peer(const std::string &path, bool &is_file, std::string &lcl, int32_t block_id = -1)
+std::list<std::string> candidate_state_responses;
+
+void request_state_from_peer(const std::string &path, bool is_file, std::string &lcl, int32_t block_id)
 {
     p2p::state_request sr;
     sr.parent_path = path;
@@ -85,7 +87,7 @@ void handle_state_response()
             {
                 const fbschema::p2pmsg::Content_Response *con_resp = resp_msg->state_response_as_Content_Response();
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> state_content_list;
-                fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_content_list, con_resp->content());
+                // fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_content_list, con_resp->content());
 
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
                 std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(con_resp->path());
@@ -100,7 +102,7 @@ void handle_state_response()
                     if (fs_itr != state_content_list.end())
                     {
                         if (fs_itr->second.hash != fs_entry.hash)
-                            request_state_from_peer(path, fs_entry.is_file, ctx.lcl);
+                            request_state_from_peer(path, fs_entry.is_file, ctx.lcl, -1);
 
                         state_content_list.erase(fs_itr);
                     }
@@ -115,7 +117,7 @@ void handle_state_response()
 
                 for (const auto &[path, fs_entry] : state_content_list)
                 {
-                    request_state_from_peer(path, fs_entry.is_file, ctx.lcl);
+                    request_state_from_peer(path, fs_entry.is_file, ctx.lcl, -1);
                 }
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)

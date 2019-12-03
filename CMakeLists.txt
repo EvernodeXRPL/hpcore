@@ -92,6 +92,7 @@ target_link_libraries(hpusr hpsupport hpsock hpschema)
 add_library(hpcons
     src/cons/cons.cpp
     src/cons/ledger_handler.cpp
+    src/cons/state_handler.cpp
 )
 target_link_libraries(hpcons hpsupport hpproc hpp2p hpusr)
 
