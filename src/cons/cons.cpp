@@ -26,8 +26,9 @@ namespace cons
  * Voting thresholds for consensus stages.
  */
 constexpr float STAGE1_THRESHOLD = 0.5;
-constexpr float STAGE2_THRESHOLD = 0.65;
-constexpr float STAGE3_THRESHOLD = 0.8;
+constexpr float STAGE2_THRESHOLD = 0.6;
+constexpr float STAGE3_THRESHOLD = 0.65;
+constexpr float MAJORITY_THRESHOLD = 0.65;
 
 consensus_context ctx;
 
@@ -39,15 +40,14 @@ int init()
     //load lcl details from lcl history.
     ledger_history ldr_hist = load_ledger();
     ctx.led_seq_no = ldr_hist.led_seq_no;
-    ctx.lcl = ldr_hist.lcl;
+    ctx.prev_lcl = ctx.lcl = ldr_hist.lcl;
     ctx.cache.swap(ldr_hist.cache);
 
-    hasher::B2H root_hash;
+    hasher::B2H root_hash{0, 0, 0, 0};
     statefs::compute_hashtree(root_hash);
 
-    std::string str_root_hash(root_hash.data[0], hasher::HASH_SIZE);
+    std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
-    ctx.prev_hash_state = ctx.curr_hash_state;
 
     ctx.state_syncing_thread = std::thread([&] { handle_state_response(); });
 
@@ -58,7 +58,6 @@ int init()
 void consensus()
 {
     // A consensus round consists of 4 stages (0,1,2,3).
-
     // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
     // Get the latest current time.
@@ -165,10 +164,10 @@ void consensus()
             return;
         }
 
-        std::cout << "Checking state "<<std::endl;
+        std::cout << "Checking state " << std::endl;
         check_state(votes);
-        std::cout << "Completed Checking state "<<std::endl;
-        
+        std::cout << "Completed Checking state " << std::endl;
+
         if (!ctx.is_state_syncing)
         {
             // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
@@ -322,10 +321,11 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
     p2p::proposal stg_prop;
     stg_prop.stage = ctx.stage;
 
-    // we always vote for our current lcl regardless of what other peers are saying
+    // we always vote for our current lcl and state regardless of what other peers are saying
     // if there's a fork condition we will either request history and state from
     // our peers or we will halt depending on level of consensus on the sides of the fork
     stg_prop.lcl = ctx.lcl;
+    stg_prop.curr_hash_state = ctx.curr_hash_state;
 
     // Vote for rest of the proposal fields by looking at candidate proposals.
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -471,9 +471,9 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     is_desync = false;
     should_request_history = false;
 
-    if (total_lcl_votes < (0.8 * conf::cfg.unl.size()))
+    if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
     {
-        LOG_DBG << "Not enough peers proposing to perform consensus" << std::to_string(total_lcl_votes) << " needed " << std::to_string(0.8 * conf::cfg.unl.size());
+        LOG_DBG << "Not enough peers proposing to perform consensus" << std::to_string(total_lcl_votes) << " needed " << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
         is_desync = true;
         return;
     }
@@ -499,7 +499,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
         return;
     }
 
-    if (winning_votes < 0.8 * ctx.candidate_proposals.size())
+    if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
     {
         // potential fork condition.
         // critical!!!
@@ -703,6 +703,8 @@ void check_state(vote_counter &votes)
 
     if (majority_state != ctx.curr_hash_state)
     {
+        LOG_DBG << "State mismatch occurs";
+        
         if (ctx.prev_lcl != ctx.lcl)
         {
             ctx.prev_lcl = ctx.lcl;
@@ -710,7 +712,8 @@ void check_state(vote_counter &votes)
             p2p::ctx.collected_msgs.state_response.clear();
 
             ctx.is_state_syncing = true;
-           request_state_from_peer(conf::ctx.statehistdir, false, ctx.lcl, -1);
+            request_state_from_peer("/", false, ctx.lcl, -1);
+            LOG_DBG << "Starting state sync requesting state from peer";
         }
 
         // Change the mode to passive and not sending out proposals till the state is synced

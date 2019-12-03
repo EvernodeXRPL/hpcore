@@ -28,7 +28,6 @@ table Proposal_Message { //Proposal type message schema
     users:[ByteArray];
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
-    prev_state_hash: [ubyte];
     curr_state_hash: [ubyte];
 }
 

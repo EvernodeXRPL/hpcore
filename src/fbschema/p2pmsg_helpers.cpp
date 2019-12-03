@@ -425,7 +425,7 @@ void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &contai
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    std::string_view conv_hashmap(reinterpret_cast<char *>(hashmap[0]), hashmap.size());
+    std::string_view conv_hashmap(reinterpret_cast<const char *>(&hashmap), hashmap.size());
 
     const flatbuffers::Offset<File_HashMap_Response> resp =
         CreateFile_HashMap_Response(
@@ -455,7 +455,7 @@ void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_bu
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    std::string_view data(reinterpret_cast<char *>(block_resp.data[0]), block_resp.data.size());
+    std::string_view data(reinterpret_cast<const char *>(&block_resp.data), block_resp.data.size());
 
     const flatbuffers::Offset<Block_Response> resp =
         CreateBlock_Response(
@@ -632,7 +632,7 @@ statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &bu
     fbvec.reserve(fs_entries.size());
     for (auto const &[path, fs_entry] : fs_entries)
     {
-        std::string_view entry(reinterpret_cast<char *>(fs_entry.hash.data[0]), hasher::HASH_SIZE);
+        std::string_view entry(reinterpret_cast<const char *>(&fs_entry.hash.data), hasher::HASH_SIZE);
         
         flatbuffers::Offset<State_FS_Hash_Entry> state_fs_entry = CreateState_FS_Hash_Entry(
             builder,

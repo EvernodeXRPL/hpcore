@@ -61,16 +61,19 @@ void handle_state_response()
 {
     while (true)
     {
+        util::sleep(100);
 
         {
             std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+
+            if (p2p::ctx.collected_msgs.state_response.empty())
+                continue;
+
             candidate_state_responses.clear();
+
             auto it = p2p::ctx.collected_msgs.state_response.begin();
             candidate_state_responses.splice(candidate_state_responses.end(), p2p::ctx.collected_msgs.state_response, it);
         }
-
-        if (candidate_state_responses.empty())
-            continue;
 
         if (candidate_state_responses.size() > 1)
         {
@@ -85,6 +88,7 @@ void handle_state_response()
             const fbschema::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
             if (msg_type == fbschema::p2pmsg::State_Response_Content_Response)
             {
+                LOG_DBG << "Recieved state content response";
                 const fbschema::p2pmsg::Content_Response *con_resp = resp_msg->state_response_as_Content_Response();
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> state_content_list;
                 // fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_content_list, con_resp->content());
@@ -122,6 +126,7 @@ void handle_state_response()
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)
             {
+                LOG_DBG << "Recieved state hash map response";
                 const fbschema::p2pmsg::File_HashMap_Response *file_resp = resp_msg->state_response_as_File_HashMap_Response();
 
                 std::vector<uint8_t> exising_block_hashmap;
@@ -157,6 +162,7 @@ void handle_state_response()
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_Block_Response)
             {
+                LOG_DBG << "Recieved state block response";
                 p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*resp_msg->state_response_as_Block_Response());
                 statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size());
             }

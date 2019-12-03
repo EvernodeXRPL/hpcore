@@ -74,7 +74,6 @@ struct consensus_context
     uint64_t time_now;
     std::string lcl;
     uint64_t led_seq_no;
-    std::string prev_hash_state;
     std::string curr_hash_state;
 
     //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
