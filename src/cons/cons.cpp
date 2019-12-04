@@ -691,6 +691,16 @@ void check_state(vote_counter &votes)
         }
     }
 
+    if (majority_state.empty())
+    {
+        std::cout << "majority state empty\n";
+    }
+    else
+    {
+        std::cout << "majority_state: " << std::hex << (*(hasher::B2H *)majority_state.c_str()) << std::dec << "\n";
+        std::cout << "curr state" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
+    }
+
     if (ctx.is_state_syncing)
     {
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);

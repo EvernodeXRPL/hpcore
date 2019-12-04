@@ -103,6 +103,9 @@ void broadcast_message(const peer_outbound_message msg, bool send_to_self)
  */
 void send_message_to_random_peer(peer_outbound_message msg)
 {
+    //Send while locking the peer_connections.
+    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+
     size_t connected_peers = ctx.peer_connections.size();
     if (connected_peers == 0)
     {
@@ -115,19 +118,21 @@ void send_message_to_random_peer(peer_outbound_message msg)
         return;
     }
 
-    //Send while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-
-    // Initialize random number generator with current timestamp.
-    int random_peer_index = (rand() % connected_peers); // select a random peer index.
-    auto it = ctx.peer_connections.begin();
-    std::advance(it, random_peer_index); //move iterator to point to random selected peer.
-
-    //send message to selecte peer.
-    auto session = it->second;
-    if (!session->is_self)
+    while (true)
     {
-        session->send(msg);
+        // Initialize random number generator with current timestamp.
+        int random_peer_index = (rand() % connected_peers); // select a random peer index.
+        std::cout << "Random peer index: " << random_peer_index << "\n";
+        auto it = ctx.peer_connections.begin();
+        std::advance(it, random_peer_index); //move iterator to point to random selected peer.
+
+        //send message to selecte peer.
+        auto session = it->second;
+        if (!session->is_self)
+        {
+            session->send(msg);
+            break;
+        }
     }
 }
 

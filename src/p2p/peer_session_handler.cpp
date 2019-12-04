@@ -125,21 +125,23 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
         if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl && cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state)
         {
-        std::cout << "******************sending state response*************************" <<std::endl;
+            std::cout << "******************sending state response*************************" << std::endl;
 
             const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
             session->send(cons::send_state_response(sr));
-        }else{
-            // todo: send an error response            
+        }
+        else
+        {
+            // todo: send an error response
+            std::cout << "Cannot send state response. My state incorrect." << std::endl;
         }
     }
     else if (content_message_type == p2pmsg::Message_State_Response_Message)
     {
-        std::cout << "Receieved state response"<<std::endl;
+        std::cout << "Receieved state response" << std::endl;
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
         std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
         ctx.collected_msgs.state_response.push_back(std::move(response));
-        
     }
     else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
     {

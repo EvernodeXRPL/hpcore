@@ -27,7 +27,6 @@ void request_state_from_peer(const std::string &path, bool is_file, std::string 
 
 p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
 {
-    std::cout << "Recieved state request" << std::endl;
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     if (sr.block_id > -1)
     {
@@ -94,11 +93,13 @@ void handle_state_response()
             const fbschema::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
             if (msg_type == fbschema::p2pmsg::State_Response_Content_Response)
             {
-                std::cout << "Recieved state content response" << std::endl;
                 LOG_DBG << "Recieved state content response";
                 const fbschema::p2pmsg::Content_Response *con_resp = resp_msg->state_response_as_Content_Response();
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> state_content_list;
                 fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_content_list, con_resp->content());
+
+                for (const auto [a,b] : state_content_list)
+                    std::cout << "**********Recieved fsentry: " << a << "\n";
 
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
                 std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(con_resp->path());
@@ -151,7 +152,7 @@ void handle_state_response()
 
                 std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
                 std::cout << "Existing file hashmap size :" << exising_block_hashmap.size() << std::endl;
-                for (int i = 1; i < existing_hash_count; ++i)
+                for (int i = 0; i < existing_hash_count; ++i)
                 {
                     if (i >= resp_hash_count)
                         break;
@@ -159,7 +160,7 @@ void handle_state_response()
                     if (existing_hashes[i] != resp_hashes[i])
                     {
                         std::cout << "Mismatch in file block  :" << i << std::endl;
-                        request_state_from_peer(path_str, true, ctx.lcl, i - 1);
+                        request_state_from_peer(path_str, true, ctx.lcl, i);
                     }
                 }
 
@@ -169,7 +170,7 @@ void handle_state_response()
                 }
                 else if (existing_hash_count < resp_hash_count)
                 {
-                    for (int i = (existing_hash_count - 1); i < resp_hash_count; ++i)
+                    for (int i = existing_hash_count; i < resp_hash_count; ++i)
                     {
                         request_state_from_peer(path_str, true, ctx.lcl, i);
                     }
