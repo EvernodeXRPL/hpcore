@@ -19,7 +19,7 @@ int delete_folder(const std::string &dirrelpath);
 int delete_file(const std::string &filerelpath);
 int truncate_file(const std::string &filerelpath, const size_t newsize);
 int write_block(const std::string &filerelpath, const uint32_t blockid, const void *buf, const size_t len);
-int compute_hashtree(hasher::B2H &statehash);
+int compute_hashtree(hasher::B2H &statehash, const bool force_all = false);
 
 /**
  * Private helper functions.

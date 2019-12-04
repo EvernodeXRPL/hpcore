@@ -165,6 +165,7 @@ int truncate_file(const std::string &filerelpath, const size_t newsize)
  */
 int write_block(const std::string &filerelpath, const uint32_t blockid, const void *buf, const size_t len)
 {
+    std::cout<< "Inside write block "<<std::endl;
     std::string fullpath = current_ctx.datadir + filerelpath;
     int fd = open(fullpath.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
     if (fd == -1)
@@ -184,6 +185,7 @@ int write_block(const std::string &filerelpath, const uint32_t blockid, const vo
 
     hasher::B2H hash = hasher::hash(&offset, 8, buf, len);
     touchedfiles[filerelpath].emplace(blockid, hash);
+    
     return 0;
 }
 
@@ -191,12 +193,14 @@ int write_block(const std::string &filerelpath, const uint32_t blockid, const vo
  * Computes the latest hash tree with any changes recorded in touched files index.
  * @return 0 on success. -1 on failure.
  */
-int compute_hashtree(hasher::B2H &statehash)
+int compute_hashtree(hasher::B2H &statehash, const bool force_all)
 {
     hashtree_builder htreebuilder(current_ctx);
 
     statehash = {0, 0, 0, 0};
-    int ret = htreebuilder.generate(statehash, touchedfiles);
+    int ret = force_all ? 
+        htreebuilder.generate(statehash, true) : 
+        htreebuilder.generate(statehash, touchedfiles);
 
     touchedfiles.clear();
     return ret;

@@ -123,7 +123,7 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         std::cout << "State request lcl :"<<fbschema::flatbuff_bytes_to_sv(container->lcl()) <<std::endl;
         std::cout << "my lcl :"<<cons::ctx.lcl <<std::endl;
 
-        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl)
+        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl && cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state)
         {
             const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
             session->send(cons::send_state_response(sr));

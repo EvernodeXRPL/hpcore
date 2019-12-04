@@ -82,7 +82,7 @@ struct block_response
 {
     std::string path;
     uint32_t block_id;
-    std::vector<uint8_t> data;
+    std::string_view data;
 };
 
 struct message_collection

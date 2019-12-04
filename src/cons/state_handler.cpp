@@ -37,7 +37,8 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
         p2p::block_response resp;
         resp.path = sr.parent_path;
         resp.block_id = sr.block_id;
-        resp.data = blocks;
+
+        resp.data = std::string_view(reinterpret_cast<const char *>(blocks.data()), blocks.size());
         fbschema::p2pmsg::create_msg_from_block_response(msg.builder(), resp, ctx.lcl);
     }
     else
@@ -67,6 +68,7 @@ void handle_state_response()
     {
         util::sleep(100);
 
+        std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
         {
             std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
 
@@ -156,8 +158,8 @@ void handle_state_response()
 
                     if (existing_hashes[i] != resp_hashes[i])
                     {
-                        std::cout << "Mismatch in file block  :" << i  << std::endl;
-                        request_state_from_peer(path_str, true, ctx.lcl, i);
+                        std::cout << "Mismatch in file block  :" << i << std::endl;
+                        request_state_from_peer(path_str, true, ctx.lcl, i - 1);
                     }
                 }
 
@@ -178,6 +180,7 @@ void handle_state_response()
                 std::cout << "Recieved state block response" << std::endl;
                 LOG_DBG << "Recieved state block response";
                 p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*resp_msg->state_response_as_Block_Response());
+                std::cout << "AAAA" << std::endl;
                 statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size());
             }
         }

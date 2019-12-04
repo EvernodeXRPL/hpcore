@@ -252,7 +252,7 @@ const p2p::block_response create_block_response_from_msg(const Block_Response &m
 
     br.path = flatbuff_str_to_sv(msg.path());
     br.block_id = msg.block_id();
-    br.data = *reinterpret_cast<const std::vector<uint8_t> *>(msg.data());
+    br.data = std::string_view(reinterpret_cast<const char *> (msg.data()->data()), msg.data()->size());
     return br;
 }
 
@@ -465,14 +465,12 @@ void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_bu
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    std::string_view data(reinterpret_cast<const char *>(&block_resp.data), block_resp.data.size());
-
     const flatbuffers::Offset<Block_Response> resp =
         CreateBlock_Response(
             builder,
             sv_to_flatbuff_str(builder, block_resp.path),
             block_resp.block_id,
-            sv_to_flatbuff_bytes(builder, data));
+            sv_to_flatbuff_bytes(builder, block_resp.data));
 
     const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_Block_Response, resp.Union());
 

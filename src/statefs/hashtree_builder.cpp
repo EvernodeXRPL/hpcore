@@ -8,6 +8,7 @@ namespace statefs
 
 hashtree_builder::hashtree_builder(const statedir_context &ctx) : ctx(ctx), hmapbuilder(ctx)
 {
+    force_rebuild_all = false;
 }
 
 int hashtree_builder::generate(hasher::B2H &roothash)
@@ -16,6 +17,21 @@ int hashtree_builder::generate(hasher::B2H &roothash)
     populate_hintpaths_from_idxfile(IDX_TOUCHEDFILES);
     populate_hintpaths_from_idxfile(IDX_NEWFILES);
     hintmode = !hintpaths.empty();
+
+    return traverse_and_generate(roothash);
+}
+
+int hashtree_builder::generate(hasher::B2H &roothash, const bool force_all)
+{
+    force_rebuild_all = force_all;
+    if (force_rebuild_all)
+    {
+        boost::filesystem::remove_all(ctx.blockhashmapdir);
+        boost::filesystem::remove_all(ctx.hashtreedir);
+
+        boost::filesystem::create_directories(ctx.blockhashmapdir);
+        boost::filesystem::create_directories(ctx.hashtreedir);
+    }
 
     return traverse_and_generate(roothash);
 }
@@ -166,11 +182,17 @@ int hashtree_builder::save_dirhash(const std::string &dirhashfile, hasher::B2H d
 
 inline bool hashtree_builder::should_process_dir(hintpath_map::iterator &dir_itr, const std::string &dirpath)
 {
+    if (force_rebuild_all)
+        return true;
+
     return (hintmode ? get_hinteddir_match(dir_itr, dirpath) : true);
 }
 
 bool hashtree_builder::should_process_file(const hintpath_map::iterator hintdir_itr, const std::string filepath)
 {
+    if (force_rebuild_all)
+        return true;
+
     if (hintmode)
     {
         if (hintdir_itr == hintpaths.end())

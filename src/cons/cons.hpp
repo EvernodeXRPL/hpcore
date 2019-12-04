@@ -84,10 +84,9 @@ struct consensus_context
     //ledger close time of previous hash
     uint64_t prev_close_time;
 
-    // Used to store last round lcl to check whether to re-new the state check
-    std::string prev_lcl;
     bool is_state_syncing;
     std::thread state_syncing_thread;
+    std::mutex state_syncing_mutex;
 
     consensus_context() : recent_userinput_hashes(200)
     {

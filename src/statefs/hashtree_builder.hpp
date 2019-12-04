@@ -19,6 +19,7 @@ private:
 
     // Hint path map with parent dir as key and list of file paths under each parent dir.
     hintpath_map hintpaths;
+    bool force_rebuild_all;
     bool hintmode;
     bool removal_mode;
     std::string traversel_rootdir;
@@ -44,6 +45,7 @@ private:
 public:
     hashtree_builder(const statedir_context &ctx);
     int generate(hasher::B2H &roothash);
+    int generate(hasher::B2H &roothash, const bool force_all);
     int generate(hasher::B2H &roothash, const std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> &touchedfiles);
 };
 

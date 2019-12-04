@@ -40,11 +40,11 @@ int init()
     //load lcl details from lcl history.
     ledger_history ldr_hist = load_ledger();
     ctx.led_seq_no = ldr_hist.led_seq_no;
-    ctx.prev_lcl = ctx.lcl = ldr_hist.lcl;
+    ctx.lcl = ldr_hist.lcl;
     ctx.cache.swap(ldr_hist.cache);
 
     hasher::B2H root_hash{0, 0, 0, 0};
-    statefs::compute_hashtree(root_hash);
+    statefs::compute_hashtree(root_hash, true);
 
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
@@ -164,9 +164,8 @@ void consensus()
             return;
         }
 
-        std::cout << "Checking state " << std::endl;
-        check_state(votes);
-        std::cout << "Completed Checking state " << std::endl;
+        if (ctx.stage == 1)
+            check_state(votes);
 
         if (!ctx.is_state_syncing)
         {
@@ -694,30 +693,26 @@ void check_state(vote_counter &votes)
 
     if (ctx.is_state_syncing)
     {
-        hasher::B2H root_hash;
+        std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
+        hasher::B2H root_hash = {0, 0, 0, 0};
         statefs::compute_hashtree(root_hash);
 
-        std::string str_root_hash(root_hash.data[0], hasher::HASH_SIZE);
+        std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
         str_root_hash.swap(ctx.curr_hash_state);
     }
 
     if (majority_state != ctx.curr_hash_state)
     {
         LOG_DBG << "State mismatch occurs";
-        
-        if (ctx.prev_lcl != ctx.lcl)
-        {
-            ctx.prev_lcl = ctx.lcl;
-            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
-            p2p::ctx.collected_msgs.state_response.clear();
-
-            ctx.is_state_syncing = true;
-            request_state_from_peer("/", false, ctx.lcl, -1);
-            LOG_DBG << "Starting state sync requesting state from peer";
-        }
-
         // Change the mode to passive and not sending out proposals till the state is synced
         conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
+
+        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+        p2p::ctx.collected_msgs.state_response.clear();
+
+        ctx.is_state_syncing = true;
+        request_state_from_peer("/", false, ctx.lcl, -1);
+        LOG_DBG << "Starting state sync requesting state from peer";
     }
     else
     {
