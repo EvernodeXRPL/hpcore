@@ -27,7 +27,7 @@ namespace cons
  */
 constexpr float STAGE1_THRESHOLD = 0.5;
 constexpr float STAGE2_THRESHOLD = 0.6;
-constexpr float STAGE3_THRESHOLD = 0.65;
+constexpr float STAGE3_THRESHOLD = 0.6;
 constexpr float MAJORITY_THRESHOLD = 0.65;
 
 consensus_context ctx;
@@ -118,17 +118,17 @@ void consensus()
     else // Stage 1, 2, 3
     {
         std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
-        for (auto &[pubkey, proposal] : ctx.candidate_proposals)
-        {
-            bool self = proposal.pubkey == conf::cfg.pubkey;
-            LOG_DBG << "[stage" << std::to_string(proposal.stage)
-                    << "] users:" << proposal.users.size()
-                    << " hinp:" << proposal.hash_inputs.size()
-                    << " hout:" << proposal.hash_outputs.size()
-                    << " lcl:" << proposal.lcl
-                    << " self:" << self
-                    << "\n";
-        }
+        // for (auto &[pubkey, proposal] : ctx.candidate_proposals)
+        // {
+        //     bool self = proposal.pubkey == conf::cfg.pubkey;
+        //     LOG_DBG << "[stage" << std::to_string(proposal.stage)
+        //             << "] users:" << proposal.users.size()
+        //             << " hinp:" << proposal.hash_inputs.size()
+        //             << " hout:" << proposal.hash_outputs.size()
+        //             << " lcl:" << proposal.lcl
+        //             << " self:" << self
+        //             << "\n";
+        // }
 
         // Initialize vote counters
         vote_counter votes;
@@ -404,10 +404,10 @@ void broadcast_proposal(const p2p::proposal &p)
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
     p2p::broadcast_message(msg, true);
 
-    LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
-            << "] users:" << p.users.size()
-            << " hinp:" << p.hash_inputs.size()
-            << " hout:" << p.hash_outputs.size();
+    // LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
+    //         << "] users:" << p.users.size()
+    //         << " hinp:" << p.hash_inputs.size()
+    //         << " hout:" << p.hash_outputs.size();
 }
 
 /**

@@ -992,13 +992,20 @@ inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedgerDirect(
 struct State_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PARENT_PATH = 4,
-    VT_BLOCK_ID = 6
+    VT_IS_FILE = 6,
+    VT_BLOCK_ID = 8
   };
   const flatbuffers::String *parent_path() const {
     return GetPointer<const flatbuffers::String *>(VT_PARENT_PATH);
   }
   flatbuffers::String *mutable_parent_path() {
     return GetPointer<flatbuffers::String *>(VT_PARENT_PATH);
+  }
+  bool is_file() const {
+    return GetField<uint8_t>(VT_IS_FILE, 0) != 0;
+  }
+  bool mutate_is_file(bool _is_file) {
+    return SetField<uint8_t>(VT_IS_FILE, static_cast<uint8_t>(_is_file), 0);
   }
   int32_t block_id() const {
     return GetField<int32_t>(VT_BLOCK_ID, 0);
@@ -1010,6 +1017,7 @@ struct State_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_PARENT_PATH) &&
            verifier.VerifyString(parent_path()) &&
+           VerifyField<uint8_t>(verifier, VT_IS_FILE) &&
            VerifyField<int32_t>(verifier, VT_BLOCK_ID) &&
            verifier.EndTable();
   }
@@ -1020,6 +1028,9 @@ struct State_Request_MessageBuilder {
   flatbuffers::uoffset_t start_;
   void add_parent_path(flatbuffers::Offset<flatbuffers::String> parent_path) {
     fbb_.AddOffset(State_Request_Message::VT_PARENT_PATH, parent_path);
+  }
+  void add_is_file(bool is_file) {
+    fbb_.AddElement<uint8_t>(State_Request_Message::VT_IS_FILE, static_cast<uint8_t>(is_file), 0);
   }
   void add_block_id(int32_t block_id) {
     fbb_.AddElement<int32_t>(State_Request_Message::VT_BLOCK_ID, block_id, 0);
@@ -1039,21 +1050,25 @@ struct State_Request_MessageBuilder {
 inline flatbuffers::Offset<State_Request_Message> CreateState_Request_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> parent_path = 0,
+    bool is_file = false,
     int32_t block_id = 0) {
   State_Request_MessageBuilder builder_(_fbb);
   builder_.add_block_id(block_id);
   builder_.add_parent_path(parent_path);
+  builder_.add_is_file(is_file);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<State_Request_Message> CreateState_Request_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *parent_path = nullptr,
+    bool is_file = false,
     int32_t block_id = 0) {
   auto parent_path__ = parent_path ? _fbb.CreateString(parent_path) : 0;
   return fbschema::p2pmsg::CreateState_Request_Message(
       _fbb,
       parent_path__,
+      is_file,
       block_id);
 }
 

@@ -228,7 +228,16 @@ const p2p::state_request create_state_request_from_msg(const State_Request_Messa
     p2p::state_request sr;
 
     sr.block_id = msg.block_id();
-    sr.parent_path = flatbuff_str_to_sv(msg.parent_path());
+    sr.is_file = msg.is_file();
+    if (msg.parent_path())
+    {
+        sr.parent_path = flatbuff_str_to_sv(msg.parent_path());
+    }
+    else
+    {
+        sr.parent_path = "";
+    }
+
     return sr;
 }
 
@@ -375,7 +384,9 @@ void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_bui
     flatbuffers::Offset<State_Request_Message> srmsg =
         CreateState_Request_Message(
             builder,
-            sv_to_flatbuff_str(builder, hr.parent_path));
+            sv_to_flatbuff_str(builder, hr.parent_path),
+            hr.is_file,
+            hr.block_id);
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Request_Message, srmsg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -394,7 +405,6 @@ void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_bui
  */
 void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, std::string_view lcl)
 {
-    // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
     const flatbuffers::Offset<Content_Response> resp =
@@ -633,7 +643,7 @@ statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &bu
     for (auto const &[path, fs_entry] : fs_entries)
     {
         std::string_view entry(reinterpret_cast<const char *>(&fs_entry.hash.data), hasher::HASH_SIZE);
-        
+
         flatbuffers::Offset<State_FS_Hash_Entry> state_fs_entry = CreateState_FS_Hash_Entry(
             builder,
             sv_to_flatbuff_str(builder, path),

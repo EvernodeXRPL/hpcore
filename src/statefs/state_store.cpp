@@ -21,13 +21,15 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
     // TODO: instead of iterating the data dir, we could simply query the hash tree directory
     // listing and get the hashes using the hardlink names straight away. But then we don't have
     // a way to get the file names. If we could implement a mechanism for that we could make this efficient.
- 
-    const std::string fullpath = current_ctx.datadir + "/" + dirrelpath;
+
+    const std::string fullpath = current_ctx.datadir + dirrelpath;
     for (const boost::filesystem::directory_entry &dentry : boost::filesystem::directory_iterator(fullpath))
     {
         const boost::filesystem::path p = dentry.path();
+        std::cout << "fsentry: " << p.string() << "\n";
+
         p2p::state_fs_hash_entry hashentry;
-        const std::string path = dirrelpath + "/" + p.filename().string();
+        const std::string path = dirrelpath + p.filename().string();
         hashentry.is_file == !boost::filesystem::is_directory(p);
 
         // Read the first 32 bytes of the .bhmap file or dir.hash file.
@@ -36,11 +38,11 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
 
         if (hashentry.is_file)
         {
-            hash_path = current_ctx.blockhashmapdir + "/" + path + HASHMAP_EXT;
+            hash_path = current_ctx.blockhashmapdir + path + HASHMAP_EXT;
         }
         else
         {
-            hash_path =  current_ctx.hashtreedir + "/" + path + "/" + DIRHASH_FNAME;
+            hash_path = current_ctx.hashtreedir + path + "/" + DIRHASH_FNAME;
             // Skip the directory if it doesn't contain the dir.hash file.
             // By that we assume the directory is empty so we're not interested in it.
             if (!boost::filesystem::exists(hash_path))
@@ -61,7 +63,7 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
  */
 int get_blockhashmap(std::vector<uint8_t> &vec, const std::string &filerelpath)
 {
-    const std::string bhmap_path = current_ctx.hashtreedir + "/" + filerelpath + HASHMAP_EXT;
+    const std::string bhmap_path = current_ctx.blockhashmapdir + filerelpath + HASHMAP_EXT;
 
     if (read_file_bytes_toend(vec, bhmap_path.c_str(), 0) == -1)
         return -1;
@@ -71,7 +73,7 @@ int get_blockhashmap(std::vector<uint8_t> &vec, const std::string &filerelpath)
 
 int get_filelength(const std::string &filerelpath)
 {
-    std::string fullpath = current_ctx.datadir + "/" + filerelpath;
+    std::string fullpath = current_ctx.datadir + filerelpath;
     int fd = open(fullpath.c_str(), O_RDONLY);
     if (fd == -1)
     {
@@ -91,7 +93,8 @@ int get_filelength(const std::string &filerelpath)
  */
 int get_block(std::vector<uint8_t> &vec, const std::string &filerelpath, const uint32_t blockid)
 {
-    std::string fullpath = current_ctx.datadir + "/" + filerelpath;
+    std::cout << "Printing out block Id :" << blockid << std::endl;
+    std::string fullpath = current_ctx.datadir + filerelpath;
     vec.resize(BLOCK_SIZE);
     int readbytes = read_file_bytes(vec.data(), fullpath.c_str(), blockid * BLOCK_SIZE, BLOCK_SIZE);
     vec.resize(readbytes);
@@ -104,7 +107,7 @@ int get_block(std::vector<uint8_t> &vec, const std::string &filerelpath, const u
  */
 int delete_folder(const std::string &dirrelpath)
 {
-    std::string fullpath = current_ctx.datadir + "/" + dirrelpath;
+    std::string fullpath = current_ctx.datadir + dirrelpath;
     if (boost::filesystem::remove_all(fullpath) == -1)
         return -1;
 
@@ -119,7 +122,7 @@ int delete_folder(const std::string &dirrelpath)
  */
 int delete_file(const std::string &filerelpath)
 {
-    std::string fullpath = current_ctx.datadir + "/" + filerelpath;
+    std::string fullpath = current_ctx.datadir + filerelpath;
     if (boost::filesystem::remove(fullpath) == -1)
         return -1;
 
@@ -133,7 +136,7 @@ int delete_file(const std::string &filerelpath)
  */
 int truncate_file(const std::string &filerelpath, const size_t newsize)
 {
-    std::string fullpath = current_ctx.datadir + "/" + filerelpath;
+    std::string fullpath = current_ctx.datadir + filerelpath;
     int fd = open(fullpath.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
     if (fd == -1)
     {
@@ -162,7 +165,7 @@ int truncate_file(const std::string &filerelpath, const size_t newsize)
  */
 int write_block(const std::string &filerelpath, const uint32_t blockid, const void *buf, const size_t len)
 {
-    std::string fullpath = current_ctx.datadir + "/" + filerelpath;
+    std::string fullpath = current_ctx.datadir + filerelpath;
     int fd = open(fullpath.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
     if (fd == -1)
     {

@@ -65,6 +65,7 @@ table HistoryLedger {
 
 table State_Request_Message { //State request message schema
     parent_path:string;
+    is_file:bool;
     block_id:int32;
 }
 

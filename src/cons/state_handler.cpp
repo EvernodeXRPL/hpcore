@@ -21,15 +21,17 @@ void request_state_from_peer(const std::string &path, bool is_file, std::string 
     sr.block_id = block_id;
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, lcl);
-
+    std::cout << "Sending state sync request" << std::endl;
     p2p::send_message_to_random_peer(msg);
 }
 
-p2p::peer_outbound_message send_state_response(p2p::state_request &sr)
+p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
 {
+    std::cout << "Recieved state request" << std::endl;
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     if (sr.block_id > -1)
     {
+        std::cout << "Recieved block request" << std::endl;
         std::vector<uint8_t> blocks;
         statefs::get_block(blocks, sr.parent_path, sr.block_id);
         p2p::block_response resp;
@@ -42,12 +44,14 @@ p2p::peer_outbound_message send_state_response(p2p::state_request &sr)
     {
         if (sr.is_file)
         {
+            std::cout << "Recieved filehashmap request" << std::endl;
             std::vector<uint8_t> existing_block_hashmap;
             statefs::get_blockhashmap(existing_block_hashmap, sr.parent_path);
             fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_filelength(sr.parent_path), ctx.lcl);
         }
         else
         {
+            std::cout << "Recieved state content request" << std::endl;
             std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
             statefs::get_fsentry_hashes(existing_fs_entries, sr.parent_path);
             fbschema::p2pmsg::create_msg_from_content_response(msg.builder(), sr.parent_path, existing_fs_entries, ctx.lcl);
@@ -88,10 +92,11 @@ void handle_state_response()
             const fbschema::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
             if (msg_type == fbschema::p2pmsg::State_Response_Content_Response)
             {
+                std::cout << "Recieved state content response" << std::endl;
                 LOG_DBG << "Recieved state content response";
                 const fbschema::p2pmsg::Content_Response *con_resp = resp_msg->state_response_as_Content_Response();
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> state_content_list;
-                // fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_content_list, con_resp->content());
+                fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_content_list, con_resp->content());
 
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
                 std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(con_resp->path());
@@ -101,10 +106,12 @@ void handle_state_response()
 
                 for (const auto &[path, fs_entry] : existing_fs_entries)
                 {
-
+                    std::cout << "Existing path :" << path << std::endl;
                     const auto fs_itr = state_content_list.find(path);
                     if (fs_itr != state_content_list.end())
                     {
+                        std::cout << "Existing fs_entry_hash :" << fs_entry.hash << std::endl;
+                        std::cout << "Recieved fs_entry_hash :" << fs_itr->second.hash << std::endl;
                         if (fs_itr->second.hash != fs_entry.hash)
                             request_state_from_peer(path, fs_entry.is_file, ctx.lcl, -1);
 
@@ -126,6 +133,7 @@ void handle_state_response()
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)
             {
+                std::cout << "Recieved state hash map response" << std::endl;
                 LOG_DBG << "Recieved state hash map response";
                 const fbschema::p2pmsg::File_HashMap_Response *file_resp = resp_msg->state_response_as_File_HashMap_Response();
 
@@ -133,28 +141,33 @@ void handle_state_response()
                 std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
                 const std::string path_str(path_sv.data(), path_sv.size());
                 statefs::get_blockhashmap(exising_block_hashmap, path_str);
+                const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(exising_block_hashmap.data());
+                auto existing_hash_count = exising_block_hashmap.size() / hasher::HASH_SIZE;
 
-                const std::vector<uint8_t> *resp_b_hashmap = reinterpret_cast<const std::vector<uint8_t> *>(file_resp->hash_map());
-                auto resp_hashmap_size = file_resp->hash_map()->size() / hasher::HASH_SIZE;
+                const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
+                auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
 
-                for (int i = 0; i < exising_block_hashmap.size(); ++i)
+                std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
+                std::cout << "Existing file hashmap size :" << exising_block_hashmap.size() << std::endl;
+                for (int i = 1; i < existing_hash_count; ++i)
                 {
-                    if (i >= resp_hashmap_size)
+                    if (i >= resp_hash_count)
                         break;
 
-                    if (exising_block_hashmap[i] != *resp_b_hashmap[i].data())
+                    if (existing_hashes[i] != resp_hashes[i])
                     {
+                        std::cout << "Mismatch in file block  :" << i  << std::endl;
                         request_state_from_peer(path_str, true, ctx.lcl, i);
                     }
                 }
 
-                if (exising_block_hashmap.size() > resp_hashmap_size)
+                if (existing_hash_count > resp_hash_count)
                 {
                     statefs::truncate_file(path_str, file_resp->file_length());
                 }
-                else if (exising_block_hashmap.size() < resp_hashmap_size)
+                else if (existing_hash_count < resp_hash_count)
                 {
-                    for (int i = (exising_block_hashmap.size() - 1); i < resp_hashmap_size; ++i)
+                    for (int i = (existing_hash_count - 1); i < resp_hash_count; ++i)
                     {
                         request_state_from_peer(path_str, true, ctx.lcl, i);
                     }
@@ -162,6 +175,7 @@ void handle_state_response()
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_Block_Response)
             {
+                std::cout << "Recieved state block response" << std::endl;
                 LOG_DBG << "Recieved state block response";
                 p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*resp_msg->state_response_as_Block_Response());
                 statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size());
