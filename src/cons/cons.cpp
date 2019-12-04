@@ -95,7 +95,7 @@ void consensus()
     {
         // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
         broadcast_nonunl_proposal();
-        util::sleep(conf::cfg.roundtime / 10);
+        //util::sleep(conf::cfg.roundtime / 10);
 
         // Verify and transfer user inputs from incoming NUPs onto consensus candidate data.
         verify_and_populate_candidate_user_inputs();
@@ -128,7 +128,7 @@ void consensus()
         check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
         if (is_stage_desync)
         {
-            timewait_stage(reset_to_stage0, floor(conf::cfg.roundtime / 10));
+            timewait_stage(reset_to_stage0, floor(conf::cfg.roundtime / 20));
             return;
         }
 
@@ -147,8 +147,8 @@ void consensus()
         {
             //We are resetting to stage 0 to avoid possible deadlock situations.
             //Also we try to converge consensus by trying to reset every node in same time(close time range)
-            //by resetting node to max close time of candidate list of unl list peers.
-            timewait_stage(true, (time_off - ctx.time_now));
+            //by resetting node to max close time of candidate list of unl list peers
+            timewait_stage(false, floor(conf::cfg.roundtime / 20));
             //LOG_DBG << "time off: " << std::to_string(time_off);
             return;
         }
@@ -166,6 +166,7 @@ void consensus()
         {
             ctx.prev_close_time = stg_prop.time;
             apply_ledger(stg_prop);
+           // timewait_stage(false, floor(ctx.prev_close_time -  ctx.time_now ));
 
             // We have finished a consensus round (all 4 stages).
             LOG_INFO << "****Stage 3 consensus reached****";
@@ -178,9 +179,9 @@ void consensus()
     ctx.stage = (ctx.stage + 1) % 4;
 
     // after a stage 0 novel proposal we will just busy wait for proposals
-    if (ctx.stage == 0)
-        util::sleep(conf::cfg.roundtime / 10);
-    else
+    // if (ctx.stage == 0)
+    //     util::sleep(conf::cfg.roundtime / 4);
+    // else
         util::sleep(conf::cfg.roundtime / 4);
 }
 
@@ -503,7 +504,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     if (winning_votes < 0.8 * ctx.candidate_proposals.size())
     {
         // potential fork condition.
-        // critical!!!
         LOG_WARN << "No consensus on lcl. Possible fork condition. " << std::to_string(winning_votes) << std::to_string(ctx.candidate_proposals.size());
         is_desync = true;
         return;
@@ -537,7 +537,6 @@ void timewait_stage(const bool reset, const uint64_t time)
 {
     if (reset)
     {
-        ctx.candidate_proposals.clear();
         ctx.stage = 0;
     }
 
