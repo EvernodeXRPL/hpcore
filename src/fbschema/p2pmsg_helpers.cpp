@@ -482,6 +482,21 @@ void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_bu
     create_containermsg_from_content(container_builder, builder, lcl, true);
 }
 
+void create_msg_from_state_error_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view lcl)
+{
+     // todo:get a average propsal message size and allocate content builder based on that.
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_NONE, 0, true);
+
+    flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, lcl, true);
+}
+
 /**
  * Creates a Flatbuffer container message from the given Content message.
  * @param container_builder The Flatbuffer builder to which the final container message should be written to.

@@ -19,7 +19,7 @@ void request_state_from_peer(const std::string &path, bool is_file, std::string 
     sr.parent_path = path;
     sr.is_file = is_file;
     sr.block_id = block_id;
-    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
+    p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, lcl);
     std::cout << "Sending state sync request" << std::endl;
     p2p::send_message_to_random_peer(msg);

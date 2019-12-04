@@ -73,6 +73,7 @@ union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
 
 table State_Response_Message{
     state_response:State_Response;
+    is_error: bool;
 }
 
 table Content_Response{
