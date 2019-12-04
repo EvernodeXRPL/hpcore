@@ -41,6 +41,8 @@ pid_t contract_pid;
 // Holds the state monitor process id (if currently executing).
 pid_t statemon_pid;
 
+const char *FINDMNT_COMMAND = "findmnt --noheadings ";
+
 /**
  * Executes the contract process and passes the specified arguments.
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -145,7 +147,22 @@ int start_state_monitor()
     {
         // HP process.
         statemon_pid = pid;
-        return 0;
+
+        // Give enough time for the state monitor to start.
+        // We wait until Fuse filesystem is mounted for max number of retries.
+        uint16_t retry_count = 0;
+        std::string findmnt_command = FINDMNT_COMMAND + conf::ctx.statedir;
+        while (retry_count < 50)
+        {
+            util::sleep(10);
+            int ret = system(findmnt_command.c_str());
+            if (WEXITSTATUS(ret) == 0) // Success. Fuse fs has been mounted.
+                return 0;
+            retry_count++;
+        }
+
+        // We waited enough time for Fuse fs to be mounted but no luck.
+        return -1;
     }
     else if (pid == 0)
     {
