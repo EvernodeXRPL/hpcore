@@ -46,13 +46,13 @@ int init()
     hasher::B2H root_hash{0, 0, 0, 0};
     if (statefs::compute_hash_tree(root_hash, true) == -1)
         return -1;
-        
+
     std::cout << "initial state: " << std::hex << root_hash << std::dec << std::endl;
 
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
 
-    ctx.state_syncing_thread = std::thread([&] { handle_state_response(); });
+    ctx.state_syncing_thread = std::thread([&] { handle_state_response(); std::cout << "Exit state sync thread\n"; exit(1); });
 
     ctx.prev_close_time = util::get_epoch_milliseconds();
     return 0;
@@ -736,20 +736,26 @@ void check_state(vote_counter &votes, bool &is_desync)
 
     if (majority_state != ctx.curr_hash_state)
     {
-        LOG_DBG << "State mismatch occurs";
-        // Change the mode to passive and not sending out proposals till the state is synced
-        conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
+        if (ctx.state_sync_lcl != ctx.lcl)
+        {
+            LOG_DBG << "State mismatch occurs";
+            // Change the mode to passive and not sending out proposals till the state is synced
+            conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
 
-        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
-        p2p::ctx.collected_msgs.state_response.clear();
+            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+            p2p::ctx.collected_msgs.state_response.clear();
+            reset_state_sync();
 
-        ctx.is_state_syncing = true;
-        request_state_from_peer("/", false, ctx.lcl, -1);
-        LOG_DBG << "Starting state sync requesting state from peer";
+            ctx.is_state_syncing = true;
+            ctx.state_sync_lcl = ctx.lcl;
+            request_state_from_peer("/", false, ctx.lcl, -1);
+            LOG_DBG << "Starting state sync requesting state from peer";
+        }
     }
     else
     {
         ctx.is_state_syncing = false;
+        ctx.state_sync_lcl.clear();
         conf::cfg.mode == conf::OPERATING_MODE::ACTIVE;
     }
 }

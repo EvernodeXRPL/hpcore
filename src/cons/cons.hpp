@@ -85,6 +85,7 @@ struct consensus_context
     uint64_t prev_close_time;
 
     bool is_state_syncing;
+    std::string state_sync_lcl;
     std::thread state_syncing_thread;
     std::mutex state_syncing_mutex;
 
