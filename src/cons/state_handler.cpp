@@ -50,7 +50,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
             std::cout << "Recieved filehashmap request" << std::endl;
             std::vector<uint8_t> existing_block_hashmap;
 
-            if (statefs::get_blockhashmap(existing_block_hashmap, sr.parent_path) == -1)
+            if (statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path) == -1)
                 return msg;
 
             fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_filelength(sr.parent_path), ctx.lcl);
@@ -60,7 +60,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
             std::cout << "Recieved state content request" << std::endl;
             std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
 
-            if (statefs::get_fsentry_hashes(existing_fs_entries, sr.parent_path) == -1)
+            if (statefs::get_fs_entry_hashes(existing_fs_entries, sr.parent_path) == -1)
             {
                 std::cout << "Oh ny god wrong file list\n";
                 return msg;
@@ -175,7 +175,7 @@ void handle_state_response()
                 std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
                 const std::string path_str(path_sv.data(), path_sv.size());
 
-                if (statefs::get_blockhashmap(exising_block_hashmap, path_str) == -1)
+                if (statefs::get_block_hash_map(exising_block_hashmap, path_str) == -1)
                     should_process = false;
 
                 if (should_process)

@@ -44,7 +44,7 @@ int init()
     ctx.cache.swap(ldr_hist.cache);
 
     hasher::B2H root_hash{0, 0, 0, 0};
-    statefs::compute_hashtree(root_hash, true);
+    statefs::compute_hash_tree(root_hash, true);
 
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
@@ -677,7 +677,7 @@ void check_state(vote_counter &votes, bool &is_desync)
     // // end of the previous consensus round state might update and we store the state before modification in prev_hash_state variable.
     // if (!ctx.cache.empty() && ctx.prev_hash_state != ctx.cache.rbegin()->second.state)
     // {
-    //     statefs::compute_hashtree();
+    //     statefs::compute_hash_tree();
     //     request_state_from_peer(conf::ctx.statehistdir, false, ctx.lcl);
 
     //     ctx.is_state_syncing =
@@ -725,7 +725,7 @@ void check_state(vote_counter &votes, bool &is_desync)
     {
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
         hasher::B2H root_hash = {0, 0, 0, 0};
-        statefs::compute_hashtree(root_hash);
+        statefs::compute_hash_tree(root_hash);
 
         std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
         str_root_hash.swap(ctx.curr_hash_state);

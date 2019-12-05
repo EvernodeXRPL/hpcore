@@ -257,11 +257,7 @@ void hashtree_builder::insert_hintpath(const std::string &relpath)
 {
     boost::filesystem::path p_relpath(relpath);
     std::string parentdir = p_relpath.parent_path().string();
-
-    if (p_relpath.filename_is_dot())
-        hintpaths.try_emplace(parentdir); // Emplace parentdir with empty file list.
-    else
-        hintpaths[parentdir].emplace(relpath);
+    hintpaths[parentdir].emplace(relpath);
 }
 
 bool hashtree_builder::get_hinteddir_match(hintpath_map::iterator &matchitr, const std::string &dirpath)
