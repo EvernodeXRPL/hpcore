@@ -73,7 +73,7 @@ int get_blockhashmap(std::vector<uint8_t> &vec, const std::string &filerelpath)
     const std::string bhmap_path = current_ctx.blockhashmapdir + filerelpath + HASHMAP_EXT;
 
     // Skip the file root hash and get the rest of the bytes.
-    if (read_file_bytes_toend(vec, bhmap_path.c_str(), hasher::HASH_SIZE) == -1)
+    if (boost::filesystem::exists(bhmap_path) && read_file_bytes_toend(vec, bhmap_path.c_str(), hasher::HASH_SIZE) == -1)
         return -1;
 
     return 0;

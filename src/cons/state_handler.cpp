@@ -34,7 +34,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
         std::vector<uint8_t> blocks;
 
         if (statefs::get_block(blocks, sr.parent_path, sr.block_id) == -1)
-            return;
+            return msg;
 
         p2p::block_response resp;
         resp.path = sr.parent_path;
@@ -51,7 +51,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
             std::vector<uint8_t> existing_block_hashmap;
 
             if (statefs::get_blockhashmap(existing_block_hashmap, sr.parent_path) == -1)
-                return;
+                return msg;
 
             fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_filelength(sr.parent_path), ctx.lcl);
         }
@@ -61,7 +61,10 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
             std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
 
             if (statefs::get_fsentry_hashes(existing_fs_entries, sr.parent_path) == -1)
-                return;
+            {
+                std::cout << "Oh ny god wrong file list\n";
+                return msg;
+            }
 
             fbschema::p2pmsg::create_msg_from_content_response(msg.builder(), sr.parent_path, existing_fs_entries, ctx.lcl);
         }
@@ -75,6 +78,7 @@ void handle_state_response()
     while (true)
     {
         util::sleep(100);
+        bool should_process = true;
 
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
         {
@@ -114,40 +118,51 @@ void handle_state_response()
                 std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(con_resp->path());
                 std::string root_path_str(root_path_sv.data(), root_path_sv.size());
 
-                if (statefs::get_fsentry_hashes(existing_fs_entries, std::move(root_path_str)) == -1)
-                    return;
-
-                for (const auto &[path, fs_entry] : existing_fs_entries)
+                if (!statefs::is_dir_exists(root_path_str))
                 {
-                    std::cout << "Existing path :" << path << std::endl;
-                    const auto fs_itr = state_content_list.find(path);
-                    if (fs_itr != state_content_list.end())
-                    {
-                        std::cout << "Existing fs_entry_hash :" << fs_entry.hash << std::endl;
-                        std::cout << "Recieved fs_entry_hash :" << fs_itr->second.hash << std::endl;
-                        if (fs_itr->second.hash != fs_entry.hash)
-                            request_state_from_peer(path, fs_entry.is_file, ctx.lcl, -1);
+                    statefs::create_dir(root_path_str);
+                }
+                else
+                {
+                    if (statefs::get_fsentry_hashes(existing_fs_entries, std::move(root_path_str)) == -1)
+                        should_process = false;
+                }
 
-                        state_content_list.erase(fs_itr);
-                    }
-                    else
+                if (should_process)
+                {
+
+                    for (const auto &[path, fs_entry] : existing_fs_entries)
                     {
-                        if (fs_entry.is_file)
+                        std::cout << "Existing path :" << path << std::endl;
+                        const auto fs_itr = state_content_list.find(path);
+                        if (fs_itr != state_content_list.end())
                         {
-                            if (statefs::delete_file(path) == -1)
-                                return;
+                            std::cout << "Existing fs_entry_hash :" << fs_entry.hash << std::endl;
+                            std::cout << "Recieved fs_entry_hash :" << fs_itr->second.hash << std::endl;
+                            if (fs_itr->second.hash != fs_entry.hash)
+                                request_state_from_peer(path, fs_entry.is_file, ctx.lcl, -1);
+
+                            state_content_list.erase(fs_itr);
                         }
                         else
                         {
-                            if (statefs::delete_dir(path) == -1)
-                                return;
+                            if (fs_entry.is_file)
+                            {
+                                if (statefs::delete_file(path) == -1)
+                                    break;
+                            }
+                            else
+                            {
+                                if (statefs::delete_dir(path) == -1)
+                                    break;
+                            }
                         }
                     }
-                }
 
-                for (const auto &[path, fs_entry] : state_content_list)
-                {
-                    request_state_from_peer(path, fs_entry.is_file, ctx.lcl, -1);
+                    for (const auto &[path, fs_entry] : state_content_list)
+                    {
+                        request_state_from_peer(path, fs_entry.is_file, ctx.lcl, -1);
+                    }
                 }
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)
@@ -161,38 +176,41 @@ void handle_state_response()
                 const std::string path_str(path_sv.data(), path_sv.size());
 
                 if (statefs::get_blockhashmap(exising_block_hashmap, path_str) == -1)
-                    return;
+                    should_process = false;
 
-                const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(exising_block_hashmap.data());
-                auto existing_hash_count = exising_block_hashmap.size() / hasher::HASH_SIZE;
-
-                const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
-                auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
-
-                std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
-                std::cout << "Existing file hashmap size :" << exising_block_hashmap.size() << std::endl;
-                for (int i = 0; i < existing_hash_count; ++i)
+                if (should_process)
                 {
-                    if (i >= resp_hash_count)
-                        break;
+                    const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(exising_block_hashmap.data());
+                    auto existing_hash_count = exising_block_hashmap.size() / hasher::HASH_SIZE;
 
-                    if (existing_hashes[i] != resp_hashes[i])
+                    const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
+                    auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
+
+                    std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
+                    std::cout << "Existing file hashmap size :" << exising_block_hashmap.size() << std::endl;
+                    for (int i = 0; i < existing_hash_count; ++i)
                     {
-                        std::cout << "Mismatch in file block  :" << i << std::endl;
-                        request_state_from_peer(path_str, true, ctx.lcl, i);
+                        if (i >= resp_hash_count)
+                            break;
+
+                        if (existing_hashes[i] != resp_hashes[i])
+                        {
+                            std::cout << "Mismatch in file block  :" << i << std::endl;
+                            request_state_from_peer(path_str, true, ctx.lcl, i);
+                        }
                     }
-                }
 
-                if (existing_hash_count > resp_hash_count)
-                {
-                    if (statefs::truncate_file(path_str, file_resp->file_length()) == -1)
-                        return;
-                }
-                else if (existing_hash_count < resp_hash_count)
-                {
-                    for (int i = existing_hash_count; i < resp_hash_count; ++i)
+                    if (existing_hash_count > resp_hash_count)
                     {
-                        request_state_from_peer(path_str, true, ctx.lcl, i);
+                        if (statefs::truncate_file(path_str, file_resp->file_length()) == -1)
+                            break;
+                    }
+                    else if (existing_hash_count < resp_hash_count)
+                    {
+                        for (int i = existing_hash_count; i < resp_hash_count; ++i)
+                        {
+                            request_state_from_peer(path_str, true, ctx.lcl, i);
+                        }
                     }
                 }
             }
@@ -204,7 +222,7 @@ void handle_state_response()
                 std::cout << "AAAA" << std::endl;
 
                 if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
-                    return;
+                    break;
             }
         }
     }
