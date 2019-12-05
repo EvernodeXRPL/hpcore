@@ -119,11 +119,11 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             LOG_DBG << "State request message rejected due to trust failure.";
             return;
         }
-        std::cout << "Receieved state request"<<std::endl;
-        std::cout << "State request lcl :"<<fbschema::flatbuff_bytes_to_sv(container->lcl()) <<std::endl;
-        std::cout << "my lcl :"<<cons::ctx.lcl <<std::endl;
+        std::cout << "Receieved state request" << std::endl;
+        std::cout << "State request lcl :" << fbschema::flatbuff_bytes_to_sv(container->lcl()) << std::endl;
+        std::cout << "my lcl :" << cons::ctx.lcl << std::endl;
 
-        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl && cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state)
+        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl && (cons::ctx.lcl == "0-genesis" || cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state))
         {
             std::cout << "******************sending state response*************************" << std::endl;
 

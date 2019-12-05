@@ -26,9 +26,9 @@ namespace cons
  * Voting thresholds for consensus stages.
  */
 constexpr float STAGE1_THRESHOLD = 0.5;
-constexpr float STAGE2_THRESHOLD = 0.6;
-constexpr float STAGE3_THRESHOLD = 0.6;
-constexpr float MAJORITY_THRESHOLD = 0.65;
+constexpr float STAGE2_THRESHOLD = 0.65;
+constexpr float STAGE3_THRESHOLD = 0.8;
+constexpr float MAJORITY_THRESHOLD = 0.8;
 
 consensus_context ctx;
 
@@ -165,7 +165,20 @@ void consensus()
         }
 
         if (ctx.stage == 1)
-            check_state(votes);
+        {
+            bool is_state_desync = false;
+            check_state(votes, is_state_desync);
+
+            if (is_state_desync)
+            {
+                //We are resetting to stage 0 to avoid possible deadlock situations.
+                //Also we try to converge consensus by trying to reset every node in same time(close time range)
+                //by resetting node to max close time of candidate list of unl list peers.
+                timewait_stage(true, (time_off - ctx.time_now));
+                //LOG_DBG << "time off: " << std::to_string(time_off);
+                return;
+            }
+        }
 
         if (!ctx.is_state_syncing)
         {
@@ -653,9 +666,10 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
  * Check state against the winning and canonical state
  * @param cons_prop The proposal that achieved consensus.
  */
-void check_state(vote_counter &votes)
+void check_state(vote_counter &votes, bool &is_desync)
 {
     std::string majority_state;
+    int32_t total_state_votes = 0;
 
     // // Moving here means lcl matches and ctx.cache empty means this is the initial run otherwise at the end of each consensus round
     // // if node reaches consensus cache is updated.
@@ -675,18 +689,24 @@ void check_state(vote_counter &votes)
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
+        std::cout << "Proposal state :" << std::hex << (*(hasher::B2H *)cp.curr_hash_state.c_str()) << std::dec << "\n";
         increment(votes.state, cp.curr_hash_state);
+        total_state_votes++;
     }
 
-    const float_t vote_threshold = get_stage_threshold(ctx.stage);
-
-    // Among all the voted states, state which passes the vote threshold and which got the highest vote will be selected.
-    int32_t highest_state_vote = 0;
-    for (const auto [state, numvotes] : votes.state)
+    if (total_state_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
     {
-        if (numvotes > highest_state_vote && numvotes >= vote_threshold)
+        LOG_DBG << "Not enough peers proposing to perform consensus" << std::to_string(total_state_votes) << " needed " << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        is_desync = true;
+        return;
+    }
+
+    int32_t winning_votes = 0;
+    for (const auto [state, votes] : votes.state)
+    {
+        if (votes > winning_votes)
         {
-            highest_state_vote = numvotes;
+            winning_votes = votes;
             majority_state = state;
         }
     }
@@ -698,7 +718,7 @@ void check_state(vote_counter &votes)
     else
     {
         std::cout << "majority_state: " << std::hex << (*(hasher::B2H *)majority_state.c_str()) << std::dec << "\n";
-        std::cout << "curr state" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
+        std::cout << "curr state: " << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
     }
 
     if (ctx.is_state_syncing)
