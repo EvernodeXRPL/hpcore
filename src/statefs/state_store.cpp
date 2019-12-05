@@ -26,11 +26,11 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
     for (const boost::filesystem::directory_entry &dentry : boost::filesystem::directory_iterator(fullpath))
     {
         const boost::filesystem::path p = dentry.path();
-        std::cout << "fsentry: " << p.string() << "\n";
 
         p2p::state_fs_hash_entry hashentry;
-        const std::string path = dirrelpath + p.filename().string();
-        hashentry.is_file == !boost::filesystem::is_directory(p);
+        hashentry.is_file = !boost::filesystem::is_directory(p);
+
+        std::string fsentry_relpath = dirrelpath + p.filename().string();
 
         // Read the first 32 bytes of the .bhmap file or dir.hash file.
 
@@ -38,11 +38,12 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
 
         if (hashentry.is_file)
         {
-            hash_path = current_ctx.blockhashmapdir + path + HASHMAP_EXT;
+            hash_path = current_ctx.blockhashmapdir + fsentry_relpath + HASHMAP_EXT;
         }
         else
         {
-            hash_path = current_ctx.hashtreedir + path + "/" + DIRHASH_FNAME;
+            fsentry_relpath += "/";
+            hash_path = current_ctx.hashtreedir + fsentry_relpath + DIRHASH_FNAME;
             // Skip the directory if it doesn't contain the dir.hash file.
             // By that we assume the directory is empty so we're not interested in it.
             if (!boost::filesystem::exists(hash_path))
@@ -52,7 +53,7 @@ int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry>
         if (read_file_bytes(&hashentry.hash, hash_path.c_str(), 0, hasher::HASH_SIZE) == -1)
             return -1;
 
-        fs_entries.emplace(path, std::move(hashentry));
+        fs_entries.emplace(fsentry_relpath, std::move(hashentry));
     }
     return 0;
 }
@@ -72,6 +73,10 @@ int get_blockhashmap(std::vector<uint8_t> &vec, const std::string &filerelpath)
     return 0;
 }
 
+/**
+ * Retrieves the byte length of a file.
+ * @return 0 on success. -1 on failure.
+ */
 int get_filelength(const std::string &filerelpath)
 {
     std::string fullpath = current_ctx.datadir + filerelpath;
@@ -112,7 +117,7 @@ int delete_folder(const std::string &dirrelpath)
     if (boost::filesystem::remove_all(fullpath) == -1)
         return -1;
 
-    std::string hintpath = dirrelpath + "/.";
+    std::string hintpath = dirrelpath + ".";
     touchedfiles.emplace(std::move(hintpath), std::map<uint32_t, hasher::B2H>());
     return 0;
 }
