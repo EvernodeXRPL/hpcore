@@ -46,14 +46,14 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
         {
             std::cout << "Recieved filehashmap request" << std::endl;
             std::vector<uint8_t> existing_block_hashmap;
-            statefs::get_blockhashmap(existing_block_hashmap, sr.parent_path);
-            fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_filelength(sr.parent_path), ctx.lcl);
+            statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path);
+            fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_file_length(sr.parent_path), ctx.lcl);
         }
         else
         {
             std::cout << "Recieved state content request" << std::endl;
             std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
-            statefs::get_fsentry_hashes(existing_fs_entries, sr.parent_path);
+            statefs::get_fs_entry_hashes(existing_fs_entries, sr.parent_path);
             fbschema::p2pmsg::create_msg_from_content_response(msg.builder(), sr.parent_path, existing_fs_entries, ctx.lcl);
         }
     }
@@ -104,7 +104,7 @@ void handle_state_response()
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
                 std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(con_resp->path());
                 std::string root_path_str(root_path_sv.data(), root_path_sv.size());
-                statefs::get_fsentry_hashes(existing_fs_entries, std::move(root_path_str));
+                statefs::get_fs_entry_hashes(existing_fs_entries, std::move(root_path_str));
                 bool file_entry_found = false;
 
                 for (const auto &[path, fs_entry] : existing_fs_entries)
@@ -143,7 +143,7 @@ void handle_state_response()
                 std::vector<uint8_t> exising_block_hashmap;
                 std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
                 const std::string path_str(path_sv.data(), path_sv.size());
-                statefs::get_blockhashmap(exising_block_hashmap, path_str);
+                statefs::get_block_hash_map(exising_block_hashmap, path_str);
                 const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(exising_block_hashmap.data());
                 auto existing_hash_count = exising_block_hashmap.size() / hasher::HASH_SIZE;
 
