@@ -12,6 +12,12 @@ namespace statefs
 // Map of modified/deleted files with updated blockids and hashes (if modified).
 std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedfiles;
 
+bool is_dir_exists(const std::string &dirrelpath)
+{
+    const std::string fullpath = current_ctx.datadir + dirrelpath;
+    return boost::filesystem::exists(fullpath);
+}
+
 /**
  * Retrieves the hash list of the file system entries at a given directory.
  * @return 0 on success. -1 on failure.
@@ -107,11 +113,17 @@ int get_block(std::vector<uint8_t> &vec, const std::string &filerelpath, const u
     return readbytes;
 }
 
+void create_dir(const std::string &dirrelpath)
+{
+    const std::string fullpath = current_ctx.datadir + dirrelpath;
+    boost::filesystem::create_directories(fullpath);
+}
+
 /**
  * Deletes the specified state sub directory and marks the change.
  * @return 0 on success. -1 on failure.
  */
-int delete_folder(const std::string &dirrelpath)
+int delete_dir(const std::string &dirrelpath)
 {
     std::string fullpath = current_ctx.datadir + dirrelpath;
     if (boost::filesystem::remove_all(fullpath) == -1)

@@ -11,11 +11,13 @@ namespace statefs
 // Map of modified/deleted files with updated blockids and hashes (if modified).
 extern std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touchedfiles;
 
+bool is_dir_exists(const std::string &dirrelpath);
 int get_fsentry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dirrelpath);
 int get_blockhashmap(std::vector<uint8_t> &vec, const std::string &filerelpath);
 int get_filelength(const std::string &filerelpath);
 int get_block(std::vector<uint8_t> &vec, const std::string &filerelpath, const uint32_t blockid);
-int delete_folder(const std::string &dirrelpath);
+void create_dir(const std::string &dirrelpath);
+int delete_dir(const std::string &dirrelpath);
 int delete_file(const std::string &filerelpath);
 int truncate_file(const std::string &filerelpath, const size_t newsize);
 int write_block(const std::string &filerelpath, const uint32_t blockid, const void *buf, const size_t len);

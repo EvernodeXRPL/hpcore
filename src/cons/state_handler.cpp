@@ -139,7 +139,7 @@ void handle_state_response()
                         }
                         else
                         {
-                            if (statefs::delete_folder(path) == -1)
+                            if (statefs::delete_dir(path) == -1)
                                 return;
                         }
                     }
