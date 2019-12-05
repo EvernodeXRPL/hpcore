@@ -44,7 +44,10 @@ int init()
     ctx.cache.swap(ldr_hist.cache);
 
     hasher::B2H root_hash{0, 0, 0, 0};
-    statefs::compute_hash_tree(root_hash, true);
+    if (statefs::compute_hash_tree(root_hash, true) == -1)
+        return -1;
+        
+    std::cout << "initial state: " << std::hex << root_hash << std::dec << std::endl;
 
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
@@ -725,8 +728,8 @@ void check_state(vote_counter &votes, bool &is_desync)
     {
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
         hasher::B2H root_hash = {0, 0, 0, 0};
-        statefs::compute_hash_tree(root_hash);
-
+        int ret = statefs::compute_hash_tree(root_hash);
+        std::cout << ret << " computed state: " << std::hex << root_hash << std::dec << std::endl;
         std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
         str_root_hash.swap(ctx.curr_hash_state);
     }

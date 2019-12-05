@@ -72,7 +72,6 @@ void socket_session<T>::increment_metric(const SESSION_THRESHOLDS threshold_type
 
             LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
             corebill::report_violation(this->address);
-
         }
         else if (elapsed_time > t.intervalms)
         {
@@ -119,7 +118,7 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     this->uniqueid.append(address).append(":").append(port);
 
     // This indicates the connection is a self connection (node connects to the same node through server port)
-    if(address == "0.0.0.0")
+    if (address == "0.0.0.0")
         this->is_self = true;
 
     // Set the timeout.
@@ -191,6 +190,7 @@ void socket_session<T>::on_accept(const error_code ec)
 template <class T>
 void socket_session<T>::on_read(const error_code ec, const std::size_t)
 {
+    std::cout << "Reading a message\n";
     //if something goes wrong when trying to read, socket connection will be closed and calling this to inform it to the handler
     // read may get called when operation_aborted as well.
     // We don't need to process read operation in that case.
@@ -217,6 +217,7 @@ void socket_session<T>::on_read(const error_code ec, const std::size_t)
     // Clear the buffer
     buffer.consume(buffer.size());
 
+    std::cout << "Completed Reading a message\n";
     // Read another message
     ws_async_read();
 }
@@ -227,6 +228,7 @@ void socket_session<T>::on_read(const error_code ec, const std::size_t)
 template <class T>
 void socket_session<T>::send(const T msg)
 {
+    std::cout << "Begin send\n";
     // Always add to queue
     queue.push_back(std::move(msg));
 
@@ -238,6 +240,7 @@ void socket_session<T>::send(const T msg)
 
     // We are not currently writing, so send this immediately
     ws_async_write(sv);
+    std::cout << "Finish send\n";
 }
 
 /*

@@ -642,7 +642,7 @@ void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string
         p2p::state_fs_hash_entry h;
 
         h.is_file = f_hash->is_file();
-        h.hash = *reinterpret_cast<const hasher::B2H *>(f_hash->hash());
+        h.hash = *reinterpret_cast<const hasher::B2H *>(f_hash->hash()->Data());
 
         fs_entries.emplace(flatbuff_str_to_sv(f_hash->path()), std::move(h));
     }
@@ -655,7 +655,7 @@ statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &bu
     fbvec.reserve(fs_entries.size());
     for (auto const &[path, fs_entry] : fs_entries)
     {
-        std::string_view entry(reinterpret_cast<const char *>(&fs_entry.hash.data), hasher::HASH_SIZE);
+        std::string_view entry(reinterpret_cast<const char *>(&fs_entry.hash), hasher::HASH_SIZE);
 
         flatbuffers::Offset<State_FS_Hash_Entry> state_fs_entry = CreateState_FS_Hash_Entry(
             builder,

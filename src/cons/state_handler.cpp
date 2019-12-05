@@ -53,7 +53,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
             if (statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path) == -1)
                 return msg;
 
-            fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_filelength(sr.parent_path), ctx.lcl);
+            fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_file_length(sr.parent_path), ctx.lcl);
         }
         else
         {
@@ -124,7 +124,7 @@ void handle_state_response()
                 }
                 else
                 {
-                    if (statefs::get_fsentry_hashes(existing_fs_entries, std::move(root_path_str)) == -1)
+                    if (statefs::get_fs_entry_hashes(existing_fs_entries, std::move(root_path_str)) == -1)
                         should_process = false;
                 }
 

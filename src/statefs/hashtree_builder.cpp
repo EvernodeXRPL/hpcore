@@ -9,6 +9,7 @@ namespace statefs
 hashtree_builder::hashtree_builder(const statedir_context &ctx) : ctx(ctx), hmapbuilder(ctx)
 {
     force_rebuild_all = false;
+    hintmode = false;
 }
 
 int hashtree_builder::generate(hasher::B2H &roothash)
@@ -38,6 +39,7 @@ int hashtree_builder::generate(hasher::B2H &roothash, const bool force_all)
 
 int hashtree_builder::generate(hasher::B2H &roothash, const std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> &touchedfiles)
 {
+    hintmode = true;
     fileblockindex = touchedfiles;
     for (const auto &[relpath, bindex] : touchedfiles)
         insert_hintpath(relpath);
@@ -47,6 +49,11 @@ int hashtree_builder::generate(hasher::B2H &roothash, const std::unordered_map<s
 
 int hashtree_builder::traverse_and_generate(hasher::B2H &roothash)
 {
+    // Load current root hash if exist.
+    const std::string dirhashfile = ctx.hashtreedir + "/" + DIRHASH_FNAME;
+    roothash = get_existingdirhash(dirhashfile);
+    std::cout << "roothash: " << std::hex << roothash << std::dec << std::endl;
+
     traversel_rootdir = ctx.datadir;
     removal_mode = false;
     if (update_hashtree(roothash) != 0)
@@ -146,6 +153,10 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
         // Also update the parent dir hash by subtracting the old hash and adding the new hash.
         parentdirhash ^= original_dirhash;
         parentdirhash ^= dirhash;
+    }
+    else
+    {
+        parentdirhash = dirhash;
     }
 
     return 0;

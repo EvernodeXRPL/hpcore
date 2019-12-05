@@ -93,7 +93,9 @@ void std_terminate() noexcept
     {
         try
         {
+            std::cout<<"Before throw\n";
             std::rethrow_exception(exptr);
+            std::cout<<"After throw\n";
         }
         catch (std::exception &ex)
         {

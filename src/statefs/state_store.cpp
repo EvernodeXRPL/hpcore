@@ -235,7 +235,6 @@ int compute_hash_tree(hasher::B2H &statehash, const bool force_all)
 {
     hashtree_builder htree_builder(current_ctx);
 
-    statehash = {0, 0, 0, 0};
     int ret = force_all ? htree_builder.generate(statehash, true) : htree_builder.generate(statehash, touched_files);
 
     touched_files.clear();
