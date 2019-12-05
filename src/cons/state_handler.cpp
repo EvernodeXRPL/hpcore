@@ -125,7 +125,7 @@ void handle_state_response()
                         if (fs_entry.is_file)
                             statefs::delete_file(path);
                         else
-                            statefs::delete_folder(path);
+                            statefs::delete_dir(path);
                     }
                 }
 
