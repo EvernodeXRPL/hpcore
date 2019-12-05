@@ -145,10 +145,9 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            //We are resetting to stage 0 to avoid possible deadlock situations.
-            //Also we try to converge consensus by trying to reset every node in same time(close time range)
-            //by resetting node to max close time of candidate list of unl list peers
-            timewait_stage(false, floor(conf::cfg.roundtime / 20));
+            //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
+            //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
+            timewait_stage(true, floor(time_off - ctx.time_now));
             //LOG_DBG << "time off: " << std::to_string(time_off);
             return;
         }
@@ -166,7 +165,6 @@ void consensus()
         {
             ctx.prev_close_time = stg_prop.time;
             apply_ledger(stg_prop);
-           // timewait_stage(false, floor(ctx.prev_close_time -  ctx.time_now ));
 
             // We have finished a consensus round (all 4 stages).
             LOG_INFO << "****Stage 3 consensus reached****";
@@ -178,11 +176,8 @@ void consensus()
     // Transition to next stage.
     ctx.stage = (ctx.stage + 1) % 4;
 
-    // after a stage 0 novel proposal we will just busy wait for proposals
-    // if (ctx.stage == 0)
-    //     util::sleep(conf::cfg.roundtime / 4);
-    // else
-        util::sleep(conf::cfg.roundtime / 4);
+    // after a stage proposal we will just busy wait for proposals.
+    util::sleep(conf::cfg.roundtime / 4);
 }
 
 /**
@@ -398,10 +393,10 @@ void broadcast_proposal(const p2p::proposal &p)
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
     p2p::broadcast_message(msg, true);
 
-        LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
-                 << "] users:" << p.users.size()
-                 << " hinp:" << p.hash_inputs.size()
-                 << " hout:" << p.hash_outputs.size();
+    LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
+            << "] users:" << p.users.size()
+            << " hinp:" << p.hash_inputs.size()
+            << " hout:" << p.hash_outputs.size();
 }
 
 /**
@@ -456,7 +451,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
             total_lcl_votes++;
         }
 
-        //keep track of max time of peers, so we can reset nodes in a close time range to increase reliability.
+        //keep track of max time of peers, so we can reset nodes in a random time range to increase reliability.
         //This is very usefull especially boostrapping a node cluster.
         if (cp.time > time_off)
             time_off = cp.time;
