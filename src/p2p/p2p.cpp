@@ -122,7 +122,6 @@ void send_message_to_random_peer(peer_outbound_message msg)
     {
         // Initialize random number generator with current timestamp.
         int random_peer_index = (rand() % connected_peers); // select a random peer index.
-        std::cout << "Random peer index: " << random_peer_index << "\n";
         auto it = ctx.peer_connections.begin();
         std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 

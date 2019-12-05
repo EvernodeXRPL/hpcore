@@ -52,7 +52,6 @@ int hashtree_builder::traverse_and_generate(hasher::B2H &roothash)
     // Load current root hash if exist.
     const std::string dirhashfile = ctx.hashtreedir + "/" + DIRHASH_FNAME;
     roothash = get_existingdirhash(dirhashfile);
-    std::cout << "roothash: " << std::hex << roothash << std::dec << std::endl;
 
     traversel_rootdir = ctx.datadir;
     removal_mode = false;

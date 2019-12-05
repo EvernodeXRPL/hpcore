@@ -119,34 +119,35 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             LOG_DBG << "State request message rejected due to trust failure.";
             return;
         }
-        std::cout << "Receieved state request" << std::endl;
-        std::cout << "State request lcl :" << fbschema::flatbuff_bytes_to_sv(container->lcl()) << std::endl;
-        std::cout << "my lcl :" << cons::ctx.lcl << std::endl;
 
-        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl && (cons::ctx.lcl == "0-genesis" || cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state))
+        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl)
         {
-            std::cout << "******************sending state response*************************" << std::endl;
-
-            const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
-            session->send(cons::send_state_response(sr));
+            if (cons::ctx.lcl == "0-genesis" || cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state)
+            {
+                const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
+                session->send(cons::send_state_response(sr));
+            }
+            else
+            {
+                // todo: send an error response
+                std::cout << "My state wrong. Not responding to state request.\n";
+            }
         }
         else
         {
             // todo: send an error response
-            std::cout << "Cannot send state response. My state incorrect." << std::endl;
+            std::cout << "State request lcl mismatch. Not responding to state request.\n";
         }
     }
     else if (content_message_type == p2pmsg::Message_State_Response_Message)
     {
-        std::cout << "Receieved state response" << std::endl;
+        std::cout << "Recvd Message_State_Response_Message\n";
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
         std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
         ctx.collected_msgs.state_response.push_back(std::move(response));
     }
     else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
     {
-        LOG_DBG << "Received history request message type from peer.";
-
         const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
         //first check node has the required lcl available. -> if so send lcl history accordingly.
         bool req_lcl_avail = cons::check_required_lcl_availability(hr);
@@ -158,8 +159,6 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
     {
-        LOG_DBG << "Received history response message type from peer.";
-
         cons::handle_ledger_history_response(
             p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message()));
     }

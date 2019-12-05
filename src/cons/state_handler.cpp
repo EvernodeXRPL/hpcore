@@ -36,7 +36,6 @@ void request_state_from_peer(const std::string &path, bool is_file, std::string 
     sr.block_id = block_id;
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, lcl);
-    std::cout << "Sending state sync request" << std::endl;
     p2p::send_message_to_random_peer(msg);
 }
 
@@ -45,7 +44,6 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     if (sr.block_id > -1)
     {
-        std::cout << "Recieved block request" << std::endl;
         std::vector<uint8_t> blocks;
 
         if (statefs::get_block(blocks, sr.parent_path, sr.block_id) == -1)
@@ -62,7 +60,6 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
     {
         if (sr.is_file)
         {
-            std::cout << "Recieved filehashmap request" << std::endl;
             std::vector<uint8_t> existing_block_hashmap;
 
             if (statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path) == -1)
@@ -72,14 +69,10 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
         }
         else
         {
-            std::cout << "Recieved state content request" << std::endl;
             std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
 
             if (statefs::get_fs_entry_hashes(existing_fs_entries, sr.parent_path) == -1)
-            {
-                std::cout << "Oh ny god wrong file list\n";
                 return msg;
-            }
 
             fbschema::p2pmsg::create_msg_from_content_response(msg.builder(), sr.parent_path, existing_fs_entries, ctx.lcl);
         }
@@ -90,9 +83,10 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
 
 void reset_state_sync()
 {
+    std::cout << "reset_state_sync()\n";
+
     std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
     {
-        std::cout << "reset_state_sync processing_file.clear()\n";
         candidate_state_responses.clear();
         processing_file.clear();
         processing_block_id = -1;
@@ -126,13 +120,14 @@ int handle_state_response()
             const fbschema::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
             if (msg_type == fbschema::p2pmsg::State_Response_Content_Response)
             {
-                LOG_DBG << "Recieved state content response";
+                std::cout << "Recieved state fs entry response\n";
+
                 const fbschema::p2pmsg::Content_Response *con_resp = resp_msg->state_response_as_Content_Response();
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> state_content_list;
                 fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_content_list, con_resp->content());
 
                 for (const auto [a, b] : state_content_list)
-                    std::cout << "**********Recieved fsentry: " << a << "\n";
+                    std::cout << "Recieved fsentry: " << a << "\n";
 
                 std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
                 std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(con_resp->path());
@@ -184,7 +179,6 @@ int handle_state_response()
             else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)
             {
                 std::cout << "Recieved state hash map response" << std::endl;
-                LOG_DBG << "Recieved state hash map response";
                 const fbschema::p2pmsg::File_HashMap_Response *file_resp = resp_msg->state_response_as_File_HashMap_Response();
 
                 std::vector<uint8_t> exising_block_hashmap;
@@ -241,7 +235,7 @@ int handle_state_response()
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_Block_Response)
             {
-                LOG_DBG << "Recieved state block response";
+                std::cout << "Recieved state block response";
                 p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*resp_msg->state_response_as_Block_Response());
 
                 if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
