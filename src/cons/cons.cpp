@@ -147,7 +147,7 @@ void consensus()
         {
             //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
             //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
-            timewait_stage(true, floor(time_off - ctx.time_now));
+            timewait_stage(true, time_off - ctx.time_now);
             //LOG_DBG << "time off: " << std::to_string(time_off);
             return;
         }
@@ -698,7 +698,7 @@ void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const 
             bufpair.inputs.push_back(std::move(inputtofeed));
 
             // Remove the input from the candidate set because we no longer need it.
-            LOG_WARN << "candidate input deleted.";
+            //LOG_DBG << "candidate input deleted.";
             ctx.candidate_user_inputs.erase(itr);
         }
     }

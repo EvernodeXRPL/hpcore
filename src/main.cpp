@@ -178,9 +178,6 @@ int main(int argc, char **argv)
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
 
-                //we are waiting for peer to estasblish peer connections.
-                sleep(10); //todo: replace waiting with a check to peer check.
-
                 while (true)
                 {
                     cons::consensus();
