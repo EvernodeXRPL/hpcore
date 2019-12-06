@@ -119,7 +119,9 @@ float_t get_stage_threshold(const uint8_t stage);
 
 void timewait_stage(const bool reset, const uint64_t time);
 
-const uint64_t get_ledger_time_resolution(uint64_t close_time);
+uint64_t get_ledger_time_resolution(const uint64_t time);
+
+uint64_t get_stage_time_resolution(const uint64_t time);
 
 void apply_ledger(const p2p::proposal &proposal);
 
