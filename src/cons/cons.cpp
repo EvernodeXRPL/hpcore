@@ -43,14 +43,20 @@ int init()
     ctx.lcl = ldr_hist.lcl;
     ctx.cache.swap(ldr_hist.cache);
 
+
     hasher::B2H root_hash{0, 0, 0, 0};
     if (statefs::compute_hash_tree(root_hash, true) == -1)
         return -1;
 
-    LOG_DBG << "Initial state: " << std::hex << root_hash << std::dec << std::endl;
-
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
+
+    if(!ctx.cache.empty()){
+        ctx.prev_hash_state = ctx.cache.rbegin()->second.state;
+    }else{
+        ctx.prev_hash_state = ctx.curr_hash_state;
+    }
+
 
     ctx.state_syncing_thread = std::thread([&] {
         handle_state_response();
@@ -125,17 +131,17 @@ void consensus()
     else // Stage 1, 2, 3
     {
         std::cout << "Started stage " << std::to_string(ctx.stage) << "\n";
-        // for (auto &[pubkey, proposal] : ctx.candidate_proposals)
-        // {
-        //     bool self = proposal.pubkey == conf::cfg.pubkey;
-        //     LOG_DBG << "[stage" << std::to_string(proposal.stage)
-        //             << "] users:" << proposal.users.size()
-        //             << " hinp:" << proposal.hash_inputs.size()
-        //             << " hout:" << proposal.hash_outputs.size()
-        //             << " lcl:" << proposal.lcl
-        //             << " self:" << self
-        //             << "\n";
-        // }
+        for (auto &[pubkey, proposal] : ctx.candidate_proposals)
+        {
+            bool self = proposal.pubkey == conf::cfg.pubkey;
+            // LOG_DBG << "[stage" << std::to_string(proposal.stage)
+            //         << "] users:" << proposal.users.size()
+            //         << " hinp:" << proposal.hash_inputs.size()
+            //         << " hout:" << proposal.hash_outputs.size()
+            //         << " lcl:" << proposal.lcl
+            //         << " self:" << self
+            //         << "\n";
+        }
 
         // Initialize vote counters
         vote_counter votes;
@@ -313,6 +319,7 @@ p2p::proposal create_stage0_proposal()
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
     stg_prop.curr_hash_state = ctx.curr_hash_state;
+    std::cout << "Stage o proposal state :" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
 
     // Populate the proposal with set of candidate user pubkeys.
     for (const std::string &pubkey : ctx.candidate_users)
@@ -345,6 +352,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
     // our peers or we will halt depending on level of consensus on the sides of the fork
     stg_prop.lcl = ctx.lcl;
     stg_prop.curr_hash_state = ctx.curr_hash_state;
+    std::cout << "Stage 123 proposal state :" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
 
     // Vote for rest of the proposal fields by looking at candidate proposals.
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -589,6 +597,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
     const std::tuple<const uint64_t, std::string> new_lcl = save_ledger(cons_prop);
     ctx.led_seq_no = std::get<0>(new_lcl);
     ctx.lcl = std::get<1>(new_lcl);
+    ctx.prev_hash_state = ctx.curr_hash_state;
 
     // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
     {
@@ -678,24 +687,9 @@ void check_state(vote_counter &votes, bool &is_desync)
     std::string majority_state;
     int32_t total_state_votes = 0;
 
-    // // Moving here means lcl matches and ctx.cache empty means this is the initial run otherwise at the end of each consensus round
-    // // if node reaches consensus cache is updated.
-    // // cache contains the previous round's consensus passed state. We have to compare it with this node's previous state because at the
-    // // end of the previous consensus round state might update and we store the state before modification in prev_hash_state variable.
-    // if (!ctx.cache.empty() && ctx.prev_hash_state != ctx.cache.rbegin()->second.state)
-    // {
-    //     statefs::compute_hash_tree();
-    //     request_state_from_peer(conf::ctx.statehistdir, false, ctx.lcl);
-
-    //     ctx.is_state_syncing =
-
-    //     // Change the mode to passive and not sending out proposals till the state is synced
-    //     conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
-    //     return;
-    // }
-
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
+        std::cout << "Proposal state :" << std::hex << (*(hasher::B2H *)cp.curr_hash_state.c_str()) << std::dec << "\n";
         increment(votes.state, cp.curr_hash_state);
         total_state_votes++;
     }
@@ -726,6 +720,8 @@ void check_state(vote_counter &votes, bool &is_desync)
         str_root_hash.swap(ctx.curr_hash_state);
     }
 
+    std::cout << "check state :" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
+
     if (majority_state != ctx.curr_hash_state)
     {
         if (ctx.state_sync_lcl != ctx.lcl)
@@ -742,6 +738,10 @@ void check_state(vote_counter &votes, bool &is_desync)
             ctx.is_state_syncing = true;
             ctx.state_sync_lcl = ctx.lcl;
             request_state_from_peer("/", false, ctx.lcl, -1);
+        }
+        else
+        {
+            std::cout << "He he Lcl's are equal\n";
         }
     }
     else

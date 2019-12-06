@@ -75,6 +75,7 @@ struct consensus_context
     std::string lcl;
     uint64_t led_seq_no;
     std::string curr_hash_state;
+    std::string prev_hash_state;
 
     //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
     //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.

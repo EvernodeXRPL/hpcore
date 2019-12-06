@@ -150,7 +150,7 @@ int delete_dir(const std::string &dir_relpath)
     }
 
     // Finally, delete the directory itself.
-    boost::filesystem::remove(full_dir_path);
+    boost::filesystem::remove_all(full_dir_path);
 
     return 0;
 }

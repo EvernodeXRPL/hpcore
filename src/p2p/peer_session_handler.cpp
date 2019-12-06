@@ -120,9 +120,14 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             return;
         }
 
+        std::cout << "Current state :" << std::hex << (*(hasher::B2H *)cons::ctx.curr_hash_state.c_str()) << std::dec << "\n";
+        std::cout << "Previous state :" << std::hex << (*(hasher::B2H *)cons::ctx.prev_hash_state.c_str()) << std::dec << "\n";
+        if (!cons::ctx.cache.empty())
+            std::cout << "Ledger state :" << std::hex << (*(hasher::B2H *)cons::ctx.cache.rbegin()->second.state.c_str()) << std::dec << "\n";
+
         if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl)
         {
-            if (cons::ctx.lcl == "0-genesis" || cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state)
+            if (cons::ctx.lcl == "0-genesis" || cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state || cons::ctx.prev_hash_state == cons::ctx.cache.rbegin()->second.state)
             {
                 const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
                 session->send(cons::send_state_response(sr));
