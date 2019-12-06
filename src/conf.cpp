@@ -14,8 +14,8 @@ contract_ctx ctx;
 // Global configuration struct exposed to the application.
 contract_config cfg;
 
-const static char *MODE_PASSIVE = "passive";
-const static char *MODE_ACTIVE = "active";
+const static char *MODE_OBSERVING = "observing";
+const static char *MODE_PROPOSING = "proposing";
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -202,13 +202,13 @@ int load_config()
 
     // Load up the values into the struct.
 
-    if (d["mode"] == MODE_PASSIVE)
+    if (d["mode"] == MODE_OBSERVING)
         cfg.mode = OPERATING_MODE::OBSERVING;
-    else if (d["mode"] == MODE_ACTIVE)
+    else if (d["mode"] == MODE_PROPOSING)
         cfg.mode = OPERATING_MODE::PROPOSING;
     else
     {
-        std::cout << "Invalid mode. 'passive' or 'active' expected.\n";
+        std::cout << "Invalid mode. 'observing' or 'proposing' expected.\n";
         return -1;
     }
 
@@ -304,7 +304,7 @@ int save_config()
     d.SetObject();
     rapidjson::Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
-    d.AddMember("mode", rapidjson::StringRef(cfg.mode == OPERATING_MODE::OBSERVING ? MODE_PASSIVE : MODE_ACTIVE),
+    d.AddMember("mode", rapidjson::StringRef(cfg.mode == OPERATING_MODE::OBSERVING ? MODE_OBSERVING : MODE_PROPOSING),
                 allocator);
 
     d.AddMember("pubkeyhex", rapidjson::StringRef(cfg.pubkeyhex.data()), allocator);

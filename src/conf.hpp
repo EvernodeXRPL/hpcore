@@ -49,7 +49,7 @@ struct contract_config
 
     // Config elements which are loaded from the config file.
 
-    OPERATING_MODE mode;                // Operating mode of the contract (Passive/Active).
+    OPERATING_MODE mode;                // Operating mode of the contract (Observing/Proposing).
     std::string pubkeyhex;              // Contract hex public key
     std::string seckeyhex;              // Contract hex secret key
     std::string keytype;                // Key generation algorithm used by libsodium

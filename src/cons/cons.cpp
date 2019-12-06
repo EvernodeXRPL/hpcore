@@ -544,12 +544,12 @@ void timewait_stage(const bool reset, const uint64_t time)
 * also ensure it is sufficiently separated from the prior close time.
 * @param close_time voted/agreed closed time
 */
-const uint64_t get_ledger_time_resolution(uint64_t close_time)
+uint64_t get_ledger_time_resolution(const uint64_t time)
 {
     uint64_t closeResolution = conf::cfg.roundtime / 4;
     //todo: change time resolution dynamically.
     //When nodes agree often reduce resolution time and increase if they don't.
-
+    uint64_t close_time = time;
     close_time += (closeResolution / 2);
     close_time -= (close_time % closeResolution);
 
@@ -561,10 +561,10 @@ const uint64_t get_ledger_time_resolution(uint64_t close_time)
 * Adjusting the stage time based on the current resolution.
 * @param stage_time voted/agreed closed time
 */
-const uint64_t get_stage_time_resolution(uint64_t stage_time)
+uint64_t get_stage_time_resolution(const uint64_t time)
 {
     uint64_t closeResolution = conf::cfg.roundtime / 8;
-
+    uint64_t stage_time = time;
     stage_time += (closeResolution / 2);
     stage_time -= (stage_time % closeResolution);
 
