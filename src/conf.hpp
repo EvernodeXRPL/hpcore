@@ -16,8 +16,8 @@ typedef std::pair<std::string, std::string> ip_port_pair;
 // The operating mode of the contract node.
 enum OPERATING_MODE
 {
-    PASSIVE = 0,    // Observer mode. Only emits NUPs. Does not participate in voting.
-    ACTIVE = 1      // Consensus participant mode.
+    OBSERVING = 0,    // Observer mode. Only emits NUPs. Does not participate in voting.
+    PROPOSING = 1      // Consensus participant mode.
 };
 
 // Holds contextual information about the currently loaded contract.
@@ -49,7 +49,7 @@ struct contract_config
 
     // Config elements which are loaded from the config file.
 
-    OPERATING_MODE mode;                // Operating mode of the contract (Passive/Active).
+    OPERATING_MODE mode;                // Operating mode of the contract (Observing/Proposing).
     std::string pubkeyhex;              // Contract hex public key
     std::string seckeyhex;              // Contract hex secret key
     std::string keytype;                // Key generation algorithm used by libsodium
@@ -109,6 +109,8 @@ int is_schema_valid(const rapidjson::Document &d);
 int binpair_to_hex();
 
 int hexpair_to_bin();
+
+void change_operating_mode(const OPERATING_MODE mode);
 
 } // namespace conf
 

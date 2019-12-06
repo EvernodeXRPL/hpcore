@@ -168,7 +168,7 @@ int main(int argc, char **argv)
                 hplog::init();
 
                 LOG_INFO << "Operating mode: "
-                         << (conf::cfg.mode == conf::OPERATING_MODE::PASSIVE ? "Passive" : "Active");
+                         << (conf::cfg.mode == conf::OPERATING_MODE::OBSERVING ? "Observing" : "Proposing");
 
                 statefs::init(conf::ctx.statehistdir);
 
@@ -177,8 +177,6 @@ int main(int argc, char **argv)
 
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
-                //we are waiting for peer to estasblish peer connections.
-                sleep(2); //todo: replace waiting with a check to peer check.
 
                 while (true)
                 {

@@ -277,6 +277,10 @@ bool check_required_lcl_availability(const p2p::history_request &hr)
             return false;
         }
     }
+    else
+    {
+        return false; //Very rare case: node asking for the genisis lcl. 
+    }
     return true;
 }
 
@@ -313,7 +317,7 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
     }
     else if (min_seq_no > cons::ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence. 
     {
-        LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. hash: "<< min_lcl_hash;
+        LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. hash: " << min_lcl_hash;
         history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
         return history_response;
     }

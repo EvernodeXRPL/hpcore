@@ -14,8 +14,8 @@ contract_ctx ctx;
 // Global configuration struct exposed to the application.
 contract_config cfg;
 
-const static char *MODE_PASSIVE = "passive";
-const static char *MODE_ACTIVE = "active";
+const static char *MODE_OBSERVING = "observing";
+const static char *MODE_PROPOSING = "proposing";
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -31,7 +31,7 @@ int init()
     if (validate_contract_dir_paths() != 0 || load_config() != 0 || validate_config() != 0)
         return -1;
 
-    if (cfg.mode == OPERATING_MODE::ACTIVE)
+    if (cfg.mode == OPERATING_MODE::PROPOSING)
     {
         // Append self peer to peer list.
         const std::string portstr = std::to_string(cfg.peerport);
@@ -91,7 +91,7 @@ int create_contract()
     crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
     binpair_to_hex();
 
-    cfg.mode = OPERATING_MODE::ACTIVE;
+    cfg.mode = OPERATING_MODE::PROPOSING;
     cfg.listenip = "0.0.0.0";
     cfg.peerport = 22860;
     cfg.roundtime = 1000;
@@ -202,13 +202,13 @@ int load_config()
 
     // Load up the values into the struct.
 
-    if (d["mode"] == MODE_PASSIVE)
-        cfg.mode = OPERATING_MODE::PASSIVE;
-    else if (d["mode"] == MODE_ACTIVE)
-        cfg.mode = OPERATING_MODE::ACTIVE;
+    if (d["mode"] == MODE_OBSERVING)
+        cfg.mode = OPERATING_MODE::OBSERVING;
+    else if (d["mode"] == MODE_PROPOSING)
+        cfg.mode = OPERATING_MODE::PROPOSING;
     else
     {
-        std::cout << "Invalid mode. 'passive' or 'active' expected.\n";
+        std::cout << "Invalid mode. 'observing' or 'proposing' expected.\n";
         return -1;
     }
 
@@ -304,7 +304,7 @@ int save_config()
     d.SetObject();
     rapidjson::Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
-    d.AddMember("mode", rapidjson::StringRef(cfg.mode == OPERATING_MODE::PASSIVE ? MODE_PASSIVE : MODE_ACTIVE),
+    d.AddMember("mode", rapidjson::StringRef(cfg.mode == OPERATING_MODE::OBSERVING ? MODE_OBSERVING : MODE_PROPOSING),
                 allocator);
 
     d.AddMember("pubkeyhex", rapidjson::StringRef(cfg.pubkeyhex.data()), allocator);
@@ -592,6 +592,11 @@ int is_schema_valid(const rapidjson::Document &d)
         return -1;
 
     return 0;
+}
+
+void change_operating_mode(const OPERATING_MODE mode)
+{
+    cfg.mode = mode;
 }
 
 } // namespace conf
