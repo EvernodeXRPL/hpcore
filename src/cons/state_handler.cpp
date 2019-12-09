@@ -11,44 +11,17 @@
 namespace cons
 {
 
-enum BACKLOG_ITEM_TYPE
-{
-    DIR = 0,
-    FILE = 1,
-    BLOCK = 2
-};
-
-// Represents a queued up state sync operation which needs to be performed.
-struct backlog_item
-{
-    BACKLOG_ITEM_TYPE type;
-    std::string path;
-    uint32_t block_id; // Only relevant if type=BLOCK
-};
+constexpr uint16_t MAX_AWAITING_REQUESTS = 5;
+constexpr uint16_t MAX_RESPONSE_WAIT_CYCLES = 10;
 
 // List of state responses flatbuffer messages to be processed.
 std::list<std::string> candidate_state_responses;
 
 // List of pending sync requests to be sent out.
-std::list<backlog_item> request_backlog;
+std::queue<backlog_item> pending_requests;
 
-// List of responses we are waiting for, keyed by expected hash.
-std::unordered_map<hasher::B2H, backlog_item, hasher::B2H_std_key_hasher> response_backlog;
-
-// The file currently being processed.
-std::string processing_file;
-
-// Current block of the current file being processed.
-int32_t processing_block_id = -1;
-
-// Map of file/dir paths and whether file or dir flag.
-std::map<std::string, bool> paths_to_request;
-
-// Map of file paths and the set of block ids to request.
-std::map<std::string, std::set<uint32_t>> blocks_to_request;
-
-// Map of file paths and set of block ids to be written to disk.
-std::map<std::string, std::set<uint32_t>> blocks_to_write;
+// List of submitted requests we are awaiting responses for, keyed by expected response hash.
+std::unordered_map<hasher::B2H, backlog_item, hasher::B2H_std_key_hasher> submitted_requests;
 
 void request_state_from_peer(const std::string &path, const bool is_file, const std::string &lcl, const int32_t block_id, const hasher::B2H expected_hash)
 {
@@ -117,18 +90,15 @@ void start_state_sync(const hasher::B2H state_hash_to_request)
     {
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
         candidate_state_responses.clear();
-        processing_file.clear();
-        processing_block_id = -1;
-        paths_to_request.clear();
-        blocks_to_request.clear();
-        blocks_to_write.clear();
+        std::queue<backlog_item>().swap(pending_requests);
+        submitted_requests.clear();
     }
 
     // Send the root state request.
-    request_state_from_peer("/", false, ctx.lcl, -1, state_hash_to_request);
+    submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, state_hash_to_request});
 }
 
-int handle_state_response()
+int run_state_sync_iterator()
 {
     while (true)
     {
@@ -149,187 +119,212 @@ int handle_state_response()
             const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(response.data());
             const fbschema::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
+            // Check whether we are actually waiting for this response's hash. If not, ignore it.
+            hasher::B2H response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
+            const auto pending_resp_itr = submitted_requests.find(response_hash);
+            if (pending_resp_itr == submitted_requests.end())
+                continue;
+
+            // Now that we have received matching hash, remove it from the waiting list.
+            submitted_requests.erase(pending_resp_itr);
+
+            // Process the message based on response type.
             const fbschema::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
+
             if (msg_type == fbschema::p2pmsg::State_Response_Fs_Entry_Response)
             {
-                std::cout << "Recieved state fs entry response\n";
-
-                const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp = resp_msg->state_response_as_Fs_Entry_Response();
-                std::unordered_map<std::string, p2p::state_fs_hash_entry> state_fs_entry_list;
-                fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_fs_entry_list, fs_entry_resp->entries());
-
-                for (const auto [a, b] : state_fs_entry_list)
-                    std::cout << "Recieved fsentry: " << a << "\n";
-
-                std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
-                std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(fs_entry_resp->path());
-                std::string root_path_str(root_path_sv.data(), root_path_sv.size());
-
-                if (!statefs::is_dir_exists(root_path_str))
-                {
-                    statefs::create_dir(root_path_str);
-                }
-                else
-                {
-                    if (statefs::get_fs_entry_hashes(existing_fs_entries, std::move(root_path_str), hasher::B2H_empty) == -1)
-                        return -1;
-                }
-
-                for (const auto &[path, fs_entry] : existing_fs_entries)
-                {
-                    std::cout << "Existing path :" << path << std::endl;
-                    const auto fs_itr = state_fs_entry_list.find(path);
-                    if (fs_itr != state_fs_entry_list.end())
-                    {
-                        std::cout << "Existing fs_entry_hash :" << fs_entry.hash << std::endl;
-                        std::cout << "Recieved fs_entry_hash :" << fs_itr->second.hash << std::endl;
-                        if (fs_itr->second.hash != fs_entry.hash)
-                            paths_to_request.try_emplace(path, fs_entry.is_file);
-
-                        state_fs_entry_list.erase(fs_itr);
-                    }
-                    else
-                    {
-                        if (fs_entry.is_file)
-                        {
-                            if (statefs::delete_file(path) == -1)
-                                return -1;
-                        }
-                        else
-                        {
-                            if (statefs::delete_dir(path) == -1)
-                                return -1;
-                        }
-                    }
-                }
-
-                for (const auto &[path, fs_entry] : state_fs_entry_list)
-                {
-                    paths_to_request.try_emplace(path, fs_entry.is_file);
-                }
+                if (handle_fs_entry_response(resp_msg->state_response_as_Fs_Entry_Response()) == -1)
+                    return -1;
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)
             {
-                std::cout << "Recieved state hash map response" << std::endl;
-                const fbschema::p2pmsg::File_HashMap_Response *file_resp = resp_msg->state_response_as_File_HashMap_Response();
-
-                std::vector<uint8_t> exising_block_hashmap;
-                std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
-                const std::string path_str(path_sv.data(), path_sv.size());
-
-                if (statefs::get_block_hash_map(exising_block_hashmap, path_str, hasher::B2H_empty) == -1)
+                if (handle_file_hashmap_response(resp_msg->state_response_as_File_HashMap_Response()) == -1)
                     return -1;
-
-                const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(exising_block_hashmap.data());
-                auto existing_hash_count = exising_block_hashmap.size() / hasher::HASH_SIZE;
-
-                const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
-                auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
-
-                std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
-                std::cout << "Existing file hashmap size :" << exising_block_hashmap.size() << std::endl;
-
-                std::set<uint32_t> block_ids_to_request;
-
-                for (int i = 0; i < existing_hash_count; ++i)
-                {
-                    if (i >= resp_hash_count)
-                        break;
-
-                    if (existing_hashes[i] != resp_hashes[i])
-                    {
-                        std::cout << "Mismatch in file block  :" << i << std::endl;
-                        block_ids_to_request.emplace(i);
-                    }
-                }
-
-                if (existing_hash_count > resp_hash_count)
-                {
-                    if (statefs::truncate_file(path_str, file_resp->file_length()) == -1)
-                        return -1;
-                }
-                else if (existing_hash_count < resp_hash_count)
-                {
-                    for (int i = existing_hash_count; i < resp_hash_count; ++i)
-                    {
-                        std::cout << "Missing block: " << i << "\n";
-                        block_ids_to_request.emplace(i);
-                    }
-                }
-
-                if (!block_ids_to_request.empty())
-                {
-                    // Copy the requesting block ids into list of blocks to be written.
-                    blocks_to_write[path_str] = block_ids_to_request;
-
-                    blocks_to_request[path_str] = std::move(block_ids_to_request);
-                }
             }
             else if (msg_type == fbschema::p2pmsg::State_Response_Block_Response)
             {
-                std::cout << "Recieved state block response";
-                p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*resp_msg->state_response_as_Block_Response());
-
-                if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
+                if (handle_file_block_response(resp_msg->state_response_as_Block_Response()) == -1)
                     return -1;
-
-                processing_block_id = -1;
-                std::set<uint32_t> &remaining_blocks = blocks_to_write[block_resp.path];
-                remaining_blocks.erase(block_resp.block_id);
-
-                // If no more remaining blocks to be written, this means we have fully reconstructed the file.
-                if (remaining_blocks.empty())
-                {
-                    blocks_to_write.erase(block_resp.path);
-                    std::cout << "remaining_blocks empty processing_file.clear()\n";
-                    processing_file.clear();
-                }
             }
         }
 
         candidate_state_responses.clear();
 
-        if (processing_file.empty())
+        // Check for long-awaited responses and re-request them.
+        for (auto &[hash, request] : submitted_requests)
         {
-            if (!paths_to_request.empty())
+            if (request.waiting_cycles < MAX_RESPONSE_WAIT_CYCLES)
             {
-                // Choose the next item from the paths to be requested.
-                const auto itr = paths_to_request.begin();
-                const std::string &path_to_request = itr->first;
-                const bool is_file = itr->second;
-                std::cout << "Sending request to path_to_request " << path_to_request << "  isfile:" << is_file << "\n";
-                request_state_from_peer(path_to_request, is_file, ctx.lcl, -1, hasher::B2H_empty);
-
-                if (is_file)
-                    processing_file = path_to_request;
-
-                paths_to_request.erase(itr);
+                // Increment counter.
+                request.waiting_cycles++;
+            }
+            else
+            {
+                // Reset the counter and re-submit request.
+                request.waiting_cycles = 0;
+                submit_request(request);
             }
         }
-        else if (processing_block_id == -1)
+
+        // Check whether we can submit any more requests.
+        if (submitted_requests.size() < MAX_AWAITING_REQUESTS)
         {
-            // Check whether we know which blocks to request for the file being processed.
-            const auto itr = blocks_to_request.find(processing_file);
-            if (itr != blocks_to_request.end())
+            const uint16_t available_slots = MAX_AWAITING_REQUESTS - submitted_requests.size();
+            for (int i = 0; i < available_slots; i++)
             {
-                std::set<uint32_t> &remaining_blocks = itr->second;
-
-                // Send a request to the first block in the remaining list.
-                const uint32_t block_to_request = *remaining_blocks.begin();
-                std::cout << "Sending request to block_to_request: " << block_to_request << "\n";
-                request_state_from_peer(processing_file, true, ctx.lcl, block_to_request, hasher::B2H_empty);
-                remaining_blocks.erase(block_to_request);
-
-                // If we have requested all the blocks by now, clear the map entry as well.
-                if (remaining_blocks.empty())
-                    blocks_to_request.erase(itr);
-
-                processing_block_id = block_to_request;
-                std::cout << "processing_block_id: " << processing_block_id << "\n";
+                const backlog_item &request = pending_requests.front();
+                submit_request(request);
             }
         }
     }
 
     return 0;
 }
+
+void submit_request(const backlog_item &request)
+{
+    std::cout << "Submitting state request. type: " << request.type << " " << request.path << " blockid: " << request.block_id << "\n";
+
+    submitted_requests.try_emplace(request.expected_hash, request);
+
+    const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
+    request_state_from_peer(request.path, is_file, ctx.lcl, request.block_id, request.expected_hash);
+}
+
+int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp)
+{
+    std::cout << "Recieved state fs entry response\n";
+
+    std::unordered_map<std::string, p2p::state_fs_hash_entry> state_fs_entry_list;
+    fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_fs_entry_list, fs_entry_resp->entries());
+
+    for (const auto [a, b] : state_fs_entry_list)
+        std::cout << "Recieved fsentry: " << a << "\n";
+
+    std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
+    std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(fs_entry_resp->path());
+    std::string root_path_str(root_path_sv.data(), root_path_sv.size());
+
+    if (!statefs::is_dir_exists(root_path_str))
+    {
+        statefs::create_dir(root_path_str);
+    }
+    else
+    {
+        if (statefs::get_fs_entry_hashes(existing_fs_entries, std::move(root_path_str), hasher::B2H_empty) == -1)
+            return -1;
+    }
+
+    // Request more info on fs entries that exist on both sides but are different.
+    for (const auto &[path, fs_entry] : existing_fs_entries)
+    {
+        std::cout << "Existing path :" << path << std::endl;
+        const auto fs_itr = state_fs_entry_list.find(path);
+        if (fs_itr != state_fs_entry_list.end())
+        {
+            std::cout << "Existing fs_entry_hash :" << fs_entry.hash << std::endl;
+            std::cout << "Recieved fs_entry_hash :" << fs_itr->second.hash << std::endl;
+            if (fs_itr->second.hash != fs_entry.hash)
+            {
+                pending_requests.push(
+                    backlog_item{
+                        fs_entry.is_file ? BACKLOG_ITEM_TYPE::FILE : BACKLOG_ITEM_TYPE::DIR,
+                        path,
+                        -1,
+                        fs_itr->second.hash});
+            }
+
+            state_fs_entry_list.erase(fs_itr);
+        }
+        else
+        {
+            // If there was an entry that does not exist on other side, delete it from this node.
+            if (fs_entry.is_file)
+            {
+                if (statefs::delete_file(path) == -1)
+                    return -1;
+            }
+            else
+            {
+                if (statefs::delete_dir(path) == -1)
+                    return -1;
+            }
+        }
+    }
+
+    // Queue the remaining fs entries (that this node does not have at all) to request.
+    for (const auto &[path, fs_entry] : state_fs_entry_list)
+    {
+        pending_requests.push(
+            backlog_item{
+                fs_entry.is_file ? BACKLOG_ITEM_TYPE::FILE : BACKLOG_ITEM_TYPE::DIR,
+                path,
+                -1,
+                fs_entry.hash});
+    }
+
+    return 0;
+}
+
+int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *file_resp)
+{
+    std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
+    const std::string path_str(path_sv.data(), path_sv.size());
+
+    std::cout << "Recieved file hash map of " << path_str << std::endl;
+
+    std::vector<uint8_t> exising_block_hashmap;
+    if (statefs::get_block_hash_map(exising_block_hashmap, path_str, hasher::B2H_empty) == -1)
+        return -1;
+
+    const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(exising_block_hashmap.data());
+    auto existing_hash_count = exising_block_hashmap.size() / hasher::HASH_SIZE;
+
+    const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
+    auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
+
+    std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
+    std::cout << "Existing file hashmap size :" << exising_block_hashmap.size() << std::endl;
+
+    for (int block_id = 0; block_id < existing_hash_count; ++block_id)
+    {
+        if (block_id >= resp_hash_count)
+            break;
+
+        if (existing_hashes[block_id] != resp_hashes[block_id])
+        {
+            std::cout << "Mismatch in file block  :" << block_id << std::endl;
+            pending_requests.push(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
+        }
+    }
+
+    if (existing_hash_count > resp_hash_count)
+    {
+        if (statefs::truncate_file(path_str, file_resp->file_length()) == -1)
+            return -1;
+    }
+    else if (existing_hash_count < resp_hash_count)
+    {
+        for (int block_id = existing_hash_count; block_id < resp_hash_count; ++block_id)
+        {
+            std::cout << "Missing block: " << block_id << "\n";
+            pending_requests.push(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
+        }
+    }
+
+    return 0;
+}
+
+int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg)
+{
+    p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*block_msg);
+
+    std::cout << "Recieved block " << block_resp.block_id << " of " << block_resp.path << "\n";
+
+    if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
+        return -1;
+
+    return 0;
+}
+
 } // namespace cons

@@ -60,7 +60,7 @@ int init()
     }
 
     ctx.state_syncing_thread = std::thread([&] {
-        handle_state_response();
+        run_state_sync_iterator();
         LOG_ERR << "Exit state sync thread\n";
         exit(1);
     });
