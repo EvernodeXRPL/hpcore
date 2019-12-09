@@ -138,7 +138,7 @@ void apply_ledger(const p2p::proposal &proposal);
 
 void dispatch_user_outputs(const p2p::proposal &cons_prop);
 
-void check_state(vote_counter &votes, bool &is_desync);
+void check_state(vote_counter &votes);
 
 void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 

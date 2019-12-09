@@ -64,12 +64,7 @@ struct state_request
     std::string parent_path;
     bool is_file;
     int32_t block_id;
-};
-
-struct state_response
-{
-    std::string full_path;
-    bool is_file;
+    std::string expected_hash;
 };
 
 struct state_fs_hash_entry
@@ -83,6 +78,7 @@ struct block_response
     std::string path;
     uint32_t block_id;
     std::string_view data;
+    std::string hash;
 };
 
 struct message_collection

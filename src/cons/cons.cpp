@@ -43,7 +43,6 @@ int init()
     ctx.lcl = ldr_hist.lcl;
     ctx.cache.swap(ldr_hist.cache);
 
-
     hasher::B2H root_hash{0, 0, 0, 0};
     if (statefs::compute_hash_tree(root_hash, true) == -1)
         return -1;
@@ -51,12 +50,14 @@ int init()
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
 
-    if(!ctx.cache.empty()){
+    if (!ctx.cache.empty())
+    {
         ctx.prev_hash_state = ctx.cache.rbegin()->second.state;
-    }else{
+    }
+    else
+    {
         ctx.prev_hash_state = ctx.curr_hash_state;
     }
-
 
     ctx.state_syncing_thread = std::thread([&] {
         handle_state_response();
@@ -181,20 +182,10 @@ void consensus()
             conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);
         }
 
-        if (ctx.stage == 1)
+        if (ctx.stage == 1 || (ctx.stage == 3 && ctx.is_state_syncing))
         {
-            bool is_state_desync = false;
-            check_state(votes, is_state_desync);
+            check_state(votes);
 
-            if (is_state_desync)
-            {
-                //We are resetting to stage 0 to avoid possible deadlock situations.
-                //Also we try to converge consensus by trying to reset every node in same time(close time range)
-                //by resetting node to max close time of candidate list of unl list peers.
-                timewait_stage(true, (time_off - ctx.time_now));
-                //LOG_DBG << "time off: " << std::to_string(time_off);
-                return;
-            }
         }
 
         if (!ctx.is_state_syncing)
@@ -494,7 +485,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
         }
 
         //keep track of max time of peers, so we can reset nodes in a random time range to increase reliability.
-        //This is very usefull especially boostrapping a node cluster.
+        //This is very useful especially boostrapping a node cluster.
         if (cp.time > time_off)
             time_off = cp.time;
     }
@@ -707,23 +698,14 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
  * Check state against the winning and canonical state
  * @param cons_prop The proposal that achieved consensus.
  */
-void check_state(vote_counter &votes, bool &is_desync)
+void check_state(vote_counter &votes)
 {
     std::string majority_state;
-    int32_t total_state_votes = 0;
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
         std::cout << "Proposal state :" << std::hex << (*(hasher::B2H *)cp.curr_hash_state.c_str()) << std::dec << "\n";
         increment(votes.state, cp.curr_hash_state);
-        total_state_votes++;
-    }
-
-    if (total_state_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
-    {
-        LOG_DBG << "Not enough peers proposing to perform consensus" << std::to_string(total_state_votes) << " needed " << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
-        is_desync = true;
-        return;
     }
 
     int32_t winning_votes = 0;
@@ -736,18 +718,20 @@ void check_state(vote_counter &votes, bool &is_desync)
         }
     }
 
-    if (ctx.is_state_syncing)
+    if (ctx.stage == 1 || ctx.stage == 3)
     {
-        std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
-        hasher::B2H root_hash = {0, 0, 0, 0};
-        int ret = statefs::compute_hash_tree(root_hash);
-        std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
-        str_root_hash.swap(ctx.curr_hash_state);
+        if (ctx.is_state_syncing)
+        {
+            std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
+            hasher::B2H root_hash = {0, 0, 0, 0};
+            int ret = statefs::compute_hash_tree(root_hash);
+            std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
+            str_root_hash.swap(ctx.curr_hash_state);
+            std::cout << "check state :" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
+        }
     }
 
-    std::cout << "check state :" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
-
-    if (majority_state != ctx.curr_hash_state)
+    if (ctx.stage == 1 && majority_state != ctx.curr_hash_state)
     {
         if (ctx.state_sync_lcl != ctx.lcl)
         {
@@ -770,12 +754,11 @@ void check_state(vote_counter &votes, bool &is_desync)
             std::cout << "He he Lcl's are equal\n";
         }
     }
-    else
+    else if (majority_state == ctx.curr_hash_state)
     {
         ctx.is_state_syncing = false;
         ctx.state_sync_lcl.clear();
         conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);
-        //conf::cfg.mode == conf::OPERATING_MODE::ACTIVE;
     }
 }
 

@@ -52,6 +52,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
         p2p::block_response resp;
         resp.path = sr.parent_path;
         resp.block_id = sr.block_id;
+        resp.hash = sr.expected_hash;
 
         resp.data = std::string_view(reinterpret_cast<const char *>(blocks.data()), blocks.size());
         fbschema::p2pmsg::create_msg_from_block_response(msg.builder(), resp, ctx.lcl);
@@ -65,7 +66,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
             if (statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path) == -1)
                 return msg;
 
-            fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_file_length(sr.parent_path), ctx.lcl);
+            fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_file_length(sr.parent_path), sr.expected_hash, ctx.lcl);
         }
         else
         {
@@ -74,7 +75,7 @@ p2p::peer_outbound_message send_state_response(const p2p::state_request &sr)
             if (statefs::get_fs_entry_hashes(existing_fs_entries, sr.parent_path) == -1)
                 return msg;
 
-            fbschema::p2pmsg::create_msg_from_content_response(msg.builder(), sr.parent_path, existing_fs_entries, ctx.lcl);
+            fbschema::p2pmsg::create_msg_from_content_response(msg.builder(), sr.parent_path, existing_fs_entries, sr.expected_hash,ctx.lcl);
         }
     }
 

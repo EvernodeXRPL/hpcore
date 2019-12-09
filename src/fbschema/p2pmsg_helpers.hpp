@@ -48,9 +48,9 @@ void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builde
 void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::state_request &hr, std::string_view lcl);
 
 void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, 
-std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, std::string_view lcl);
+std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, std::string_view expected_hash, std::string_view lcl);
 
-void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, std::string_view lcl);
+void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, std::string_view expected_hash, std::string_view lcl);
 
 void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl);
 

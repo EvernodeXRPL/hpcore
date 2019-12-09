@@ -67,6 +67,7 @@ table State_Request_Message { //State request message schema
     parent_path:string;
     is_file:bool;
     block_id:int32;
+    expected_hash:[ubyte];
 }
 
 union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
@@ -74,6 +75,7 @@ union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
 table State_Response_Message{
     state_response:State_Response;
     is_error: bool;
+    hash:[ubyte];
 }
 
 table Content_Response{

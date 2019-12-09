@@ -229,16 +229,10 @@ const p2p::state_request create_state_request_from_msg(const State_Request_Messa
 
     sr.block_id = msg.block_id();
     sr.is_file = msg.is_file();
-    if (msg.parent_path())
-    {
-        sr.parent_path = flatbuff_str_to_sv(msg.parent_path());
-    }
-    else
-    {
-        sr.parent_path = "";
-    }
+    sr.parent_path = flatbuff_str_to_sv(msg.parent_path());
+    sr.expected_hash = flatbuff_bytes_to_sv(msg.expected_hash());
 
-    return sr;
+        return sr;
 }
 
 /**
@@ -252,7 +246,7 @@ const p2p::block_response create_block_response_from_msg(const Block_Response &m
 
     br.path = flatbuff_str_to_sv(msg.path());
     br.block_id = msg.block_id();
-    br.data = std::string_view(reinterpret_cast<const char *> (msg.data()->data()), msg.data()->size());
+    br.data = std::string_view(reinterpret_cast<const char *>(msg.data()->data()), msg.data()->size());
     return br;
 }
 
@@ -386,7 +380,8 @@ void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_bui
             builder,
             sv_to_flatbuff_str(builder, hr.parent_path),
             hr.is_file,
-            hr.block_id);
+            hr.block_id,
+            sv_to_flatbuff_bytes(builder, hr.expected_hash));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Request_Message, srmsg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -403,7 +398,7 @@ void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_bui
  * @param fs_entries File or directory entries in the given parent path.
  * @param lcl Lcl to be include in the container msg.
  */
-void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, std::string_view lcl)
+void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, std::string_view expected_hash, std::string_view lcl)
 {
     flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -413,7 +408,7 @@ void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_
             sv_to_flatbuff_str(builder, path),
             statefshashentry_to_flatbuff_statefshashentry(builder, fs_entries));
 
-    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_Content_Response, resp.Union());
+    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_Content_Response, resp.Union(), false, sv_to_flatbuff_bytes(builder, expected_hash));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -430,7 +425,7 @@ void create_msg_from_content_response(flatbuffers::FlatBufferBuilder &container_
  * @param hashmap Hashmap of the file
  * @param lcl Lcl to be include in the container msg.
  */
-void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, std::string_view lcl)
+void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, std::string_view expected_hash, std::string_view lcl)
 {
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
@@ -444,7 +439,7 @@ void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &contai
             file_length,
             sv_to_flatbuff_bytes(builder, conv_hashmap));
 
-    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_File_HashMap_Response, resp.Union());
+    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_File_HashMap_Response, resp.Union(), false, sv_to_flatbuff_bytes(builder, expected_hash));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
@@ -472,7 +467,7 @@ void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_bu
             block_resp.block_id,
             sv_to_flatbuff_bytes(builder, block_resp.data));
 
-    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_Block_Response, resp.Union());
+    const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_Block_Response, resp.Union(), false, sv_to_flatbuff_bytes(builder,block_resp.hash));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
