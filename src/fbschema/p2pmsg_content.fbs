@@ -70,7 +70,7 @@ table State_Request_Message { //State request message schema
     expected_hash:[ubyte];
 }
 
-union State_Response{ File_HashMap_Response, Block_Response, Content_Response }
+union State_Response{ File_HashMap_Response, Block_Response, Fs_Entry_Response }
 
 table State_Response_Message{
     state_response:State_Response;
@@ -78,9 +78,9 @@ table State_Response_Message{
     hash:[ubyte];
 }
 
-table Content_Response{
+table Fs_Entry_Response{
      path: string;
-     content: [State_FS_Hash_Entry];
+     entries: [State_FS_Hash_Entry];
 }
 
 table File_HashMap_Response{

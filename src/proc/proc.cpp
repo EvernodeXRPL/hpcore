@@ -204,7 +204,7 @@ int stop_state_monitor()
         LOG_ERR << "State monitor process exited with non-normal status code: " << presult;
 
     // Update the hash tree.
-    hasher::B2H statehash = {0, 0, 0, 0};
+    hasher::B2H statehash = hasher::B2H_empty;
     statefs::hashtree_builder htreebuilder(statefs::get_statedir_context());
     if (htreebuilder.generate(statehash) != 0)
         return -1;

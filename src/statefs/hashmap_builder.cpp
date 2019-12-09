@@ -39,7 +39,7 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
     if (read_blockhashmap(bhmapdata, bhmapfile, filerelpath) == -1)
         return -1;
 
-    hasher::B2H oldfilehash = {0, 0, 0, 0};
+    hasher::B2H oldfilehash = hasher::B2H_empty;
     if (!bhmapdata.empty())
         memcpy(&oldfilehash, bhmapdata.data(), hasher::HASH_SIZE);
 
@@ -202,7 +202,7 @@ int hashmap_builder::update_hashes_with_backup_blockhints(
     }
 
     // Calculate the new file hash: filehash = HASH(filename + XOR(block hashes))
-    hasher::B2H filehash{0, 0, 0, 0};
+    hasher::B2H filehash = hasher::B2H_empty;
     for (int i = 1; i <= blockcount; i++)
         filehash ^= hashes[i];
 
@@ -253,7 +253,7 @@ int hashmap_builder::update_hashes_with_changed_blockhints(
     }
 
     // Calculate the new file hash: filehash = HASH(filename + XOR(block hashes))
-    hasher::B2H filehash{0, 0, 0, 0};
+    hasher::B2H filehash = hasher::B2H_empty;
     for (int i = 1; i <= blockcount; i++)
         filehash ^= hashes[i];
 

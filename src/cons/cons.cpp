@@ -43,7 +43,7 @@ int init()
     ctx.lcl = ldr_hist.lcl;
     ctx.cache.swap(ldr_hist.cache);
 
-    hasher::B2H root_hash{0, 0, 0, 0};
+    hasher::B2H root_hash = hasher::B2H_empty;
     if (statefs::compute_hash_tree(root_hash, true) == -1)
         return -1;
 
@@ -723,7 +723,7 @@ void check_state(vote_counter &votes)
         if (ctx.is_state_syncing)
         {
             std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
-            hasher::B2H root_hash = {0, 0, 0, 0};
+            hasher::B2H root_hash = hasher::B2H_empty;
             int ret = statefs::compute_hash_tree(root_hash);
             std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
             str_root_hash.swap(ctx.curr_hash_state);
@@ -739,15 +739,12 @@ void check_state(vote_counter &votes)
 
             // Change the mode to passive and not sending out proposals till the state is synced
             conf::change_operating_mode(conf::OPERATING_MODE::OBSERVING);
-            //conf::cfg.mode == conf::OPERATING_MODE::PASSIVE;
 
-            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
-            p2p::ctx.collected_msgs.state_response.clear();
-            reset_state_sync();
+            const hasher::B2H majority_state_hash = *reinterpret_cast<const hasher::B2H *>(majority_state.c_str());
+            start_state_sync(majority_state_hash);
 
             ctx.is_state_syncing = true;
             ctx.state_sync_lcl = ctx.lcl;
-            request_state_from_peer("/", false, ctx.lcl, -1);
         }
         else
         {

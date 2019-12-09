@@ -12,10 +12,10 @@ namespace statefs
 extern std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touched_files;
 
 bool is_dir_exists(const std::string &dir_relpath);
-int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dir_relpath);
-int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpath);
+int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dir_relpath, const hasher::B2H expected_hash);
+int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpath, const hasher::B2H expected_hash);
 int get_file_length(const std::string &file_relpath);
-int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const uint32_t block_id);
+int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const uint32_t block_id, const hasher::B2H expected_hash);
 void create_dir(const std::string &dir_relpath);
 int delete_dir(const std::string &dir_relpath);
 int delete_file(const std::string &file_relpath);

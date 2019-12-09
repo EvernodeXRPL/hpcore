@@ -164,7 +164,7 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
 hasher::B2H hashtree_builder::get_existingdirhash(const std::string &dirhashfile)
 {
     // Load current dir hash if exist.
-    hasher::B2H dirhash{0, 0, 0, 0};
+    hasher::B2H dirhash = hasher::B2H_empty;
     int dirhashfd = open(dirhashfile.c_str(), O_RDONLY);
     if (dirhashfd > 0)
     {

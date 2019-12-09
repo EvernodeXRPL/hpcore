@@ -130,7 +130,10 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
             if (cons::ctx.lcl == "0-genesis" || cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state || cons::ctx.prev_hash_state == cons::ctx.cache.rbegin()->second.state)
             {
                 const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
-                session->send(cons::send_state_response(sr));
+                p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
+
+                if (cons::create_state_response(msg, sr) == 0)
+                    session->send(std::move(msg));
             }
             else
             {

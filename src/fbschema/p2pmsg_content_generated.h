@@ -35,7 +35,7 @@ struct State_Request_Message;
 
 struct State_Response_Message;
 
-struct Content_Response;
+struct Fs_Entry_Response;
 
 struct File_HashMap_Response;
 
@@ -163,9 +163,9 @@ enum State_Response {
   State_Response_NONE = 0,
   State_Response_File_HashMap_Response = 1,
   State_Response_Block_Response = 2,
-  State_Response_Content_Response = 3,
+  State_Response_Fs_Entry_Response = 3,
   State_Response_MIN = State_Response_NONE,
-  State_Response_MAX = State_Response_Content_Response
+  State_Response_MAX = State_Response_Fs_Entry_Response
 };
 
 inline const State_Response (&EnumValuesState_Response())[4] {
@@ -173,7 +173,7 @@ inline const State_Response (&EnumValuesState_Response())[4] {
     State_Response_NONE,
     State_Response_File_HashMap_Response,
     State_Response_Block_Response,
-    State_Response_Content_Response
+    State_Response_Fs_Entry_Response
   };
   return values;
 }
@@ -183,14 +183,14 @@ inline const char * const *EnumNamesState_Response() {
     "NONE",
     "File_HashMap_Response",
     "Block_Response",
-    "Content_Response",
+    "Fs_Entry_Response",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameState_Response(State_Response e) {
-  if (e < State_Response_NONE || e > State_Response_Content_Response) return "";
+  if (e < State_Response_NONE || e > State_Response_Fs_Entry_Response) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesState_Response()[index];
 }
@@ -207,8 +207,8 @@ template<> struct State_ResponseTraits<Block_Response> {
   static const State_Response enum_value = State_Response_Block_Response;
 };
 
-template<> struct State_ResponseTraits<Content_Response> {
-  static const State_Response enum_value = State_Response_Content_Response;
+template<> struct State_ResponseTraits<Fs_Entry_Response> {
+  static const State_Response enum_value = State_Response_Fs_Entry_Response;
 };
 
 bool VerifyState_Response(flatbuffers::Verifier &verifier, const void *obj, State_Response type);
@@ -1112,8 +1112,8 @@ struct State_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   const Block_Response *state_response_as_Block_Response() const {
     return state_response_type() == State_Response_Block_Response ? static_cast<const Block_Response *>(state_response()) : nullptr;
   }
-  const Content_Response *state_response_as_Content_Response() const {
-    return state_response_type() == State_Response_Content_Response ? static_cast<const Content_Response *>(state_response()) : nullptr;
+  const Fs_Entry_Response *state_response_as_Fs_Entry_Response() const {
+    return state_response_type() == State_Response_Fs_Entry_Response ? static_cast<const Fs_Entry_Response *>(state_response()) : nullptr;
   }
   void *mutable_state_response() {
     return GetPointer<void *>(VT_STATE_RESPONSE);
@@ -1150,8 +1150,8 @@ template<> inline const Block_Response *State_Response_Message::state_response_a
   return state_response_as_Block_Response();
 }
 
-template<> inline const Content_Response *State_Response_Message::state_response_as<Content_Response>() const {
-  return state_response_as_Content_Response();
+template<> inline const Fs_Entry_Response *State_Response_Message::state_response_as<Fs_Entry_Response>() const {
+  return state_response_as_Fs_Entry_Response();
 }
 
 struct State_Response_MessageBuilder {
@@ -1210,10 +1210,10 @@ inline flatbuffers::Offset<State_Response_Message> CreateState_Response_MessageD
       hash__);
 }
 
-struct Content_Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct Fs_Entry_Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PATH = 4,
-    VT_CONTENT = 6
+    VT_ENTRIES = 6
   };
   const flatbuffers::String *path() const {
     return GetPointer<const flatbuffers::String *>(VT_PATH);
@@ -1221,64 +1221,64 @@ struct Content_Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::String *mutable_path() {
     return GetPointer<flatbuffers::String *>(VT_PATH);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *content() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *>(VT_CONTENT);
+  const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *entries() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *>(VT_ENTRIES);
   }
-  flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *mutable_content() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *>(VT_CONTENT);
+  flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *mutable_entries() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *>(VT_ENTRIES);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_PATH) &&
            verifier.VerifyString(path()) &&
-           VerifyOffset(verifier, VT_CONTENT) &&
-           verifier.VerifyVector(content()) &&
-           verifier.VerifyVectorOfTables(content()) &&
+           VerifyOffset(verifier, VT_ENTRIES) &&
+           verifier.VerifyVector(entries()) &&
+           verifier.VerifyVectorOfTables(entries()) &&
            verifier.EndTable();
   }
 };
 
-struct Content_ResponseBuilder {
+struct Fs_Entry_ResponseBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_path(flatbuffers::Offset<flatbuffers::String> path) {
-    fbb_.AddOffset(Content_Response::VT_PATH, path);
+    fbb_.AddOffset(Fs_Entry_Response::VT_PATH, path);
   }
-  void add_content(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>> content) {
-    fbb_.AddOffset(Content_Response::VT_CONTENT, content);
+  void add_entries(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>> entries) {
+    fbb_.AddOffset(Fs_Entry_Response::VT_ENTRIES, entries);
   }
-  explicit Content_ResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit Fs_Entry_ResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Content_ResponseBuilder &operator=(const Content_ResponseBuilder &);
-  flatbuffers::Offset<Content_Response> Finish() {
+  Fs_Entry_ResponseBuilder &operator=(const Fs_Entry_ResponseBuilder &);
+  flatbuffers::Offset<Fs_Entry_Response> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Content_Response>(end);
+    auto o = flatbuffers::Offset<Fs_Entry_Response>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Content_Response> CreateContent_Response(
+inline flatbuffers::Offset<Fs_Entry_Response> CreateFs_Entry_Response(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> path = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>> content = 0) {
-  Content_ResponseBuilder builder_(_fbb);
-  builder_.add_content(content);
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>> entries = 0) {
+  Fs_Entry_ResponseBuilder builder_(_fbb);
+  builder_.add_entries(entries);
   builder_.add_path(path);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Content_Response> CreateContent_ResponseDirect(
+inline flatbuffers::Offset<Fs_Entry_Response> CreateFs_Entry_ResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *path = nullptr,
-    const std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> *content = nullptr) {
+    const std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> *entries = nullptr) {
   auto path__ = path ? _fbb.CreateString(path) : 0;
-  auto content__ = content ? _fbb.CreateVector<flatbuffers::Offset<State_FS_Hash_Entry>>(*content) : 0;
-  return fbschema::p2pmsg::CreateContent_Response(
+  auto entries__ = entries ? _fbb.CreateVector<flatbuffers::Offset<State_FS_Hash_Entry>>(*entries) : 0;
+  return fbschema::p2pmsg::CreateFs_Entry_Response(
       _fbb,
       path__,
-      content__);
+      entries__);
 }
 
 struct File_HashMap_Response FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -1598,8 +1598,8 @@ inline bool VerifyState_Response(flatbuffers::Verifier &verifier, const void *ob
       auto ptr = reinterpret_cast<const Block_Response *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case State_Response_Content_Response: {
-      auto ptr = reinterpret_cast<const Content_Response *>(obj);
+    case State_Response_Fs_Entry_Response: {
+      auto ptr = reinterpret_cast<const Fs_Entry_Response *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return false;

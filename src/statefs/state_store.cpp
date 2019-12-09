@@ -25,11 +25,24 @@ bool is_dir_exists(const std::string &dir_relpath)
  * Retrieves the hash list of the file system entries at a given directory.
  * @return 0 on success. -1 on failure.
  */
-int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dir_relpath)
+int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const std::string &dir_relpath, const hasher::B2H expected_hash)
 {
     // TODO: instead of iterating the data dir, we could simply query the hash tree directory
     // listing and get the hashes using the hardlink names straight away. But then we don't have
     // a way to get the file names. If we could implement a mechanism for that we could make this efficient.
+
+    if (expected_hash != hasher::B2H_empty)
+    {
+        // Check whether the existing block hash matches expected hash.
+        const std::string dir_hash_path = current_ctx.hashtreedir + dir_relpath + DIRHASH_FNAME;
+
+        hasher::B2H existsing_hash;
+        if (read_file_bytes(&existsing_hash, dir_hash_path.c_str(), 0, hasher::HASH_SIZE) == -1)
+            return -1;
+
+        if (existsing_hash != expected_hash)
+            return -1;
+    }
 
     const std::string full_path = current_ctx.datadir + dir_relpath;
     for (const boost::filesystem::directory_entry &dentry : boost::filesystem::directory_iterator(full_path))
@@ -71,13 +84,34 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
  * Retrieves the block hash map for a file.
  * @return 0 on success. -1 on failure.
  */
-int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpath)
+int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpath, const hasher::B2H expected_hash)
 {
     const std::string bhmap_path = current_ctx.blockhashmapdir + file_relpath + HASHMAP_EXT;
 
-    // Skip the file root hash and get the rest of the bytes.
-    if (boost::filesystem::exists(bhmap_path) && read_file_bytes_to_end(vec, bhmap_path.c_str(), hasher::HASH_SIZE) == -1)
+    if (!boost::filesystem::exists(bhmap_path))
         return -1;
+
+    if (expected_hash != hasher::B2H_empty)
+    {
+        // Check whether the existing block hash matches expected hash.
+
+        if (read_file_bytes_to_end(vec, bhmap_path.c_str(), 0) == -1)
+            return -1;
+
+        // Existing hash is the first 32 bytes of bhmap contents.
+        hasher::B2H existing_hash = *reinterpret_cast<hasher::B2H *>(vec.data());
+        if (existing_hash != expected_hash)
+            return -1;
+
+        // Return the bhmap bytes without the first 32 bytes.
+        vec.erase(vec.begin(), vec.begin() + hasher::HASH_SIZE);
+    }
+    else
+    {
+        // Skip the file root hash and get the rest of the bytes.
+        if (read_file_bytes_to_end(vec, bhmap_path.c_str(), hasher::HASH_SIZE) == -1)
+            return -1;
+    }
 
     return 0;
 }
@@ -106,11 +140,28 @@ int get_file_length(const std::string &file_relpath)
  * Retrieves the specified data block from a state file.
  * @return Number of bytes read on success. -1 on failure.
  */
-int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const uint32_t block_id)
+int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const uint32_t block_id, const hasher::B2H expected_hash)
 {
+    // Check whether the existing block hash matches expected hash.
+    if (expected_hash != hasher::B2H_empty)
+    {
+        std::string bhmap_path = current_ctx.blockhashmapdir + file_relpath + HASHMAP_EXT;
+        hasher::B2H existing_hash = hasher::B2H_empty;
+
+        if (read_file_bytes(&existing_hash, bhmap_path.c_str(), (block_id + 1) * hasher::HASH_SIZE, hasher::HASH_SIZE) == -1)
+            return -1;
+
+        if (existing_hash != expected_hash)
+            return -1;
+    }
+
     std::string full_path = current_ctx.datadir + file_relpath;
     vec.resize(BLOCK_SIZE);
     int read_bytes = read_file_bytes(vec.data(), full_path.c_str(), block_id * BLOCK_SIZE, BLOCK_SIZE);
+
+    if (read_bytes == -1)
+        return -1;
+
     vec.resize(read_bytes);
     return read_bytes;
 }
