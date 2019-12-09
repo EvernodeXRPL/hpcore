@@ -11,8 +11,8 @@
 namespace cons
 {
 
-constexpr uint16_t MAX_AWAITING_REQUESTS = 5;
-constexpr uint16_t MAX_RESPONSE_WAIT_CYCLES = 10;
+constexpr uint16_t MAX_AWAITING_REQUESTS = 1;
+constexpr uint16_t MAX_RESPONSE_WAIT_CYCLES = 100;
 
 // List of state responses flatbuffer messages to be processed.
 std::list<std::string> candidate_state_responses;
@@ -80,7 +80,7 @@ int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_requ
 
 void start_state_sync(const hasher::B2H state_hash_to_request)
 {
-    std::cout << "start_state_sync()\n";
+    std::cout << "start_state_sync() " << state_hash_to_request << "\n";
 
     {
         std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
@@ -104,6 +104,10 @@ int run_state_sync_iterator()
     {
         util::sleep(50);
 
+        // TODO: Also bypass peer session handler responses if not syncing.
+        if (!ctx.is_state_syncing)
+            continue;
+
         {
             std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
 
@@ -123,7 +127,10 @@ int run_state_sync_iterator()
             hasher::B2H response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
             const auto pending_resp_itr = submitted_requests.find(response_hash);
             if (pending_resp_itr == submitted_requests.end())
+            {
+                std::cout << "Ignoring state response.\n";
                 continue;
+            }
 
             // Now that we have received matching hash, remove it from the waiting list.
             submitted_requests.erase(pending_resp_itr);
@@ -162,18 +169,20 @@ int run_state_sync_iterator()
             {
                 // Reset the counter and re-submit request.
                 request.waiting_cycles = 0;
+                std::cout << "Resubmit state request\n";
                 submit_request(request);
             }
         }
 
         // Check whether we can submit any more requests.
-        if (submitted_requests.size() < MAX_AWAITING_REQUESTS)
+        if (!pending_requests.empty() && submitted_requests.size() < MAX_AWAITING_REQUESTS)
         {
             const uint16_t available_slots = MAX_AWAITING_REQUESTS - submitted_requests.size();
             for (int i = 0; i < available_slots; i++)
             {
                 const backlog_item &request = pending_requests.front();
                 submit_request(request);
+                pending_requests.pop();
             }
         }
     }
@@ -183,7 +192,7 @@ int run_state_sync_iterator()
 
 void submit_request(const backlog_item &request)
 {
-    std::cout << "Submitting state request. type: " << request.type << " " << request.path << " blockid: " << request.block_id << "\n";
+    std::cout << "Submitting state request. type: " << request.type << " path:" << request.path << " blockid: " << request.block_id << "\n";
 
     submitted_requests.try_emplace(request.expected_hash, request);
 
@@ -273,18 +282,18 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
 
     std::cout << "Recieved file hash map of " << path_str << std::endl;
 
-    std::vector<uint8_t> exising_block_hashmap;
-    if (statefs::get_block_hash_map(exising_block_hashmap, path_str, hasher::B2H_empty) == -1)
+    std::vector<uint8_t> existing_block_hashmap;
+    if (statefs::get_block_hash_map(existing_block_hashmap, path_str, hasher::B2H_empty) == -1)
         return -1;
 
-    const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(exising_block_hashmap.data());
-    auto existing_hash_count = exising_block_hashmap.size() / hasher::HASH_SIZE;
+    const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(existing_block_hashmap.data());
+    auto existing_hash_count = existing_block_hashmap.size() / hasher::HASH_SIZE;
 
     const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
     auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
 
     std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
-    std::cout << "Existing file hashmap size :" << exising_block_hashmap.size() << std::endl;
+    std::cout << "Existing file hashmap size :" << existing_block_hashmap.size() << std::endl;
 
     for (int block_id = 0; block_id < existing_hash_count; ++block_id)
     {

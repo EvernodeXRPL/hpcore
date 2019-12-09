@@ -1093,8 +1093,7 @@ struct State_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_STATE_RESPONSE_TYPE = 4,
     VT_STATE_RESPONSE = 6,
-    VT_IS_ERROR = 8,
-    VT_HASH = 10
+    VT_HASH = 8
   };
   State_Response state_response_type() const {
     return static_cast<State_Response>(GetField<uint8_t>(VT_STATE_RESPONSE_TYPE, 0));
@@ -1118,12 +1117,6 @@ struct State_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   void *mutable_state_response() {
     return GetPointer<void *>(VT_STATE_RESPONSE);
   }
-  bool is_error() const {
-    return GetField<uint8_t>(VT_IS_ERROR, 0) != 0;
-  }
-  bool mutate_is_error(bool _is_error) {
-    return SetField<uint8_t>(VT_IS_ERROR, static_cast<uint8_t>(_is_error), 0);
-  }
   const flatbuffers::Vector<uint8_t> *hash() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH);
   }
@@ -1135,7 +1128,6 @@ struct State_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
            VerifyField<uint8_t>(verifier, VT_STATE_RESPONSE_TYPE) &&
            VerifyOffset(verifier, VT_STATE_RESPONSE) &&
            VerifyState_Response(verifier, state_response(), state_response_type()) &&
-           VerifyField<uint8_t>(verifier, VT_IS_ERROR) &&
            VerifyOffset(verifier, VT_HASH) &&
            verifier.VerifyVector(hash()) &&
            verifier.EndTable();
@@ -1163,9 +1155,6 @@ struct State_Response_MessageBuilder {
   void add_state_response(flatbuffers::Offset<void> state_response) {
     fbb_.AddOffset(State_Response_Message::VT_STATE_RESPONSE, state_response);
   }
-  void add_is_error(bool is_error) {
-    fbb_.AddElement<uint8_t>(State_Response_Message::VT_IS_ERROR, static_cast<uint8_t>(is_error), 0);
-  }
   void add_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash) {
     fbb_.AddOffset(State_Response_Message::VT_HASH, hash);
   }
@@ -1185,12 +1174,10 @@ inline flatbuffers::Offset<State_Response_Message> CreateState_Response_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     State_Response state_response_type = State_Response_NONE,
     flatbuffers::Offset<void> state_response = 0,
-    bool is_error = false,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash = 0) {
   State_Response_MessageBuilder builder_(_fbb);
   builder_.add_hash(hash);
   builder_.add_state_response(state_response);
-  builder_.add_is_error(is_error);
   builder_.add_state_response_type(state_response_type);
   return builder_.Finish();
 }
@@ -1199,14 +1186,12 @@ inline flatbuffers::Offset<State_Response_Message> CreateState_Response_MessageD
     flatbuffers::FlatBufferBuilder &_fbb,
     State_Response state_response_type = State_Response_NONE,
     flatbuffers::Offset<void> state_response = 0,
-    bool is_error = false,
     const std::vector<uint8_t> *hash = nullptr) {
   auto hash__ = hash ? _fbb.CreateVector<uint8_t>(*hash) : 0;
   return fbschema::p2pmsg::CreateState_Response_Message(
       _fbb,
       state_response_type,
       state_response,
-      is_error,
       hash__);
 }
 

@@ -40,6 +40,10 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
         if (read_file_bytes(&existsing_hash, dir_hash_path.c_str(), 0, hasher::HASH_SIZE) == -1)
             return -1;
 
+        std::cout << dir_hash_path << "\n";
+        std::cout << "Exist hash: " << existsing_hash << "\n";
+        std::cout << "Expect hash: " << expected_hash << "\n";
+
         if (existsing_hash != expected_hash)
             return -1;
     }
@@ -88,14 +92,11 @@ int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpat
 {
     const std::string bhmap_path = current_ctx.blockhashmapdir + file_relpath + HASHMAP_EXT;
 
-    if (!boost::filesystem::exists(bhmap_path))
-        return -1;
-
     if (expected_hash != hasher::B2H_empty)
     {
         // Check whether the existing block hash matches expected hash.
 
-        if (read_file_bytes_to_end(vec, bhmap_path.c_str(), 0) == -1)
+        if (!boost::filesystem::exists(bhmap_path) || read_file_bytes_to_end(vec, bhmap_path.c_str(), 0) == -1)
             return -1;
 
         // Existing hash is the first 32 bytes of bhmap contents.
@@ -109,7 +110,7 @@ int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpat
     else
     {
         // Skip the file root hash and get the rest of the bytes.
-        if (read_file_bytes_to_end(vec, bhmap_path.c_str(), hasher::HASH_SIZE) == -1)
+        if (boost::filesystem::exists(bhmap_path) && read_file_bytes_to_end(vec, bhmap_path.c_str(), hasher::HASH_SIZE) == -1)
             return -1;
     }
 

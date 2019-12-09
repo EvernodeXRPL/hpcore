@@ -47,6 +47,8 @@ int init()
     if (statefs::compute_hash_tree(root_hash, true) == -1)
         return -1;
 
+    LOG_INFO << "Initial state: " << root_hash;
+
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
 
@@ -183,10 +185,7 @@ void consensus()
         }
 
         if (ctx.stage == 1 || (ctx.stage == 3 && ctx.is_state_syncing))
-        {
             check_state(votes);
-
-        }
 
         if (!ctx.is_state_syncing)
         {
@@ -311,7 +310,7 @@ p2p::proposal create_stage0_proposal()
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
     stg_prop.curr_hash_state = ctx.curr_hash_state;
-    std::cout << "Stage o proposal state :" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
+    std::cout << "Stage 0 proposal state :" << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << "\n";
 
     // Populate the proposal with set of candidate user pubkeys.
     for (const std::string &pubkey : ctx.candidate_users)
@@ -344,7 +343,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
     // our peers or we will halt depending on level of consensus on the sides of the fork
     stg_prop.lcl = ctx.lcl;
     stg_prop.curr_hash_state = ctx.curr_hash_state;
-    std::cout << "Stage 123 proposal state :" << std::hex << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << std::dec << "\n";
+    std::cout << "Stage 123 proposal state :" << (*(hasher::B2H *)ctx.curr_hash_state.c_str()) << "\n";
 
     // Vote for rest of the proposal fields by looking at candidate proposals.
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -704,7 +703,7 @@ void check_state(vote_counter &votes)
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
-        std::cout << "Proposal state :" << std::hex << (*(hasher::B2H *)cp.curr_hash_state.c_str()) << std::dec << "\n";
+        std::cout << "Proposal state :" << (*(hasher::B2H *)cp.curr_hash_state.c_str()) << "\n";
         increment(votes.state, cp.curr_hash_state);
     }
 

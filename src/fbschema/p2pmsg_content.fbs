@@ -74,7 +74,6 @@ union State_Response{ File_HashMap_Response, Block_Response, Fs_Entry_Response }
 
 table State_Response_Message{
     state_response:State_Response;
-    is_error: bool;
     hash:[ubyte];
 }
 

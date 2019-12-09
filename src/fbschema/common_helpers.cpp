@@ -35,7 +35,7 @@ std::string_view flatbuff_str_to_sv(const flatbuffers::String *buffer)
  */
 hasher::B2H flatbuff_bytes_to_hash(const flatbuffers::Vector<uint8_t> *buffer)
 {
-    return *reinterpret_cast<const hasher::B2H *>(buffer);
+    return *reinterpret_cast<const hasher::B2H *>(buffer->data());
 }
 
 /**
@@ -87,7 +87,7 @@ sv_to_flatbuff_str(flatbuffers::FlatBufferBuilder &builder, std::string_view sv)
  * Returns Flatbuffer bytes vector from hash.
  */
 const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>
-hash_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, hasher::B2H hash)
+hash_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, const hasher::B2H hash)
 {
     return builder.CreateVector(reinterpret_cast<const uint8_t *>(&hash), hasher::HASH_SIZE);
 }

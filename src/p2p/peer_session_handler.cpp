@@ -125,27 +125,13 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         if (!cons::ctx.cache.empty())
             std::cout << "Ledger state :" << std::hex << (*(hasher::B2H *)cons::ctx.cache.rbegin()->second.state.c_str()) << std::dec << "\n";
 
-        if (fbschema::flatbuff_bytes_to_sv(container->lcl()) == cons::ctx.lcl)
-        {
-            if (cons::ctx.lcl == "0-genesis" || cons::ctx.curr_hash_state == cons::ctx.cache.rbegin()->second.state || cons::ctx.prev_hash_state == cons::ctx.cache.rbegin()->second.state)
-            {
-                const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
-                p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
+        const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
+        p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
 
-                if (cons::create_state_response(msg, sr) == 0)
-                    session->send(std::move(msg));
-            }
-            else
-            {
-                // todo: send an error response
-                std::cout << "My state wrong. Not responding to state request.\n";
-            }
-        }
+        if (cons::create_state_response(msg, sr) == 0)
+            session->send(std::move(msg));
         else
-        {
-            // todo: send an error response
-            std::cout << "State request lcl mismatch. Not responding to state request.\n";
-        }
+            std::cout << "Ignoring state request. Expected hash not available.\n";
     }
     else if (content_message_type == p2pmsg::Message_State_Response_Message)
     {

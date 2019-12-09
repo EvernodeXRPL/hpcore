@@ -412,7 +412,6 @@ void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_
     const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(
         builder, State_Response_Fs_Entry_Response,
         resp.Union(),
-        false,
         hash_to_flatbuff_bytes(builder, expected_hash));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
@@ -448,7 +447,6 @@ void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &contai
         builder,
         State_Response_File_HashMap_Response,
         resp.Union(),
-        false,
         hash_to_flatbuff_bytes(builder, expected_hash));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
@@ -481,7 +479,6 @@ void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_bu
         builder,
         State_Response_Block_Response,
         resp.Union(),
-        false,
         hash_to_flatbuff_bytes(builder, block_resp.hash));
 
     flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
