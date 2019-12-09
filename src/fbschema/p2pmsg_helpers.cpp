@@ -435,7 +435,7 @@ void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &contai
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    std::string_view conv_hashmap(reinterpret_cast<const char *>(&hashmap), hashmap.size());
+    std::string_view conv_hashmap(reinterpret_cast<const char *>(hashmap.data()), hashmap.size());
 
     const flatbuffers::Offset<File_HashMap_Response> resp =
         CreateFile_HashMap_Response(
@@ -484,7 +484,7 @@ void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_bu
 
 void create_msg_from_state_error_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view lcl)
 {
-     // todo:get a average propsal message size and allocate content builder based on that.
+    // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);
 
     const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(builder, State_Response_NONE, 0, true);
