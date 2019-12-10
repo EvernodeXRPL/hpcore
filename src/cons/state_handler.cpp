@@ -102,7 +102,7 @@ int run_state_sync_iterator()
 {
     while (true)
     {
-        util::sleep(50);
+        util::sleep(100);
 
         // TODO: Also bypass peer session handler responses if not syncing.
         if (!ctx.is_state_syncing)
@@ -291,6 +291,8 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
     std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
     std::cout << "Existing file hashmap size :" << existing_block_hashmap.size() << std::endl;
 
+    auto insert_itr = pending_requests.begin();
+
     for (int block_id = 0; block_id < existing_hash_count; ++block_id)
     {
         if (block_id >= resp_hash_count)
@@ -299,8 +301,8 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
         if (existing_hashes[block_id] != resp_hashes[block_id])
         {
             std::cout << "Mismatch in file block  :" << block_id << std::endl;
-            // push_front to give priority to block requests.
-            pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
+            // Insert at front to give priority to block requests while preserving block order.
+            pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
         }
     }
 
@@ -314,8 +316,8 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
         for (int block_id = existing_hash_count; block_id < resp_hash_count; ++block_id)
         {
             std::cout << "Missing block: " << block_id << "\n";
-            // push_front to give priority to block requests.
-            pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
+            // Insert at front to give priority to block requests while preserving block order.
+            pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
         }
     }
 

@@ -79,7 +79,7 @@ void signal_handler(int signum)
  */
 void boost::throw_exception(std::exception const &e)
 {
-    LOG_ERR << "Boost error:" << e.what();
+    std::cerr << "Boost error:" << e.what() << "\n";
     exit(1);
 }
 
@@ -97,16 +97,16 @@ void std_terminate() noexcept
         }
         catch (std::exception &ex)
         {
-            LOG_ERR << "std error: " << ex.what();
+            std::cerr << "std error: " << ex.what() << "\n";
         }
         catch (...)
         {
-            LOG_ERR << "std error: Terminated due to unknown exception";
+            std::cerr << "std error: Terminated due to unknown exception" << "\n";
         }
     }
     else
     {
-        LOG_ERR << "std error: Terminated due to unknown reason";
+        std::cerr << "std error: Terminated due to unknown reason" << "\n";
     }
 
     exit(1);
