@@ -226,12 +226,14 @@ void socket_session<T>::on_read(const error_code ec, const std::size_t)
 template <class T>
 void socket_session<T>::send(const T msg)
 {
+    send_mutex.lock();
+
     // Always add to queue
     queue.push_back(std::move(msg));
 
     // Are we already writing?
-    if (queue.size() > 1)
-        return;
+    //if (queue.size() > 1)
+    //    return;
 
     std::string_view sv = queue.front().buffer();
 
@@ -253,11 +255,13 @@ void socket_session<T>::on_write(const error_code ec, const std::size_t)
     queue.erase(queue.begin());
 
     // Send the next message if any
-    if (!queue.empty())
-    {
-        std::string_view sv = queue.front().buffer();
-        ws_async_write(sv);
-    }
+    // if (!queue.empty())
+    // {
+    //     std::string_view sv = queue.front().buffer();
+    //     ws_async_write(sv);
+    // }
+
+    send_mutex.unlock();
 }
 
 /*
