@@ -36,7 +36,6 @@
 #include <math.h>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>

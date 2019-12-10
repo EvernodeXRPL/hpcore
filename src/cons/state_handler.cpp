@@ -18,7 +18,7 @@ constexpr uint16_t MAX_RESPONSE_WAIT_CYCLES = 100;
 std::list<std::string> candidate_state_responses;
 
 // List of pending sync requests to be sent out.
-std::queue<backlog_item> pending_requests;
+std::list<backlog_item> pending_requests;
 
 // List of submitted requests we are awaiting responses for, keyed by expected response hash.
 std::unordered_map<hasher::B2H, backlog_item, hasher::B2H_std_key_hasher> submitted_requests;
@@ -90,7 +90,7 @@ void start_state_sync(const hasher::B2H state_hash_to_request)
     {
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
         candidate_state_responses.clear();
-        std::queue<backlog_item>().swap(pending_requests);
+        pending_requests.clear();
         submitted_requests.clear();
     }
 
@@ -182,7 +182,7 @@ int run_state_sync_iterator()
             {
                 const backlog_item &request = pending_requests.front();
                 submit_request(request);
-                pending_requests.pop();
+                pending_requests.pop_front();
             }
         }
     }
@@ -235,12 +235,10 @@ int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry
             std::cout << "Recieved fs_entry_hash :" << fs_itr->second.hash << std::endl;
             if (fs_itr->second.hash != fs_entry.hash)
             {
-                pending_requests.push(
-                    backlog_item{
-                        fs_entry.is_file ? BACKLOG_ITEM_TYPE::FILE : BACKLOG_ITEM_TYPE::DIR,
-                        path,
-                        -1,
-                        fs_itr->second.hash});
+                if (fs_entry.is_file)
+                    pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, path, -1, fs_itr->second.hash});
+                else
+                    pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, path, -1, fs_itr->second.hash});
             }
 
             state_fs_entry_list.erase(fs_itr);
@@ -264,12 +262,10 @@ int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry
     // Queue the remaining fs entries (that this node does not have at all) to request.
     for (const auto &[path, fs_entry] : state_fs_entry_list)
     {
-        pending_requests.push(
-            backlog_item{
-                fs_entry.is_file ? BACKLOG_ITEM_TYPE::FILE : BACKLOG_ITEM_TYPE::DIR,
-                path,
-                -1,
-                fs_entry.hash});
+        if (fs_entry.is_file)
+            pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, path, -1, fs_entry.hash});
+        else
+            pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, path, -1, fs_entry.hash});
     }
 
     return 0;
@@ -303,7 +299,8 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
         if (existing_hashes[block_id] != resp_hashes[block_id])
         {
             std::cout << "Mismatch in file block  :" << block_id << std::endl;
-            pending_requests.push(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
+            // push_front to give priority to block requests.
+            pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
         }
     }
 
@@ -317,7 +314,8 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
         for (int block_id = existing_hash_count; block_id < resp_hash_count; ++block_id)
         {
             std::cout << "Missing block: " << block_id << "\n";
-            pending_requests.push(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
+            // push_front to give priority to block requests.
+            pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
         }
     }
 
