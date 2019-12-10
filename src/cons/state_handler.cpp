@@ -102,7 +102,7 @@ int run_state_sync_iterator()
 {
     while (true)
     {
-        util::sleep(100);
+        util::sleep(120);
 
         // TODO: Also bypass peer session handler responses if not syncing.
         if (!ctx.is_state_syncing)

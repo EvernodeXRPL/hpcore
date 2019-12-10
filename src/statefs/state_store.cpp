@@ -39,11 +39,7 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
         hasher::B2H existsing_hash;
         if (read_file_bytes(&existsing_hash, dir_hash_path.c_str(), 0, hasher::HASH_SIZE) == -1)
             return -1;
-
-        std::cout << dir_hash_path << "\n";
-        std::cout << "Exist hash: " << existsing_hash << "\n";
-        std::cout << "Expect hash: " << expected_hash << "\n";
-
+            
         if (existsing_hash != expected_hash)
             return -1;
     }
