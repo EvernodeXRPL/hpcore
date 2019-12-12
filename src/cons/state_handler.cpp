@@ -178,7 +178,7 @@ int run_state_sync_iterator()
         if (!pending_requests.empty() && submitted_requests.size() < MAX_AWAITING_REQUESTS)
         {
             const uint16_t available_slots = MAX_AWAITING_REQUESTS - submitted_requests.size();
-            for (int i = 0; i < available_slots; i++)
+            for (int i = 0; i < available_slots && !pending_requests.empty(); i++)
             {
                 const backlog_item &request = pending_requests.front();
                 submit_request(request);
