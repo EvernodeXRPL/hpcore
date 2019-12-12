@@ -65,6 +65,8 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
             return -1;
     }
 
+    close(orifd);
+
     if (write_blockhashmap(bhmapfile, hashes.get(), hashes_size) == -1)
         return -1;
 
