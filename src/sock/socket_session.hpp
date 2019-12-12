@@ -88,9 +88,16 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
 {
     beast::flat_buffer buffer;                                  // used to store incoming messages
     websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws; // websocket stream used send an recieve messages
-    std::vector<T> queue;                                       // used to store messages temporarily until it is sent to the relevant party
     socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
-    std::vector<session_threshold> thresholds;               // track down various communication thresholds
+    std::vector<session_threshold> thresholds;                  // track down various communication thresholds
+    std::queue<T> queue;                        // used to store messages temporarily until it is sent to the relevant party.
+    std::string dispatching_message;            // The message currently being written to beast buffer.
+    std::mutex queue_mutex;                     // Mutex for accessing the message queue.
+    std::mutex write_mutex;                     // Mutex for calling beast async_write.
+    std::thread dispatch_thread;                // Thread to execute continous dispatch loop.
+    bool dispatch_thread_stop_signal = false;   // Flag to instruct the dispatch thread to gracefully exit.
+
+    void run_dispatch() noexcept;
 
     void fail(const error_code ec, char const *what);
 

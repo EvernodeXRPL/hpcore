@@ -178,6 +178,9 @@ void socket_session<T>::on_accept(const error_code ec)
         this->close();
     }
 
+    // Start the outgoing message dispatcher thread for this session.
+    dispatch_thread = std::thread([&] { run_dispatch(); });
+
     sess_handler.on_connect(this);
 
     // Read a message
@@ -226,17 +229,46 @@ void socket_session<T>::on_read(const error_code ec, const std::size_t)
 template <class T>
 void socket_session<T>::send(const T msg)
 {
-    // Always add to queue
-    queue.push_back(std::move(msg));
+    std::lock_guard<std::mutex> lock(queue_mutex);
+    queue.push(std::move(msg));
+}
 
-    // Are we already writing?
-    if (queue.size() > 1)
-        return;
+/**
+ * Executes the message dispatch loop.
+ */
+template <class T>
+void socket_session<T>::run_dispatch() noexcept
+{
+    while (true)
+    {
+        // Gracefully exit if we need to.
+        if (dispatch_thread_stop_signal)
+            return;
 
-    std::string_view sv = queue.front().buffer();
+        queue_mutex.lock();
+        if (queue.empty())
+        {
+            queue_mutex.unlock();
+            util::sleep(1);
+        }
+        else
+        {
+            // Dequeue the top message and async write to beast buffer.
 
-    // We are not currently writing, so send this immediately
-    ws_async_write(sv);
+            T msg = std::move(queue.front());
+
+            // TODO: We are copying the buffer contents here to keep the code simple. Need to change this
+            // so we keep the message on the queue and pops it after write completes.
+            dispatching_message = std::string(msg.buffer());
+
+            queue.pop();
+            queue_mutex.unlock();
+
+            // Acquiring dispatch lock so we don't call ws_async_write parallely.
+            write_mutex.lock();
+            ws_async_write(dispatching_message);
+        }
+    }
 }
 
 /*
@@ -245,19 +277,12 @@ void socket_session<T>::send(const T msg)
 template <class T>
 void socket_session<T>::on_write(const error_code ec, const std::size_t)
 {
+    // Release the dispatch lock to indicate ws_async_write can be called again.
+    write_mutex.unlock();
+
     // Handle the error, if any
     if (ec)
         return fail(ec, "write");
-
-    // Remove the string from the queue
-    queue.erase(queue.begin());
-
-    // Send the next message if any
-    if (!queue.empty())
-    {
-        std::string_view sv = queue.front().buffer();
-        ws_async_write(sv);
-    }
 }
 
 /*
@@ -277,6 +302,11 @@ void socket_session<T>::close()
 template <class T>
 void socket_session<T>::on_close(const error_code ec, const int8_t type)
 {
+    // Inform the dispatcher thread to stop and then inform the session handler.
+    dispatch_thread_stop_signal = true;
+    dispatch_thread.join();
+    sess_handler.on_close(this);
+
     if (type == 1)
         return;
 
@@ -301,6 +331,13 @@ void socket_session<T>::fail(const error_code ec, char const *what)
 template <class T>
 socket_session<T>::~socket_session()
 {
+    // Inform the dispatcher thread to stop if we haven't done so already.
+    if (!dispatch_thread_stop_signal)
+    {
+        dispatch_thread_stop_signal = true;
+        dispatch_thread.join();
+    }
+
     sess_handler.on_close(this);
 }
 
