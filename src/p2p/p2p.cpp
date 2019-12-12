@@ -38,6 +38,8 @@ void start_peer_connections()
     listener_ctx.default_sess_opts.max_badmsgs_per_minute = conf::cfg.peermaxbadmpm;
     listener_ctx.default_sess_opts.max_badsigmsgs_per_minute = conf::cfg.peermaxbadsigpm;
 
+    sock::socket_session<peer_outbound_message>::init_dispatcher();
+
     // Start listening to peers
     std::make_shared<sock::socket_server<peer_outbound_message>>(
         listener_ctx.ioc,

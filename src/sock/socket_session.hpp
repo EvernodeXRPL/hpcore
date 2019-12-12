@@ -88,9 +88,14 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
 {
     beast::flat_buffer buffer;                                  // used to store incoming messages
     websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws; // websocket stream used send an recieve messages
-    std::vector<T> queue;                                       // used to store messages temporarily until it is sent to the relevant party
+    std::queue<T> dispatch_queue;                                        // used to store messages temporarily until it is sent to the relevant party
+    bool is_dispatching = false;
     socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
-    std::vector<session_threshold> thresholds;               // track down various communication thresholds
+    std::vector<session_threshold> thresholds;                  // track down various communication thresholds 
+    
+    static std::thread dispatcher_thread;
+    static std::unordered_map<socket_session<T> *, std::queue<T>> dispatch_pending_sessions;
+    static std::mutex dispatch_pending_sessions_mutex;
 
     void fail(const error_code ec, char const *what);
 
@@ -120,6 +125,9 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
 
     void ws_async_close();
 
+    void dispatch();
+
+    static void run_dispatcher();
 
 public:
    
@@ -159,6 +167,8 @@ public:
     void send(const T msg);
 
     void close();
+
+    static void init_dispatcher();
 };
 
 } // namespace sock

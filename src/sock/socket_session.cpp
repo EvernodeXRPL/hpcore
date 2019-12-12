@@ -6,6 +6,15 @@
 namespace sock
 {
 
+template <class T>
+std::thread socket_session<T>::dispatcher_thread;
+
+template <class T>
+std::unordered_map<socket_session<T> *, std::queue<T>> socket_session<T>::dispatch_pending_sessions;
+
+template <class T>
+std::mutex socket_session<T>::dispatch_pending_sessions_mutex;
+
 // Constructor
 template <class T>
 socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp_stream>> websocket, socket_session_handler<T> &sess_handler)
@@ -13,6 +22,34 @@ socket_session<T>::socket_session(websocket::stream<beast::ssl_stream<beast::tcp
 {
     // We use binary data instead of ASCII/UTF8 character data.
     ws.binary(true);
+}
+
+template <class T>
+void socket_session<T>::init_dispatcher()
+{
+    dispatcher_thread = std::thread([&] { run_dispatcher(); });
+}
+
+template <class T>
+void socket_session<T>::run_dispatcher()
+{
+    while (true)
+    {
+        util::sleep(50);
+
+        std::lock_guard<std::mutex> lock(dispatch_pending_sessions_mutex);
+
+        for (auto &[session, queue] : dispatch_pending_sessions)
+        {
+            if (!session->is_dispatching)
+            {
+                session->dispatch_queue.swap(queue);
+                session->dispatch();
+            }
+        }
+
+        dispatch_pending_sessions.clear();
+    }
 }
 
 /**
@@ -221,22 +258,25 @@ void socket_session<T>::on_read(const error_code ec, const std::size_t)
 }
 
 /*
-* Send message through an active websocket connection
+* Queues a message to be sent through the websocket connection.
 */
 template <class T>
 void socket_session<T>::send(const T msg)
 {
-    // Always add to queue
-    queue.push_back(std::move(msg));
+    std::lock_guard<std::mutex> lock(dispatch_pending_sessions_mutex);
+    dispatch_pending_sessions[this].push(std::move(msg));
+}
 
-    // Are we already writing?
-    if (queue.size() > 1)
-        return;
-
-    std::string_view sv = queue.front().buffer();
-
-    // We are not currently writing, so send this immediately
-    ws_async_write(sv);
+template <class T>
+void socket_session<T>::dispatch()
+{
+    // Start by dispatching the top item. Subsequent items will be dispatched upon completion of each item.
+    // see on_write() completion callback below.
+    if (!dispatch_queue.empty())
+    {
+        is_dispatching = true;
+        ws_async_write(dispatch_queue.front().buffer());
+    }
 }
 
 /*
@@ -249,15 +289,13 @@ void socket_session<T>::on_write(const error_code ec, const std::size_t)
     if (ec)
         return fail(ec, "write");
 
-    // Remove the string from the queue
-    queue.erase(queue.begin());
+    dispatch_queue.pop();
 
     // Send the next message if any
-    if (!queue.empty())
-    {
-        std::string_view sv = queue.front().buffer();
-        ws_async_write(sv);
-    }
+    if (!dispatch_queue.empty())
+        ws_async_write(dispatch_queue.front().buffer());
+    else
+        is_dispatching = false;
 }
 
 /*

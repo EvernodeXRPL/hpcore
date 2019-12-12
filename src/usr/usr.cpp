@@ -28,6 +28,8 @@ listener_context listener_ctx;
  */
 int init()
 {
+    sock::socket_session<user_outbound_message>::init_dispatcher();
+
     // Start listening for incoming user connections.
     start_listening();
     return 0;
