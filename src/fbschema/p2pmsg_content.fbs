@@ -12,7 +12,7 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, History_Request_Message, History_Response_Message } //message content type
+union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, State_Response_Message, History_Request_Message, History_Response_Message } //message content type
 
 table Content {
     message:Message;
@@ -28,7 +28,7 @@ table Proposal_Message { //Proposal type message schema
     users:[ByteArray];
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
-    state: State;
+    curr_state_hash: [ubyte];
 }
 
 table Npl_Message { //NPL type message schema
@@ -58,21 +58,46 @@ table HistoryLedgerPair { //A key, value pair of byte[].
 }
 
 table HistoryLedger {
+   state:[ubyte];
    lcl:[ubyte];
    raw_ledger:[ubyte];
 }
 
-table StateDifference { //Represent state difference by tracking created,updated and deleted state files.
-    created: [BytesKeyValuePair]; //list of { fn => hash }
-    updated: [BytesKeyValuePair]; 
-    deleted: [BytesKeyValuePair]; 
+table State_Request_Message { //State request message schema
+    parent_path:string;
+    is_file:bool;
+    block_id:int32;
+    expected_hash:[ubyte];
 }
 
-table State {
-    previous: [ubyte];  // hash of the previous state
-    current: [ubyte];  //  hash of the current state
-    difference: StateDifference; 
-    patch: [BytesKeyValuePair];   // fn -> bsdiff patch going from previous state to new state
+union State_Response{ File_HashMap_Response, Block_Response, Fs_Entry_Response }
+
+table State_Response_Message{
+    state_response:State_Response;
+    hash:[ubyte];
+}
+
+table Fs_Entry_Response{
+     path: string;
+     entries: [State_FS_Hash_Entry];
+}
+
+table File_HashMap_Response{
+    path: string;
+    file_length:uint64;
+    hash_map:[ubyte];
+}
+
+table Block_Response{
+    path: string;
+    block_id:uint32;
+    data: [ubyte];
+}
+
+table State_FS_Hash_Entry{
+    path: string;
+    is_file: bool;
+    hash: [ubyte];
 }
 
 root_type Content; //root type for message content

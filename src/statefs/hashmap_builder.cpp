@@ -11,16 +11,17 @@ hashmap_builder::hashmap_builder(const statedir_context &ctx) : ctx(ctx)
 {
 }
 
-int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const std::string &filepath)
+int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const std::string &filepath, const std::string filerelpath, const std::map<uint32_t, hasher::B2H> &changedblocks)
 {
     // We attempt to avoid a full rebuild of the block hash map file when possible.
     // For this optimisation, both the block hash map (.bhmap) file and the
-    // delta block index (.bindex) file must exist.
+    // delta block index must exist.
+
+    // Block index may be provided as an argument. If it is empty we attempt to read from the
+    // .bindex file from the state checkpoint delta.
 
     // If the block index exists, we generate/update the hashmap file with the aid of that.
     // Block index file contains the updated blockids. If not, we simply rehash all the blocks.
-
-    std::string relpath = get_relpath(filepath, ctx.datadir);
 
     // Open the actual data file and calculate the block count.
     int orifd = open(filepath.data(), O_RDONLY);
@@ -35,31 +36,41 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
     // Attempt to read the existing block hash map file.
     std::string bhmapfile;
     std::vector<char> bhmapdata;
-    if (read_blockhashmap(bhmapdata, bhmapfile, relpath) == -1)
+    if (read_blockhashmap(bhmapdata, bhmapfile, filerelpath) == -1)
         return -1;
 
-    hasher::B2H oldfilehash = {0, 0, 0, 0};
+    hasher::B2H oldfilehash = hasher::B2H_empty;
     if (!bhmapdata.empty())
         memcpy(&oldfilehash, bhmapdata.data(), hasher::HASH_SIZE);
-
-    // Attempt to read the delta block index file.
-    std::map<uint32_t, hasher::B2H> bindex;
-    uint32_t original_blockcount;
-    if (get_blockindex(bindex, original_blockcount, relpath) == -1)
-        return -1;
 
     // Array to contain the updated block hashes. Slot 0 is for the root hash.
     // Allocating hash array on the heap to avoid filling limited stack space.
     std::unique_ptr<hasher::B2H[]> hashes = std::make_unique<hasher::B2H[]>(1 + blockcount);
     const size_t hashes_size = (1 + blockcount) * hasher::HASH_SIZE;
 
-    if (update_hashes(hashes.get(), hashes_size, relpath, orifd, blockcount, original_blockcount, bindex, bhmapdata) == -1)
-        return -1;
+    if (changedblocks.empty())
+    {
+        // Attempt to read the delta block index file.
+        std::map<uint32_t, hasher::B2H> bindex;
+        uint32_t original_blockcount;
+        if (get_blockindex(bindex, original_blockcount, filerelpath) == -1)
+            return -1;
+
+        if (update_hashes_with_backup_blockhints(hashes.get(), hashes_size, filerelpath, orifd, blockcount, original_blockcount, bindex, bhmapdata) == -1)
+            return -1;
+    }
+    else
+    {
+        if (update_hashes_with_changed_blockhints(hashes.get(), hashes_size, filerelpath, orifd, blockcount, changedblocks, bhmapdata) == -1)
+            return -1;
+    }
+
+    close(orifd);
 
     if (write_blockhashmap(bhmapfile, hashes.get(), hashes_size) == -1)
         return -1;
 
-    if (update_hashtree_entry(parentdirhash, !bhmapdata.empty(), oldfilehash, hashes[0], bhmapfile, relpath) == -1)
+    if (update_hashtree_entry(parentdirhash, !bhmapdata.empty(), oldfilehash, hashes[0], bhmapfile, filerelpath) == -1)
         return -1;
 
     return 0;
@@ -151,7 +162,7 @@ int hashmap_builder::get_blockindex(std::map<uint32_t, hasher::B2H> &idxmap, uin
     return 0;
 }
 
-int hashmap_builder::update_hashes(
+int hashmap_builder::update_hashes_with_backup_blockhints(
     hasher::B2H *hashes, const off_t hashes_size, const std::string &relpath, const int orifd,
     const uint32_t blockcount, const uint32_t original_blockcount, const std::map<uint32_t, hasher::B2H> &bindex, const std::vector<char> &bhmapdata)
 {
@@ -193,7 +204,58 @@ int hashmap_builder::update_hashes(
     }
 
     // Calculate the new file hash: filehash = HASH(filename + XOR(block hashes))
-    hasher::B2H filehash{0, 0, 0, 0};
+    hasher::B2H filehash = hasher::B2H_empty;
+    for (int i = 1; i <= blockcount; i++)
+        filehash ^= hashes[i];
+
+    // Rehash the file hash with filename included.
+    const std::string filename = boost::filesystem::path(relpath.data()).filename().string();
+    filehash = hasher::hash(filename.c_str(), filename.length(), &filehash, hasher::HASH_SIZE);
+
+    hashes[0] = filehash;
+    return 0;
+}
+
+int hashmap_builder::update_hashes_with_changed_blockhints(
+    hasher::B2H *hashes, const off_t hashes_size, const std::string &relpath, const int orifd,
+    const uint32_t blockcount, const std::map<uint32_t, hasher::B2H> &bindex, const std::vector<char> &bhmapdata)
+{
+    // If both existing delta block index and block hash map is available, we can just overlay the
+    // changed block hashes (mentioned in the delta block index) on top of the old block hashes.
+    // This would prevent unncessarily hashing lot of blocks.
+
+    if (!bindex.empty())
+    {
+        // Load old hashes if exists.
+        if (!bhmapdata.empty())
+            memcpy(hashes, bhmapdata.data(), hashes_size < bhmapdata.size() ? hashes_size : bhmapdata.size());
+
+        // Refer to the block index and overlay the new hash into the hashes array.
+        for (const auto [blockid, newhash] : bindex)
+            hashes[blockid + 1] = newhash;
+
+        // If the block hash map didn't existed, we need to calculate and fill the unchanged block hashes from the actual file.
+        if (bhmapdata.empty())
+        {
+            for (uint32_t blockid = 0; blockid < blockcount; blockid++)
+            {
+                if (bindex.count(blockid) == 0 && compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
+                    return -1;
+            }
+        }
+    }
+    else
+    {
+        // If we don't have the changed block index, we have to hash the entire file blocks again.
+        for (uint32_t blockid = 0; blockid < blockcount; blockid++)
+        {
+            if (compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
+                return -1;
+        }
+    }
+
+    // Calculate the new file hash: filehash = HASH(filename + XOR(block hashes))
+    hasher::B2H filehash = hasher::B2H_empty;
     for (int i = 1; i <= blockcount; i++)
         filehash ^= hashes[i];
 

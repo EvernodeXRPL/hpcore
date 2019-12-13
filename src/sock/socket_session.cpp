@@ -72,7 +72,6 @@ void socket_session<T>::increment_metric(const SESSION_THRESHOLDS threshold_type
 
             LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
             corebill::report_violation(this->address);
-
         }
         else if (elapsed_time > t.intervalms)
         {
@@ -119,7 +118,7 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     this->uniqueid.append(address).append(":").append(port);
 
     // This indicates the connection is a self connection (node connects to the same node through server port)
-    if(address == "0.0.0.0")
+    if (address == "0.0.0.0")
         this->is_self = true;
 
     // Set the timeout.

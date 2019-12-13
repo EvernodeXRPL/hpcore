@@ -1,0 +1,12 @@
+#!/bin/bash
+
+sudo ./cluster-create.sh 5
+sudo mkdir -p /home/geveodev/hpcore/hpcluster/node1/statehist/0/data
+sudo mkdir -p /home/geveodev/hpcore/hpcluster/node2/statehist/0/data/
+sudo mkdir -p /home/geveodev/hpcore/hpcluster/node3/statehist/0/data
+sudo mkdir -p /home/geveodev/hpcore/hpcluster/node4/statehist/0/data/
+
+sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node1/statehist/0/data
+sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node2/statehist/0/data
+sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node3/statehist/0/data
+sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node4/statehist/0/data

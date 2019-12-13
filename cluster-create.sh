@@ -52,7 +52,7 @@ do
             pubport: ${pubport}, \
             roundtime: 1000, \
             loglevel: 'debug', \
-            loggers:['console'] \
+            loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
     rm tmp.json
 

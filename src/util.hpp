@@ -27,6 +27,8 @@ constexpr uint8_t MIN_PEERMSG_VERSION = 1;
 // (Keeping this as int for effcient msg payload and comparison)
 constexpr uint8_t MIN_NPL_INPUT_VERSION = 1;
 
+
+
 /**
  * FIFO hash set with a max size.
  */

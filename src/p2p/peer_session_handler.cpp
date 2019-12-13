@@ -12,6 +12,8 @@
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 #include "../cons/ledger_handler.hpp"
+#include "../cons/state_handler.hpp"
+#include "../cons/cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
 
@@ -110,10 +112,29 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         const std::string npl_message(reinterpret_cast<const char *>(container_buf_ptr), container_buf_size);
         ctx.collected_msgs.npl_messages.push_back(std::move(npl_message));
     }
+    else if (content_message_type == p2pmsg::Message_State_Request_Message)
+    {
+        if (p2pmsg::validate_container_trust(container) != 0)
+        {
+            LOG_DBG << "State request message rejected due to trust failure.";
+            return;
+        }
+
+        const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
+        p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
+
+        if (cons::create_state_response(msg, sr) == 0)
+            session->send(std::move(msg));
+    }
+    else if (content_message_type == p2pmsg::Message_State_Response_Message)
+    {
+        LOG_INFO << "Received State Response Message\n";
+        std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
+        std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
+        ctx.collected_msgs.state_response.push_back(std::move(response));
+    }
     else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
     {
-        LOG_DBG << "Received history request message type from peer.";
-
         const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
         //first check node has the required lcl available. -> if so send lcl history accordingly.
         bool req_lcl_avail = cons::check_required_lcl_availability(hr);
@@ -125,8 +146,6 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
     {
-        LOG_DBG << "Received history response message type from peer.";
-
         cons::handle_ledger_history_response(
             p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message()));
     }

@@ -8,6 +8,7 @@
 #include "../statefs/state_common.hpp"
 #include "../statefs/hashtree_builder.hpp"
 #include "proc.hpp"
+#include "../cons/cons.hpp"
 
 namespace proc
 {
@@ -39,6 +40,8 @@ pid_t contract_pid;
 
 // Holds the state monitor process id (if currently executing).
 pid_t statemon_pid;
+
+const char *FINDMNT_COMMAND = "findmnt --noheadings ";
 
 /**
  * Executes the contract process and passes the specified arguments.
@@ -144,7 +147,22 @@ int start_state_monitor()
     {
         // HP process.
         statemon_pid = pid;
-        return 0;
+
+        // Give enough time for the state monitor to start.
+        // We wait until Fuse filesystem is mounted for max number of retries.
+        uint16_t retry_count = 0;
+        std::string findmnt_command = FINDMNT_COMMAND + conf::ctx.statedir;
+        while (retry_count < 50)
+        {
+            util::sleep(10);
+            int ret = system(findmnt_command.c_str());
+            if (WEXITSTATUS(ret) == 0) // Success. Fuse fs has been mounted.
+                return 0;
+            retry_count++;
+        }
+
+        // We waited enough time for Fuse fs to be mounted but no luck.
+        return -1;
     }
     else if (pid == 0)
     {
@@ -186,11 +204,14 @@ int stop_state_monitor()
         LOG_ERR << "State monitor process exited with non-normal status code: " << presult;
 
     // Update the hash tree.
-    hasher::B2H statehash = {0, 0, 0, 0};
+    hasher::B2H statehash = hasher::B2H_empty;
     statefs::hashtree_builder htreebuilder(statefs::get_statedir_context());
     if (htreebuilder.generate(statehash) != 0)
         return -1;
 
+    std::string root_hash(reinterpret_cast<const char*>(&statehash), hasher::HASH_SIZE);
+    root_hash.swap(cons::ctx.curr_hash_state);
+    
     LOG_DBG << "State hash: " << std::hex << statehash << std::dec;
 
     return 0;

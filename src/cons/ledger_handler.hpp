@@ -10,12 +10,21 @@ namespace cons
 //max ledger count
 constexpr uint64_t MAX_LEDGER_SEQUENCE = 200;
 
+struct ledger_cache
+{
+    std::string lcl;
+    std::string state;
+};
+
+extern ledger_cache cache;
+
 struct ledger_history
 {
     std::string lcl;
     uint64_t led_seq_no;
-    std::map<uint64_t, std::string> lcl_list;
+    std::map<uint64_t, ledger_cache> cache;
 };
+
 
 extern std::string last_requested_lcl;
 
@@ -39,6 +48,6 @@ p2p::peer_outbound_message send_ledger_history(const p2p::history_request &hr);
 
 void handle_ledger_history_response(const p2p::history_response &hr);
 
-}
+} // namespace cons
 
 #endif

@@ -13,7 +13,7 @@ if [ $mode = "new" ]; then
     sshpass -p $vmpass scp $hpcore/build/hpcore \
                             $hpcore/build/hpstatemon \
                             $hpcore/examples/echocontract/contract.js \
-                            /usr/local/lib/libfuse3.so.3 \
+                            /usr/local/lib/x86_64-linux-gnu/libfuse3.so.3 \
                             /usr/local/bin/fusermount3 \
                             ./setup-hp.sh \
                             geveo@$vmip:~/

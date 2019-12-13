@@ -10,14 +10,15 @@ else
    sudo apt-get install -y nodejs
 fi
 
-if [ -x "$(command -v fusermount3)" ]; then
-   echo "FUSE already installed."
-else
+# if [ -x "$(command -v fusermount3)" ]; then
+#    echo "FUSE already installed."
+# else
    echo "Installing FUSE..."
    sudo cp ./libfuse3.so.3 /usr/local/lib/
    sudo ldconfig
    sudo cp ./fusermount3 /usr/local/bin/
-fi
+# fi
+
 
 sudo rm -r ~/contract > /dev/null 2>&1
 ./hpcore new ./contract
@@ -26,3 +27,18 @@ openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -ou
       -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hp@example" > /dev/null 2>&1
 popd > /dev/null 2>&1
 
+sudo mkdir -p ./contract/statehist/0
+sudo mkdir -p ./contract/statehist/0/data
+
+FILE=fuse-3.8.0.tar.xz 
+FILE2=fuse-3.8.0
+if [ -f "$FILE" ]; then
+   if [ -f "$FILE2" ]; then
+    sudo cp -r ./fuse-3.8.0 ~/contract/statehist/0/data
+   else
+    sudo tar -xf fuse-3.8.0.tar.xz -C ~/contract/statehist/0/data
+   fi
+else
+sudo wget https://github.com/libfuse/libfuse/releases/download/fuse-3.8.0/fuse-3.8.0.tar.xz -
+sudo tar -xf fuse-3.8.0.tar.xz -C ~/contract/statehist/0/data
+fi

@@ -1,5 +1,5 @@
-#ifndef _STATEFS_STATE_COMMON_
-#define _STATEFS_STATE_COMMON_
+#ifndef _HP_STATEFS_STATE_COMMON_
+#define _HP_STATEFS_STATE_COMMON_
 
 #include <sys/types.h>
 #include <string>
@@ -8,6 +8,7 @@
 namespace statefs
 {
 
+// Max number of state history checkpoints to keep.
 constexpr int16_t MAX_CHECKPOINTS = 5;
 
 // Cache block size.
@@ -15,7 +16,6 @@ constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB
 
 // Cache block index entry bytes length.
 constexpr size_t BLOCKINDEX_ENTRY_SIZE = 44;
-constexpr size_t MAX_HASHES = BLOCK_SIZE / hasher::HASH_SIZE;
 
 // Permissions used when creating block cache and index files.
 constexpr int FILE_PERMS = 0644;
@@ -38,16 +38,23 @@ const char *const BHMAP_DIR = "/bhmap";
 const char *const HTREE_DIR = "/htree";
 const char *const DELTA_DIR = "/delta";
 
-extern std::string statehistdir;
-
+/**
+ * Context struct to hold all state-related directory paths.
+ */
 struct statedir_context
 {
-    std::string rootdir;
-    std::string datadir;
-    std::string blockhashmapdir;
-    std::string hashtreedir;
-    std::string deltadir;
+    std::string rootdir;            // Directory holding state sub dirs.
+    std::string datadir;            // Directory containing smart contract data.
+    std::string blockhashmapdir;    // Directory containing block hash map files.
+    std::string hashtreedir;        // Directory containing hash tree files (dir.hash and hard links).
+    std::string deltadir;           // Directory containing original smart contract data.
 };
+
+// Container directory to contain all checkpoints.
+extern std::string statehistdir;
+
+// Currently loaded state checkpoint directory context (usually checkpoint 0)
+extern statedir_context current_ctx;
 
 void init(const std::string &statehist_dir_root);
 std::string get_statedir_root(const int16_t checkpointid);

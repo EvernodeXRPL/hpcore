@@ -8,14 +8,50 @@ namespace statefs
 
 hashtree_builder::hashtree_builder(const statedir_context &ctx) : ctx(ctx), hmapbuilder(ctx)
 {
+    force_rebuild_all = false;
+    hintmode = false;
 }
 
 int hashtree_builder::generate(hasher::B2H &roothash)
 {
     // Load modified file path hints if available.
-    populate_hintpaths(IDX_TOUCHEDFILES);
-    populate_hintpaths(IDX_NEWFILES);
+    populate_hintpaths_from_idxfile(IDX_TOUCHEDFILES);
+    populate_hintpaths_from_idxfile(IDX_NEWFILES);
     hintmode = !hintpaths.empty();
+
+    return traverse_and_generate(roothash);
+}
+
+int hashtree_builder::generate(hasher::B2H &roothash, const bool force_all)
+{
+    force_rebuild_all = force_all;
+    if (force_rebuild_all)
+    {
+        boost::filesystem::remove_all(ctx.blockhashmapdir);
+        boost::filesystem::remove_all(ctx.hashtreedir);
+
+        boost::filesystem::create_directories(ctx.blockhashmapdir);
+        boost::filesystem::create_directories(ctx.hashtreedir);
+    }
+
+    return traverse_and_generate(roothash);
+}
+
+int hashtree_builder::generate(hasher::B2H &roothash, const std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> &touchedfiles)
+{
+    hintmode = true;
+    fileblockindex = touchedfiles;
+    for (const auto &[relpath, bindex] : touchedfiles)
+        insert_hintpath(relpath);
+
+    return traverse_and_generate(roothash);
+}
+
+int hashtree_builder::traverse_and_generate(hasher::B2H &roothash)
+{
+    // Load current root hash if exist.
+    const std::string dirhashfile = ctx.hashtreedir + "/" + DIRHASH_FNAME;
+    roothash = get_existingdirhash(dirhashfile);
 
     traversel_rootdir = ctx.datadir;
     removal_mode = false;
@@ -117,6 +153,10 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
         parentdirhash ^= original_dirhash;
         parentdirhash ^= dirhash;
     }
+    else
+    {
+        parentdirhash = dirhash;
+    }
 
     return 0;
 }
@@ -124,7 +164,7 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
 hasher::B2H hashtree_builder::get_existingdirhash(const std::string &dirhashfile)
 {
     // Load current dir hash if exist.
-    hasher::B2H dirhash{0, 0, 0, 0};
+    hasher::B2H dirhash = hasher::B2H_empty;
     int dirhashfd = open(dirhashfile.c_str(), O_RDONLY);
     if (dirhashfd > 0)
     {
@@ -152,11 +192,17 @@ int hashtree_builder::save_dirhash(const std::string &dirhashfile, hasher::B2H d
 
 inline bool hashtree_builder::should_process_dir(hintpath_map::iterator &dir_itr, const std::string &dirpath)
 {
+    if (force_rebuild_all)
+        return true;
+
     return (hintmode ? get_hinteddir_match(dir_itr, dirpath) : true);
 }
 
 bool hashtree_builder::should_process_file(const hintpath_map::iterator hintdir_itr, const std::string filepath)
 {
+    if (force_rebuild_all)
+        return true;
+
     if (hintmode)
     {
         if (hintdir_itr == hintpaths.end())
@@ -191,7 +237,10 @@ int hashtree_builder::process_file(hasher::B2H &parentdirhash, const std::string
             created_htreesubdirs.emplace(htreedirpath);
         }
 
-        if (hmapbuilder.generate_hashmap_forfile(parentdirhash, filepath) == -1)
+        std::string relpath = get_relpath(filepath, ctx.datadir);
+        std::map<uint32_t, hasher::B2H> changedblocks = fileblockindex[relpath];
+
+        if (hmapbuilder.generate_hashmap_forfile(parentdirhash, filepath, relpath, changedblocks) == -1)
             return -1;
     }
     else
@@ -203,18 +252,22 @@ int hashtree_builder::process_file(hasher::B2H &parentdirhash, const std::string
     return 0;
 }
 
-void hashtree_builder::populate_hintpaths(const char *const idxfile)
+void hashtree_builder::populate_hintpaths_from_idxfile(const char *const idxfile)
 {
     std::ifstream infile(std::string(ctx.deltadir).append(idxfile));
     if (!infile.fail())
     {
         for (std::string relpath; std::getline(infile, relpath);)
-        {
-            std::string parentdir = boost::filesystem::path(relpath).parent_path().string();
-            hintpaths[parentdir].emplace(relpath);
-        }
+            insert_hintpath(relpath);
         infile.close();
     }
+}
+
+void hashtree_builder::insert_hintpath(const std::string &relpath)
+{
+    boost::filesystem::path p_relpath(relpath);
+    std::string parentdir = p_relpath.parent_path().string();
+    hintpaths[parentdir].emplace(relpath);
 }
 
 bool hashtree_builder::get_hinteddir_match(hintpath_map::iterator &matchitr, const std::string &dirpath)

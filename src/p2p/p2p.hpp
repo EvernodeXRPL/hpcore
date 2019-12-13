@@ -5,6 +5,7 @@
 #include "../sock/socket_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
+#include "../statefs/hasher.hpp"
 
 namespace p2p
 {
@@ -16,6 +17,7 @@ struct proposal
     uint64_t time;
     uint8_t stage;
     std::string lcl;
+    std::string curr_hash_state;
     std::set<std::string> users;
     std::set<std::string> hash_inputs;
     std::set<std::string> hash_outputs;
@@ -34,6 +36,7 @@ struct history_request
 
 struct history_ledger
 {
+    std::string state;
     std::string lcl;
     std::vector<uint8_t> raw_ledger;
 };
@@ -45,30 +48,53 @@ enum LEDGER_RESPONSE_ERROR
     REQ_LEDGER_NOT_FOUND = 2
 };
 
-
 struct history_response
 {
-    std::map<uint64_t,const history_ledger> hist_ledgers;
+    std::map<uint64_t, const history_ledger> hist_ledgers;
     LEDGER_RESPONSE_ERROR error;
-
 };
-    
+
 struct npl_message
 {
     std::string data;
 };
 
+struct state_request
+{
+    std::string parent_path;
+    bool is_file;
+    int32_t block_id;
+    hasher::B2H expected_hash;
+};
+
+struct state_fs_hash_entry
+{
+    bool is_file;
+    hasher::B2H hash;
+};
+
+struct block_response
+{
+    std::string path;
+    uint32_t block_id;
+    std::string_view data;
+    hasher::B2H hash;
+};
+
 struct message_collection
 {
-     std::list<proposal> proposals;
-    std::mutex proposals_mutex;                    // Mutex for proposals access race conditions.
-    
+    std::list<proposal> proposals;
+    std::mutex proposals_mutex; // Mutex for proposals access race conditions.
+
     std::list<nonunl_proposal> nonunl_proposals;
-    std::mutex nonunl_proposals_mutex;            // Mutex for non-unl proposals access race conditions.
+    std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 
     // NPL messages are stored as string list because we are feeding the npl messages as it is (byte array) to the contract.
-    std::list<std::string> npl_messages;          
-    std::mutex npl_messages_mutex;                 // Mutex for npl_messages access race conditions.
+    std::list<std::string> npl_messages;
+    std::mutex npl_messages_mutex; // Mutex for npl_messages access race conditions.
+
+    std::list<std::string> state_response;
+    std::mutex state_response_mutex; // Mutex for state response access race conditions.
 };
 
 struct connected_context
