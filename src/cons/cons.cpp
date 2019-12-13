@@ -29,6 +29,7 @@ constexpr float STAGE1_THRESHOLD = 0.5;
 constexpr float STAGE2_THRESHOLD = 0.65;
 constexpr float STAGE3_THRESHOLD = 0.8;
 constexpr float MAJORITY_THRESHOLD = 0.8;
+constexpr uint64_t MAX_RESET_TIME = 200;
 
 consensus_context ctx;
 
@@ -68,6 +69,7 @@ int init()
     });
 
     ctx.prev_close_time = util::get_epoch_milliseconds();
+    ctx.reset_time = MAX_RESET_TIME;
     return 0;
 }
 
@@ -185,17 +187,20 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            uint64_t diff = rand() % (conf::cfg.roundtime / 10);
-            bool reset = (rand() % 10) >= 5;
-            // uint64_t diff = 0;
-            // if (time_off > ctx.time_now)
-            //     diff = time_off - ctx.time_now;
-            // else if (time_off > 0)
-            //     diff = ctx.time_now - time_off;
+            uint64_t diff = 0;
+            if (time_off > ctx.time_now)
+                diff = time_off - ctx.time_now;
+            else if (time_off > 0)
+                diff = ctx.time_now - time_off;
 
-            //We are randomly resetting in random time to stage 0 to avoid possible deadlock situations.
-            LOG_DBG << "Time off:" << std::to_string(diff) << " reset:" << reset;
-            timewait_stage(reset, diff);
+            //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
+            //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
+            LOG_DBG << "time off: " << std::to_string(ctx.reset_time);
+            timewait_stage(true, ctx.reset_time);
+            ctx.reset_time -= rand() % 25;
+
+            if (ctx.reset_time < 0)
+                ctx.reset_time = MAX_RESET_TIME;
 
             return;
         }
@@ -218,6 +223,7 @@ void consensus()
             {
                 ctx.prev_close_time = stg_prop.time;
                 apply_ledger(stg_prop);
+                ctx.reset_time = MAX_RESET_TIME;
 
                 // We have finished a consensus round (all 4 stages).
                 LOG_INFO << "****Stage 3 consensus reached****";

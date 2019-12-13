@@ -83,7 +83,9 @@ struct consensus_context
     //We will use this to track lcls related logic.- track state, lcl request, response.
     std::map<uint64_t, ledger_cache> cache;
     //ledger close time of previous hash
+
     uint64_t prev_close_time = 0;
+    uint64_t reset_time = 0;
 
     bool is_state_syncing = false;
     std::string state_sync_lcl;
