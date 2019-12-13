@@ -1,12 +1,13 @@
 #!/bin/bash
 
-sudo ./cluster-create.sh 5
-sudo mkdir -p /home/geveodev/hpcore/hpcluster/node1/statehist/0/data
-sudo mkdir -p /home/geveodev/hpcore/hpcluster/node2/statehist/0/data/
-sudo mkdir -p /home/geveodev/hpcore/hpcluster/node3/statehist/0/data
-sudo mkdir -p /home/geveodev/hpcore/hpcluster/node4/statehist/0/data/
+nodes=3
+sudo ./cluster-create.sh $nodes
 
-sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node1/statehist/0/data
-sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node2/statehist/0/data
-sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node3/statehist/0/data
-sudo cp -r /home/geveodev/Desktop/Share/* /home/geveodev/hpcore/hpcluster/node4/statehist/0/data
+# Setup initial state data for all nodes but one.
+for (( i=1; i<$nodes; i++ ))
+do
+
+    sudo mkdir -p ~/hpcore/hpcluster/node$i/statehist/0/data/
+    #sudo cp -r ~/Downloads/big.mkv ~/hpcore/hpcluster/node$i/statehist/0/data/
+
+done

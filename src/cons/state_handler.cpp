@@ -12,7 +12,7 @@ namespace cons
 {
 
 constexpr uint16_t MAX_AWAITING_REQUESTS = 1;
-constexpr uint16_t MAX_RESPONSE_WAIT_CYCLES = 100;
+constexpr uint16_t MAX_RESPONSE_WAIT_CYCLES = 10;
 
 // List of state responses flatbuffer messages to be processed.
 std::list<std::string> candidate_state_responses;
@@ -80,8 +80,6 @@ int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_requ
 
 void start_state_sync(const hasher::B2H state_hash_to_request)
 {
-    std::cout << "start_state_sync() " << state_hash_to_request << "\n";
-
     {
         std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
         p2p::ctx.collected_msgs.state_response.clear();
@@ -127,10 +125,7 @@ int run_state_sync_iterator()
             hasher::B2H response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
             const auto pending_resp_itr = submitted_requests.find(response_hash);
             if (pending_resp_itr == submitted_requests.end())
-            {
-                std::cout << "Ignoring state response.\n";
                 continue;
-            }
 
             // Now that we have received matching hash, remove it from the waiting list.
             submitted_requests.erase(pending_resp_itr);
@@ -169,7 +164,7 @@ int run_state_sync_iterator()
             {
                 // Reset the counter and re-submit request.
                 request.waiting_cycles = 0;
-                std::cout << "Resubmit state request\n";
+                LOG_DBG << "Resubmitting state request...";
                 submit_request(request);
             }
         }
@@ -192,7 +187,7 @@ int run_state_sync_iterator()
 
 void submit_request(const backlog_item &request)
 {
-    std::cout << "Submitting state request. type: " << request.type << " path:" << request.path << " blockid: " << request.block_id << "\n";
+    LOG_DBG << "Submitting state request. type:" << request.type << " path:" << request.path << " blockid:" << request.block_id;
 
     submitted_requests.try_emplace(request.expected_hash, request);
 
@@ -202,13 +197,8 @@ void submit_request(const backlog_item &request)
 
 int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp)
 {
-    std::cout << "Recieved state fs entry response\n";
-
     std::unordered_map<std::string, p2p::state_fs_hash_entry> state_fs_entry_list;
     fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_fs_entry_list, fs_entry_resp->entries());
-
-    for (const auto [a, b] : state_fs_entry_list)
-        std::cout << "Recieved fsentry: " << a << "\n";
 
     std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
     std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(fs_entry_resp->path());
@@ -227,12 +217,9 @@ int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry
     // Request more info on fs entries that exist on both sides but are different.
     for (const auto &[path, fs_entry] : existing_fs_entries)
     {
-        std::cout << "Existing path :" << path << std::endl;
         const auto fs_itr = state_fs_entry_list.find(path);
         if (fs_itr != state_fs_entry_list.end())
         {
-            std::cout << "Existing fs_entry_hash :" << fs_entry.hash << std::endl;
-            std::cout << "Recieved fs_entry_hash :" << fs_itr->second.hash << std::endl;
             if (fs_itr->second.hash != fs_entry.hash)
             {
                 if (fs_entry.is_file)
@@ -276,8 +263,6 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
     std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
     const std::string path_str(path_sv.data(), path_sv.size());
 
-    std::cout << "Recieved file hash map of " << path_str << std::endl;
-
     std::vector<uint8_t> existing_block_hashmap;
     if (statefs::get_block_hash_map(existing_block_hashmap, path_str, hasher::B2H_empty) == -1)
         return -1;
@@ -288,9 +273,6 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
     const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
     auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
 
-    std::cout << "Reieved file hashmap size :" << file_resp->hash_map()->size() << std::endl;
-    std::cout << "Existing file hashmap size :" << existing_block_hashmap.size() << std::endl;
-
     auto insert_itr = pending_requests.begin();
 
     for (int block_id = 0; block_id < existing_hash_count; ++block_id)
@@ -300,7 +282,6 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
 
         if (existing_hashes[block_id] != resp_hashes[block_id])
         {
-            std::cout << "Mismatch in file block  :" << block_id << std::endl;
             // Insert at front to give priority to block requests while preserving block order.
             pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
         }
@@ -315,7 +296,6 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
     {
         for (int block_id = existing_hash_count; block_id < resp_hash_count; ++block_id)
         {
-            std::cout << "Missing block: " << block_id << "\n";
             // Insert at front to give priority to block requests while preserving block order.
             pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
         }
@@ -327,8 +307,6 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
 int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg)
 {
     p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*block_msg);
-
-    std::cout << "Recieved block " << block_resp.block_id << " of " << block_resp.path << "\n";
 
     if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
         return -1;
