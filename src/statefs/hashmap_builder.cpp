@@ -37,7 +37,10 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
     std::string bhmapfile;
     std::vector<char> bhmapdata;
     if (read_blockhashmap(bhmapdata, bhmapfile, filerelpath) == -1)
+    {
+        close(orifd);
         return -1;
+    }
 
     hasher::B2H oldfilehash = hasher::B2H_empty;
     if (!bhmapdata.empty())
@@ -54,15 +57,24 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parentdirhash, const 
         std::map<uint32_t, hasher::B2H> bindex;
         uint32_t original_blockcount;
         if (get_blockindex(bindex, original_blockcount, filerelpath) == -1)
+        {
+            close(orifd);
             return -1;
+        }
 
         if (update_hashes_with_backup_blockhints(hashes.get(), hashes_size, filerelpath, orifd, blockcount, original_blockcount, bindex, bhmapdata) == -1)
+        {
+            close(orifd);
             return -1;
+        }
     }
     else
     {
         if (update_hashes_with_changed_blockhints(hashes.get(), hashes_size, filerelpath, orifd, blockcount, changedblocks, bhmapdata) == -1)
+        {
+            close(orifd);
             return -1;
+        }
     }
 
     close(orifd);
@@ -96,8 +108,11 @@ int hashmap_builder::read_blockhashmap(std::vector<char> &bhmapdata, std::string
         if (pread(hmapfd, bhmapdata.data(), size, 0) == -1)
         {
             LOG_ERR << errno << ": Read failed " << bhmapfile;
+            close(hmapfd);
             return -1;
         }
+
+        close(hmapfd);
     }
     else
     {
@@ -296,14 +311,18 @@ int hashmap_builder::write_blockhashmap(const std::string &bhmapfile, const hash
     if (pwrite(hmapfd, hashes, hashes_size, 0) == -1)
     {
         LOG_ERR << errno << ": Write failed " << bhmapfile;
+        close(hmapfd);
         return -1;
     }
 
     if (ftruncate(hmapfd, hashes_size) == -1)
     {
         LOG_ERR << errno << ": Truncate failed " << bhmapfile;
+        close(hmapfd);
         return -1;
     }
+
+    close(hmapfd);
 }
 
 int hashmap_builder::update_hashtree_entry(hasher::B2H &parentdirhash, const bool oldbhmap_exists, const hasher::B2H oldfilehash, const hasher::B2H newfilehash, const std::string &bhmapfile, const std::string &relpath)
@@ -359,6 +378,7 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parentdirhash, const std::s
         if (read(hmapfd, &filehash, hasher::HASH_SIZE) == -1)
         {
             LOG_ERR << errno << ": Read failed " << bhmapfile;
+            close(hmapfd);
             return -1;
         }
 
@@ -366,6 +386,7 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parentdirhash, const std::s
         if (remove(bhmapfile.c_str()) == -1)
         {
             LOG_ERR << errno << ": Delete failed " << bhmapfile;
+            close(hmapfd);
             return -1;
         }
 
@@ -383,11 +404,13 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parentdirhash, const std::s
         if (remove(hlpath.str().c_str()) == -1)
         {
             LOG_ERR << errno << ": Delete failed for halrd link " << filehash << " of " << bhmapfile;
+            close(hmapfd);
             return -1;
         }
 
         // XOR parent dir hash with file hash so the file hash gets removed from parent dir hash.
         parentdirhash ^= filehash;
+        close(hmapfd);
     }
 
     return 0;
