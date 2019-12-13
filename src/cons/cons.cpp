@@ -29,7 +29,7 @@ constexpr float STAGE1_THRESHOLD = 0.5;
 constexpr float STAGE2_THRESHOLD = 0.65;
 constexpr float STAGE3_THRESHOLD = 0.8;
 constexpr float MAJORITY_THRESHOLD = 0.8;
-constexpr uint64_t MAX_RESET_TIME = 200;
+constexpr uint16_t MAX_RESET_TIME = 200;
 
 consensus_context ctx;
 
@@ -165,8 +165,7 @@ void consensus()
         // check if we're ahead/behind of consensus lcl
         bool is_lcl_desync, should_request_history;
         std::string majority_lcl;
-        uint64_t time_off = 0;
-        check_lcl_votes(is_lcl_desync, should_request_history, time_off, majority_lcl, votes);
+        check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes);
 
         if (should_request_history)
         {
@@ -187,14 +186,7 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            uint64_t diff = 0;
-            if (time_off > ctx.time_now)
-                diff = time_off - ctx.time_now;
-            else if (time_off > 0)
-                diff = ctx.time_now - time_off;
-
             //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
-            //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
             LOG_DBG << "time off: " << std::to_string(ctx.reset_time);
             timewait_stage(true, ctx.reset_time);
             const uint16_t decrement = rand() % (conf::cfg.roundtime / 40);
@@ -498,7 +490,7 @@ void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority
 /**
  * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
  */
-void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &time_off, std::string &majority_lcl, vote_counter &votes)
+void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes)
 {
     int32_t total_lcl_votes = 0;
 
@@ -509,11 +501,6 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
         {
             increment(votes.lcl, cp.lcl);
             total_lcl_votes++;
-
-            //keep track of max time of peers, so we can reset nodes in a random time range to increase reliability.
-            //This is very useful especially boostrapping a node cluster.
-            if (cp.time > time_off)
-                time_off = cp.time;
         }
     }
 

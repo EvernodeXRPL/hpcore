@@ -126,7 +126,7 @@ void broadcast_proposal(const p2p::proposal &p);
 
 void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority_stage, vote_counter &votes);
 
-void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &time_off, std::string &majority_lcl, vote_counter &votes);
+void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
 float_t get_stage_threshold(const uint8_t stage);
 
