@@ -9,7 +9,7 @@ namespace cons
 
 //max ledger count
 constexpr uint64_t MAX_LEDGER_SEQUENCE = 200;
-
+constexpr const char* GENESIS_LEDGER = "0-genesis";
 struct ledger_cache
 {
     std::string lcl;

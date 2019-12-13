@@ -115,7 +115,7 @@ void std_terminate() noexcept
 int main(int argc, char **argv)
 {
     //seed rand
-    srand(time(0));
+    srand(util::get_epoch_milliseconds());
 
     // Register exception handler for std exceptions.
     std::set_terminate(&std_terminate);

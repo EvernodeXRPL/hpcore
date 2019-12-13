@@ -206,7 +206,7 @@ const ledger_history load_ledger()
     if (ldg_hist.cache.empty())
     {
         ldg_hist.led_seq_no = 0;
-        ldg_hist.lcl = "0-genesis";
+        ldg_hist.lcl = GENESIS_LEDGER;
     }
     else
     {
@@ -467,15 +467,11 @@ void handle_ledger_history_response(const p2p::history_response &hr)
     }
 
     last_requested_lcl = "";
-    
-    const auto latest_lcl_itr = cons::ctx.cache.rbegin();
-    cons::ctx.lcl = latest_lcl_itr->second.lcl;
-    cons::ctx.led_seq_no = latest_lcl_itr->first;
 
     if (cons::ctx.cache.empty())
     {
         cons::ctx.led_seq_no = 0;
-        cons::ctx.lcl = "0-genesis";
+        cons::ctx.lcl = GENESIS_LEDGER;
     }
     else
     {

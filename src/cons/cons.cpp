@@ -167,12 +167,24 @@ void consensus()
 
         if (should_request_history)
         {
-            //create history request message and request history from a random peer.
-            send_ledger_history_request(ctx.lcl, majority_lcl);
+            //handle minority going forward when boostrapping cluster.
+            //Here we are mimicking invalid min ledger scenario.
+            if (majority_lcl == GENESIS_LEDGER)
+            {
+                last_requested_lcl = majority_lcl;
+                p2p::history_response res;
+                res.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
+                handle_ledger_history_response(std::move(res));
+            }
+            else
+            {
+                //create history request message and request history from a random peer.
+                send_ledger_history_request(ctx.lcl, majority_lcl);
+            }
         }
         if (is_lcl_desync)
         {
-            int64_t diff = 0;
+            uint64_t diff = 0;
             if (time_off > ctx.time_now)
                 diff = time_off - ctx.time_now;
 
