@@ -137,13 +137,13 @@ void consensus()
         for (auto &[pubkey, proposal] : ctx.candidate_proposals)
         {
             bool self = proposal.pubkey == conf::cfg.pubkey;
-            // LOG_DBG << "[stage" << std::to_string(proposal.stage)
-            //         << "] users:" << proposal.users.size()
-            //         << " hinp:" << proposal.hash_inputs.size()
-            //         << " hout:" << proposal.hash_outputs.size()
-            //         << " lcl:" << proposal.lcl
-            //         << " self:" << self
-            //         << "\n";
+            LOG_DBG << "[stage" << std::to_string(proposal.stage)
+                    << "] users:" << proposal.users.size()
+                    << " hinp:" << proposal.hash_inputs.size()
+                    << " hout:" << proposal.hash_outputs.size()
+                    << " lcl:" << proposal.lcl
+                    << " self:" << self
+                    << "\n";
         }
 
         // Initialize vote counters
@@ -172,9 +172,17 @@ void consensus()
         }
         if (is_lcl_desync)
         {
+            int64_t diff = 0;
+            if (time_off > ctx.time_now)
+                diff = time_off - ctx.time_now;
+
+            else
+                diff = ctx.time_now - time_off;
             //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
             //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
-            timewait_stage(true, time_off - ctx.time_now);
+
+            LOG_DBG << "time off: " << std::to_string(diff);
+            timewait_stage(true, diff);
             //LOG_DBG << "time off: " << std::to_string(time_off);
             return;
         }
