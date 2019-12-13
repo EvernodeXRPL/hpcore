@@ -197,7 +197,7 @@ void consensus()
             //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
             LOG_DBG << "time off: " << std::to_string(ctx.reset_time);
             timewait_stage(true, ctx.reset_time);
-            uint16_t decrement = rand() % 25;
+            const uint16_t decrement = rand() % (conf::cfg.roundtime / 40);
 
             if (decrement > ctx.reset_time)
                 ctx.reset_time = MAX_RESET_TIME;
@@ -228,7 +228,7 @@ void consensus()
                 ctx.reset_time = MAX_RESET_TIME;
 
                 // We have finished a consensus round (all 4 stages).
-                LOG_INFO << "****Stage 3 consensus reached****";
+                LOG_INFO << "****Stage 3 consensus reached**** (state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
             }
         }
     }
@@ -417,10 +417,13 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         if (numvotes >= vote_threshold)
             stg_prop.hash_outputs.emplace(hash);
 
-    // time is voted on a simple sorted and majority basis, since there will always be disagreement.
+    // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
     int32_t highest_time_vote = 0;
-    for (const auto [time, numvotes] : votes.time)
+    for(auto itr = votes.time.rbegin(); itr != votes.time.rend(); ++itr)
     {
+        const uint64_t time = itr->first;
+        const int32_t numvotes = itr->second;
+
         if (numvotes > highest_time_vote)
         {
             highest_time_vote = numvotes;
@@ -428,12 +431,10 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         }
     }
 
-    //todo:apply a round time resolution to increase close time reliability(for stage 1,2)
     if (ctx.stage == 3)
-        get_ledger_time_resolution(stg_prop.time);
-
+        stg_prop.time = get_ledger_time_resolution(stg_prop.time);
     else
-        get_stage_time_resolution(stg_prop.time);
+        stg_prop.time = get_stage_time_resolution(stg_prop.time);
 
     return stg_prop;
 }
@@ -558,7 +559,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
     {
         // potential fork condition.
-        LOG_WARN << "No consensus on lcl. Possible fork condition. won:" << std::to_string(winning_votes) << " total:" << std::to_string(ctx.candidate_proposals.size());
+        LOG_DBG << "No consensus on lcl. Possible fork condition. won:" << std::to_string(winning_votes) << " total:" << std::to_string(ctx.candidate_proposals.size());
         is_desync = true;
         return;
     }
@@ -759,20 +760,22 @@ void check_state(vote_counter &votes)
     {
         if (ctx.state_sync_lcl != ctx.lcl)
         {
-            LOG_DBG << "State mismatch. Starting state sync...";
-
             // Change the mode to passive and not sending out proposals till the state is synced
             conf::change_operating_mode(conf::OPERATING_MODE::OBSERVING);
 
             const hasher::B2H majority_state_hash = *reinterpret_cast<const hasher::B2H *>(majority_state.c_str());
+            LOG_INFO << "Starting state sync. Curr state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
+
             start_state_sync(majority_state_hash);
 
             ctx.is_state_syncing = true;
             ctx.state_sync_lcl = ctx.lcl;
         }
     }
-    else if (majority_state == ctx.curr_hash_state)
+    else if (majority_state == ctx.curr_hash_state && ctx.is_state_syncing)
     {
+        LOG_INFO << "State sync complete. state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str());
+
         ctx.is_state_syncing = false;
         ctx.state_sync_lcl.clear();
         conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);

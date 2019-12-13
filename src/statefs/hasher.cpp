@@ -37,7 +37,7 @@ void B2H::operator^=(const B2H rhs)
 
 std::ostream &operator<<(std::ostream &output, const B2H &h)
 {
-    output << h.data[0] << h.data[1] << h.data[2] << h.data[3];
+    output << h.data[0];// << h.data[1] << h.data[2] << h.data[3];
     return output;
 }
 

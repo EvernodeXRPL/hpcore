@@ -128,7 +128,6 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else if (content_message_type == p2pmsg::Message_State_Response_Message)
     {
-        LOG_INFO << "Received State Response Message\n";
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
         std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
         ctx.collected_msgs.state_response.push_back(std::move(response));

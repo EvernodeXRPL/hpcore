@@ -209,11 +209,7 @@ int stop_state_monitor()
     if (htreebuilder.generate(statehash) != 0)
         return -1;
 
-    std::string root_hash(reinterpret_cast<const char *>(&statehash), hasher::HASH_SIZE);
-    root_hash.swap(cons::ctx.curr_hash_state);
-
-    LOG_DBG << "State hash: " << std::hex << statehash << std::dec;
-
+    cons::ctx.curr_hash_state = std::string(reinterpret_cast<const char *>(&statehash), hasher::HASH_SIZE);
     return 0;
 }
 
