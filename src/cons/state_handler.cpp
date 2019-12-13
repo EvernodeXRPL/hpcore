@@ -164,7 +164,7 @@ int run_state_sync_iterator()
             {
                 // Reset the counter and re-submit request.
                 request.waiting_cycles = 0;
-                std::cout << "Resubmit state request\n";
+                LOG_DBG << "Resubmitting state request...";
                 submit_request(request);
             }
         }
@@ -187,7 +187,7 @@ int run_state_sync_iterator()
 
 void submit_request(const backlog_item &request)
 {
-    //std::cout << "Submitting state request. type: " << request.type << " path:" << request.path << " blockid: " << request.block_id << "\n";
+    LOG_DBG << "Submitting state request. type:" << request.type << " path:" << request.path << " blockid:" << request.block_id;
 
     submitted_requests.try_emplace(request.expected_hash, request);
 
