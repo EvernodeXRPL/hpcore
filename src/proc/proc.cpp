@@ -72,7 +72,7 @@ int exec_contract(const contract_exec_args &args)
 
         // Wait for child process (contract process) to complete execution.
         const int presult = await_process_execution(contract_pid);
-        LOG_INFO << "Contract process ended.";
+        LOG_DBG << "Contract process ended.";
 
         contract_pid = 0;
         if (presult != 0)
@@ -99,7 +99,7 @@ int exec_contract(const contract_exec_args &args)
         // Write the contract input message from HotPocket to the stdin (0) of the contract process.
         write_contract_args(args);
 
-        LOG_INFO << "Starting contract process...";
+        LOG_DBG << "Starting contract process...";
 
         // Fill process args.
         char *execv_args[conf::cfg.runtime_binexec_args.size() + 1];
@@ -209,9 +209,9 @@ int stop_state_monitor()
     if (htreebuilder.generate(statehash) != 0)
         return -1;
 
-    std::string root_hash(reinterpret_cast<const char*>(&statehash), hasher::HASH_SIZE);
+    std::string root_hash(reinterpret_cast<const char *>(&statehash), hasher::HASH_SIZE);
     root_hash.swap(cons::ctx.curr_hash_state);
-    
+
     LOG_DBG << "State hash: " << std::hex << statehash << std::dec;
 
     return 0;
@@ -708,6 +708,18 @@ void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds)
         // HPWRITE fd has aleady been closed by HP process after writing
         // inputs (before the fork).
     }
+}
+
+/**
+ * Cleanup any running processes.
+ */
+void deinit()
+{
+    if (contract_pid > 0)
+        kill(contract_pid, SIGINT);
+
+    if (statemon_pid > 0)
+        kill(statemon_pid, SIGINT);
 }
 
 } // namespace proc

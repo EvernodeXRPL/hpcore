@@ -69,11 +69,11 @@ struct consensus_context
 
     util::rollover_hashset recent_userinput_hashes;
 
-    uint8_t stage;
-    uint64_t novel_proposal_time;
-    uint64_t time_now;
+    uint8_t stage = 0;
+    uint64_t novel_proposal_time = 0;
+    uint64_t time_now = 0;
     std::string lcl;
-    uint64_t led_seq_no;
+    uint64_t led_seq_no = 0;
     std::string curr_hash_state;
     std::string prev_hash_state;
 
@@ -83,9 +83,9 @@ struct consensus_context
     //We will use this to track lcls related logic.- track state, lcl request, response.
     std::map<uint64_t, ledger_cache> cache;
     //ledger close time of previous hash
-    uint64_t prev_close_time;
+    uint64_t prev_close_time = 0;
 
-    bool is_state_syncing;
+    bool is_state_syncing = false;
     std::string state_sync_lcl;
     std::thread state_syncing_thread;
     std::mutex state_syncing_mutex;

@@ -142,6 +142,7 @@ void consensus()
                     << " hinp:" << proposal.hash_inputs.size()
                     << " hout:" << proposal.hash_outputs.size()
                     << " lcl:" << proposal.lcl
+                    << " state:" << *reinterpret_cast<const hasher::B2H *>(proposal.curr_hash_state.c_str())
                     << " self:" << self
                     << "\n";
         }
@@ -184,16 +185,17 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            uint64_t diff = 0;
-            if (time_off > ctx.time_now)
-                diff = time_off - ctx.time_now;
-            else if (time_off > 0)
-                diff = ctx.time_now - time_off;
+            uint64_t diff = rand() % (conf::cfg.roundtime / 10);
+            bool reset = (rand() % 10) >= 5;
+            // uint64_t diff = 0;
+            // if (time_off > ctx.time_now)
+            //     diff = time_off - ctx.time_now;
+            // else if (time_off > 0)
+            //     diff = ctx.time_now - time_off;
 
-            //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
-            //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
-            LOG_DBG << "time off: " << std::to_string(diff);
-            timewait_stage(true, diff);
+            //We are randomly resetting in random time to stage 0 to avoid possible deadlock situations.
+            LOG_DBG << "Time off:" << std::to_string(diff) << " reset:" << reset;
+            timewait_stage(reset, diff);
 
             return;
         }

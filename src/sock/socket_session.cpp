@@ -277,6 +277,8 @@ void socket_session<T>::close()
 template <class T>
 void socket_session<T>::on_close(const error_code ec, const int8_t type)
 {
+    sess_handler.on_close(this);
+    
     if (type == 1)
         return;
 

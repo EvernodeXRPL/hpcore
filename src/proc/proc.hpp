@@ -78,6 +78,8 @@ struct contract_exec_args
 
 int exec_contract(const contract_exec_args &args);
 
+void deinit();
+
 //------Internal-use functions for this namespace.
 
 int await_process_execution(pid_t pid);
