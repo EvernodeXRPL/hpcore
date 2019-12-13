@@ -500,7 +500,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
 
     if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
     {
-        LOG_DBG << "Not enough peers proposing to perform consensus" << std::to_string(total_lcl_votes) << " needed " << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        LOG_DBG << "Not enough peers proposing to perform consensus votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
         is_desync = true;
 
         //Not enough nodes are propsing. So Node is switching to Proposing if it's in observing mode.
@@ -537,7 +537,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
     if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
     {
         // potential fork condition.
-        LOG_WARN << "No consensus on lcl. Possible fork condition. " << std::to_string(winning_votes) << std::to_string(ctx.candidate_proposals.size());
+        LOG_WARN << "No consensus on lcl. Possible fork condition. won:" << std::to_string(winning_votes) << " total:" << std::to_string(ctx.candidate_proposals.size());
         is_desync = true;
         return;
     }
