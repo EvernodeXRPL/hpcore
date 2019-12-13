@@ -187,15 +187,14 @@ void consensus()
             uint64_t diff = 0;
             if (time_off > ctx.time_now)
                 diff = time_off - ctx.time_now;
-
-            else
+            else if (time_off > 0)
                 diff = ctx.time_now - time_off;
+
             //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
             //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
-
             LOG_DBG << "time off: " << std::to_string(diff);
             timewait_stage(true, diff);
-            //LOG_DBG << "time off: " << std::to_string(time_off);
+
             return;
         }
         else
@@ -499,12 +498,12 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, uint64_t &ti
         {
             increment(votes.lcl, cp.lcl);
             total_lcl_votes++;
-        }
 
-        //keep track of max time of peers, so we can reset nodes in a random time range to increase reliability.
-        //This is very useful especially boostrapping a node cluster.
-        if (cp.time > time_off)
-            time_off = cp.time;
+            //keep track of max time of peers, so we can reset nodes in a random time range to increase reliability.
+            //This is very useful especially boostrapping a node cluster.
+            if (cp.time > time_off)
+                time_off = cp.time;
+        }
     }
 
     is_desync = false;
