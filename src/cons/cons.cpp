@@ -197,10 +197,12 @@ void consensus()
             //this might not make sense now after stage 1 now since we are applying a stage time resolution?.
             LOG_DBG << "time off: " << std::to_string(ctx.reset_time);
             timewait_stage(true, ctx.reset_time);
-            ctx.reset_time -= rand() % 25;
+            uint16_t decrement = rand() % 25;
 
-            if (ctx.reset_time < 0)
+            if (decrement > ctx.reset_time)
                 ctx.reset_time = MAX_RESET_TIME;
+            else
+                ctx.reset_time -= decrement;
 
             return;
         }
