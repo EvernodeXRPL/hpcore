@@ -1355,3 +1355,29 @@ int main(int argc, char *argv[])
 
     return fusefs::start(argv[0], argv[1], argv[2]);
 }
+
+namespace boost
+{
+/**
+ * Global exception handler for boost exceptions.
+ */
+void throw_exception(std::exception const &e)
+{
+    std::cerr << "Boost error: " << e.what() << "\n"
+              << boost::stacktrace::stacktrace();
+    exit(1);
+}
+
+inline void assertion_failed_msg(char const *expr, char const *msg, char const *function, char const * /*file*/, long /*line*/)
+{
+    std::cerr << "Expression '" << expr << "' is false in function '" << function << "': " << (msg ? msg : "<...>") << ".\n"
+              << "Backtrace:\n"
+              << boost::stacktrace::stacktrace() << '\n';
+    std::abort();
+}
+
+inline void assertion_failed(char const *expr, char const *function, char const *file, long line)
+{
+    ::boost::assertion_failed_msg(expr, 0 /*nullptr*/, function, file, line);
+}
+} // namespace boost

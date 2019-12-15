@@ -34,6 +34,8 @@ target_link_libraries(hpsupport
     libboost_log.a
     libboost_log_setup.a
     libboost_filesystem.a
+    libboost_stacktrace_backtrace.a
+    backtrace
     pthread
     crypto
     ssl
@@ -124,10 +126,10 @@ target_link_libraries(hpstatemon
 add_dependencies(hpcore
     hpstatemon
 )
-add_custom_command(TARGET hpcore POST_BUILD
-    COMMAND strip ./build/hpcore
-    COMMAND strip ./build/hpstatemon
-)
+# add_custom_command(TARGET hpcore POST_BUILD
+#     COMMAND strip ./build/hpcore
+#     COMMAND strip ./build/hpstatemon
+# )
     
 target_precompile_headers(hpsupport PUBLIC src/pchheader.hpp)
 target_precompile_headers(hpcore REUSE_FROM hpsupport)

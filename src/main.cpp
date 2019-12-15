@@ -75,14 +75,31 @@ void signal_handler(int signum)
     exit(signum);
 }
 
+namespace boost
+{
 /**
  * Global exception handler for boost exceptions.
  */
-void boost::throw_exception(std::exception const &e)
+void throw_exception(std::exception const &e)
 {
-    std::cerr << "Boost error:" << e.what() << "\n";
+    LOG_ERR << "Boost error: " << e.what() << "\n"
+            << boost::stacktrace::stacktrace();
     exit(1);
 }
+
+inline void assertion_failed_msg(char const *expr, char const *msg, char const *function, char const * /*file*/, long /*line*/)
+{
+    LOG_ERR << "Expression '" << expr << "' is false in function '" << function << "': " << (msg ? msg : "<...>") << ".\n"
+            << "Backtrace:\n"
+            << boost::stacktrace::stacktrace() << '\n';
+    std::abort();
+}
+
+inline void assertion_failed(char const *expr, char const *function, char const *file, long line)
+{
+    ::boost::assertion_failed_msg(expr, 0 /*nullptr*/, function, file, line);
+}
+} // namespace boost
 
 /**
  * Global exception handler for std exceptions.
@@ -102,13 +119,17 @@ void std_terminate() noexcept
         }
         catch (...)
         {
-            std::cerr << "std error: Terminated due to unknown exception" << "\n";
+            LOG_ERR << "std error: Terminated due to unknown exception"
+                    << "\n";
         }
     }
     else
     {
-        std::cerr << "std error: Terminated due to unknown reason" << "\n";
+        LOG_ERR << "std error: Terminated due to unknown reason"
+                << "\n";
     }
+
+    LOG_ERR << boost::stacktrace::stacktrace();
 
     exit(1);
 }

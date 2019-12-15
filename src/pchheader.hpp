@@ -3,6 +3,10 @@
 
 // This will direct all boost exceptions to our error handler.
 #define BOOST_NO_EXCEPTIONS
+// Enable boost strack trace.
+#define BOOST_STACKTRACE_USE_BACKTRACE
+// Enable custom handlers for boost assertion failures.
+#define BOOST_ENABLE_ASSERT_DEBUG_HANDLER
 
 #include <bitset>
 #include <boost/algorithm/string.hpp>
@@ -25,6 +29,7 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
+#include <boost/stacktrace.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
 #include <cstdarg>
