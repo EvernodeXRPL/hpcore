@@ -90,7 +90,8 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
     websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws; // websocket stream used send an recieve messages
     std::vector<T> queue;                                       // used to store messages temporarily until it is sent to the relevant party
     socket_session_handler<T> &sess_handler;                    // handler passed to gain access to websocket events
-    std::vector<session_threshold> thresholds;               // track down various communication thresholds
+    std::vector<session_threshold> thresholds;                  // track down various communication thresholds
+    std::mutex send_mutex;                                      // mutex for calling send()
 
     void fail(const error_code ec, char const *what);
 
@@ -120,6 +121,7 @@ class socket_session : public std::enable_shared_from_this<socket_session<T>>
 
     void ws_async_close();
 
+    void handle_exception(std::string_view event_name);
 
 public:
    

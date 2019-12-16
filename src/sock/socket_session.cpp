@@ -226,17 +226,29 @@ void socket_session<T>::on_read(const error_code ec, const std::size_t)
 template <class T>
 void socket_session<T>::send(const T msg)
 {
-    // Always add to queue
-    queue.push_back(std::move(msg));
+    try
+    {
+        std::lock_guard<std::mutex> lock(send_mutex);
+
+        // Always add to queue
+        queue.push_back(std::move(msg));
+        //using sync write until async_write is properly handled for multi-threaded writes.
+        ws.write(net::buffer(queue.front().buffer()));
+        queue.erase(queue.begin());
+    }
+    catch (...)
+    {
+        this->handle_exception("sync_write");
+    }
 
     // Are we already writing?
-    if (queue.size() > 1)
-        return;
+    // if (queue.size() > 1)
+    //     return;
 
-    std::string_view sv = queue.front().buffer();
+    // std::string_view sv = queue.front().buffer();
 
-    // We are not currently writing, so send this immediately
-    ws_async_write(sv);
+    // // We are not currently writing, so send this immediately
+    // ws_async_write(sv);
 }
 
 /*
@@ -278,7 +290,7 @@ template <class T>
 void socket_session<T>::on_close(const error_code ec, const int8_t type)
 {
     sess_handler.on_close(this);
-    
+
     if (type == 1)
         return;
 
@@ -298,6 +310,17 @@ void socket_session<T>::fail(const error_code ec, char const *what)
     if (ec == net::error::operation_aborted ||
         ec == websocket::error::closed)
         return;
+}
+
+template <class T>
+void socket_session<T>::handle_exception(std::string_view event_name)
+{
+    std::exception_ptr p = std::current_exception();
+    LOG_ERR << "Socket Exception on " << event_name << ": " << (p ? p.__cxa_exception_type()->name() : "null") << std::endl;
+
+    // Close the socket on any event error except close event.
+    if (event_name != "close")
+        this->ws_async_close();
 }
 
 template <class T>

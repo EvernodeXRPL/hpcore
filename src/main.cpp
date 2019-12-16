@@ -115,7 +115,7 @@ void std_terminate() noexcept
         }
         catch (std::exception &ex)
         {
-            std::cerr << "std error: " << ex.what() << "\n";
+            LOG_ERR << "std error: " << ex.what() << "\n";
         }
         catch (...)
         {

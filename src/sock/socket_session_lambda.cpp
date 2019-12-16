@@ -18,65 +18,107 @@ namespace sock
 template <class T>
 void socket_session<T>::ws_next_layer_async_handshake(const ssl::stream_base::handshake_type handshake_type)
 {
-    // Perform the SSL handshake
-    ws.next_layer().async_handshake(
-        handshake_type,
-        [sp = this->shared_from_this()](error_code ec) {
-            sp->on_ssl_handshake(ec);
-        });
+    try
+    {
+        // Perform the SSL handshake
+        ws.next_layer().async_handshake(
+            handshake_type,
+            [sp = this->shared_from_this()](error_code ec) {
+                sp->on_ssl_handshake(ec);
+            });
+    }
+    catch (...)
+    {
+        this->handle_exception("ssl_handshake");
+    }
 }
 
 template <class T>
 void socket_session<T>::ws_async_accept()
 {
-    ws.async_accept(
-        [sp = this->shared_from_this()](
-            error_code ec) {
-            sp->on_accept(ec);
-        });
+    try
+    {
+        ws.async_accept(
+            [sp = this->shared_from_this()](
+                error_code ec) {
+                sp->on_accept(ec);
+            });
+    }
+    catch (...)
+    {
+        this->handle_exception("accept");
+    }
 }
 
 template <class T>
 void socket_session<T>::ws_async_handshake()
 {
-    ws.async_handshake(this->address, "/",
-                       [sp = this->shared_from_this()](
-                           error_code ec) {
-                           sp->on_accept(ec);
-                       });
+    try
+    {
+        ws.async_handshake(this->address, "/",
+                           [sp = this->shared_from_this()](
+                               error_code ec) {
+                               sp->on_accept(ec);
+                           });
+    }
+    catch (...)
+    {
+        this->handle_exception("handshake");
+    }
 }
 
 template <class T>
 void socket_session<T>::ws_async_read()
 {
-    ws.async_read(
-        buffer,
-        [sp = this->shared_from_this()](
-            error_code ec, std::size_t bytes) {
-            sp->on_read(ec, bytes);
-        });
+    try
+    {
+        ws.async_read(
+            buffer,
+            [sp = this->shared_from_this()](
+                error_code ec, std::size_t bytes) {
+                sp->on_read(ec, bytes);
+            });
+    }
+    catch (...)
+    {
+        this->handle_exception("read");
+    }
 }
 
 template <class T>
 void socket_session<T>::ws_async_write(std::string_view message)
 {
-    ws.async_write(
-        // Project the outbound_message buffer from the queue front into the asio buffer.
-        net::buffer(message.data(), message.length()),
-        [sp = this->shared_from_this()](
-            error_code ec, std::size_t bytes) {
-            sp->on_write(ec, bytes);
-        });
+    try
+    {
+        ws.async_write(
+            // Project the outbound_message buffer from the queue front into the asio buffer.
+            net::buffer(message.data(), message.length()),
+            [sp = this->shared_from_this()](
+                error_code ec, std::size_t bytes) {
+                sp->on_write(ec, bytes);
+            });
+    }
+    catch (...)
+    {
+        this->handle_exception("write");
+    }
 }
 
 template <class T>
 void socket_session<T>::ws_async_close()
 {
-    ws.async_close(websocket::close_code::normal,
-                   [sp = this->shared_from_this()](
-                       error_code ec) {
-                       sp->on_close(ec, 0);
-                   });
+    try
+    {
+        ws.async_close(websocket::close_code::normal,
+                       [sp = this->shared_from_this()](
+                           error_code ec) {
+                           sp->on_close(ec, 0);
+                       });
+    }
+    catch (...)
+    {
+        this->handle_exception("close");
+    }
 }
 
 // Template instantiations.
