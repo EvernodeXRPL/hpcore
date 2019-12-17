@@ -80,7 +80,7 @@ do
     mypeers=$(joinarr peers $j)
     myunl=$(joinarr pubkeys $j)
 
-    node -p "JSON.stringify({...require('./cfg/node$n.json'),binary:'/usr/bin/node',binargs:'/home/geveo/contract.js',peers:${mypeers},unl:${myunl}}, null, 2)" > ./cfg/node$n.cfg
+    node -p "JSON.stringify({...require('./cfg/node$n.json'),binary:'/usr/bin/node',binargs:'/home/geveo/contract.js',peers:${mypeers},unl:${myunl},loggers:['console', 'file']}, null, 2)" > ./cfg/node$n.cfg
 
     # Copy local cfg file back to remote vm.
     vmip=${vmips[j]}
