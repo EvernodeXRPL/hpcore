@@ -231,7 +231,31 @@ void consensus()
     ctx.stage = (ctx.stage + 1) % 4;
 
     // after a stage proposal we will just busy wait for proposals.
-    util::sleep(conf::cfg.roundtime / 4);
+    //util::sleep(conf::cfg.roundtime / 4);
+
+
+    uint64_t now = util::get_epoch_milliseconds();
+
+    // round start is the floor 
+    uint64_t round_start = ((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime;
+
+
+    // compute stage start
+    uint64_t next_stage_start = round_start + (int64_t)(ctx.stage * ((double)conf::cfg.roundtime / 4.0));
+
+    // compute time to wait
+    int64_t to_wait = next_stage_start - now;
+
+    LOG_DBG << "round_start = " << round_start << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
+
+    if (to_wait < 0) {
+        LOG_INFO << "time to wait to next stage was negative";
+        util::sleep(1);
+    } else {
+        util::sleep(to_wait);
+    }
+
+
 }
 
 /**
