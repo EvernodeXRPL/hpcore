@@ -246,11 +246,20 @@ void consensus()
     // compute time to wait
     int64_t to_wait = next_stage_start - now;
 
-    LOG_DBG << "round_start = " << round_start << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
+    LOG_DBG << "now = " << now << ", roundtime = " << conf::cfg.roundtime << ", round_start = " << round_start << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
 
     if (to_wait < 0) {
-        LOG_INFO << "time to wait to next stage was negative";
-        util::sleep(1);
+        uint64_t next_round = round_start;
+        while (next_round < now) 
+            next_round += conf::cfg.roundtime;
+
+        to_wait = next_round - now - 200;
+
+        if (to_wait < 0) to_wait = 0;
+        
+        LOG_INFO << "we missed a round, waiting " << to_wait << " and resetting to stage 0";
+        ctx.stage = 0;
+        util::sleep(to_wait);
     } else {
         util::sleep(to_wait);
     }
