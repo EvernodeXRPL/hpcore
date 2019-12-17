@@ -248,14 +248,12 @@ void consensus()
 
     LOG_DBG << "now = " << now << ", roundtime = " << conf::cfg.roundtime << ", round_start = " << round_start << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
 
-    if (to_wait < 0) {
+    if (to_wait < 200) {
         uint64_t next_round = round_start;
-        while (next_round < now) 
+        while (to_wait < 200) { 
             next_round += conf::cfg.roundtime;
-
-        to_wait = next_round - now - 200;
-
-        if (to_wait < 0) to_wait = 0;
+            to_wait = next_round - now;
+        }
         
         LOG_INFO << "we missed a round, waiting " << to_wait << " and resetting to stage 0";
         ctx.stage = 0;
