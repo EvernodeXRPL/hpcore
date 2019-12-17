@@ -12,11 +12,9 @@ namespace cons
 {
 
 // Max number of requests that can be awaiting response at any given time.
-constexpr uint16_t MAX_AWAITING_REQUESTS = 4;
+constexpr uint16_t MAX_AWAITING_REQUESTS = 1;
 // Syncing loop sleep delay.
-constexpr uint16_t SYNC_LOOP_WAIT = 50;
-// No of loop cycles to wait for a response before resubmitting request.
-constexpr uint16_t MAX_AWAITING_CYCLES = 1000 / SYNC_LOOP_WAIT;
+constexpr uint16_t SYNC_LOOP_WAIT = 100;
 
 // List of state responses flatbuffer messages to be processed.
 std::list<std::string> candidate_state_responses;
@@ -159,7 +157,8 @@ int run_state_sync_iterator()
         // Check for long-awaited responses and re-request them.
         for (auto &[hash, request] : submitted_requests)
         {
-            if (request.waiting_cycles < MAX_AWAITING_CYCLES)
+            // We wait for half of round time before each request is resubmitted.
+            if (request.waiting_cycles < (conf::cfg.roundtime / (SYNC_LOOP_WAIT * 2)))
             {
                 // Increment counter.
                 request.waiting_cycles++;

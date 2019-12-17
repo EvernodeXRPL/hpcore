@@ -220,7 +220,8 @@ void consensus()
                 ctx.reset_time = MAX_RESET_TIME;
 
                 // We have finished a consensus round (all 4 stages).
-                LOG_INFO << "****Stage 3 consensus reached**** (state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
+                LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl
+                         << " state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
             }
         }
     }
