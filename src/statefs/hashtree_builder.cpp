@@ -27,10 +27,10 @@ int hashtree_builder::generate(hasher::B2H &roothash, const bool force_all)
     force_rebuild_all = force_all;
     if (force_rebuild_all)
     {
-        boost::filesystem::remove_all(ctx.blockhashmapdir);
+        boost::filesystem::remove_all(ctx.block_hashmap_dir);
         boost::filesystem::remove_all(ctx.hashtreedir);
 
-        boost::filesystem::create_directories(ctx.blockhashmapdir);
+        boost::filesystem::create_directories(ctx.block_hashmap_dir);
         boost::filesystem::create_directories(ctx.hashtreedir);
     }
 
@@ -63,7 +63,7 @@ int hashtree_builder::traverse_and_generate(hasher::B2H &roothash)
     // and adjust the directory hash accordingly.
     if (hintmode && !hintpaths.empty())
     {
-        traversel_rootdir = ctx.blockhashmapdir;
+        traversel_rootdir = ctx.block_hashmap_dir;
         removal_mode = true;
         if (update_hashtree(roothash) != 0)
             return -1;
@@ -84,7 +84,7 @@ int hashtree_builder::update_hashtree(hasher::B2H &roothash)
     return 0;
 }
 
-int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const std::string &dirpath, const hintpath_map::iterator hintdir_itr, const bool isrootlevel)
+int hashtree_builder::update_hashtree_fordir(hasher::B2H &parent_dir_hash, const std::string &dirpath, const hintpath_map::iterator hintdir_itr, const bool isrootlevel)
 {
     const std::string htreedirpath = switch_basepath(dirpath, traversel_rootdir, ctx.hashtreedir);
 
@@ -141,7 +141,7 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
         }
 
         // Subtract the original dir hash from the parent dir hash.
-        parentdirhash ^= original_dirhash;
+        parent_dir_hash ^= original_dirhash;
     }
     else if (dirhash != original_dirhash)
     {
@@ -150,12 +150,12 @@ int hashtree_builder::update_hashtree_fordir(hasher::B2H &parentdirhash, const s
             return -1;
 
         // Also update the parent dir hash by subtracting the old hash and adding the new hash.
-        parentdirhash ^= original_dirhash;
-        parentdirhash ^= dirhash;
+        parent_dir_hash ^= original_dirhash;
+        parent_dir_hash ^= dirhash;
     }
     else
     {
-        parentdirhash = dirhash;
+        parent_dir_hash = dirhash;
     }
 
     return 0;
@@ -226,7 +226,7 @@ bool hashtree_builder::should_process_file(const hintpath_map::iterator hintdir_
     return true;
 }
 
-int hashtree_builder::process_file(hasher::B2H &parentdirhash, const std::string &filepath, const std::string &htreedirpath)
+int hashtree_builder::process_file(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &htreedirpath)
 {
     if (!removal_mode)
     {
@@ -238,14 +238,14 @@ int hashtree_builder::process_file(hasher::B2H &parentdirhash, const std::string
         }
 
         std::string relpath = get_relpath(filepath, ctx.datadir);
-        std::map<uint32_t, hasher::B2H> changedblocks = fileblockindex[relpath];
+        std::map<uint32_t, hasher::B2H> changed_blocks = fileblockindex[relpath];
 
-        if (hmapbuilder.generate_hashmap_forfile(parentdirhash, filepath, relpath, changedblocks) == -1)
+        if (hmapbuilder.generate_hashmap_forfile(parent_dir_hash, filepath, relpath, changed_blocks) == -1)
             return -1;
     }
     else
     {
-        if (hmapbuilder.remove_hashmapfile(parentdirhash, filepath) == -1)
+        if (hmapbuilder.remove_hashmapfile(parent_dir_hash, filepath) == -1)
             return -1;
     }
 

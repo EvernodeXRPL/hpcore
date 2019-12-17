@@ -27,7 +27,14 @@ std::list<backlog_item> pending_requests;
 // List of submitted requests we are awaiting responses for, keyed by expected response hash.
 std::unordered_map<hasher::B2H, backlog_item, hasher::B2H_std_key_hasher> submitted_requests;
 
-void request_state_from_peer(const std::string &path, const bool is_file, const std::string &lcl, const int32_t block_id, const hasher::B2H expected_hash)
+/**
+ * Sends a state request to a random peer.
+ * @param path Requested file or dir path.
+ * @param is_file Whether the requested path if a file or dir.
+ * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
+ * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
+ */
+void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hasher::B2H expected_hash)
 {
     p2p::state_request sr;
     sr.parent_path = path;
@@ -36,33 +43,40 @@ void request_state_from_peer(const std::string &path, const bool is_file, const 
     sr.expected_hash = expected_hash;
 
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
-    fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, lcl);
+    fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, ctx.lcl);
     p2p::send_message_to_random_peer(msg);
 }
 
+/**
+ * Creats the reply message for a given state request.
+ * @param msg The peer outbound message reference to build up the reply message.
+ * @param sr The state request which should be replied to.
+ */
 int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_request &sr)
 {
+    // If blockid > -1 this means this is a file block data request.
     if (sr.block_id > -1)
     {
-        std::vector<uint8_t> blocks;
-
-        if (statefs::get_block(blocks, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
+        // Vector to hold the block bytes. Normally block size is constant BLOCK_SIZE (4MB), but the
+        // last block of a file may have a smaller size.
+        std::vector<uint8_t> block;
+        if (statefs::get_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
             return -1;
 
         p2p::block_response resp;
         resp.path = sr.parent_path;
         resp.block_id = sr.block_id;
         resp.hash = sr.expected_hash;
-        resp.data = std::string_view(reinterpret_cast<const char *>(blocks.data()), blocks.size());
+        resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
         fbschema::p2pmsg::create_msg_from_block_response(msg.builder(), resp, ctx.lcl);
     }
     else
     {
+        // File state request means we have to reply with the file block hash map.
         if (sr.is_file)
         {
             std::vector<uint8_t> existing_block_hashmap;
-
             if (statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path, sr.expected_hash) == -1)
                 return -1;
 
@@ -70,8 +84,8 @@ int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_requ
         }
         else
         {
+            // If the state request is for a directory we need to reply with the file system entries and their hashes inside that dir.
             std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
-
             if (statefs::get_fs_entry_hashes(existing_fs_entries, sr.parent_path, sr.expected_hash) == -1)
                 return -1;
 
@@ -82,6 +96,11 @@ int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_requ
     return 0;
 }
 
+/**
+ * Initiates state sync process by setting up context variables and sending the initial state request.
+ * @param state_hash_to_request Peer's expected state hash. If peer doesn't have this as its state hash the
+ *                              request will be ignord.
+ */
 void start_state_sync(const hasher::B2H state_hash_to_request)
 {
     {
@@ -100,13 +119,16 @@ void start_state_sync(const hasher::B2H state_hash_to_request)
     submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, state_hash_to_request});
 }
 
+/**
+ * Runs the state sync loop.
+ */
 int run_state_sync_iterator()
 {
     while (true)
     {
         util::sleep(SYNC_LOOP_WAIT);
 
-        // TODO: Also bypass peer session handler responses if not syncing.
+        // TODO: Also bypass peer session handler state responses if we're not syncing.
         if (!ctx.is_state_syncing)
             continue;
 
@@ -189,6 +211,9 @@ int run_state_sync_iterator()
     return 0;
 }
 
+/**
+ * Submits a pending state request to the peer.
+ */
 void submit_request(const backlog_item &request)
 {
     LOG_DBG << "Submitting state request. type:" << request.type << " path:" << request.path << " blockid:" << request.block_id;
@@ -196,9 +221,12 @@ void submit_request(const backlog_item &request)
     submitted_requests.try_emplace(request.expected_hash, request);
 
     const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
-    request_state_from_peer(request.path, is_file, ctx.lcl, request.block_id, request.expected_hash);
+    request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash);
 }
 
+/**
+ * Process state file system entry response for a directory.
+ */
 int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp)
 {
     std::unordered_map<std::string, p2p::state_fs_hash_entry> state_fs_entry_list;

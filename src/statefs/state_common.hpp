@@ -45,7 +45,7 @@ struct statedir_context
 {
     std::string rootdir;            // Directory holding state sub dirs.
     std::string datadir;            // Directory containing smart contract data.
-    std::string blockhashmapdir;    // Directory containing block hash map files.
+    std::string block_hashmap_dir;    // Directory containing block hash map files.
     std::string hashtreedir;        // Directory containing hash tree files (dir.hash and hard links).
     std::string deltadir;           // Directory containing original smart contract data.
 };

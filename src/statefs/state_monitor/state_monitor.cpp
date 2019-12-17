@@ -331,10 +331,10 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
     if (fi.is_new)
         return 0;
 
-    uint32_t original_blockcount = ceil((double)fi.original_length / (double)BLOCK_SIZE);
+    uint32_t original_block_count = ceil((double)fi.original_length / (double)BLOCK_SIZE);
 
     // Check whether we have already cached the entire file.
-    if (original_blockcount == fi.cached_blockids.size())
+    if (original_block_count == fi.cached_blockids.size())
         return 0;
 
     // Initialize fds and indexes required for caching the file.
@@ -342,7 +342,7 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
         return -1;
 
     // Return if incoming write is outside any of the original blocks.
-    if (offset > original_blockcount * BLOCK_SIZE)
+    if (offset > original_block_count * BLOCK_SIZE)
         return 0;
 
     uint32_t startblock = offset / BLOCK_SIZE;

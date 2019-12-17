@@ -26,7 +26,7 @@ statedir_context get_statedir_context(const int16_t checkpointid, const bool cre
     statedir_context ctx;
     ctx.rootdir = get_statedir_root(checkpointid);
     ctx.datadir = ctx.rootdir + DATA_DIR;
-    ctx.blockhashmapdir = ctx.rootdir + BHMAP_DIR;
+    ctx.block_hashmap_dir = ctx.rootdir + BHMAP_DIR;
     ctx.hashtreedir = ctx.rootdir + HTREE_DIR;
     ctx.deltadir = ctx.rootdir + DELTA_DIR;
 
@@ -34,8 +34,8 @@ statedir_context get_statedir_context(const int16_t checkpointid, const bool cre
     {
         if (!boost::filesystem::exists(ctx.datadir))
             boost::filesystem::create_directories(ctx.datadir);
-        if (!boost::filesystem::exists(ctx.blockhashmapdir))
-            boost::filesystem::create_directories(ctx.blockhashmapdir);
+        if (!boost::filesystem::exists(ctx.block_hashmap_dir))
+            boost::filesystem::create_directories(ctx.block_hashmap_dir);
         if (!boost::filesystem::exists(ctx.hashtreedir))
             boost::filesystem::create_directories(ctx.hashtreedir);
         if (!boost::filesystem::exists(ctx.deltadir))

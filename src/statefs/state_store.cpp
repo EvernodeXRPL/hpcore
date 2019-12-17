@@ -60,7 +60,7 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
 
         if (fs_entry.is_file)
         {
-            hash_path = current_ctx.blockhashmapdir + fsentry_relpath + HASHMAP_EXT;
+            hash_path = current_ctx.block_hashmap_dir + fsentry_relpath + HASHMAP_EXT;
         }
         else
         {
@@ -86,7 +86,7 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
  */
 int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpath, const hasher::B2H expected_hash)
 {
-    const std::string bhmap_path = current_ctx.blockhashmapdir + file_relpath + HASHMAP_EXT;
+    const std::string bhmap_path = current_ctx.block_hashmap_dir + file_relpath + HASHMAP_EXT;
 
     if (expected_hash != hasher::B2H_empty)
     {
@@ -123,7 +123,7 @@ int get_file_length(const std::string &file_relpath)
     int fd = open(full_path.c_str(), O_RDONLY);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << full_path;
+        LOG_ERR << errno << " Open failed " << full_path;
         return -1;
     }
 
@@ -142,7 +142,7 @@ int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const 
     // Check whether the existing block hash matches expected hash.
     if (expected_hash != hasher::B2H_empty)
     {
-        std::string bhmap_path = current_ctx.blockhashmapdir + file_relpath + HASHMAP_EXT;
+        std::string bhmap_path = current_ctx.block_hashmap_dir + file_relpath + HASHMAP_EXT;
         hasher::B2H existing_hash = hasher::B2H_empty;
 
         if (read_file_bytes(&existing_hash, bhmap_path.c_str(), (block_id + 1) * hasher::HASH_SIZE, hasher::HASH_SIZE) == -1)
@@ -227,7 +227,7 @@ int truncate_file(const std::string &file_relpath, const size_t newsize)
     int fd = open(full_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << full_path;
+        LOG_ERR << errno << " Open failed " << full_path;
         return -1;
     }
 
@@ -256,7 +256,7 @@ int write_block(const std::string &file_relpath, const uint32_t block_id, const 
     int fd = open(full_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << full_path;
+        LOG_ERR << errno << " Open failed " << full_path;
         return -1;
     }
 
@@ -265,7 +265,7 @@ int write_block(const std::string &file_relpath, const uint32_t block_id, const 
     close(fd);
     if (ret == -1)
     {
-        LOG_ERR << errno << "Write failed " << full_path;
+        LOG_ERR << errno << " Write failed " << full_path;
         return -1;
     }
 
@@ -304,7 +304,7 @@ int read_file_bytes(void *buf, const char *filepath, const off_t start, const si
     int fd = open(filepath, O_RDONLY);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << filepath;
+        LOG_ERR << errno << " Open failed " << filepath;
         return -1;
     }
 
@@ -312,7 +312,7 @@ int read_file_bytes(void *buf, const char *filepath, const off_t start, const si
     close(fd);
     if (read_bytes <= 0)
     {
-        LOG_ERR << errno << "Read failed " << filepath;
+        LOG_ERR << errno << " Read failed " << filepath;
         return -1;
     }
 
@@ -331,7 +331,7 @@ int read_file_bytes_to_end(std::vector<uint8_t> &vec, const char *filepath, cons
     int fd = open(filepath, O_RDONLY);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << filepath;
+        LOG_ERR << errno << " Open failed " << filepath;
         return -1;
     }
 
@@ -346,7 +346,7 @@ int read_file_bytes_to_end(std::vector<uint8_t> &vec, const char *filepath, cons
     close(fd);
     if (read_bytes <= 0)
     {
-        LOG_ERR << errno << "Read failed " << filepath;
+        LOG_ERR << errno << " Read failed " << filepath;
         return -1;
     }
     vec.resize(read_bytes);

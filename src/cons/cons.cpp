@@ -169,6 +169,9 @@ void consensus()
 
         if (should_request_history)
         {
+            // TODO: If we are in a lcl fork condition try to rollback state with the help of
+            // state_restore to rollback state checkpoints before requesting new state.
+
             //handle minority going forward when boostrapping cluster.
             //Here we are mimicking invalid min ledger scenario.
             if (majority_lcl == GENESIS_LEDGER)

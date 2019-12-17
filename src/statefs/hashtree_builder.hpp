@@ -30,14 +30,14 @@ private:
 
     int traverse_and_generate(hasher::B2H &roothash);
     int update_hashtree(hasher::B2H &roothash);
-    int update_hashtree_fordir(hasher::B2H &parentdirhash, const std::string &relpath, const hintpath_map::iterator hintdir_itr, const bool isrootlevel);
+    int update_hashtree_fordir(hasher::B2H &parent_dir_hash, const std::string &relpath, const hintpath_map::iterator hintdir_itr, const bool isrootlevel);
 
     hasher::B2H get_existingdirhash(const std::string &dirhashfile);
     int save_dirhash(const std::string &dirhashfile, hasher::B2H dirhash);
     bool should_process_dir(hintpath_map::iterator &hintsubdir_itr, const std::string &dirpath);
     bool should_process_file(const hintpath_map::iterator hintdir_itr, const std::string filepath);
-    int process_file(hasher::B2H &parentdirhash, const std::string &filepath, const std::string &htreedirpath);
-    int update_hashtree_entry(hasher::B2H &parentdirhash, const bool oldbhmap_exists, const hasher::B2H oldfilehash, const hasher::B2H newfilehash, const std::string &bhmapfile, const std::string &relpath);
+    int process_file(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &htreedirpath);
+    int update_hashtree_entry(hasher::B2H &parent_dir_hash, const bool oldbhmap_exists, const hasher::B2H old_file_hash, const hasher::B2H newfilehash, const std::string &bhmap_file, const std::string &relpath);
     void populate_hintpaths_from_idxfile(const char *const idxfile);
     void insert_hintpath(const std::string &relpath);
     bool get_hinteddir_match(hintpath_map::iterator &matchitr, const std::string &dirpath);
