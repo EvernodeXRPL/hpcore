@@ -7,10 +7,10 @@ mode=$1
 
 hpcore=$(realpath ../..)
 
-if [ "$mode" = "new" ] || [ "$mode" = "run" ] || [ "$mode" = "update" ]; then
+if [ "$mode" = "new" ] || [ "$mode" = "run" ] || [ "$mode" = "update" ] || [ "$mode" = "kill" ]; then
     echo ""
 else
-    echo "Invalid command. new | run | update expected."
+    echo "Invalid command. new | run | update | kill expected."
     exit 1
 fi
 
@@ -19,6 +19,14 @@ if [ $mode = "run" ]; then
     vmip=${vmips[$nodeid]}
     sshpass -p $vmpass ssh geveo@$vmip 'nohup sudo ./hpcore run contract'
     sshpass -p $vmpass ssh geveo@$vmip 'tail -f nohup.out'
+    exit 0
+fi
+
+if [ $mode = "kill" ]; then
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpcore)'
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpstatemon)'
     exit 0
 fi
 
