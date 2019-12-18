@@ -17,7 +17,8 @@ fi
 if [ $mode = "run" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'sudo ./hpcore run contract'
+    sshpass -p $vmpass ssh geveo@$vmip 'nohup sudo ./hpcore run contract'
+    sshpass -p $vmpass ssh geveo@$vmip 'tail -f nohup.out'
     exit 0
 fi
 
