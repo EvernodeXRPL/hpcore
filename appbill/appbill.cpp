@@ -27,7 +27,7 @@
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
 #define TABLE_FILE "appbill.table"
-
+#define TABLE_FILE_2 "./state/appbill.table" // if TABLE_FILE can't be found try here
 
 uint64_t new_balance(uint64_t balance, int64_t to_credit) {
     if (to_credit < 0 && -to_credit > balance) {
@@ -305,8 +305,11 @@ int pass_through_mode(int argc, char** argv) {
     // for now we'll just do a dumb read
 
     FILE* f = fopen(TABLE_FILE, "rb+");
+    if (!f)
+        f = fopen(TABLE_FILE_2, "rb+");
+        
     if (!f) {
-        fprintf(stderr, "could not open %s\n", TABLE_FILE);
+        fprintf(stderr, "could not open %s or %s\n", TABLE_FILE, TABLE_FILE_2);
         return 128;
     }    
 
@@ -471,8 +474,11 @@ int credit_mode(int argc, char** argv) {
     }
 
     FILE* f = fopen(TABLE_FILE, "rb+");
+    if (!f) 
+        f = fopen(TABLE_FILE_2, "rb+");
+    
     if (!f) {
-        fprintf(stderr, "could not open %s\n", TABLE_FILE);
+        fprintf(stderr, "could not open %s or %s\n", TABLE_FILE, TABLE_FILE_2);
         return 128;
     }
      
@@ -565,9 +571,11 @@ int check_mode(int argc, char** argv, int print_balances) {
     // open app bill table
 
     FILE* f = fopen(TABLE_FILE, "rb");
+    if (!f)
+        f = fopen(TABLE_FILE_2, "rb");
 
     if (!f) {
-        fprintf(stderr, "%s not found\n", TABLE_FILE);
+        fprintf(stderr, "could not open table file at %s or %s\n", TABLE_FILE, TABLE_FILE_2);
         return 128;
     }
 
