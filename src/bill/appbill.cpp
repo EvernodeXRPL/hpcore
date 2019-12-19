@@ -398,9 +398,28 @@ int pass_through_mode(int argc, char** argv) {
             if (DEBUG) printf("mode=2 userfd=%d\n", userfd);
 
             // there might be some bytes pending on this input, if there are we need to bill for them, one coin per byte
-            int nbytes = 0;
-            ioctl(userfd, FIONREAD, &nbytes);
-            int64_t to_bill = 1 + nbytes; // and one coin per round for being connected too
+            
+            /*int nbytes = 0;
+            ioctl(userfd, FIONREAD, &nbytes);*/
+
+            int64_t to_bill = 0; // and one coin per round for being connected too // no change that to 0 because otherwise malicious nodes can drain accounts!
+
+            //todo: replace all this rubbish with a properly tested zero copy approach
+            int userpipe[2];
+            pipe(userpipe); //todo: handle possible error condition here
+            FILE* userfile = fdopen(userfd, "r");
+            FILE* newuserfile = fdopen(userpipe[1], "w");
+            
+            for (char x = 0; x != EOF; x = getc(userfile)) {
+                if (to_bill < (uint64_t)-1)
+                    to_bill++;
+                putc(x, newuserfile);
+            }
+           
+            close(userpipe[1]);
+            fclose(userfile);
+            dup2(userpipe[0], userfd);
+
 
             if (DEBUG)
                 printf("tobill: %lu\n", to_bill);
