@@ -7,17 +7,26 @@ mode=$1
 
 hpcore=$(realpath ../..)
 
-if [ "$mode" = "new" ] || [ "$mode" = "run" ] || [ "$mode" = "update" ]; then
+if [ "$mode" = "new" ] || [ "$mode" = "run" ] || [ "$mode" = "update" ] || [ "$mode" = "kill" ]; then
     echo ""
 else
-    echo "Invalid command. new | run | update expected."
+    echo "Invalid command. new | run | update | kill expected."
     exit 1
 fi
 
 if [ $mode = "run" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'sudo ./hpcore run contract'
+    sshpass -p $vmpass ssh geveo@$vmip 'nohup sudo ./hpcore run contract'
+    sshpass -p $vmpass ssh geveo@$vmip 'tail -f nohup.out'
+    exit 0
+fi
+
+if [ $mode = "kill" ]; then
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpcore)'
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpstatemon)'
     exit 0
 fi
 
@@ -80,7 +89,7 @@ do
     mypeers=$(joinarr peers $j)
     myunl=$(joinarr pubkeys $j)
 
-    node -p "JSON.stringify({...require('./cfg/node$n.json'),binary:'/usr/bin/node',binargs:'/home/geveo/contract.js',peers:${mypeers},unl:${myunl}}, null, 2)" > ./cfg/node$n.cfg
+    node -p "JSON.stringify({...require('./cfg/node$n.json'),binary:'/usr/bin/node',binargs:'/home/geveo/contract.js',peers:${mypeers},unl:${myunl},loggers:['console', 'file']}, null, 2)" > ./cfg/node$n.cfg
 
     # Copy local cfg file back to remote vm.
     vmip=${vmips[j]}

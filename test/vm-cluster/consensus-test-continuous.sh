@@ -20,7 +20,7 @@ while true; do
 
     echo 'starting ...'
     STARTTIME=`date +%s`
-    nohup ~/hpcore run ~/contract > $PIPE 2>> $PIPE 3>MARKER &
+    nohup sudo ~/hpcore run ~/contract > $PIPE 2>> $PIPE 3>MARKER &
     PID=$!
     sleep 1
 

@@ -186,8 +186,9 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
-            LOG_DBG << "time off: " << std::to_string(ctx.reset_time);
+            //Resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
+            //todo: This might not needed with current synchronization with network clock.
+            // LOG_DBG << "time off: " << std::to_string(ctx.reset_time);
             timewait_stage(true, ctx.reset_time);
             const uint16_t decrement = rand() % (conf::cfg.roundtime / 40);
 
@@ -219,19 +220,60 @@ void consensus()
                 apply_ledger(stg_prop);
                 ctx.reset_time = MAX_RESET_TIME;
 
-                // We have finished a consensus round (all 4 stages).
-                LOG_INFO << "****Stage 3 consensus reached**** (state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
+                // node has finished a consensus round (all 4 stages).
+                LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl
+                         << " state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
             }
         }
     }
 
-    // We have finished a consensus stage.
-
+    // Node has finished a consensus stage.
     // Transition to next stage.
     ctx.stage = (ctx.stage + 1) % 4;
 
-    // after a stage proposal we will just busy wait for proposals.
-    util::sleep(conf::cfg.roundtime / 4);
+    //Here nodes try to synchronise nodes stages using network clock.
+    uint64_t now = util::get_epoch_milliseconds();
+
+    // round start is the floor
+    uint64_t round_start = ((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime;
+
+    uint64_t next_stage_start = 0;
+
+    // Compute start time of next stage.
+    // Last stage (stage 3) waiting twice as any other stage's waiting time.
+    // This is for a node to catch up from lcl/state desync,
+    // becuase we are waiting (round time + time to next stage) to sync.
+    if (ctx.stage == 3)
+        next_stage_start = round_start + conf::cfg.roundtime;
+    else
+        next_stage_start = round_start + (int64_t)(ctx.stage * ((double)conf::cfg.roundtime / 5.0));
+
+    // Compute stage time wait.
+    // Node wait between stages to collect enough proposals from previous stages from other nodes.
+    int64_t to_wait = next_stage_start - now;
+
+    LOG_DBG << "now = " << now << ", roundtime = " << conf::cfg.roundtime << ", round_start = " << round_start << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
+
+    // If a node doesn't have enough time (due to network delay) to recieve/send reliable stage proposals for next stage,
+    // it will continue particapating in this round, otherwise will join in next round(s).
+    if (to_wait < floor(conf::cfg.roundtime / 10)) //todo: self claculating/adjusting network delay
+    {
+        uint64_t next_round = round_start;
+        while (to_wait < floor(conf::cfg.roundtime / 10))
+        {
+            next_round += conf::cfg.roundtime;
+            to_wait = next_round - now;
+        }
+
+        LOG_INFO << "we missed a round, waiting " << to_wait << " and resetting to stage 0";
+        ctx.stage = 0;
+        util::sleep(to_wait);
+    }
+    else
+    {
+        // after a stage proposal we will just busy wait for proposals.
+        util::sleep(to_wait);
+    }
 }
 
 /**
@@ -411,7 +453,7 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
 
     // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
     int32_t highest_time_vote = 0;
-    for(auto itr = votes.time.rbegin(); itr != votes.time.rend(); ++itr)
+    for (auto itr = votes.time.rbegin(); itr != votes.time.rend(); ++itr)
     {
         const uint64_t time = itr->first;
         const int32_t numvotes = itr->second;
