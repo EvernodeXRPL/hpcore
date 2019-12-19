@@ -365,7 +365,7 @@ void verify_and_populate_candidate_user_inputs()
                                 int status = 0;
                                 waitpid(pid, &status, 0); //todo: check error conditions here
                                 status = WEXITSTATUS(status);
-                                if (status & (1<<7)) {
+                                if (status != 128 && status != 0) {
                                     // this user's key passed appbill
                                     // do nothing
                                     LOG_DBG << "Appbill passed " << hexpubkey;
