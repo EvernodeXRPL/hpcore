@@ -77,15 +77,6 @@ void signal_handler(int signum)
 
 namespace boost
 {
-/**
- * Global exception handler for boost exceptions.
- */
-void throw_exception(std::exception const &e)
-{
-    LOG_ERR << "Boost error: " << e.what() << "\n"
-            << boost::stacktrace::stacktrace();
-    exit(1);
-}
 
 inline void assertion_failed_msg(char const *expr, char const *msg, char const *function, char const * /*file*/, long /*line*/)
 {
