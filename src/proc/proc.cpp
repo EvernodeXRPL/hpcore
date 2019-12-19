@@ -102,7 +102,7 @@ int exec_contract(const contract_exec_args &args)
         LOG_DBG << "Starting contract process...";
 
 
-        bool using_appbill = conf::cfg.appbill != "";
+        const bool using_appbill = conf::cfg.appbill != "";
 
         int len = conf::cfg.runtime_binexec_args.size() + 1;
         if (using_appbill) len += conf::cfg.runtime_appbill_args.size();
@@ -113,7 +113,7 @@ int exec_contract(const contract_exec_args &args)
         if (using_appbill) 
             for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++, j++)
                 execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
-
+        
         for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++, j++)
             execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
         execv_args[len-1] = NULL;

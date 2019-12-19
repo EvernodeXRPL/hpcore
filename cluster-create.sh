@@ -52,7 +52,7 @@ do
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 4000, \
+            roundtime: 1000, \
             loglevel: 'debug', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
@@ -111,16 +111,16 @@ do
 done
 
 # Setup initial state data for all nodes but one.
-for (( i=0; i<$nodes; i++ ))
+for (( i=1; i<=$ncount; i++ ))
 do
 
-    sudo mkdir -p ./node$i/statehist/0/data/
+    sudo mkdir -p ./node$i/statehist/0/data/ > /dev/null 2>&1
 
     # Load credit balance for user for testing purposes.
-    pushd ./node$i/statehist/0/data/
+    pushd ./node$i/statehist/0/data/ > /dev/null 2>&1
     >appbill.table
-    ../build/appbill --credit "705bf26354ee4c63c0e5d5d883c07cefc3196d049bd3825f827eb3bc23ead035" 10000
-    popd
+    ../../../../../build/appbill --credit "705bf26354ee4c63c0e5d5d883c07cefc3196d049bd3825f827eb3bc23ead035" 10000
+    popd > /dev/null 2>&1
 
     # Copy any more initial state files for testing.
     #cp ~/my_big_file ~/hpcore/hpcluster/node$i/statehist/0/data/

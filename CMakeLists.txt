@@ -122,12 +122,15 @@ target_link_libraries(hpstatemon
     hpsupport
     libfuse3.so.3
 )
-add_dependencies(hpcore
-    hpstatemon
-)
 
 add_executable(appbill
-    appbill.cpp)
+    src/bill/appbill.cpp
+)
+
+add_dependencies(hpcore
+    hpstatemon
+    appbill
+)
 
 # add_custom_command(TARGET hpcore POST_BUILD
 #     COMMAND strip ./build/hpcore
