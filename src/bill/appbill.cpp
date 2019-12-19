@@ -300,6 +300,7 @@ int pass_through_mode(int argc, char** argv) {
         return 128;
     }
 
+    FILE* teepipeout = fdopen(teepipe[1], "w");
 
     // todo: make this all zero copy when someone has time to debug tee and vmsplice readmode    
     // for now we'll just do a dumb read
@@ -325,8 +326,12 @@ int pass_through_mode(int argc, char** argv) {
     do {
         char c = 0;
         bytes_read = 0;
-        while ( (c = getc( stdin )) != EOF && c != ',' && c != '{' && c != '}' && c != '[' && c != ']' && c != '\n' && c != ':' && bytes_read < 1023 )
+        while ( (c = getc( stdin )) != EOF && c != ',' && c != '{' && c != '}' && c != '[' && c != ']' && c != '\n' && c != ':' && bytes_read < 1023 ) {
             buf[bytes_read++] = c;
+            putc(c, teepipeout); // make a copy for the next program
+        }
+        if (c != EOF) putc(c, teepipeout); // make a copy for the next program
+
         buf[bytes_read] = '\0';
 
         if (mode == 0 && strcmp("\"usrfd\"", buf) == 0)  {
@@ -419,7 +424,8 @@ int pass_through_mode(int argc, char** argv) {
         }
 
     } while (!feof(stdin)); 
-    
+   
+    fflush(teepipeout); 
     
     close(teepipe[1]);
     dup2(teepipe[0], 0);
