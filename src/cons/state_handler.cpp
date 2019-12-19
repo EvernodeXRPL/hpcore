@@ -12,11 +12,9 @@ namespace cons
 {
 
 // Max number of requests that can be awaiting response at any given time.
-constexpr uint16_t MAX_AWAITING_REQUESTS = 4;
+constexpr uint16_t MAX_AWAITING_REQUESTS = 1;
 // Syncing loop sleep delay.
-constexpr uint16_t SYNC_LOOP_WAIT = 50;
-// No of loop cycles to wait for a response before resubmitting request.
-constexpr uint16_t MAX_AWAITING_CYCLES = 1000 / SYNC_LOOP_WAIT;
+constexpr uint16_t SYNC_LOOP_WAIT = 100;
 
 // List of state responses flatbuffer messages to be processed.
 std::list<std::string> candidate_state_responses;
@@ -44,7 +42,7 @@ void request_state_from_peer(const std::string &path, const bool is_file, const 
 
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, ctx.lcl);
-    p2p::send_message_to_random_peer(msg);
+    p2p::send_message_to_random_peer(msg); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
 }
 
 /**
@@ -181,7 +179,8 @@ int run_state_sync_iterator()
         // Check for long-awaited responses and re-request them.
         for (auto &[hash, request] : submitted_requests)
         {
-            if (request.waiting_cycles < MAX_AWAITING_CYCLES)
+            // We wait for half of round time before each request is resubmitted.
+            if (request.waiting_cycles < (conf::cfg.roundtime / (SYNC_LOOP_WAIT * 2)))
             {
                 // Increment counter.
                 request.waiting_cycles++;
