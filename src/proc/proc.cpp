@@ -112,11 +112,15 @@ int exec_contract(const contract_exec_args &args)
         int j = 0;
         if (using_appbill) 
             for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++, j++)
-                execv_args[i] = conf::cfg.runtime_binexec_args[i].data();
+                execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
 
         for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++, j++)
             execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
         execv_args[len-1] = NULL;
+
+        LOG_DBG << "Contract exec_args: ";
+        for (int i = 0; i < len; ++i)
+            LOG_DBG << "\t" << execv_args[i];
 
         int ret = execv(execv_args[0], execv_args);
         LOG_ERR << "Contract process execv failed: " << ret;
