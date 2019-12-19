@@ -229,7 +229,7 @@ void socket_session<T>::send(const T msg)
     try
     {
         std::lock_guard<std::mutex> lock(send_mutex);
-
+        
         // Always add to queue
         queue.push_back(std::move(msg));
         //using sync write until async_write is properly handled for multi-threaded writes.
@@ -316,7 +316,7 @@ template <class T>
 void socket_session<T>::handle_exception(std::string_view event_name)
 {
     std::exception_ptr p = std::current_exception();
-    LOG_ERR << "Socket Exception on " << event_name << ": " << (p ? p.__cxa_exception_type()->name() : "null") << std::endl;
+    LOG_ERR << "Socket Exception on " << event_name << ": " << (p ? p.__cxa_exception_type()->name() : "null") << " :"<< boost::stacktrace::stacktrace()<< std::endl;
 
     // Close the socket on any event error except close event.
     if (event_name != "close")
