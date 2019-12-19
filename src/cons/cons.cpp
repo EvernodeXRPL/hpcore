@@ -328,7 +328,42 @@ void verify_and_populate_candidate_user_inputs()
                     // Verify the signature of the message content.
                     if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
                     {
-                        // TODO: Also verify XRP payment token/AppBill requirements.
+
+                        // execute appbill in --check mode to verify this user can submit a packet/connection to the network
+                        // todo: this can be made more efficient, appbill --check can process 7 at a time
+
+                        // Fill appbill args 
+                        int len = conf::cfg.runtime_appbill_args.size() + 3;
+                        char *execv_args[len];
+                        for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
+                            execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
+                        char option[] = "--credit";
+                        execv_args[len - 3] = option;
+                        // add the hex encoded public key as the last parameter
+                        std::string hexpubkey;
+                        util::bin2hex(hexpubkey, (unsigned char*) pubkey.data(), pubkey.size());
+                        execv_args[len - 2] = hexpubkey.data();
+                        execv_args[len - 1] = NULL;
+                        int pid = fork();
+                        if (pid == 0) {
+                            //todo: before execution chdir into a valid state directory that contains an appbill.table
+                            
+                            int ret = execv(execv_args[0], execv_args);
+                            LOG_ERR << "Appbill process execv failed: " << ret;
+                        } else {
+                            // app bill in check mode takes a very short period of time to execute, typically 1ms
+                            // so we will blocking wait for it here
+                            int ret = waitpid(pid, NULL, 0);
+                            ret = WEXITSTATUS(ret);
+                            if (ret & (1<<7)) {
+                                // this user's key passed appbill
+                                // do nothing
+                            } else {
+                                // user's key did not pass, do not add to user input candidates
+                                continue;
+                            }
+                        }
+                        
 
                         std::string nonce;
                         std::string input;

@@ -48,9 +48,11 @@ do
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
             binargs: './bin/contract.js', \
+            appbill: './bin/appbill', \
+            appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 1000, \
+            roundtime: 4000, \
             loglevel: 'debug', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg

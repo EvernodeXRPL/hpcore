@@ -218,11 +218,21 @@ int load_config()
 
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
+    cfg.appbill = d["appbill"].GetString();
+    cfg.appbillargs = d["appbillargs"].GetString();
+
 
     // Populate runtime contract execution args.
     if (!cfg.binargs.empty())
         boost::split(cfg.runtime_binexec_args, cfg.binargs, boost::is_any_of(" "));
-    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), cfg.binary);
+    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), ( cfg.binary[0] == '/' ? cfg.binary : util::realpath( ctx.contractdir + "/bin/" + cfg.binary ) ) );
+
+       
+    // Populate runtime app bill args.
+    if (!cfg.appbillargs.empty())
+        boost::split(cfg.runtime_appbill_args, cfg.appbillargs, boost::is_any_of(" "));
+
+    cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(),  ( cfg.appbill[0] == '/' ? cfg.appbill : util::realpath( ctx.contractdir + "/bin/" + cfg.appbill ) ) );
 
     // Uncomment for docker-based execution.
     // std::string volumearg;
@@ -311,6 +321,9 @@ int save_config()
     d.AddMember("seckeyhex", rapidjson::StringRef(cfg.seckeyhex.data()), allocator);
     d.AddMember("binary", rapidjson::StringRef(cfg.binary.data()), allocator);
     d.AddMember("binargs", rapidjson::StringRef(cfg.binargs.data()), allocator);
+    d.AddMember("appbill", rapidjson::StringRef(cfg.appbill.data()), allocator);
+    d.AddMember("appbillargs", rapidjson::StringRef(cfg.appbillargs.data()), allocator);
+    d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
     d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
 
     rapidjson::Value peers(rapidjson::kArrayType);
@@ -540,7 +553,7 @@ int is_schema_valid(const rapidjson::Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"mode\", \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"listenip\""
+        "\"required\": [ \"mode\", \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"appbill\", \"appbillargs\", \"listenip\""
         ", \"peers\", \"unl\", \"pubport\", \"peerport\", \"roundtime\""
         ", \"pubmaxsize\", \"pubmaxcpm\", \"pubmaxbadmpm\", \"pubmaxcons\""
         ", \"peermaxsize\", \"peermaxcpm\", \"peermaxdupmpm\", \"peermaxbadmpm\", \"peermaxbadsigpm\", \"peermaxcons\""
@@ -552,6 +565,8 @@ int is_schema_valid(const rapidjson::Document &d)
         "\"seckeyhex\": { \"type\": \"string\" },"
         "\"binary\": { \"type\": \"string\" },"
         "\"binargs\": { \"type\": \"string\" },"
+        "\"appbill\": { \"type\": \"string\" },"
+        "\"appbillargs\": { \"type\": \"string\" },"
         "\"listenip\": { \"type\": \"string\" },"
         "\"peers\": {"
         "\"type\": \"array\","
