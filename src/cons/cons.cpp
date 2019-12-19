@@ -14,6 +14,7 @@
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 #include "cons.hpp"
+#include "../statefs/state_common.hpp"
 #include "../statefs/state_store.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -349,8 +350,8 @@ void verify_and_populate_candidate_user_inputs()
                             execv_args[len - 1] = NULL;
                             int pid = fork();
                             if (pid == 0) {
-                                //todo: before execution chdir into a valid state directory that contains an appbill.table
-                                // ravin please advise how to fetch the correct path to most recent consensus state  
+                                // before execution chdir into a valid the latest state data directory that contains an appbill.table
+                                chdir(statefs::current_ctx.datadir.c_str());
                                 int ret = execv(execv_args[0], execv_args);
                                 LOG_ERR << "Appbill process execv failed: " << ret;
                             } else {
