@@ -82,7 +82,7 @@ int create_contract()
     boost::filesystem::create_directories(ctx.configdir);
     boost::filesystem::create_directories(ctx.histdir);
     boost::filesystem::create_directories(ctx.statedir);
-    boost::filesystem::create_directories(ctx.statehistdir);
+    boost::filesystem::create_directories(ctx.state_hist_dir);
 
     //Create config file with default settings.
 
@@ -148,7 +148,7 @@ void set_contract_dir_paths(std::string exepath, std::string basedir)
     ctx.tlscertfile = ctx.configdir + "/tlscert.pem";
     ctx.histdir = basedir + "/hist";
     ctx.statedir = basedir + "/state";
-    ctx.statehistdir = basedir + "/statehist";
+    ctx.state_hist_dir = basedir + "/statehist";
     ctx.logdir = basedir + "/log";
 }
 
@@ -517,7 +517,7 @@ int validate_contract_dir_paths()
         ctx.configfile,
         ctx.histdir,
         ctx.statedir,
-        ctx.statehistdir,
+        ctx.state_hist_dir,
         ctx.tlskeyfile,
         ctx.tlscertfile};
 

@@ -48,7 +48,7 @@ do
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
             binargs: './bin/contract.js', \
-            appbill: 'appbill', \
+            appbill: '', \
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \

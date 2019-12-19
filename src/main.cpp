@@ -192,7 +192,7 @@ int main(int argc, char **argv)
                 LOG_INFO << "Operating mode: "
                          << (conf::cfg.mode == conf::OPERATING_MODE::OBSERVING ? "Observing" : "Proposing");
 
-                statefs::init(conf::ctx.statehistdir);
+                statefs::init(conf::ctx.state_hist_dir);
 
                 if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
                     return -1;

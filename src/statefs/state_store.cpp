@@ -17,7 +17,7 @@ std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> touched_files;
  */
 bool is_dir_exists(const std::string &dir_relpath)
 {
-    const std::string full_path = current_ctx.datadir + dir_relpath;
+    const std::string full_path = current_ctx.data_dir + dir_relpath;
     return boost::filesystem::exists(full_path);
 }
 
@@ -34,7 +34,7 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
     if (expected_hash != hasher::B2H_empty)
     {
         // Check whether the existing block hash matches expected hash.
-        const std::string dir_hash_path = current_ctx.hashtreedir + dir_relpath + DIRHASH_FNAME;
+        const std::string dir_hash_path = current_ctx.hashtree_dir + dir_relpath + DIR_HASH_FNAME;
 
         hasher::B2H existsing_hash;
         if (read_file_bytes(&existsing_hash, dir_hash_path.c_str(), 0, hasher::HASH_SIZE) == -1)
@@ -44,7 +44,7 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
             return -1;
     }
 
-    const std::string full_path = current_ctx.datadir + dir_relpath;
+    const std::string full_path = current_ctx.data_dir + dir_relpath;
     for (const boost::filesystem::directory_entry &dentry : boost::filesystem::directory_iterator(full_path))
     {
         const boost::filesystem::path p = dentry.path();
@@ -60,12 +60,12 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
 
         if (fs_entry.is_file)
         {
-            hash_path = current_ctx.blockhashmapdir + fsentry_relpath + HASHMAP_EXT;
+            hash_path = current_ctx.block_hashmap_dir + fsentry_relpath + BLOCK_HASHMAP_EXT;
         }
         else
         {
             fsentry_relpath += "/";
-            hash_path = current_ctx.hashtreedir + fsentry_relpath + DIRHASH_FNAME;
+            hash_path = current_ctx.hashtree_dir + fsentry_relpath + DIR_HASH_FNAME;
             // Skip the directory if it doesn't contain the dir.hash file.
             // By that we assume the directory is empty so we're not interested in it.
             if (!boost::filesystem::exists(hash_path))
@@ -86,7 +86,7 @@ int get_fs_entry_hashes(std::unordered_map<std::string, p2p::state_fs_hash_entry
  */
 int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpath, const hasher::B2H expected_hash)
 {
-    const std::string bhmap_path = current_ctx.blockhashmapdir + file_relpath + HASHMAP_EXT;
+    const std::string bhmap_path = current_ctx.block_hashmap_dir + file_relpath + BLOCK_HASHMAP_EXT;
 
     if (expected_hash != hasher::B2H_empty)
     {
@@ -119,11 +119,11 @@ int get_block_hash_map(std::vector<uint8_t> &vec, const std::string &file_relpat
  */
 int get_file_length(const std::string &file_relpath)
 {
-    std::string full_path = current_ctx.datadir + file_relpath;
+    std::string full_path = current_ctx.data_dir + file_relpath;
     int fd = open(full_path.c_str(), O_RDONLY);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << full_path;
+        LOG_ERR << errno << " Open failed " << full_path;
         return -1;
     }
 
@@ -142,7 +142,7 @@ int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const 
     // Check whether the existing block hash matches expected hash.
     if (expected_hash != hasher::B2H_empty)
     {
-        std::string bhmap_path = current_ctx.blockhashmapdir + file_relpath + HASHMAP_EXT;
+        std::string bhmap_path = current_ctx.block_hashmap_dir + file_relpath + BLOCK_HASHMAP_EXT;
         hasher::B2H existing_hash = hasher::B2H_empty;
 
         if (read_file_bytes(&existing_hash, bhmap_path.c_str(), (block_id + 1) * hasher::HASH_SIZE, hasher::HASH_SIZE) == -1)
@@ -152,7 +152,7 @@ int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const 
             return -1;
     }
 
-    std::string full_path = current_ctx.datadir + file_relpath;
+    std::string full_path = current_ctx.data_dir + file_relpath;
     vec.resize(BLOCK_SIZE);
     int read_bytes = read_file_bytes(vec.data(), full_path.c_str(), block_id * BLOCK_SIZE, BLOCK_SIZE);
 
@@ -168,7 +168,7 @@ int get_block(std::vector<uint8_t> &vec, const std::string &file_relpath, const 
  */
 void create_dir(const std::string &dir_relpath)
 {
-    const std::string full_path = current_ctx.datadir + dir_relpath;
+    const std::string full_path = current_ctx.data_dir + dir_relpath;
     boost::filesystem::create_directories(full_path);
 }
 
@@ -178,7 +178,7 @@ void create_dir(const std::string &dir_relpath)
  */
 int delete_dir(const std::string &dir_relpath)
 {
-    std::string full_dir_path = current_ctx.datadir + dir_relpath;
+    std::string full_dir_path = current_ctx.data_dir + dir_relpath;
 
     const boost::filesystem::directory_iterator itr_end;
     for (boost::filesystem::directory_iterator itr(full_dir_path); itr != itr_end; itr++)
@@ -192,7 +192,7 @@ int delete_dir(const std::string &dir_relpath)
 
             // Add the deleted file rel path to the touched files list.
             touched_files.emplace(
-                get_relpath(p.string(), current_ctx.datadir),
+                get_relpath(p.string(), current_ctx.data_dir),
                 std::map<uint32_t, hasher::B2H>());
         }
     }
@@ -209,7 +209,7 @@ int delete_dir(const std::string &dir_relpath)
  */
 int delete_file(const std::string &file_relpath)
 {
-    std::string full_path = current_ctx.datadir + file_relpath;
+    std::string full_path = current_ctx.data_dir + file_relpath;
     if (!boost::filesystem::remove(full_path))
         return -1;
 
@@ -223,11 +223,11 @@ int delete_file(const std::string &file_relpath)
  */
 int truncate_file(const std::string &file_relpath, const size_t newsize)
 {
-    std::string full_path = current_ctx.datadir + file_relpath;
+    std::string full_path = current_ctx.data_dir + file_relpath;
     int fd = open(full_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << full_path;
+        LOG_ERR << errno << " Open failed " << full_path;
         return -1;
     }
 
@@ -252,11 +252,11 @@ int truncate_file(const std::string &file_relpath, const size_t newsize)
  */
 int write_block(const std::string &file_relpath, const uint32_t block_id, const void *buf, const size_t len)
 {
-    std::string full_path = current_ctx.datadir + file_relpath;
+    std::string full_path = current_ctx.data_dir + file_relpath;
     int fd = open(full_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << full_path;
+        LOG_ERR << errno << " Open failed " << full_path;
         return -1;
     }
 
@@ -265,7 +265,7 @@ int write_block(const std::string &file_relpath, const uint32_t block_id, const 
     close(fd);
     if (ret == -1)
     {
-        LOG_ERR << errno << "Write failed " << full_path;
+        LOG_ERR << errno << " Write failed " << full_path;
         return -1;
     }
 
@@ -304,7 +304,7 @@ int read_file_bytes(void *buf, const char *filepath, const off_t start, const si
     int fd = open(filepath, O_RDONLY);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << filepath;
+        LOG_ERR << errno << " Open failed " << filepath;
         return -1;
     }
 
@@ -312,7 +312,7 @@ int read_file_bytes(void *buf, const char *filepath, const off_t start, const si
     close(fd);
     if (read_bytes <= 0)
     {
-        LOG_ERR << errno << "Read failed " << filepath;
+        LOG_ERR << errno << " Read failed " << filepath;
         return -1;
     }
 
@@ -331,7 +331,7 @@ int read_file_bytes_to_end(std::vector<uint8_t> &vec, const char *filepath, cons
     int fd = open(filepath, O_RDONLY);
     if (fd == -1)
     {
-        LOG_ERR << errno << "Open failed " << filepath;
+        LOG_ERR << errno << " Open failed " << filepath;
         return -1;
     }
 
@@ -346,7 +346,7 @@ int read_file_bytes_to_end(std::vector<uint8_t> &vec, const char *filepath, cons
     close(fd);
     if (read_bytes <= 0)
     {
-        LOG_ERR << errno << "Read failed " << filepath;
+        LOG_ERR << errno << " Read failed " << filepath;
         return -1;
     }
     vec.resize(read_bytes);

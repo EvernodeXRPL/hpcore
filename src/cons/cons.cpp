@@ -170,6 +170,9 @@ void consensus()
 
         if (should_request_history)
         {
+            // TODO: If we are in a lcl fork condition try to rollback state with the help of
+            // state_restore to rollback state checkpoints before requesting new state.
+
             //handle minority going forward when boostrapping cluster.
             //Here we are mimicking invalid min ledger scenario.
             if (majority_lcl == GENESIS_LEDGER)
@@ -410,7 +413,7 @@ bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
     if (pid == 0)
     {
         // before execution chdir into a valid the latest state data directory that contains an appbill.table
-        chdir(statefs::current_ctx.datadir.c_str());
+        chdir(statefs::current_ctx.data_dir.c_str());
         int ret = execv(execv_args[0], execv_args);
         LOG_ERR << "Appbill process execv failed: " << ret;
         return false;
