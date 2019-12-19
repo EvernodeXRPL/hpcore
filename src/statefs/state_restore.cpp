@@ -9,13 +9,13 @@ namespace statefs
 {
 
 // Look at new files added and delete them if still exist.
-void state_restore::delete_newfiles()
+void state_restore::delete_new_files()
 {
-    std::string indexfile(ctx.delta_dir);
-    indexfile.append(IDX_NEW_FILES);
+    std::string index_file(ctx.delta_dir);
+    index_file.append(IDX_NEW_FILES);
 
-    std::ifstream infile(indexfile);
-    for (std::string file; std::getline(infile, file);)
+    std::ifstream in_file(index_file);
+    for (std::string file; std::getline(in_file, file);)
     {
         std::string filepath(ctx.data_dir);
         filepath.append(file);
@@ -23,26 +23,26 @@ void state_restore::delete_newfiles()
         remove(filepath.c_str());
     }
 
-    infile.close();
+    in_file.close();
 }
 
 // Look at touched files and restore them.
-int state_restore::restore_touchedfiles()
+int state_restore::restore_touched_files()
 {
     std::unordered_set<std::string> processed;
 
-    std::string indexfile(ctx.delta_dir);
-    indexfile.append(IDX_TOUCHED_FILES);
+    std::string index_file(ctx.delta_dir);
+    index_file.append(IDX_TOUCHED_FILES);
 
-    std::ifstream infile(indexfile);
-    for (std::string file; std::getline(infile, file);)
+    std::ifstream in_file(index_file);
+    for (std::string file; std::getline(in_file, file);)
     {
         // Skip if already processed.
         if (processed.count(file) > 0)
             continue;
 
         std::vector<char> bindex;
-        if (read_blockindex(bindex, file) != 0)
+        if (read_block_index(bindex, file) != 0)
             return -1;
 
         if (restore_blocks(file, bindex) != 0)
@@ -52,23 +52,23 @@ int state_restore::restore_touchedfiles()
         processed.emplace(file);
     }
 
-    infile.close();
+    in_file.close();
     return 0;
 }
 
 // Read the delta block index.
-int state_restore::read_blockindex(std::vector<char> &buffer, std::string_view file)
+int state_restore::read_block_index(std::vector<char> &buffer, std::string_view file)
 {
-    std::string bindexfile(ctx.delta_dir);
-    bindexfile.append(file).append(BLOCK_INDEX_EXT);
-    std::ifstream infile(bindexfile, std::ios::binary | std::ios::ate);
-    std::streamsize idxsize = infile.tellg();
-    infile.seekg(0, std::ios::beg);
+    std::string bindex_file(ctx.delta_dir);
+    bindex_file.append(file).append(BLOCK_INDEX_EXT);
+    std::ifstream in_file(bindex_file, std::ios::binary | std::ios::ate);
+    std::streamsize idx_size = in_file.tellg();
+    in_file.seekg(0, std::ios::beg);
 
-    buffer.resize(idxsize);
-    if (!infile.read(buffer.data(), idxsize))
+    buffer.resize(idx_size);
+    if (!in_file.read(buffer.data(), idx_size))
     {
-        LOG_ERR << errno << ": Read failed " << bindexfile;
+        LOG_ERR << errno << ": Read failed " << bindex_file;
         return -1;
     }
 
@@ -78,71 +78,71 @@ int state_restore::read_blockindex(std::vector<char> &buffer, std::string_view f
 // Restore blocks mentioned in the delta block index.
 int state_restore::restore_blocks(std::string_view file, const std::vector<char> &bindex)
 {
-    int bcachefd = 0, orifilefd = 0;
-    const char *idxptr = bindex.data();
+    int bcache_fd = 0, ori_file_fd = 0;
+    const char *idx_ptr = bindex.data();
 
     // First 8 bytes of the index contains the supposed length of the original file.
-    off_t originallen = 0;
-    memcpy(&originallen, idxptr, 8);
+    off_t original_len = 0;
+    memcpy(&original_len, idx_ptr, 8);
 
     // Open block cache file.
     {
-        std::string bcachefile(ctx.delta_dir);
-        bcachefile.append(file).append(BLOCK_CACHE_EXT);
-        bcachefd = open(bcachefile.c_str(), O_RDONLY);
-        if (bcachefd <= 0)
+        std::string bcache_file(ctx.delta_dir);
+        bcache_file.append(file).append(BLOCK_CACHE_EXT);
+        bcache_fd = open(bcache_file.c_str(), O_RDONLY);
+        if (bcache_fd <= 0)
         {
-            LOG_ERR << errno << ": Open failed " << bcachefile;
+            LOG_ERR << errno << ": Open failed " << bcache_file;
             return -1;
         }
     }
 
     // Create or Open original file.
     {
-        std::string originalfile(ctx.data_dir);
-        originalfile.append(file);
+        std::string original_file(ctx.data_dir);
+        original_file.append(file);
 
         // Create directory tree if not exist so we are able to create the file.
-        boost::filesystem::path filedir = boost::filesystem::path(originalfile).parent_path();
+        boost::filesystem::path filedir = boost::filesystem::path(original_file).parent_path();
         if (created_dirs.count(filedir.string()) == 0)
         {
             boost::filesystem::create_directories(filedir);
             created_dirs.emplace(filedir.string());
         }
 
-        orifilefd = open(originalfile.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
-        if (orifilefd <= 0)
+        ori_file_fd = open(original_file.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
+        if (ori_file_fd <= 0)
         {
-            LOG_ERR << errno << ": Open failed " << originalfile;
+            LOG_ERR << errno << ": Open failed " << original_file;
             return -1;
         }
     }
 
     // Restore the blocks as specified in block index.
-    for (uint32_t idxoffset = 8; idxoffset < bindex.size();)
+    for (uint32_t idx_offset = 8; idx_offset < bindex.size();)
     {
         // Find the block no. of where this block is from in the original file.
-        uint32_t blockno = 0;
-        memcpy(&blockno, idxptr + idxoffset, 4);
-        idxoffset += 4;
-        off_t orifileoffset = blockno * BLOCK_SIZE;
+        uint32_t block_no = 0;
+        memcpy(&block_no, idx_ptr + idx_offset, 4);
+        idx_offset += 4;
+        off_t ori_file_offset = block_no * BLOCK_SIZE;
 
         // Find the offset where the block is located in the block cache file.
-        off_t bcacheoffset;
-        memcpy(&bcacheoffset, idxptr + idxoffset, 8);
-        idxoffset += 40; // Skip the hash(32)
+        off_t bcache_offset;
+        memcpy(&bcache_offset, idx_ptr + idx_offset, 8);
+        idx_offset += 40; // Skip the hash(32)
 
         // Transfer the cached block to the target file.
-        copy_file_range(bcachefd, &bcacheoffset, orifilefd, &orifileoffset, BLOCK_SIZE, 0);
+        copy_file_range(bcache_fd, &bcache_offset, ori_file_fd, &ori_file_offset, BLOCK_SIZE, 0);
     }
 
     // If the target file is bigger than the original size, truncate it to the original size.
-    off_t currentlen = lseek(orifilefd, 0, SEEK_END);
-    if (currentlen > originallen)
-        ftruncate(orifilefd, originallen);
+    off_t current_len = lseek(ori_file_fd, 0, SEEK_END);
+    if (current_len > original_len)
+        ftruncate(ori_file_fd, original_len);
 
-    close(bcachefd);
-    close(orifilefd);
+    close(bcache_fd);
+    close(ori_file_fd);
 
     return 0;
 }
@@ -180,17 +180,17 @@ void state_restore::rewind_checkpoints()
 }
 
 // Rolls back current state to previous state.
-int state_restore::rollback(hasher::B2H &roothash)
+int state_restore::rollback(hasher::B2H &root_hash)
 {
     ctx = get_state_dir_context();
 
-    delete_newfiles();
-    if (restore_touchedfiles() == -1)
+    delete_new_files();
+    if (restore_touched_files() == -1)
         return -1;
 
     // Update hash tree.
-    hashtree_builder htreebuilder(ctx);
-    htreebuilder.generate(roothash);
+    hashtree_builder htree_builder(ctx);
+    htree_builder.generate(root_hash);
 
     rewind_checkpoints();
 

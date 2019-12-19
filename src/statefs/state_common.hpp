@@ -60,7 +60,7 @@ void init(const std::string &state_hist_dir_root);
 std::string get_state_dir_root(const int16_t checkpoint_id);
 state_dir_context get_state_dir_context(int16_t checkpoint_id = 0, bool create_dirs = false);
 std::string get_relpath(const std::string &fullpath, const std::string &base_path);
-std::string switch_basepath(const std::string &fullpath, const std::string &from_base_path, const std::string &to_base_path);
+std::string switch_base_path(const std::string &fullpath, const std::string &from_base_path, const std::string &to_base_path);
 
 } // namespace statefs
 

@@ -413,7 +413,7 @@ bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
     if (pid == 0)
     {
         // before execution chdir into a valid the latest state data directory that contains an appbill.table
-        chdir(statefs::current_ctx.datadir.c_str());
+        chdir(statefs::current_ctx.data_dir.c_str());
         int ret = execv(execv_args[0], execv_args);
         LOG_ERR << "Appbill process execv failed: " << ret;
         return false;

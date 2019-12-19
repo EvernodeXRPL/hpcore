@@ -53,7 +53,7 @@ std::string get_relpath(const std::string &fullpath, const std::string &base_pat
     return relpath;
 }
 
-std::string switch_basepath(const std::string &fullpath, const std::string &from_base_path, const std::string &to_base_path)
+std::string switch_base_path(const std::string &fullpath, const std::string &from_base_path, const std::string &to_base_path)
 {
     return to_base_path + get_relpath(fullpath, from_base_path);
 }

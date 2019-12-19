@@ -29,8 +29,8 @@ private:
 
 public:
     hashmap_builder(const state_dir_context &ctx);
-    int generate_hashmap_forfile(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &file_relpath, const std::map<uint32_t, hasher::B2H> &changed_blocks);
-    int remove_hashmapfile(hasher::B2H &parent_dir_hash, const std::string &filepath);
+    int generate_hashmap_for_file(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &file_relpath, const std::map<uint32_t, hasher::B2H> &changed_blocks);
+    int remove_hashmap_file(hasher::B2H &parent_dir_hash, const std::string &filepath);
 };
 
 } // namespace statefs

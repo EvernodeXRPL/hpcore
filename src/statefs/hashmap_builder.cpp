@@ -23,7 +23,7 @@ hashmap_builder::hashmap_builder(const state_dir_context &ctx) : ctx(ctx)
  * @param changed_blocks Index of changed blocks and the new hashes to be used as a hint.
  * @return 0 on success. -1 on failure.
  */
-int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &file_relpath, const std::map<uint32_t, hasher::B2H> &changed_blocks)
+int hashmap_builder::generate_hashmap_for_file(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &file_relpath, const std::map<uint32_t, hasher::B2H> &changed_blocks)
 {
     // We attempt to avoid a full rebuild of the block hash map file when possible.
     // For this optimisation, both the block hash map (.bhmap) file and the
@@ -156,19 +156,19 @@ int hashmap_builder::read_block_hashmap(std::vector<char> &bhmap_data, std::stri
  */
 int hashmap_builder::get_delta_block_index(std::map<uint32_t, hasher::B2H> &idxmap, uint32_t &total_block_count, const std::string &file_relpath)
 {
-    std::string bindexfile;
-    bindexfile.reserve(ctx.delta_dir.length() + file_relpath.length() + BLOCK_INDEX_EXT_LEN);
-    bindexfile.append(ctx.delta_dir).append(file_relpath).append(BLOCK_INDEX_EXT);
+    std::string bindex_file;
+    bindex_file.reserve(ctx.delta_dir.length() + file_relpath.length() + BLOCK_INDEX_EXT_LEN);
+    bindex_file.append(ctx.delta_dir).append(file_relpath).append(BLOCK_INDEX_EXT);
 
-    if (boost::filesystem::exists(bindexfile))
+    if (boost::filesystem::exists(bindex_file))
     {
-        std::ifstream infile(bindexfile, std::ios::binary | std::ios::ate);
-        std::streamsize idxsize = infile.tellg();
-        infile.seekg(0, std::ios::beg);
+        std::ifstream in_file(bindex_file, std::ios::binary | std::ios::ate);
+        std::streamsize idx_size = in_file.tellg();
+        in_file.seekg(0, std::ios::beg);
 
         // Read the block index file into a vector.
-        std::vector<char> bindex(idxsize);
-        if (infile.read(bindex.data(), idxsize))
+        std::vector<char> bindex(idx_size);
+        if (in_file.read(bindex.data(), idx_size))
         {
             // First 8 bytes contain the original file length.
             off_t orifilelen;
@@ -176,28 +176,28 @@ int hashmap_builder::get_delta_block_index(std::map<uint32_t, hasher::B2H> &idxm
             total_block_count = ceil((double)orifilelen / (double)BLOCK_SIZE);
 
             // Skip the first 8 bytes and loop through index entries.
-            for (uint32_t idxoffset = 8; idxoffset < bindex.size();)
+            for (uint32_t idx_offset = 8; idx_offset < bindex.size();)
             {
                 // Read the block no. (4 bytes) of where this block is from in the original file.
-                uint32_t blockno = 0;
-                memcpy(&blockno, bindex.data() + idxoffset, 4);
-                idxoffset += 12; // Skip the cached block offset (8 bytes)
+                uint32_t block_no = 0;
+                memcpy(&block_no, bindex.data() + idx_offset, 4);
+                idx_offset += 12; // Skip the cached block offset (8 bytes)
 
                 // Read the block hash (32 bytes).
                 hasher::B2H hash;
-                memcpy(&hash, bindex.data() + idxoffset, 32);
-                idxoffset += 32;
+                memcpy(&hash, bindex.data() + idx_offset, 32);
+                idx_offset += 32;
 
-                idxmap.try_emplace(blockno, hash);
+                idxmap.try_emplace(block_no, hash);
             }
         }
         else
         {
-            LOG_ERR << errno << ": Read failed " << bindexfile;
+            LOG_ERR << errno << ": Read failed " << bindex_file;
             return -1;
         }
 
-        infile.close();
+        in_file.close();
     }
 
     return 0;
@@ -449,7 +449,7 @@ int hashmap_builder::update_hashtree_entry(hasher::B2H &parent_dir_hash, const b
  * @param Full path to the block hash map file.
  * @return 0 on success. -1 on failure.
  */
-int hashmap_builder::remove_hashmapfile(hasher::B2H &parent_dir_hash, const std::string &bhmap_file)
+int hashmap_builder::remove_hashmap_file(hasher::B2H &parent_dir_hash, const std::string &bhmap_file)
 {
     if (boost::filesystem::exists(bhmap_file))
     {

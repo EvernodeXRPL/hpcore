@@ -553,11 +553,11 @@ void state_monitor::remove_new_file_entry(std::string_view filepath)
     std::string index_file = ctx.delta_dir + IDX_NEW_FILES;
     std::string index_file_tmp = ctx.delta_dir + IDX_NEW_FILES + ".tmp";
 
-    std::ifstream infile(index_file);
+    std::ifstream in_file(index_file);
     std::ofstream outfile(index_file_tmp);
 
     bool lines_transferred = false;
-    for (std::string line; std::getline(infile, line);)
+    for (std::string line; std::getline(in_file, line);)
     {
         if (line != filepath) // Skip the file being removed.
         {
@@ -566,7 +566,7 @@ void state_monitor::remove_new_file_entry(std::string_view filepath)
         }
     }
 
-    infile.close();
+    in_file.close();
     outfile.close();
 
     // Remove the old index.
