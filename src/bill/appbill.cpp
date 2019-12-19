@@ -332,13 +332,20 @@ int pass_through_mode(int argc, char** argv) {
         }
         if (c != EOF) putc(c, teepipeout); // make a copy for the next program
 
+        if (c == EOF)
+            break;
+
+        if (mode == 2)
+            continue;
+
         buf[bytes_read] = '\0';
 
         if (mode == 0 && strcmp("\"usrfd\"", buf) == 0)  {
             mode = 1;
             continue;
         }  else if ( mode == 1 && c == '}' ) {
-            break;
+            mode = 2;
+            continue;
         } 
 
         if (buf[0] == '\0' || !mode)
