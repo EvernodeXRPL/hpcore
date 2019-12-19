@@ -362,15 +362,16 @@ void verify_and_populate_candidate_user_inputs()
                             } else {
                                 // app bill in check mode takes a very short period of time to execute, typically 1ms
                                 // so we will blocking wait for it here
-                                int ret = waitpid(pid, NULL, 0);
-                                ret = WEXITSTATUS(ret);
-                                if (ret & (1<<7)) {
+                                int status = 0;
+                                waitpid(pid, &status, 0); //todo: check error conditions here
+                                status = WEXITSTATUS(status);
+                                if (status & (1<<7)) {
                                     // this user's key passed appbill
                                     // do nothing
                                     LOG_DBG << "Appbill passed " << hexpubkey;
                                 } else {
                                     // user's key did not pass, do not add to user input candidates
-                                    LOG_DBG << "Appbill failed " << hexpubkey << " return code was " << ret;
+                                    LOG_DBG << "Appbill failed " << hexpubkey << " return code was " << status;
                                     continue;
                                 }
                             }
