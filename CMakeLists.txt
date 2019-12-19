@@ -123,12 +123,19 @@ target_link_libraries(hpstatemon
     libfuse3.so.3
 )
 
+add_executable(appbill
+    src/bill/appbill.cpp
+)
+
 add_dependencies(hpcore
     hpstatemon
+    appbill
 )
+
 # add_custom_command(TARGET hpcore POST_BUILD
 #     COMMAND strip ./build/hpcore
 #     COMMAND strip ./build/hpstatemon
+#     COMMAND strip ./build/appbill
 # )
     
 target_precompile_headers(hpsupport PUBLIC src/pchheader.hpp)

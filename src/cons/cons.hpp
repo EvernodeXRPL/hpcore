@@ -118,6 +118,8 @@ void broadcast_nonunl_proposal();
 
 void verify_and_populate_candidate_user_inputs();
 
+bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
+
 p2p::proposal create_stage0_proposal();
 
 p2p::proposal create_stage123_proposal(vote_counter &votes);

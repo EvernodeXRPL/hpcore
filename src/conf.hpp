@@ -46,6 +46,8 @@ struct contract_config
     std::string pubkey;                 // Contract public key bytes
     std::string seckey;                 // Contract secret key bytes
     std::vector<std::string> runtime_binexec_args;   // Contract binary execution args used during runtime.
+    std::vector<std::string> runtime_appbill_args;   // Appbill execution args used during runtime.
+
 
     // Config elements which are loaded from the config file.
 
@@ -55,6 +57,8 @@ struct contract_config
     std::string keytype;                // Key generation algorithm used by libsodium
     std::string binary;                 // Full path to the contract binary
     std::string binargs;                // CLI arguments to pass to the contract binary
+    std::string appbill;                // binary to execute for appbill
+    std::string appbillargs;            // any arguments to supply to appbill binary by default
     std::string listenip;               // The IPs to listen on for incoming connections
     std::unordered_map<std::string, ip_port_pair> peers;    // Map of peers keyed by "<ip address>:<port>" concatenated format
     std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)

@@ -48,6 +48,8 @@ do
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
             binargs: './bin/contract.js', \
+            appbill: 'appbill', \
+            appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
             roundtime: 1000, \
@@ -61,9 +63,10 @@ do
         -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hpnode${n}@example" > /dev/null 2>&1
     popd > /dev/null 2>&1
 
-    # Copy the contract executable.
+    # Copy the contract executable and appbill.
     mkdir ./node$n/bin
     cp ../examples/echocontract/contract.js ./node$n/bin/contract.js
+    cp ../build/appbill ./node$n/bin/
 done
 
 # Function to generate JSON array string while skiping a given index.
@@ -105,6 +108,23 @@ do
     node -p "JSON.stringify({...require('./tmp.json'),peers:${mypeers},unl:${myunl}}, null, 2)" > hp.cfg
     rm tmp.json
     popd > /dev/null 2>&1
+done
+
+# Setup initial state data for all nodes but one.
+for (( i=1; i<=$ncount; i++ ))
+do
+
+    sudo mkdir -p ./node$i/statehist/0/data/ > /dev/null 2>&1
+
+    # Load credit balance for user for testing purposes.
+    pushd ./node$i/statehist/0/data/ > /dev/null 2>&1
+    >appbill.table
+    ../../../../../build/appbill --credit "705bf26354ee4c63c0e5d5d883c07cefc3196d049bd3825f827eb3bc23ead035" 10000
+    popd > /dev/null 2>&1
+
+    # Copy any more initial state files for testing.
+    #cp ~/my_big_file ~/hpcore/hpcluster/node$i/statehist/0/data/
+
 done
 
 popd > /dev/null 2>&1
