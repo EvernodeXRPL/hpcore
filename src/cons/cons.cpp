@@ -14,6 +14,7 @@
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 #include "cons.hpp"
+#include "../statefs/state_common.hpp"
 #include "../statefs/state_store.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -320,8 +321,11 @@ void verify_and_populate_candidate_user_inputs()
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
-            // Populate user list.
+            // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
+
+            // Collect valid inputs for this user.
+            std::unordered_map<std::string, candidate_user_input> valid_inputs;
 
             for (const usr::user_submitted_message &umsg : umsgs)
             {
@@ -333,8 +337,6 @@ void verify_and_populate_candidate_user_inputs()
                     // Verify the signature of the message content.
                     if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
                     {
-                        // TODO: Also verify XRP payment token/AppBill requirements.
-
                         std::string nonce;
                         std::string input;
                         uint64_t maxledgerseqno;
@@ -348,7 +350,7 @@ void verify_and_populate_candidate_user_inputs()
                             // Append the hash of the message signature to get the final hash.
                             hash.append(sig_hash);
 
-                            ctx.candidate_user_inputs.try_emplace(
+                            valid_inputs.try_emplace(
                                 hash,
                                 candidate_user_input(pubkey, std::move(input), maxledgerseqno));
                         }
@@ -359,9 +361,79 @@ void verify_and_populate_candidate_user_inputs()
                     LOG_DBG << "Duplicate user message.";
                 }
             }
+
+            // Verify the accumulated input length with app bill before adding to candidate inputs.
+            size_t total_input_len = 0;
+            for (const auto &[hash, cand_input] : valid_inputs)
+                total_input_len += cand_input.input.size();
+
+            if (verify_appbill_check(pubkey, total_input_len))
+                ctx.candidate_user_inputs.merge(valid_inputs);
+
+            // TODO: report back to the user if the inputs didn't make it into consensus due to some reason.
         }
     }
     p2p::ctx.collected_msgs.nonunl_proposals.clear();
+}
+
+/**
+ * Executes the appbill and verifies whether the user has enough account balance to process the provided input.
+ * @param pubkey User binary pubkey.
+ * @param input_len Total bytes length of user input.
+ * @return Whether the user is allowed to process the input or not.
+ */
+bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
+{
+    // If appbill not enabled always green light the input.
+    if (conf::cfg.appbill.empty())
+        return true;
+
+    // execute appbill in --check mode to verify this user can submit a packet/connection to the network
+    // todo: this can be made more efficient, appbill --check can process 7 at a time
+
+    // Fill appbill args
+    const int len = conf::cfg.runtime_appbill_args.size() + 4;
+    char *execv_args[len];
+    for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
+        execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
+    char option[] = "--check";
+    execv_args[len - 4] = option;
+    // add the hex encoded public key as the last parameter
+    std::string hexpubkey;
+    util::bin2hex(hexpubkey, reinterpret_cast<const unsigned char *>(pubkey.data()), pubkey.size());
+    std::string inputsize = std::to_string(input_len);
+    execv_args[len - 3] = hexpubkey.data();
+    execv_args[len - 2] = inputsize.data();
+    execv_args[len - 1] = NULL;
+
+    int pid = fork();
+    if (pid == 0)
+    {
+        // before execution chdir into a valid the latest state data directory that contains an appbill.table
+        chdir(statefs::current_ctx.datadir.c_str());
+        int ret = execv(execv_args[0], execv_args);
+        LOG_ERR << "Appbill process execv failed: " << ret;
+        return false;
+    }
+    else
+    {
+        // app bill in check mode takes a very short period of time to execute, typically 1ms
+        // so we will blocking wait for it here
+        int status = 0;
+        waitpid(pid, &status, 0); //todo: check error conditions here
+        status = WEXITSTATUS(status);
+        if (status != 128 && status != 0)
+        {
+            // this user's key passed appbill
+            return true;
+        }
+        else
+        {
+            // user's key did not pass, do not add to user input candidates
+            LOG_DBG << "Appbill validation failed " << hexpubkey << " return code was " << status;
+            return false;
+        }
+    }
 }
 
 p2p::proposal create_stage0_proposal()

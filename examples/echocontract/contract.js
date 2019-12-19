@@ -6,7 +6,7 @@ const fs = require('fs')
 //console.log("===Sample contract started===");
 //console.log("Contract args received from hp: " + input);
 
-let hpargs = JSON.parse( fs.readFileSync(0, 'utf8'));
+let hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
 
 // We just save execution args as an example state file change.
 fs.appendFileSync("state/exects.txt", "ts:" + hpargs.ts + "\n");

@@ -7,10 +7,11 @@ mode=$1
 
 hpcore=$(realpath ../..)
 
-if [ "$mode" = "new" ] || [ "$mode" = "run" ] || [ "$mode" = "update" ] || [ "$mode" = "kill" ]; then
+if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "run" ] || [ "$mode" = "check" ] || \
+   [ "$mode" = "connect" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssh" ]; then
     echo ""
 else
-    echo "Invalid command. new | run | update | kill expected."
+    echo "Invalid command. [ new | update | run <N> | check <N> | connect <N> | kill <N> | reboot <N> | ssh <N> <custom command> ] expected."
     exit 1
 fi
 
@@ -22,11 +23,39 @@ if [ $mode = "run" ]; then
     exit 0
 fi
 
+if [ $mode = "check" ]; then
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -p $vmpass ssh geveo@$vmip 'echo hpcore pid:$(pidof hpcore)  hpstatemon pid:$(pidof hpstatemon)'
+    exit 0
+fi
+
+if [ $mode = "connect" ]; then
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -p $vmpass ssh geveo@$vmip 'tail -f nohup.out'
+    exit 0
+fi
+
 if [ $mode = "kill" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpcore)'
-    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpstatemon)'
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpcore) > /dev/null 2>&1'
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpstatemon) > /dev/null 2>&1'
+    exit 0
+fi
+
+if [ $mode = "reboot" ]; then
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -p $vmpass ssh geveo@$vmip 'sudo reboot'
+    exit 0
+fi
+
+if [ $mode = "ssh" ]; then
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -p $vmpass ssh geveo@$vmip $3
     exit 0
 fi
 
