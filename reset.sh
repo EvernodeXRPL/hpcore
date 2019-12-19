@@ -5,7 +5,7 @@ sudo ./cluster-create.sh $nodes
 
 WD=`pwd`
 # Setup initial state data for all nodes but one.
-for (( i=1; i<$nodes; i++ ))
+for (( i=0; i<$nodes; i++ ))
 do
 
     sudo mkdir -p ./hpcluster/node$i/statehist/0/data/

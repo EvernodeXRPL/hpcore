@@ -334,6 +334,7 @@ void verify_and_populate_candidate_user_inputs()
                         // todo: this can be made more efficient, appbill --check can process 7 at a time
 
                         if (conf::cfg.appbill != "") {
+                            LOG_DBG << "App bill is enabled...";
                             // app bill is enabled, so run it in --check mode
 
                             // Fill appbill args 
@@ -341,13 +342,17 @@ void verify_and_populate_candidate_user_inputs()
                             char *execv_args[len];
                             for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
                                 execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
-                            char option[] = "--credit";
+                            char option[] = "--check";
                             execv_args[len - 3] = option;
                             // add the hex encoded public key as the last parameter
                             std::string hexpubkey;
                             util::bin2hex(hexpubkey, (unsigned char*) pubkey.data(), pubkey.size());
                             execv_args[len - 2] = hexpubkey.data();
                             execv_args[len - 1] = NULL;
+
+                            for (int i = 0; i < len - 1; ++i)
+                                LOG_DBG << "Appbill execv[" << i << "] = " << execv_args[i];
+
                             int pid = fork();
                             if (pid == 0) {
                                 // before execution chdir into a valid the latest state data directory that contains an appbill.table
@@ -362,8 +367,10 @@ void verify_and_populate_candidate_user_inputs()
                                 if (ret & (1<<7)) {
                                     // this user's key passed appbill
                                     // do nothing
+                                    LOG_DBG << "Appbill passed " << hexpubkey;
                                 } else {
                                     // user's key did not pass, do not add to user input candidates
+                                    LOG_DBG << "Appbill failed " << hexpubkey << " return code was " << ret;
                                     continue;
                                 }
                             }
