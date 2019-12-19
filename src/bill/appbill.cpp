@@ -410,7 +410,8 @@ int pass_through_mode(int argc, char** argv) {
             FILE* userfile = fdopen(userfd, "r");
             FILE* newuserfile = fdopen(userpipe[1], "w");
             
-            for (char x = 0; x != EOF; x = getc(userfile)) {
+            char x = 0;
+            while ((x = getc(userfile)) != EOF) {
                 if (to_bill < (uint64_t)-1)
                     to_bill++;
                 putc(x, newuserfile);
