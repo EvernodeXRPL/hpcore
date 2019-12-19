@@ -2,7 +2,6 @@
     App bill default implementation 1
     MSB of return value is reserved for appbill error
     bits 1-8 indicate whether or not public keys 0-6 passed appbill check 
-
     (to be completed)
 */
 
@@ -577,10 +576,17 @@ int check_mode(int argc, char** argv, int print_balances) {
         return 128;
     }
 
-    if (correct_for_ed_keys(argc, argv, 2, 0))
+    if (argc == 0 || argc % 2 == 1 && !print_balances) {
+        fprintf(stderr, "appbill check mode requires a public key%s\n", (print_balances ? "" : " and an amount to check against"));
+        return 128;
+    }
+        
+
+    
+    if (correct_for_ed_keys(argc, argv, (print_balances ? 1 : 2), 0))
         return 128;
     
-    for (int i = 0; i < argc; i+=2) {
+    for (int i = 0; i < argc; i+= ( print_balances ? 1 : 2 )) {
         // check the pubkey
         for (char* x = argv[i];; ++x) {
             if ( x - argv[i] == KEY_SIZE*2 && *x != '\0' ) {
@@ -597,6 +603,9 @@ int check_mode(int argc, char** argv, int print_balances) {
             fprintf(stderr, "appbill was supplied an invalid public key (not hex) char=%c\n", *x);
             return 128;
         }
+
+        if (print_balances)
+            continue;
 
         // check the bytecount
         for (char* x = argv[i+1]; *x != '\0'; ++x) {
@@ -627,13 +636,14 @@ int check_mode(int argc, char** argv, int print_balances) {
         bits[i] = 0;
 
     // loop keys, check balances
-    for (int i = 0, j = 0; i < argc; i+=2, ++j) {
+    for (int i = 0, j = 0; i < argc; i+=( print_balances ? 1 : 2 ), ++j) {
         // convert the argv from hex to binary 
         uint8_t key[32];
         key_from_hex((uint8_t*)argv[i], key);
 
         uint32_t bytecount = 0;
-        sscanf(argv[i+1], "%d", &bytecount);
+        if (!print_balances)
+            sscanf(argv[i+1], "%d", &bytecount);
 
         int error = 0;
         uint64_t balance = 0;
