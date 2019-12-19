@@ -186,7 +186,7 @@ void consensus()
         }
         if (is_lcl_desync)
         {
-            //We are resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
+            //Resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
             //todo: This might not needed with current synchronization with network clock.
             // LOG_DBG << "time off: " << std::to_string(ctx.reset_time);
             timewait_stage(true, ctx.reset_time);
@@ -220,22 +220,18 @@ void consensus()
                 apply_ledger(stg_prop);
                 ctx.reset_time = MAX_RESET_TIME;
 
-                // We have finished a consensus round (all 4 stages).
+                // node has finished a consensus round (all 4 stages).
                 LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl
                          << " state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
             }
         }
     }
 
-    // We have finished a consensus stage.
-
+    // Node has finished a consensus stage.
     // Transition to next stage.
     ctx.stage = (ctx.stage + 1) % 4;
 
-    // after a stage proposal we will just busy wait for proposals.
-
     //Here nodes try to synchronise nodes stages using network clock.
-    //
     uint64_t now = util::get_epoch_milliseconds();
 
     // round start is the floor
@@ -243,16 +239,16 @@ void consensus()
 
     uint64_t next_stage_start = 0;
 
-    // compute start time of next stage.
-    // last stage (stage 3) waiting twice as any other stage's waiting time.
-    // this is for a node to catch up from lcl/state desync.
+    // Compute start time of next stage.
+    // Last stage (stage 3) waiting twice as any other stage's waiting time.
+    // This is for a node to catch up from lcl/state desync,
     // becuase we are waiting (round time + time to next stage) to sync.
     if (ctx.stage == 3)
         next_stage_start = round_start + conf::cfg.roundtime;
     else
         next_stage_start = round_start + (int64_t)(ctx.stage * ((double)conf::cfg.roundtime / 5.0));
 
-    // compute stage time wait.
+    // Compute stage time wait.
     // Node wait between stages to collect enough proposals from previous stages from other nodes.
     int64_t to_wait = next_stage_start - now;
 
@@ -275,6 +271,7 @@ void consensus()
     }
     else
     {
+        // after a stage proposal we will just busy wait for proposals.
         util::sleep(to_wait);
     }
 }
