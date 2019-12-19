@@ -150,7 +150,10 @@ target_precompile_headers(hpstatemon REUSE_FROM hpsupport)
 # Create docker image from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'
 add_custom_target(docker
-  COMMAND docker build -t hpcore:latest .
+  COMMAND mkdir -p ./test/local-cluster/bin
+  COMMAND cp ./build/hpcore ./build/hpstatemon ./build/appbill ./test/local-cluster/bin/
+  COMMAND cp ./fusebin/fusermount3 ./fusebin/libfuse3.so.3 ./test/local-cluster/bin/
+  COMMAND docker build -t hpcore:latest ./test/local-cluster
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)
 add_dependencies(docker hpcore)

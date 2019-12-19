@@ -9,5 +9,5 @@ hpsupport.dir
 **/Makefile
 **/CMakeCache.txt
 **/cmake_install.cmake
-**/CMakeFiles/**
+**/CMakeFiles
 hpcluster
