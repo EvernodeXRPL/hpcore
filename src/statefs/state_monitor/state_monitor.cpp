@@ -37,7 +37,7 @@ void state_monitor::create_checkpoint()
     int16_t oldest_chkpnt = MAX_CHECKPOINTS * -1;
     for (int16_t chkpnt = oldest_chkpnt; chkpnt <= -1; chkpnt++)
     {
-        std::string dir = get_statedir_root(chkpnt);
+        std::string dir = get_state_dir_root(chkpnt);
 
         if (boost::filesystem::exists(dir))
         {
@@ -47,21 +47,21 @@ void state_monitor::create_checkpoint()
             }
             else
             {
-                std::string dir_shift = get_statedir_root(chkpnt - 1);
+                std::string dir_shift = get_state_dir_root(chkpnt - 1);
                 boost::filesystem::rename(dir, dir_shift);
             }
         }
 
         if (chkpnt == -1)
         {
-            statedir_context ctx = get_statedir_context(0, true);
+            state_dir_context ctx = get_state_dir_context(0, true);
 
             // Shift 0-state delta dir to -1.
             std::string delta_1 = dir + DELTA_DIR;
             boost::filesystem::create_directories(delta_1);
 
-            boost::filesystem::rename(ctx.deltadir, delta_1);
-            boost::filesystem::create_directories(ctx.deltadir);
+            boost::filesystem::rename(ctx.delta_dir, delta_1);
+            boost::filesystem::create_directories(ctx.delta_dir);
         }
     }
 
@@ -363,20 +363,20 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
 
         // Read the block being replaced and send to cache file.
         // Allocating block buffer on the heap to avoid filling limited stack space.
-        std::unique_ptr<char[]> blockbuf = std::make_unique<char[]>(BLOCK_SIZE);
-        off_t blockoffset = BLOCK_SIZE * i;
-        size_t bytesread = pread(fi.readfd, blockbuf.get(), BLOCK_SIZE, BLOCK_SIZE * i);
-        if (bytesread < 0)
+        std::unique_ptr<char[]> block_buf = std::make_unique<char[]>(BLOCK_SIZE);
+        off_t block_offset = BLOCK_SIZE * i;
+        size_t bytes_read = pread(fi.readfd, block_buf.get(), BLOCK_SIZE, BLOCK_SIZE * i);
+        if (bytes_read < 0)
         {
             std::cerr << errno << ": Read failed " << fi.filepath << "\n";
             return -1;
         }
 
         // No more bytes to read in this file.
-        if (bytesread == 0)
+        if (bytes_read == 0)
             return 0;
 
-        if (write(fi.cachefd, blockbuf.get(), bytesread) < 0)
+        if (write(fi.cachefd, block_buf.get(), bytes_read) < 0)
         {
             std::cerr << errno << ": Write to block cache failed. " << fi.filepath << "\n";
             return -1;
@@ -388,8 +388,8 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
         // Entry format: [blocknum(4 bytes) | cacheoffset(8 bytes) | blockhash(32 bytes)]
 
         // Calculate the block hash by combining block offset with block data.
-        char entrybuf[BLOCKINDEX_ENTRY_SIZE];
-        hasher::B2H hash = hasher::hash(&blockoffset, 8, blockbuf.get(), bytesread);
+        char entrybuf[BLOCK_INDEX_ENTRY_SIZE];
+        hasher::B2H hash = hasher::hash(&block_offset, 8, block_buf.get(), bytes_read);
 
         // Original file block id.
         memcpy(entrybuf, &i, 4);
@@ -398,7 +398,7 @@ int state_monitor::cache_blocks(state_file_info &fi, const off_t offset, const s
         memcpy(entrybuf + 4, &cacheoffset, 8);
         // The block hash.
         memcpy(entrybuf + 12, hash.data, 32);
-        if (write(fi.indexfd, entrybuf, BLOCKINDEX_ENTRY_SIZE) < 0)
+        if (write(fi.indexfd, entrybuf, BLOCK_INDEX_ENTRY_SIZE) < 0)
         {
             std::cerr << errno << ": Write to block index failed. " << fi.filepath << "\n";
             return -1;
@@ -432,11 +432,11 @@ int state_monitor::prepare_caching(state_file_info &fi)
 
     // Get the path of the file relative to the state dir. We maintain this same reative path for the
     // corresponding cache and index files in the cache dir.
-    std::string relpath = get_relpath(fi.filepath, ctx.datadir);
+    std::string relpath = get_relpath(fi.filepath, ctx.data_dir);
 
     std::string tmppath;
-    tmppath.reserve(ctx.deltadir.length() + relpath.length() + BLOCKCACHE_EXT_LEN);
-    tmppath.append(ctx.deltadir).append(relpath).append(BLOCKCACHE_EXT);
+    tmppath.reserve(ctx.delta_dir.length() + relpath.length() + BLOCK_CACHE_EXT_LEN);
+    tmppath.append(ctx.delta_dir).append(relpath).append(BLOCK_CACHE_EXT);
 
     // Create directory tree if not exist so we are able to create the cache and index files.
     boost::filesystem::path cachesubdir = boost::filesystem::path(tmppath).parent_path();
@@ -455,7 +455,7 @@ int state_monitor::prepare_caching(state_file_info &fi)
     }
 
     // Create and open the block index file.
-    tmppath.replace(tmppath.length() - BLOCKCACHE_EXT_LEN, BLOCKINDEX_EXT_LEN, BLOCKINDEX_EXT);
+    tmppath.replace(tmppath.length() - BLOCK_CACHE_EXT_LEN, BLOCK_INDEX_EXT_LEN, BLOCK_INDEX_EXT);
     fi.indexfd = open(tmppath.c_str(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
     if (fi.indexfd <= 0)
     {
@@ -501,7 +501,7 @@ int state_monitor::write_touched_file_entry(std::string_view filepath)
 {
     if (touched_fileindex_fd <= 0)
     {
-        std::string index_file = ctx.deltadir + IDX_TOUCHEDFILES;
+        std::string index_file = ctx.delta_dir + IDX_TOUCHED_FILES;
         touched_fileindex_fd = open(index_file.c_str(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
         if (touched_fileindex_fd <= 0)
         {
@@ -511,7 +511,7 @@ int state_monitor::write_touched_file_entry(std::string_view filepath)
     }
 
     // Write the relative file path line to the index.
-    filepath = filepath.substr(ctx.datadir.length(), filepath.length() - ctx.datadir.length());
+    filepath = filepath.substr(ctx.data_dir.length(), filepath.length() - ctx.data_dir.length());
     write(touched_fileindex_fd, filepath.data(), filepath.length());
     write(touched_fileindex_fd, "\n", 1);
     return 0;
@@ -523,7 +523,7 @@ int state_monitor::write_touched_file_entry(std::string_view filepath)
  */
 int state_monitor::write_new_file_entry(std::string_view filepath)
 {
-    std::string index_file = ctx.deltadir + IDX_NEWFILES;
+    std::string index_file = ctx.delta_dir + IDX_NEW_FILES;
     int fd = open(index_file.c_str(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
     if (fd <= 0)
     {
@@ -532,7 +532,7 @@ int state_monitor::write_new_file_entry(std::string_view filepath)
     }
 
     // Write the relative file path line to the index.
-    filepath = filepath.substr(ctx.datadir.length(), filepath.length() - ctx.datadir.length());
+    filepath = filepath.substr(ctx.data_dir.length(), filepath.length() - ctx.data_dir.length());
     write(fd, filepath.data(), filepath.length());
     write(fd, "\n", 1);
     close(fd);
@@ -545,13 +545,13 @@ int state_monitor::write_new_file_entry(std::string_view filepath)
  */
 void state_monitor::remove_new_file_entry(std::string_view filepath)
 {
-    filepath = filepath.substr(ctx.datadir.length(), filepath.length() - ctx.datadir.length());
+    filepath = filepath.substr(ctx.data_dir.length(), filepath.length() - ctx.data_dir.length());
 
     // We create a copy of the new file index and transfer lines from first file
     // to the second file except the line matching the given filepath.
 
-    std::string index_file = ctx.deltadir + IDX_NEWFILES;
-    std::string index_file_tmp = ctx.deltadir + IDX_NEWFILES + ".tmp";
+    std::string index_file = ctx.delta_dir + IDX_NEW_FILES;
+    std::string index_file_tmp = ctx.delta_dir + IDX_NEW_FILES + ".tmp";
 
     std::ifstream infile(index_file);
     std::ofstream outfile(index_file_tmp);

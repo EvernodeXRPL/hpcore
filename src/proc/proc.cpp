@@ -172,7 +172,7 @@ int start_state_monitor()
         // Fill process args.
         char *execv_args[4];
         execv_args[0] = conf::ctx.statemonexepath.data();
-        execv_args[1] = conf::ctx.statehistdir.data();
+        execv_args[1] = conf::ctx.state_hist_dir.data();
         execv_args[2] = conf::ctx.statedir.data();
         execv_args[3] = NULL;
 
@@ -205,7 +205,7 @@ int stop_state_monitor()
 
     // Update the hash tree.
     hasher::B2H statehash = hasher::B2H_empty;
-    statefs::hashtree_builder htreebuilder(statefs::get_statedir_context());
+    statefs::hashtree_builder htreebuilder(statefs::get_state_dir_context());
     if (htreebuilder.generate(statehash) != 0)
         return -1;
 

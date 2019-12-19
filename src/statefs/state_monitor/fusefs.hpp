@@ -3,7 +3,7 @@
 
 namespace fusefs
 {
-int start(const char *arg0, const char *source, const char *mountpoint, const char *deltadir);
+int start(const char *arg0, const char *source, const char *mountpoint, const char *delta_dir);
 }
 
 #endif

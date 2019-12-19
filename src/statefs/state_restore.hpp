@@ -11,7 +11,7 @@ namespace statefs
 class state_restore
 {
 private:
-    statedir_context ctx;
+    state_dir_context ctx;
     std::unordered_set<std::string> created_dirs;
     void delete_newfiles();
     int restore_touchedfiles();

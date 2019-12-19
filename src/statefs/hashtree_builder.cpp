@@ -6,7 +6,7 @@
 namespace statefs
 {
 
-hashtree_builder::hashtree_builder(const statedir_context &ctx) : ctx(ctx), hmapbuilder(ctx)
+hashtree_builder::hashtree_builder(const state_dir_context &ctx) : ctx(ctx), hmapbuilder(ctx)
 {
     force_rebuild_all = false;
     hintmode = false;
@@ -15,8 +15,8 @@ hashtree_builder::hashtree_builder(const statedir_context &ctx) : ctx(ctx), hmap
 int hashtree_builder::generate(hasher::B2H &roothash)
 {
     // Load modified file path hints if available.
-    populate_hintpaths_from_idxfile(IDX_TOUCHEDFILES);
-    populate_hintpaths_from_idxfile(IDX_NEWFILES);
+    populate_hintpaths_from_idxfile(IDX_TOUCHED_FILES);
+    populate_hintpaths_from_idxfile(IDX_NEW_FILES);
     hintmode = !hintpaths.empty();
 
     return traverse_and_generate(roothash);
@@ -28,10 +28,10 @@ int hashtree_builder::generate(hasher::B2H &roothash, const bool force_all)
     if (force_rebuild_all)
     {
         boost::filesystem::remove_all(ctx.block_hashmap_dir);
-        boost::filesystem::remove_all(ctx.hashtreedir);
+        boost::filesystem::remove_all(ctx.hashtree_dir);
 
         boost::filesystem::create_directories(ctx.block_hashmap_dir);
-        boost::filesystem::create_directories(ctx.hashtreedir);
+        boost::filesystem::create_directories(ctx.hashtree_dir);
     }
 
     return traverse_and_generate(roothash);
@@ -50,10 +50,10 @@ int hashtree_builder::generate(hasher::B2H &roothash, const std::unordered_map<s
 int hashtree_builder::traverse_and_generate(hasher::B2H &roothash)
 {
     // Load current root hash if exist.
-    const std::string dirhashfile = ctx.hashtreedir + "/" + DIRHASH_FNAME;
+    const std::string dirhashfile = ctx.hashtree_dir + "/" + DIR_HASH_FNAME;
     roothash = get_existingdirhash(dirhashfile);
 
-    traversel_rootdir = ctx.datadir;
+    traversel_rootdir = ctx.data_dir;
     removal_mode = false;
     if (update_hashtree(roothash) != 0)
         return -1;
@@ -86,10 +86,10 @@ int hashtree_builder::update_hashtree(hasher::B2H &roothash)
 
 int hashtree_builder::update_hashtree_fordir(hasher::B2H &parent_dir_hash, const std::string &dirpath, const hintpath_map::iterator hintdir_itr, const bool isrootlevel)
 {
-    const std::string htreedirpath = switch_basepath(dirpath, traversel_rootdir, ctx.hashtreedir);
+    const std::string htreedirpath = switch_basepath(dirpath, traversel_rootdir, ctx.hashtree_dir);
 
     // Load current dir hash if exist.
-    const std::string dirhashfile = htreedirpath + "/" + DIRHASH_FNAME;
+    const std::string dirhashfile = htreedirpath + "/" + DIR_HASH_FNAME;
     hasher::B2H dirhash = get_existingdirhash(dirhashfile);
 
     // Remember the dir hash before we mutate it.
@@ -213,7 +213,7 @@ bool hashtree_builder::should_process_file(const hintpath_map::iterator hintdir_
         // If in removal mode, we are traversing .bhmap files. Hence we should truncate .bhmap extension
         // before we search for the path in file hints.
         if (removal_mode)
-            relpath = relpath.substr(0, relpath.length() - HASHMAP_EXT_LEN);
+            relpath = relpath.substr(0, relpath.length() - BLOCK_HASHMAP_EXT_LEN);
 
         std::unordered_set<std::string> &hintfiles = hintdir_itr->second;
         const auto hintfile_itr = hintfiles.find(relpath);
@@ -237,8 +237,8 @@ int hashtree_builder::process_file(hasher::B2H &parent_dir_hash, const std::stri
             created_htreesubdirs.emplace(htreedirpath);
         }
 
-        std::string relpath = get_relpath(filepath, ctx.datadir);
-        std::map<uint32_t, hasher::B2H> changed_blocks = fileblockindex[relpath];
+        const std::string relpath = get_relpath(filepath, ctx.data_dir);
+        const std::map<uint32_t, hasher::B2H> &changed_blocks = fileblockindex[relpath];
 
         if (hmapbuilder.generate_hashmap_forfile(parent_dir_hash, filepath, relpath, changed_blocks) == -1)
             return -1;
@@ -254,7 +254,7 @@ int hashtree_builder::process_file(hasher::B2H &parent_dir_hash, const std::stri
 
 void hashtree_builder::populate_hintpaths_from_idxfile(const char *const idxfile)
 {
-    std::ifstream infile(std::string(ctx.deltadir).append(idxfile));
+    std::ifstream infile(std::string(ctx.delta_dir).append(idxfile));
     if (!infile.fail())
     {
         for (std::string relpath; std::getline(infile, relpath);)

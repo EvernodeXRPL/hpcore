@@ -52,7 +52,7 @@ void request_state_from_peer(const std::string &path, const bool is_file, const 
  */
 int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_request &sr)
 {
-    // If blockid > -1 this means this is a file block data request.
+    // If block_id > -1 this means this is a file block data request.
     if (sr.block_id > -1)
     {
         // Vector to hold the block bytes. Normally block size is constant BLOCK_SIZE (4MB), but the
@@ -215,7 +215,7 @@ int run_state_sync_iterator()
  */
 void submit_request(const backlog_item &request)
 {
-    LOG_DBG << "Submitting state request. type:" << request.type << " path:" << request.path << " blockid:" << request.block_id;
+    LOG_DBG << "Submitting state request. type:" << request.type << " path:" << request.path << " block_id:" << request.block_id;
 
     submitted_requests.try_emplace(request.expected_hash, request);
 

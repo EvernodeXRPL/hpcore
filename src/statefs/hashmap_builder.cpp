@@ -11,14 +11,17 @@ namespace statefs
  * Hashmap builder class is responsible for updating file hash based on the modified blocks of a file.
  */
 
-hashmap_builder::hashmap_builder(const statedir_context &ctx) : ctx(ctx)
+hashmap_builder::hashmap_builder(const state_dir_context &ctx) : ctx(ctx)
 {
 }
 
 /**
  * Generates/updates the block hash map for a file and updates the parent dir hash accordingly as well.
  * @param parent_dir_hash Hash of the parent directory. This will be updated of the file hash was updated.
- * @param filepath The actual state file path.
+ * @param filepath Full path to the actual state file.
+ * @param file_relpath The relative path to the state file from the state data directory.
+ * @param changed_blocks Index of changed blocks and the new hashes to be used as a hint.
+ * @return 0 on success. -1 on failure.
  */
 int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &file_relpath, const std::map<uint32_t, hasher::B2H> &changed_blocks)
 {
@@ -65,13 +68,13 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parent_dir_hash, cons
         // Attempt to read the delta block index file.
         std::map<uint32_t, hasher::B2H> bindex;
         uint32_t original_block_count;
-        if (get_block_index(bindex, original_block_count, file_relpath) == -1)
+        if (get_delta_block_index(bindex, original_block_count, file_relpath) == -1)
         {
             close(orifd);
             return -1;
         }
 
-        if (update_hashes_with_backup_blockhints(hashes.get(), hashes_size, file_relpath, orifd, block_count, original_block_count, bindex, bhmap_data) == -1)
+        if (update_hashes_with_backup_block_hints(hashes.get(), hashes_size, file_relpath, orifd, block_count, original_block_count, bindex, bhmap_data) == -1)
         {
             close(orifd);
             return -1;
@@ -97,10 +100,17 @@ int hashmap_builder::generate_hashmap_forfile(hasher::B2H &parent_dir_hash, cons
     return 0;
 }
 
+/**
+ * Reads the block hash map of a given data file into the provided vector.
+ * @param bhmap_data Vector to copy the block hash map contents.
+ * @param bhmap_file The full path to the block hash map file pointed to by the relative path.
+ * @param relpath The relative path of the actual data file.
+ * @return 0 on success. -1 on failure.
+ */
 int hashmap_builder::read_block_hashmap(std::vector<char> &bhmap_data, std::string &bhmap_file, const std::string &relpath)
 {
-    bhmap_file.reserve(ctx.block_hashmap_dir.length() + relpath.length() + HASHMAP_EXT_LEN);
-    bhmap_file.append(ctx.block_hashmap_dir).append(relpath).append(HASHMAP_EXT);
+    bhmap_file.reserve(ctx.block_hashmap_dir.length() + relpath.length() + BLOCK_HASHMAP_EXT_LEN);
+    bhmap_file.append(ctx.block_hashmap_dir).append(relpath).append(BLOCK_HASHMAP_EXT);
 
     if (boost::filesystem::exists(bhmap_file))
     {
@@ -137,11 +147,18 @@ int hashmap_builder::read_block_hashmap(std::vector<char> &bhmap_data, std::stri
     return 0;
 }
 
-int hashmap_builder::get_block_index(std::map<uint32_t, hasher::B2H> &idxmap, uint32_t &totalblockcount, const std::string &file_relpath)
+/**
+ * Reads the delta block index of a file.
+ * @param idxmap Map to copy the block index contents (block id --> hash).
+ * @param total_block_count Reference to hold the total block count of the original data file.
+ * @param file_relpath Relative path to the data file.
+ * @return 0 on success. -1 on failure.
+ */
+int hashmap_builder::get_delta_block_index(std::map<uint32_t, hasher::B2H> &idxmap, uint32_t &total_block_count, const std::string &file_relpath)
 {
     std::string bindexfile;
-    bindexfile.reserve(ctx.deltadir.length() + file_relpath.length() + BLOCKINDEX_EXT_LEN);
-    bindexfile.append(ctx.deltadir).append(file_relpath).append(BLOCKINDEX_EXT);
+    bindexfile.reserve(ctx.delta_dir.length() + file_relpath.length() + BLOCK_INDEX_EXT_LEN);
+    bindexfile.append(ctx.delta_dir).append(file_relpath).append(BLOCK_INDEX_EXT);
 
     if (boost::filesystem::exists(bindexfile))
     {
@@ -156,7 +173,7 @@ int hashmap_builder::get_block_index(std::map<uint32_t, hasher::B2H> &idxmap, ui
             // First 8 bytes contain the original file length.
             off_t orifilelen;
             memcpy(&orifilelen, bindex.data(), 8);
-            totalblockcount = ceil((double)orifilelen / (double)BLOCK_SIZE);
+            total_block_count = ceil((double)orifilelen / (double)BLOCK_SIZE);
 
             // Skip the first 8 bytes and loop through index entries.
             for (uint32_t idxoffset = 8; idxoffset < bindex.size();)
@@ -186,9 +203,21 @@ int hashmap_builder::get_block_index(std::map<uint32_t, hasher::B2H> &idxmap, ui
     return 0;
 }
 
-int hashmap_builder::update_hashes_with_backup_blockhints(
-    hasher::B2H *hashes, const off_t hashes_size, const std::string &relpath, const int orifd,
-    const uint32_t block_count, const uint32_t original_block_count, const std::map<uint32_t, hasher::B2H> &bindex, const std::vector<char> &bhmap_data)
+/**
+ * Updates the hash map with the use of delta backup block ids.
+ * @param hashes Pointer to the hash array to copy the block hashes after the update.
+ * @param hashes_size Byte length of the hashes array.
+ * @param relpath Relative path of the data file.
+ * @param orifd An open file descriptor to the data file.
+ * @param block_count Block count of the updated file.
+ * @param original_block_count Original block count before the update.
+ * @param bindex Delta backup block index map.
+ * @param bhmap_data Contents of the existing block hash map.
+ * @return 0 on success. -1 on failure.
+ */
+int hashmap_builder::update_hashes_with_backup_block_hints(
+    hasher::B2H *hashes, const off_t hashes_size, const std::string &relpath, const int orifd, const uint32_t block_count,
+    const uint32_t original_block_count, const std::map<uint32_t, hasher::B2H> &bindex, const std::vector<char> &bhmap_data)
 {
     uint32_t nohint_blockstart = 0;
 
@@ -201,14 +230,14 @@ int hashmap_builder::update_hashes_with_backup_blockhints(
         memcpy(hashes, bhmap_data.data(), hashes_size < bhmap_data.size() ? hashes_size : bhmap_data.size());
 
         // Refer to the block index and rehash the changed blocks.
-        for (const auto [blockid, oldhash] : bindex)
+        for (const auto [block_id, old_hash] : bindex)
         {
-            // If the blockid from the block index is no longer there, that means the current file is
+            // If the block_id from the block index is no longer there, that means the current file is
             // shorter than the previous version. So we can stop hashing at this point.
-            if (blockid >= block_count)
+            if (block_id >= block_count)
                 break;
 
-            if (compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
+            if (compute_blockhash(hashes[block_id + 1], block_id, orifd, relpath) == -1)
                 return -1;
         }
 
@@ -221,9 +250,9 @@ int hashmap_builder::update_hashes_with_backup_blockhints(
     }
 
     //Hash any additional blocks that has to be hashed without the guidance of block index.
-    for (uint32_t blockid = nohint_blockstart; blockid < block_count; blockid++)
+    for (uint32_t block_id = nohint_blockstart; block_id < block_count; block_id++)
     {
-        if (compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
+        if (compute_blockhash(hashes[block_id + 1], block_id, orifd, relpath) == -1)
             return -1;
     }
 
@@ -240,6 +269,17 @@ int hashmap_builder::update_hashes_with_backup_blockhints(
     return 0;
 }
 
+/**
+ * Updates the hash map with the use of list of updated block ids.
+ * @param hashes Pointer to the hash array to copy the block hashes after the update.
+ * @param hashes_size Byte length of the hashes array.
+ * @param relpath Relative path of the data file.
+ * @param orifd An open file descriptor to the data file.
+ * @param block_count Block count of the updated file.
+ * @param bindex Map of updated block ids and new hashes.
+ * @param bhmap_data Contents of the existing block hash map.
+ * @return 0 on success. -1 on failure.
+ */
 int hashmap_builder::update_hashes_with_changed_block_hints(
     hasher::B2H *hashes, const off_t hashes_size, const std::string &relpath, const int orifd,
     const uint32_t block_count, const std::map<uint32_t, hasher::B2H> &bindex, const std::vector<char> &bhmap_data)
@@ -255,15 +295,15 @@ int hashmap_builder::update_hashes_with_changed_block_hints(
             memcpy(hashes, bhmap_data.data(), hashes_size < bhmap_data.size() ? hashes_size : bhmap_data.size());
 
         // Refer to the block index and overlay the new hash into the hashes array.
-        for (const auto [blockid, newhash] : bindex)
-            hashes[blockid + 1] = newhash;
+        for (const auto [block_id, new_hash] : bindex)
+            hashes[block_id + 1] = new_hash;
 
         // If the block hash map didn't existed, we need to calculate and fill the unchanged block hashes from the actual file.
         if (bhmap_data.empty())
         {
-            for (uint32_t blockid = 0; blockid < block_count; blockid++)
+            for (uint32_t block_id = 0; block_id < block_count; block_id++)
             {
-                if (bindex.count(blockid) == 0 && compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
+                if (bindex.count(block_id) == 0 && compute_blockhash(hashes[block_id + 1], block_id, orifd, relpath) == -1)
                     return -1;
             }
         }
@@ -271,9 +311,9 @@ int hashmap_builder::update_hashes_with_changed_block_hints(
     else
     {
         // If we don't have the changed block index, we have to hash the entire file blocks again.
-        for (uint32_t blockid = 0; blockid < block_count; blockid++)
+        for (uint32_t block_id = 0; block_id < block_count; block_id++)
         {
-            if (compute_blockhash(hashes[blockid + 1], blockid, orifd, relpath) == -1)
+            if (compute_blockhash(hashes[block_id + 1], block_id, orifd, relpath) == -1)
                 return -1;
         }
     }
@@ -291,22 +331,37 @@ int hashmap_builder::update_hashes_with_changed_block_hints(
     return 0;
 }
 
-int hashmap_builder::compute_blockhash(hasher::B2H &hash, uint32_t blockid, int filefd, const std::string &relpath)
+/**
+ * Calculates the hash of the specified block id of a file.
+ * @param hash Reference to assign the calculated hash.
+ * @param block_id Id of the block to be hashed.
+ * @param filefd Open file descriptor for the state data file.
+ * @param relpath Relative path of the state data file.
+ * @return 0 on success. -1 on failure.
+ */
+int hashmap_builder::compute_blockhash(hasher::B2H &hash, const uint32_t block_id, const int filefd, const std::string &relpath)
 {
     // Allocating block buffer on the heap to avoid filling limited stack space.
-    std::unique_ptr<char[]> blockbuf = std::make_unique<char[]>(BLOCK_SIZE);
-    const off_t blockoffset = BLOCK_SIZE * blockid;
-    size_t bytesread = pread(filefd, blockbuf.get(), BLOCK_SIZE, blockoffset);
-    if (bytesread == -1)
+    std::unique_ptr<char[]> block_buf = std::make_unique<char[]>(BLOCK_SIZE);
+    const off_t block_offset = BLOCK_SIZE * block_id;
+    size_t bytes_read = pread(filefd, block_buf.get(), BLOCK_SIZE, block_offset);
+    if (bytes_read == -1)
     {
         LOG_ERR << errno << ": Read failed " << relpath;
         return -1;
     }
 
-    hash = hasher::hash(&blockoffset, 8, blockbuf.get(), bytesread);
+    hash = hasher::hash(&block_offset, 8, block_buf.get(), bytes_read);
     return 0;
 }
 
+/**
+ * Saves the block hash map into the relevant .bhmap file.
+ * @param bhmap_file Full path to the block hash map file.
+ * @param hashes Pointer to the hashes array containing the root hash and block hashes.
+ * @param hashes_size Byte length of the hashes array.
+ * @return 0 on success. -1 on failure.
+ */
 int hashmap_builder::write_block_hashmap(const std::string &bhmap_file, const hasher::B2H *hashes, const off_t hashes_size)
 {
     int hmapfd = open(bhmap_file.c_str(), O_RDWR | O_TRUNC | O_CREAT, FILE_PERMS);
@@ -334,49 +389,66 @@ int hashmap_builder::write_block_hashmap(const std::string &bhmap_file, const ha
     close(hmapfd);
 }
 
-int hashmap_builder::update_hashtree_entry(hasher::B2H &parent_dir_hash, const bool oldbhmap_exists, const hasher::B2H old_file_hash, const hasher::B2H newfilehash, const std::string &bhmap_file, const std::string &relpath)
+/**
+ * Updates a file hash and adjust parent dir hash of the hash tree.
+ * @param parent_dir_hash Current hash of the parent dir. This will be assigned the new hash after the update.
+ * @param old_bhmap_exists Whether the block hash map file already exists or not.
+ * @param old_file_hash Old file hash. (0000 if this is a new file)
+ * @param new_file_hash New file hash.
+ * @param bhmap_file Full path to the block hash map file.
+ * @param relpath Relative path to the state data file.
+ * @return 0 on success. -1 on failure.
+ */
+int hashmap_builder::update_hashtree_entry(hasher::B2H &parent_dir_hash, const bool old_bhmap_exists, const hasher::B2H old_file_hash,
+                                           const hasher::B2H new_file_hash, const std::string &bhmap_file, const std::string &relpath)
 {
-    std::string hardlinkdir(ctx.hashtreedir);
-    const std::string relpathdir = boost::filesystem::path(relpath).parent_path().string();
+    std::string hardlink_dir(ctx.hashtree_dir);
+    const std::string relpath_dir = boost::filesystem::path(relpath).parent_path().string();
 
-    hardlinkdir.append(relpathdir);
-    if (relpathdir != "/")
-        hardlinkdir.append("/");
+    hardlink_dir.append(relpath_dir);
+    if (relpath_dir != "/")
+        hardlink_dir.append("/");
 
-    std::stringstream newhlpath;
-    newhlpath << hardlinkdir << newfilehash << ".rh";
+    std::stringstream new_hl_path;
+    new_hl_path << hardlink_dir << new_file_hash << ".rh";
 
     // TODO: Even though we maintain hardlinks named after the file hash, we don't actually utilize them elsewhere.
     // The intention is to be able to get a hash listing of the entire directory. Such ability is useful to serve state
     // requests. However since state requests need the file name along with the hash we have to resort to iterating each
     // .bhmap file and reading the file hash from first 32 bytes.
 
-    if (oldbhmap_exists)
+    if (old_bhmap_exists)
     {
         // Rename the existing hard link if old block hash map existed.
         // We thereby assume the old hard link also existed.
         std::stringstream oldhlpath;
-        oldhlpath << hardlinkdir << old_file_hash << ".rh";
-        if (rename(oldhlpath.str().c_str(), newhlpath.str().c_str()) == -1)
+        oldhlpath << hardlink_dir << old_file_hash << ".rh";
+        if (rename(oldhlpath.str().c_str(), new_hl_path.str().c_str()) == -1)
             return -1;
 
         // Subtract the old root hash and add the new root hash from the parent dir hash.
         parent_dir_hash ^= old_file_hash;
-        parent_dir_hash ^= newfilehash;
+        parent_dir_hash ^= new_file_hash;
     }
     else
     {
         // Create a new hard link with new root hash as the name.
-        if (link(bhmap_file.c_str(), newhlpath.str().c_str()) == -1)
+        if (link(bhmap_file.c_str(), new_hl_path.str().c_str()) == -1)
             return -1;
 
         // Add the new root hash to parent hash.
-        parent_dir_hash ^= newfilehash;
+        parent_dir_hash ^= new_file_hash;
     }
 
     return 0;
 }
 
+/**
+ * Removes an existing block hash map file. Caled when deleting a state data file.
+ * @param parent_dir_hash Current hash of the parent dir. This will be assigned the new hash after the update.
+ * @param Full path to the block hash map file.
+ * @return 0 on success. -1 on failure.
+ */
 int hashmap_builder::remove_hashmapfile(hasher::B2H &parent_dir_hash, const std::string &bhmap_file)
 {
     if (boost::filesystem::exists(bhmap_file))
@@ -405,16 +477,16 @@ int hashmap_builder::remove_hashmapfile(hasher::B2H &parent_dir_hash, const std:
         }
 
         // Delete the hardlink of the .bhmap file.
-        std::string hardlinkdir(ctx.hashtreedir);
+        std::string hardlink_dir(ctx.hashtree_dir);
         const std::string relpath = get_relpath(bhmap_file, ctx.block_hashmap_dir);
-        const std::string relpathdir = boost::filesystem::path(relpath).parent_path().string();
+        const std::string relpath_dir = boost::filesystem::path(relpath).parent_path().string();
 
-        hardlinkdir.append(relpathdir);
-        if (relpathdir != "/")
-            hardlinkdir.append("/");
+        hardlink_dir.append(relpath_dir);
+        if (relpath_dir != "/")
+            hardlink_dir.append("/");
 
         std::stringstream hlpath;
-        hlpath << hardlinkdir << filehash << ".rh";
+        hlpath << hardlink_dir << filehash << ".rh";
         if (remove(hlpath.str().c_str()) == -1)
         {
             LOG_ERR << errno << ": Delete failed for hard link " << filehash << " of " << bhmap_file;

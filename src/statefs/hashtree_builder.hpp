@@ -14,7 +14,7 @@ typedef std::unordered_map<std::string, std::unordered_set<std::string>> hintpat
 class hashtree_builder
 {
 private:
-    const statedir_context ctx;
+    const state_dir_context ctx;
     hashmap_builder hmapbuilder;
 
     // Hint path map with parent dir as key and list of file paths under each parent dir.
@@ -37,13 +37,13 @@ private:
     bool should_process_dir(hintpath_map::iterator &hintsubdir_itr, const std::string &dirpath);
     bool should_process_file(const hintpath_map::iterator hintdir_itr, const std::string filepath);
     int process_file(hasher::B2H &parent_dir_hash, const std::string &filepath, const std::string &htreedirpath);
-    int update_hashtree_entry(hasher::B2H &parent_dir_hash, const bool oldbhmap_exists, const hasher::B2H old_file_hash, const hasher::B2H newfilehash, const std::string &bhmap_file, const std::string &relpath);
+    int update_hashtree_entry(hasher::B2H &parent_dir_hash, const bool old_bhmap_exists, const hasher::B2H old_file_hash, const hasher::B2H new_file_hash, const std::string &bhmap_file, const std::string &relpath);
     void populate_hintpaths_from_idxfile(const char *const idxfile);
     void insert_hintpath(const std::string &relpath);
     bool get_hinteddir_match(hintpath_map::iterator &matchitr, const std::string &dirpath);
 
 public:
-    hashtree_builder(const statedir_context &ctx);
+    hashtree_builder(const state_dir_context &ctx);
     int generate(hasher::B2H &roothash);
     int generate(hasher::B2H &roothash, const bool force_all);
     int generate(hasher::B2H &roothash, const std::unordered_map<std::string, std::map<uint32_t, hasher::B2H>> &touchedfiles);

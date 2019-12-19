@@ -11,13 +11,13 @@ namespace statefs
 // Look at new files added and delete them if still exist.
 void state_restore::delete_newfiles()
 {
-    std::string indexfile(ctx.deltadir);
-    indexfile.append(IDX_NEWFILES);
+    std::string indexfile(ctx.delta_dir);
+    indexfile.append(IDX_NEW_FILES);
 
     std::ifstream infile(indexfile);
     for (std::string file; std::getline(infile, file);)
     {
-        std::string filepath(ctx.datadir);
+        std::string filepath(ctx.data_dir);
         filepath.append(file);
 
         remove(filepath.c_str());
@@ -31,8 +31,8 @@ int state_restore::restore_touchedfiles()
 {
     std::unordered_set<std::string> processed;
 
-    std::string indexfile(ctx.deltadir);
-    indexfile.append(IDX_TOUCHEDFILES);
+    std::string indexfile(ctx.delta_dir);
+    indexfile.append(IDX_TOUCHED_FILES);
 
     std::ifstream infile(indexfile);
     for (std::string file; std::getline(infile, file);)
@@ -59,8 +59,8 @@ int state_restore::restore_touchedfiles()
 // Read the delta block index.
 int state_restore::read_blockindex(std::vector<char> &buffer, std::string_view file)
 {
-    std::string bindexfile(ctx.deltadir);
-    bindexfile.append(file).append(BLOCKINDEX_EXT);
+    std::string bindexfile(ctx.delta_dir);
+    bindexfile.append(file).append(BLOCK_INDEX_EXT);
     std::ifstream infile(bindexfile, std::ios::binary | std::ios::ate);
     std::streamsize idxsize = infile.tellg();
     infile.seekg(0, std::ios::beg);
@@ -87,8 +87,8 @@ int state_restore::restore_blocks(std::string_view file, const std::vector<char>
 
     // Open block cache file.
     {
-        std::string bcachefile(ctx.deltadir);
-        bcachefile.append(file).append(BLOCKCACHE_EXT);
+        std::string bcachefile(ctx.delta_dir);
+        bcachefile.append(file).append(BLOCK_CACHE_EXT);
         bcachefd = open(bcachefile.c_str(), O_RDONLY);
         if (bcachefd <= 0)
         {
@@ -99,7 +99,7 @@ int state_restore::restore_blocks(std::string_view file, const std::vector<char>
 
     // Create or Open original file.
     {
-        std::string originalfile(ctx.datadir);
+        std::string originalfile(ctx.data_dir);
         originalfile.append(file);
 
         // Create directory tree if not exist so we are able to create the file.
@@ -154,12 +154,12 @@ void state_restore::rewind_checkpoints()
     // we need to shift each history delta by 1 place.
 
     // Delete the state 0 (current) delta.
-    boost::filesystem::remove_all(ctx.deltadir);
+    boost::filesystem::remove_all(ctx.delta_dir);
 
     int16_t oldest_chkpnt = (MAX_CHECKPOINTS + 1) * -1; // +1 because we maintain one extra checkpoint in case of rollbacks.
     for (int16_t chkpnt = -1; chkpnt >= oldest_chkpnt; chkpnt--)
     {
-        std::string dir = get_statedir_root(chkpnt);
+        std::string dir = get_state_dir_root(chkpnt);
 
         if (boost::filesystem::exists(dir))
         {
@@ -167,12 +167,12 @@ void state_restore::rewind_checkpoints()
             {
                 // Shift -1 state delta dir to 0-state and delete -1 dir.
                 std::string delta_1 = dir + DELTA_DIR;
-                boost::filesystem::rename(delta_1, ctx.deltadir);
+                boost::filesystem::rename(delta_1, ctx.delta_dir);
                 boost::filesystem::remove_all(dir);
             }
             else
             {
-                std::string dirshift = get_statedir_root(chkpnt + 1);
+                std::string dirshift = get_state_dir_root(chkpnt + 1);
                 boost::filesystem::rename(dir, dirshift);
             }
         }
@@ -182,7 +182,7 @@ void state_restore::rewind_checkpoints()
 // Rolls back current state to previous state.
 int state_restore::rollback(hasher::B2H &roothash)
 {
-    ctx = get_statedir_context();
+    ctx = get_state_dir_context();
 
     delete_newfiles();
     if (restore_touchedfiles() == -1)
