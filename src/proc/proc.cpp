@@ -101,11 +101,22 @@ int exec_contract(const contract_exec_args &args)
 
         LOG_DBG << "Starting contract process...";
 
+
+        bool using_appbill = conf::cfg.appbill != "";
+
+        int len = conf::cfg.runtime_binexec_args.size() + 1;
+        if (using_appbill) len += conf::cfg.runtime_appbill_args.size();
+
         // Fill process args.
-        char *execv_args[conf::cfg.runtime_binexec_args.size() + 1];
-        for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++)
-            execv_args[i] = conf::cfg.runtime_binexec_args[i].data();
-        execv_args[conf::cfg.runtime_binexec_args.size()] = NULL;
+        char *execv_args[len];
+        int j = 0;
+        if (using_appbill) 
+            for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++, j++)
+                execv_args[i] = conf::cfg.runtime_binexec_args[i].data();
+
+        for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++, j++)
+            execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
+        execv_args[len-1] = NULL;
 
         int ret = execv(execv_args[0], execv_args);
         LOG_ERR << "Contract process execv failed: " << ret;
