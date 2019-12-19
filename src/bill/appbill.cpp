@@ -416,7 +416,7 @@ int pass_through_mode(int argc, char** argv) {
                 putc(x, newuserfile);
             }
            
-            close(userpipe[1]);
+            fclose(newuserfile);
             fclose(userfile);
             dup2(userpipe[0], userfd);
 
