@@ -48,7 +48,7 @@ do
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
             binargs: './bin/contract.js', \
-            appbill: './bin/appbill', \
+            appbill: 'appbill', \
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
@@ -66,6 +66,7 @@ do
     # Copy the contract executable.
     mkdir ./node$n/bin
     cp ../examples/echocontract/contract.js ./node$n/bin/contract.js
+    cp ../examples/appbill/appbill ./node$n/bin/
 done
 
 # Function to generate JSON array string while skiping a given index.

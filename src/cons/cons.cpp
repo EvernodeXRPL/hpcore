@@ -347,7 +347,7 @@ void verify_and_populate_candidate_user_inputs()
                         int pid = fork();
                         if (pid == 0) {
                             //todo: before execution chdir into a valid state directory that contains an appbill.table
-                            
+                            // ravin please advise how to fetch the correct path to most recent consensus state  
                             int ret = execv(execv_args[0], execv_args);
                             LOG_ERR << "Appbill process execv failed: " << ret;
                         } else {
