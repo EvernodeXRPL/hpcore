@@ -572,15 +572,16 @@ int check_mode(int argc, char** argv, int print_balances) {
     if (DEBUG)
         printf("check mode\n");
 
-    if (argc > 7 && !print_balances) {
+    if (argc > 14 && !print_balances) {
         fprintf(stderr, "appbill can only take up to 7 keys at a time\n");
         return 128;
     }
 
-    if (correct_for_ed_keys(argc, argv, 1, 0))
+    if (correct_for_ed_keys(argc, argv, 2, 0))
         return 128;
     
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 0; i < argc; i+=2) {
+        // check the pubkey
         for (char* x = argv[i];; ++x) {
             if ( x - argv[i] == KEY_SIZE*2 && *x != '\0' ) {
                 fprintf(stderr, "appbill was supplied an invalid public key\n");
@@ -596,6 +597,15 @@ int check_mode(int argc, char** argv, int print_balances) {
             fprintf(stderr, "appbill was supplied an invalid public key (not hex) char=%c\n", *x);
             return 128;
         }
+
+        // check the bytecount
+        for (char* x = argv[i+1]; *x != '\0'; ++x) {
+            if (*x >= '0' && *x <= '9')
+                continue;
+            fprintf(stderr, "appbill was supplied invalid byte count %s\n", argv[i+1]);
+            return 128;
+        }
+        
     }
 
     if (print_balances)
@@ -617,16 +627,19 @@ int check_mode(int argc, char** argv, int print_balances) {
         bits[i] = 0;
 
     // loop keys, check balances
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 0, j = 0; i < argc; i+=2, ++j) {
         // convert the argv from hex to binary 
         uint8_t key[32];
         key_from_hex((uint8_t*)argv[i], key);
+
+        uint32_t bytecount = 0;
+        sscanf(argv[i+1], "%d", &bytecount);
 
         int error = 0;
         uint64_t balance = 0;
         size_t recordno = 0;
         if (binary_file_search(f, key, 0, &balance, &recordno, &error)) {
-            if (i < 7) bits[i] = 1;
+            if (j < 7) bits[j] = balance > bytecount;
             if (print_balances) {
                 printf("\t\"");
                 print_hex(key, KEY_SIZE);

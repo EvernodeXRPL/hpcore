@@ -335,6 +335,11 @@ void verify_and_populate_candidate_user_inputs()
                     if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
                     {
 
+                        std::string nonce;
+                        std::string input;
+                        uint64_t maxledgerseqno;
+                        jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
+
                         // execute appbill in --check mode to verify this user can submit a packet/connection to the network
                         // todo: this can be made more efficient, appbill --check can process 7 at a time
 
@@ -343,16 +348,18 @@ void verify_and_populate_candidate_user_inputs()
                             // app bill is enabled, so run it in --check mode
 
                             // Fill appbill args 
-                            int len = conf::cfg.runtime_appbill_args.size() + 3;
+                            int len = conf::cfg.runtime_appbill_args.size() + 4;
                             char *execv_args[len];
                             for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
                                 execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
                             char option[] = "--check";
-                            execv_args[len - 3] = option;
+                            execv_args[len - 4] = option;
                             // add the hex encoded public key as the last parameter
                             std::string hexpubkey;
                             util::bin2hex(hexpubkey, (unsigned char*) pubkey.data(), pubkey.size());
-                            execv_args[len - 2] = hexpubkey.data();
+                            std::string inputsize = std::to_string(input.size());
+                            execv_args[len - 3] = hexpubkey.data();
+                            execv_args[len - 2] = inputsize.data();
                             execv_args[len - 1] = NULL;
 
                             for (int i = 0; i < len - 1; ++i)
@@ -373,7 +380,7 @@ void verify_and_populate_candidate_user_inputs()
                                 if (status != 128 && status != 0) {
                                     // this user's key passed appbill
                                     // do nothing
-                                    LOG_DBG << "Appbill passed " << hexpubkey;
+                                    LOG_DBG << "Appbill passed " << hexpubkey << " return code was " << status;
                                 } else {
                                     // user's key did not pass, do not add to user input candidates
                                     LOG_DBG << "Appbill failed " << hexpubkey << " return code was " << status;
@@ -383,10 +390,6 @@ void verify_and_populate_candidate_user_inputs()
                         }
                         
 
-                        std::string nonce;
-                        std::string input;
-                        uint64_t maxledgerseqno;
-                        jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
 
                         // Ignore the input if our ledger has passed the input TTL.
                         if (maxledgerseqno > ctx.led_seq_no)
