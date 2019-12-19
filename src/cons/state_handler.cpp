@@ -35,7 +35,7 @@ void request_state_from_peer(const std::string &path, const bool is_file, const 
 
     p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
     fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, lcl);
-    p2p::send_message_to_random_peer(msg);
+    p2p::send_message_to_random_peer(msg); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
 }
 
 int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_request &sr)
