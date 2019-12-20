@@ -113,8 +113,12 @@ int verify_challenge(std::string_view message, sock::socket_session<user_outboun
 int handle_user_message(connected_user &user, std::string_view message)
 {
     rapidjson::Document d;
+    const char *msg_type = jusrmsg::MSGTYPE_UNKNOWN;
+
     if (jusrmsg::parse_user_message(d, message) == 0)
     {
+        const char *msg_type = d[jusrmsg::FLD_TYPE].GetString();
+
         // Message is a contract input message.
         if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
         {
@@ -130,23 +134,45 @@ int handle_user_message(connected_user &user, std::string_view message)
                     std::move(sig)));
                 return 0;
             }
+            else
+            {
+                send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_SIG, msg_type, jusrmsg::origin_data_for_contract_input(sig));
+                return -1;
+            }
         }
         else if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_STAT)
         {
             std::string msg;
-            LOG_DBG << msg;
             jusrmsg::create_status_response(msg);
             user.session->send(user_outbound_message(std::move(msg)));
             return 0;
         }
         else
         {
-            LOG_DBG << "Invalid user message type: " << d[jusrmsg::FLD_TYPE].GetString();
+            LOG_DBG << "Invalid user message type: " << msg_type;
+            send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_INVALID_MSG_TYPE, msg_type, "");
+            return -1;
         }
     }
+    else
+    {
+        // Bad message.
+        send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, msg_type, "");
+        return -1;
+    }
+}
 
-    // Bad message.
-    return -1;
+/**
+ * Send the specified status result via the provided session.
+ */
+void send_request_status_result(sock::socket_session<user_outbound_message> *session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data)
+{
+    if (session != NULL)
+    {
+        std::string msg;
+        jusrmsg::create_request_status_result(msg, status, reason, origin_type, origin_extra_data);
+        session->send(usr::user_outbound_message(std::move(msg)));
+    }
 }
 
 /**
@@ -203,6 +229,24 @@ int remove_user(const std::string &sessionid)
 
     ctx.users.erase(itr);
     return 0;
+}
+
+/**
+ * Finds and returns the socket session for the proided user pubkey.
+ * @param pubkey User binary pubkey.
+ * @return Pointer to the socket session. NULL of not found.
+ */
+sock::socket_session<usr::user_outbound_message> *get_session_by_pubkey(const std::string &pubkey)
+{
+    const auto sessionid_itr = usr::ctx.sessionids.find(pubkey);
+    if (sessionid_itr != usr::ctx.sessionids.end())
+    {
+        const auto user_itr = usr::ctx.users.find(sessionid_itr->second);
+        if (user_itr != usr::ctx.users.end())
+            return user_itr->second.session;
+    }
+
+    return NULL;
 }
 
 /**

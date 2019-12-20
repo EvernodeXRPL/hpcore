@@ -29,6 +29,9 @@ constexpr const char *FLD_CONTENT = "content";
 constexpr const char *FLD_NONCE = "nonce";
 constexpr const char *FLD_LCL = "lcl";
 constexpr const char *FLD_LCL_SEQ = "lcl_seqno";
+constexpr const char *FLD_STATUS = "status";
+constexpr const char *FLD_ORIGIN = "origin";
+constexpr const char *FLD_REASON = "reason";
 
 // Length of user random challenge bytes.
 const size_t CHALLENGE_LEN = 16;
@@ -86,7 +89,7 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
  *            Message format:
  *            {
  *              "type": "stat_resp",
- *              "lcl": "<lcl id>"
+ *              "lcl": "<lcl id>",
  *              "lcl_seqno": <integer>
  *            }
  */
@@ -106,6 +109,69 @@ void create_status_response(std::string &msg)
         .append(SEP_COLON_NOQUOTE)
         .append(std::to_string(cons::ctx.led_seq_no))
         .append("}");
+}
+
+/**
+ * Constructs a request result message.
+ * @param msg String reference to copy the generated json message string into.
+ *            Message format:
+ *            {
+ *              "type": "request_status_result",
+ *              "status": "<accepted|rejected>",
+ *              "reason": "",
+ *              "origin": {
+ *                  "type": "<original msg type>",
+ *                  ...
+ *              }
+ *            }
+ * @param is_accepted Whether the original message was accepted or not.
+ * @param reason Rejected reason. Empty if accepted.
+ * @param origin_type Original message type which generated this result.
+ * @param origin_extra_data Extra field data string to be injected into origin.
+ */
+void create_request_status_result(std::string &msg, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data)
+{
+    msg.reserve(128);
+    msg.append("{\"")
+        .append(FLD_TYPE)
+        .append(SEP_COLON)
+        .append(MSGTYPE_REQUEST_STATUS_RESULT)
+        .append(SEP_COMMA)
+        .append(FLD_STATUS)
+        .append(SEP_COLON)
+        .append(status)
+        .append(SEP_COMMA)
+        .append(FLD_REASON)
+        .append(SEP_COLON)
+        .append(reason)
+        .append(SEP_COMMA)
+        .append(FLD_ORIGIN)
+        .append(":{")
+        .append(FLD_TYPE)
+        .append(SEP_COMMA)
+        .append(origin_type)
+        .append("\"")
+        .append(origin_extra_data)
+        .append("}}");
+}
+
+/**
+ * Returns concatenated string for contract input origin data fields to be included in request result.
+ * @param sig Binary singature of the original contract input.
+ */
+std::string origin_data_for_contract_input(std::string_view sig)
+{
+    std::string sighex;
+    util::bin2hex(sighex, reinterpret_cast<const unsigned char *>(sig.data()), sig.length());
+
+    std::string extra_data;
+    extra_data.append(",\"")
+        .append(FLD_SIG)
+        .append(SEP_COLON)
+        .append(sighex)
+        .append("\"");
+
+    return extra_data;
 }
 
 /**
