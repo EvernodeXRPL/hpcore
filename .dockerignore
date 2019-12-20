@@ -1,5 +1,0 @@
-**/**
-!build/hpcore
-!build/hpstatemon
-!libfuse3.so.3
-!fusermount3
