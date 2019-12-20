@@ -327,8 +327,9 @@ void verify_and_populate_candidate_user_inputs()
             // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
 
-            // Collect valid inputs for this user.
-            std::unordered_map<std::string, candidate_user_input> valid_inputs;
+            // Keep track of total input length to verify against remaining balance.
+            // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
+            size_t total_input_len = 0;
 
             for (const usr::user_submitted_message &umsg : umsgs)
             {
@@ -353,9 +354,20 @@ void verify_and_populate_candidate_user_inputs()
                             // Append the hash of the message signature to get the final hash.
                             hash.append(sig_hash);
 
-                            valid_inputs.try_emplace(
-                                hash,
-                                candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                            // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
+                            total_input_len += input.length();
+                            if (verify_appbill_check(pubkey, total_input_len))
+                            {
+                                ctx.candidate_user_inputs.try_emplace(
+                                    hash,
+                                    candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                            }
+                            else
+                            {
+                                // Abandon processing further inputs from this user when we find out
+                                // an input cannot be processed with the account balance.
+                                break;
+                            }
                         }
                     }
                 }
@@ -364,14 +376,6 @@ void verify_and_populate_candidate_user_inputs()
                     LOG_DBG << "Duplicate user message.";
                 }
             }
-
-            // Verify the accumulated input length with app bill before adding to candidate inputs.
-            size_t total_input_len = 0;
-            for (const auto &[hash, cand_input] : valid_inputs)
-                total_input_len += cand_input.input.size();
-
-            if (verify_appbill_check(pubkey, total_input_len))
-                ctx.candidate_user_inputs.merge(valid_inputs);
 
             // TODO: report back to the user if the inputs didn't make it into consensus due to some reason.
         }
