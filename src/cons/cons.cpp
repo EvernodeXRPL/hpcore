@@ -132,7 +132,10 @@ void consensus()
 
         // In stage 0 we create a novel proposal and broadcast it.
         const p2p::proposal stg_prop = create_stage0_proposal();
-        broadcast_proposal(stg_prop);
+
+        // In observing mode, we do not send out any proposals.
+        if (conf::cfg.mode != conf::OPERATING_MODE::OBSERVING)
+            broadcast_proposal(stg_prop);
     }
     else // Stage 1, 2, 3
     {
@@ -213,7 +216,10 @@ void consensus()
         {
             // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
             const p2p::proposal stg_prop = create_stage123_proposal(votes);
-            broadcast_proposal(stg_prop);
+
+            // In observing mode, we do not send out any proposals.
+            if (conf::cfg.mode != conf::OPERATING_MODE::OBSERVING)
+                broadcast_proposal(stg_prop);
 
             if (ctx.stage == 3)
             {
@@ -551,10 +557,6 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
-    // In observing mode, we do not send out any proposals.
-    if (conf::cfg.mode == conf::OPERATING_MODE::OBSERVING)
-        return;
-
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
     p2p::broadcast_message(msg, true);

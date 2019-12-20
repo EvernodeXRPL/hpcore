@@ -31,16 +31,13 @@ int init()
     if (validate_contract_dir_paths() != 0 || load_config() != 0 || validate_config() != 0)
         return -1;
 
-    if (cfg.mode == OPERATING_MODE::PROPOSING)
-    {
-        // Append self peer to peer list.
-        const std::string portstr = std::to_string(cfg.peerport);
-        const std::string peerid = "0.0.0.0:" + portstr;
-        cfg.peers.emplace(std::move(peerid), std::make_pair("0.0.0.0", portstr));
+    // Append self peer to peer list.
+    const std::string portstr = std::to_string(cfg.peerport);
+    const std::string peerid = "0.0.0.0:" + portstr;
+    cfg.peers.emplace(std::move(peerid), std::make_pair("0.0.0.0", portstr));
 
-        // Append self pubkey to unl list.
-        cfg.unl.emplace(cfg.pubkey);
-    }
+    // Append self pubkey to unl list.
+    cfg.unl.emplace(cfg.pubkey);
 
     return 0;
 }
@@ -221,18 +218,16 @@ int load_config()
     cfg.appbill = d["appbill"].GetString();
     cfg.appbillargs = d["appbillargs"].GetString();
 
-
     // Populate runtime contract execution args.
     if (!cfg.binargs.empty())
         boost::split(cfg.runtime_binexec_args, cfg.binargs, boost::is_any_of(" "));
-    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), ( cfg.binary[0] == '/' ? cfg.binary : util::realpath( ctx.contractdir + "/bin/" + cfg.binary ) ) );
+    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.binary[0] == '/' ? cfg.binary : util::realpath(ctx.contractdir + "/bin/" + cfg.binary)));
 
-       
     // Populate runtime app bill args.
     if (!cfg.appbillargs.empty())
         boost::split(cfg.runtime_appbill_args, cfg.appbillargs, boost::is_any_of(" "));
 
-    cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(),  ( cfg.appbill[0] == '/' ? cfg.appbill : util::realpath( ctx.contractdir + "/bin/" + cfg.appbill ) ) );
+    cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.appbill[0] == '/' ? cfg.appbill : util::realpath(ctx.contractdir + "/bin/" + cfg.appbill)));
 
     // Uncomment for docker-based execution.
     // std::string volumearg;
