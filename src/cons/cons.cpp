@@ -324,15 +324,20 @@ void verify_and_populate_candidate_user_inputs()
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
+            // Locate this user's socket session in case we need to send any status messages regarding user inputs.
+            sock::socket_session<usr::user_outbound_message> *session = usr::get_session_by_pubkey(pubkey);
+
             // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
 
             // Keep track of total input length to verify against remaining balance.
             // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
             size_t total_input_len = 0;
+            bool appbill_balance_exceeded = false;
 
             for (const usr::user_submitted_message &umsg : umsgs)
             {
+                const char *reject_reason = NULL;
                 const std::string sig_hash = crypto::get_hash(umsg.sig);
 
                 // Check for duplicate messages using hash of the signature.
@@ -349,35 +354,58 @@ void verify_and_populate_candidate_user_inputs()
                         // Ignore the input if our ledger has passed the input TTL.
                         if (maxledgerseqno > ctx.led_seq_no)
                         {
-                            // Hash is prefixed with the nonce to support user-defined sort order.
-                            std::string hash = std::move(nonce);
-                            // Append the hash of the message signature to get the final hash.
-                            hash.append(sig_hash);
-
-                            // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
-                            total_input_len += input.length();
-                            if (verify_appbill_check(pubkey, total_input_len))
+                            if (!appbill_balance_exceeded)
                             {
-                                ctx.candidate_user_inputs.try_emplace(
-                                    hash,
-                                    candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                                // Hash is prefixed with the nonce to support user-defined sort order.
+                                std::string hash = std::move(nonce);
+                                // Append the hash of the message signature to get the final hash.
+                                hash.append(sig_hash);
+
+                                // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
+                                total_input_len += input.length();
+                                if (verify_appbill_check(pubkey, total_input_len))
+                                {
+                                    ctx.candidate_user_inputs.try_emplace(
+                                        hash,
+                                        candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                                }
+                                else
+                                {
+                                    // Abandon processing further inputs from this user when we find out
+                                    // an input cannot be processed with the account balance.
+                                    appbill_balance_exceeded = true;
+                                    reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                }
                             }
                             else
                             {
-                                // Abandon processing further inputs from this user when we find out
-                                // an input cannot be processed with the account balance.
-                                break;
+                                reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                             }
                         }
+                        else
+                        {
+                            LOG_DBG << "User message bad max ledger seq expired.";
+                            reject_reason = jusrmsg::REASON_MAX_LEDGER_EXPIRED;
+                        }
+                    }
+                    else
+                    {
+                        LOG_DBG << "User message bad signature.";
+                        reject_reason = jusrmsg::REASON_BAD_SIG;
                     }
                 }
                 else
                 {
                     LOG_DBG << "Duplicate user message.";
+                    reject_reason = jusrmsg::REASON_DUPLICATE_MSG;
                 }
-            }
 
-            // TODO: report back to the user if the inputs didn't make it into consensus due to some reason.
+                usr::send_request_status_result(session,
+                                                reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
+                                                reject_reason == NULL ? "" : reject_reason,
+                                                jusrmsg::MSGTYPE_CONTRACT_INPUT,
+                                                jusrmsg::origin_data_for_contract_input(umsg.sig));
+            }
         }
     }
     p2p::ctx.collected_msgs.nonunl_proposals.clear();
