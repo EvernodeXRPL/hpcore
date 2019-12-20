@@ -1,5 +1,9 @@
 #!/bin/bash
+
+# VM login password must exist in vmpass.txt
 vmpass=$(cat vmpass.txt)
+# List vm IP addresses of the cluster must exist in iplist.txt
+# (This list will be treated as the node numbers 1,2.3... from topmost IP to the bottom)
 readarray -t vmips < iplist.txt
 
 vmcount=${#vmips[@]}
@@ -9,11 +13,21 @@ hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "run" ] || [ "$mode" = "check" ] || \
    [ "$mode" = "connect" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssh" ]; then
-    echo ""
+    echo "mode: $mode"
 else
     echo "Invalid command. [ new | update | run <N> | check <N> | connect <N> | kill <N> | reboot <N> | ssh <N> <custom command> ] expected."
     exit 1
 fi
+
+# Command modes:
+# new - Install hot pocket dependencies and hot pocket to each vm.
+# update - Deploy updated hot pocket binaries into each vm.
+# run - Run hot pocket of specified vm node.
+# check - Check hot pocket running status of specified vm node.
+# connect - Connect to hot pocket console output (if running) of specified vm node.
+# kill - Kill hot pocket (if running) of specified vm node.
+# reboot - Reboot specified vm node.
+# ssh - Open up an ssh terminal for the specified vm node.
 
 if [ $mode = "run" ]; then
     let nodeid=$2-1
@@ -73,6 +87,8 @@ wait
 if [ $mode = "update" ]; then
     exit 0
 fi
+
+# Following code will only be executed in 'new' mode.
 
 for (( i=0; i<$vmcount; i++ ))
 do
