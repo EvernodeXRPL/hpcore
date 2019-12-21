@@ -21,13 +21,73 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
 link_directories(/usr/local/lib)
 
-add_library(hpsupport
+# We have 3 executable build outputs: appbill, hpstatemon and hpcore
+
+
+#-------appbill-------
+
+add_executable(appbill
+    src/bill/appbill.cpp
+)
+
+
+#-------hpstatemon-------
+
+add_executable(hpstatemon
+    src/statefs/state_monitor/fusefs.cpp
+    src/statefs/state_monitor/state_monitor.cpp
+    src/statefs/hasher.cpp
+    src/statefs/state_common.cpp
+)
+target_link_libraries(hpstatemon
+    libfuse3.so.3
+    libsodium.a
+    libboost_system.a
+    libboost_thread.a
+    libboost_filesystem.a
+    libboost_stacktrace_backtrace.a
+    backtrace
+    pthread
+    crypto
+    ssl
+    ${CMAKE_DL_LIBS} # Needed for stacktrace support
+)
+
+
+#-------hpcore-------
+
+add_executable(hpcore
     src/util.cpp
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
+    src/proc/proc.cpp
+    src/bill/corebill.cpp
+    src/statefs/hasher.cpp
+    src/statefs/state_common.cpp
+    src/statefs/hashmap_builder.cpp
+    src/statefs/hashtree_builder.cpp
+    src/statefs/state_restore.cpp
+    src/statefs/state_store.cpp
+    src/sock/socket_client.cpp
+    src/sock/socket_server.cpp
+    src/sock/socket_message.cpp
+    src/sock/socket_session.cpp
+    src/sock/socket_session_lambda.cpp
+    src/fbschema/common_helpers.cpp
+    src/fbschema/p2pmsg_helpers.cpp
+    src/fbschema/ledger_helpers.cpp
+    src/jsonschema/usrmsg_helpers.cpp
+    src/p2p/peer_session_handler.cpp
+    src/p2p/p2p.cpp
+    src/usr/user_session_handler.cpp
+    src/usr/usr.cpp
+    src/cons/cons.cpp
+    src/cons/ledger_handler.cpp
+    src/cons/state_handler.cpp
+    src/main.cpp
 )
-target_link_libraries(hpsupport
+target_link_libraries(hpcore
     libsodium.a
     libboost_system.a
     libboost_thread.a
@@ -39,94 +99,8 @@ target_link_libraries(hpsupport
     pthread
     crypto
     ssl
-    ${CMAKE_DL_LIBS}
+    ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
-
-add_library(hpstatefs
-    src/statefs/hasher.cpp
-    src/statefs/state_common.cpp
-    src/statefs/hashmap_builder.cpp
-    src/statefs/hashtree_builder.cpp
-    src/statefs/state_restore.cpp
-    src/statefs/state_store.cpp
-)
-target_link_libraries(hpstatefs hpsupport)
-
-add_library(hpproc
-    src/proc/proc.cpp
-)
-target_link_libraries(hpproc hpsupport hpstatefs)
-
-add_library(hpbill
-    src/bill/corebill.cpp
-)
-target_link_libraries(hpbill hpsupport)
-
-add_library(hpsock
-    src/sock/socket_client.cpp
-    src/sock/socket_server.cpp
-    src/sock/socket_message.cpp
-    src/sock/socket_session.cpp
-    src/sock/socket_session_lambda.cpp
-)
-target_link_libraries(hpsock hpsupport hpbill)
-
-add_library(hpschema
-    src/fbschema/common_helpers.cpp
-    src/fbschema/p2pmsg_helpers.cpp
-    src/fbschema/ledger_helpers.cpp
-    src/jsonschema/usrmsg_helpers.cpp
-)
-target_link_libraries(hpschema hpsupport)
-
-add_library(hpp2p
-    src/p2p/peer_session_handler.cpp
-    src/p2p/p2p.cpp
-)
-target_link_libraries(hpp2p hpsupport hpsock hpschema)
-
-add_library(hpusr
-    src/usr/user_session_handler.cpp
-    src/usr/usr.cpp
-)
-target_link_libraries(hpusr hpsupport hpsock hpschema)
-
-add_library(hpcons
-    src/cons/cons.cpp
-    src/cons/ledger_handler.cpp
-    src/cons/state_handler.cpp
-)
-target_link_libraries(hpcons hpsupport hpproc hpp2p hpusr)
-
-add_executable(hpcore
-    src/main.cpp
-)
-target_link_libraries(hpcore
-    hpsupport
-    hpproc
-    hpbill
-    hpschema
-    hpsock
-    hpp2p
-    hpusr
-    hpcons
-)
-
-add_executable(hpstatemon
-    src/statefs/state_monitor/fusefs.cpp
-    src/statefs/state_monitor/state_monitor.cpp
-    src/statefs/hasher.cpp
-    src/statefs/state_common.cpp
-)
-target_link_libraries(hpstatemon
-    hpsupport
-    libfuse3.so.3
-)
-
-add_executable(appbill
-    src/bill/appbill.cpp
-)
-
 add_dependencies(hpcore
     hpstatemon
     appbill
@@ -138,14 +112,8 @@ add_dependencies(hpcore
 #     COMMAND strip ./build/appbill
 # )
     
-target_precompile_headers(hpsupport PUBLIC src/pchheader.hpp)
-target_precompile_headers(hpcore REUSE_FROM hpsupport)
-target_precompile_headers(hpsock REUSE_FROM hpsupport)
-target_precompile_headers(hpschema REUSE_FROM hpsupport)
-target_precompile_headers(hpp2p REUSE_FROM hpsupport)
-target_precompile_headers(hpusr REUSE_FROM hpsupport)
-target_precompile_headers(hpcons REUSE_FROM hpsupport)
-target_precompile_headers(hpstatemon REUSE_FROM hpsupport)
+target_precompile_headers(hpstatemon PUBLIC src/pchheader.hpp)
+target_precompile_headers(hpcore REUSE_FROM hpcore)
 
 # Create docker image from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'
