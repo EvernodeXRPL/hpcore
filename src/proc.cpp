@@ -1,14 +1,14 @@
-#include "../pchheader.hpp"
-#include "../conf.hpp"
-#include "../hplog.hpp"
-#include "../fbschema/common_helpers.hpp"
-#include "../fbschema/p2pmsg_container_generated.h"
-#include "../fbschema/p2pmsg_content_generated.h"
-#include "../statefs/hasher.hpp"
-#include "../statefs/state_common.hpp"
-#include "../statefs/hashtree_builder.hpp"
+#include "pchheader.hpp"
+#include "conf.hpp"
+#include "hplog.hpp"
+#include "fbschema/common_helpers.hpp"
+#include "fbschema/p2pmsg_container_generated.h"
+#include "fbschema/p2pmsg_content_generated.h"
+#include "statefs/hasher.hpp"
+#include "statefs/state_common.hpp"
+#include "statefs/hashtree_builder.hpp"
 #include "proc.hpp"
-#include "../cons/cons.hpp"
+#include "cons/cons.hpp"
 
 namespace proc
 {
@@ -161,7 +161,7 @@ int start_state_monitor()
         // Give enough time for the state monitor to start.
         // We wait until Fuse filesystem is mounted for max number of retries.
         uint16_t retry_count = 0;
-        std::string findmnt_command = FINDMNT_COMMAND + conf::ctx.statedir;
+        std::string findmnt_command = FINDMNT_COMMAND + conf::ctx.state_dir;
         while (retry_count < 50)
         {
             util::sleep(10);
@@ -181,9 +181,9 @@ int start_state_monitor()
 
         // Fill process args.
         char *execv_args[4];
-        execv_args[0] = conf::ctx.statemonexepath.data();
+        execv_args[0] = conf::ctx.statemon_exe_path.data();
         execv_args[1] = conf::ctx.state_hist_dir.data();
-        execv_args[2] = conf::ctx.statedir.data();
+        execv_args[2] = conf::ctx.state_dir.data();
         execv_args[3] = NULL;
 
         int ret = execv(execv_args[0], execv_args);

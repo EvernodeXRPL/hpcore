@@ -61,7 +61,7 @@ add_executable(hpcore
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
-    src/proc/proc.cpp
+    src/proc.cpp
     src/bill/corebill.cpp
     src/statefs/hasher.cpp
     src/statefs/state_common.cpp
@@ -120,7 +120,7 @@ target_precompile_headers(hpcore REUSE_FROM hpcore)
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
   COMMAND cp ./build/hpcore ./build/hpstatemon ./build/appbill ./test/local-cluster/bin/
-  COMMAND cp ./fusebin/fusermount3 ./fusebin/libfuse3.so.3 ./test/local-cluster/bin/
+  COMMAND cp ./test/fusebin/fusermount3 ./test/fusebin/libfuse3.so.3 ./test/local-cluster/bin/
   COMMAND docker build -t hpcore:latest ./test/local-cluster
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)

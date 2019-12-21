@@ -10,7 +10,7 @@
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
-#include "../proc/proc.hpp"
+#include "../proc.hpp"
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 #include "cons.hpp"

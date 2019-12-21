@@ -84,8 +84,8 @@ void remove_old_ledgers(const uint64_t led_seq_no)
 
     std::string dir_path;
 
-    dir_path.reserve(conf::ctx.histdir.size() + 1);
-    dir_path.append(conf::ctx.histdir)
+    dir_path.reserve(conf::ctx.hist_dir.size() + 1);
+    dir_path.append(conf::ctx.hist_dir)
         .append("/");
 
     for (itr = cons::ctx.cache.begin();
@@ -120,8 +120,8 @@ void write_ledger(const std::string &file_name, const char *ledger_raw, size_t l
 
     std::string path;
 
-    path.reserve(file_name.size() + conf::ctx.histdir.size() + 5);
-    path.append(conf::ctx.histdir)
+    path.reserve(file_name.size() + conf::ctx.hist_dir.size() + 5);
+    path.append(conf::ctx.hist_dir)
         .append("/")
         .append(file_name)
         .append(".lcl");
@@ -139,8 +139,8 @@ void write_ledger(const std::string &file_name, const char *ledger_raw, size_t l
 void remove_ledger(const std::string &file_name)
 {
     std::string file_path;
-    file_path.reserve(conf::ctx.histdir.size() + file_name.size() + 5);
-    file_path.append(conf::ctx.histdir)
+    file_path.reserve(conf::ctx.hist_dir.size() + file_name.size() + 5);
+    file_path.append(conf::ctx.hist_dir)
         .append("/")
         .append(file_name)
         .append(".lcl");
@@ -156,18 +156,18 @@ const ledger_history load_ledger()
     ledger_history ldg_hist;
     //Get all records at lcl history direcory and find the last closed ledger.
     size_t latest_pos = 0;
-    for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.histdir))
+    for (const auto &entry : boost::filesystem::directory_iterator(conf::ctx.hist_dir))
     {
         const boost::filesystem::path file_path = entry.path();
         const std::string file_name = file_path.stem().string();
 
         if (boost::filesystem::is_directory(file_path))
         {
-            LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.histdir << ". There should be no folders in this directory";
+            LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.hist_dir << ". There should be no folders in this directory";
         }
         else if (file_path.extension() != ".lcl")
         {
-            LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.histdir;
+            LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.hist_dir;
         }
         else
         {
@@ -197,7 +197,7 @@ const ledger_history load_ledger()
             else
             {
                 //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-                LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.histdir;
+                LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.hist_dir;
             }
         }
     }
@@ -345,8 +345,8 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
 
         std::string path;
 
-        path.reserve(conf::ctx.histdir.size() + cache.lcl.size() + 5);
-        path.append(conf::ctx.histdir)
+        path.reserve(conf::ctx.hist_dir.size() + cache.lcl.size() + 5);
+        path.append(conf::ctx.hist_dir)
             .append("/")
             .append(cache.lcl)
             .append(".lcl");

@@ -14,8 +14,8 @@ if [ $mode = "new" ]; then
                             $hpcore/build/hpstatemon \
                             $hpcore/examples/echo_contract/contract.js \
                             $hpcore/examples/random_contract/rnd_contract \
-                            $hpcore/fusebin/libfuse3.so.3 \
-                            $hpcore/fusebin/fusermount3 \
+                            ../fusebin/libfuse3.so.3 \
+                            ../fusebin/fusermount3 \
                             ./consensus-test-continuous.sh \
                             ./setup-hp.sh \
                             geveo@$vmip:~/

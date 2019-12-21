@@ -58,11 +58,11 @@ void socket_server<T>::run()
         boost::asio::ssl::context::no_sslv3);
 
     //Providing the certification file for ssl context
-    ctx.use_certificate_chain_file(conf::ctx.tlscertfile);
+    ctx.use_certificate_chain_file(conf::ctx.tls_cert_file);
 
     // Providing key file for the ssl context
     ctx.use_private_key_file(
-        conf::ctx.tlskeyfile,
+        conf::ctx.tls_key_file,
         boost::asio::ssl::context::pem);
 
     // Start accepting a connection
