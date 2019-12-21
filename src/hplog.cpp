@@ -57,8 +57,8 @@ void init()
     if (conf::cfg.loggers.count("file") == 1)
     {
         logging::add_file_log(
-            keywords::target = conf::ctx.logdir,                   // Log file directory.
-            keywords::file_name = conf::ctx.logdir + "/hp_%N.log", // File name pattern "hp_1.log".
+            keywords::target = conf::ctx.log_dir,                   // Log file directory.
+            keywords::file_name = conf::ctx.log_dir + "/hp_%N.log", // File name pattern "hp_1.log".
             keywords::rotation_size = 10 * 1024 * 1024,            // Rotate files every 10 MB.
             keywords::max_size = 500 * 1024 * 1024,                // Do not exceed 500 MB total logs.
             keywords::filter = (a_severity >= severity),

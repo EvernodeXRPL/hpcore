@@ -1,9 +1,9 @@
 #ifndef _HP_PROC_
 #define _HP_PROC_
 
-#include "../pchheader.hpp"
-#include "../usr/usr.hpp"
-#include "../util.hpp"
+#include "pchheader.hpp"
+#include "usr/usr.hpp"
+#include "util.hpp"
 
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.

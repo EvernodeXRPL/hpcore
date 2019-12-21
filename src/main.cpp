@@ -6,7 +6,7 @@
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "proc/proc.hpp"
+#include "proc.hpp"
 #include "hplog.hpp"
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 
                 // Set HP process cwd to the contract directory. This will make both HP and contract process
                 // both have the same cwd.
-                chdir(conf::ctx.contractdir.c_str());
+                chdir(conf::ctx.contract_dir.c_str());
 
                 hplog::init();
 
