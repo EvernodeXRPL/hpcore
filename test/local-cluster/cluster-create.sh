@@ -67,6 +67,7 @@ do
     mkdir ./node$n/bin
     cp ../../../examples/echo_contract/contract.js ./node$n/bin/contract.js
     cp ../bin/appbill ./node$n/bin/
+    # cp -r ../../../examples/todo_contract/bin/Release/netcoreapp3.1/publish/* ./node$n/bin/
 done
 
 # Function to generate JSON array string while skiping a given index.
