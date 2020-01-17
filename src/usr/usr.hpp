@@ -90,9 +90,13 @@ int verify_challenge(std::string_view message, sock::socket_session<user_outboun
 
 int handle_user_message(connected_user &user, std::string_view message);
 
+void send_request_status_result(sock::socket_session<usr::user_outbound_message> *session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data);
+
 int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey);
 
 int remove_user(const std::string &sessionid);
+
+sock::socket_session<usr::user_outbound_message> *get_session_by_pubkey(const std::string &pubkey);
 
 void start_listening();
 

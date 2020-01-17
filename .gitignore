@@ -4,10 +4,9 @@
 .*.sw?
 .DS_Store
 build
-hpsupport.dir
+hpcore.dir
 .vscode
 **/Makefile
 **/CMakeCache.txt
 **/cmake_install.cmake
-**/CMakeFiles/**
-hpcluster
+**/CMakeFiles

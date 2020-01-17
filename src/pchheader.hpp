@@ -1,8 +1,6 @@
 #ifndef _HP_PCHHEADER_
 #define _HP_PCHHEADER_
 
-// This will direct all boost exceptions to our error handler.
-#define BOOST_NO_EXCEPTIONS
 // Enable boost strack trace.
 #define BOOST_STACKTRACE_USE_BACKTRACE
 // Enable custom handlers for boost assertion failures.

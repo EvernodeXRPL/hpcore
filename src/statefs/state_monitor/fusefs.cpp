@@ -24,22 +24,16 @@
 #include <sys/resource.h>
 #include <sys/xattr.h>
 #include <time.h>
-#include <unistd.h>
 #include <pthread.h>
 
 // C++ includes
 #include <cstddef>
-#include <cstdio>
 #include <cstdlib>
-#include <list>
-#include <mutex>
-#include <fstream>
-#include <thread>
 #include <iomanip>
-#include <iostream>
-#include <unordered_map>
-#include "state_monitor.hpp"
+
+#include "../../pchheader.hpp"
 #include "../state_common.hpp"
+#include "state_monitor.hpp"
 
 using namespace std;
 
@@ -1277,8 +1271,8 @@ int start(const char *arg0, const char *state_hist_dir, const char *fuse_mnt_dir
     const bool is_first_run = boost::filesystem::is_empty(state_hist_dir);
 
     statefs::init(state_hist_dir);
-    statemonitor.ctx = statefs::get_statedir_context();
-    fs.source = statemonitor.ctx.datadir;
+    statemonitor.ctx = statefs::get_state_dir_context();
+    fs.source = statemonitor.ctx.data_dir;
 
     // Create a checkpoint from the second run onwards.
     if (!is_first_run)

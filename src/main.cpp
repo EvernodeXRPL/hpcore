@@ -6,7 +6,7 @@
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "proc/proc.hpp"
+#include "proc.hpp"
 #include "hplog.hpp"
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
@@ -77,15 +77,6 @@ void signal_handler(int signum)
 
 namespace boost
 {
-/**
- * Global exception handler for boost exceptions.
- */
-void throw_exception(std::exception const &e)
-{
-    LOG_ERR << "Boost error: " << e.what() << "\n"
-            << boost::stacktrace::stacktrace();
-    exit(1);
-}
 
 inline void assertion_failed_msg(char const *expr, char const *msg, char const *function, char const * /*file*/, long /*line*/)
 {
@@ -185,14 +176,14 @@ int main(int argc, char **argv)
 
                 // Set HP process cwd to the contract directory. This will make both HP and contract process
                 // both have the same cwd.
-                chdir(conf::ctx.contractdir.c_str());
+                chdir(conf::ctx.contract_dir.c_str());
 
                 hplog::init();
 
                 LOG_INFO << "Operating mode: "
                          << (conf::cfg.mode == conf::OPERATING_MODE::OBSERVING ? "Observing" : "Proposing");
 
-                statefs::init(conf::ctx.statehistdir);
+                statefs::init(conf::ctx.state_hist_dir);
 
                 if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
                     return -1;

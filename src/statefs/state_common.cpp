@@ -5,41 +5,41 @@
 namespace statefs
 {
 
-std::string statehistdir;
-statedir_context current_ctx;
+std::string state_hist_dir;
+state_dir_context current_ctx;
 
-void init(const std::string &statehist_dir_root)
+void init(const std::string &state_hist_dir_root)
 {
-    statehistdir = realpath(statehist_dir_root.c_str(), NULL);
+    state_hist_dir = realpath(state_hist_dir_root.c_str(), NULL);
 
     // Initialize 0 state (current state) directory.
-    current_ctx = get_statedir_context(0, true);
+    current_ctx = get_state_dir_context(0, true);
 }
 
-std::string get_statedir_root(const int16_t checkpointid)
+std::string get_state_dir_root(const int16_t checkpoint_id)
 {
-    return statehistdir + "/" + std::to_string(checkpointid);
+    return state_hist_dir + "/" + std::to_string(checkpoint_id);
 }
 
-statedir_context get_statedir_context(const int16_t checkpointid, const bool createdirs)
+state_dir_context get_state_dir_context(const int16_t checkpoint_id, const bool create_dirs)
 {
-    statedir_context ctx;
-    ctx.rootdir = get_statedir_root(checkpointid);
-    ctx.datadir = ctx.rootdir + DATA_DIR;
-    ctx.blockhashmapdir = ctx.rootdir + BHMAP_DIR;
-    ctx.hashtreedir = ctx.rootdir + HTREE_DIR;
-    ctx.deltadir = ctx.rootdir + DELTA_DIR;
+    state_dir_context ctx;
+    ctx.root_dir = get_state_dir_root(checkpoint_id);
+    ctx.data_dir = ctx.root_dir + DATA_DIR;
+    ctx.block_hashmap_dir = ctx.root_dir + BHMAP_DIR;
+    ctx.hashtree_dir = ctx.root_dir + HTREE_DIR;
+    ctx.delta_dir = ctx.root_dir + DELTA_DIR;
 
-    if (createdirs)
+    if (create_dirs)
     {
-        if (!boost::filesystem::exists(ctx.datadir))
-            boost::filesystem::create_directories(ctx.datadir);
-        if (!boost::filesystem::exists(ctx.blockhashmapdir))
-            boost::filesystem::create_directories(ctx.blockhashmapdir);
-        if (!boost::filesystem::exists(ctx.hashtreedir))
-            boost::filesystem::create_directories(ctx.hashtreedir);
-        if (!boost::filesystem::exists(ctx.deltadir))
-            boost::filesystem::create_directories(ctx.deltadir);
+        if (!boost::filesystem::exists(ctx.data_dir))
+            boost::filesystem::create_directories(ctx.data_dir);
+        if (!boost::filesystem::exists(ctx.block_hashmap_dir))
+            boost::filesystem::create_directories(ctx.block_hashmap_dir);
+        if (!boost::filesystem::exists(ctx.hashtree_dir))
+            boost::filesystem::create_directories(ctx.hashtree_dir);
+        if (!boost::filesystem::exists(ctx.delta_dir))
+            boost::filesystem::create_directories(ctx.delta_dir);
     }
 
     return ctx;
@@ -53,7 +53,7 @@ std::string get_relpath(const std::string &fullpath, const std::string &base_pat
     return relpath;
 }
 
-std::string switch_basepath(const std::string &fullpath, const std::string &from_base_path, const std::string &to_base_path)
+std::string switch_base_path(const std::string &fullpath, const std::string &from_base_path, const std::string &to_base_path)
 {
     return to_base_path + get_relpath(fullpath, from_base_path);
 }

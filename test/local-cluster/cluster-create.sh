@@ -28,7 +28,7 @@ do
     let pubport=8080+$n
 
     # Create contract dir named "node<i>"
-    ../build/hpcore new "node${n}" > /dev/null 2>&1
+    ../bin/hpcore new "node${n}" > /dev/null 2>&1
 
     pushd ./node$n/cfg > /dev/null 2>&1
 
@@ -48,7 +48,7 @@ do
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
             binargs: './bin/contract.js', \
-            appbill: 'appbill', \
+            appbill: '', \
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
@@ -65,8 +65,9 @@ do
 
     # Copy the contract executable and appbill.
     mkdir ./node$n/bin
-    cp ../examples/echocontract/contract.js ./node$n/bin/contract.js
-    cp ../build/appbill ./node$n/bin/
+    cp ../../../examples/echo_contract/contract.js ./node$n/bin/contract.js
+    cp ../bin/appbill ./node$n/bin/
+    # cp -r ../../../examples/todo_contract/bin/Release/netcoreapp3.1/publish/* ./node$n/bin/
 done
 
 # Function to generate JSON array string while skiping a given index.
@@ -114,12 +115,12 @@ done
 for (( i=1; i<=$ncount; i++ ))
 do
 
-    sudo mkdir -p ./node$i/statehist/0/data/ > /dev/null 2>&1
+    mkdir -p ./node$i/statehist/0/data/ > /dev/null 2>&1
 
     # Load credit balance for user for testing purposes.
     pushd ./node$i/statehist/0/data/ > /dev/null 2>&1
     >appbill.table
-    ../../../../../build/appbill --credit "705bf26354ee4c63c0e5d5d883c07cefc3196d049bd3825f827eb3bc23ead035" 10000
+    ../../../../../bin/appbill --credit "705bf26354ee4c63c0e5d5d883c07cefc3196d049bd3825f827eb3bc23ead035" 10000
     popd > /dev/null 2>&1
 
     # Copy any more initial state files for testing.

@@ -10,7 +10,7 @@
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
-#include "../proc/proc.hpp"
+#include "../proc.hpp"
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 #include "cons.hpp"
@@ -173,6 +173,9 @@ void consensus()
 
         if (should_request_history)
         {
+            // TODO: If we are in a lcl fork condition try to rollback state with the help of
+            // state_restore to rollback state checkpoints before requesting new state.
+
             //handle minority going forward when boostrapping cluster.
             //Here we are mimicking invalid min ledger scenario.
             if (majority_lcl == GENESIS_LEDGER)
@@ -327,14 +330,20 @@ void verify_and_populate_candidate_user_inputs()
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
+            // Locate this user's socket session in case we need to send any status messages regarding user inputs.
+            sock::socket_session<usr::user_outbound_message> *session = usr::get_session_by_pubkey(pubkey);
+
             // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
 
-            // Collect valid inputs for this user.
-            std::unordered_map<std::string, candidate_user_input> valid_inputs;
+            // Keep track of total input length to verify against remaining balance.
+            // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
+            size_t total_input_len = 0;
+            bool appbill_balance_exceeded = false;
 
             for (const usr::user_submitted_message &umsg : umsgs)
             {
+                const char *reject_reason = NULL;
                 const std::string sig_hash = crypto::get_hash(umsg.sig);
 
                 // Check for duplicate messages using hash of the signature.
@@ -351,32 +360,58 @@ void verify_and_populate_candidate_user_inputs()
                         // Ignore the input if our ledger has passed the input TTL.
                         if (maxledgerseqno > ctx.led_seq_no)
                         {
-                            // Hash is prefixed with the nonce to support user-defined sort order.
-                            std::string hash = std::move(nonce);
-                            // Append the hash of the message signature to get the final hash.
-                            hash.append(sig_hash);
+                            if (!appbill_balance_exceeded)
+                            {
+                                // Hash is prefixed with the nonce to support user-defined sort order.
+                                std::string hash = std::move(nonce);
+                                // Append the hash of the message signature to get the final hash.
+                                hash.append(sig_hash);
 
-                            valid_inputs.try_emplace(
-                                hash,
-                                candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                                // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
+                                total_input_len += input.length();
+                                if (verify_appbill_check(pubkey, total_input_len))
+                                {
+                                    ctx.candidate_user_inputs.try_emplace(
+                                        hash,
+                                        candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                                }
+                                else
+                                {
+                                    // Abandon processing further inputs from this user when we find out
+                                    // an input cannot be processed with the account balance.
+                                    appbill_balance_exceeded = true;
+                                    reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                }
+                            }
+                            else
+                            {
+                                reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                            }
                         }
+                        else
+                        {
+                            LOG_DBG << "User message bad max ledger seq expired.";
+                            reject_reason = jusrmsg::REASON_MAX_LEDGER_EXPIRED;
+                        }
+                    }
+                    else
+                    {
+                        LOG_DBG << "User message bad signature.";
+                        reject_reason = jusrmsg::REASON_BAD_SIG;
                     }
                 }
                 else
                 {
                     LOG_DBG << "Duplicate user message.";
+                    reject_reason = jusrmsg::REASON_DUPLICATE_MSG;
                 }
+
+                usr::send_request_status_result(session,
+                                                reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
+                                                reject_reason == NULL ? "" : reject_reason,
+                                                jusrmsg::MSGTYPE_CONTRACT_INPUT,
+                                                jusrmsg::origin_data_for_contract_input(umsg.sig));
             }
-
-            // Verify the accumulated input length with app bill before adding to candidate inputs.
-            size_t total_input_len = 0;
-            for (const auto &[hash, cand_input] : valid_inputs)
-                total_input_len += cand_input.input.size();
-
-            if (verify_appbill_check(pubkey, total_input_len))
-                ctx.candidate_user_inputs.merge(valid_inputs);
-
-            // TODO: report back to the user if the inputs didn't make it into consensus due to some reason.
         }
     }
     p2p::ctx.collected_msgs.nonunl_proposals.clear();
@@ -416,7 +451,7 @@ bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
     if (pid == 0)
     {
         // before execution chdir into a valid the latest state data directory that contains an appbill.table
-        chdir(statefs::current_ctx.datadir.c_str());
+        chdir(statefs::current_ctx.data_dir.c_str());
         int ret = execv(execv_args[0], execv_args);
         LOG_ERR << "Appbill process execv failed: " << ret;
         return false;

@@ -58,7 +58,7 @@ int rekey()
     if (save_config() != 0)
         return -1;
 
-    std::cout << "New signing keys generated at " << ctx.configfile << std::endl;
+    std::cout << "New signing keys generated at " << ctx.config_file << std::endl;
 
     return 0;
 }
@@ -70,16 +70,16 @@ int rekey()
  */
 int create_contract()
 {
-    if (boost::filesystem::exists(ctx.contractdir))
+    if (boost::filesystem::exists(ctx.contract_dir))
     {
         std::cout << "Contract dir already exists. Cannot create contract at the same location.\n";
         return -1;
     }
 
-    boost::filesystem::create_directories(ctx.configdir);
-    boost::filesystem::create_directories(ctx.histdir);
-    boost::filesystem::create_directories(ctx.statedir);
-    boost::filesystem::create_directories(ctx.statehistdir);
+    boost::filesystem::create_directories(ctx.config_dir);
+    boost::filesystem::create_directories(ctx.hist_dir);
+    boost::filesystem::create_directories(ctx.state_dir);
+    boost::filesystem::create_directories(ctx.state_hist_dir);
 
     //Create config file with default settings.
 
@@ -107,7 +107,7 @@ int create_contract()
     if (save_config() != 0)
         return -1;
 
-    std::cout << "Contract directory created at " << ctx.contractdir << std::endl;
+    std::cout << "Contract directory created at " << ctx.contract_dir << std::endl;
 
     return 0;
 }
@@ -135,18 +135,18 @@ void set_contract_dir_paths(std::string exepath, std::string basedir)
     // resolving the path through realpath will remove any trailing slash if present
     basedir = util::realpath(basedir);
 
-    ctx.exedir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
-    ctx.statemonexepath = ctx.exedir + "/" + "hpstatemon";
+    ctx.exe_dir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
+    ctx.statemon_exe_path = ctx.exe_dir + "/" + "hpstatemon";
 
-    ctx.contractdir = basedir;
-    ctx.configdir = basedir + "/cfg";
-    ctx.configfile = ctx.configdir + "/hp.cfg";
-    ctx.tlskeyfile = ctx.configdir + "/tlskey.pem";
-    ctx.tlscertfile = ctx.configdir + "/tlscert.pem";
-    ctx.histdir = basedir + "/hist";
-    ctx.statedir = basedir + "/state";
-    ctx.statehistdir = basedir + "/statehist";
-    ctx.logdir = basedir + "/log";
+    ctx.contract_dir = basedir;
+    ctx.config_dir = basedir + "/cfg";
+    ctx.config_file = ctx.config_dir + "/hp.cfg";
+    ctx.tls_key_file = ctx.config_dir + "/tlskey.pem";
+    ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
+    ctx.hist_dir = basedir + "/hist";
+    ctx.state_dir = basedir + "/state";
+    ctx.state_hist_dir = basedir + "/statehist";
+    ctx.log_dir = basedir + "/log";
 }
 
 /**
@@ -158,7 +158,7 @@ int load_config()
 {
     // Read the file into json document object.
 
-    std::ifstream ifs(ctx.configfile);
+    std::ifstream ifs(ctx.config_file);
     rapidjson::IStreamWrapper isw(ifs);
 
     rapidjson::Document d;
@@ -221,17 +221,17 @@ int load_config()
     // Populate runtime contract execution args.
     if (!cfg.binargs.empty())
         boost::split(cfg.runtime_binexec_args, cfg.binargs, boost::is_any_of(" "));
-    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.binary[0] == '/' ? cfg.binary : util::realpath(ctx.contractdir + "/bin/" + cfg.binary)));
+    cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.binary[0] == '/' ? cfg.binary : util::realpath(ctx.contract_dir + "/bin/" + cfg.binary)));
 
     // Populate runtime app bill args.
     if (!cfg.appbillargs.empty())
         boost::split(cfg.runtime_appbill_args, cfg.appbillargs, boost::is_any_of(" "));
 
-    cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.appbill[0] == '/' ? cfg.appbill : util::realpath(ctx.contractdir + "/bin/" + cfg.appbill)));
+    cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.appbill[0] == '/' ? cfg.appbill : util::realpath(ctx.contract_dir + "/bin/" + cfg.appbill)));
 
     // Uncomment for docker-based execution.
     // std::string volumearg;
-    // volumearg.append("type=bind,source=").append(ctx.statedir).append(",target=/state");
+    // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
     // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.binary.data()};
     // cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
 
@@ -373,13 +373,13 @@ int save_config()
 
     // Write the json doc to file.
 
-    std::ofstream ofs(ctx.configfile);
+    std::ofstream ofs(ctx.config_file);
     rapidjson::OStreamWrapper osw(ofs);
 
     rapidjson::PrettyWriter<rapidjson::OStreamWrapper> writer(osw);
     if (!d.Accept(writer))
     {
-        std::cout << "Writing to config file failed. " << ctx.configfile << std::endl;
+        std::cout << "Writing to config file failed. " << ctx.config_file << std::endl;
         return -1;
     }
     ofs.close();
@@ -466,7 +466,7 @@ int validate_config()
 
     if (fields_missing)
     {
-        std::cout << "Required configuration fields missing at " << ctx.configfile << std::endl;
+        std::cout << "Required configuration fields missing at " << ctx.config_file << std::endl;
         return -1;
     }
 
@@ -508,23 +508,23 @@ int validate_config()
 int validate_contract_dir_paths()
 {
     const std::string paths[7] = {
-        ctx.contractdir,
-        ctx.configfile,
-        ctx.histdir,
-        ctx.statedir,
-        ctx.statehistdir,
-        ctx.tlskeyfile,
-        ctx.tlscertfile};
+        ctx.contract_dir,
+        ctx.config_file,
+        ctx.hist_dir,
+        ctx.state_dir,
+        ctx.state_hist_dir,
+        ctx.tls_key_file,
+        ctx.tls_cert_file};
 
     for (const std::string &path : paths)
     {
         if (!boost::filesystem::exists(path))
         {
-            if (path == ctx.tlskeyfile || path == ctx.tlscertfile)
+            if (path == ctx.tls_key_file || path == ctx.tls_cert_file)
             {
                 std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
                           << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
-                          << "and add it to " + ctx.configdir << std::endl;
+                          << "and add it to " + ctx.config_dir << std::endl;
             }
             else
             {

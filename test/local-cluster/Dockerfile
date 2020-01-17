@@ -4,12 +4,12 @@ FROM node:10.17.0-buster-slim
 
 # Install fuse.
 # Copy fuse shared library and register it.
-COPY ./libfuse3.so.3 /usr/local/lib/
+COPY ./bin/libfuse3.so.3 /usr/local/lib/
 RUN ldconfig
-COPY ./fusermount3 /usr/local/bin/
+COPY ./bin/fusermount3 /usr/local/bin/
 
 # hpcore binary is copied to /hp directory withtin the docker image.
 WORKDIR /hp
-COPY ./build/hpcore .
-COPY ./build/hpstatemon .
+COPY ./bin/hpcore .
+COPY ./bin/hpstatemon .
 ENTRYPOINT ["/hp/hpcore"]

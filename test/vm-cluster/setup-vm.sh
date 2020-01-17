@@ -12,10 +12,10 @@ if [ $mode = "new" ]; then
 
     sshpass -p $vmpass scp $hpcore/build/hpcore \
                             $hpcore/build/hpstatemon \
-                            $hpcore/examples/echocontract/contract.js \
-                            $hpcore/examples/rndcontract/rnd_contract \
-                            /usr/local/lib/x86_64-linux-gnu/libfuse3.so.3 \
-                            /usr/local/bin/fusermount3 \
+                            $hpcore/examples/echo_contract/contract.js \
+                            $hpcore/examples/random_contract/rnd_contract \
+                            ../fusebin/libfuse3.so.3 \
+                            ../fusebin/fusermount3 \
                             ./consensus-test-continuous.sh \
                             ./setup-hp.sh \
                             geveo@$vmip:~/
@@ -25,8 +25,8 @@ if [ $mode = "new" ]; then
 else
     sshpass -p $vmpass scp $hpcore/build/hpcore \
                             $hpcore/build/hpstatemon \
-                            $hpcore/examples/echocontract/contract.js \
-                            $hpcore/examples/rndcontract/rnd_contract \
+                            $hpcore/examples/echo_contract/contract.js \
+                            $hpcore/examples/random_contract/rnd_contract \
                             ./consensus-test-continuous.sh \
                             geveo@$vmip:~/
 fi
