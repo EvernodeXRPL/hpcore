@@ -181,7 +181,7 @@ int main(int argc, char **argv)
                 hplog::init();
 
                 LOG_INFO << "Operating mode: "
-                         << (conf::cfg.mode == conf::OPERATING_MODE::OBSERVING ? "Observing" : "Proposing");
+                         << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
 
                 statefs::init(conf::ctx.state_hist_dir);
 
