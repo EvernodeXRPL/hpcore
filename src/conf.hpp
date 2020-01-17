@@ -16,8 +16,8 @@ typedef std::pair<std::string, std::string> ip_port_pair;
 // The operating mode of the contract node.
 enum OPERATING_MODE
 {
-    OBSERVING = 0,    // Observer mode. Only emits NUPs. Does not participate in voting.
-    PROPOSING = 1      // Consensus participant mode.
+    OBSERVER = 0,    // Observer mode. Only emits NUPs. Does not participate in voting.
+    PROPOSER = 1     // Consensus participant mode.
 };
 
 // Holds contextual information about the currently loaded contract.
@@ -47,11 +47,11 @@ struct contract_config
     std::string seckey;                 // Contract secret key bytes
     std::vector<std::string> runtime_binexec_args;   // Contract binary execution args used during runtime.
     std::vector<std::string> runtime_appbill_args;   // Appbill execution args used during runtime.
-
+    OPERATING_MODE current_mode;        // Current operating mode of the contract (Observer/Proposer)
 
     // Config elements which are loaded from the config file.
 
-    OPERATING_MODE mode;                // Operating mode of the contract (Observing/Proposing).
+    OPERATING_MODE startup_mode;        // Configured startup operating mode of the contract (Observer/Proposer).
     std::string pubkeyhex;              // Contract hex public key
     std::string seckeyhex;              // Contract hex secret key
     std::string binary;                 // Full path to the contract binary

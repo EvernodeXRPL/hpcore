@@ -133,9 +133,7 @@ void consensus()
         // In stage 0 we create a novel proposal and broadcast it.
         const p2p::proposal stg_prop = create_stage0_proposal();
 
-        // In observing mode, we do not send out any proposals.
-        if (conf::cfg.mode != conf::OPERATING_MODE::OBSERVING)
-            broadcast_proposal(stg_prop);
+        broadcast_proposal(stg_prop);
     }
     else // Stage 1, 2, 3
     {
@@ -208,8 +206,8 @@ void consensus()
         }
         else
         {
-            //Node is in sync with current lcl ->switch to proposing mode.
-            conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);
+            //Node is in sync with current lcl ->switch to proposer mode.
+            conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
         }
 
         if (ctx.stage == 1 || (ctx.stage == 3 && ctx.is_state_syncing))
@@ -220,9 +218,7 @@ void consensus()
             // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
             const p2p::proposal stg_prop = create_stage123_proposal(votes);
 
-            // In observing mode, we do not send out any proposals.
-            if (conf::cfg.mode != conf::OPERATING_MODE::OBSERVING)
-                broadcast_proposal(stg_prop);
+            broadcast_proposal(stg_prop);
 
             if (ctx.stage == 3)
             {
@@ -592,6 +588,10 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
+    // In observer mode, we do not send out any proposals.
+    if (conf::cfg.current_mode == conf::OPERATING_MODE::OBSERVER)
+        return;
+
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
     p2p::broadcast_message(msg, true);
@@ -660,11 +660,11 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
 
     if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
     {
-        LOG_DBG << "Not enough peers proposing to perform consensus votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        LOG_DBG << "Not enough peers proposer to perform consensus votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
         is_desync = true;
 
-        //Not enough nodes are propsing. So Node is switching to Proposing if it's in observing mode.
-        conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);
+        //Not enough nodes are propsing. So Node is switching to Proposer if it's in observer mode.
+        conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
 
         return;
     }
@@ -687,8 +687,8 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
         LOG_DBG << "We are not on the consensus ledger, requesting history from a random peer";
         is_desync = true;
 
-        //Node is in not sync with current lcl ->switch to observing mode.
-        conf::change_operating_mode(conf::OPERATING_MODE::OBSERVING);
+        //Node is not in sync with current lcl ->switch to observer mode.
+        conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
         should_request_history = true;
         return;
@@ -898,8 +898,8 @@ void check_state(vote_counter &votes)
     {
         if (ctx.state_sync_lcl != ctx.lcl)
         {
-            // Change the mode to passive and not sending out proposals till the state is synced
-            conf::change_operating_mode(conf::OPERATING_MODE::OBSERVING);
+            // Switch to observer mode to avoid sending out proposals till the state is synced
+            conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
             const hasher::B2H majority_state_hash = *reinterpret_cast<const hasher::B2H *>(majority_state.c_str());
             LOG_INFO << "Starting state sync. Curr state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
@@ -916,7 +916,7 @@ void check_state(vote_counter &votes)
 
         ctx.is_state_syncing = false;
         ctx.state_sync_lcl.clear();
-        conf::change_operating_mode(conf::OPERATING_MODE::PROPOSING);
+        conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
     }
 }
 

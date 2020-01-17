@@ -14,8 +14,8 @@ contract_ctx ctx;
 // Global configuration struct exposed to the application.
 contract_config cfg;
 
-const static char *MODE_OBSERVING = "observing";
-const static char *MODE_PROPOSING = "proposing";
+const static char *MODE_OBSERVER = "observer";
+const static char *MODE_PROPOSER = "proposer";
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -88,7 +88,7 @@ int create_contract()
     crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
     binpair_to_hex();
 
-    cfg.mode = OPERATING_MODE::PROPOSING;
+    cfg.startup_mode = OPERATING_MODE::PROPOSER;
     cfg.listenip = "0.0.0.0";
     cfg.peerport = 22860;
     cfg.roundtime = 1000;
@@ -199,15 +199,16 @@ int load_config()
 
     // Load up the values into the struct.
 
-    if (d["mode"] == MODE_OBSERVING)
-        cfg.mode = OPERATING_MODE::OBSERVING;
-    else if (d["mode"] == MODE_PROPOSING)
-        cfg.mode = OPERATING_MODE::PROPOSING;
+    if (d["mode"] == MODE_OBSERVER)
+        cfg.startup_mode = OPERATING_MODE::OBSERVER;
+    else if (d["mode"] == MODE_PROPOSER)
+        cfg.startup_mode = OPERATING_MODE::PROPOSER;
     else
     {
-        std::cout << "Invalid mode. 'observing' or 'proposing' expected.\n";
+        std::cout << "Invalid mode. 'observer' or 'proposer' expected.\n";
         return -1;
     }
+    cfg.current_mode = cfg.startup_mode;
 
     cfg.pubkeyhex = d["pubkeyhex"].GetString();
     cfg.seckeyhex = d["seckeyhex"].GetString();
@@ -309,7 +310,7 @@ int save_config()
     d.SetObject();
     rapidjson::Document::AllocatorType &allocator = d.GetAllocator();
     d.AddMember("version", rapidjson::StringRef(util::HP_VERSION), allocator);
-    d.AddMember("mode", rapidjson::StringRef(cfg.mode == OPERATING_MODE::OBSERVING ? MODE_OBSERVING : MODE_PROPOSING),
+    d.AddMember("mode", rapidjson::StringRef(cfg.startup_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER),
                 allocator);
 
     d.AddMember("pubkeyhex", rapidjson::StringRef(cfg.pubkeyhex.data()), allocator);
@@ -606,7 +607,11 @@ int is_schema_valid(const rapidjson::Document &d)
 
 void change_operating_mode(const OPERATING_MODE mode)
 {
-    cfg.mode = mode;
+    // Do not allow to change the mode if the node was started as an observer.
+    if (cfg.startup_mode == OPERATING_MODE::OBSERVER)
+        return;
+
+    cfg.current_mode = mode;
 }
 
 } // namespace conf
