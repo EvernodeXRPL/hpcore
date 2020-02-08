@@ -102,7 +102,7 @@ void remove_old_ledgers(const uint64_t led_seq_no)
         if (boost::filesystem::exists(file_path))
             boost::filesystem::remove(file_path);
     }
-    
+
     if (!cons::ctx.cache.empty())
         cons::ctx.cache.erase(cons::ctx.cache.begin(), cons::ctx.cache.lower_bound(led_seq_no + 1));
 }
@@ -239,8 +239,7 @@ void send_ledger_history_request(const std::string &minimum_lcl, const std::stri
 
     last_requested_lcl = required_lcl;
 
-    LOG_DBG << "Ledger history request sent."
-            << " lcl:" << required_lcl;
+    LOG_DBG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
 }
 
 /**
@@ -278,7 +277,7 @@ bool check_required_lcl_availability(const p2p::history_request &hr)
     }
     else
     {
-        return false; //Very rare case: node asking for the genisis lcl. 
+        return false; //Very rare case: node asking for the genisis lcl.
     }
     return true;
 }
@@ -309,12 +308,12 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         //eventhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
         if (hr.minimum_lcl != itr->second.lcl)
         {
-            LOG_DBG << "Invalid minimum ledger. Recieved min hash: "<< min_lcl_hash << " Node hash: " << itr->second.lcl;
+            LOG_DBG << "Invalid minimum ledger. Recieved min hash: " << min_lcl_hash << " Node hash: " << itr->second.lcl;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
             return history_response;
         }
     }
-    else if (min_seq_no > cons::ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence. 
+    else if (min_seq_no > cons::ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
     {
         LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. hash: " << min_lcl_hash;
         history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
@@ -336,8 +335,8 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         led_cache.begin(),
         led_cache.lower_bound(min_seq_no));
 
-    //Get raw content of lcls that going to be send. 
-     for (auto &[seq_no, cache] : led_cache)
+    //Get raw content of lcls that going to be send.
+    for (auto &[seq_no, cache] : led_cache)
     {
         p2p::history_ledger ledger;
         ledger.lcl = cache.lcl;
@@ -400,6 +399,7 @@ void handle_ledger_history_response(const p2p::history_response &hr)
         // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger .
         remove_ledger(ctx.lcl);
         cons::ctx.cache.erase(ctx.cache.rbegin()->first);
+        LOG_DBG << "Invalid min ledger. Removed last ledger.";
     }
     else
     {
@@ -479,6 +479,8 @@ void handle_ledger_history_response(const p2p::history_response &hr)
         cons::ctx.lcl = latest_lcl_itr->second.lcl;
         cons::ctx.led_seq_no = latest_lcl_itr->first;
     }
+
+    LOG_DBG << "Finished lcl sync. New lcl: " << cons::ctx.lcl.substr(0, 15);
 }
 
 } // namespace cons

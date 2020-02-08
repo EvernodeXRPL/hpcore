@@ -141,11 +141,11 @@ void start_peer_connections();
 
 void peer_connection_watchdog();
 
-void broadcast_message(const peer_outbound_message msg, bool send_to_self);
+void broadcast_message(const peer_outbound_message msg, const bool send_to_self);
 
-void send_message_to_random_peer(peer_outbound_message msg);
+void send_message_to_self(const peer_outbound_message msg);
 
-void send_message_to_peer(std::string peer_session_id, peer_outbound_message msg);
+void send_message_to_random_peer(const peer_outbound_message msg);
 
 } // namespace p2p
 

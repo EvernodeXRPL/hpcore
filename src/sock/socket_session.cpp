@@ -118,7 +118,7 @@ void socket_session<T>::run(const std::string &&address, const std::string &&por
     this->uniqueid.append(address).append(":").append(port);
 
     // This indicates the connection is a self connection (node connects to the same node through server port)
-    if (address == "0.0.0.0")
+    if (this->uniqueid == conf::cfg.self_peer_id)
         this->is_self = true;
 
     // Set the timeout.

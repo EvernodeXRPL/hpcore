@@ -48,6 +48,7 @@ struct contract_config
     std::vector<std::string> runtime_binexec_args;   // Contract binary execution args used during runtime.
     std::vector<std::string> runtime_appbill_args;   // Appbill execution args used during runtime.
     OPERATING_MODE current_mode;        // Current operating mode of the contract (Observer/Proposer)
+    std::string self_peer_id;           // Peer session id of this node. (format: selfip:port)
 
     // Config elements which are loaded from the config file.
 

@@ -86,6 +86,8 @@ struct consensus_context
 
     uint64_t prev_close_time = 0;
     uint16_t reset_time = 0;
+    uint16_t stage_time = 0;                    // Time allocated to a consensus stage.
+    uint16_t stage_reset_wait_threshold = 0;    // Minimum stage wait time to reset the stage.
 
     bool is_state_syncing = false;
     std::string state_sync_lcl;
@@ -113,6 +115,8 @@ extern consensus_context ctx;
 int init();
 
 void consensus();
+
+void sync_time_and_transfer_stage();
 
 void broadcast_nonunl_proposal();
 

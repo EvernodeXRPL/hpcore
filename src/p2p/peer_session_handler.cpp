@@ -136,8 +136,8 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     {
         const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
         //first check node has the required lcl available. -> if so send lcl history accordingly.
-        bool req_lcl_avail = cons::check_required_lcl_availability(hr);
-        if (req_lcl_avail > 0)
+        const bool req_lcl_avail = cons::check_required_lcl_availability(hr);
+        if (req_lcl_avail)
         {
             p2p::peer_outbound_message hr_msg = cons::send_ledger_history(hr);
             session->send(hr_msg);

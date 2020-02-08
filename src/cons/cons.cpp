@@ -71,6 +71,11 @@ int init()
 
     ctx.prev_close_time = util::get_epoch_milliseconds();
     ctx.reset_time = MAX_RESET_TIME;
+
+    // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
+    ctx.stage_time = conf::cfg.roundtime / 5;
+    ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
+
     return 0;
 }
 
@@ -92,7 +97,7 @@ void consensus()
     }
 
     //Copy collected propsals to candidate set of proposals.
-    //Add mpropsals of new nodes and Replace messages from old nodes to  reflect current status of nodes.
+    //Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
     for (const auto &proposal : collected_proposals)
     {
         auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
@@ -102,7 +107,9 @@ void consensus()
             ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
         }
         else
+        {
             ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
+        }
     }
     // Throughout consensus, we move over the incoming npl messages collected via the network so far into
     // the candidate npl message set (move and append). This is to have a private working set for the consensus
@@ -121,6 +128,8 @@ void consensus()
         p2p::ctx.collected_msgs.npl_messages.clear();
     }
 
+    LOG_DBG << "Started stage " << std::to_string(ctx.stage);
+
     if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
     {
         // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
@@ -132,23 +141,20 @@ void consensus()
 
         // In stage 0 we create a novel proposal and broadcast it.
         const p2p::proposal stg_prop = create_stage0_proposal();
-
         broadcast_proposal(stg_prop);
     }
     else // Stage 1, 2, 3
     {
-        LOG_DBG << "Started stage " << std::to_string(ctx.stage) << "\n";
         for (auto &[pubkey, proposal] : ctx.candidate_proposals)
         {
             bool self = proposal.pubkey == conf::cfg.pubkey;
-            LOG_DBG << "[stage" << std::to_string(proposal.stage)
+            LOG_DBG << "Proposal [stage" << std::to_string(proposal.stage)
                     << "] users:" << proposal.users.size()
                     << " hinp:" << proposal.hash_inputs.size()
                     << " hout:" << proposal.hash_outputs.size()
-                    << " lcl:" << proposal.lcl
+                    << " lcl:" << proposal.lcl.substr(0, 15)
                     << " state:" << *reinterpret_cast<const hasher::B2H *>(proposal.curr_hash_state.c_str())
-                    << " self:" << self
-                    << "\n";
+                    << " self:" << self;
         }
 
         // Initialize vote counters
@@ -227,58 +233,68 @@ void consensus()
                 ctx.reset_time = MAX_RESET_TIME;
 
                 // node has finished a consensus round (all 4 stages).
-                LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl
+                LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
                          << " state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
             }
         }
     }
 
-    // Node has finished a consensus stage.
-    // Transition to next stage.
-    ctx.stage = (ctx.stage + 1) % 4;
+    sync_time_and_transfer_stage();
+}
 
-    //Here nodes try to synchronise nodes stages using network clock.
-    uint64_t now = util::get_epoch_milliseconds();
+/**
+ * Syncrhonise the stage/round time for fixed intervals and reset or transfer to the next stage.
+ */
+void sync_time_and_transfer_stage()
+{
+    // Here, nodes try to synchronise nodes stages using network clock.
+    // We devide universal time to windows of equal size of roundtime. Each round must be synced with the
+    // start of a window.
+
+    const uint64_t now = util::get_epoch_milliseconds();
 
     // round start is the floor
-    uint64_t round_start = ((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime;
+    const uint64_t round_start = ((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime;
 
+    const uint8_t next_stage = (ctx.stage + 1) % 4;
     uint64_t next_stage_start = 0;
 
     // Compute start time of next stage.
-    // Last stage (stage 3) waiting twice as any other stage's waiting time.
-    // This is for a node to catch up from lcl/state desync,
-    // becuase we are waiting (round time + time to next stage) to sync.
-    if (ctx.stage == 3)
+    // Last stage (stage 3) is allocated an extra stage_time unit. This is for a node to
+    // catch up from lcl/state desync, becuase we are waiting (round time + time to next stage) to sync.
+    if (next_stage == 0)
         next_stage_start = round_start + conf::cfg.roundtime;
     else
-        next_stage_start = round_start + (int64_t)(ctx.stage * ((double)conf::cfg.roundtime / 5.0));
+        next_stage_start = round_start + (int64_t)(next_stage * ctx.stage_time);
 
     // Compute stage time wait.
     // Node wait between stages to collect enough proposals from previous stages from other nodes.
     int64_t to_wait = next_stage_start - now;
 
-    LOG_DBG << "now = " << now << ", roundtime = " << conf::cfg.roundtime << ", round_start = " << round_start << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
+    LOG_DBG << "now = " << now << ", round_start = " << round_start << ", next_stage = " << std::to_string(next_stage) << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
 
-    // If a node doesn't have enough time (due to network delay) to recieve/send reliable stage proposals for next stage,
-    // it will continue particapating in this round, otherwise will join in next round(s).
-    if (to_wait < floor(conf::cfg.roundtime / 10)) //todo: self claculating/adjusting network delay
+    // If a node doesn't have enough time (eg. due to network delay) to recieve/send reliable stage proposals for next stage,
+    // it will continue particapating in this round, otherwise will join in next round.
+    if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
     {
         uint64_t next_round = round_start;
-        while (to_wait < floor(conf::cfg.roundtime / 10))
+        while (to_wait < ctx.stage_reset_wait_threshold)
         {
             next_round += conf::cfg.roundtime;
             to_wait = next_round - now;
         }
 
-        LOG_INFO << "we missed a round, waiting " << to_wait << " and resetting to stage 0";
-        ctx.stage = 0;
+        LOG_DBG << "we missed a round, waiting " << to_wait << " and resetting to stage 0";
         util::sleep(to_wait);
+        ctx.stage = 0;
     }
     else
     {
-        // after a stage proposal we will just busy wait for proposals.
         util::sleep(to_wait);
+
+        // Node has finished a consensus stage.
+        // Transition to next stage.
+        ctx.stage = next_stage;
     }
 }
 
@@ -588,13 +604,14 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
-    // In observer mode, we do not send out any proposals.
-    if (conf::cfg.current_mode == conf::OPERATING_MODE::OBSERVER)
-        return;
-
     p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
     p2pmsg::create_msg_from_proposal(msg.builder(), p);
-    p2p::broadcast_message(msg, true);
+
+    // In observer mode, we only send out the proposal to ourselves.
+    if (conf::cfg.current_mode == conf::OPERATING_MODE::OBSERVER)
+        p2p::send_message_to_self(msg);
+    else
+        p2p::broadcast_message(msg, true);
 
     // LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
     //         << "] users:" << p.users.size()
