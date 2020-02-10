@@ -2,6 +2,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util.hpp"
+#include "hplog.hpp"
 #include <limits.h>
 #include <stdlib.h>
 
@@ -33,8 +34,8 @@ int init()
 
     // Append self peer to peer list.
     const std::string portstr = std::to_string(cfg.peerport);
-    const std::string peerid = "0.0.0.0:" + portstr;
-    cfg.peers.emplace(std::move(peerid), std::make_pair("0.0.0.0", portstr));
+    cfg.self_peer_id = "0.0.0.0:" + portstr;
+    cfg.peers.emplace(cfg.self_peer_id, std::make_pair("0.0.0.0", portstr));
 
     // Append self pubkey to unl list.
     cfg.unl.emplace(cfg.pubkey);
@@ -608,10 +609,15 @@ int is_schema_valid(const rapidjson::Document &d)
 void change_operating_mode(const OPERATING_MODE mode)
 {
     // Do not allow to change the mode if the node was started as an observer.
-    if (cfg.startup_mode == OPERATING_MODE::OBSERVER)
+    if (cfg.startup_mode == OPERATING_MODE::OBSERVER || cfg.current_mode == mode)
         return;
 
     cfg.current_mode = mode;
+
+    if (mode == OPERATING_MODE::OBSERVER)
+        LOG_DBG << "Switched to OBSERVER mode.";
+    else
+        LOG_DBG << "Switched back to PROPOSER mode.";
 }
 
 } // namespace conf

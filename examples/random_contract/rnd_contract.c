@@ -15,7 +15,6 @@
 
 int main(int argc, char **argv)
 {
-
     if (argc != 3)
         return fprintf(stderr, "usage %s <file path to randomly edit> <max no. of block modifications>\n", argv[0]);
 
@@ -23,12 +22,14 @@ int main(int argc, char **argv)
     char buf[128];
     read(STDIN_FILENO, buf, 128);
 
+    // Read timestamp mentioned in contract args json.
     char tsbuf[14];
     memcpy(tsbuf, &buf[100], 13);
     tsbuf[13] = '\0';
     int ts = atoi(tsbuf);
     //printf("args input: %.13s\n", tsbuf);
 
+    // Use contract args timestamp to initialize random seed.
     srand(ts);
 
     FILE *f = fopen(argv[1], "rb+");
@@ -71,7 +72,7 @@ int main(int argc, char **argv)
         int end_block = (offset + bytestowrite) / (4 * 1024 * 1024);
         for (int i = start_block; i <= end_block; ++i)
         {
-            //printf("@@@ pid %d wrote to block %d ... %d bytes\n", pid, i, n);
+            // printf("@@@ pid %d wrote to block %d ... %d bytes\n", pid, i, n);
             fflush(stdout);
         }
     }
@@ -79,4 +80,5 @@ int main(int argc, char **argv)
     // done!
 
     fclose(f);
+    return 0;
 }

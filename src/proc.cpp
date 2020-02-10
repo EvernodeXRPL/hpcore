@@ -118,7 +118,7 @@ int exec_contract(const contract_exec_args &args)
         execv_args[len - 1] = NULL;
 
         int ret = execv(execv_args[0], execv_args);
-        LOG_ERR << "Contract process execv failed: " << ret;
+        LOG_ERR << errno << ": Contract process execv failed.";
         exit(1);
     }
     else
@@ -187,7 +187,7 @@ int start_state_monitor()
         execv_args[3] = NULL;
 
         int ret = execv(execv_args[0], execv_args);
-        LOG_ERR << "State monitor execv failed: " << ret;
+        LOG_ERR << errno << ": State monitor execv failed.";
         exit(1);
     }
     else if (pid < 0)
