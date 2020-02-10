@@ -73,6 +73,8 @@ int init()
     ctx.reset_time = MAX_RESET_TIME;
 
     // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
+    // Stage 3 is allocated an extra stage_time unit becayse a node needs enough time to
+    // catch up from lcl/state desync.
     ctx.stage_time = conf::cfg.roundtime / 5;
     ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
@@ -83,6 +85,9 @@ void consensus()
 {
     // A consensus round consists of 4 stages (0,1,2,3).
     // For a given stage, this function may get visited multiple times due to time-wait conditions.
+
+    if (!wait_and_proceed_stage())
+        return; // This means the stage has been reset.
 
     // Get the latest current time.
     ctx.time_now = util::get_epoch_milliseconds();
@@ -239,13 +244,15 @@ void consensus()
         }
     }
 
-    sync_time_and_transfer_stage();
+    // Node has finished a consensus stage. Transition to next stage.
+    ctx.stage = (ctx.stage + 1) % 4;
 }
 
 /**
- * Syncrhonise the stage/round time for fixed intervals and reset or transfer to the next stage.
+ * Syncrhonise the stage/round time for fixed intervals and reset the stage.
+ * @return True if consensus can proceed in the current round. False if stage is reset.
  */
-void sync_time_and_transfer_stage()
+bool wait_and_proceed_stage()
 {
     // Here, nodes try to synchronise nodes stages using network clock.
     // We devide universal time to windows of equal size of roundtime. Each round must be synced with the
@@ -253,48 +260,42 @@ void sync_time_and_transfer_stage()
 
     const uint64_t now = util::get_epoch_milliseconds();
 
-    // round start is the floor
-    const uint64_t round_start = ((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime;
+    // Rrounds are divided into windows of roundtime.
+    // This gets the start time of current round window. Stage 0 must start in the next window.
+    const uint64_t current_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
 
-    const uint8_t next_stage = (ctx.stage + 1) % 4;
-    uint64_t next_stage_start = 0;
-
-    // Compute start time of next stage.
-    // Last stage (stage 3) is allocated an extra stage_time unit. This is for a node to
-    // catch up from lcl/state desync, becuase we are waiting (round time + time to next stage) to sync.
-    if (next_stage == 0)
-        next_stage_start = round_start + conf::cfg.roundtime;
-    else
-        next_stage_start = round_start + (int64_t)(next_stage * ctx.stage_time);
-
-    // Compute stage time wait.
-    // Node wait between stages to collect enough proposals from previous stages from other nodes.
-    int64_t to_wait = next_stage_start - now;
-
-    LOG_DBG << "now = " << now << ", round_start = " << round_start << ", next_stage = " << std::to_string(next_stage) << ", next_stage_start = " << next_stage_start << ", to_wait = " << to_wait;
-
-    // If a node doesn't have enough time (eg. due to network delay) to recieve/send reliable stage proposals for next stage,
-    // it will continue particapating in this round, otherwise will join in next round.
-    if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
+    if (ctx.stage == 0)
     {
-        uint64_t next_round = round_start;
-        while (to_wait < ctx.stage_reset_wait_threshold)
-        {
-            next_round += conf::cfg.roundtime;
-            to_wait = next_round - now;
-        }
+        // Stage 0 must start in the next round window.
+        const uint64_t stage_start = current_round_start + conf::cfg.roundtime;
+        const int64_t to_wait = stage_start - now;
 
-        LOG_DBG << "we missed a round, waiting " << to_wait << " and resetting to stage 0";
+        LOG_DBG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 0";
         util::sleep(to_wait);
-        ctx.stage = 0;
+        return true;
     }
     else
     {
-        util::sleep(to_wait);
+        const uint64_t stage_start = current_round_start + (ctx.stage * ctx.stage_time);
 
-        // Node has finished a consensus stage.
-        // Transition to next stage.
-        ctx.stage = next_stage;
+        // Compute stage time wait.
+        // Node wait between stages to collect enough proposals from previous stages from other nodes.
+        const int64_t to_wait = stage_start - now;
+
+        // If a node doesn't have enough time (eg. due to network delay) to recieve/send reliable stage proposals for next stage,
+        // it will continue particapating in this round, otherwise will join in next round.
+        if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
+        {
+            LOG_DBG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";
+            ctx.stage = 0;
+            return false;
+        }
+        else
+        {
+            LOG_DBG << "Waiting " << std::to_string(to_wait) << "ms for stage " << std::to_string(ctx.stage);
+            util::sleep(to_wait);
+            return true;
+        }
     }
 }
 

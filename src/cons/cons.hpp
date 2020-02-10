@@ -116,7 +116,7 @@ int init();
 
 void consensus();
 
-void sync_time_and_transfer_stage();
+bool wait_and_proceed_stage();
 
 void broadcast_nonunl_proposal();
 
