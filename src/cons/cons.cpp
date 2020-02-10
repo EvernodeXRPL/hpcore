@@ -43,7 +43,7 @@ int init()
     ledger_history ldr_hist = load_ledger();
     ctx.led_seq_no = ldr_hist.led_seq_no;
     ctx.lcl = ldr_hist.lcl;
-    ctx.cache.swap(ldr_hist.cache);
+    ctx.ledger_cache.swap(ldr_hist.cache);
 
     hasher::B2H root_hash = hasher::B2H_empty;
     if (statefs::compute_hash_tree(root_hash, true) == -1)
@@ -54,9 +54,9 @@ int init()
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
     str_root_hash.swap(ctx.curr_hash_state);
 
-    if (!ctx.cache.empty())
+    if (!ctx.ledger_cache.empty())
     {
-        ctx.prev_hash_state = ctx.cache.rbegin()->second.state;
+        ctx.prev_hash_state = ctx.ledger_cache.rbegin()->second.state;
     }
     else
     {
@@ -165,16 +165,6 @@ void consensus()
         // Initialize vote counters
         vote_counter votes;
 
-        // check if we're ahead/behind of consensus stage
-        bool is_stage_desync, reset_to_stage0;
-        uint8_t majority_stage;
-        check_majority_stage(is_stage_desync, reset_to_stage0, majority_stage, votes);
-        if (is_stage_desync)
-        {
-            timewait_stage(reset_to_stage0, floor(conf::cfg.roundtime / 20));
-            return;
-        }
-
         // check if we're ahead/behind of consensus lcl
         bool is_lcl_desync, should_request_history;
         std::string majority_lcl;
@@ -185,11 +175,11 @@ void consensus()
             // TODO: If we are in a lcl fork condition try to rollback state with the help of
             // state_restore to rollback state checkpoints before requesting new state.
 
-            //handle minority going forward when boostrapping cluster.
-            //Here we are mimicking invalid min ledger scenario.
+            // Handle minority going forward when boostrapping cluster.
+            // Here we are mimicking invalid min ledger scenario.
             if (majority_lcl == GENESIS_LEDGER)
             {
-                last_requested_lcl = majority_lcl;
+                ctx.last_requested_lcl = majority_lcl;
                 p2p::history_response res;
                 res.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
                 handle_ledger_history_response(std::move(res));
@@ -200,6 +190,7 @@ void consensus()
                 send_ledger_history_request(ctx.lcl, majority_lcl);
             }
         }
+
         if (is_lcl_desync)
         {
             //Resetting to stage 0 to avoid possible deadlock situations by resetting every node in random time using max time.
@@ -495,7 +486,6 @@ p2p::proposal create_stage0_proposal()
     // The proposal we are going to emit in stage 0.
     p2p::proposal stg_prop;
     stg_prop.time = ctx.time_now;
-    ctx.novel_proposal_time = ctx.time_now;
     stg_prop.stage = 0;
     stg_prop.lcl = ctx.lcl;
     stg_prop.curr_hash_state = ctx.curr_hash_state;
@@ -618,42 +608,6 @@ void broadcast_proposal(const p2p::proposal &p)
     //         << "] users:" << p.users.size()
     //         << " hinp:" << p.hash_inputs.size()
     //         << " hout:" << p.hash_outputs.size();
-}
-
-/**
- * Check whether our current stage is ahead or behind of the majority stage.
- */
-void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority_stage, vote_counter &votes)
-{
-    // Stage votes.
-    for (const auto &[pubkey, cp] : ctx.candidate_proposals)
-    {
-        // Vote stages if only proposal lcl is match with node's last consensus lcl
-        if (cp.lcl == ctx.lcl)
-            increment(votes.stage, cp.stage);
-    }
-
-    majority_stage = 0;
-    is_desync = false;
-
-    int32_t highest_votes = 0;
-    for (const auto [stage, votes] : votes.stage)
-    {
-        if (votes > highest_votes)
-        {
-            highest_votes = votes;
-            majority_stage = stage;
-        }
-    }
-
-    if (majority_stage < ctx.stage - 1)
-    {
-        should_reset = (ctx.time_now - ctx.novel_proposal_time) > (floor(conf::cfg.roundtime) + floor(rand() % conf::cfg.roundtime));
-        is_desync = true;
-
-        LOG_DBG << "Stage desync (Reset:" << should_reset << "). Node stage:" << std::to_string(ctx.stage)
-                << " is ahead of majority stage:" << std::to_string(majority_stage);
-    }
 }
 
 /**

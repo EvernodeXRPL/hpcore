@@ -13,7 +13,6 @@ namespace cons
 {
 
 namespace p2pmsg = fbschema::p2pmsg;
-std::string last_requested_lcl;
 
 /**
  * Create and save ledger from the given proposal message.
@@ -60,10 +59,10 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
 
     write_ledger(file_name, ledger_str.data(), ledger_str.size());
 
-    ledger_cache c;
+    ledger_cache_entry c;
     c.lcl = file_name;
     c.state = proposal.curr_hash_state;
-    cons::ctx.cache.emplace(led_seq_no, std::move(c));
+    cons::ctx.ledger_cache.emplace(led_seq_no, std::move(c));
 
     //Remove old ledgers that exceeds max sequence range.
     if (led_seq_no > MAX_LEDGER_SEQUENCE)
@@ -80,7 +79,7 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
  */
 void remove_old_ledgers(const uint64_t led_seq_no)
 {
-    std::map<uint64_t, ledger_cache>::iterator itr;
+    std::map<uint64_t, ledger_cache_entry>::iterator itr;
 
     std::string dir_path;
 
@@ -88,8 +87,8 @@ void remove_old_ledgers(const uint64_t led_seq_no)
     dir_path.append(conf::ctx.hist_dir)
         .append("/");
 
-    for (itr = cons::ctx.cache.begin();
-         itr != cons::ctx.cache.lower_bound(led_seq_no + 1);
+    for (itr = cons::ctx.ledger_cache.begin();
+         itr != cons::ctx.ledger_cache.lower_bound(led_seq_no + 1);
          itr++)
     {
         const std::string file_name = itr->second.lcl;
@@ -103,8 +102,8 @@ void remove_old_ledgers(const uint64_t led_seq_no)
             boost::filesystem::remove(file_path);
     }
 
-    if (!cons::ctx.cache.empty())
-        cons::ctx.cache.erase(cons::ctx.cache.begin(), cons::ctx.cache.lower_bound(led_seq_no + 1));
+    if (!cons::ctx.ledger_cache.empty())
+        cons::ctx.ledger_cache.erase(cons::ctx.ledger_cache.begin(), cons::ctx.ledger_cache.lower_bound(led_seq_no + 1));
 }
 
 /**
@@ -187,7 +186,7 @@ const ledger_history load_ledger()
                 {
                     const uint8_t *ledger_buf_ptr = reinterpret_cast<const uint8_t *>(buffer.data());
                     const fbschema::ledger::Ledger *ledger = fbschema::ledger::GetLedger(ledger_buf_ptr);
-                    ledger_cache c;
+                    ledger_cache_entry c;
                     c.lcl = file_name;
                     c.state = fbschema::flatbuff_bytes_to_sv(ledger->state());
 
@@ -237,7 +236,7 @@ void send_ledger_history_request(const std::string &minimum_lcl, const std::stri
     p2pmsg::create_msg_from_history_request(msg.builder(), hr);
     p2p::send_message_to_random_peer(msg);
 
-    last_requested_lcl = required_lcl;
+    ctx.last_requested_lcl = required_lcl;
 
     LOG_DBG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
 }
@@ -260,8 +259,8 @@ bool check_required_lcl_availability(const p2p::history_request &hr)
 
     if (req_seq_no > 0)
     {
-        const auto itr = cons::ctx.cache.find(req_seq_no);
-        if (itr == cons::ctx.cache.end())
+        const auto itr = cons::ctx.ledger_cache.find(req_seq_no);
+        if (itr == cons::ctx.ledger_cache.end())
         {
             LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
             //either this node is also not in consesnsus ledger or other node requesting a lcl that is older than node's current
@@ -300,8 +299,8 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         min_seq_no = std::stoull(hr.minimum_lcl.substr(0, pos)); //get required lcl sequence number
     }
 
-    const auto itr = cons::ctx.cache.find(min_seq_no);
-    if (itr != cons::ctx.cache.end()) //requested minimum lcl is not in our lcl history cache
+    const auto itr = cons::ctx.ledger_cache.find(min_seq_no);
+    if (itr != cons::ctx.ledger_cache.end()) //requested minimum lcl is not in our lcl history cache
     {
         min_seq_no = itr->first;
         //check whether minimum lcl node ask for is same as this node's.
@@ -313,7 +312,7 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
             return history_response;
         }
     }
-    else if (min_seq_no > cons::ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
+    else if (min_seq_no > cons::ctx.ledger_cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
     {
         LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. hash: " << min_lcl_hash;
         history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
@@ -322,13 +321,13 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
     else
     {
         LOG_DBG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
-        min_seq_no = cons::ctx.cache.begin()->first;
+        min_seq_no = cons::ctx.ledger_cache.begin()->first;
     }
 
     //LOG_DBG << "history request min seq: " << std::to_string(min_seq_no);
 
     //copy current history cache.
-    std::map<uint64_t, ledger_cache> led_cache = cons::ctx.cache;
+    std::map<uint64_t, ledger_cache_entry> led_cache = cons::ctx.ledger_cache;
 
     //filter out cache and get raw files here.
     led_cache.erase(
@@ -387,7 +386,7 @@ p2p::peer_outbound_message send_ledger_history(const p2p::history_request &hr)
 void handle_ledger_history_response(const p2p::history_response &hr)
 {
     //check response object contains
-    if (last_requested_lcl.empty())
+    if (ctx.last_requested_lcl.empty())
     {
         LOG_DBG << "Peer sent us a history response but we never asked for one!";
         return;
@@ -398,7 +397,7 @@ void handle_ledger_history_response(const p2p::history_response &hr)
         // This means we are in a fork ledger.Remove/rollback current ledger.
         // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger .
         remove_ledger(ctx.lcl);
-        cons::ctx.cache.erase(ctx.cache.rbegin()->first);
+        cons::ctx.ledger_cache.erase(ctx.ledger_cache.rbegin()->first);
         LOG_DBG << "Invalid min ledger. Removed last ledger.";
     }
     else
@@ -407,7 +406,7 @@ void handle_ledger_history_response(const p2p::history_response &hr)
         bool have_requested_lcl = false;
         for (auto &[seq_no, ledger] : hr.hist_ledgers)
         {
-            if (last_requested_lcl == ledger.lcl)
+            if (ctx.last_requested_lcl == ledger.lcl)
             {
                 have_requested_lcl = true;
                 break;
@@ -453,29 +452,29 @@ void handle_ledger_history_response(const p2p::history_response &hr)
     //Save recieved lcl in file system and update lcl history cache
     for (auto &[seq_no, ledger] : hr.hist_ledgers)
     {
-        auto prev_dup_itr = cons::ctx.cache.find(seq_no);
-        if (prev_dup_itr != cons::ctx.cache.end())
+        auto prev_dup_itr = cons::ctx.ledger_cache.find(seq_no);
+        if (prev_dup_itr != cons::ctx.ledger_cache.end())
         {
             remove_ledger(prev_dup_itr->second.lcl);
-            cons::ctx.cache.erase(prev_dup_itr);
+            cons::ctx.ledger_cache.erase(prev_dup_itr);
         }
         write_ledger(ledger.lcl, reinterpret_cast<const char *>(&ledger.raw_ledger[0]), ledger.raw_ledger.size());
-        ledger_cache l;
+        ledger_cache_entry l;
         l.lcl = ledger.lcl;
         l.state = ledger.state;
-        cons::ctx.cache.emplace(seq_no, std::move(l));
+        cons::ctx.ledger_cache.emplace(seq_no, std::move(l));
     }
 
-    last_requested_lcl = "";
+    ctx.last_requested_lcl = "";
 
-    if (cons::ctx.cache.empty())
+    if (cons::ctx.ledger_cache.empty())
     {
         cons::ctx.led_seq_no = 0;
         cons::ctx.lcl = GENESIS_LEDGER;
     }
     else
     {
-        const auto latest_lcl_itr = cons::ctx.cache.rbegin();
+        const auto latest_lcl_itr = cons::ctx.ledger_cache.rbegin();
         cons::ctx.lcl = latest_lcl_itr->second.lcl;
         cons::ctx.led_seq_no = latest_lcl_itr->first;
     }

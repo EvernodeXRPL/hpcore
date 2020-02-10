@@ -70,7 +70,6 @@ struct consensus_context
     util::rollover_hashset recent_userinput_hashes;
 
     uint8_t stage = 0;
-    uint64_t novel_proposal_time = 0;
     uint64_t time_now = 0;
     std::string lcl;
     uint64_t led_seq_no = 0;
@@ -81,9 +80,10 @@ struct consensus_context
     //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.
     //this is loaded when node started and updated throughout consensus - delete ledgers that falls behind MAX_LEDGER_SEQUENCE range.
     //We will use this to track lcls related logic.- track state, lcl request, response.
-    std::map<uint64_t, ledger_cache> cache;
-    //ledger close time of previous hash
+    std::map<uint64_t, ledger_cache_entry> ledger_cache;
+    std::string last_requested_lcl;
 
+    //ledger close time of previous hash
     uint64_t prev_close_time = 0;
     uint16_t reset_time = 0;
     uint16_t stage_time = 0;                    // Time allocated to a consensus stage.
@@ -101,7 +101,6 @@ struct consensus_context
 
 struct vote_counter
 {
-    std::map<uint8_t, int32_t> stage;
     std::map<uint64_t, int32_t> time;
     std::map<std::string, int32_t> lcl;
     std::map<std::string, int32_t> users;
@@ -129,8 +128,6 @@ p2p::proposal create_stage0_proposal();
 p2p::proposal create_stage123_proposal(vote_counter &votes);
 
 void broadcast_proposal(const p2p::proposal &p);
-
-void check_majority_stage(bool &is_desync, bool &should_reset, uint8_t &majority_stage, vote_counter &votes);
 
 void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
