@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../util.hpp"
+#include "../comm/comm_server.hpp"
 #include "../sock/socket_session.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
@@ -66,20 +67,7 @@ extern connected_context ctx;
  */
 struct listener_context
 {
-    // The SSL context holds certificates to facilitate TLS connections.
-    ssl::context ssl_ctx{ssl::context::tlsv13};
-
-    // User session handler instance. This instance's methods will be fired for any user socket activity.
-    usr::user_session_handler global_usr_session_handler;
-
-    // The IO context used by the websocket listener. (not exposed out of this namespace)
-    net::io_context ioc;
-
-    // The thread the websocket listener is running on. (not exposed out of this namespace)
-    std::thread listener_thread;
-
-    // Used to pass down the default settings to the socket session
-    sock::session_options default_sess_opts;
+    comm::comm_server server;
 };
 
 int init();

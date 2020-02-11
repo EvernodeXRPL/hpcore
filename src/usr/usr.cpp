@@ -1,5 +1,6 @@
 #include "../pchheader.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
+#include "../comm/comm_server.hpp"
 #include "../sock/socket_server.hpp"
 #include "../sock/socket_session.hpp"
 #include "../sock/socket_session_handler.hpp"
@@ -254,21 +255,8 @@ sock::socket_session<usr::user_outbound_message> *get_session_by_pubkey(const st
  */
 void start_listening()
 {
-
-    auto address = net::ip::make_address(conf::cfg.listenip);
-    listener_ctx.default_sess_opts.max_socket_read_len = conf::cfg.pubmaxsize;
-    listener_ctx.default_sess_opts.max_rawbytes_per_minute = conf::cfg.pubmaxcpm;
-    listener_ctx.default_sess_opts.max_badmsgs_per_minute = conf::cfg.pubmaxbadmpm;
-
-    std::make_shared<sock::socket_server<user_outbound_message>>(
-        listener_ctx.ioc,
-        listener_ctx.ssl_ctx,
-        tcp::endpoint{address, conf::cfg.pubport},
-        listener_ctx.global_usr_session_handler,
-        listener_ctx.default_sess_opts)
-        ->run();
-
-    listener_ctx.listener_thread = std::thread([&] { listener_ctx.ioc.run(); });
+    listener_ctx.server = comm::comm_server();
+    listener_ctx.server.start(conf::cfg.pubport, ".sock-user");
 
     LOG_INFO << "Started listening for incoming user connections...";
 }

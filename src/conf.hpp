@@ -23,19 +23,20 @@ enum OPERATING_MODE
 // Holds contextual information about the currently loaded contract.
 struct contract_ctx
 {
-    std::string command;        // The CLI command issued to launch HotPocket
+    std::string command;         // The CLI command issued to launch HotPocket
     std::string exe_dir;         // Hot Pocket executable dir.
-    std::string statemon_exe_path;// State monitor executable file path.
+    std::string statemon_exe_path;   // State monitor executable file path.
+    std::string websocketd_exe_path; // Websocketd executable file path.
 
     std::string contract_dir;    // Contract base directory full path
     std::string hist_dir;        // Contract ledger history dir full path
     std::string state_dir;       // Contract executing state dir full path (This is the fuse mount point)
-    std::string state_hist_dir;   // Contract state history dir full path
+    std::string state_hist_dir;  // Contract state history dir full path
     std::string log_dir;         // Contract log dir full path
     std::string config_dir;      // Contract config dir full path
     std::string config_file;     // Full path to the contract config file
-    std::string tls_key_file;     // Full path to the tls secret key file
-    std::string tls_cert_file;    // Full path to the tls certificate
+    std::string tls_key_file;    // Full path to the tls secret key file
+    std::string tls_cert_file;   // Full path to the tls certificate
 };
 
 // Holds all the contract config values.

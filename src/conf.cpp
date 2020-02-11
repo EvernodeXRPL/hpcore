@@ -138,6 +138,7 @@ void set_contract_dir_paths(std::string exepath, std::string basedir)
 
     ctx.exe_dir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
     ctx.statemon_exe_path = ctx.exe_dir + "/" + "hpstatemon";
+    ctx.websocketd_exe_path = ctx.exe_dir + "/" + "websocketd";
 
     ctx.contract_dir = basedir;
     ctx.config_dir = basedir + "/cfg";

@@ -46,13 +46,13 @@ do
     
     # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
-            binary: '/usr/local/bin/node', \
-            binargs: './bin/contract.js', \
+            binary: 'rnd_contract', \
+            binargs: './state/bigfile 5', \
             appbill: '', \
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 1000, \
+            roundtime: 2000, \
             loglevel: 'debug', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
@@ -65,7 +65,7 @@ do
 
     # Copy the contract executable and appbill.
     mkdir ./node$n/bin
-    cp ../../../examples/echo_contract/contract.js ./node$n/bin/contract.js
+    cp ../../../examples/random_contract/rnd_contract ./node$n/bin/rnd_contract
     cp ../bin/appbill ./node$n/bin/
     # cp -r ../../../examples/todo_contract/bin/Release/netcoreapp3.1/publish/* ./node$n/bin/
 done
@@ -112,7 +112,7 @@ do
 done
 
 # Setup initial state data for all nodes but one.
-for (( i=1; i<=$ncount; i++ ))
+for (( i=1; i<$ncount; i++ ))
 do
 
     mkdir -p ./node$i/statehist/0/data/ > /dev/null 2>&1
@@ -124,7 +124,7 @@ do
     popd > /dev/null 2>&1
 
     # Copy any more initial state files for testing.
-    #cp ~/my_big_file ~/hpcore/hpcluster/node$i/statehist/0/data/
+    cp ~/bigfile ./node$i/statehist/0/data/bigfile
 
 done
 

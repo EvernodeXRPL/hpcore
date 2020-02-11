@@ -69,6 +69,9 @@ add_executable(hpcore
     src/statefs/hashtree_builder.cpp
     src/statefs/state_restore.cpp
     src/statefs/state_store.cpp
+    src/comm/comm_session.cpp
+    src/comm/comm_session_handler.cpp
+    src/comm/comm_server.cpp
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp
     src/sock/socket_message.cpp
@@ -106,11 +109,12 @@ add_dependencies(hpcore
     appbill
 )
 
-# add_custom_command(TARGET hpcore POST_BUILD
-#     COMMAND strip ./build/hpcore
-#     COMMAND strip ./build/hpstatemon
-#     COMMAND strip ./build/appbill
-# )
+add_custom_command(TARGET hpcore POST_BUILD
+    COMMAND cp ./test/websocketd/websocketd ./build/websocketd
+    # COMMAND strip ./build/hpcore
+    # COMMAND strip ./build/hpstatemon
+    # COMMAND strip ./build/appbill
+)
     
 target_precompile_headers(hpstatemon PUBLIC src/pchheader.hpp)
 target_precompile_headers(hpcore REUSE_FROM hpcore)
