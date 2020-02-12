@@ -22,6 +22,8 @@ void comm_session::on_connect()
 
 void comm_session::on_message(std::string_view message)
 {
+    LOG_DBG << message.length();
+
     if (session_type == SESSION_TYPE::USER)
         user_sess_handler.on_message(*this, message);
 }

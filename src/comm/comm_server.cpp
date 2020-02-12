@@ -59,7 +59,7 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
 
 void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type)
 {
-    const short poll_events = POLLIN | POLLHUP;
+    const short poll_events = POLLIN | POLLRDHUP;
     std::unordered_map<int, comm_session> clients;
 
     while (true)
@@ -95,9 +95,14 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
         else if (client_fd > 0)
         {
             // New client connected.
+            // TODO: Here we need to get original client ip address from the process on the other end.
+            // https://github.com/codetsunami/hp_poc_unixdomainsocket/blob/master/hpcorestub.c
+
             comm_session session(client_fd, session_type);
             session.flags.set(SESSION_FLAG::INBOUND);
             session.on_connect();
+
+            // We check for 'closed' state here because corebill maight close the connection immediately.
             if (!session.flags[SESSION_FLAG::CLOSED])
                 clients.emplace(client_fd, std::move(session));
         }
@@ -119,27 +124,32 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
                 if (result & POLLIN)
                 {
                     int available_bytes;
-                    ioctl(fd, FIONREAD, &available_bytes);
-
-                    char buf[available_bytes];
-                    const int read_len = read(fd, buf, available_bytes);
-                    
-                    if (read_len > 0)
-                        session.on_message(buf);
-                    else if (read_len == -1)
+                    if (ioctl(fd, FIONREAD, &available_bytes) == -1 || available_bytes == 0)
+                    {
                         is_disconnect = true;
+                    }
+                    else if (available_bytes > 0)
+                    {
+                        // TODO: Here we need to introduce byte length prefix and wait until all bytes
+                        // are available.
+                        char buf[available_bytes];
+                        const int read_len = read(fd, buf, available_bytes);
+
+                        if (read_len > 0)
+                            session.on_message(buf);
+                        else if (read_len == -1)
+                            is_disconnect = true;
+                    }
                 }
-                else if (result & POLLHUP)
-                {
+                
+                if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
                     is_disconnect = true;
-                }
 
                 if (is_disconnect)
                 {
                     session.close();
                     close(fd);
                     clients.erase(fd);
-                    LOG_DBG << "Client fd " << fd << " disconnected from domain socket.";
                 }
             }
         }
