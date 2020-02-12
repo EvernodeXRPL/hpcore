@@ -122,7 +122,4 @@ void socket_server<T>::fail(error_code ec, char const *what)
 template socket_server<p2p::peer_outbound_message>::socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<p2p::peer_outbound_message> &session_handler, const session_options &session_options);
 template void socket_server<p2p::peer_outbound_message>::run();
 
-template socket_server<usr::user_outbound_message>::socket_server(net::io_context &ioc, ssl::context &ctx, tcp::endpoint endpoint, socket_session_handler<usr::user_outbound_message> &session_handler, const session_options &session_options);
-template void socket_server<usr::user_outbound_message>::run();
-
 } // namespace sock

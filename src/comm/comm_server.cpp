@@ -4,18 +4,18 @@
 #include "comm_server.hpp"
 #include "comm_session.hpp"
 #include "comm_session_handler.hpp"
+#include "../hplog.hpp"
 #include "../util.hpp"
 
 namespace comm
 {
 
-int comm_server::start(const uint16_t port, const char *domain_socket_name, comm_session_handler &sess_handler)
+int comm_server::start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type)
 {
     int socket_fd = open_domain_socket(domain_socket_name);
     if (socket_fd > 0)
     {
-        domain_sock_reader_thread = std::thread([&] { read_client_sockets(); });
-        domain_sock_listener_thread = std::thread([&] { listen_domain_socket(socket_fd, sess_handler); });
+        domain_sock_listener_thread = std::thread([&] { listen_domain_socket(socket_fd, session_type); });
         return start_websocketd_process(port, domain_socket_name);
     }
 
@@ -30,6 +30,10 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
         LOG_ERR << errno << ": Domain socket open error";
         return -1;
     }
+
+    // Set non-blocking behaviour.
+    int flags = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
     sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
@@ -53,90 +57,95 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
     return fd;
 }
 
-void comm_server::listen_domain_socket(const int socket_fd, comm_session_handler &sess_handler)
-{
-    while (true)
-    {
-        int client = accept(socket_fd, NULL, NULL);
-        if (client == -1)
-        {
-            LOG_ERR << errno << ": Domain socket accept error";
-            continue;
-        }
-
-        comm_session session(std::to_string(client), sess_handler);
-        session.on_connect();
-
-        domain_sock_clients.emplace(client, std::move(session));
-    }
-
-    return;
-}
-
-void comm_server::read_client_sockets()
+void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type)
 {
     const short poll_events = POLLIN | POLLHUP;
+    std::unordered_map<int, comm_session> clients;
 
     while (true)
     {
         // Prepare poll fd list.
-        const size_t count = domain_sock_clients.size();
-        pollfd pollfds[count];
-        auto iter = domain_sock_clients.begin();
+        const size_t fd_count = clients.size() + 1; //+1 for the inclusion of socket_fd
+        pollfd pollfds[fd_count];
 
-        for (size_t i = 0; i < count; i++)
+        pollfds[0].fd = socket_fd;
+
+        auto iter = clients.begin();
+        for (size_t i = 1; i < fd_count; i++)
         {
             pollfds[i].fd = iter->first;
             pollfds[i].events = poll_events;
             iter++;
         }
 
-        if (poll(pollfds, count, 10) == -1)
+        if (poll(pollfds, fd_count, 10) == -1) //10ms timeout
         {
             LOG_ERR << errno << ": Poll failed.";
             util::sleep(10);
+            continue;
         }
 
-        for (size_t i = 0; i < count; i++)
+        // Accept new client connection (if available)
+        int client_fd = accept(socket_fd, NULL, NULL);
+        if (client_fd == -1 && errno != EAGAIN)
+        {
+            LOG_ERR << errno << ": Domain socket accept error";
+            return;
+        }
+        else if (client_fd > 0)
+        {
+            // New client connected.
+            comm_session session(client_fd, session_type);
+            session.flags.set(SESSION_FLAG::INBOUND);
+            session.on_connect();
+            if (!session.flags[SESSION_FLAG::CLOSED])
+                clients.emplace(client_fd, std::move(session));
+        }
+
+        const size_t clients_count = clients.size();
+
+        // Loop through all client fds and read any data.
+        for (size_t i = 1; i <= clients_count; i++)
         {
             const short result = pollfds[i].revents;
             const int fd = pollfds[i].fd;
-            comm_session &session = domain_sock_clients[fd];
-            bool is_disconnect = false;
 
-            if (result & POLLIN)
+            const auto iter = clients.find(fd);
+            if (iter != clients.end())
             {
-                int available_bytes;
-                ioctl(fd, FIONREAD, &count);
+                comm_session &session = iter->second;
+                bool is_disconnect = false;
 
-                char buf[available_bytes];
-                const int read_len = read(fd, buf, available_bytes);
-                if (read_len > 0)
+                if (result & POLLIN)
                 {
-                    write(fd, "got some bytes from you:\n", strlen("got some bytes from you:\n"));
-                    write(fd, buf, read_len);
+                    int available_bytes;
+                    ioctl(fd, FIONREAD, &available_bytes);
 
-                    session.on_message(buf);
+                    char buf[available_bytes];
+                    const int read_len = read(fd, buf, available_bytes);
+                    
+                    if (read_len > 0)
+                        session.on_message(buf);
+                    else if (read_len == -1)
+                        is_disconnect = true;
                 }
-                else if (read_len == -1)
+                else if (result & POLLHUP)
                 {
                     is_disconnect = true;
                 }
-            }
-            else if (result & POLLHUP)
-            {
-                is_disconnect = true;
-            }
 
-            if (is_disconnect)
-            {
-                session.on_close();
-                close(fd);
-                domain_sock_clients.erase(fd);
-                LOG_DBG << "Client fd " << fd << " disconnected from domain socket.";
+                if (is_disconnect)
+                {
+                    session.close();
+                    close(fd);
+                    clients.erase(fd);
+                    LOG_DBG << "Client fd " << fd << " disconnected from domain socket.";
+                }
             }
         }
     }
+
+    return;
 }
 
 int comm_server::start_websocketd_process(const uint16_t port, const char *domain_socket_name)

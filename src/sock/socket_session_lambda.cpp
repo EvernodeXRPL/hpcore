@@ -123,6 +123,5 @@ void socket_session<T>::ws_async_close()
 
 // Template instantiations.
 template class socket_session<p2p::peer_outbound_message>;
-template class socket_session<usr::user_outbound_message>;
 
 } // namespace sock

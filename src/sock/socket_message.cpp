@@ -2,22 +2,6 @@
 #include "../pchheader.hpp"
 #include "socket_message.hpp"
 
-namespace usr
-{
-
-user_outbound_message::user_outbound_message(std::string &&msg)
-{
-    this->msg = std::move(msg);
-}
-
-// Returns the buffer that should be written to the socket.
-std::string_view user_outbound_message::buffer()
-{
-    return msg;
-}
-
-}
-
 namespace p2p
 {
 

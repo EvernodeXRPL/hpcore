@@ -70,7 +70,6 @@ add_executable(hpcore
     src/statefs/state_restore.cpp
     src/statefs/state_store.cpp
     src/comm/comm_session.cpp
-    src/comm/comm_session_handler.cpp
     src/comm/comm_server.cpp
     src/sock/socket_client.cpp
     src/sock/socket_server.cpp

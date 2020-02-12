@@ -81,6 +81,4 @@ void socket_client<T>::socket_client_fail(beast::error_code ec, char const *what
 template socket_client<p2p::peer_outbound_message>::socket_client(net::io_context &ioc, ssl::context &ctx, socket_session_handler<p2p::peer_outbound_message> &session_handler, const session_options &session_options);
 template void socket_client<p2p::peer_outbound_message>::run(std::string_view host, std::string_view port);
 
-template socket_client<usr::user_outbound_message>::socket_client(net::io_context &ioc, ssl::context &ctx, socket_session_handler<usr::user_outbound_message> &session_handler, const session_options &session_options);
-template void socket_client<usr::user_outbound_message>::run(std::string_view host, std::string_view port);
 } // namespace sock

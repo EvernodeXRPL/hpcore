@@ -1,9 +1,7 @@
 #include "../pchheader.hpp"
 #include "../jsonschema/usrmsg_helpers.hpp"
 #include "../comm/comm_server.hpp"
-#include "../sock/socket_server.hpp"
-#include "../sock/socket_session.hpp"
-#include "../sock/socket_session_handler.hpp"
+#include "../comm/comm_session.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
@@ -52,13 +50,13 @@ std::string issue_challenge(const std::string sessionid)
  * @param session The socket session that received the response.
  * @return 0 for successful verification. -1 for failure.
  */
-int verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session)
+int verify_challenge(std::string_view message, comm::comm_session &session)
 {
     // The received message must be the challenge response. We need to verify it.
-    const auto itr = ctx.pending_challenges.find(session->uniqueid);
+    const auto itr = ctx.pending_challenges.find(session.uniqueid);
     if (itr == ctx.pending_challenges.end())
     {
-        LOG_DBG << "No challenge found for the session " << session->uniqueid;
+        LOG_DBG << "No challenge found for the session " << session.uniqueid;
         return -1;
     }
 
@@ -83,23 +81,23 @@ int verify_challenge(std::string_view message, sock::socket_session<user_outboun
             // All good. Unique public key.
             // Promote the connection from pending-challenges to authenticated users.
 
-            session->flags.reset(sock::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
-            session->flags.set(sock::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
-            add_user(session, userpubkey);                                   // Add the user to the global authed user list
-            ctx.pending_challenges.erase(session->uniqueid);                 // Remove the stored challenge
+            session.flags.reset(comm::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
+            session.flags.set(comm::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
+            add_user(session, userpubkey);                                  // Add the user to the global authed user list
+            ctx.pending_challenges.erase(session.uniqueid);                 // Remove the stored challenge
 
-            LOG_DBG << "User connection " << session->uniqueid << " authenticated. Public key "
+            LOG_DBG << "User connection " << session.uniqueid << " authenticated. Public key "
                     << userpubkeyhex;
             return 0;
         }
         else
         {
-            LOG_DBG << "Duplicate user public key " << session->uniqueid;
+            LOG_DBG << "Duplicate user public key " << session.uniqueid;
         }
     }
     else
     {
-        LOG_DBG << "Challenge verification failed " << session->uniqueid;
+        LOG_DBG << "Challenge verification failed " << session.uniqueid;
     }
 
     return -1;
@@ -145,7 +143,7 @@ int handle_user_message(connected_user &user, std::string_view message)
         {
             std::string msg;
             jusrmsg::create_status_response(msg);
-            user.session->send(user_outbound_message(std::move(msg)));
+            user.session.send(msg);
             return 0;
         }
         else
@@ -166,14 +164,11 @@ int handle_user_message(connected_user &user, std::string_view message)
 /**
  * Send the specified status result via the provided session.
  */
-void send_request_status_result(sock::socket_session<user_outbound_message> *session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data)
+void send_request_status_result(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data)
 {
-    if (session != NULL)
-    {
-        std::string msg;
-        jusrmsg::create_request_status_result(msg, status, reason, origin_type, origin_extra_data);
-        session->send(usr::user_outbound_message(std::move(msg)));
-    }
+    std::string msg;
+    jusrmsg::create_request_status_result(msg, status, reason, origin_type, origin_extra_data);
+    session.send(msg);
 }
 
 /**
@@ -184,9 +179,9 @@ void send_request_status_result(sock::socket_session<user_outbound_message> *ses
  * @param pubkey User's binary public key.
  * @return 0 on successful additions. -1 on failure.
  */
-int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey)
+int add_user(const comm::comm_session &session, const std::string &pubkey)
 {
-    const std::string &sessionid = session->uniqueid;
+    const std::string &sessionid = session.uniqueid;
     if (ctx.users.count(sessionid) == 1)
     {
         LOG_INFO << sessionid << " already exist. Cannot add user.";
@@ -237,17 +232,11 @@ int remove_user(const std::string &sessionid)
  * @param pubkey User binary pubkey.
  * @return Pointer to the socket session. NULL of not found.
  */
-sock::socket_session<usr::user_outbound_message> *get_session_by_pubkey(const std::string &pubkey)
+const comm::comm_session &get_session_by_pubkey(const std::string &pubkey)
 {
     const auto sessionid_itr = usr::ctx.sessionids.find(pubkey);
-    if (sessionid_itr != usr::ctx.sessionids.end())
-    {
-        const auto user_itr = usr::ctx.users.find(sessionid_itr->second);
-        if (user_itr != usr::ctx.users.end())
-            return user_itr->second.session;
-    }
-
-    return NULL;
+    const auto user_itr = usr::ctx.users.find(sessionid_itr->second);
+    return user_itr->second.session;
 }
 
 /**
@@ -255,8 +244,7 @@ sock::socket_session<usr::user_outbound_message> *get_session_by_pubkey(const st
  */
 void start_listening()
 {
-    listener_ctx.server = comm::comm_server();
-    listener_ctx.server.start(conf::cfg.pubport, ".sock-user");
+    listener_ctx.server.start(conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER);
 
     LOG_INFO << "Started listening for incoming user connections...";
 }

@@ -2,19 +2,18 @@
 #define _HP_USER_SESSION_HANDLER_
 
 #include "../pchheader.hpp"
-#include "../sock/socket_session_handler.hpp"
-#include "../sock/socket_session.hpp"
-#include "../sock/socket_message.hpp"
+#include "../comm/comm_session_handler.hpp"
+#include "../comm/comm_session.hpp"
 
 namespace usr
 {
 
-class user_session_handler : public sock::socket_session_handler<user_outbound_message>
+class user_session_handler : public comm::comm_session_handler
 {
 public:
-    void on_connect(sock::socket_session<user_outbound_message> *session);
-    void on_message(sock::socket_session<user_outbound_message> *session, std::string_view message);
-    void on_close(sock::socket_session<user_outbound_message> *session);
+    void on_connect(comm::comm_session &session) const;
+    void on_message(comm::comm_session &session, std::string_view message) const;
+    void on_close(const comm::comm_session &session) const;
 };
 
 } // namespace usr

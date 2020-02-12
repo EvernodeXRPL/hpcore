@@ -2,8 +2,6 @@
 #define _HP_COMM_SESSION_
 
 #include "../pchheader.hpp"
-#include "../conf.hpp"
-#include "../hplog.hpp"
 
 namespace comm
 {
@@ -16,37 +14,45 @@ namespace comm
 enum SESSION_FLAG
 {
     INBOUND = 0,
-    USER_CHALLENGE_ISSUED = 1,
-    USER_AUTHED = 2
+    CLOSED = 1,
+    USER_CHALLENGE_ISSUED = 2,
+    USER_AUTHED = 3
 };
 
-//Forward Declaration
-class comm_session_handler;
+/**
+ * Socket session type.
+ */
+enum SESSION_TYPE
+{
+    USER = 0,
+    PEER = 1
+};
 
 /** 
  * Represents an active WebSocket connection
 */
 class comm_session
 {
-
-    comm_session_handler &sess_handler;
+    const int session_fd;
+    const SESSION_TYPE session_type;
 
 public:
     // The unique identifier of the remote party (format <ip>:<port>).
     const std::string uniqueid;
 
-    // Boolean value to store whether the session is self connection (connect to the same node)
-    bool is_self;
+    // IP address of the remote party.
+    const std::string address;
 
     // The set of SESSION_FLAG enum flags that will be set by user-code of this calss.
     // We mainly use this to store contexual information about this session based on the use case.
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    comm_session(std::string uniqueid, comm_session_handler &sess_handler);
+    comm_session(const int fd, const SESSION_TYPE session_type);
     void on_connect();
     void on_message(std::string_view message);
-    void on_close();
+    void send(std::string_view message) const;
+    void close();
 };
 
 } // namespace comm

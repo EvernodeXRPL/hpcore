@@ -13,9 +13,9 @@ class comm_session_handler
 {
 
 public:
-    void on_connect(comm_session &session);
-    void on_message(comm_session &session, std::string_view message);
-    void on_close(comm_session &session);
+    void on_connect(comm_session &session) const;
+    void on_message(comm_session &session, std::string_view message) const;
+    void on_close(const comm_session &session) const;
 };
 
 } // namespace comm

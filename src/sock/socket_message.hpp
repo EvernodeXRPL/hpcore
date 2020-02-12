@@ -23,26 +23,6 @@ public:
 
 }
 
-namespace usr
-{
-
-/**
- * Represents a message (bytes) that is sent to a user.
- */
-class user_outbound_message : public sock::outbound_message
-{
-    // Contains message bytes.
-    std::string msg;
-
-public:
-    user_outbound_message(std::string &&_msg);
-
-    // Returns the buffer that should be written to the socket.
-    virtual std::string_view buffer();
-};
-
-}
-
 namespace p2p
 {
 

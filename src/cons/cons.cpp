@@ -323,7 +323,7 @@ void verify_and_populate_candidate_user_inputs()
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
             // Locate this user's socket session in case we need to send any status messages regarding user inputs.
-            sock::socket_session<usr::user_outbound_message> *session = usr::get_session_by_pubkey(pubkey);
+            const comm::comm_session &session = usr::get_session_by_pubkey(pubkey);
 
             // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
@@ -794,7 +794,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
                     jusrmsg::create_contract_output_container(msg, outputtosend);
 
                     const usr::connected_user &user = user_itr->second;
-                    user.session->send(usr::user_outbound_message(std::move(msg)));
+                    user.session.send(msg);
                 }
             }
 

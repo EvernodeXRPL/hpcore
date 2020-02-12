@@ -29,11 +29,11 @@ function main() {
     }
 
 
-    var server = 'wss://localhost:8080'
+    var server = 'ws://localhost:8080'
 
-    if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
+    if (process.argv.length == 3) server = 'ws://localhost:' + process.argv[2]
 
-    if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
+    if (process.argv.length == 4) server = 'ws://' + process.argv[2] + ':' + process.argv[3]
 
     var ws = new ws_api(server, {
         rejectUnauthorized: false

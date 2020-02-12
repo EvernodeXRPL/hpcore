@@ -4,7 +4,7 @@
 #include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../comm/comm_server.hpp"
-#include "../sock/socket_session.hpp"
+#include "../comm/comm_session.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
 
@@ -28,16 +28,15 @@ struct connected_user
 
     // Holds the websocket session of this user.
     // We don't need to own the session object since the lifetime of user and session are coupled.
-    sock::socket_session<user_outbound_message> *session;
+    const comm::comm_session &session;
 
     /**
      * @param session The web socket session the user is connected to.
      * @param pubkey The public key of the user in binary format.
      */
-    connected_user(sock::socket_session<user_outbound_message> *session, std::string_view pubkey)
-        : pubkey(pubkey)
+    connected_user(const comm::comm_session &session, std::string_view pubkey)
+        : session(session), pubkey(pubkey)
     {
-        this->session = session;
     }
 };
 
@@ -74,17 +73,17 @@ int init();
 
 std::string issue_challenge(const std::string sessionid);
 
-int verify_challenge(std::string_view message, sock::socket_session<user_outbound_message> *session);
+int verify_challenge(std::string_view message, comm::comm_session &session);
 
 int handle_user_message(connected_user &user, std::string_view message);
 
-void send_request_status_result(sock::socket_session<usr::user_outbound_message> *session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data);
+void send_request_status_result(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data);
 
-int add_user(sock::socket_session<user_outbound_message> *session, const std::string &pubkey);
+int add_user(const comm::comm_session &session, const std::string &pubkey);
 
 int remove_user(const std::string &sessionid);
 
-sock::socket_session<usr::user_outbound_message> *get_session_by_pubkey(const std::string &pubkey);
+const comm::comm_session &get_session_by_pubkey(const std::string &pubkey);
 
 void start_listening();
 
