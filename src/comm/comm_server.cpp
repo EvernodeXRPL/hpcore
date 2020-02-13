@@ -15,7 +15,7 @@ int comm_server::start(const uint16_t port, const char *domain_socket_name, cons
     int socket_fd = open_domain_socket(domain_socket_name);
     if (socket_fd > 0)
     {
-        domain_sock_listener_thread = std::thread([&] { listen_domain_socket(socket_fd, session_type); });
+        domain_sock_listener_thread = std::thread(&comm_server::listen_domain_socket, this, socket_fd, session_type);
         return start_websocketd_process(port, domain_socket_name);
     }
 
@@ -30,10 +30,6 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
         LOG_ERR << errno << ": Domain socket open error";
         return -1;
     }
-
-    // Set non-blocking behaviour.
-    int flags = fcntl(fd, F_GETFL);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
     sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
@@ -53,6 +49,10 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
         LOG_ERR << errno << ": Domain socket listen error";
         return -1;
     }
+
+    // Set non-blocking behaviour.
+    int flags = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
     return fd;
 }
@@ -100,7 +100,7 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
 
             std::string ip = get_cgi_ip(client_fd);
 
-            LOG_ERR << "IP of user: " << ip; 
+            LOG_DBG << "IP of user: " << ip; 
 
             comm_session session(client_fd, session_type);
             session.flags.set(SESSION_FLAG::INBOUND);
@@ -243,11 +243,14 @@ std::string get_cgi_ip(int fd) {
     socklen_t length;
     struct ucred uc;
     length = sizeof(struct ucred);
+
+    // Ask the operating system for information about the other process
     if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &length) == -1) {
         LOG_ERR << errno << ": Could not retrieve PID from unix domain socket";
         return "";
     }
 
+    // Open /proc/<pid>/environ for that process
     std::stringstream ss;
     ss << "/proc/" << uc.pid << "/environ";
     std::string fn = ss.str(); 
@@ -258,16 +261,17 @@ std::string get_cgi_ip(int fd) {
         return "";
     }
 
-    std::array<uint8_t, 0x7fff> envblock;
-    ssize_t bytes_read = read(envfd, envblock.data(), 0x7fff); //0x7fff bytes is an operating system size limit for this block
-
+    // Read environ block
+    char envblock[0x7fff];
+    ssize_t bytes_read = read(envfd, envblock, 0x7fff); //0x7fff bytes is an operating system size limit for this block
     close(envfd);   
  
-    for (int i = 0, last = 0; i < bytes_read; ++i) {
-        if (envblock[i] == '\0') {
-            if (i - last >= 19 && std::string_view((const char*)(envblock.data() + last), 12) == "REMOTE_ADDR")
-                return std::string((const char*)envblock.data() + last + 12);
-            last = i + 1;
+    // Find the REMOTE_ADDR entry. Envrion block delimited by \0
+    for (char* upto = envblock, *last = envblock; upto - envblock < bytes_read; ++upto) {
+        if (*upto == '\0') {
+            if (upto - last > 12 && strncmp(last, "REMOTE_ADDR=", 12) == 0)
+                return std::string((const char*)(last + 12));
+            last = upto + 1;
         }
     }
     
