@@ -102,6 +102,9 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
 
             LOG_DBG << "IP of user: " << ip; 
 
+            LOG_DBG << "test banning " << ip;
+            firewall_ban(ip, false);
+
             comm_session session(client_fd, session_type);
             session.flags.set(SESSION_FLAG::INBOUND);
             session.on_connect();
@@ -165,7 +168,6 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
 
 int comm_server::start_websocketd_process(const uint16_t port, const char *domain_socket_name)
 {
-    const pid_t pid = fork();
 
     // setup pipe for firewall
     int firewall_pipe[2]; // parent to child pipe
@@ -175,6 +177,8 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
     } else {
         firewall_out = firewall_pipe[1];
     }
+
+    pid_t pid = fork();
 
     if (pid > 0)
     {
@@ -198,9 +202,9 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
         }
 
         // Override stdout in the child's file table with /dev/null
-        int null_fd = open("/dev/null", O_WRONLY);
-        if (null_fd) 
-            dup2(null_fd, 1);
+//        int null_fd = open("/dev/null", O_WRONLY);
+//        if (null_fd) 
+//            dup2(null_fd, 1);
         
 
         // Fill process args.
@@ -234,8 +238,16 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
 void comm_server::firewall_ban(std::string_view ip, bool unban) {
     if (firewall_out < 0) 
         return;
-    struct iovec iov[] { { (void*)( unban ? "r" : "a" ), 1 }, { (void*)ip.data(), ip.length() } };
-    writev(firewall_out, iov, 2);
+    
+    int len = ip.length() + 2;
+    char buffer[len];
+    buffer[0] = ( unban ? 'r' : 'a' );
+    memcpy(buffer+1, ip.data(), len - 2);
+    buffer[len-1] = '\n';
+
+    write(firewall_out, buffer, len);
+    //struct iovec iov[] { { (void*)( unban ? "r" : "a" ), 1 }, { (void*)ip.data(), ip.length() } };
+    //writev(firewall_out, iov, 2);
 }
 
 std::string get_cgi_ip(int fd) {
