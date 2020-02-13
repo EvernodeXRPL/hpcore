@@ -90,13 +90,17 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
         if (client_fd == -1 && errno != EAGAIN)
         {
             LOG_ERR << errno << ": Domain socket accept error";
-            return;
+//            return;
         }
         else if (client_fd > 0)
         {
             // New client connected.
             // TODO: Here we need to get original client ip address from the process on the other end.
             // https://github.com/codetsunami/hp_poc_unixdomainsocket/blob/master/hpcorestub.c
+
+            std::string ip = get_cgi_ip(client_fd);
+
+            LOG_ERR << "IP of user: " << ip; 
 
             comm_session session(client_fd, session_type);
             session.flags.set(SESSION_FLAG::INBOUND);
@@ -132,6 +136,7 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
                     {
                         // TODO: Here we need to introduce byte length prefix and wait until all bytes
                         // are available.
+
                         char buf[available_bytes];
                         const int read_len = read(fd, buf, available_bytes);
 
@@ -162,14 +167,41 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
 {
     const pid_t pid = fork();
 
+    // setup pipe for firewall
+    int firewall_pipe[2]; // parent to child pipe
+
+    if (pipe(firewall_pipe)) {
+        LOG_ERR << errno << ": pipe() call failed for firewall";
+    } else {
+        firewall_out = firewall_pipe[1];
+    }
+
     if (pid > 0)
     {
         // HotPocket process.
         websocketd_pid = pid;
+
+        // Close the child reading end of the pipe in the parent
+        if (firewall_out > 0)
+            close(firewall_pipe[0]);
+
     }
     else if (pid == 0)
     {
         // Websocketd process.
+
+        if (firewall_out > 0) {
+            // Close parent writing end of the pipe in the child
+            close(firewall_pipe[1]);
+            // Override stdin in the child's file table
+            dup2(firewall_pipe[0], 0);
+        }
+
+        // Override stdout in the child's file table with /dev/null
+        int null_fd = open("/dev/null", O_WRONLY);
+        if (null_fd) 
+            dup2(null_fd, 1);
+        
 
         // Fill process args.
         char port[] = "--port";
@@ -196,6 +228,51 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
     }
 
     return 0;
+}
+
+
+void comm_server::firewall_ban(std::string_view ip, bool unban) {
+    if (firewall_out < 0) 
+        return;
+    struct iovec iov[] { { (void*)( unban ? "r" : "a" ), 1 }, { (void*)ip.data(), ip.length() } };
+    writev(firewall_out, iov, 2);
+}
+
+std::string get_cgi_ip(int fd) {
+
+    socklen_t length;
+    struct ucred uc;
+    length = sizeof(struct ucred);
+    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &length) == -1) {
+        LOG_ERR << errno << ": Could not retrieve PID from unix domain socket";
+        return "";
+    }
+
+    std::stringstream ss;
+    ss << "/proc/" << uc.pid << "/environ";
+    std::string fn = ss.str(); 
+
+    int envfd = open(fn.c_str(), O_RDONLY);
+    if (!envfd) {
+        LOG_ERR << errno << ": Could not open environ block for process on other end of unix domain socket PID=" << uc.pid;
+        return "";
+    }
+
+    std::array<uint8_t, 0x7fff> envblock;
+    ssize_t bytes_read = read(envfd, envblock.data(), 0x7fff); //0x7fff bytes is an operating system size limit for this block
+
+    close(envfd);   
+ 
+    for (int i = 0, last = 0; i < bytes_read; ++i) {
+        if (envblock[i] == '\0') {
+            if (i - last >= 19 && std::string_view((const char*)(envblock.data() + last), 12) == "REMOTE_ADDR")
+                return std::string((const char*)envblock.data() + last + 12);
+            last = i + 1;
+        }
+    }
+    
+    LOG_ERR << ": Could not find REMOTE_ADDR variable in /proc/" << uc.pid << "/environ";
+    return "";
 }
 
 } // namespace comm
