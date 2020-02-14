@@ -6,16 +6,17 @@
 #include "comm_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
+#include "../bill/corebill.h"
 
 namespace comm
 {
 
-int comm_server::start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type)
+int comm_server::start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode)
 {
     int socket_fd = open_domain_socket(domain_socket_name);
     if (socket_fd > 0)
     {
-        domain_sock_listener_thread = std::thread(&comm_server::listen_domain_socket, this, socket_fd, session_type);
+        domain_sock_listener_thread = std::thread(&comm_server::listen_domain_socket, this, socket_fd, session_type, mode);
         return start_websocketd_process(port, domain_socket_name);
     }
 
@@ -57,7 +58,7 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
     return fd;
 }
 
-void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type)
+void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode)
 {
     const short poll_events = POLLIN | POLLRDHUP;
     std::unordered_map<int, comm_session> clients;
@@ -90,28 +91,26 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
         if (client_fd == -1 && errno != EAGAIN)
         {
             LOG_ERR << errno << ": Domain socket accept error";
-//            return;
         }
         else if (client_fd > 0)
         {
             // New client connected.
-            // TODO: Here we need to get original client ip address from the process on the other end.
-            // https://github.com/codetsunami/hp_poc_unixdomainsocket/blob/master/hpcorestub.c
+            const std::string ip = get_cgi_ip(client_fd);
 
-            std::string ip = get_cgi_ip(client_fd);
+            if (corebill::is_banned(ip))
+            {
+                LOG_DBG << "Dropping connection for banned host " << ip;
+                close(client_fd);
+            }
+            else
+            {
+                comm_session session(ip, client_fd, session_type, mode);
+                session.on_connect();
 
-            LOG_DBG << "IP of user: " << ip; 
-
-            LOG_DBG << "test banning " << ip;
-            firewall_ban(ip, false);
-
-            comm_session session(client_fd, session_type);
-            session.flags.set(SESSION_FLAG::INBOUND);
-            session.on_connect();
-
-            // We check for 'closed' state here because corebill maight close the connection immediately.
-            if (!session.flags[SESSION_FLAG::CLOSED])
-                clients.emplace(client_fd, std::move(session));
+                // We check for 'closed' state here because corebill might close the connection immediately.
+                if (!session.state == SESSION_STATE::CLOSED)
+                    clients.emplace(client_fd, std::move(session));
+            }
         }
 
         const size_t clients_count = clients.size();
@@ -149,7 +148,7 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
                             is_disconnect = true;
                     }
                 }
-                
+
                 if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
                     is_disconnect = true;
 
@@ -172,9 +171,12 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
     // setup pipe for firewall
     int firewall_pipe[2]; // parent to child pipe
 
-    if (pipe(firewall_pipe)) {
+    if (pipe(firewall_pipe))
+    {
         LOG_ERR << errno << ": pipe() call failed for firewall";
-    } else {
+    }
+    else
+    {
         firewall_out = firewall_pipe[1];
     }
 
@@ -188,13 +190,13 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
         // Close the child reading end of the pipe in the parent
         if (firewall_out > 0)
             close(firewall_pipe[0]);
-
     }
     else if (pid == 0)
     {
         // Websocketd process.
 
-        if (firewall_out > 0) {
+        if (firewall_out > 0)
+        {
             // Close parent writing end of the pipe in the child
             close(firewall_pipe[1]);
             // Override stdin in the child's file table
@@ -202,10 +204,9 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
         }
 
         // Override stdout in the child's file table with /dev/null
-//        int null_fd = open("/dev/null", O_WRONLY);
-//        if (null_fd) 
-//            dup2(null_fd, 1);
-        
+        //        int null_fd = open("/dev/null", O_WRONLY);
+        //        if (null_fd)
+        //            dup2(null_fd, 1);
 
         // Fill process args.
         char port[] = "--port";
@@ -234,30 +235,26 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
     return 0;
 }
 
-
-void comm_server::firewall_ban(std::string_view ip, bool unban) {
-    if (firewall_out < 0) 
+void comm_server::firewall_ban(std::string_view ip, const bool unban)
+{
+    if (firewall_out < 0)
         return;
-    
-    int len = ip.length() + 2;
-    char buffer[len];
-    buffer[0] = ( unban ? 'r' : 'a' );
-    memcpy(buffer+1, ip.data(), len - 2);
-    buffer[len-1] = '\n';
 
-    write(firewall_out, buffer, len);
-    //struct iovec iov[] { { (void*)( unban ? "r" : "a" ), 1 }, { (void*)ip.data(), ip.length() } };
-    //writev(firewall_out, iov, 2);
+    iovec iov[]{
+        {(void *)(unban ? "r" : "a"), 1},
+        {(void *)ip.data(), ip.length()}};
+    writev(firewall_out, iov, 2);
 }
 
-std::string get_cgi_ip(int fd) {
-
+std::string comm_server::get_cgi_ip(const int fd)
+{
     socklen_t length;
-    struct ucred uc;
+    ucred uc;
     length = sizeof(struct ucred);
 
     // Ask the operating system for information about the other process
-    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &length) == -1) {
+    if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &length) == -1)
+    {
         LOG_ERR << errno << ": Could not retrieve PID from unix domain socket";
         return "";
     }
@@ -265,29 +262,32 @@ std::string get_cgi_ip(int fd) {
     // Open /proc/<pid>/environ for that process
     std::stringstream ss;
     ss << "/proc/" << uc.pid << "/environ";
-    std::string fn = ss.str(); 
+    std::string fn = ss.str();
 
-    int envfd = open(fn.c_str(), O_RDONLY);
-    if (!envfd) {
+    const int envfd = open(fn.c_str(), O_RDONLY);
+    if (!envfd)
+    {
         LOG_ERR << errno << ": Could not open environ block for process on other end of unix domain socket PID=" << uc.pid;
         return "";
     }
 
     // Read environ block
     char envblock[0x7fff];
-    ssize_t bytes_read = read(envfd, envblock, 0x7fff); //0x7fff bytes is an operating system size limit for this block
-    close(envfd);   
- 
+    const ssize_t bytes_read = read(envfd, envblock, 0x7fff); //0x7fff bytes is an operating system size limit for this block
+    close(envfd);
+
     // Find the REMOTE_ADDR entry. Envrion block delimited by \0
-    for (char* upto = envblock, *last = envblock; upto - envblock < bytes_read; ++upto) {
-        if (*upto == '\0') {
+    for (char *upto = envblock, *last = envblock; upto - envblock < bytes_read; ++upto)
+    {
+        if (*upto == '\0')
+        {
             if (upto - last > 12 && strncmp(last, "REMOTE_ADDR=", 12) == 0)
-                return std::string((const char*)(last + 12));
+                return std::string((const char *)(last + 12));
             last = upto + 1;
         }
     }
-    
-    LOG_ERR << ": Could not find REMOTE_ADDR variable in /proc/" << uc.pid << "/environ";
+
+    LOG_ERR << "Could not find REMOTE_ADDR variable in /proc/" << uc.pid << "/environ";
     return "";
 }
 

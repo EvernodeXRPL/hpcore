@@ -14,20 +14,20 @@ class comm_server
     std::thread domain_sock_listener_thread;
 
     int open_domain_socket(const char *domain_socket_name);
-    void listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type);
+    void listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode);
     int start_websocketd_process(const uint16_t port, const char *domain_socket_name);
-
-public:
-    // Start accepting incoming connections
-    int start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type);
-
-    void firewall_ban(std::string_view ip, bool unban);
-};
 
     // If the fd supplied was produced by accept()ing unix domain socket connection
     // the process at the other end is inspected for CGI environment variables
     // and the REMOTE_ADDR variable is returned as std::string, otherwise empty string
-    std::string get_cgi_ip(int fd);
+    std::string get_cgi_ip(const int fd);
+
+public:
+    // Start accepting incoming connections
+    int start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode);
+
+    void firewall_ban(std::string_view ip, const bool unban);
+};
 
 } // namespace comm
 

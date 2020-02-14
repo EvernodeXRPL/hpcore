@@ -244,7 +244,7 @@ const comm::comm_session &get_session_by_pubkey(const std::string &pubkey)
  */
 void start_listening()
 {
-    listener_ctx.server.start(conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER);
+    listener_ctx.server.start(conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, comm::SESSION_MODE::TEXT);
 
     LOG_INFO << "Started listening for incoming user connections...";
 }

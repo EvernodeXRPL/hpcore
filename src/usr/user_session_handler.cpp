@@ -55,13 +55,13 @@ void user_session_handler::on_message(comm::comm_session &session, std::string_v
             connected_user &user = itr->second;
             if (handle_user_message(user, message) != 0)
             {
-                // session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
                 LOG_DBG << "Bad message from user " << session.uniqueid;
             }
         }
         else
         {
-            // session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+            session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
             LOG_DBG << "User session id not found: " << session.uniqueid;
         }
 
