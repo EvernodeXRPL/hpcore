@@ -196,7 +196,7 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
         firewall_out = firewall_pipe[1];
     }
 
-    pid_t pid = fork();
+    const pid_t pid = fork();
 
     if (pid > 0)
     {
@@ -225,20 +225,21 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
         //            dup2(null_fd, 1);
 
         // Fill process args.
-        char port[] = "--port";
-        char nc[] = "nc";
-        char nc_arg[] = "-U";
-        std::string sock_name = domain_socket_name;
+        char *execv_args[] = {
+            conf::ctx.websocketd_exe_path.data(),
+            (char *)"--port",
+            std::to_string(conf::cfg.pubport).data(),
+            (char *)"--ssl",
+            (char *)"--sslcert",
+            conf::ctx.tls_cert_file.data(),
+            (char *)"--sslkey",
+            conf::ctx.tls_key_file.data(),
+            (char *)"nc",
+            (char *)"-U",
+            (char *)domain_socket_name,
+            NULL};
 
-        char *execv_args[6];
-        execv_args[0] = conf::ctx.websocketd_exe_path.data();
-        execv_args[1] = port;
-        execv_args[2] = std::to_string(conf::cfg.pubport).data();
-        execv_args[3] = nc;
-        execv_args[4] = nc_arg;
-        execv_args[5] = sock_name.data();
-
-        int ret = execv(execv_args[0], execv_args);
+        const int ret = execv(execv_args[0], execv_args);
         LOG_ERR << errno << ": Contract process execv failed.";
         exit(1);
     }
