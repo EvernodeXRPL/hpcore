@@ -9,9 +9,10 @@ namespace comm
 
 class comm_server
 {
-    pid_t websocketd_pid;
+    pid_t websocketd_pid = 0;
     int firewall_out = -1; // at some point we may want to listen for firewall_in but at the moment unimplemented
     std::thread domain_sock_listener_thread;
+    bool should_stop_listening = false;
 
     int open_domain_socket(const char *domain_socket_name);
     void listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode);
@@ -25,7 +26,7 @@ class comm_server
 public:
     // Start accepting incoming connections
     int start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode);
-
+    void stop();
     void firewall_ban(std::string_view ip, const bool unban);
 };
 

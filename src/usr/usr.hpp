@@ -71,6 +71,10 @@ struct listener_context
 
 int init();
 
+void deinit();
+
+void start_listening();
+
 std::string issue_challenge(const std::string sessionid);
 
 int verify_challenge(std::string_view message, comm::comm_session &session);
@@ -84,8 +88,6 @@ int add_user(const comm::comm_session &session, const std::string &pubkey);
 int remove_user(const std::string &sessionid);
 
 const comm::comm_session &get_session_by_pubkey(const std::string &pubkey);
-
-void start_listening();
 
 } // namespace usr
 

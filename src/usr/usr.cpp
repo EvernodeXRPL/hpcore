@@ -32,6 +32,23 @@ int init()
     return 0;
 }
 
+/**
+ * Cleanup any running processes.
+ */
+void deinit()
+{
+    listener_ctx.server.stop();
+}
+
+/**
+ * Starts listening for incoming user websocket connections.
+ */
+void start_listening()
+{
+    listener_ctx.server.start(conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, comm::SESSION_MODE::TEXT);
+    LOG_INFO << "Started listening for incoming user connections...";
+}
+
 std::string issue_challenge(const std::string sessionid)
 {
     std::string msgstr;
@@ -237,16 +254,6 @@ const comm::comm_session &get_session_by_pubkey(const std::string &pubkey)
     const auto sessionid_itr = usr::ctx.sessionids.find(pubkey);
     const auto user_itr = usr::ctx.users.find(sessionid_itr->second);
     return user_itr->second.session;
-}
-
-/**
- * Starts listening for incoming user websocket connections.
- */
-void start_listening()
-{
-    listener_ctx.server.start(conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, comm::SESSION_MODE::TEXT);
-
-    LOG_INFO << "Started listening for incoming user connections...";
 }
 
 } // namespace usr

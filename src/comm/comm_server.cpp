@@ -65,6 +65,16 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
 
     while (true)
     {
+        if (should_stop_listening)
+        {
+            // Close all fds.
+            close(socket_fd);
+            for(auto &[fd, session] : clients)
+                session.close();
+
+            return;
+        }
+        
         // Prepare poll fd list.
         const size_t fd_count = clients.size() + 1; //+1 for the inclusion of socket_fd
         pollfd pollfds[fd_count];
@@ -289,6 +299,13 @@ std::string comm_server::get_cgi_ip(const int fd)
 
     LOG_ERR << "Could not find REMOTE_ADDR variable in /proc/" << uc.pid << "/environ";
     return "";
+}
+
+void comm_server::stop()
+{
+    should_stop_listening = true;
+    util::sleep(100); // Give some time to listening thread to gracefully exit.
+    kill(websocketd_pid, SIGINT); // Kill websocketd.
 }
 
 } // namespace comm
