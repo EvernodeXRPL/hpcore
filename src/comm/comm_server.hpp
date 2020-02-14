@@ -15,7 +15,7 @@ class comm_server
     bool should_stop_listening = false;
 
     int open_domain_socket(const char *domain_socket_name);
-    void listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode);
+    void listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode, std::mutex &sessions_mutex);
     int start_websocketd_process(const uint16_t port, const char *domain_socket_name);
 
     // If the fd supplied was produced by accept()ing unix domain socket connection
@@ -25,7 +25,7 @@ class comm_server
 
 public:
     // Start accepting incoming connections
-    int start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode);
+    int start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode, std::mutex &sessions_mutex);
     void stop();
     void firewall_ban(std::string_view ip, const bool unban);
 };

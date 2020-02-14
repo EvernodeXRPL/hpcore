@@ -45,7 +45,7 @@ void deinit()
  */
 void start_listening()
 {
-    listener_ctx.server.start(conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, comm::SESSION_MODE::TEXT);
+    listener_ctx.server.start(conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, comm::SESSION_MODE::TEXT, ctx.users_mutex);
     LOG_INFO << "Started listening for incoming user connections...";
 }
 
@@ -249,11 +249,17 @@ int remove_user(const std::string &sessionid)
  * @param pubkey User binary pubkey.
  * @return Pointer to the socket session. NULL of not found.
  */
-const comm::comm_session &get_session_by_pubkey(const std::string &pubkey)
+const comm::comm_session *get_session_by_pubkey(const std::string &pubkey)
 {
-    const auto sessionid_itr = usr::ctx.sessionids.find(pubkey);
-    const auto user_itr = usr::ctx.users.find(sessionid_itr->second);
-    return user_itr->second.session;
+    const auto sessionid_itr = ctx.sessionids.find(pubkey);
+    if (sessionid_itr != ctx.sessionids.end())
+    {
+        const auto user_itr = ctx.users.find(sessionid_itr->second);
+        if (user_itr != ctx.users.end())
+            return &user_itr->second.session;
+    }
+
+    return NULL;
 }
 
 } // namespace usr

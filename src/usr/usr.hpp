@@ -87,7 +87,7 @@ int add_user(const comm::comm_session &session, const std::string &pubkey);
 
 int remove_user(const std::string &sessionid);
 
-const comm::comm_session &get_session_by_pubkey(const std::string &pubkey);
+const comm::comm_session *get_session_by_pubkey(const std::string &pubkey);
 
 } // namespace usr
 

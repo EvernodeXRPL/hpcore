@@ -11,12 +11,12 @@
 namespace comm
 {
 
-int comm_server::start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode)
+int comm_server::start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode, std::mutex &sessions_mutex)
 {
     int socket_fd = open_domain_socket(domain_socket_name);
     if (socket_fd > 0)
     {
-        domain_sock_listener_thread = std::thread(&comm_server::listen_domain_socket, this, socket_fd, session_type, mode);
+        domain_sock_listener_thread = std::thread(&comm_server::listen_domain_socket, this, socket_fd, session_type, mode, std::ref(sessions_mutex));
         return start_websocketd_process(port, domain_socket_name);
     }
 
@@ -58,7 +58,7 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
     return fd;
 }
 
-void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode)
+void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode, std::mutex &sessions_mutex)
 {
     const short poll_events = POLLIN | POLLRDHUP;
     std::unordered_map<int, comm_session> clients;
@@ -69,12 +69,12 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
         {
             // Close all fds.
             close(socket_fd);
-            for(auto &[fd, session] : clients)
+            for (auto &[fd, session] : clients)
                 session.close();
 
             return;
         }
-        
+
         // Prepare poll fd list.
         const size_t fd_count = clients.size() + 1; //+1 for the inclusion of socket_fd
         pollfd pollfds[fd_count];
@@ -119,7 +119,10 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
 
                 // We check for 'closed' state here because corebill might close the connection immediately.
                 if (!session.state == SESSION_STATE::CLOSED)
+                {
+                    std::lock_guard<std::mutex> lock(sessions_mutex);
                     clients.emplace(client_fd, std::move(session));
+                }
             }
         }
 
@@ -166,7 +169,10 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
                 {
                     session.close();
                     close(fd);
-                    clients.erase(fd);
+                    {
+                        std::lock_guard<std::mutex> lock(sessions_mutex);
+                        clients.erase(fd);
+                    }
                 }
             }
         }
@@ -304,7 +310,7 @@ std::string comm_server::get_cgi_ip(const int fd)
 void comm_server::stop()
 {
     should_stop_listening = true;
-    util::sleep(100); // Give some time to listening thread to gracefully exit.
+    util::sleep(100);             // Give some time to listening thread to gracefully exit.
     kill(websocketd_pid, SIGINT); // Kill websocketd.
 }
 

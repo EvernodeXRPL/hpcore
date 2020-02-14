@@ -316,14 +316,17 @@ void broadcast_nonunl_proposal()
  */
 void verify_and_populate_candidate_user_inputs()
 {
+    // Lock the user sessions.
+    std::lock_guard<std::mutex> users_lock(usr::ctx.users_mutex);
+
     // Lock the list so any network activity is blocked.
-    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+    std::lock_guard<std::mutex> nups_lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
     for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
             // Locate this user's socket session in case we need to send any status messages regarding user inputs.
-            const comm::comm_session &session = usr::get_session_by_pubkey(pubkey);
+            const comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
 
             // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
@@ -398,11 +401,15 @@ void verify_and_populate_candidate_user_inputs()
                     reject_reason = jusrmsg::REASON_DUPLICATE_MSG;
                 }
 
-                usr::send_request_status_result(session,
-                                                reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
-                                                reject_reason == NULL ? "" : reject_reason,
-                                                jusrmsg::MSGTYPE_CONTRACT_INPUT,
-                                                jusrmsg::origin_data_for_contract_input(umsg.sig));
+                // Send the request status result if this user is connected to us.
+                if (session != NULL)
+                {
+                    usr::send_request_status_result(*session,
+                                                    reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
+                                                    reject_reason == NULL ? "" : reject_reason,
+                                                    jusrmsg::MSGTYPE_CONTRACT_INPUT,
+                                                    jusrmsg::origin_data_for_contract_input(umsg.sig));
+                }
             }
         }
     }
