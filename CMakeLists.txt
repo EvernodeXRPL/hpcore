@@ -116,7 +116,7 @@ add_custom_command(TARGET hpcore POST_BUILD
 )
     
 target_precompile_headers(hpstatemon PUBLIC src/pchheader.hpp)
-target_precompile_headers(hpcore REUSE_FROM hpcore)
+target_precompile_headers(hpcore REUSE_FROM hpstatemon)
 
 # Create docker image from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'
