@@ -60,7 +60,7 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const SESSION_MODE mode);
+    comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const SESSION_MODE mode, const uint64_t (&metric_thresholds)[4]);
     void on_connect();
     void on_message(std::string_view message);
     void send(std::string_view message) const;

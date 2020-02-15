@@ -14,7 +14,7 @@ constexpr uint32_t INTERVALMS = 60000;
 // Global instance of user session handler.
 usr::user_session_handler user_sess_handler;
 
-comm_session::comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const SESSION_MODE mode)
+comm_session::comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const SESSION_MODE mode, const uint64_t (&metric_thresholds)[4])
     : session_fd(fd),
       session_type(session_type),
       uniqueid(std::to_string(fd).append(":").append(ip)),
@@ -24,22 +24,9 @@ comm_session::comm_session(std::string_view ip, const int fd, const SESSION_TYPE
     // Create new session_thresholds and insert it to thresholds vector.
     // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
     // since enum's value is used as index in the vector to update vector values.
-    thresholds.reserve(4);
-
-    if (session_type == SESSION_TYPE::USER)
-    {
-        thresholds.push_back(session_threshold(conf::cfg.pubmaxcpm, INTERVALMS));       // MAX_RAWBYTES_PER_MINUTE
-        thresholds.push_back(session_threshold(0, INTERVALMS));                         // MAX_DUPMSGS_PER_MINUTE
-        thresholds.push_back(session_threshold(0, INTERVALMS));                         // MAX_BADSIGMSGS_PER_MINUTE
-        thresholds.push_back(session_threshold(conf::cfg.pubmaxbadmpm, INTERVALMS));    // MAX_BADMSGS_PER_MINUTE
-    }
-    else
-    {
-        thresholds.push_back(session_threshold(conf::cfg.peermaxcpm, INTERVALMS));      // MAX_RAWBYTES_PER_MINUTE
-        thresholds.push_back(session_threshold(conf::cfg.peermaxdupmpm, INTERVALMS));   // MAX_DUPMSGS_PER_MINUTE
-        thresholds.push_back(session_threshold(conf::cfg.peermaxbadsigpm, INTERVALMS)); // MAX_BADSIGMSGS_PER_MINUTE
-        thresholds.push_back(session_threshold(conf::cfg.peermaxbadmpm, INTERVALMS));   // MAX_BADMSGS_PER_MINUTE
-    }
+    thresholds.reserve(sizeof metric_thresholds);
+    for (size_t i = 0; i < sizeof metric_thresholds; i++)
+        thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
 }
 
 void comm_session::on_connect()

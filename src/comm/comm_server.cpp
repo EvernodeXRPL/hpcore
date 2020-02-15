@@ -11,12 +11,16 @@
 namespace comm
 {
 
-int comm_server::start(const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode, std::mutex &sessions_mutex)
+int comm_server::start(
+    const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode,
+    std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 {
     int socket_fd = open_domain_socket(domain_socket_name);
     if (socket_fd > 0)
     {
-        domain_sock_listener_thread = std::thread(&comm_server::listen_domain_socket, this, socket_fd, session_type, mode, std::ref(sessions_mutex));
+        domain_sock_listener_thread = std::thread(
+            &comm_server::listen_domain_socket, this, socket_fd, session_type, mode,
+            std::ref(sessions_mutex), std::ref(metric_thresholds), max_msg_size);
         return start_websocketd_process(port, domain_socket_name);
     }
 
@@ -58,7 +62,9 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
     return fd;
 }
 
-void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode, std::mutex &sessions_mutex)
+void comm_server::listen_domain_socket(
+    const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode,
+    std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 {
     const short poll_events = POLLIN | POLLRDHUP;
     std::unordered_map<int, comm_session> clients;
@@ -114,7 +120,7 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
             }
             else
             {
-                comm_session session(ip, client_fd, session_type, mode);
+                comm_session session(ip, client_fd, session_type, mode, metric_thresholds);
                 session.on_connect();
 
                 // We check for 'closed' state here because corebill might close the connection immediately.
@@ -149,16 +155,23 @@ void comm_server::listen_domain_socket(const int socket_fd, const SESSION_TYPE s
                     }
                     else if (available_bytes > 0)
                     {
-                        // TODO: Here we need to introduce byte length prefix and wait until all bytes
-                        // are available.
-
-                        char buf[available_bytes];
-                        const int read_len = read(fd, buf, available_bytes);
-
-                        if (read_len > 0)
-                            session.on_message(buf);
-                        else if (read_len == -1)
+                        if (max_msg_size > 0 && available_bytes > max_msg_size)
+                        {
                             is_disconnect = true;
+                        }
+                        else
+                        {
+                            // TODO: Here we need to introduce byte length prefix and wait until all bytes
+                            // are available.
+
+                            char buf[available_bytes];
+                            const int read_len = read(fd, buf, available_bytes);
+
+                            if (read_len > 0)
+                                session.on_message(buf);
+                            else if (read_len == -1)
+                                is_disconnect = true;
+                        }
                     }
                 }
 
