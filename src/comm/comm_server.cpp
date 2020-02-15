@@ -56,6 +56,7 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
     }
 
     // Set non-blocking behaviour.
+    // We do this so the accept() call returns immediately without blocking the listening thread.
     int flags = fcntl(fd, F_GETFL);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
@@ -66,7 +67,6 @@ void comm_server::listen_domain_socket(
     const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode,
     std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 {
-    const short poll_events = POLLIN | POLLRDHUP;
     std::unordered_map<int, comm_session> clients;
 
     while (true)
@@ -84,53 +84,14 @@ void comm_server::listen_domain_socket(
         // Prepare poll fd list.
         const size_t fd_count = clients.size() + 1; //+1 for the inclusion of socket_fd
         pollfd pollfds[fd_count];
-
-        pollfds[0].fd = socket_fd;
-
-        auto iter = clients.begin();
-        for (size_t i = 1; i < fd_count; i++)
+        if (poll_fds(pollfds, socket_fd, clients) == -1)
         {
-            pollfds[i].fd = iter->first;
-            pollfds[i].events = poll_events;
-            iter++;
-        }
-
-        if (poll(pollfds, fd_count, 10) == -1) //10ms timeout
-        {
-            LOG_ERR << errno << ": Poll failed.";
             util::sleep(10);
             continue;
         }
 
-        // Accept new client connection (if available)
-        int client_fd = accept(socket_fd, NULL, NULL);
-        if (client_fd == -1 && errno != EAGAIN)
-        {
-            LOG_ERR << errno << ": Domain socket accept error";
-        }
-        else if (client_fd > 0)
-        {
-            // New client connected.
-            const std::string ip = get_cgi_ip(client_fd);
-
-            if (corebill::is_banned(ip))
-            {
-                LOG_DBG << "Dropping connection for banned host " << ip;
-                close(client_fd);
-            }
-            else
-            {
-                comm_session session(ip, client_fd, session_type, mode, metric_thresholds);
-                session.on_connect();
-
-                // We check for 'closed' state here because corebill might close the connection immediately.
-                if (!session.state == SESSION_STATE::CLOSED)
-                {
-                    std::lock_guard<std::mutex> lock(sessions_mutex);
-                    clients.emplace(client_fd, std::move(session));
-                }
-            }
-        }
+        // Accept any new client if available.
+        check_for_new_connection(socket_fd, clients, session_type, mode, sessions_mutex, metric_thresholds);
 
         const size_t clients_count = clients.size();
 
@@ -144,41 +105,15 @@ void comm_server::listen_domain_socket(
             if (iter != clients.end())
             {
                 comm_session &session = iter->second;
-                bool is_disconnect = false;
+                bool should_disconnect = false;
 
                 if (result & POLLIN)
-                {
-                    int available_bytes;
-                    if (ioctl(fd, FIONREAD, &available_bytes) == -1 || available_bytes == 0)
-                    {
-                        is_disconnect = true;
-                    }
-                    else if (available_bytes > 0)
-                    {
-                        if (max_msg_size > 0 && available_bytes > max_msg_size)
-                        {
-                            is_disconnect = true;
-                        }
-                        else
-                        {
-                            // TODO: Here we need to introduce byte length prefix and wait until all bytes
-                            // are available.
-
-                            char buf[available_bytes];
-                            const int read_len = read(fd, buf, available_bytes);
-
-                            if (read_len > 0)
-                                session.on_message(buf);
-                            else if (read_len == -1)
-                                is_disconnect = true;
-                        }
-                    }
-                }
+                    attempt_client_read(should_disconnect, session, fd, max_msg_size);
 
                 if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
-                    is_disconnect = true;
+                    should_disconnect = true;
 
-                if (is_disconnect)
+                if (should_disconnect)
                 {
                     session.close();
                     close(fd);
@@ -194,9 +129,95 @@ void comm_server::listen_domain_socket(
     return;
 }
 
+int comm_server::poll_fds(pollfd (&pollfds)[], const int socket_fd, const std::unordered_map<int, comm_session> &clients)
+{
+    const short poll_events = POLLIN | POLLRDHUP;
+    pollfds[0].fd = socket_fd;
+
+    auto iter = clients.begin();
+    for (size_t i = 1; i <= clients.size(); i++)
+    {
+        pollfds[i].fd = iter->first;
+        pollfds[i].events = poll_events;
+        iter++;
+    }
+
+    if (poll(pollfds, clients.size() + 1, 10) == -1) //10ms timeout
+    {
+        LOG_ERR << errno << ": Poll failed.";
+        return -1;
+    }
+
+    return 0;
+}
+
+void comm_server::check_for_new_connection(
+    const int socket_fd, std::unordered_map<int, comm_session> &clients,
+    const SESSION_TYPE session_type, const SESSION_MODE mode,
+    std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4])
+{
+    // Accept new client connection (if available)
+    int client_fd = accept(socket_fd, NULL, NULL);
+    if (client_fd == -1 && errno != EAGAIN)
+    {
+        LOG_ERR << errno << ": Domain socket accept error";
+    }
+    else if (client_fd > 0)
+    {
+        // New client connected.
+        const std::string ip = get_cgi_ip(client_fd);
+
+        if (corebill::is_banned(ip))
+        {
+            LOG_DBG << "Dropping connection for banned host " << ip;
+            close(client_fd);
+        }
+        else
+        {
+            comm_session session(ip, client_fd, session_type, mode, metric_thresholds);
+            session.on_connect();
+
+            // We check for 'closed' state here because corebill might close the connection immediately.
+            if (!session.state == SESSION_STATE::CLOSED)
+            {
+                std::lock_guard<std::mutex> lock(sessions_mutex);
+                clients.emplace(client_fd, std::move(session));
+            }
+        }
+    }
+}
+
+void comm_server::attempt_client_read(bool &should_disconnect, comm_session &session, const int fd, const uint64_t max_msg_size)
+{
+    int available_bytes;
+    if (ioctl(fd, FIONREAD, &available_bytes) == -1 || available_bytes == 0)
+    {
+        should_disconnect = true;
+    }
+    else if (available_bytes > 0)
+    {
+        if (max_msg_size > 0 && available_bytes > max_msg_size)
+        {
+            should_disconnect = true;
+        }
+        else
+        {
+            // TODO: Here we need to introduce byte length prefix and wait until all bytes
+            // are available.
+
+            char buf[available_bytes];
+            const int read_len = read(fd, buf, available_bytes);
+
+            if (read_len > 0)
+                session.on_message(buf);
+            else if (read_len == -1)
+                should_disconnect = true;
+        }
+    }
+}
+
 int comm_server::start_websocketd_process(const uint16_t port, const char *domain_socket_name)
 {
-
     // setup pipe for firewall
     int firewall_pipe[2]; // parent to child pipe
 
