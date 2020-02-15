@@ -19,12 +19,17 @@ class comm_server
         const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode,
         std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
     int start_websocketd_process(const uint16_t port, const char *domain_socket_name);
-    int poll_fds(pollfd (&pollfds)[], const int socket_fd, const std::unordered_map<int, comm_session> &clients);
+    int poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &clients);
+
     void check_for_new_connection(
-        const int socket_fd, std::unordered_map<int, comm_session> &clients,
-        const SESSION_TYPE session_type, const SESSION_MODE mode,
-        std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4]);
-    void attempt_client_read(bool &should_disconnect, comm_session &session, const int fd, const uint64_t max_msg_size);
+        std::unordered_map<int, comm_session> &clients, std::mutex &sessions_mutex, const int socket_fd,
+        const SESSION_TYPE session_type, const SESSION_MODE mode, const uint64_t (&metric_thresholds)[4]);
+
+    void attempt_client_read(
+        bool &should_disconnect, comm_session &session, std::unordered_map<int, uint16_t> &expected_msg_sizes,
+        const int fd, const uint64_t max_msg_size);
+
+    int16_t get_binary_msg_read_len(std::unordered_map<int, uint16_t> &expected_msg_sizes, const int fd, const size_t available_bytes);
 
     // If the fd supplied was produced by accept()ing unix domain socket connection
     // the process at the other end is inspected for CGI environment variables

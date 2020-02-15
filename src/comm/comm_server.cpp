@@ -11,6 +11,8 @@
 namespace comm
 {
 
+constexpr uint8_t SIZE_HEADER_LEN = 4;
+
 int comm_server::start(
     const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode,
     std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
@@ -67,7 +69,11 @@ void comm_server::listen_domain_socket(
     const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode,
     std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 {
+    // Map with client fd to session mappings.
     std::unordered_map<int, comm_session> clients;
+
+    // Map with client fd to expected message length mappings (only relevant for binary read mode).
+    std::unordered_map<int, uint16_t> expected_msg_sizes;
 
     while (true)
     {
@@ -91,7 +97,7 @@ void comm_server::listen_domain_socket(
         }
 
         // Accept any new client if available.
-        check_for_new_connection(socket_fd, clients, session_type, mode, sessions_mutex, metric_thresholds);
+        check_for_new_connection(clients, sessions_mutex, socket_fd, session_type, mode, metric_thresholds);
 
         const size_t clients_count = clients.size();
 
@@ -108,7 +114,7 @@ void comm_server::listen_domain_socket(
                 bool should_disconnect = false;
 
                 if (result & POLLIN)
-                    attempt_client_read(should_disconnect, session, fd, max_msg_size);
+                    attempt_client_read(should_disconnect, session, expected_msg_sizes, fd, max_msg_size);
 
                 if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
                     should_disconnect = true;
@@ -129,7 +135,7 @@ void comm_server::listen_domain_socket(
     return;
 }
 
-int comm_server::poll_fds(pollfd (&pollfds)[], const int socket_fd, const std::unordered_map<int, comm_session> &clients)
+int comm_server::poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &clients)
 {
     const short poll_events = POLLIN | POLLRDHUP;
     pollfds[0].fd = socket_fd;
@@ -152,9 +158,8 @@ int comm_server::poll_fds(pollfd (&pollfds)[], const int socket_fd, const std::u
 }
 
 void comm_server::check_for_new_connection(
-    const int socket_fd, std::unordered_map<int, comm_session> &clients,
-    const SESSION_TYPE session_type, const SESSION_MODE mode,
-    std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4])
+    std::unordered_map<int, comm_session> &clients, std::mutex &sessions_mutex, const int socket_fd,
+    const SESSION_TYPE session_type, const SESSION_MODE mode, const uint64_t (&metric_thresholds)[4])
 {
     // Accept new client connection (if available)
     int client_fd = accept(socket_fd, NULL, NULL);
@@ -181,39 +186,92 @@ void comm_server::check_for_new_connection(
             if (!session.state == SESSION_STATE::CLOSED)
             {
                 std::lock_guard<std::mutex> lock(sessions_mutex);
-                clients.emplace(client_fd, std::move(session));
+                clients.try_emplace(client_fd, std::move(session));
             }
         }
     }
 }
 
-void comm_server::attempt_client_read(bool &should_disconnect, comm_session &session, const int fd, const uint64_t max_msg_size)
+/**
+ * Attempts to read message data from the given client socket fd and passes the message on to the session.
+ * @param should_disconnect Whether the client fd must be disconnected.
+ * @param session The comm_session object representing the client.
+ * @param expected_msg_size The tracking map of clients and message size headers in binary mode.
+ * @param fd Client socket file descriptor.
+ * @param max_msg_size The allowed max byte length of a message to be read.
+ */
+void comm_server::attempt_client_read(
+    bool &should_disconnect, comm_session &session, std::unordered_map<int, uint16_t> &expected_msg_sizes,
+    const int fd, const uint64_t max_msg_size)
 {
-    int available_bytes;
-    if (ioctl(fd, FIONREAD, &available_bytes) == -1 || available_bytes == 0)
+    size_t available_bytes;
+    if (ioctl(fd, FIONREAD, &available_bytes) == -1 || available_bytes == 0 ||
+        (max_msg_size > 0 &&
+         available_bytes > (max_msg_size + (session.mode == SESSION_MODE::BINARY ? SIZE_HEADER_LEN : 0))))
+    {
+        should_disconnect = true;
+        return;
+    }
+
+    const uint16_t read_len = session.mode == SESSION_MODE::BINARY
+                                  ? get_binary_msg_read_len(expected_msg_sizes, fd, available_bytes)
+                                  : available_bytes;
+
+    if (read_len == -1)
     {
         should_disconnect = true;
     }
-    else if (available_bytes > 0)
+    else if (read_len > 0)
     {
-        if (max_msg_size > 0 && available_bytes > max_msg_size)
-        {
+        char msg_buf[read_len];
+        if (read(fd, msg_buf, read_len) == -1)
             should_disconnect = true;
+        else
+            session.on_message(msg_buf);
+    }
+}
+
+/**
+ * Retrieves the length of the binary message pending to be read. Only relevant for Binary mode.
+ * @param expected_msg_size The tracking map of clients and message size headers.
+ * @param fd Client socket file descriptor.
+ * @param available_bytes Count of bytes that is available to read from the client socket.
+ * @return Length of the message if the complete message available to be read. 0 if reading must be skipped. -1 if client must be disconnected.
+ */
+int16_t comm_server::get_binary_msg_read_len(std::unordered_map<int, uint16_t> &expected_msg_sizes, const int fd, const size_t available_bytes)
+{
+    // If we have previously encountered a size header and we are waiting until all message
+    // bytes are received, we must have the expected message size > 0.
+    uint16_t expected_size = expected_msg_sizes[fd];
+
+    // If we are not tracking a previous size header, then we must check for a size header.
+    if (expected_size == 0 && available_bytes >= SIZE_HEADER_LEN)
+    {
+        // Read the size header.
+        char header_buf[SIZE_HEADER_LEN];
+        if (read(fd, header_buf, SIZE_HEADER_LEN) == -1)
+            return -1; // Indicates that we should disconnect the client.
+
+        expected_size = (header_buf[0] << 24) + (header_buf[1] << 16) + (header_buf[2] << 8) + header_buf[3];
+        // Read the message if all message bytes are available.
+        if (available_bytes >= SIZE_HEADER_LEN + expected_size)
+        {
+            expected_msg_sizes[fd] = 0;
+            return expected_size;
         }
         else
         {
-            // TODO: Here we need to introduce byte length prefix and wait until all bytes
-            // are available.
-
-            char buf[available_bytes];
-            const int read_len = read(fd, buf, available_bytes);
-
-            if (read_len > 0)
-                session.on_message(buf);
-            else if (read_len == -1)
-                should_disconnect = true;
+            // If the complete message bytes are not available, remember the expected message size to check in subsequent passes.
+            expected_msg_sizes[fd] = expected_size;
         }
     }
+    else if (expected_size > 0 && available_bytes >= expected_size)
+    {
+        return expected_size;
+    }
+
+    // Skip reading.
+    return 0;
 }
 
 int comm_server::start_websocketd_process(const uint16_t port, const char *domain_socket_name)
