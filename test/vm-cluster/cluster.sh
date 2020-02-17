@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Usage example: ./cluster.sh run 1
+
 # VM login password must exist in vmpass.txt
 vmpass=$(cat vmpass.txt)
 # List vm IP addresses of the cluster must exist in iplist.txt
@@ -12,19 +14,19 @@ mode=$1
 hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "run" ] || [ "$mode" = "check" ] || \
-   [ "$mode" = "connect" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssh" ]; then
+   [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssh" ]; then
     echo "mode: $mode"
 else
-    echo "Invalid command. [ new | update | run <N> | check <N> | connect <N> | kill <N> | reboot <N> | ssh <N> <custom command> ] expected."
+    echo "Invalid command. [ new | update | run <N> | check <N> | monitor <N> | kill <N> | reboot <N> | ssh <N> <custom command> ] expected."
     exit 1
 fi
 
 # Command modes:
-# new - Install hot pocket dependencies and hot pocket to each vm.
-# update - Deploy updated hot pocket binaries into each vm.
+# new - Install hot pocket dependencies and hot pocket with example contracts to each vm.
+# update - Deploy updated hot pocket and example binaries into each vm.
 # run - Run hot pocket of specified vm node.
 # check - Check hot pocket running status of specified vm node.
-# connect - Connect to hot pocket console output (if running) of specified vm node.
+# monitor - Monitor streaming hot pocket console output (if running) of specified vm node.
 # kill - Kill hot pocket (if running) of specified vm node.
 # reboot - Reboot specified vm node.
 # ssh - Open up an ssh terminal for the specified vm node.
@@ -32,44 +34,45 @@ fi
 if [ $mode = "run" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'nohup sudo ./hpcore run contract'
-    sshpass -p $vmpass ssh geveo@$vmip 'tail -f nohup.out'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'nohup sudo ./hpcore run contract'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'tail -f nohup.out'
     exit 0
 fi
 
 if [ $mode = "check" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'echo hpcore pid:$(pidof hpcore)  hpstatemon pid:$(pidof hpstatemon)'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'echo hpcore pid:$(pidof hpcore)  hpstatemon pid:$(pidof hpstatemon)  websocketd pid:$(pidof websocketd)'
     exit 0
 fi
 
-if [ $mode = "connect" ]; then
+if [ $mode = "monitor" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'tail -f nohup.out'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'tail -f nohup.out'
     exit 0
 fi
 
 if [ $mode = "kill" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpcore) > /dev/null 2>&1'
-    sshpass -p $vmpass ssh geveo@$vmip 'sudo kill $(pidof hpstatemon) > /dev/null 2>&1'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'sudo kill $(pidof hpcore) > /dev/null 2>&1'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'sudo kill $(pidof hpstatemon) > /dev/null 2>&1'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'sudo kill $(pidof websocketd) > /dev/null 2>&1'
     exit 0
 fi
 
 if [ $mode = "reboot" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip 'sudo reboot'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'sudo reboot'
     exit 0
 fi
 
 if [ $mode = "ssh" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -p $vmpass ssh geveo@$vmip $3
+    sshpass -f vmpass.txt ssh geveo@$vmip $3
     exit 0
 fi
 
@@ -138,6 +141,6 @@ do
 
     # Copy local cfg file back to remote vm.
     vmip=${vmips[j]}
-    sshpass -p $vmpass scp ./cfg/node$n.cfg geveo@$vmip:~/contract/cfg/hp.cfg
+    sshpass -f vmpass.txt scp ./cfg/node$n.cfg geveo@$vmip:~/contract/cfg/hp.cfg
 done
 rm -r ./cfg

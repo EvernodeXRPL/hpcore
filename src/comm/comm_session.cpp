@@ -47,22 +47,31 @@ void comm_session::on_message(std::string_view message)
 
 void comm_session::send(std::string_view message) const
 {
+    // Prepare the memory segments to map with writev().
+    iovec memsegs[2];
+
     if (mode == SESSION_MODE::TEXT)
     {
         // In text mode, we need to append every message with '\n'
-        // Prepare the memory segments to map with writev().
-        iovec memsegs[2];
         memsegs[0].iov_base = (char *)message.data();
         memsegs[0].iov_len = message.length();
         memsegs[1].iov_base = (char *)"\n";
         memsegs[1].iov_len = 1;
-
-        if (writev(session_fd, memsegs, 2) == -1)
-            LOG_ERR << errno << ": Session send writev failed.";
     }
     else
     {
+        // In binary mode, we need to prefix every message with the message size header.
+        char size_buf[4];
+        // TODO: Encode buf data.
+
+        memsegs[0].iov_base = size_buf;
+        memsegs[0].iov_len = 4;
+        memsegs[1].iov_base = (char *)message.data();
+        memsegs[1].iov_len = message.length();
     }
+
+    if (writev(session_fd, memsegs, 2) == -1)
+        LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
 }
 
 void comm_session::close()

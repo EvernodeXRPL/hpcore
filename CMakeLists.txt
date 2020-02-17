@@ -109,10 +109,10 @@ add_dependencies(hpcore
 )
 
 add_custom_command(TARGET hpcore POST_BUILD
-    COMMAND cp ./test/websocketd/websocketd ./build/websocketd
-    # COMMAND strip ./build/hpcore
-    # COMMAND strip ./build/hpstatemon
-    # COMMAND strip ./build/appbill
+    COMMAND strip ./build/hpcore
+    COMMAND strip ./build/hpstatemon
+    COMMAND strip ./build/appbill
+    COMMAND cp ./test/bin/websocketd ./build/websocketd
 )
     
 target_precompile_headers(hpstatemon PUBLIC src/pchheader.hpp)
@@ -123,7 +123,7 @@ target_precompile_headers(hpcore REUSE_FROM hpstatemon)
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
   COMMAND cp ./build/hpcore ./build/hpstatemon ./build/appbill ./test/local-cluster/bin/
-  COMMAND cp ./test/fusebin/fusermount3 ./test/fusebin/libfuse3.so.3 ./test/local-cluster/bin/
+  COMMAND cp ./test/bin/fusermount3 ./test/bin/libfuse3.so.3 ./test/bin/websocketd ./test/local-cluster/bin/
   COMMAND docker build -t hpcore:latest ./test/local-cluster
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)

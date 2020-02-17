@@ -9,7 +9,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
-* Websockets - Boost|Beast https://github.com/boostorg/beast
+* Websockets - [Websocketd](https://github.com/joewalnes/websocketd) | [netcat (OpenBSD)](https://man.openbsd.org/nc.1)
 * RapidJSON - http://rapidjson.org
 * P2P Protocol - https://google.github.io/flatbuffers/
 * TLS - https://www.openssl.org/

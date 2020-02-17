@@ -50,7 +50,7 @@ void start_listening()
         conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, comm::SESSION_MODE::TEXT,
         ctx.users_mutex, metric_thresholds, conf::cfg.pubmaxsize);
 
-    LOG_INFO << "Started listening for incoming user connections...";
+    LOG_INFO << "Started listening for incoming user connections on " << std::to_string(conf::cfg.pubport);
 }
 
 std::string issue_challenge(const std::string sessionid)

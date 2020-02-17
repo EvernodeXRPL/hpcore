@@ -10,23 +10,22 @@ echo $nodeid. $vmip
 
 if [ $mode = "new" ]; then
 
-    sshpass -p $vmpass scp $hpcore/build/hpcore \
+    sshpass -f vmpass.txt scp $hpcore/build/hpcore \
                             $hpcore/build/hpstatemon \
                             $hpcore/examples/echo_contract/contract.js \
-                            $hpcore/examples/random_contract/rnd_contract \
-                            ../fusebin/libfuse3.so.3 \
-                            ../fusebin/fusermount3 \
+                            ../bin/libfuse3.so.3 \
+                            ../bin/fusermount3 \
+                            ../bin/websocketd \
                             ./consensus-test-continuous.sh \
                             ./setup-hp.sh \
                             geveo@$vmip:~/
 
-    sshpass -p $vmpass ssh geveo@$vmip 'chmod 700 ~/consensus-test-continuous.sh && chmod 700 ~/setup-hp.sh && ~/setup-hp.sh'
-    sshpass -p $vmpass scp geveo@$vmip:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
+    sshpass -f vmpass.txt ssh geveo@$vmip 'chmod 700 ~/consensus-test-continuous.sh && chmod 700 ~/setup-hp.sh && ~/setup-hp.sh'
+    sshpass -f vmpass.txt scp geveo@$vmip:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
 else
-    sshpass -p $vmpass scp $hpcore/build/hpcore \
+    sshpass -f vmpass.txt scp $hpcore/build/hpcore \
                             $hpcore/build/hpstatemon \
                             $hpcore/examples/echo_contract/contract.js \
-                            $hpcore/examples/random_contract/rnd_contract \
                             ./consensus-test-continuous.sh \
                             geveo@$vmip:~/
 fi

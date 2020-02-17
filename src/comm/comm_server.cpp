@@ -123,6 +123,8 @@ void comm_server::listen_domain_socket(
                 {
                     session.close();
                     close(fd);
+
+                    expected_msg_sizes.erase(fd);
                     {
                         std::lock_guard<std::mutex> lock(sessions_mutex);
                         clients.erase(fd);
@@ -326,8 +328,8 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
             conf::ctx.tls_cert_file.data(),
             (char *)"--sslkey",
             conf::ctx.tls_key_file.data(),
-            (char *)"nc",
-            (char *)"-U",
+            (char *)"nc",   // netcat (OpenBSD) is used for domain socket redirection.
+            (char *)"-U",   // Use UNIX domain socket
             (char *)domain_socket_name,
             NULL};
 
