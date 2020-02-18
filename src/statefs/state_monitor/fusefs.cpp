@@ -1282,7 +1282,10 @@ int start(const char *arg0, const char *state_hist_dir, const char *fuse_mnt_dir
     fs.root.fd = -1;
     fs.root.nlookup = 9999;
     fs.root.is_symlink = false;
-    fs.timeout = 86400.0;
+
+    // This is equivalent to specifying --nocache for fuse args. If we need to support caching,
+    // we need to set this to 86400.0
+    fs.timeout = 0;
 
     struct stat stat;
     auto ret = lstat(fs.source.c_str(), &stat);
