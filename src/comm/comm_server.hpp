@@ -16,20 +16,14 @@ class comm_server
 
     int open_domain_socket(const char *domain_socket_name);
     void listen_domain_socket(
-        const int socket_fd, const SESSION_TYPE session_type, const SESSION_MODE mode,
+        const int socket_fd, const SESSION_TYPE session_type, const bool is_binary,
         std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
-    int start_websocketd_process(const uint16_t port, const char *domain_socket_name);
+    int start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary);
     int poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &clients);
 
     void check_for_new_connection(
         std::unordered_map<int, comm_session> &clients, std::mutex &sessions_mutex, const int socket_fd,
-        const SESSION_TYPE session_type, const SESSION_MODE mode, const uint64_t (&metric_thresholds)[4]);
-
-    void attempt_client_read(
-        bool &should_disconnect, comm_session &session, std::unordered_map<int, uint16_t> &expected_msg_sizes,
-        const int fd, const uint64_t max_msg_size);
-
-    int16_t get_binary_msg_read_len(std::unordered_map<int, uint16_t> &expected_msg_sizes, const int fd, const size_t available_bytes);
+        const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
 
     // If the fd supplied was produced by accept()ing unix domain socket connection
     // the process at the other end is inspected for CGI environment variables
@@ -39,7 +33,7 @@ class comm_server
 public:
     // Start accepting incoming connections
     int start(
-        const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const SESSION_MODE mode,
+        const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
         std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
     void stop();
     void firewall_ban(std::string_view ip, const bool unban);

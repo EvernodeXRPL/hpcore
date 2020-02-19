@@ -47,7 +47,7 @@ void start_listening()
 {
     const uint64_t metric_thresholds[] = {conf::cfg.pubmaxcpm, 0, 0, conf::cfg.pubmaxbadmpm};
     listener_ctx.server.start(
-        conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, comm::SESSION_MODE::TEXT,
+        conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, false,
         ctx.users_mutex, metric_thresholds, conf::cfg.pubmaxsize);
 
     LOG_INFO << "Started listening for incoming user connections on " << std::to_string(conf::cfg.pubport);

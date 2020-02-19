@@ -17,5 +17,6 @@ WORKDIR /hp
 COPY ./bin/hpcore .
 COPY ./bin/hpstatemon .
 COPY ./bin/websocketd .
+COPY ./bin/websocat .
 
 ENTRYPOINT ["/hp/hpcore"]

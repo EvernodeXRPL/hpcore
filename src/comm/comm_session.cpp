@@ -10,15 +10,16 @@ namespace comm
 {
 
 constexpr uint32_t INTERVALMS = 60000;
+constexpr uint8_t SIZE_HEADER_LEN = 4;
 
 // Global instance of user session handler.
 usr::user_session_handler user_sess_handler;
 
-comm_session::comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const SESSION_MODE mode, const uint64_t (&metric_thresholds)[4])
+comm_session::comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4])
     : session_fd(fd),
       session_type(session_type),
       uniqueid(std::to_string(fd).append(":").append(ip)),
-      mode(mode)
+      is_binary(is_binary)
 {
 
     // Create new session_thresholds and insert it to thresholds vector.
@@ -37,6 +38,50 @@ void comm_session::on_connect()
         user_sess_handler.on_connect(*this);
 }
 
+/**
+ * Attempts to read message data from the given socket fd and passes the message on to the session.
+ * @param should_disconnect Whether the client fd must be disconnected.
+ * @param max_msg_size The allowed max byte length of a message to be read.
+ */
+void comm_session::attempt_read(bool &should_disconnect, const uint64_t max_msg_size)
+{
+    size_t available_bytes = 0;
+    if (ioctl(session_fd, FIONREAD, &available_bytes) == -1 || available_bytes == 0 ||
+        (max_msg_size > 0 &&
+         available_bytes > (max_msg_size + (is_binary ? SIZE_HEADER_LEN : 0))))
+    {
+        should_disconnect = true;
+        return;
+    }
+
+    // Keep reading messages until we exhaust all the currently available bytes.
+    while (available_bytes > 0)
+    {
+        const uint32_t read_len = is_binary ? get_binary_msg_read_len(available_bytes) : available_bytes;
+
+        if (read_len == -1)
+        {
+            should_disconnect = true;
+            return;
+        }
+        else if (read_len > 0)
+        {
+            available_bytes -= read_len;
+            if (is_binary)
+                available_bytes -= SIZE_HEADER_LEN;
+
+            char msg_buf[read_len];
+            if (read(session_fd, msg_buf, read_len) == -1)
+            {
+                should_disconnect = true;
+                return;
+            }
+
+            on_message(msg_buf);
+        }
+    }
+}
+
 void comm_session::on_message(std::string_view message)
 {
     increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.length());
@@ -50,15 +95,7 @@ void comm_session::send(std::string_view message) const
     // Prepare the memory segments to map with writev().
     iovec memsegs[2];
 
-    if (mode == SESSION_MODE::TEXT)
-    {
-        // In text mode, we need to append every message with '\n'
-        memsegs[0].iov_base = (char *)message.data();
-        memsegs[0].iov_len = message.length();
-        memsegs[1].iov_base = (char *)"\n";
-        memsegs[1].iov_len = 1;
-    }
-    else
+    if (is_binary)
     {
         // In binary mode, we need to prefix every message with the message size header.
         char size_buf[4];
@@ -68,6 +105,14 @@ void comm_session::send(std::string_view message) const
         memsegs[0].iov_len = 4;
         memsegs[1].iov_base = (char *)message.data();
         memsegs[1].iov_len = message.length();
+    }
+    else
+    {
+        // In text mode, we need to append every message with '\n'
+        memsegs[0].iov_base = (char *)message.data();
+        memsegs[0].iov_len = message.length();
+        memsegs[1].iov_base = (char *)"\n";
+        memsegs[1].iov_len = 1;
     }
 
     if (writev(session_fd, memsegs, 2) == -1)
@@ -81,6 +126,44 @@ void comm_session::close()
 
     ::close(session_fd);
     state = SESSION_STATE::CLOSED;
+}
+
+/**
+ * Retrieves the length of the binary message pending to be read. Only relevant for Binary mode.
+ * @param available_bytes Count of bytes that is available to read from the client socket.
+ * @return Length of the message if the complete message available to be read. 0 if reading must be skipped. -1 if client must be disconnected.
+ */
+uint32_t comm_session::get_binary_msg_read_len(const size_t available_bytes)
+{
+    // If we have previously encountered a size header and we are waiting until all message
+    // bytes are received, we must have the expected message size > 0.
+
+    // If we are not tracking a previous size header, then we must check for a size header.
+    if (expected_msg_size == 0 && available_bytes >= SIZE_HEADER_LEN)
+    {
+        // Read the size header.
+        char header_buf[SIZE_HEADER_LEN];
+        if (read(session_fd, header_buf, SIZE_HEADER_LEN) == -1)
+            return -1; // Indicates that we should disconnect the client.
+
+        // We are using 3 bytes (big endian) from the 4 byte header for the message size.
+        expected_msg_size = (header_buf[1] << 16) + (header_buf[2] << 8) + header_buf[3];
+
+        // We must read the entire message if all message bytes are available.
+        if (available_bytes >= SIZE_HEADER_LEN + expected_msg_size)
+        {
+            expected_msg_size = 0; // reset the expected msg size.
+            return expected_msg_size;
+        }
+    }
+    else if (expected_msg_size > 0 && available_bytes >= expected_msg_size)
+    {
+        // We know expected message size, and enough bytes are available to read complete expected message.
+        return expected_msg_size;
+    }
+
+    // Skip reading.
+    return 0;
 }
 
 /**

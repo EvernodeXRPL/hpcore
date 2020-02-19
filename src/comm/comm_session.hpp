@@ -18,12 +18,6 @@ enum SESSION_FLAG
     USER_AUTHED
 };
 
-enum SESSION_MODE
-{
-    BINARY,
-    TEXT
-};
-
 enum SESSION_STATE
 {
     ACTIVE,
@@ -43,7 +37,11 @@ class comm_session
 {
     const int session_fd;
     const SESSION_TYPE session_type;
-    std::vector<session_threshold> thresholds;  // track down various communication thresholds
+    std::vector<session_threshold> thresholds; // track down various communication thresholds
+    uint32_t expected_msg_size = 0;            // Next expected message size based on size header.
+
+    uint32_t get_binary_msg_read_len(const size_t available_bytes);
+    void on_message(std::string_view message);
 
 public:
     // The unique identifier of the remote party (format <ip>:<port>).
@@ -52,7 +50,7 @@ public:
     // IP address of the remote party.
     const std::string address;
 
-    const SESSION_MODE mode;
+    const bool is_binary;
     SESSION_STATE state;
 
     // The set of SESSION_FLAG enum flags that will be set by user-code of this calss.
@@ -60,15 +58,14 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const SESSION_MODE mode, const uint64_t (&metric_thresholds)[4]);
+    comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
     void on_connect();
-    void on_message(std::string_view message);
+    void attempt_read(bool &should_disconnect, const uint64_t max_msg_size);
     void send(std::string_view message) const;
     void close();
 
     void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
     void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
-
 };
 
 } // namespace comm

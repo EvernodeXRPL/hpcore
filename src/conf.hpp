@@ -27,6 +27,7 @@ struct contract_ctx
     std::string exe_dir;         // Hot Pocket executable dir.
     std::string statemon_exe_path;   // State monitor executable file path.
     std::string websocketd_exe_path; // Websocketd executable file path.
+    std::string websocat_exe_path;   // Websocketd executable file path.
 
     std::string contract_dir;    // Contract base directory full path
     std::string hist_dir;        // Contract ledger history dir full path
