@@ -51,6 +51,8 @@ public:
     const std::string address;
 
     const bool is_binary;
+    const bool is_self;
+    const bool is_inbound;
     SESSION_STATE state;
 
     // The set of SESSION_FLAG enum flags that will be set by user-code of this calss.
@@ -58,7 +60,9 @@ public:
     // Setting and reading flags to this is completely managed by user-code.
     std::bitset<8> flags;
 
-    comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
+    comm_session(
+        std::string_view ip, const int fd, const SESSION_TYPE session_type,
+        const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
     void on_connect();
     void attempt_read(bool &should_disconnect, const uint64_t max_msg_size);
     void send(std::string_view message) const;

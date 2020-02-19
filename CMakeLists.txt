@@ -49,7 +49,6 @@ target_link_libraries(hpstatemon
     backtrace
     pthread
     crypto
-    ssl
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
 
@@ -72,11 +71,6 @@ add_executable(hpcore
     src/comm/comm_session.cpp
     src/comm/comm_server.cpp
     src/comm/comm_client.cpp
-    src/sock/socket_client.cpp
-    src/sock/socket_server.cpp
-    src/sock/socket_message.cpp
-    src/sock/socket_session.cpp
-    src/sock/socket_session_lambda.cpp
     src/fbschema/common_helpers.cpp
     src/fbschema/p2pmsg_helpers.cpp
     src/fbschema/ledger_helpers.cpp
@@ -101,7 +95,6 @@ target_link_libraries(hpcore
     backtrace
     pthread
     crypto
-    ssl
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
 add_dependencies(hpcore

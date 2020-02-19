@@ -15,11 +15,16 @@ constexpr uint8_t SIZE_HEADER_LEN = 4;
 // Global instance of user session handler.
 usr::user_session_handler user_sess_handler;
 
-comm_session::comm_session(std::string_view ip, const int fd, const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4])
+comm_session::comm_session(
+    std::string_view ip, const int fd, const SESSION_TYPE session_type,
+    const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+
     : session_fd(fd),
       session_type(session_type),
       uniqueid(std::to_string(fd).append(":").append(ip)),
-      is_binary(is_binary)
+      is_binary(is_binary),
+      is_self(is_self),
+      is_inbound(is_inbound)
 {
 
     // Create new session_thresholds and insert it to thresholds vector.

@@ -1,4 +1,3 @@
-#include <flatbuffers/flatbuffers.h>
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
@@ -6,6 +5,7 @@
 #include "../fbschema/common_helpers.hpp"
 #include "../fbschema/ledger_helpers.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
+#include "../hplog.hpp"
 #include "ledger_handler.hpp"
 #include "cons.hpp"
 
@@ -232,9 +232,10 @@ void send_ledger_history_request(const std::string &minimum_lcl, const std::stri
     p2p::history_request hr;
     hr.required_lcl = required_lcl;
     hr.minimum_lcl = minimum_lcl;
-    p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
-    p2pmsg::create_msg_from_history_request(msg.builder(), hr);
-    p2p::send_message_to_random_peer(msg);
+    
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    p2pmsg::create_msg_from_history_request(fbuf, hr);
+    p2p::send_message_to_random_peer(fbuf);
 
     ctx.last_requested_lcl = required_lcl;
 
@@ -363,19 +364,6 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
     }
 
     return history_response;
-}
-
-/**
- * Send ledger history response for history request.
- * @param hr lcl history request information.
- * @return peer outbound message object with ledger history response.
- */
-p2p::peer_outbound_message send_ledger_history(const p2p::history_request &hr)
-{
-    p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
-    p2pmsg::create_msg_from_history_response(msg.builder(), retrieve_ledger_history(hr));
-
-    return msg;
 }
 
 /**

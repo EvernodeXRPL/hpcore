@@ -173,7 +173,7 @@ void comm_server::check_for_new_connection(
         }
         else
         {
-            comm_session session(ip, client_fd, session_type, is_binary, metric_thresholds);
+            comm_session session(ip, client_fd, session_type, is_binary, false, true, metric_thresholds);
             session.on_connect();
 
             // We check for 'closed' state here because corebill might close the connection immediately.

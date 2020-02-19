@@ -34,8 +34,8 @@ int init()
 
     // Append self peer to peer list.
     const std::string portstr = std::to_string(cfg.peerport);
-    cfg.self_peer_id = "0.0.0.0:" + portstr;
-    cfg.peers.emplace(cfg.self_peer_id, std::make_pair("0.0.0.0", portstr));
+    cfg.self_peer_id = std::string(SELF_HOST).append(":").append(portstr);
+    cfg.peers.emplace(cfg.self_peer_id, std::make_pair(SELF_HOST, portstr));
 
     // Append self pubkey to unl list.
     cfg.unl.emplace(cfg.pubkey);
@@ -90,7 +90,6 @@ int create_contract()
     binpair_to_hex();
 
     cfg.startup_mode = OPERATING_MODE::PROPOSER;
-    cfg.listenip = "0.0.0.0";
     cfg.peerport = 22860;
     cfg.roundtime = 1000;
     cfg.pubport = 8080;
@@ -215,7 +214,6 @@ int load_config()
 
     cfg.pubkeyhex = d["pubkeyhex"].GetString();
     cfg.seckeyhex = d["seckeyhex"].GetString();
-    cfg.listenip = d["listenip"].GetString();
 
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
@@ -322,8 +320,6 @@ int save_config()
     d.AddMember("binargs", rapidjson::StringRef(cfg.binargs.data()), allocator);
     d.AddMember("appbill", rapidjson::StringRef(cfg.appbill.data()), allocator);
     d.AddMember("appbillargs", rapidjson::StringRef(cfg.appbillargs.data()), allocator);
-    d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
-    d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
 
     rapidjson::Value peers(rapidjson::kArrayType);
     for (const auto &[ipport_concat, ipport_pair] : cfg.peers)
@@ -461,7 +457,6 @@ int validate_config()
     bool fields_missing = false;
 
     fields_missing |= cfg.binary.empty() && std::cout << "Missing cfg field: binary\n";
-    fields_missing |= cfg.listenip.empty() && std::cout << "Missing cfg field: listenip\n";
     fields_missing |= cfg.peerport == 0 && std::cout << "Missing cfg field: peerport\n";
     fields_missing |= cfg.roundtime == 0 && std::cout << "Missing cfg field: roundtime\n";
     fields_missing |= cfg.pubport == 0 && std::cout << "Missing cfg field: pubport\n";
@@ -552,7 +547,7 @@ int is_schema_valid(const rapidjson::Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"mode\", \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"appbill\", \"appbillargs\", \"listenip\""
+        "\"required\": [ \"mode\", \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"appbill\", \"appbillargs\""
         ", \"peers\", \"unl\", \"pubport\", \"peerport\", \"roundtime\""
         ", \"pubmaxsize\", \"pubmaxcpm\", \"pubmaxbadmpm\", \"pubmaxcons\""
         ", \"peermaxsize\", \"peermaxcpm\", \"peermaxdupmpm\", \"peermaxbadmpm\", \"peermaxbadsigpm\", \"peermaxcons\""
@@ -566,7 +561,6 @@ int is_schema_valid(const rapidjson::Document &d)
         "\"binargs\": { \"type\": \"string\" },"
         "\"appbill\": { \"type\": \"string\" },"
         "\"appbillargs\": { \"type\": \"string\" },"
-        "\"listenip\": { \"type\": \"string\" },"
         "\"peers\": {"
         "\"type\": \"array\","
         "\"items\": { \"type\": \"string\" }"

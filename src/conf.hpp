@@ -10,6 +10,8 @@
 namespace conf
 {
 
+constexpr const char *SELF_HOST = "127.0.0.1";
+
 // Typedef to represent ip address and port pair.
 typedef std::pair<std::string, std::string> ip_port_pair;
 
@@ -61,7 +63,6 @@ struct contract_config
     std::string binargs;                // CLI arguments to pass to the contract binary
     std::string appbill;                // binary to execute for appbill
     std::string appbillargs;            // any arguments to supply to appbill binary by default
-    std::string listenip;               // The IPs to listen on for incoming connections
     std::unordered_map<std::string, ip_port_pair> peers;    // Map of peers keyed by "<ip address>:<port>" concatenated format
     std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)
     uint16_t peerport;                  // Listening port for peer connections

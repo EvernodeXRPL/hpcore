@@ -1,4 +1,3 @@
-#include <flatbuffers/flatbuffers.h>
 #include "state_handler.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/p2pmsg_content_generated.h"
@@ -7,6 +6,8 @@
 #include "../pchheader.hpp"
 #include "../cons/cons.hpp"
 #include "../statefs/state_store.hpp"
+#include "../hplog.hpp"
+#include "../util.hpp"
 
 namespace cons
 {
@@ -40,9 +41,9 @@ void request_state_from_peer(const std::string &path, const bool is_file, const 
     sr.block_id = block_id;
     sr.expected_hash = expected_hash;
 
-    p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
-    fbschema::p2pmsg::create_msg_from_state_request(msg.builder(), sr, ctx.lcl);
-    p2p::send_message_to_random_peer(msg); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    fbschema::p2pmsg::create_msg_from_state_request(fbuf, sr, ctx.lcl);
+    p2p::send_message_to_random_peer(fbuf); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
 }
 
 /**
@@ -50,7 +51,7 @@ void request_state_from_peer(const std::string &path, const bool is_file, const 
  * @param msg The peer outbound message reference to build up the reply message.
  * @param sr The state request which should be replied to.
  */
-int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_request &sr)
+int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr)
 {
     // If block_id > -1 this means this is a file block data request.
     if (sr.block_id > -1)
@@ -67,7 +68,7 @@ int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_requ
         resp.hash = sr.expected_hash;
         resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-        fbschema::p2pmsg::create_msg_from_block_response(msg.builder(), resp, ctx.lcl);
+        fbschema::p2pmsg::create_msg_from_block_response(fbuf, resp, ctx.lcl);
     }
     else
     {
@@ -78,7 +79,7 @@ int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_requ
             if (statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path, sr.expected_hash) == -1)
                 return -1;
 
-            fbschema::p2pmsg::create_msg_from_filehashmap_response(msg.builder(), sr.parent_path, existing_block_hashmap, statefs::get_file_length(sr.parent_path), sr.expected_hash, ctx.lcl);
+            fbschema::p2pmsg::create_msg_from_filehashmap_response(fbuf, sr.parent_path, existing_block_hashmap, statefs::get_file_length(sr.parent_path), sr.expected_hash, ctx.lcl);
         }
         else
         {
@@ -87,7 +88,7 @@ int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_requ
             if (statefs::get_fs_entry_hashes(existing_fs_entries, sr.parent_path, sr.expected_hash) == -1)
                 return -1;
 
-            fbschema::p2pmsg::create_msg_from_fsentry_response(msg.builder(), sr.parent_path, existing_fs_entries, sr.expected_hash, ctx.lcl);
+            fbschema::p2pmsg::create_msg_from_fsentry_response(fbuf, sr.parent_path, existing_fs_entries, sr.expected_hash, ctx.lcl);
         }
     }
 

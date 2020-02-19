@@ -31,7 +31,7 @@ struct backlog_item
 
 extern std::list<std::string> candidate_state_responses;
 
-int create_state_response(p2p::peer_outbound_message &msg, const p2p::state_request &sr);
+int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr);
 
 void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hasher::B2H expected_hash);
 

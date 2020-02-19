@@ -1,4 +1,3 @@
-#include <flatbuffers/flatbuffers.h>
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
@@ -302,9 +301,9 @@ void broadcast_nonunl_proposal()
         nup.user_messages.try_emplace(user.pubkey, std::move(usermsgs));
     }
 
-    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
-    p2p::broadcast_message(msg, true);
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    p2pmsg::create_msg_from_nonunl_proposal(fbuf, nup);
+    p2p::broadcast_message(fbuf, true);
 
     LOG_DBG << "NUP sent."
             << " users:" << nup.user_messages.size();
@@ -590,14 +589,14 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
-    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2pmsg::create_msg_from_proposal(msg.builder(), p);
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    p2pmsg::create_msg_from_proposal(fbuf, p);
 
     // In observer mode, we only send out the proposal to ourselves.
     if (conf::cfg.current_mode == conf::OPERATING_MODE::OBSERVER)
-        p2p::send_message_to_self(msg);
+        p2p::send_message_to_self(fbuf);
     else
-        p2p::broadcast_message(msg, true);
+        p2p::broadcast_message(fbuf, true);
 
     // LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
     //         << "] users:" << p.users.size()
@@ -939,9 +938,9 @@ void broadcast_npl_output(std::string &output)
         p2p::npl_message npl;
         npl.data.swap(output);
 
-        p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-        p2pmsg::create_msg_from_npl_output(msg.builder(), npl, ctx.lcl);
-        p2p::broadcast_message(msg, false);
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        p2pmsg::create_msg_from_npl_output(fbuf, npl, ctx.lcl);
+        p2p::broadcast_message(fbuf, false);
     }
 }
 

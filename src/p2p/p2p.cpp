@@ -1,14 +1,12 @@
 #include "../pchheader.hpp"
-#include "../sock/socket_server.hpp"
-#include "../sock/socket_client.hpp"
+#include "../comm/comm_server.hpp"
+#include "../comm/comm_client.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
-
-namespace ssl = boost::asio::ssl;
 
 namespace p2p
 {
@@ -29,58 +27,42 @@ int init()
 
 void start_peer_connections()
 {
-    boost::asio::ip::address address = net::ip::make_address(conf::cfg.listenip);
+    const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.pubmaxbadmpm};
+    listener_ctx.server.start(
+        conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true,
+        ctx.peer_connections_mutex, metric_thresholds, conf::cfg.peermaxsize);
 
-    // Setting up the message max size. Retrieve it from config
-    listener_ctx.default_sess_opts.max_socket_read_len = conf::cfg.peermaxsize;
-    listener_ctx.default_sess_opts.max_rawbytes_per_minute = conf::cfg.peermaxcpm;
-    listener_ctx.default_sess_opts.max_dupmsgs_per_minute = conf::cfg.peermaxdupmpm;
-    listener_ctx.default_sess_opts.max_badmsgs_per_minute = conf::cfg.peermaxbadmpm;
-    listener_ctx.default_sess_opts.max_badsigmsgs_per_minute = conf::cfg.peermaxbadsigpm;
-
-    // Start listening to peers
-    std::make_shared<sock::socket_server<peer_outbound_message>>(
-        listener_ctx.ioc,
-        listener_ctx.ssl_ctx,
-        tcp::endpoint{address, conf::cfg.peerport},
-        listener_ctx.global_peer_session_handler,
-        listener_ctx.default_sess_opts)
-        ->run();
-
-    LOG_INFO << "Started listening for incoming peer connections on " << conf::cfg.listenip << ":" << conf::cfg.peerport;
+    LOG_INFO << "Started listening for incoming peer connections on " << std::to_string(conf::cfg.peerport);
 
     // Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
-    ctx.peer_watchdog_thread = std::thread([&] { peer_connection_watchdog(); });
-
-    // Peer listener thread.
-    listener_ctx.listener_thread = std::thread([&] { listener_ctx.ioc.run(); });
+    //ctx.peer_watchdog_thread = std::thread(&peer_connection_watchdog });
 }
 
-// Scan peer connections continually and attempt to maintain the connection if they drop
-void peer_connection_watchdog()
-{
-    while (true)
-    {
-        for (const auto &[peerid, ipport] : conf::cfg.peers)
-        {
-            if (ctx.peer_connections.find(peerid) == ctx.peer_connections.end())
-            {
-                LOG_DBG << "Trying to connect : " << peerid;
-                std::make_shared<sock::socket_client<peer_outbound_message>>(listener_ctx.ioc, listener_ctx.ssl_ctx, listener_ctx.global_peer_session_handler, listener_ctx.default_sess_opts)
-                    ->run(ipport.first, ipport.second);
-            }
-        }
+// // Scan peer connections continually and attempt to maintain the connection if they drop
+// void peer_connection_watchdog()
+// {
+//     while (true)
+//     {
+//         for (const auto &[peerid, ipport] : conf::cfg.peers)
+//         {
+//             if (ctx.peer_connections.find(peerid) == ctx.peer_connections.end())
+//             {
+//                 LOG_DBG << "Trying to connect : " << peerid;
+//                 std::make_shared<sock::socket_client<peer_outbound_message>>(listener_ctx.ioc, listener_ctx.ssl_ctx, listener_ctx.global_peer_session_handler, listener_ctx.default_sess_opts)
+//                     ->run(ipport.first, ipport.second);
+//             }
+//         }
 
-        util::sleep(conf::cfg.roundtime * 4);
-    }
-}
+//         util::sleep(conf::cfg.roundtime * 4);
+//     }
+// }
 
 /**
  * Broadcasts the given message to all currently connected outbound peers.
  * @param msg Peer outbound message to be broadcasted.
  * @param send_to_self Whether to also send the message to self (this node).
  */
-void broadcast_message(const peer_outbound_message msg, const bool send_to_self)
+void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self)
 {
     if (ctx.peer_connections.size() == 0)
     {
@@ -94,9 +76,12 @@ void broadcast_message(const peer_outbound_message msg, const bool send_to_self)
 
     for (const auto &[k, session] : ctx.peer_connections)
     {
-        if (!send_to_self && session->is_self)
+        if (!send_to_self && session.is_self)
             continue;
-        session->send(msg);
+
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+        session.send(msg);
     }
 }
 
@@ -104,7 +89,7 @@ void broadcast_message(const peer_outbound_message msg, const bool send_to_self)
  * Sends the given message to self (this node).
  * @param msg Peer outbound message to be sent to self.
  */
-void send_message_to_self(const peer_outbound_message msg)
+void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
 {
     //Send while locking the peer_connections.
     std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -113,8 +98,11 @@ void send_message_to_self(const peer_outbound_message msg)
     const auto peer_itr = ctx.peer_connections.find(conf::cfg.self_peer_id);
     if (peer_itr != ctx.peer_connections.end())
     {
-        const auto session = peer_itr->second;
-        session->send(msg);
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+
+        const comm::comm_session &session = peer_itr->second;
+        session.send(msg);
     }
 }
 
@@ -122,7 +110,7 @@ void send_message_to_self(const peer_outbound_message msg)
  * Sends the given message to a random peer (except self).
  * @param msg Peer outbound message to be sent to peer.
  */
-void send_message_to_random_peer(const peer_outbound_message msg)
+void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
 {
     //Send while locking the peer_connections.
     std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -133,7 +121,7 @@ void send_message_to_random_peer(const peer_outbound_message msg)
         LOG_DBG << "No peers to send (not even self).";
         return;
     }
-    else if (connected_peers == 1 && ctx.peer_connections.begin()->second->is_self)
+    else if (connected_peers == 1 && ctx.peer_connections.begin()->second.is_self)
     {
         LOG_DBG << "Only self is connected.";
         return;
@@ -147,10 +135,13 @@ void send_message_to_random_peer(const peer_outbound_message msg)
         std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 
         //send message to selected peer.
-        const auto session = it->second;
-        if (!session->is_self) // Exclude self peer.
+        const comm::comm_session &session = it->second;
+        if (!session.is_self) // Exclude self peer.
         {
-            session->send(msg);
+            std::string_view msg = std::string_view(
+                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+
+            session.send(msg);
             break;
         }
     }
