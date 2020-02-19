@@ -7,12 +7,19 @@
 namespace comm
 {
 
-int comm_client::start(const std::string &host, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
+int comm_client::start(std::string_view host, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 {
     return start_websocat_process(host, port);
 }
 
-int comm_client::start_websocat_process(const std::string &host, const uint16_t port)
+void comm_client::stop()
+{
+    close(read_fd);
+    close(write_fd);
+    kill(websocat_pid, SIGINT); // Kill websocat.
+}
+
+int comm_client::start_websocat_process(std::string_view host, const uint16_t port)
 {
     // setup pipe I/O
     if (pipe(read_pipe) < 0 || pipe(write_pipe) < 0)
@@ -34,6 +41,15 @@ int comm_client::start_websocat_process(const std::string &host, const uint16_t 
         // Close unused fds by us.
         close(write_pipe[0]);
         close(read_pipe[1]);
+
+        // Wait for some time and check if websocat is still running properly.
+        util::sleep(20);
+        if (kill(websocat_pid, 0) == -1) // kill with sig 0 will return -1 if process has exited.
+        {
+            close(read_fd);
+            close(write_fd);
+            return -1;
+        }
     }
     else if (pid == 0)
     {
@@ -46,10 +62,12 @@ int comm_client::start_websocat_process(const std::string &host, const uint16_t 
         dup2(read_pipe[1], STDOUT_FILENO); //child write
         close(read_pipe[1]);
 
+        std::string url = std::string("wss://").append(host).append(":").append(std::to_string(port));
+
         // Fill process args.
         char *execv_args[] = {
             conf::ctx.websocat_exe_path.data(),
-            std::string("wss://").append(host).append(":").append(std::to_string(port)).data(),
+            url.data(),
             (char *)"-k", // Accept invalid certificates
             (char *)"-b", // Binary mode
             (char *)"-E", // Close on EOF

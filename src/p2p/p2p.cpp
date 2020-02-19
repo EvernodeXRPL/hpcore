@@ -27,7 +27,7 @@ int init()
 
 void start_peer_connections()
 {
-    const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.pubmaxbadmpm};
+    const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.peermaxbadmpm};
     listener_ctx.server.start(
         conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true,
         ctx.peer_connections_mutex, metric_thresholds, conf::cfg.peermaxsize);
@@ -35,27 +35,73 @@ void start_peer_connections()
     LOG_INFO << "Started listening for incoming peer connections on " << std::to_string(conf::cfg.peerport);
 
     // Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
-    //ctx.peer_watchdog_thread = std::thread(&peer_connection_watchdog });
+    ctx.peer_watchdog_thread = std::thread(&peer_connection_watchdog, std::ref(metric_thresholds));
 }
 
-// // Scan peer connections continually and attempt to maintain the connection if they drop
-// void peer_connection_watchdog()
-// {
-//     while (true)
-//     {
-//         for (const auto &[peerid, ipport] : conf::cfg.peers)
-//         {
-//             if (ctx.peer_connections.find(peerid) == ctx.peer_connections.end())
-//             {
-//                 LOG_DBG << "Trying to connect : " << peerid;
-//                 std::make_shared<sock::socket_client<peer_outbound_message>>(listener_ctx.ioc, listener_ctx.ssl_ctx, listener_ctx.global_peer_session_handler, listener_ctx.default_sess_opts)
-//                     ->run(ipport.first, ipport.second);
-//             }
-//         }
+// Scan peer connections continually and attempt to maintain the connection if they drop
+void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
+{
+    uint16_t loop_counter = 0;
 
-//         util::sleep(conf::cfg.roundtime * 4);
-//     }
-// }
+    while (true)
+    {
+        // Try to establish new connections every 100 iterations.
+        if (loop_counter == 100)
+        {
+            loop_counter = 0;
+            for (const auto &[peerid, ipport] : conf::cfg.peers)
+            {
+                if (ctx.peer_connections.find(peerid) == ctx.peer_connections.end())
+                {
+                    LOG_DBG << "Trying to connect : " << peerid;
+                    std::string_view host = ipport.first;
+                    const uint16_t port = ipport.second;
+
+                    comm::comm_client client;
+                    if (client.start(host, port, metric_thresholds, conf::cfg.peermaxsize) == -1)
+                    {
+                        LOG_ERR << "Peer connection attempt failed for " << peerid;
+                    }
+                    else
+                    {
+                        const bool is_self = (host == conf::SELF_HOST);
+                        comm::comm_session session(host, client.read_fd, client.write_fd, comm::SESSION_TYPE::PEER, true, is_self, false, metric_thresholds);
+                        session.on_connect();
+
+                        // If the session is still active (because corebill might close the connection immeditately)
+                        // We add to the client list as well.
+                        if (session.state == comm::SESSION_STATE::ACTIVE)
+                            ctx.peer_clients.try_emplace(session.uniqueid, client);
+                    }
+                }
+            }
+        }
+        loop_counter++;
+
+        std::unordered_set<std::string> clients_to_disconnect;
+
+        for (auto &[uniqueid, session] : ctx.peer_connections)
+        {
+            bool should_disonnect;
+            session.attempt_read(should_disonnect, conf::cfg.peermaxsize);
+
+            if (should_disonnect)
+                clients_to_disconnect.emplace(uniqueid);
+        }
+
+        {
+            std::lock_guard lock(ctx.peer_connections_mutex);
+
+            for (auto &uniqueid : clients_to_disconnect)
+            {
+                const auto itr = ctx.peer_connections.find(uniqueid);
+                comm::comm_session &session = itr->second;
+                session.close();
+            }
+        }
+        util::sleep(10);
+    }
+}
 
 /**
  * Broadcasts the given message to all currently connected outbound peers.

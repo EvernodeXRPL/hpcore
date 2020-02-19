@@ -1,5 +1,6 @@
 #include "../pchheader.hpp"
 #include "../usr/user_session_handler.hpp"
+#include "../p2p/peer_session_handler.hpp"
 #include "comm_session.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
@@ -12,14 +13,16 @@ namespace comm
 constexpr uint32_t INTERVALMS = 60000;
 constexpr uint8_t SIZE_HEADER_LEN = 4;
 
-// Global instance of user session handler.
+// Global instances of user and peer session handlers.
 usr::user_session_handler user_sess_handler;
+p2p::peer_session_handler peer_sess_handler;
 
 comm_session::comm_session(
-    std::string_view ip, const int fd, const SESSION_TYPE session_type,
+    std::string_view ip, const int fd, const int write_fd, const SESSION_TYPE session_type,
     const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
 
     : session_fd(fd),
+      write_fd(write_fd),
       session_type(session_type),
       uniqueid(std::to_string(fd).append(":").append(ip)),
       is_binary(is_binary),
@@ -41,6 +44,8 @@ void comm_session::on_connect()
 
     if (session_type == SESSION_TYPE::USER)
         user_sess_handler.on_connect(*this);
+    else
+        peer_sess_handler.on_connect(*this);
 }
 
 /**
@@ -93,6 +98,8 @@ void comm_session::on_message(std::string_view message)
 
     if (session_type == SESSION_TYPE::USER)
         user_sess_handler.on_message(*this, message);
+    else
+        user_sess_handler.on_message(*this, message);
 }
 
 void comm_session::send(std::string_view message) const
@@ -104,7 +111,11 @@ void comm_session::send(std::string_view message) const
     {
         // In binary mode, we need to prefix every message with the message size header.
         char size_buf[4];
-        // TODO: Encode buf data.
+        uint32_t len = message.length();
+        size_buf[0] = len >> 24;
+        size_buf[1] = (len >> 16) & 0xff;
+        size_buf[2] = (len >> 8) & 0xff;
+        size_buf[3] = len & 0xff;
 
         memsegs[0].iov_base = size_buf;
         memsegs[0].iov_len = 4;
@@ -120,7 +131,8 @@ void comm_session::send(std::string_view message) const
         memsegs[1].iov_len = 1;
     }
 
-    if (writev(session_fd, memsegs, 2) == -1)
+    const int fd = write_fd > 0 ? write_fd : session_fd;
+    if (writev(fd, memsegs, 2) == -1)
         LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
 }
 
@@ -128,6 +140,8 @@ void comm_session::close()
 {
     if (session_type == SESSION_TYPE::USER)
         user_sess_handler.on_close(*this);
+    else
+        peer_sess_handler.on_close(*this);
 
     ::close(session_fd);
     state = SESSION_STATE::CLOSED;
@@ -151,8 +165,8 @@ uint32_t comm_session::get_binary_msg_read_len(const size_t available_bytes)
         if (read(session_fd, header_buf, SIZE_HEADER_LEN) == -1)
             return -1; // Indicates that we should disconnect the client.
 
-        // We are using 3 bytes (big endian) from the 4 byte header for the message size.
-        expected_msg_size = (header_buf[1] << 16) + (header_buf[2] << 8) + header_buf[3];
+        // We are using 4 bytes (big endian) header for the message size.
+        expected_msg_size = (header_buf[0] << 24) + (header_buf[1] << 16) + (header_buf[2] << 8) + header_buf[3];
 
         // We must read the entire message if all message bytes are available.
         if (available_bytes >= SIZE_HEADER_LEN + expected_msg_size)

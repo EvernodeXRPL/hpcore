@@ -35,7 +35,7 @@ int init()
     // Append self peer to peer list.
     const std::string portstr = std::to_string(cfg.peerport);
     cfg.self_peer_id = std::string(SELF_HOST).append(":").append(portstr);
-    cfg.peers.emplace(cfg.self_peer_id, std::make_pair(SELF_HOST, portstr));
+    cfg.peers.emplace(cfg.self_peer_id, std::make_pair(SELF_HOST, cfg.peerport));
 
     // Append self pubkey to unl list.
     cfg.unl.emplace(cfg.pubkey);
@@ -249,7 +249,7 @@ int load_config()
         if (splitted_peers.size() == 2)
         {
             // Push the peer address and the port to peers array
-            cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), splitted_peers.back())));
+            cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back()))));
             splitted_peers.clear();
         }
     }

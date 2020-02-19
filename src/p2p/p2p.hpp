@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../comm/comm_server.hpp"
+#include "../comm/comm_client.hpp"
 #include "../comm/comm_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
@@ -60,30 +61,29 @@ struct npl_message
     std::string data;
 };
 
-
 // Represents a state request sent to a peer.
 struct state_request
 {
-    std::string parent_path;    // The requested file or dir path.
-    bool is_file;               // Whether the path is a file or dir.
-    int32_t block_id;           // Block id of the file if we are requesting for file block. Otherwise -1.
-    hasher::B2H expected_hash;  // The expected hash of the requested result.
+    std::string parent_path;   // The requested file or dir path.
+    bool is_file;              // Whether the path is a file or dir.
+    int32_t block_id;          // Block id of the file if we are requesting for file block. Otherwise -1.
+    hasher::B2H expected_hash; // The expected hash of the requested result.
 };
 
 // Represents state file system entry.
 struct state_fs_hash_entry
 {
-    bool is_file;       // Whether this is a file or dir.
-    hasher::B2H hash;   // Hash of the file or dir.
+    bool is_file;     // Whether this is a file or dir.
+    hasher::B2H hash; // Hash of the file or dir.
 };
 
 // Represents a file block data resposne.
 struct block_response
 {
-    std::string path;       // Path of the file.
-    uint32_t block_id;      // Id of the block where the data belongs to.
-    std::string_view data;  // The block data.
-    hasher::B2H hash;       // Hash of the bloc data.
+    std::string path;      // Path of the file.
+    uint32_t block_id;     // Id of the block where the data belongs to.
+    std::string_view data; // The block data.
+    hasher::B2H hash;      // Hash of the bloc data.
 };
 
 struct message_collection
@@ -109,6 +109,8 @@ struct connected_context
 
     // Set of currently connected outbound peer connections mapped by the uniqueid of socket session.
     std::unordered_map<std::string, comm::comm_session> peer_connections;
+    std::unordered_map<std::string, comm::comm_client> peer_clients;
+
     std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
     // Peer connection watchdog runs on this thread.
@@ -127,7 +129,7 @@ int init();
 //p2p message handling
 void start_peer_connections();
 
-// void peer_connection_watchdog();
+void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4]);
 
 void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self);
 

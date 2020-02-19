@@ -13,7 +13,7 @@ namespace conf
 constexpr const char *SELF_HOST = "127.0.0.1";
 
 // Typedef to represent ip address and port pair.
-typedef std::pair<std::string, std::string> ip_port_pair;
+typedef std::pair<std::string, uint16_t> ip_port_pair;
 
 // The operating mode of the contract node.
 enum OPERATING_MODE

@@ -8,6 +8,7 @@
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/common_helpers.hpp"
 #include "../comm/comm_session.hpp"
+#include "../comm/comm_client.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 #include "../cons/ledger_handler.hpp"
@@ -168,6 +169,11 @@ void peer_session_handler::on_close(const comm::comm_session &session) const
     {
         std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
         ctx.peer_connections.erase(session.uniqueid);
+
+        // Stop the client when session closes.
+        comm::comm_client &client = ctx.peer_clients[session.uniqueid];
+        client.stop();
+        ctx.peer_clients.erase(session.uniqueid);
     }
     LOG_DBG << "Peer disonnected: " << session.uniqueid;
 }

@@ -173,7 +173,7 @@ void comm_server::check_for_new_connection(
         }
         else
         {
-            comm_session session(ip, client_fd, session_type, is_binary, false, true, metric_thresholds);
+            comm_session session(ip, client_fd, 0, session_type, is_binary, false, true, metric_thresholds);
             session.on_connect();
 
             // We check for 'closed' state here because corebill might close the connection immediately.
@@ -233,7 +233,7 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
         char *execv_args[] = {
             conf::ctx.websocketd_exe_path.data(),
             (char *)"--port",
-            std::to_string(conf::cfg.pubport).data(),
+            std::to_string(port).data(),
             (char *)"--ssl",
             (char *)"--sslcert",
             conf::ctx.tls_cert_file.data(),
