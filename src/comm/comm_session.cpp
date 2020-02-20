@@ -138,6 +138,9 @@ void comm_session::send(std::string_view message) const
 
 void comm_session::close()
 {
+    if (state = SESSION_STATE::CLOSED)
+        return;
+
     if (session_type == SESSION_TYPE::USER)
         user_sess_handler.on_close(*this);
     else

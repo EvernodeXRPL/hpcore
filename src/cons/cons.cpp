@@ -61,11 +61,7 @@ int init()
         ctx.prev_hash_state = ctx.curr_hash_state;
     }
 
-    ctx.state_syncing_thread = std::thread([&] {
-        run_state_sync_iterator();
-        LOG_ERR << "Exit state sync thread\n";
-        exit(1);
-    });
+    ctx.state_syncing_thread = std::thread(&run_state_sync_iterator);
 
     ctx.prev_close_time = util::get_epoch_milliseconds();
 

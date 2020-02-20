@@ -14,28 +14,37 @@ namespace p2p
 // Holds global connected-peers and related objects.
 connected_context ctx;
 
-// Holds objects used by socket listener.
-listener_context listener_ctx;
-
+/**
+ * Initializes the p2p subsystem. Must be called once during application startup.
+ * @return 0 for successful initialization. -1 for failure.
+ */
 int init()
 {
     //Entry point for p2p which will start peer connections to other nodes
-    start_peer_connections();
-
-    return 0;
+    return start_peer_connections();
 }
 
-void start_peer_connections()
+/**
+ * Cleanup any running processes.
+ */
+void deinit()
+{
+    ctx.listener.stop();
+}
+
+int start_peer_connections()
 {
     const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.peermaxbadmpm};
-    listener_ctx.server.start(
+    if (ctx.listener.start(
         conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true,
-        ctx.peer_connections_mutex, metric_thresholds, conf::cfg.peermaxsize);
+        ctx.peer_connections_mutex, metric_thresholds, conf::cfg.peermaxsize) == -1)
+        return -1;
 
     LOG_INFO << "Started listening for incoming peer connections on " << std::to_string(conf::cfg.peerport);
 
     // Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
     ctx.peer_watchdog_thread = std::thread(&peer_connection_watchdog, std::ref(metric_thresholds));
+    return 0;
 }
 
 // Scan peer connections continually and attempt to maintain the connection if they drop

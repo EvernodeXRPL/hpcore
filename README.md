@@ -9,13 +9,13 @@ A C++ version of hotpocket designed for production envrionments, original protot
 
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
-* Websockets - [Websocketd](https://github.com/joewalnes/websocketd) | [netcat (OpenBSD)](https://man.openbsd.org/nc.1)
+* Websockets - [Websocketd](https://github.com/joewalnes/websocketd) | [Websocat](https://github.com/vi/websocat) | [netcat (OpenBSD)](https://man.openbsd.org/nc.1)
 * RapidJSON - http://rapidjson.org
 * P2P Protocol - https://google.github.io/flatbuffers/
-* TLS - https://www.openssl.org/
 * Fuse filesystem - https://github.com/libfuse/libfuse
+* Boost - https://www.boost.org/
 
-## Steps to setup Hot Pocket
+## Steps to setup Hot Pocket (For Ubuntu/Debian)
 
 #### Install CMAKE 3.16
 1. Download and extract [cmake-3.16.0-rc3-Linux-x86_64.tar.gz](https://github.com/Kitware/CMake/releases/download/v3.16.0-rc3/cmake-3.16.0-rc3-Linux-x86_64.tar.gz)
@@ -63,12 +63,6 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 
 `flatc -o src/fbschema/ --gen-mutable --cpp src/fbschema/p2pmsg_content.fbs`
 
-#### Install OpenSSL
-1. Download and extract OpenSSL-1.1.1d source from [here](https://www.openssl.org/source/openssl-1.1.1d.tar.gz).
-2. Navigate to the extracted directory.
-3. Run `./config && make`
-4. Run `sudo make install`
-
 #### Install libfuse
 1. `sudo apt-get install -y meson ninja-build pkg-config`
 2. Download [libfuse 3.8](https://github.com/libfuse/libfuse/releases/download/fuse-3.8.0/fuse-3.8.0.tar.xz) and extract.
@@ -98,14 +92,14 @@ Code is divided into subsystems via namespaces.
 
 **proc::** Handles contract process execution and managing user/SC I/O and npl I/O. Makes use of **usr** and **p2p**.
 
-**usr::** Handles user connections. Makes use of **crypto** and **sock**.
+**usr::** Handles user connections. Makes use of **crypto** and **comm**.
 
-**p2p::** Handles peer-to-peer connections and message exchange between nodes. Makes use of **crypto** and **sock**.
+**p2p::** Handles peer-to-peer connections and message exchange between nodes. Makes use of **crypto** and **comm**.
 
 **cons::** Handles consensus and proposal rounds. Makes use of **usr**, **p2p** and **proc**
 
-**sock::** Handles generic web sockets functionality. Mainly acts as a wrapper for boost/beast.
+**comm::** Handles generic web sockets communication functionality. Mainly acts as a wrapper for websocketd/websocat.
 
 **util::** Contains shared data structures/helper functions used by multiple subsystems.
 
-**statefs::** Fuse-based state filesystem monitoring and contract state maintenence subsystem.
+**statefs::** Fuse-based state filesystem monitoring and contract state maintenance subsystem.

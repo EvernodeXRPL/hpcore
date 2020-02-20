@@ -115,19 +115,17 @@ struct connected_context
 
     // Peer connection watchdog runs on this thread.
     std::thread peer_watchdog_thread;
+
+    comm::comm_server listener;
 };
 
 extern connected_context ctx;
 
-struct listener_context
-{
-    comm::comm_server server;
-};
-
 int init();
 
-//p2p message handling
-void start_peer_connections();
+void deinit();
+
+int start_peer_connections();
 
 void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4]);
 

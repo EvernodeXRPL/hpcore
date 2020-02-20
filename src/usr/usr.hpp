@@ -58,22 +58,16 @@ struct connected_context
     // Keep track of verification-pending challenges issued to newly connected users.
     // Map key: User socket session id (<ip:port>)
     std::unordered_map<std::string, const std::string> pending_challenges;
+
+    comm::comm_server listener;
 };
 extern connected_context ctx;
-
-/**
- * Struct to hold objects used by socket listener.
- */
-struct listener_context
-{
-    comm::comm_server server;
-};
 
 int init();
 
 void deinit();
 
-void start_listening();
+int start_listening();
 
 std::string issue_challenge(const std::string sessionid);
 

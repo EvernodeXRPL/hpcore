@@ -18,9 +18,6 @@ namespace usr
 // Holds global connected-users and related objects.
 connected_context ctx;
 
-// Holds objects used by socket listener.
-listener_context listener_ctx;
-
 /**
  * Initializes the usr subsystem. Must be called once during application startup.
  * @return 0 for successful initialization. -1 for failure.
@@ -37,20 +34,22 @@ int init()
  */
 void deinit()
 {
-    listener_ctx.server.stop();
+    ctx.listener.stop();
 }
 
 /**
  * Starts listening for incoming user websocket connections.
  */
-void start_listening()
+int start_listening()
 {
     const uint64_t metric_thresholds[] = {conf::cfg.pubmaxcpm, 0, 0, conf::cfg.pubmaxbadmpm};
-    listener_ctx.server.start(
+    if (ctx.listener.start(
         conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, false,
-        ctx.users_mutex, metric_thresholds, conf::cfg.pubmaxsize);
+        ctx.users_mutex, metric_thresholds, conf::cfg.pubmaxsize) == -1)
+        return -1;
 
     LOG_INFO << "Started listening for incoming user connections on " << std::to_string(conf::cfg.pubport);
+    return 0;
 }
 
 std::string issue_challenge(const std::string sessionid)
