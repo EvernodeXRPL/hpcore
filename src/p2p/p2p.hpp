@@ -110,8 +110,6 @@ struct connected_context
 
     // Set of currently connected outbound peer connections mapped by the uniqueid of socket session.
     std::unordered_map<std::string, comm::comm_session> peer_connections;
-    std::map<conf::ip_port_pair, comm::comm_client> peer_clients;
-    std::set<conf::ip_port_pair> known_peers;
 
     std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
@@ -119,6 +117,8 @@ struct connected_context
     std::thread peer_watchdog_thread;
 
     comm::comm_server listener;
+
+    bool should_stop_connections = false;
 };
 
 extern connected_context ctx;

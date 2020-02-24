@@ -37,7 +37,7 @@ enum SESSION_TYPE
 */
 class comm_session
 {
-    const int session_fd;
+    const int read_fd;
     const int write_fd; // Only valid for outgoing client connections.
     const SESSION_TYPE session_type;
     std::vector<session_threshold> thresholds; // track down various communication thresholds
@@ -65,7 +65,7 @@ public:
     std::bitset<8> flags;
 
     comm_session(
-        std::string_view ip, const int fd, const int write_fd, const SESSION_TYPE session_type,
+        std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
         const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
     void on_connect();
     void attempt_read(bool &should_disconnect, const uint64_t max_msg_size);

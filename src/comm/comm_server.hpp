@@ -17,12 +17,12 @@ class comm_server
     int open_domain_socket(const char *domain_socket_name);
     void listen_domain_socket(
         const int socket_fd, const SESSION_TYPE session_type, const bool is_binary,
-        std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
+        const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
     int start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary);
-    int poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &clients);
+    int poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &sessions);
 
     void check_for_new_connection(
-        std::unordered_map<int, comm_session> &clients, std::mutex &sessions_mutex, const int socket_fd,
+        std::unordered_map<int, comm_session> &sessions, const int socket_fd,
         const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
 
     // If the fd supplied was produced by accept()ing unix domain socket connection
@@ -34,7 +34,7 @@ public:
     // Start accepting incoming connections
     int start(
         const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
-        std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
+        const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
     void stop();
     void firewall_ban(std::string_view ip, const bool unban);
 };

@@ -18,18 +18,17 @@ usr::user_session_handler user_sess_handler;
 p2p::peer_session_handler peer_sess_handler;
 
 comm_session::comm_session(
-    std::string_view ip, const int fd, const int write_fd, const SESSION_TYPE session_type,
+    std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
     const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
 
-    : session_fd(fd),
+    : read_fd(read_fd),
       write_fd(write_fd),
       session_type(session_type),
-      uniqueid(std::to_string(fd).append(":").append(ip)),
+      uniqueid(std::to_string(read_fd).append(":").append(ip)),
       is_binary(is_binary),
       is_self(is_self),
       is_inbound(is_inbound)
 {
-
     // Create new session_thresholds and insert it to thresholds vector.
     // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
     // since enum's value is used as index in the vector to update vector values.
@@ -56,7 +55,7 @@ void comm_session::on_connect()
 void comm_session::attempt_read(bool &should_disconnect, const uint64_t max_msg_size)
 {
     size_t available_bytes = 0;
-    if (ioctl(session_fd, FIONREAD, &available_bytes) == -1 || available_bytes == 0 ||
+    if (ioctl(read_fd, FIONREAD, &available_bytes) == -1 ||
         (max_msg_size > 0 &&
          available_bytes > (max_msg_size + (is_binary ? SIZE_HEADER_LEN : 0))))
     {
@@ -68,6 +67,7 @@ void comm_session::attempt_read(bool &should_disconnect, const uint64_t max_msg_
     while (available_bytes > 0)
     {
         const uint32_t read_len = is_binary ? get_binary_msg_read_len(available_bytes) : available_bytes;
+
         if (read_len == -1)
         {
             should_disconnect = true;
@@ -80,14 +80,11 @@ void comm_session::attempt_read(bool &should_disconnect, const uint64_t max_msg_
                 available_bytes -= SIZE_HEADER_LEN;
 
             char msg_buf[read_len];
-            if (read(session_fd, msg_buf, read_len) == -1)
+            if (read(read_fd, msg_buf, read_len) == -1)
             {
                 should_disconnect = true;
                 return;
             }
-
-            std::string s;
-            util::bin2hex(s, (unsigned char *)msg_buf, read_len);
 
             on_message(std::string_view(msg_buf, read_len));
         }
@@ -96,9 +93,6 @@ void comm_session::attempt_read(bool &should_disconnect, const uint64_t max_msg_
 
 void comm_session::on_message(std::string_view message)
 {
-    std::string s;
-    util::bin2hex(s, (unsigned char *)message.data(), message.length());
-
     increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.length());
 
     if (session_type == SESSION_TYPE::USER)
@@ -109,6 +103,9 @@ void comm_session::on_message(std::string_view message)
 
 void comm_session::send(std::string_view message) const
 {
+    if (state == SESSION_STATE::CLOSED)
+        return;
+
     // Prepare the memory segments to map with writev().
     iovec memsegs[2];
 
@@ -136,14 +133,13 @@ void comm_session::send(std::string_view message) const
         memsegs[1].iov_len = 1;
     }
 
-    const int fd = write_fd > 0 ? write_fd : session_fd;
-    if (writev(fd, memsegs, 2) == -1)
+    if (writev(write_fd, memsegs, 2) == -1)
         LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
 }
 
 void comm_session::close()
 {
-    if (state = SESSION_STATE::CLOSED)
+    if (state == SESSION_STATE::CLOSED)
         return;
 
     if (session_type == SESSION_TYPE::USER)
@@ -151,7 +147,7 @@ void comm_session::close()
     else
         peer_sess_handler.on_close(*this);
 
-    ::close(session_fd);
+    ::close(read_fd);
     state = SESSION_STATE::CLOSED;
 }
 
@@ -170,7 +166,7 @@ uint32_t comm_session::get_binary_msg_read_len(const size_t available_bytes)
     {
         // Read the size header.
         char header_buf[SIZE_HEADER_LEN];
-        if (read(session_fd, header_buf, SIZE_HEADER_LEN) == -1)
+        if (read(read_fd, header_buf, SIZE_HEADER_LEN) == -1)
             return -1; // Indicates that we should disconnect the client.
 
         // We are using 4 bytes (big endian) header for the message size.

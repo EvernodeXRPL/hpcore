@@ -13,14 +13,14 @@ namespace comm
 
 int comm_server::start(
     const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
-    std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
+    const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 {
     int socket_fd = open_domain_socket(domain_socket_name);
     if (socket_fd > 0)
     {
         domain_sock_listener_thread = std::thread(
             &comm_server::listen_domain_socket, this, socket_fd, session_type, is_binary,
-            std::ref(sessions_mutex), std::ref(metric_thresholds), max_msg_size);
+            std::ref(metric_thresholds), max_msg_size);
         return start_websocketd_process(port, domain_socket_name, is_binary);
     }
 
@@ -65,84 +65,83 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
 
 void comm_server::listen_domain_socket(
     const int socket_fd, const SESSION_TYPE session_type, const bool is_binary,
-    std::mutex &sessions_mutex, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
+    const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 {
     // Map with client fd to session mappings.
-    std::unordered_map<int, comm_session> clients;
+    std::unordered_map<int, comm_session> sessions;
 
     while (true)
     {
         if (should_stop_listening)
-        {
-            // Close all sessions
-            for (auto &[fd, session] : clients)
-                session.close();
-
-            return;
-        }
+            break;
 
         // Prepare poll fd list.
-        const size_t fd_count = clients.size() + 1; //+1 for the inclusion of socket_fd
+        const size_t fd_count = sessions.size() + 1; //+1 for the inclusion of socket_fd
         pollfd pollfds[fd_count];
-        if (poll_fds(pollfds, socket_fd, clients) == -1)
+        if (poll_fds(pollfds, socket_fd, sessions) == -1)
         {
             util::sleep(10);
             continue;
         }
 
         // Accept any new client if available.
-        check_for_new_connection(clients, sessions_mutex, socket_fd, session_type, is_binary, metric_thresholds);
+        check_for_new_connection(sessions, socket_fd, session_type, is_binary, metric_thresholds);
 
-        const size_t clients_count = clients.size();
+        const size_t sessions_count = sessions.size();
 
         // Loop through all client fds and read any data.
-        for (size_t i = 1; i <= clients_count; i++)
+        for (size_t i = 1; i <= sessions_count; i++)
         {
             const short result = pollfds[i].revents;
             const int fd = pollfds[i].fd;
 
-            const auto iter = clients.find(fd);
-            if (iter != clients.end())
+            const auto iter = sessions.find(fd);
+            if (iter != sessions.end())
             {
                 comm_session &session = iter->second;
-                bool should_disconnect = false;
+                bool should_disconnect = (session.state == SESSION_STATE::CLOSED);
 
-                if (result & POLLIN)
-                    session.attempt_read(should_disconnect, max_msg_size);
+                if (!should_disconnect)
+                {
+                    if (result & POLLIN)
+                        session.attempt_read(should_disconnect, max_msg_size);
 
-                if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
-                    should_disconnect = true;
+                    if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
+                        should_disconnect = true;
+                }
 
                 if (should_disconnect)
                 {
                     session.close();
-
-                    {
-                        std::lock_guard<std::mutex> lock(sessions_mutex);
-                        clients.erase(fd);
-                    }
+                    sessions.erase(fd);
                 }
             }
         }
     }
 
-    return;
+    // If we reach this point that means we are shutting down.
+
+    // Close all sessions
+    for (auto &[fd, session] : sessions)
+        session.close();
+    
+    LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " listener stopped.";
 }
 
-int comm_server::poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &clients)
+int comm_server::poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &sessions)
 {
     const short poll_events = POLLIN | POLLRDHUP;
     pollfds[0].fd = socket_fd;
 
-    auto iter = clients.begin();
-    for (size_t i = 1; i <= clients.size(); i++)
+    auto iter = sessions.begin();
+    for (size_t i = 1; i <= sessions.size(); i++)
     {
         pollfds[i].fd = iter->first;
         pollfds[i].events = poll_events;
         iter++;
     }
 
-    if (poll(pollfds, clients.size() + 1, 10) == -1) //10ms timeout
+    if (poll(pollfds, sessions.size() + 1, 10) == -1) //10ms timeout
     {
         LOG_ERR << errno << ": Poll failed.";
         return -1;
@@ -152,7 +151,7 @@ int comm_server::poll_fds(pollfd *pollfds, const int socket_fd, const std::unord
 }
 
 void comm_server::check_for_new_connection(
-    std::unordered_map<int, comm_session> &clients, std::mutex &sessions_mutex, const int socket_fd,
+    std::unordered_map<int, comm_session> &sessions, const int socket_fd,
     const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4])
 {
     // Accept new client connection (if available)
@@ -173,15 +172,12 @@ void comm_server::check_for_new_connection(
         }
         else
         {
-            comm_session session(ip, client_fd, 0, session_type, is_binary, false, true, metric_thresholds);
+            comm_session session(ip, client_fd, client_fd, session_type, is_binary, false, true, metric_thresholds);
             session.on_connect();
 
             // We check for 'closed' state here because corebill might close the connection immediately.
-            if (!session.state == SESSION_STATE::CLOSED)
-            {
-                std::lock_guard<std::mutex> lock(sessions_mutex);
-                clients.try_emplace(client_fd, std::move(session));
-            }
+            if (session.state != SESSION_STATE::CLOSED)
+                sessions.try_emplace(client_fd, std::move(session));
         }
     }
 }
@@ -318,7 +314,8 @@ std::string comm_server::get_cgi_ip(const int fd)
 void comm_server::stop()
 {
     should_stop_listening = true;
-    util::sleep(100);             // Give some time to listening thread to gracefully exit.
+    domain_sock_listener_thread.join();
+
     kill(websocketd_pid, SIGINT); // Kill websocketd.
 }
 

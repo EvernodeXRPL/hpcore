@@ -29,6 +29,9 @@ int init()
  */
 void deinit()
 {
+    ctx.should_stop_connections = true;
+    ctx.peer_watchdog_thread.join();
+
     ctx.listener.stop();
 }
 
@@ -36,8 +39,7 @@ int start_peer_connections()
 {
     const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.peermaxbadmpm};
     if (ctx.listener.start(
-        conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true,
-        ctx.peer_connections_mutex, metric_thresholds, conf::cfg.peermaxsize) == -1)
+            conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true, metric_thresholds, conf::cfg.peermaxsize) == -1)
         return -1;
 
     LOG_INFO << "Started listening for incoming peer connections on " << std::to_string(conf::cfg.peerport);
@@ -51,6 +53,8 @@ int start_peer_connections()
 void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
 {
     uint16_t loop_counter = 0;
+    std::list<comm::client_session> client_sessions;
+    std::set<conf::ip_port_pair> connected_known_peers;
 
     while (true)
     {
@@ -60,7 +64,10 @@ void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
             loop_counter = 0;
             for (const auto &ipport : conf::cfg.peers)
             {
-                if (ctx.known_peers.find(ipport) == ctx.known_peers.end())
+                if (ctx.should_stop_connections)
+                    break;
+
+                if (connected_known_peers.find(ipport) == connected_known_peers.end())
                 {
                     std::string_view host = ipport.first;
                     const uint16_t port = ipport.second;
@@ -82,8 +89,12 @@ void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
                         if (session.state == comm::SESSION_STATE::ACTIVE)
                         {
                             session.known_ipport = ipport;
-                            ctx.peer_clients.try_emplace(ipport, client);
-                            ctx.known_peers.emplace(ipport);
+                            client_sessions.push_back(comm::client_session(std::move(client), std::move(session)));
+                            connected_known_peers.emplace(session.known_ipport);
+                        }
+                        else
+                        {
+                            client.stop();
                         }
                     }
                 }
@@ -91,29 +102,44 @@ void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
         }
         loop_counter++;
 
-        std::unordered_set<std::string> clients_to_disconnect;
+        if (ctx.should_stop_connections)
+            break;
 
-        for (auto &[uniqueid, session] : ctx.peer_connections)
+        // Loop through all current client connections and read data.
+        auto itr = client_sessions.begin();
+        while (itr != client_sessions.end())
         {
-            bool should_disonnect;
-            session.attempt_read(should_disonnect, conf::cfg.peermaxsize);
+            comm::comm_client &client = itr->client;
+            comm::comm_session &session = itr->session;
+
+            bool should_disonnect = (session.state == comm::SESSION_STATE::CLOSED);
+
+            if (!should_disonnect)
+                session.attempt_read(should_disonnect, conf::cfg.peermaxsize);
 
             if (should_disonnect)
-                clients_to_disconnect.emplace(uniqueid);
-        }
-
-        {
-            //std::lock_guard lock(ctx.peer_connections_mutex);
-
-            for (auto &uniqueid : clients_to_disconnect)
             {
-                const auto itr = ctx.peer_connections.find(uniqueid);
-                comm::comm_session &session = itr->second;
                 session.close();
+                client.stop();
+                connected_known_peers.emplace(session.known_ipport);
+                client_sessions.erase(itr++);
+            }
+            else
+            {
+                ++itr;
             }
         }
+
         util::sleep(10);
     }
+
+    // If we reach this point that means we are shutting down.
+    for (auto &[client, session] : client_sessions)
+    {
+        session.close();
+        client.stop();
+    }
+    LOG_INFO << "Peer watchdog stopped.";
 }
 
 /**

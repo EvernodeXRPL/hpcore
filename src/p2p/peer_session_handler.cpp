@@ -44,8 +44,6 @@ void peer_session_handler::on_connect(comm::comm_session &session) const
     p2pmsg::create_msg_from_peerid(fbuf, conf::cfg.self_peerid);
     std::string_view msg = std::string_view(
         reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-
-    LOG_DBG << "Sending peerid notify msg";
     session.send(msg);
 }
 
@@ -83,7 +81,6 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
             return; // Peer ID already resolved. Ignore.
 
         const std::string peerid = std::string(p2pmsg::get_peerid_from_msg(*content->message_as_PeerId_Notify_Message()));
-        LOG_DBG << "Recvd peer id msg " << peerid;
 
         int res = peerid.compare(conf::cfg.self_peerid);
 
@@ -98,7 +95,7 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
 
         // Check for any existing connection to the same peer.
         const auto iter = p2p::ctx.peer_connections.find(peerid);
-        if (iter != p2p::ctx.peer_connections.end())
+        if (res != 0 && iter != p2p::ctx.peer_connections.end())
         {
             comm::comm_session &ex_session = iter->second;
             comm::comm_session &victim =
@@ -120,7 +117,6 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
             session.known_ipport.swap(known_ipport);
 
             p2p::ctx.peer_connections.try_emplace(session.uniqueid, session);
-            p2p::ctx.known_peers.emplace(session.known_ipport);
         }
     }
     else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
@@ -218,18 +214,7 @@ void peer_session_handler::on_close(const comm::comm_session &session) const
 {
     //std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
     ctx.peer_connections.erase(session.uniqueid);
-
-    if (!session.is_inbound)
-    {
-        // Stop the client when outbound session closes.
-        const auto iter = ctx.peer_clients.find(session.known_ipport);
-        iter->second.stop();
-        ctx.peer_clients.erase(iter);
-
-        // Clear known peer connection entry if exists.
-        ctx.known_peers.erase(session.known_ipport);
-    }
-    LOG_DBG << "Peer disonnected: " << session.uniqueid;
+    LOG_DBG << "Peer session closed: " << session.uniqueid << (session.is_self ? "(self)" : "");
 }
 
 } // namespace p2p

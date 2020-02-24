@@ -622,7 +622,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
 
     if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
     {
-        LOG_DBG << "Not enough peers proposer to perform consensus votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        LOG_DBG << "Not enough peers proposing to perform consensus. votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
         is_desync = true;
 
         //Not enough nodes are propsing. So Node is switching to Proposer if it's in observer mode.
