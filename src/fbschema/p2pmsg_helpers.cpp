@@ -27,7 +27,7 @@ namespace fbschema::p2pmsg
  * received data and then interprit the 'Content' portion of it separately to read the actual content.
  */
 
-//---Message validation and reading helpers---/
+//---Message validation helpers---/
 
 /**
  * Verifies Conatiner message structure and outputs faltbuffer Container pointer to access the given buffer.
@@ -136,6 +136,13 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
 
     *content_ref = GetContent(content_ptr);
     return 0;
+}
+
+//---Message reading helpers---/
+
+std::string_view get_peerid_from_msg(const PeerId_Notify_Message &msg)
+{
+    return flatbuff_bytes_to_sv(msg.peerid());
 }
 
 /**
@@ -250,6 +257,23 @@ const p2p::block_response create_block_response_from_msg(const Block_Response &m
 }
 
 //---Message creation helpers---//
+
+void create_msg_from_peerid(flatbuffers::FlatBufferBuilder &container_builder, std::string_view peerid)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    const flatbuffers::Offset<PeerId_Notify_Message> peerid_msg =
+        CreatePeerId_Notify_Message(
+            builder,
+            sv_to_flatbuff_bytes(builder, peerid));
+
+    const flatbuffers::Offset<Content> message = CreateContent(builder, Message_PeerId_Notify_Message, peerid_msg.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message,
+    // we need to sign it and place it inside a container message.
+    create_containermsg_from_content(container_builder, builder, nullptr, false);
+}
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)
 {

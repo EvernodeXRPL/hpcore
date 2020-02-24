@@ -240,7 +240,7 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
             (char *)"--sslkey",
             conf::ctx.tls_key_file.data(),
             (char *)(is_binary ? "--binary=true" : "--binary=false"),
-            (char *)(is_binary ? "--sizeheader=true" : "--sizeheader=false"),
+            (char *)(is_binary ? "--sizeheader=false" : "--sizeheader=false"),
             (char *)"nc", // netcat (OpenBSD) is used for domain socket redirection.
             (char *)"-U", // Use UNIX domain socket
             (char *)domain_socket_name,

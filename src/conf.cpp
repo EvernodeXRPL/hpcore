@@ -17,6 +17,7 @@ contract_config cfg;
 
 const static char *MODE_OBSERVER = "observer";
 const static char *MODE_PROPOSER = "proposer";
+constexpr size_t PEERID_LEN = 16;
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -34,8 +35,14 @@ int init()
 
     // Append self peer to peer list.
     const std::string portstr = std::to_string(cfg.peerport);
-    cfg.self_peer_id = std::string(SELF_HOST).append(":").append(portstr);
-    cfg.peers.emplace(cfg.self_peer_id, std::make_pair(SELF_HOST, cfg.peerport));
+
+    // We calculate the self peer id to be a random string.
+    // Use libsodium to generate the random challenge bytes.
+    unsigned char peerid_bytes[PEERID_LEN];
+    randombytes_buf(peerid_bytes, PEERID_LEN);
+    util::bin2hex(cfg.self_peerid, peerid_bytes, PEERID_LEN);
+
+    cfg.peers.emplace(std::make_pair(SELF_HOST, cfg.peerport));
 
     // Append self pubkey to unl list.
     cfg.unl.emplace(cfg.pubkey);
@@ -248,8 +255,8 @@ int load_config()
         boost::split(splitted_peers, ipport_concat, boost::is_any_of(":"));
         if (splitted_peers.size() == 2)
         {
-            // Push the peer address and the port to peers array
-            cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back()))));
+            // Push the peer address and the port to peers set
+            cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
             splitted_peers.clear();
         }
     }
@@ -322,10 +329,11 @@ int save_config()
     d.AddMember("appbillargs", rapidjson::StringRef(cfg.appbillargs.data()), allocator);
 
     rapidjson::Value peers(rapidjson::kArrayType);
-    for (const auto &[ipport_concat, ipport_pair] : cfg.peers)
+    for (const auto &ipport_pair : cfg.peers)
     {
         rapidjson::Value v;
-        v.SetString(rapidjson::StringRef(ipport_concat.data()), allocator);
+        const std::string concat_str = std::string(ipport_pair.first).append(":").append(std::to_string(ipport_pair.second));
+        v.SetString(rapidjson::StringRef(concat_str.data()), allocator);
         peers.PushBack(v, allocator);
     }
     d.AddMember("peers", peers, allocator);

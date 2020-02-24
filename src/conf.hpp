@@ -52,7 +52,7 @@ struct contract_config
     std::vector<std::string> runtime_binexec_args;   // Contract binary execution args used during runtime.
     std::vector<std::string> runtime_appbill_args;   // Appbill execution args used during runtime.
     OPERATING_MODE current_mode;        // Current operating mode of the contract (Observer/Proposer)
-    std::string self_peer_id;           // Peer session id of this node. (format: selfip:port)
+    std::string self_peerid;           // Peer session id of this node. (format: selfip:port)
 
     // Config elements which are loaded from the config file.
 
@@ -63,8 +63,8 @@ struct contract_config
     std::string binargs;                // CLI arguments to pass to the contract binary
     std::string appbill;                // binary to execute for appbill
     std::string appbillargs;            // any arguments to supply to appbill binary by default
-    std::unordered_map<std::string, ip_port_pair> peers;    // Map of peers keyed by "<ip address>:<port>" concatenated format
-    std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)
+    std::set<ip_port_pair> peers;       // Set of peers keyed by "<ip address>:<port>" concatenated format
+    std::unordered_set<std::string> unl;// Unique node list (list of binary public keys)
     uint16_t peerport;                  // Listening port for peer connections
     uint16_t roundtime;                 // Consensus round time in ms
     uint16_t pubport;                   // Listening port for public user connections

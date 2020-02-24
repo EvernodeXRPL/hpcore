@@ -58,18 +58,18 @@ void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
         if (loop_counter == 100)
         {
             loop_counter = 0;
-            for (const auto &[peerid, ipport] : conf::cfg.peers)
+            for (const auto &ipport : conf::cfg.peers)
             {
-                if (ctx.peer_connections.find(peerid) == ctx.peer_connections.end())
+                if (ctx.known_peers.find(ipport) == ctx.known_peers.end())
                 {
-                    LOG_DBG << "Trying to connect : " << peerid;
                     std::string_view host = ipport.first;
                     const uint16_t port = ipport.second;
+                    LOG_DBG << "Trying to connect: " << host << ":" << std::to_string(port);
 
                     comm::comm_client client;
                     if (client.start(host, port, metric_thresholds, conf::cfg.peermaxsize) == -1)
                     {
-                        LOG_ERR << "Peer connection attempt failed for " << peerid;
+                        LOG_ERR << "Peer connection attempt failed";
                     }
                     else
                     {
@@ -80,7 +80,11 @@ void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
                         // If the session is still active (because corebill might close the connection immeditately)
                         // We add to the client list as well.
                         if (session.state == comm::SESSION_STATE::ACTIVE)
-                            ctx.peer_clients.try_emplace(session.uniqueid, client);
+                        {
+                            session.known_ipport = ipport;
+                            ctx.peer_clients.try_emplace(ipport, client);
+                            ctx.known_peers.emplace(ipport);
+                        }
                     }
                 }
             }
@@ -99,7 +103,7 @@ void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
         }
 
         {
-            std::lock_guard lock(ctx.peer_connections_mutex);
+            //std::lock_guard lock(ctx.peer_connections_mutex);
 
             for (auto &uniqueid : clients_to_disconnect)
             {
@@ -127,7 +131,7 @@ void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool se
     }
 
     //Broadcast while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+    //std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
 
     for (const auto &[k, session] : ctx.peer_connections)
     {
@@ -147,10 +151,10 @@ void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool se
 void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
 {
     //Send while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+    //std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
     // Find the peer session connected to self.
-    const auto peer_itr = ctx.peer_connections.find(conf::cfg.self_peer_id);
+    const auto peer_itr = ctx.peer_connections.find(conf::cfg.self_peerid);
     if (peer_itr != ctx.peer_connections.end())
     {
         std::string_view msg = std::string_view(
@@ -168,7 +172,7 @@ void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
 void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
 {
     //Send while locking the peer_connections.
-    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+    //std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
     const size_t connected_peers = ctx.peer_connections.size();
     if (connected_peers == 0)

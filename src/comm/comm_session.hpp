@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "comm_session_threshold.hpp"
+#include "../conf.hpp"
 
 namespace comm
 {
@@ -15,7 +16,8 @@ namespace comm
 enum SESSION_FLAG
 {
     USER_CHALLENGE_ISSUED,
-    USER_AUTHED
+    USER_AUTHED,
+    PEERID_RESOLVED
 };
 
 enum SESSION_STATE
@@ -46,7 +48,8 @@ class comm_session
 
 public:
     // The unique identifier of the remote party (format <ip>:<port>).
-    const std::string uniqueid;
+    std::string uniqueid;
+    conf::ip_port_pair known_ipport;
 
     // IP address of the remote party.
     const std::string address;

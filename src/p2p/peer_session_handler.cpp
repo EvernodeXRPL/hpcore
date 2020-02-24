@@ -35,14 +35,18 @@ void peer_session_handler::on_connect(comm::comm_session &session) const
         {
             session.close();
             LOG_DBG << "Max peer connections reached. Dropped connection " << session.uniqueid;
+            return;
         }
     }
-    else
-    {
-        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
-        ctx.peer_connections.try_emplace(session.uniqueid, session);
-        LOG_DBG << "Adding peer to list: " << session.uniqueid;
-    }
+
+    // Send our peer id.
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    p2pmsg::create_msg_from_peerid(fbuf, conf::cfg.self_peerid);
+    std::string_view msg = std::string_view(
+        reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+
+    LOG_DBG << "Sending peerid notify msg";
+    session.send(msg);
 }
 
 //peer session on message callback method
@@ -73,7 +77,53 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
 
     const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
-    if (content_message_type == p2pmsg::Message_Proposal_Message) //message is a proposal message
+    if (content_message_type == p2pmsg::Message_PeerId_Notify_Message) // message is a peer id announcement
+    {
+        if (session.flags[comm::SESSION_FLAG::PEERID_RESOLVED])
+            return; // Peer ID already resolved. Ignore.
+
+        const std::string peerid = std::string(p2pmsg::get_peerid_from_msg(*content->message_as_PeerId_Notify_Message()));
+        LOG_DBG << "Recvd peer id msg " << peerid;
+
+        int res = peerid.compare(conf::cfg.self_peerid);
+
+        // If peerid is same as our (self) peerid, then this is the loopback connection to ourselves.
+        // Hence we must keep the connection.
+        // If peerid is greater than our id, then we should give priority to any existing inbound connection
+        // from the same peer and drop the outbound connection.
+        // If peerid is lower than our id, then we should give priority to any existing outbound connection
+        // from the same peer and drop the inbound connection.
+
+        conf::ip_port_pair known_ipport;
+
+        // Check for any existing connection to the same peer.
+        const auto iter = p2p::ctx.peer_connections.find(peerid);
+        if (iter != p2p::ctx.peer_connections.end())
+        {
+            comm::comm_session &ex_session = iter->second;
+            comm::comm_session &victim =
+                ((res > 0 && ex_session.is_inbound) ||
+                 (res < 0 && !ex_session.is_inbound))
+                    ? session
+                    : ex_session;
+
+            victim.close();
+            // If we happen to replace a known peer session, transfer those details to the new session.
+            victim.known_ipport.swap(known_ipport);
+        }
+
+        // If the new session is still active then that means it should remain.
+        if (session.state == comm::SESSION_STATE::ACTIVE)
+        {
+            session.uniqueid = peerid;
+            session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
+            session.known_ipport.swap(known_ipport);
+
+            p2p::ctx.peer_connections.try_emplace(session.uniqueid, session);
+            p2p::ctx.known_peers.emplace(session.known_ipport);
+        }
+    }
+    else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
     {
         // We only trust proposals coming from trusted peers.
         if (p2pmsg::validate_container_trust(container) != 0)
@@ -166,17 +216,18 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
 //peer session on message callback method
 void peer_session_handler::on_close(const comm::comm_session &session) const
 {
-    {
-        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
-        ctx.peer_connections.erase(session.uniqueid);
+    //std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+    ctx.peer_connections.erase(session.uniqueid);
 
+    if (!session.is_inbound)
+    {
         // Stop the client when outbound session closes.
-        if (!session.is_inbound)
-        {
-            comm::comm_client &client = ctx.peer_clients[session.uniqueid];
-            client.stop();
-            ctx.peer_clients.erase(session.uniqueid);
-        }
+        const auto iter = ctx.peer_clients.find(session.known_ipport);
+        iter->second.stop();
+        ctx.peer_clients.erase(iter);
+
+        // Clear known peer connection entry if exists.
+        ctx.known_peers.erase(session.known_ipport);
     }
     LOG_DBG << "Peer disonnected: " << session.uniqueid;
 }
