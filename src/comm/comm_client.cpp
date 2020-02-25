@@ -14,9 +14,13 @@ int comm_client::start(std::string_view host, const uint16_t port, const uint64_
 
 void comm_client::stop()
 {
-    close(read_fd);
-    close(write_fd);
-    kill(websocat_pid, SIGINT); // Kill websocat.
+    if (read_fd > 0)
+        close(read_fd);
+    if (write_fd > 0)
+        close(write_fd);
+
+    if (websocat_pid > 0)
+        kill(websocat_pid, SIGINT); // Kill websocat.
 }
 
 int comm_client::start_websocat_process(std::string_view host, const uint16_t port)

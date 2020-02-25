@@ -29,9 +29,6 @@ int init()
  */
 void deinit()
 {
-    ctx.should_stop_connections = true;
-    ctx.peer_watchdog_thread.join();
-
     ctx.listener.stop();
 }
 
@@ -39,107 +36,11 @@ int start_peer_connections()
 {
     const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.peermaxbadmpm};
     if (ctx.listener.start(
-            conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true, metric_thresholds, conf::cfg.peermaxsize) == -1)
+            conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true, metric_thresholds, conf::cfg.peers, conf::cfg.peermaxsize) == -1)
         return -1;
 
-    LOG_INFO << "Started listening for incoming peer connections on " << std::to_string(conf::cfg.peerport);
-
-    // Scan peers and trying to keep up the connections if drop. This action is run on a seperate thread.
-    ctx.peer_watchdog_thread = std::thread(&peer_connection_watchdog, std::ref(metric_thresholds));
+    LOG_INFO << "Started listening for peer connections on " << std::to_string(conf::cfg.peerport);
     return 0;
-}
-
-// Scan peer connections continually and attempt to maintain the connection if they drop
-void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4])
-{
-    uint16_t loop_counter = 0;
-    std::list<comm::client_session> client_sessions;
-    std::set<conf::ip_port_pair> connected_known_peers;
-
-    while (true)
-    {
-        // Try to establish new connections every 100 iterations.
-        if (loop_counter == 100)
-        {
-            loop_counter = 0;
-            for (const auto &ipport : conf::cfg.peers)
-            {
-                if (ctx.should_stop_connections)
-                    break;
-
-                if (connected_known_peers.find(ipport) == connected_known_peers.end())
-                {
-                    std::string_view host = ipport.first;
-                    const uint16_t port = ipport.second;
-                    LOG_DBG << "Trying to connect: " << host << ":" << std::to_string(port);
-
-                    comm::comm_client client;
-                    if (client.start(host, port, metric_thresholds, conf::cfg.peermaxsize) == -1)
-                    {
-                        LOG_ERR << "Peer connection attempt failed";
-                    }
-                    else
-                    {
-                        const bool is_self = (host == conf::SELF_HOST);
-                        comm::comm_session session(host, client.read_fd, client.write_fd, comm::SESSION_TYPE::PEER, true, is_self, false, metric_thresholds);
-                        session.on_connect();
-
-                        // If the session is still active (because corebill might close the connection immeditately)
-                        // We add to the client list as well.
-                        if (session.state == comm::SESSION_STATE::ACTIVE)
-                        {
-                            session.known_ipport = ipport;
-                            client_sessions.push_back(comm::client_session(std::move(client), std::move(session)));
-                            connected_known_peers.emplace(session.known_ipport);
-                        }
-                        else
-                        {
-                            client.stop();
-                        }
-                    }
-                }
-            }
-        }
-        loop_counter++;
-
-        if (ctx.should_stop_connections)
-            break;
-
-        // Loop through all current client connections and read data.
-        auto itr = client_sessions.begin();
-        while (itr != client_sessions.end())
-        {
-            comm::comm_client &client = itr->client;
-            comm::comm_session &session = itr->session;
-
-            bool should_disonnect = (session.state == comm::SESSION_STATE::CLOSED);
-
-            if (!should_disonnect)
-                session.attempt_read(should_disonnect, conf::cfg.peermaxsize);
-
-            if (should_disonnect)
-            {
-                session.close();
-                client.stop();
-                connected_known_peers.emplace(session.known_ipport);
-                client_sessions.erase(itr++);
-            }
-            else
-            {
-                ++itr;
-            }
-        }
-
-        util::sleep(10);
-    }
-
-    // If we reach this point that means we are shutting down.
-    for (auto &[client, session] : client_sessions)
-    {
-        session.close();
-        client.stop();
-    }
-    LOG_INFO << "Peer watchdog stopped.";
 }
 
 /**
@@ -157,7 +58,7 @@ void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool se
     }
 
     //Broadcast while locking the peer_connections.
-    //std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+    std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
 
     for (const auto &[k, session] : ctx.peer_connections)
     {
@@ -177,7 +78,7 @@ void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool se
 void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
 {
     //Send while locking the peer_connections.
-    //std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
     // Find the peer session connected to self.
     const auto peer_itr = ctx.peer_connections.find(conf::cfg.self_peerid);
@@ -198,7 +99,7 @@ void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
 void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
 {
     //Send while locking the peer_connections.
-    //std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
     const size_t connected_peers = ctx.peer_connections.size();
     if (connected_peers == 0)

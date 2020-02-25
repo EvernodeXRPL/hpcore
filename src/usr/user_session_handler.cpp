@@ -89,8 +89,6 @@ void user_session_handler::on_close(const comm::comm_session &session) const
     // Session belongs to an authed user.
     else if (session.flags[comm::SESSION_FLAG::USER_AUTHED])
         remove_user(session.uniqueid);
-
-    LOG_DBG << "User disconnected " << session.uniqueid;
 }
 
 } // namespace usr

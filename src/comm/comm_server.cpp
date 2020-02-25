@@ -2,6 +2,7 @@
 #include <sys/un.h>
 #include <poll.h>
 #include "comm_server.hpp"
+#include "comm_client.hpp"
 #include "comm_session.hpp"
 #include "comm_session_handler.hpp"
 #include "../hplog.hpp"
@@ -13,14 +14,14 @@ namespace comm
 
 int comm_server::start(
     const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
-    const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
+    const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_outbound_remotes, const uint64_t max_msg_size)
 {
-    int socket_fd = open_domain_socket(domain_socket_name);
-    if (socket_fd > 0)
+    int accept_fd = open_domain_socket(domain_socket_name);
+    if (accept_fd > 0)
     {
         domain_sock_listener_thread = std::thread(
-            &comm_server::listen_domain_socket, this, socket_fd, session_type, is_binary,
-            std::ref(metric_thresholds), max_msg_size);
+            &comm_server::connection_watchdog, this, accept_fd, session_type, is_binary,
+            std::ref(metric_thresholds), req_outbound_remotes, max_msg_size);
         return start_websocketd_process(port, domain_socket_name, is_binary);
     }
 
@@ -60,15 +61,21 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
     int flags = fcntl(fd, F_GETFL);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-    return fd;
+    return fd; // This is the fd we should call accept() on.
 }
 
-void comm_server::listen_domain_socket(
-    const int socket_fd, const SESSION_TYPE session_type, const bool is_binary,
-    const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
+void comm_server::connection_watchdog(
+    const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
+    const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_outbound_remotes, const uint64_t max_msg_size)
 {
-    // Map with client fd to session mappings.
+    // Map with read fd to connected session mappings.
     std::unordered_map<int, comm_session> sessions;
+    // Map with read fd to connected comm client mappings.
+    std::unordered_map<int, comm_client> outbound_clients;
+    // Set of connected remote parties.
+    std::set<conf::ip_port_pair> outbound_remotes;
+    // Counter to track when to initiate outbound client connections.
+    uint16_t loop_counter = 0;
 
     while (true)
     {
@@ -76,20 +83,28 @@ void comm_server::listen_domain_socket(
             break;
 
         // Prepare poll fd list.
-        const size_t fd_count = sessions.size() + 1; //+1 for the inclusion of socket_fd
+        const size_t fd_count = sessions.size() + 1; //+1 for the inclusion of accept_fd
         pollfd pollfds[fd_count];
-        if (poll_fds(pollfds, socket_fd, sessions) == -1)
+        if (poll_fds(pollfds, accept_fd, sessions) == -1)
         {
             util::sleep(10);
             continue;
         }
 
-        // Accept any new client if available.
-        check_for_new_connection(sessions, socket_fd, session_type, is_binary, metric_thresholds);
+        // Accept any new incoming connection if available.
+        check_for_new_connection(sessions, accept_fd, session_type, is_binary, metric_thresholds);
+
+        // Initiate any missing outbound connections every 100 iterations.
+        if (loop_counter == 100)
+        {
+            loop_counter = 0;
+            maintain_outbound_connections(sessions, outbound_clients, outbound_remotes, req_outbound_remotes, session_type, is_binary, max_msg_size, metric_thresholds);
+        }
+        loop_counter++;
 
         const size_t sessions_count = sessions.size();
 
-        // Loop through all client fds and read any data.
+        // Loop through all fds and read any data.
         for (size_t i = 1; i <= sessions_count; i++)
         {
             const short result = pollfds[i].revents;
@@ -112,6 +127,16 @@ void comm_server::listen_domain_socket(
 
                 if (should_disconnect)
                 {
+                    // If this is an outbound session, cleanup the corresponding comm client as well.
+                    if (!session.is_inbound)
+                    {
+                        const auto client_itr = outbound_clients.find(fd);
+                        client_itr->second.stop();
+                        outbound_clients.erase(client_itr);
+
+                        outbound_remotes.erase(session.known_ipport);
+                    }
+
                     session.close();
                     sessions.erase(fd);
                 }
@@ -121,17 +146,19 @@ void comm_server::listen_domain_socket(
 
     // If we reach this point that means we are shutting down.
 
-    // Close all sessions
+    // Close all sessions and clients
     for (auto &[fd, session] : sessions)
         session.close();
-    
+    for (auto &[fd, client] : outbound_clients)
+        client.stop();
+
     LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " listener stopped.";
 }
 
-int comm_server::poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &sessions)
+int comm_server::poll_fds(pollfd *pollfds, const int accept_fd, const std::unordered_map<int, comm_session> &sessions)
 {
     const short poll_events = POLLIN | POLLRDHUP;
-    pollfds[0].fd = socket_fd;
+    pollfds[0].fd = accept_fd;
 
     auto iter = sessions.begin();
     for (size_t i = 1; i <= sessions.size(); i++)
@@ -151,11 +178,11 @@ int comm_server::poll_fds(pollfd *pollfds, const int socket_fd, const std::unord
 }
 
 void comm_server::check_for_new_connection(
-    std::unordered_map<int, comm_session> &sessions, const int socket_fd,
+    std::unordered_map<int, comm_session> &sessions, const int accept_fd,
     const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4])
 {
     // Accept new client connection (if available)
-    int client_fd = accept(socket_fd, NULL, NULL);
+    int client_fd = accept(accept_fd, NULL, NULL);
     if (client_fd == -1 && errno != EAGAIN)
     {
         LOG_ERR << errno << ": Domain socket accept error";
@@ -172,12 +199,55 @@ void comm_server::check_for_new_connection(
         }
         else
         {
-            comm_session session(ip, client_fd, client_fd, session_type, is_binary, false, true, metric_thresholds);
+            const bool is_self = (ip == conf::SELF_HOST);
+            comm_session session(ip, client_fd, client_fd, session_type, is_binary, is_self, true, metric_thresholds);
             session.on_connect();
 
             // We check for 'closed' state here because corebill might close the connection immediately.
             if (session.state != SESSION_STATE::CLOSED)
                 sessions.try_emplace(client_fd, std::move(session));
+        }
+    }
+}
+
+void comm_server::maintain_outbound_connections(
+    std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients, std::set<conf::ip_port_pair> &outbound_remotes,
+    const std::set<conf::ip_port_pair> &req_outbound_remotes, const SESSION_TYPE session_type, const bool is_binary,
+    const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4])
+{
+    for (const auto &ipport : req_outbound_remotes)
+    {
+        if (should_stop_listening)
+            break;
+
+        // Check if we are already connected to this remote party.
+        if (outbound_remotes.find(ipport) != outbound_remotes.end())
+            continue;
+
+        std::string_view host = ipport.first;
+        const uint16_t port = ipport.second;
+        LOG_DBG << "Trying to connect " << host << ":" << std::to_string(port);
+
+        comm::comm_client client;
+        if (client.start(host, port, metric_thresholds, conf::cfg.peermaxsize) == -1)
+        {
+            LOG_ERR << "Outbound connection attempt failed";
+        }
+        else
+        {
+            const bool is_self = (host == conf::SELF_HOST);
+            comm::comm_session session(host, client.read_fd, client.write_fd, comm::SESSION_TYPE::PEER, is_binary, is_self, false, metric_thresholds);
+            session.known_ipport = ipport;
+            session.on_connect();
+
+            // If the session is still active (because corebill might close the connection immeditately)
+            // We add to the client list as well.
+            if (session.state == comm::SESSION_STATE::ACTIVE)
+            {
+                sessions.try_emplace(client.read_fd, std::move(session));
+                outbound_clients.emplace(client.read_fd, std::move(client));
+                outbound_remotes.emplace(ipport);
+            }
         }
     }
 }
@@ -266,6 +336,11 @@ void comm_server::firewall_ban(std::string_view ip, const bool unban)
     writev(firewall_out, iov, 2);
 }
 
+/**
+ * If the fd supplied was produced by accept()ing unix domain socket connection
+ * the process at the other end is inspected for CGI environment variables
+ * and the REMOTE_ADDR variable is returned as std::string, otherwise empty string
+ */
 std::string comm_server::get_cgi_ip(const int fd)
 {
     socklen_t length;

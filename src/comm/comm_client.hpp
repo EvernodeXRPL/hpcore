@@ -22,17 +22,6 @@ public:
     void stop();
 };
 
-struct client_session
-{
-    comm_client client;
-    comm_session session;
-
-    client_session(comm_client &&client, comm_session &&session)
-        : client(client), session(session)
-    {
-    }
-};
-
 } // namespace comm
 
 #endif

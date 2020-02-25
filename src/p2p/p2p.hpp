@@ -108,17 +108,12 @@ struct connected_context
     // Holds all the messages until they are processed by consensus.
     message_collection collected_msgs;
 
-    // Set of currently connected outbound peer connections mapped by the uniqueid of socket session.
+    // Set of currently connected peer connections mapped by the uniqueid of socket session.
     std::unordered_map<std::string, comm::comm_session> peer_connections;
 
     std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
-    // Peer connection watchdog runs on this thread.
-    std::thread peer_watchdog_thread;
-
     comm::comm_server listener;
-
-    bool should_stop_connections = false;
 };
 
 extern connected_context ctx;

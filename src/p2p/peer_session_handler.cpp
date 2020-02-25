@@ -105,7 +105,7 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
                     : ex_session;
 
             victim.close();
-            // If we happen to replace a known peer session, transfer those details to the new session.
+            // Just in case we happen to replace a known peer session, transfer those details to the new session.
             victim.known_ipport.swap(known_ipport);
         }
 
@@ -212,9 +212,8 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
 //peer session on message callback method
 void peer_session_handler::on_close(const comm::comm_session &session) const
 {
-    //std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+    std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
     ctx.peer_connections.erase(session.uniqueid);
-    LOG_DBG << "Peer session closed: " << session.uniqueid << (session.is_self ? "(self)" : "");
 }
 
 } // namespace p2p

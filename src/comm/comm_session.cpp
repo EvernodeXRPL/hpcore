@@ -133,6 +133,8 @@ void comm_session::send(std::string_view message) const
         memsegs[1].iov_len = 1;
     }
 
+    LOG_DBG << "Msg sent:" << message.length() << " " << uniqueid << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
+
     if (writev(write_fd, memsegs, 2) == -1)
         LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
 }
@@ -149,6 +151,9 @@ void comm_session::close()
 
     ::close(read_fd);
     state = SESSION_STATE::CLOSED;
+
+    LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
+            << uniqueid << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
 }
 
 /**

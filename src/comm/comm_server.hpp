@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "comm_session.hpp"
+#include "comm_client.hpp"
 
 namespace comm
 {
@@ -15,26 +16,31 @@ class comm_server
     bool should_stop_listening = false;
 
     int open_domain_socket(const char *domain_socket_name);
-    void listen_domain_socket(
-        const int socket_fd, const SESSION_TYPE session_type, const bool is_binary,
-        const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
+
+    void connection_watchdog(
+        const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
+        const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &eq_outbound_remotes, const uint64_t max_msg_size);
+
     int start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary);
-    int poll_fds(pollfd *pollfds, const int socket_fd, const std::unordered_map<int, comm_session> &sessions);
+
+    int poll_fds(pollfd *pollfds, const int accept_fd, const std::unordered_map<int, comm_session> &sessions);
 
     void check_for_new_connection(
-        std::unordered_map<int, comm_session> &sessions, const int socket_fd,
+        std::unordered_map<int, comm_session> &sessions, const int accept_fd,
         const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
 
-    // If the fd supplied was produced by accept()ing unix domain socket connection
-    // the process at the other end is inspected for CGI environment variables
-    // and the REMOTE_ADDR variable is returned as std::string, otherwise empty string
+    void maintain_outbound_connections(
+        std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients, std::set<conf::ip_port_pair> &outbound_remotes,
+        const std::set<conf::ip_port_pair> &req_outbound_remotes, const SESSION_TYPE session_type, const bool is_binary,
+        const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4]);
+
     std::string get_cgi_ip(const int fd);
 
 public:
     // Start accepting incoming connections
     int start(
         const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
-        const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
+        const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_outbound_remotes, const uint64_t max_msg_size);
     void stop();
     void firewall_ban(std::string_view ip, const bool unban);
 };
