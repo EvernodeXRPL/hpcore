@@ -43,6 +43,60 @@ int start_peer_connections()
     return 0;
 }
 
+void resolve_session_peerid(comm::comm_session &session, const std::string &peerid)
+{
+    const int res = peerid.compare(conf::cfg.self_peerid);
+
+    // If peerid is same as our (self) peerid, then this is the loopback connection to ourselves.
+    // Hence we must keep the connection but only one of two sessions must be added to peer_connections.
+    // If peerid is greater than our id (< 0), then we should give priority to any existing inbound connection
+    // from the same peer and drop the outbound connection.
+    // If peerid is lower than our id (> 0), then we should give priority to any existing outbound connection
+    // from the same peer and drop the inbound connection.
+
+    std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+
+    const auto iter = p2p::ctx.peer_connections.find(peerid);
+    if (iter == p2p::ctx.peer_connections.end())
+    {
+        // Add the new connection straight away, if we haven't seen it before.
+        session.uniqueid = peerid;
+        session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
+        p2p::ctx.peer_connections.try_emplace(peerid, &session);
+    }
+    else if (res == 0) // New connection is self (There can be two sessions for self (inbound/outbound))
+    {
+        session.uniqueid = peerid;
+        session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
+    }
+    else if (res != 0) // New connection is not self
+    {
+        comm::comm_session &ex_session = *iter->second;
+
+        // We don't allow duplicate connections to the same peer to same direction.
+        if (ex_session.is_inbound != session.is_inbound)
+        {
+            // Kill one of the sessions according to above rules.
+            const bool swap_needed = ((res < 0 && !ex_session.is_inbound) || (res > 0 && ex_session.is_inbound));
+            if (swap_needed)
+            {
+                // If we happen to replace a peer session with known IP, transfer those details to the new session.
+                session.known_ipport.swap(ex_session.known_ipport);
+                session.uniqueid = peerid;
+                session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
+
+                ex_session.close();
+                p2p::ctx.peer_connections.erase(iter);                   // remove existing session.
+                p2p::ctx.peer_connections.try_emplace(peerid, &session); // add new session.
+                return;
+            }
+        }
+
+        // Reaching this point means we don't need the new session.
+        session.close();
+    }
+}
+
 /**
  * Broadcasts the given message to all currently connected outbound peers.
  * @param msg Peer outbound message to be broadcasted.
@@ -62,12 +116,12 @@ void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool se
 
     for (const auto &[k, session] : ctx.peer_connections)
     {
-        if (!send_to_self && session.is_self)
+        if (!send_to_self && session->is_self)
             continue;
 
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-        session.send(msg);
+        session->send(msg);
     }
 }
 
@@ -87,8 +141,8 @@ void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
-        const comm::comm_session &session = peer_itr->second;
-        session.send(msg);
+        const comm::comm_session *session = peer_itr->second;
+        session->send(msg);
     }
 }
 
@@ -107,7 +161,7 @@ void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
         LOG_DBG << "No peers to send (not even self).";
         return;
     }
-    else if (connected_peers == 1 && ctx.peer_connections.begin()->second.is_self)
+    else if (connected_peers == 1 && ctx.peer_connections.begin()->second->is_self)
     {
         LOG_DBG << "Only self is connected.";
         return;
@@ -121,13 +175,13 @@ void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
         std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 
         //send message to selected peer.
-        const comm::comm_session &session = it->second;
-        if (!session.is_self) // Exclude self peer.
+        const comm::comm_session *session = it->second;
+        if (!session->is_self) // Exclude self peer.
         {
             std::string_view msg = std::string_view(
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
-            session.send(msg);
+            session->send(msg);
             break;
         }
     }

@@ -77,46 +77,11 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
 
     if (content_message_type == p2pmsg::Message_PeerId_Notify_Message) // message is a peer id announcement
     {
-        if (session.flags[comm::SESSION_FLAG::PEERID_RESOLVED])
-            return; // Peer ID already resolved. Ignore.
-
-        const std::string peerid = std::string(p2pmsg::get_peerid_from_msg(*content->message_as_PeerId_Notify_Message()));
-
-        int res = peerid.compare(conf::cfg.self_peerid);
-
-        // If peerid is same as our (self) peerid, then this is the loopback connection to ourselves.
-        // Hence we must keep the connection.
-        // If peerid is greater than our id, then we should give priority to any existing inbound connection
-        // from the same peer and drop the outbound connection.
-        // If peerid is lower than our id, then we should give priority to any existing outbound connection
-        // from the same peer and drop the inbound connection.
-
-        conf::ip_port_pair known_ipport;
-
-        // Check for any existing connection to the same peer.
-        const auto iter = p2p::ctx.peer_connections.find(peerid);
-        if (res != 0 && iter != p2p::ctx.peer_connections.end())
+        // Ignore if Peer ID is already resolved.
+        if (!session.flags[comm::SESSION_FLAG::PEERID_RESOLVED])
         {
-            comm::comm_session &ex_session = iter->second;
-            comm::comm_session &victim =
-                ((res > 0 && ex_session.is_inbound) ||
-                 (res < 0 && !ex_session.is_inbound))
-                    ? session
-                    : ex_session;
-
-            victim.close();
-            // Just in case we happen to replace a known peer session, transfer those details to the new session.
-            victim.known_ipport.swap(known_ipport);
-        }
-
-        // If the new session is still active then that means it should remain.
-        if (session.state == comm::SESSION_STATE::ACTIVE)
-        {
-            session.uniqueid = peerid;
-            session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
-            session.known_ipport.swap(known_ipport);
-
-            p2p::ctx.peer_connections.try_emplace(session.uniqueid, session);
+            const std::string peerid = std::string(p2pmsg::get_peerid_from_msg(*content->message_as_PeerId_Notify_Message()));
+            p2p::resolve_session_peerid(session, peerid);
         }
     }
     else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message

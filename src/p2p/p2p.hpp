@@ -109,7 +109,7 @@ struct connected_context
     message_collection collected_msgs;
 
     // Set of currently connected peer connections mapped by the uniqueid of socket session.
-    std::unordered_map<std::string, comm::comm_session> peer_connections;
+    std::unordered_map<std::string, comm::comm_session *> peer_connections;
 
     std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
@@ -124,7 +124,7 @@ void deinit();
 
 int start_peer_connections();
 
-void peer_connection_watchdog(const uint64_t (&metric_thresholds)[4]);
+void resolve_session_peerid(comm::comm_session &session, const std::string &peerid);
 
 void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self);
 
