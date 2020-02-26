@@ -29,7 +29,7 @@ class comm_server
         std::unordered_map<int, comm_session> &sessions, const int accept_fd,
         const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
 
-    void maintain_outbound_connections(
+    void maintain_known_connections(
         std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients,
         const std::set<conf::ip_port_pair> &req_known_remotes, const SESSION_TYPE session_type, const bool is_binary,
         const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4]);

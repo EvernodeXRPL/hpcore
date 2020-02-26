@@ -11,7 +11,7 @@ namespace comm
 {
 
 constexpr uint32_t INTERVALMS = 60000;
-constexpr uint8_t SIZE_HEADER_LEN = 4;
+constexpr uint8_t SIZE_HEADER_LEN = 8;
 
 // Global instances of user and peer session handlers.
 usr::user_session_handler user_sess_handler;
@@ -107,15 +107,16 @@ void comm_session::send(std::string_view message) const
     if (is_binary)
     {
         // In binary mode, we need to prefix every message with the message size header.
-        uint8_t header_buf[4];
+        uint8_t header_buf[SIZE_HEADER_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
         uint32_t len = message.length();
-        header_buf[0] = len >> 24;
-        header_buf[1] = (len >> 16) & 0xff;
-        header_buf[2] = (len >> 8) & 0xff;
-        header_buf[3] = len & 0xff;
+        // Reserve the first 4 bytes for future (TODO).
+        header_buf[4] = len >> 24;
+        header_buf[5] = (len >> 16) & 0xff;
+        header_buf[6] = (len >> 8) & 0xff;
+        header_buf[7] = len & 0xff;
 
         memsegs[0].iov_base = header_buf;
-        memsegs[0].iov_len = 4;
+        memsegs[0].iov_len = SIZE_HEADER_LEN;
         memsegs[1].iov_base = (char *)message.data();
         memsegs[1].iov_len = message.length();
     }
@@ -170,8 +171,8 @@ uint32_t comm_session::get_binary_msg_read_len(const size_t available_bytes)
         if (read(read_fd, header_buf, SIZE_HEADER_LEN) == -1)
             return -1; // Indicates that we should disconnect the client.
 
-        // We are using 4 bytes (big endian) header for the message size.
-        uint32_t upcoming_msg_size = (header_buf[0] << 24) + (header_buf[1] << 16) + (header_buf[2] << 8) + header_buf[3];
+        // We are using last 4 bytes (big endian) in the header for the message size.
+        uint32_t upcoming_msg_size = (header_buf[4] << 24) + (header_buf[5] << 16) + (header_buf[6] << 8) + header_buf[7];
 
         // We must read the entire message if all message bytes are available.
         if (available_bytes >= (SIZE_HEADER_LEN + upcoming_msg_size))

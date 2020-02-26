@@ -76,7 +76,7 @@ void comm_server::connection_watchdog(
     std::unordered_map<int, comm_client> outbound_clients;
 
     // Counter to track when to initiate outbound client connections.
-    uint16_t loop_counter = 0;
+    int16_t loop_counter = -1;
 
     while (true)
     {
@@ -95,11 +95,11 @@ void comm_server::connection_watchdog(
         // Accept any new incoming connection if available.
         check_for_new_connection(sessions, accept_fd, session_type, is_binary, metric_thresholds);
 
-        // Initiate any missing outbound connections every 100 iterations.
-        if (loop_counter == 100)
+        // Restore any missing outbound connections every 500 iterations (including the first iteration).
+        if (loop_counter == -1 || loop_counter == 500)
         {
             loop_counter = 0;
-            maintain_outbound_connections(sessions, outbound_clients, req_known_remotes, session_type, is_binary, max_msg_size, metric_thresholds);
+            maintain_known_connections(sessions, outbound_clients, req_known_remotes, session_type, is_binary, max_msg_size, metric_thresholds);
         }
         loop_counter++;
 
@@ -206,7 +206,7 @@ void comm_server::check_for_new_connection(
     }
 }
 
-void comm_server::maintain_outbound_connections(
+void comm_server::maintain_known_connections(
     std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients,
     const std::set<conf::ip_port_pair> &req_known_remotes, const SESSION_TYPE session_type, const bool is_binary,
     const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4])
