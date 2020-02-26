@@ -11,13 +11,12 @@ namespace usr
 /**
  * This gets hit every time a client connects to HP via the public port (configured in contract config).
  */
-void user_session_handler::on_connect(comm::comm_session &session) const
+int user_session_handler::on_connect(comm::comm_session &session) const
 {
     if (conf::cfg.pubmaxcons > 0 && ctx.users.size() >= conf::cfg.pubmaxcons)
     {
-        session.close();
         LOG_DBG << "Max user connections reached. Dropped connection " << session.uniqueid;
-        return;
+        return -1;
     }
 
     LOG_DBG << "User client connected " << session.uniqueid;
@@ -28,19 +27,21 @@ void user_session_handler::on_connect(comm::comm_session &session) const
 
     // Set the challenge-issued flag to help later checks in on_message.
     session.flags.set(comm::SESSION_FLAG::USER_CHALLENGE_ISSUED);
+
+    return 0;
 }
 
 /**
  * This gets hit every time we receive some data from a client connected to the HP public port.
  */
-void user_session_handler::on_message(comm::comm_session &session, std::string_view message) const
+int user_session_handler::on_message(comm::comm_session &session, std::string_view message) const
 {
     // First check whether this session is pending challenge.
     // Meaning we have previously issued a challenge to the client,
     if (session.flags[comm::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
         if (verify_challenge(message, session) == 0)
-            return;
+            return 0;
     }
     // Check whether this session belongs to an authenticated (challenge-verified) user.
     else if (session.flags[comm::SESSION_FLAG::USER_AUTHED])
@@ -65,14 +66,14 @@ void user_session_handler::on_message(comm::comm_session &session, std::string_v
             LOG_DBG << "User session id not found: " << session.uniqueid;
         }
 
-        return;
+        return 0;
     }
 
     // If for any reason we reach this point, we should drop the connection because none of the
     // valid cases match.
-    session.close();
-    LOG_DBG << "Dropped the user connection " << session.uniqueid;
+    LOG_DBG << "Dropping the user connection " << session.uniqueid;
     corebill::report_violation(session.address);
+    return -1;
 }
 
 /**

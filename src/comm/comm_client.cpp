@@ -75,6 +75,7 @@ int comm_client::start_websocat_process(std::string_view host, const uint16_t po
             (char *)"-k", // Accept invalid certificates
             (char *)"-b", // Binary mode
             (char *)"-E", // Close on EOF
+            (char *)"-q", // Quiet mode
             NULL};
 
         const int ret = execv(execv_args[0], execv_args);

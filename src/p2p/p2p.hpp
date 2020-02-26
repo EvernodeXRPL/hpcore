@@ -124,7 +124,7 @@ void deinit();
 
 int start_peer_connections();
 
-void resolve_session_peerid(comm::comm_session &session, const std::string &peerid);
+int resolve_session_peerid(comm::comm_session &session, const std::string &peerid);
 
 void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self);
 

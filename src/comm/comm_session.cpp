@@ -37,14 +37,14 @@ comm_session::comm_session(
         thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
 }
 
-void comm_session::on_connect()
+int comm_session::on_connect()
 {
     state = SESSION_STATE::ACTIVE;
 
     if (session_type == SESSION_TYPE::USER)
-        user_sess_handler.on_connect(*this);
+        return user_sess_handler.on_connect(*this);
     else
-        peer_sess_handler.on_connect(*this);
+        return peer_sess_handler.on_connect(*this);
 }
 
 /**
@@ -52,26 +52,22 @@ void comm_session::on_connect()
  * @param should_disconnect Whether the client fd must be disconnected.
  * @param max_msg_size The allowed max byte length of a message to be read.
  */
-void comm_session::attempt_read(bool &should_disconnect, const uint64_t max_msg_size)
+int comm_session::attempt_read(const uint64_t max_msg_size)
 {
     size_t available_bytes = 0;
     if (ioctl(read_fd, FIONREAD, &available_bytes) == -1 ||
         (max_msg_size > 0 &&
          available_bytes > (max_msg_size + (is_binary ? SIZE_HEADER_LEN : 0))))
-    {
-        should_disconnect = true;
-        return;
-    }
+        return -1;
 
     // Keep reading messages until we exhaust all the currently available bytes.
     while (available_bytes > 0)
     {
         const uint32_t read_len = is_binary ? get_binary_msg_read_len(available_bytes) : available_bytes;
 
-        if (read_len == -1)
+        if (read_len == -1 || read_len > available_bytes)
         {
-            should_disconnect = true;
-            return;
+            return -1;
         }
         else if (read_len > 0)
         {
@@ -81,24 +77,23 @@ void comm_session::attempt_read(bool &should_disconnect, const uint64_t max_msg_
 
             char msg_buf[read_len];
             if (read(read_fd, msg_buf, read_len) == -1)
-            {
-                should_disconnect = true;
-                return;
-            }
+                return -1;
 
-            on_message(std::string_view(msg_buf, read_len));
+            return on_message(std::string_view(msg_buf, read_len));
         }
     }
+
+    return 0;
 }
 
-void comm_session::on_message(std::string_view message)
+int comm_session::on_message(std::string_view message)
 {
     increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.length());
 
     if (session_type == SESSION_TYPE::USER)
-        user_sess_handler.on_message(*this, message);
+        return user_sess_handler.on_message(*this, message);
     else
-        peer_sess_handler.on_message(*this, message);
+        return peer_sess_handler.on_message(*this, message);
 }
 
 void comm_session::send(std::string_view message) const
@@ -112,7 +107,7 @@ void comm_session::send(std::string_view message) const
     if (is_binary)
     {
         // In binary mode, we need to prefix every message with the message size header.
-        char header_buf[4];
+        uint8_t header_buf[4];
         uint32_t len = message.length();
         header_buf[0] = len >> 24;
         header_buf[1] = (len >> 16) & 0xff;
@@ -133,21 +128,22 @@ void comm_session::send(std::string_view message) const
         memsegs[1].iov_len = 1;
     }
 
-    LOG_DBG << "Msg sent:" << message.length() << " " << uniqueid << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
-
     if (writev(write_fd, memsegs, 2) == -1)
         LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
 }
 
-void comm_session::close()
+void comm_session::close(const bool invoke_handler)
 {
     if (state == SESSION_STATE::CLOSED)
         return;
 
-    if (session_type == SESSION_TYPE::USER)
-        user_sess_handler.on_close(*this);
-    else
-        peer_sess_handler.on_close(*this);
+    if (invoke_handler)
+    {
+        if (session_type == SESSION_TYPE::USER)
+            user_sess_handler.on_close(*this);
+        else
+            peer_sess_handler.on_close(*this);
+    }
 
     ::close(read_fd);
     state = SESSION_STATE::CLOSED;
@@ -170,7 +166,7 @@ uint32_t comm_session::get_binary_msg_read_len(const size_t available_bytes)
     if (expected_msg_size == 0 && available_bytes >= SIZE_HEADER_LEN)
     {
         // Read the size header.
-        char header_buf[SIZE_HEADER_LEN];
+        uint8_t header_buf[SIZE_HEADER_LEN];
         if (read(read_fd, header_buf, SIZE_HEADER_LEN) == -1)
             return -1; // Indicates that we should disconnect the client.
 

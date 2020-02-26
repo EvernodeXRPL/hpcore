@@ -26,16 +26,15 @@ util::rollover_hashset recent_peermsg_hashes(200);
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
-void peer_session_handler::on_connect(comm::comm_session &session) const
+int peer_session_handler::on_connect(comm::comm_session &session) const
 {
     if (session.is_inbound)
     {
         // Limit max number of inbound connections.
         if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
         {
-            session.close();
             LOG_DBG << "Max peer connections reached. Dropped connection " << session.uniqueid;
-            return;
+            return -1;
         }
     }
 
@@ -45,15 +44,16 @@ void peer_session_handler::on_connect(comm::comm_session &session) const
     std::string_view msg = std::string_view(
         reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
     session.send(msg);
+    return 0;
 }
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
-void peer_session_handler::on_message(comm::comm_session &session, std::string_view message) const
+int peer_session_handler::on_message(comm::comm_session &session, std::string_view message) const
 {
     const p2pmsg::Container *container;
     if (p2pmsg::validate_and_extract_container(&container, message) != 0)
-        return;
+        return 0;
 
     //Get serialised message content.
     const flatbuffers::Vector<uint8_t> *container_content = container->content();
@@ -64,13 +64,13 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
 
     const p2pmsg::Content *content;
     if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
-        return;
+        return 0;
 
     if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
     {
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
         LOG_DBG << "Duplicate peer message.";
-        return;
+        return 0;
     }
 
     const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
@@ -81,7 +81,7 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
         if (!session.flags[comm::SESSION_FLAG::PEERID_RESOLVED])
         {
             const std::string peerid = std::string(p2pmsg::get_peerid_from_msg(*content->message_as_PeerId_Notify_Message()));
-            p2p::resolve_session_peerid(session, peerid);
+            return p2p::resolve_session_peerid(session, peerid);
         }
     }
     else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
@@ -91,7 +91,7 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
             LOG_DBG << "Proposal rejected due to trust failure.";
-            return;
+            return 0;
         }
 
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
@@ -111,7 +111,7 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
         if (p2pmsg::validate_container_trust(container) != 0)
         {
             LOG_DBG << "NPL message rejected due to trust failure.";
-            return;
+            return 0;
         }
 
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.npl_messages_mutex); // Insert npl message with lock.
@@ -128,7 +128,7 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
         if (p2pmsg::validate_container_trust(container) != 0)
         {
             LOG_DBG << "State request message rejected due to trust failure.";
-            return;
+            return 0;
         }
 
         const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
@@ -172,6 +172,7 @@ void peer_session_handler::on_message(comm::comm_session &session, std::string_v
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
         LOG_DBG << "Received invalid message type from peer";
     }
+    return 0;
 }
 
 //peer session on message callback method

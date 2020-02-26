@@ -13,8 +13,8 @@ class comm_session_handler
 {
 
 public:
-    void on_connect(comm_session &session) const;
-    void on_message(comm_session &session, std::string_view message) const;
+    int on_connect(comm_session &session) const;
+    int on_message(comm_session &session, std::string_view message) const;
     void on_close(const comm_session &session) const;
 };
 

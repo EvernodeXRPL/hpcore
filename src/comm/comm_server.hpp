@@ -12,14 +12,14 @@ class comm_server
 {
     pid_t websocketd_pid = 0;
     int firewall_out = -1; // at some point we may want to listen for firewall_in but at the moment unimplemented
-    std::thread domain_sock_listener_thread;
+    std::thread watchdog_thread;
     bool should_stop_listening = false;
 
     int open_domain_socket(const char *domain_socket_name);
 
     void connection_watchdog(
         const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
-        const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &eq_outbound_remotes, const uint64_t max_msg_size);
+        const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &eq_known_remotes, const uint64_t max_msg_size);
 
     int start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary);
 
@@ -30,8 +30,8 @@ class comm_server
         const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
 
     void maintain_outbound_connections(
-        std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients, std::set<conf::ip_port_pair> &outbound_remotes,
-        const std::set<conf::ip_port_pair> &req_outbound_remotes, const SESSION_TYPE session_type, const bool is_binary,
+        std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients,
+        const std::set<conf::ip_port_pair> &req_known_remotes, const SESSION_TYPE session_type, const bool is_binary,
         const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4]);
 
     std::string get_cgi_ip(const int fd);
@@ -40,7 +40,7 @@ public:
     // Start accepting incoming connections
     int start(
         const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
-        const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_outbound_remotes, const uint64_t max_msg_size);
+        const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size);
     void stop();
     void firewall_ban(std::string_view ip, const bool unban);
 };

@@ -25,8 +25,7 @@ connected_context ctx;
 int init()
 {
     // Start listening for incoming user connections.
-    start_listening();
-    return 0;
+    return start_listening();
 }
 
 /**

@@ -14,14 +14,14 @@ namespace comm
 
 int comm_server::start(
     const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
-    const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_outbound_remotes, const uint64_t max_msg_size)
+    const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
 {
     int accept_fd = open_domain_socket(domain_socket_name);
     if (accept_fd > 0)
     {
-        domain_sock_listener_thread = std::thread(
+        watchdog_thread = std::thread(
             &comm_server::connection_watchdog, this, accept_fd, session_type, is_binary,
-            std::ref(metric_thresholds), req_outbound_remotes, max_msg_size);
+            std::ref(metric_thresholds), req_known_remotes, max_msg_size);
         return start_websocketd_process(port, domain_socket_name, is_binary);
     }
 
@@ -66,14 +66,15 @@ int comm_server::open_domain_socket(const char *domain_socket_name)
 
 void comm_server::connection_watchdog(
     const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
-    const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_outbound_remotes, const uint64_t max_msg_size)
+    const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
 {
+    util::mask_signal();
+
     // Map with read fd to connected session mappings.
     std::unordered_map<int, comm_session> sessions;
     // Map with read fd to connected comm client mappings.
     std::unordered_map<int, comm_client> outbound_clients;
-    // Set of connected remote parties.
-    std::set<conf::ip_port_pair> outbound_remotes;
+
     // Counter to track when to initiate outbound client connections.
     uint16_t loop_counter = 0;
 
@@ -98,7 +99,7 @@ void comm_server::connection_watchdog(
         if (loop_counter == 100)
         {
             loop_counter = 0;
-            maintain_outbound_connections(sessions, outbound_clients, outbound_remotes, req_outbound_remotes, session_type, is_binary, max_msg_size, metric_thresholds);
+            maintain_outbound_connections(sessions, outbound_clients, req_known_remotes, session_type, is_binary, max_msg_size, metric_thresholds);
         }
         loop_counter++;
 
@@ -119,7 +120,7 @@ void comm_server::connection_watchdog(
                 if (!should_disconnect)
                 {
                     if (result & POLLIN)
-                        session.attempt_read(should_disconnect, max_msg_size);
+                        should_disconnect = (session.attempt_read(max_msg_size) == -1);
 
                     if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
                         should_disconnect = true;
@@ -133,8 +134,6 @@ void comm_server::connection_watchdog(
                         const auto client_itr = outbound_clients.find(fd);
                         client_itr->second.stop();
                         outbound_clients.erase(client_itr);
-
-                        outbound_remotes.erase(session.known_ipport);
                     }
 
                     session.close();
@@ -148,7 +147,7 @@ void comm_server::connection_watchdog(
 
     // Close all sessions and clients
     for (auto &[fd, session] : sessions)
-        session.close();
+        session.close(false);
     for (auto &[fd, client] : outbound_clients)
         client.stop();
 
@@ -201,27 +200,32 @@ void comm_server::check_for_new_connection(
         {
             const bool is_self = (ip == conf::SELF_HOST);
             comm_session session(ip, client_fd, client_fd, session_type, is_binary, is_self, true, metric_thresholds);
-            session.on_connect();
-
-            // We check for 'closed' state here because corebill might close the connection immediately.
-            if (session.state != SESSION_STATE::CLOSED)
+            if (session.on_connect() == 0)
                 sessions.try_emplace(client_fd, std::move(session));
         }
     }
 }
 
 void comm_server::maintain_outbound_connections(
-    std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients, std::set<conf::ip_port_pair> &outbound_remotes,
-    const std::set<conf::ip_port_pair> &req_outbound_remotes, const SESSION_TYPE session_type, const bool is_binary,
+    std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients,
+    const std::set<conf::ip_port_pair> &req_known_remotes, const SESSION_TYPE session_type, const bool is_binary,
     const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4])
 {
-    for (const auto &ipport : req_outbound_remotes)
+    // Find already connected known remote parties list
+    std::set<conf::ip_port_pair> known_remotes;
+    for (const auto &[fd, session] : sessions)
+    {
+        if (session.state != SESSION_STATE::CLOSED && !session.known_ipport.first.empty())
+            known_remotes.emplace(session.known_ipport);
+    }
+
+    for (const auto &ipport : req_known_remotes)
     {
         if (should_stop_listening)
             break;
 
         // Check if we are already connected to this remote party.
-        if (outbound_remotes.find(ipport) != outbound_remotes.end())
+        if (known_remotes.find(ipport) != known_remotes.end())
             continue;
 
         std::string_view host = ipport.first;
@@ -238,15 +242,11 @@ void comm_server::maintain_outbound_connections(
             const bool is_self = (host == conf::SELF_HOST);
             comm::comm_session session(host, client.read_fd, client.write_fd, comm::SESSION_TYPE::PEER, is_binary, is_self, false, metric_thresholds);
             session.known_ipport = ipport;
-            session.on_connect();
-
-            // If the session is still active (because corebill might close the connection immeditately)
-            // We add to the client list as well.
-            if (session.state == comm::SESSION_STATE::ACTIVE)
+            if (session.on_connect() == 0)
             {
                 sessions.try_emplace(client.read_fd, std::move(session));
                 outbound_clients.emplace(client.read_fd, std::move(client));
-                outbound_remotes.emplace(ipport);
+                known_remotes.emplace(ipport);
             }
         }
     }
@@ -306,7 +306,8 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
             (char *)"--sslkey",
             conf::ctx.tls_key_file.data(),
             (char *)(is_binary ? "--binary=true" : "--binary=false"),
-            (char *)(is_binary ? "--sizeheader=false" : "--sizeheader=false"),
+            (char *)"--sizeheader=false",
+            (char *)"--loglevel=error",
             (char *)"nc", // netcat (OpenBSD) is used for domain socket redirection.
             (char *)"-U", // Use UNIX domain socket
             (char *)domain_socket_name,
@@ -389,9 +390,10 @@ std::string comm_server::get_cgi_ip(const int fd)
 void comm_server::stop()
 {
     should_stop_listening = true;
-    domain_sock_listener_thread.join();
+    watchdog_thread.join();
 
-    kill(websocketd_pid, SIGINT); // Kill websocketd.
+    if (websocketd_pid > 0)
+        kill(websocketd_pid, SIGINT); // Kill websocketd.
 }
 
 } // namespace comm

@@ -123,6 +123,8 @@ void start_state_sync(const hasher::B2H state_hash_to_request)
  */
 int run_state_sync_iterator()
 {
+    util::mask_signal();
+    
     while (true)
     {
         util::sleep(SYNC_LOOP_WAIT);

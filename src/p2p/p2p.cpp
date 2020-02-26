@@ -43,7 +43,7 @@ int start_peer_connections()
     return 0;
 }
 
-void resolve_session_peerid(comm::comm_session &session, const std::string &peerid)
+int resolve_session_peerid(comm::comm_session &session, const std::string &peerid)
 {
     const int res = peerid.compare(conf::cfg.self_peerid);
 
@@ -63,37 +63,47 @@ void resolve_session_peerid(comm::comm_session &session, const std::string &peer
         session.uniqueid = peerid;
         session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
         p2p::ctx.peer_connections.try_emplace(peerid, &session);
+        return 0;
     }
     else if (res == 0) // New connection is self (There can be two sessions for self (inbound/outbound))
     {
         session.uniqueid = peerid;
         session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
+        return 0;
     }
-    else if (res != 0) // New connection is not self
+    else // New connection is not self but with same peer id.
     {
         comm::comm_session &ex_session = *iter->second;
 
         // We don't allow duplicate connections to the same peer to same direction.
         if (ex_session.is_inbound != session.is_inbound)
         {
-            // Kill one of the sessions according to above rules.
-            const bool swap_needed = ((res < 0 && !ex_session.is_inbound) || (res > 0 && ex_session.is_inbound));
-            if (swap_needed)
+            // Decide whether we need to replace existing session with new session.
+            const bool replace_needed = ((res < 0 && !ex_session.is_inbound) || (res > 0 && ex_session.is_inbound));
+            if (replace_needed)
             {
                 // If we happen to replace a peer session with known IP, transfer those details to the new session.
                 session.known_ipport.swap(ex_session.known_ipport);
                 session.uniqueid = peerid;
                 session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
 
-                ex_session.close();
+                ex_session.close(false);
                 p2p::ctx.peer_connections.erase(iter);                   // remove existing session.
                 p2p::ctx.peer_connections.try_emplace(peerid, &session); // add new session.
-                return;
+
+                LOG_DBG << "Replacing existing connection [" << peerid << "]";
+                return 0;
+            }
+            else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
+            {
+                // If we have any known ip-port info from the new session, transfer them to the existing session.
+                ex_session.known_ipport.swap(session.known_ipport);
             }
         }
 
         // Reaching this point means we don't need the new session.
-        session.close();
+        LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << peerid << "]";
+        return -1;
     }
 }
 

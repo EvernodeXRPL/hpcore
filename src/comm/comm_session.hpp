@@ -44,7 +44,7 @@ class comm_session
     uint32_t expected_msg_size = 0;            // Next expected message size based on size header.
 
     uint32_t get_binary_msg_read_len(const size_t available_bytes);
-    void on_message(std::string_view message);
+    int on_message(std::string_view message);
 
 public:
     // The unique identifier of the remote party (format <ip>:<port>).
@@ -67,10 +67,10 @@ public:
     comm_session(
         std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
         const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
-    void on_connect();
-    void attempt_read(bool &should_disconnect, const uint64_t max_msg_size);
+    int on_connect();
+    int attempt_read(const uint64_t max_msg_size);
     void send(std::string_view message) const;
-    void close();
+    void close(const bool invoke_handler = true);
 
     void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
     void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
