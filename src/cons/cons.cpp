@@ -74,6 +74,15 @@ int init()
     return 0;
 }
 
+/**
+ * Cleanup any resources.
+ */
+void deinit()
+{
+    ctx.is_shutting_down = true;
+    ctx.state_syncing_thread.join();
+}
+
 void consensus()
 {
     // A consensus round consists of 4 stages (0,1,2,3).

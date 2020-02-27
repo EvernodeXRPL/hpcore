@@ -124,9 +124,12 @@ void start_state_sync(const hasher::B2H state_hash_to_request)
 int run_state_sync_iterator()
 {
     util::mask_signal();
-    
+
     while (true)
     {
+        if (ctx.is_shutting_down)
+            break;
+
         util::sleep(SYNC_LOOP_WAIT);
 
         // TODO: Also bypass peer session handler state responses if we're not syncing.
@@ -145,6 +148,9 @@ int run_state_sync_iterator()
 
         for (auto &response : candidate_state_responses)
         {
+            if (ctx.is_shutting_down)
+                break;
+
             const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(response.data());
             const fbschema::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
@@ -182,6 +188,9 @@ int run_state_sync_iterator()
         // Check for long-awaited responses and re-request them.
         for (auto &[hash, request] : submitted_requests)
         {
+            if (ctx.is_shutting_down)
+                break;
+
             // We wait for half of round time before each request is resubmitted.
             if (request.waiting_cycles < (conf::cfg.roundtime / (SYNC_LOOP_WAIT * 2)))
             {
@@ -203,6 +212,9 @@ int run_state_sync_iterator()
             const uint16_t available_slots = MAX_AWAITING_REQUESTS - submitted_requests.size();
             for (int i = 0; i < available_slots && !pending_requests.empty(); i++)
             {
+                if (ctx.is_shutting_down)
+                    break;
+                    
                 const backlog_item &request = pending_requests.front();
                 submit_request(request);
                 pending_requests.pop_front();

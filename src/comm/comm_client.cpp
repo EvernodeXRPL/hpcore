@@ -48,7 +48,9 @@ int comm_client::start_websocat_process(std::string_view host, const uint16_t po
 
         // Wait for some time and check if websocat is still running properly.
         util::sleep(20);
-        if (kill(websocat_pid, 0) == -1) // kill with sig 0 will return -1 if process has exited.
+        int pid_status;
+        waitpid(websocat_pid, &pid_status, WNOHANG);
+        if (WIFEXITED(pid_status)) // This means websocat has exited.
         {
             close(read_fd);
             close(write_fd);

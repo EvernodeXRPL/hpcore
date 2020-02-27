@@ -96,10 +96,10 @@ int comm_session::on_message(std::string_view message)
         return peer_sess_handler.on_message(*this, message);
 }
 
-void comm_session::send(std::string_view message) const
+int comm_session::send(std::string_view message) const
 {
     if (state == SESSION_STATE::CLOSED)
-        return;
+        return -1;
 
     // Prepare the memory segments to map with writev().
     iovec memsegs[2];
@@ -130,7 +130,11 @@ void comm_session::send(std::string_view message) const
     }
 
     if (writev(write_fd, memsegs, 2) == -1)
+    {
         LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
+        return -1;
+    }
+    return 0;
 }
 
 void comm_session::close(const bool invoke_handler)

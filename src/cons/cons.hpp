@@ -86,15 +86,18 @@ struct consensus_context
 
     //ledger close time of previous hash
     uint64_t prev_close_time = 0;
-    uint16_t stage_time = 0;                    // Time allocated to a consensus stage.
-    uint16_t stage_reset_wait_threshold = 0;    // Minimum stage wait time to reset the stage.
+    uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
+    uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
     bool is_state_syncing = false;
     std::string state_sync_lcl;
     std::thread state_syncing_thread;
     std::mutex state_syncing_mutex;
 
-    consensus_context() : recent_userinput_hashes(200)
+    bool is_shutting_down = false;
+
+    consensus_context()
+        : recent_userinput_hashes(200)
     {
     }
 };
@@ -112,6 +115,8 @@ struct vote_counter
 extern consensus_context ctx;
 
 int init();
+
+void deinit();
 
 void consensus();
 

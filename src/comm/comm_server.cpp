@@ -95,13 +95,16 @@ void comm_server::connection_watchdog(
         // Accept any new incoming connection if available.
         check_for_new_connection(sessions, accept_fd, session_type, is_binary, metric_thresholds);
 
-        // Restore any missing outbound connections every 500 iterations (including the first iteration).
-        if (loop_counter == -1 || loop_counter == 500)
+        if (!req_known_remotes.empty())
         {
-            loop_counter = 0;
-            maintain_known_connections(sessions, outbound_clients, req_known_remotes, session_type, is_binary, max_msg_size, metric_thresholds);
+            // Restore any missing outbound connections every 500 iterations (including the first iteration).
+            if (loop_counter == -1 || loop_counter == 500)
+            {
+                loop_counter = 0;
+                maintain_known_connections(sessions, outbound_clients, req_known_remotes, session_type, is_binary, max_msg_size, metric_thresholds);
+            }
+            loop_counter++;
         }
-        loop_counter++;
 
         const size_t sessions_count = sessions.size();
 
@@ -239,7 +242,7 @@ void comm_server::maintain_known_connections(
         }
         else
         {
-            const bool is_self = (host == conf::SELF_HOST);
+            const bool is_self = (host == conf::SELF_HOST && port == conf::cfg.peerport);
             comm::comm_session session(host, client.read_fd, client.write_fd, comm::SESSION_TYPE::PEER, is_binary, is_self, false, metric_thresholds);
             session.known_ipport = ipport;
             if (session.on_connect() == 0)
