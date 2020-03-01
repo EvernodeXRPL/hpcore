@@ -85,7 +85,6 @@ struct consensus_context
     bool is_lcl_syncing = false;
 
     //ledger close time of previous hash
-    uint64_t prev_close_time = 0;
     uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
     uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
@@ -120,7 +119,7 @@ void deinit();
 
 void consensus();
 
-bool wait_and_proceed_stage();
+bool wait_and_proceed_stage(uint64_t &stage_start);
 
 void broadcast_nonunl_proposal();
 

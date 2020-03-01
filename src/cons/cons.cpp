@@ -63,8 +63,6 @@ int init()
 
     ctx.state_syncing_thread = std::thread(&run_state_sync_iterator);
 
-    ctx.prev_close_time = util::get_epoch_milliseconds();
-
     // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
     // Stage 3 is allocated an extra stage_time unit becayse a node needs enough time to
     // catch up from lcl/state desync.
@@ -88,11 +86,12 @@ void consensus()
     // A consensus round consists of 4 stages (0,1,2,3).
     // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
-    if (!wait_and_proceed_stage())
+    uint64_t stage_start = 0;
+    if (!wait_and_proceed_stage(stage_start))
         return; // This means the stage has been reset.
 
     // Get the latest current time.
-    ctx.time_now = util::get_epoch_milliseconds();
+    ctx.time_now = stage_start;
     std::list<p2p::proposal> collected_proposals;
 
     // Throughout consensus, we move over the incoming proposals collected via the network so far into
@@ -159,6 +158,7 @@ void consensus()
                     << "] users:" << proposal.users.size()
                     << " hinp:" << proposal.hash_inputs.size()
                     << " hout:" << proposal.hash_outputs.size()
+                    << " ts:" << std::to_string(proposal.time)
                     << " lcl:" << proposal.lcl.substr(0, 15)
                     << " state:" << *reinterpret_cast<const hasher::B2H *>(proposal.curr_hash_state.c_str())
                     << " self:" << self;
@@ -216,7 +216,6 @@ void consensus()
 
                 if (ctx.stage == 3)
                 {
-                    ctx.prev_close_time = stg_prop.time;
                     apply_ledger(stg_prop);
 
                     // node has finished a consensus round (all 4 stages).
@@ -235,7 +234,7 @@ void consensus()
  * Syncrhonise the stage/round time for fixed intervals and reset the stage.
  * @return True if consensus can proceed in the current round. False if stage is reset.
  */
-bool wait_and_proceed_stage()
+bool wait_and_proceed_stage(uint64_t &stage_start)
 {
     // Here, nodes try to synchronise nodes stages using network clock.
     // We devide universal time to windows of equal size of roundtime. Each round must be synced with the
@@ -250,7 +249,7 @@ bool wait_and_proceed_stage()
     if (ctx.stage == 0)
     {
         // Stage 0 must start in the next round window.
-        const uint64_t stage_start = current_round_start + conf::cfg.roundtime;
+        stage_start = current_round_start + conf::cfg.roundtime;
         const int64_t to_wait = stage_start - now;
 
         LOG_DBG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 0";
@@ -259,7 +258,7 @@ bool wait_and_proceed_stage()
     }
     else
     {
-        const uint64_t stage_start = current_round_start + (ctx.stage * ctx.stage_time);
+        stage_start = current_round_start + (ctx.stage * ctx.stage_time);
 
         // Compute stage time wait.
         // Node wait between stages to collect enough proposals from previous stages from other nodes.
@@ -580,11 +579,6 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         }
     }
 
-    if (ctx.stage == 3)
-        stg_prop.time = get_ledger_time_resolution(stg_prop.time);
-    else
-        stg_prop.time = get_stage_time_resolution(stg_prop.time);
-
     return stg_prop;
 }
 
@@ -606,7 +600,8 @@ void broadcast_proposal(const p2p::proposal &p)
     // LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
     //         << "] users:" << p.users.size()
     //         << " hinp:" << p.hash_inputs.size()
-    //         << " hout:" << p.hash_outputs.size();
+    //         << " hout:" << p.hash_outputs.size()
+    //         << " ts:" << std::to_string(p.time);
 }
 
 /**
@@ -690,39 +685,6 @@ float_t get_stage_threshold(const uint8_t stage)
         return cons::STAGE3_THRESHOLD * conf::cfg.unl.size();
     }
     return -1;
-}
-
-/**
-* Calculate the effective ledger close time
-* After adjusting the ledger close time based on the current resolution,
-* also ensure it is sufficiently separated from the prior close time.
-* @param close_time voted/agreed closed time
-*/
-uint64_t get_ledger_time_resolution(const uint64_t time)
-{
-    uint64_t closeResolution = conf::cfg.roundtime / 4;
-    //todo: change time resolution dynamically.
-    //When nodes agree often reduce resolution time and increase if they don't.
-    uint64_t close_time = time;
-    close_time += (closeResolution / 2);
-    close_time -= (close_time % closeResolution);
-
-    return std::max(close_time, (ctx.prev_close_time + conf::cfg.roundtime));
-}
-
-/**
-* Calculate the stage time
-* Adjusting the stage time based on the current resolution.
-* @param stage_time voted/agreed closed time
-*/
-uint64_t get_stage_time_resolution(const uint64_t time)
-{
-    uint64_t closeResolution = conf::cfg.roundtime / 8;
-    uint64_t stage_time = time;
-    stage_time += (closeResolution / 2);
-    stage_time -= (stage_time % closeResolution);
-
-    return stage_time;
 }
 
 /**
