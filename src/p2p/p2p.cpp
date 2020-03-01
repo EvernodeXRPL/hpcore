@@ -67,6 +67,7 @@ int resolve_session_peerid(comm::comm_session &session, const std::string &peeri
     }
     else if (res == 0) // New connection is self (There can be two sessions for self (inbound/outbound))
     {
+        session.is_self = true;
         session.uniqueid = peerid;
         session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
         return 0;

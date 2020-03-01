@@ -19,14 +19,13 @@ p2p::peer_session_handler peer_sess_handler;
 
 comm_session::comm_session(
     std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
-    const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+    const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
 
     : read_fd(read_fd),
       write_fd(write_fd),
       session_type(session_type),
       uniqueid(std::to_string(read_fd).append(":").append(ip)),
       is_binary(is_binary),
-      is_self(is_self),
       is_inbound(is_inbound)
 {
     // Create new session_thresholds and insert it to thresholds vector.

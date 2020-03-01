@@ -37,8 +37,8 @@ enum SESSION_TYPE
 */
 class comm_session
 {
-    const int read_fd;
-    const int write_fd; // Only valid for outgoing client connections.
+    const int read_fd = 0;
+    const int write_fd = 0; // Only valid for outgoing client connections.
     const SESSION_TYPE session_type;
     std::vector<session_threshold> thresholds; // track down various communication thresholds
     uint32_t expected_msg_size = 0;            // Next expected message size based on size header.
@@ -47,16 +47,12 @@ class comm_session
     int on_message(std::string_view message);
 
 public:
-    // The unique identifier of the remote party (format <ip>:<port>).
+    const std::string address; // IP address of the remote party.
+    const bool is_binary;
+    const bool is_inbound;
+    bool is_self = false;
     std::string uniqueid;
     conf::ip_port_pair known_ipport;
-
-    // IP address of the remote party.
-    const std::string address;
-
-    const bool is_binary;
-    const bool is_self;
-    const bool is_inbound;
     SESSION_STATE state;
 
     // The set of SESSION_FLAG enum flags that will be set by user-code of this calss.
@@ -66,7 +62,7 @@ public:
 
     comm_session(
         std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
-        const bool is_binary, const bool is_self, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
+        const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
     int on_connect();
     int attempt_read(const uint64_t max_msg_size);
     int send(std::string_view message) const;

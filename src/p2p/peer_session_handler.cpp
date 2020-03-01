@@ -68,7 +68,7 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
     if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
     {
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-        LOG_DBG << "Duplicate peer message.";
+        LOG_DBG << "Duplicate peer message. " << session.uniqueid;
         return 0;
     }
 
@@ -83,13 +83,20 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
             return p2p::resolve_session_peerid(session, peerid);
         }
     }
-    else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
+
+    if (!session.flags[comm::SESSION_FLAG::PEERID_RESOLVED])
+    {
+        LOG_DBG << "Cannot accept messages. Peer id unresolved. " << session.uniqueid;
+        return 0;
+    }
+
+    if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
     {
         // We only trust proposals coming from trusted peers.
         if (p2pmsg::validate_container_trust(container) != 0)
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-            LOG_DBG << "Proposal rejected due to trust failure.";
+            LOG_DBG << "Proposal rejected due to trust failure. " << session.uniqueid;
             return 0;
         }
 
@@ -109,7 +116,7 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
     {
         if (p2pmsg::validate_container_trust(container) != 0)
         {
-            LOG_DBG << "NPL message rejected due to trust failure.";
+            LOG_DBG << "NPL message rejected due to trust failure. " << session.uniqueid;
             return 0;
         }
 
@@ -124,7 +131,6 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
     }
     else if (content_message_type == p2pmsg::Message_State_Request_Message)
     {
-
         const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
         flatbuffers::FlatBufferBuilder fbuf(1024);
 
@@ -139,7 +145,7 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
     {
         if (p2pmsg::validate_container_trust(container) != 0)
         {
-            LOG_DBG << "State response message rejected due to trust failure.";
+            LOG_DBG << "State response message rejected due to trust failure. " << session.uniqueid;
             return 0;
         }
 
@@ -166,7 +172,7 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
     {
         if (p2pmsg::validate_container_trust(container) != 0)
         {
-            LOG_DBG << "History response message rejected due to trust failure.";
+            LOG_DBG << "History response message rejected due to trust failure. " << session.uniqueid;
             return 0;
         }
 
@@ -176,7 +182,7 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
     else
     {
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-        LOG_DBG << "Received invalid message type from peer";
+        LOG_DBG << "Received invalid peer message type. " << session.uniqueid;
     }
     return 0;
 }

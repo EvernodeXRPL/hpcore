@@ -201,8 +201,7 @@ void comm_server::check_for_new_connection(
         }
         else
         {
-            const bool is_self = (ip == conf::SELF_HOST);
-            comm_session session(ip, client_fd, client_fd, session_type, is_binary, is_self, true, metric_thresholds);
+            comm_session session(ip, client_fd, client_fd, session_type, is_binary, true, metric_thresholds);
             if (session.on_connect() == 0)
                 sessions.try_emplace(client_fd, std::move(session));
         }
@@ -242,8 +241,7 @@ void comm_server::maintain_known_connections(
         }
         else
         {
-            const bool is_self = (host == conf::SELF_HOST && port == conf::cfg.peerport);
-            comm::comm_session session(host, client.read_fd, client.write_fd, comm::SESSION_TYPE::PEER, is_binary, is_self, false, metric_thresholds);
+            comm::comm_session session(host, client.read_fd, client.write_fd, comm::SESSION_TYPE::PEER, is_binary, false, metric_thresholds);
             session.known_ipport = ipport;
             if (session.on_connect() == 0)
             {
