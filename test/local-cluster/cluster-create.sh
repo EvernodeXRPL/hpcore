@@ -111,8 +111,8 @@ do
     popd > /dev/null 2>&1
 done
 
-# Setup initial state data for all nodes but one.
-for (( i=1; i<$ncount; i++ ))
+# Setup initial state data for all nodes.
+for (( i=1; i<=$ncount; i++ ))
 do
 
     mkdir -p ./node$i/statehist/0/data/ > /dev/null 2>&1

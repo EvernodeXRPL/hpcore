@@ -83,8 +83,9 @@ int resolve_session_peerid(comm::comm_session &session, const std::string &peeri
             const bool replace_needed = ((res < 0 && !ex_session.is_inbound) || (res > 0 && ex_session.is_inbound));
             if (replace_needed)
             {
-                // If we happen to replace a peer session with known IP, transfer those details to the new session.
-                session.known_ipport.swap(ex_session.known_ipport);
+                // If we happen to replace a peer session with known IP, transfer required details to the new session.
+                if (session.known_ipport.first.empty())
+                    session.known_ipport.swap(ex_session.known_ipport);
                 session.uniqueid = peerid;
                 session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
 
