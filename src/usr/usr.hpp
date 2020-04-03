@@ -55,10 +55,6 @@ struct connected_context
     // Map key: User binary pubkey
     std::unordered_map<std::string, const std::string> sessionids;
 
-    // Keep track of verification-pending challenges issued to newly connected users.
-    // Map key: User socket session id (<ip:port>)
-    std::unordered_map<std::string, const std::string> pending_challenges;
-
     comm::comm_server listener;
 };
 extern connected_context ctx;
@@ -68,8 +64,6 @@ int init();
 void deinit();
 
 int start_listening();
-
-std::string issue_challenge(const std::string sessionid);
 
 int verify_challenge(std::string_view message, comm::comm_session &session);
 

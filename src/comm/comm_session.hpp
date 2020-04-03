@@ -52,6 +52,7 @@ public:
     const bool is_inbound;
     bool is_self = false;
     std::string uniqueid;
+    std::string issued_challenge;
     conf::ip_port_pair known_ipport;
     SESSION_STATE state;
 

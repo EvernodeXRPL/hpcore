@@ -5,6 +5,8 @@
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
+namespace jusrmsg = jsonschema::usrmsg;
+
 namespace usr
 {
 
@@ -23,7 +25,9 @@ int user_session_handler::on_connect(comm::comm_session &session) const
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verifies the user's response with it.
-    session.send(issue_challenge(session.uniqueid));
+    std::string msgstr;
+    jusrmsg::create_user_challenge(msgstr, session.issued_challenge);
+    session.send(msgstr);
 
     // Set the challenge-issued flag to help later checks in on_message.
     session.flags.set(comm::SESSION_FLAG::USER_CHALLENGE_ISSUED);
@@ -81,14 +85,8 @@ int user_session_handler::on_message(comm::comm_session &session, std::string_vi
  */
 void user_session_handler::on_close(const comm::comm_session &session) const
 {
-    // Cleanup any resources related to this session.
-
-    // Session is awaiting challenge response.
-    if (session.flags[comm::SESSION_FLAG::USER_CHALLENGE_ISSUED])
-        ctx.pending_challenges.erase(session.uniqueid);
-
     // Session belongs to an authed user.
-    else if (session.flags[comm::SESSION_FLAG::USER_AUTHED])
+    if (session.flags[comm::SESSION_FLAG::USER_AUTHED])
         remove_user(session.uniqueid);
 }
 

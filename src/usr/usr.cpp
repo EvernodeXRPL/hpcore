@@ -50,18 +50,6 @@ int start_listening()
     return 0;
 }
 
-std::string issue_challenge(const std::string sessionid)
-{
-    std::string msgstr;
-    std::string challengehex;
-    jusrmsg::create_user_challenge(msgstr, challengehex);
-
-    // Create an entry in pending_challenges for later tracking upon challenge response.
-    ctx.pending_challenges.try_emplace(std::move(sessionid), challengehex);
-
-    return msgstr;
-}
-
 /**
  * Verifies the given message for a previously issued user challenge.
  * @param message Challenge response.
@@ -71,15 +59,14 @@ std::string issue_challenge(const std::string sessionid)
 int verify_challenge(std::string_view message, comm::comm_session &session)
 {
     // The received message must be the challenge response. We need to verify it.
-    const auto itr = ctx.pending_challenges.find(session.uniqueid);
-    if (itr == ctx.pending_challenges.end())
+    if (session.issued_challenge.empty())
     {
         LOG_DBG << "No challenge found for the session " << session.uniqueid;
         return -1;
     }
 
     std::string userpubkeyhex;
-    std::string_view original_challenge = itr->second;
+    std::string_view original_challenge = session.issued_challenge;
     if (jusrmsg::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
     {
         // Challenge singature verification successful.
@@ -102,7 +89,7 @@ int verify_challenge(std::string_view message, comm::comm_session &session)
             session.flags.reset(comm::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
             session.flags.set(comm::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
             add_user(session, userpubkey);                                  // Add the user to the global authed user list
-            ctx.pending_challenges.erase(session.uniqueid);                 // Remove the stored challenge
+            session.issued_challenge.clear();                               // Remove the stored challenge
 
             LOG_DBG << "User connection " << session.uniqueid << " authenticated. Public key "
                     << userpubkeyhex;
