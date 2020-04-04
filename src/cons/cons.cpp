@@ -151,18 +151,7 @@ void consensus()
     }
     else // Stage 1, 2, 3
     {
-        for (auto &[pubkey, proposal] : ctx.candidate_proposals)
-        {
-            bool self = proposal.pubkey == conf::cfg.pubkey;
-            LOG_DBG << "Proposal [stage" << std::to_string(proposal.stage)
-                    << "] users:" << proposal.users.size()
-                    << " hinp:" << proposal.hash_inputs.size()
-                    << " hout:" << proposal.hash_outputs.size()
-                    << " ts:" << std::to_string(proposal.time)
-                    << " lcl:" << proposal.lcl.substr(0, 15)
-                    << " state:" << *reinterpret_cast<const hasher::B2H *>(proposal.curr_hash_state.c_str())
-                    << " self:" << self;
-        }
+        purify_candidate_proposals();
 
         // Initialize vote counters
         vote_counter votes;
@@ -228,6 +217,38 @@ void consensus()
 
     // Node has finished a consensus stage. Transition to next stage.
     ctx.stage = (ctx.stage + 1) % 4;
+}
+
+/**
+ * Cleanup any outdated proposals from the candidate set.
+ */
+void purify_candidate_proposals()
+{
+    auto itr = ctx.candidate_proposals.begin();
+    while (itr != ctx.candidate_proposals.end())
+    {
+        const p2p::proposal &cp = itr->second;
+
+        // only consider recent proposals and proposals from previous stage and current stage.
+        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && cp.stage >= (ctx.stage - 1))
+        {
+            ++itr;
+
+            bool self = cp.pubkey == conf::cfg.pubkey;
+            LOG_DBG << "Proposal [stage" << std::to_string(cp.stage)
+                    << "] users:" << cp.users.size()
+                    << " hinp:" << cp.hash_inputs.size()
+                    << " hout:" << cp.hash_outputs.size()
+                    << " ts:" << std::to_string(cp.time)
+                    << " lcl:" << cp.lcl.substr(0, 15)
+                    << " state:" << *reinterpret_cast<const hasher::B2H *>(cp.curr_hash_state.c_str())
+                    << " self:" << self;
+        }
+        else
+        {
+            ctx.candidate_proposals.erase(itr++);
+        }
+    }
 }
 
 /**
@@ -613,12 +634,8 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
-        // only consider recent proposals and proposals from previous stage and current stage.
-        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && cp.stage >= (ctx.stage - 1))
-        {
-            increment(votes.lcl, cp.lcl);
-            total_lcl_votes++;
-        }
+        increment(votes.lcl, cp.lcl);
+        total_lcl_votes++;
     }
 
     is_desync = false;

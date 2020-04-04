@@ -119,6 +119,8 @@ void deinit();
 
 void consensus();
 
+void purify_candidate_proposals();
+
 bool wait_and_proceed_stage(uint64_t &stage_start);
 
 void broadcast_nonunl_proposal();
