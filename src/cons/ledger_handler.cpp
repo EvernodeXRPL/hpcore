@@ -467,7 +467,7 @@ void handle_ledger_history_response(const p2p::history_response &hr)
         cons::ctx.led_seq_no = latest_lcl_itr->first;
     }
 
-    LOG_DBG << "Finished lcl sync. New lcl: " << cons::ctx.lcl.substr(0, 15);
+    LOG_INFO << "lcl sync complete. New lcl:" << cons::ctx.lcl.substr(0, 15);
 }
 
 } // namespace cons

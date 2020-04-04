@@ -619,9 +619,9 @@ void change_operating_mode(const OPERATING_MODE mode)
     cfg.current_mode = mode;
 
     if (mode == OPERATING_MODE::OBSERVER)
-        LOG_DBG << "Switched to OBSERVER mode.";
+        LOG_INFO << "Switched to OBSERVER mode.";
     else
-        LOG_DBG << "Switched back to PROPOSER mode.";
+        LOG_INFO << "Switched back to PROPOSER mode.";
 }
 
 } // namespace conf

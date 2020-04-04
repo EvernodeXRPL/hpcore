@@ -167,6 +167,8 @@ void consensus()
 
             if (should_request_history)
             {
+                LOG_INFO << "Syncing lcl. Curr lcl:" << cons::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
+
                 // TODO: If we are in a lcl fork condition try to rollback state with the help of
                 // state_restore to rollback state checkpoints before requesting new state.
 
@@ -835,7 +837,7 @@ void check_state(vote_counter &votes)
             conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
             const hasher::B2H majority_state_hash = *reinterpret_cast<const hasher::B2H *>(majority_state.c_str());
-            LOG_INFO << "Starting state sync. Curr state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
+            LOG_INFO << "Syncing state. Curr state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
 
             start_state_sync(majority_state_hash);
 

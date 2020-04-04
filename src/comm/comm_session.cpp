@@ -59,12 +59,13 @@ int comm_session::attempt_read(const uint64_t max_msg_size)
          available_bytes > (max_msg_size + (is_binary ? SIZE_HEADER_LEN : 0))))
         return -1;
 
-    // Keep reading messages until we exhaust all the currently available bytes.
-    while (available_bytes > 0)
+    // Try to read a complete message using available bytes.
+    // If complete message is not available silently return.
+    if (available_bytes > 0)
     {
         const uint32_t read_len = is_binary ? get_binary_msg_read_len(available_bytes) : available_bytes;
 
-        if (read_len == -1 || read_len > available_bytes)
+        if (read_len == -1)
         {
             return -1;
         }
@@ -180,6 +181,9 @@ uint32_t comm_session::get_binary_msg_read_len(const size_t available_bytes)
         // We must read the entire message if all message bytes are available.
         if (available_bytes >= (SIZE_HEADER_LEN + upcoming_msg_size))
             return upcoming_msg_size;
+
+        // Remember the expected msg size until sufficient bytes are available.
+        expected_msg_size = upcoming_msg_size;
     }
     else if (expected_msg_size > 0 && available_bytes >= expected_msg_size)
     {
