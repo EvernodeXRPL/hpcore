@@ -13,7 +13,7 @@ namespace comm
 {
 
 int comm_server::start(
-    const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
+    const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary, const bool use_size_header,
     const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
 {
     int accept_fd = open_domain_socket(domain_socket_name);
@@ -22,7 +22,7 @@ int comm_server::start(
         watchdog_thread = std::thread(
             &comm_server::connection_watchdog, this, accept_fd, session_type, is_binary,
             std::ref(metric_thresholds), req_known_remotes, max_msg_size);
-        return start_websocketd_process(port, domain_socket_name, is_binary);
+        return start_websocketd_process(port, domain_socket_name, is_binary, use_size_header);
     }
 
     return -1;
@@ -253,7 +253,7 @@ void comm_server::maintain_known_connections(
     }
 }
 
-int comm_server::start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary)
+int comm_server::start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary, const bool use_size_header)
 {
     // setup pipe for firewall
     int firewall_pipe[2]; // parent to child pipe
@@ -307,7 +307,7 @@ int comm_server::start_websocketd_process(const uint16_t port, const char *domai
             (char *)"--sslkey",
             conf::ctx.tls_key_file.data(),
             (char *)(is_binary ? "--binary=true" : "--binary=false"),
-            (char *)"--sizeheader=false",
+            (char *)(use_size_header? "--sizeheader=true" : "--sizeheader=false"),
             (char *)"--loglevel=error",
             (char *)"nc", // netcat (OpenBSD) is used for domain socket redirection.
             (char *)"-U", // Use UNIX domain socket

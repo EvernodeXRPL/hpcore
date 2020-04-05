@@ -36,7 +36,7 @@ int start_peer_connections()
 {
     const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.peermaxbadmpm};
     if (ctx.listener.start(
-            conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true, metric_thresholds, conf::cfg.peers, conf::cfg.peermaxsize) == -1)
+            conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true, false, metric_thresholds, conf::cfg.peers, conf::cfg.peermaxsize) == -1)
         return -1;
 
     LOG_INFO << "Started listening for peer connections on " << std::to_string(conf::cfg.peerport);

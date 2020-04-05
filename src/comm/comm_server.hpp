@@ -21,7 +21,7 @@ class comm_server
         const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
         const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &eq_known_remotes, const uint64_t max_msg_size);
 
-    int start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary);
+    int start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary, const bool use_size_header);
 
     int poll_fds(pollfd *pollfds, const int accept_fd, const std::unordered_map<int, comm_session> &sessions);
 
@@ -39,7 +39,7 @@ class comm_server
 public:
     // Start accepting incoming connections
     int start(
-        const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary,
+        const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary, const bool use_size_header,
         const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size);
     void stop();
     void firewall_ban(std::string_view ip, const bool unban);
