@@ -9,11 +9,11 @@ A C++ version of hotpocket designed for production envrionments, original protot
 
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
-* Websockets - [Websocketd](https://github.com/joewalnes/websocketd) | [Websocat](https://github.com/vi/websocat) | [netcat (OpenBSD)](https://man.openbsd.org/nc.1)
+* Websockets - Server: [Websocketd (forked)](https://github.com/codetsunami/websocketd) | Client: [Websocat](https://github.com/vi/websocat) | Pipe: [netcat (OpenBSD)](https://man.openbsd.org/nc.1)
 * RapidJSON - http://rapidjson.org
-* P2P Protocol - https://google.github.io/flatbuffers/
+* P2P Protocol - https://google.github.io/flatbuffers
 * Fuse filesystem - https://github.com/libfuse/libfuse
-* Boost - https://www.boost.org/
+* Boost - https://www.boost.org
 
 ## Steps to setup Hot Pocket (For Ubuntu/Debian)
 

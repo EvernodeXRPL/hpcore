@@ -43,7 +43,7 @@ int start_listening()
 {
     const uint64_t metric_thresholds[] = {conf::cfg.pubmaxcpm, 0, 0, conf::cfg.pubmaxbadmpm};
     if (ctx.listener.start(
-        conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, false, metric_thresholds, std::set<conf::ip_port_pair>(), conf::cfg.pubmaxsize) == -1)
+        conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, true, true, metric_thresholds, std::set<conf::ip_port_pair>(), conf::cfg.pubmaxsize) == -1)
         return -1;
 
     LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.pubport);
