@@ -78,6 +78,8 @@ std::string_view getsv(const rapidjson::Value &v);
 
 std::string realpath(std::string path);
 
+void mask_signal();
+
 } // namespace util
 
 #endif

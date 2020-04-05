@@ -2,6 +2,10 @@
 # Otherwise, hpcore itself can run on any docker image like ubuntu or debian without NodeJs.
 FROM node:10.17.0-buster-slim
 
+RUN apt-get update
+# Install netcat for websocketd <--> domain socket redirection.
+RUN apt-get install -y netcat-openbsd
+
 # Install fuse.
 # Copy fuse shared library and register it.
 COPY ./bin/libfuse3.so.3 /usr/local/lib/
@@ -12,4 +16,7 @@ COPY ./bin/fusermount3 /usr/local/bin/
 WORKDIR /hp
 COPY ./bin/hpcore .
 COPY ./bin/hpstatemon .
+COPY ./bin/websocketd .
+COPY ./bin/websocat .
+
 ENTRYPOINT ["/hp/hpcore"]

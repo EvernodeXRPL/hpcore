@@ -188,13 +188,22 @@ std::string_view getsv(const rapidjson::Value &v)
     return std::string_view(v.GetString(), v.GetStringLength());
 }
 
-// provide a safe std::string overload for realpath
+// Provide a safe std::string overload for realpath
 std::string realpath(std::string path)
 {
     std::array<char, PATH_MAX> buffer;
     ::realpath(path.c_str(), buffer.data());
     buffer[PATH_MAX] = '\0';
     return buffer.data();
+}
+
+// Applies signal mask to the calling thread.
+void mask_signal()
+{
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
 }
 
 } // namespace util

@@ -64,6 +64,9 @@ int parse_cmd(int argc, char **argv)
  */
 void deinit()
 {
+    usr::deinit();
+    p2p::deinit();
+    cons::deinit();
     proc::deinit();
     hplog::deinit();
 }
@@ -72,6 +75,7 @@ void signal_handler(int signum)
 {
     LOG_WARN << "Interrupt signal (" << signum << ") received.";
     deinit();
+    std::cout << "hpcore exiting\n";
     exit(signum);
 }
 
@@ -192,9 +196,7 @@ int main(int argc, char **argv)
                 signal(SIGINT, signal_handler);
 
                 while (true)
-                {
                     cons::consensus();
-                }
 
                 // Free resources.
                 deinit();

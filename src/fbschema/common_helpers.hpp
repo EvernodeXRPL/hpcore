@@ -2,7 +2,6 @@
 #define _HP_FBSCHEMA_COMMON_HELPERS_
 
 #include "../pchheader.hpp"
-#include <flatbuffers/flatbuffers.h>
 #include "common_schema_generated.h"
 #include "../statefs/hasher.hpp"
 

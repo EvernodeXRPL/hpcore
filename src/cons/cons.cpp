@@ -1,4 +1,3 @@
-#include <flatbuffers/flatbuffers.h>
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
@@ -62,13 +61,7 @@ int init()
         ctx.prev_hash_state = ctx.curr_hash_state;
     }
 
-    ctx.state_syncing_thread = std::thread([&] {
-        run_state_sync_iterator();
-        LOG_ERR << "Exit state sync thread\n";
-        exit(1);
-    });
-
-    ctx.prev_close_time = util::get_epoch_milliseconds();
+    ctx.state_syncing_thread = std::thread(&run_state_sync_iterator);
 
     // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
     // Stage 3 is allocated an extra stage_time unit becayse a node needs enough time to
@@ -79,16 +72,26 @@ int init()
     return 0;
 }
 
+/**
+ * Cleanup any resources.
+ */
+void deinit()
+{
+    ctx.is_shutting_down = true;
+    ctx.state_syncing_thread.join();
+}
+
 void consensus()
 {
     // A consensus round consists of 4 stages (0,1,2,3).
     // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
-    if (!wait_and_proceed_stage())
+    uint64_t stage_start = 0;
+    if (!wait_and_proceed_stage(stage_start))
         return; // This means the stage has been reset.
 
     // Get the latest current time.
-    ctx.time_now = util::get_epoch_milliseconds();
+    ctx.time_now = stage_start;
     std::list<p2p::proposal> collected_proposals;
 
     // Throughout consensus, we move over the incoming proposals collected via the network so far into
@@ -148,17 +151,7 @@ void consensus()
     }
     else // Stage 1, 2, 3
     {
-        for (auto &[pubkey, proposal] : ctx.candidate_proposals)
-        {
-            bool self = proposal.pubkey == conf::cfg.pubkey;
-            LOG_DBG << "Proposal [stage" << std::to_string(proposal.stage)
-                    << "] users:" << proposal.users.size()
-                    << " hinp:" << proposal.hash_inputs.size()
-                    << " hout:" << proposal.hash_outputs.size()
-                    << " lcl:" << proposal.lcl.substr(0, 15)
-                    << " state:" << *reinterpret_cast<const hasher::B2H *>(proposal.curr_hash_state.c_str())
-                    << " self:" << self;
-        }
+        purify_candidate_proposals();
 
         // Initialize vote counters
         vote_counter votes;
@@ -174,6 +167,8 @@ void consensus()
 
             if (should_request_history)
             {
+                LOG_INFO << "Syncing lcl. Curr lcl:" << cons::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
+
                 // TODO: If we are in a lcl fork condition try to rollback state with the help of
                 // state_restore to rollback state checkpoints before requesting new state.
 
@@ -212,7 +207,6 @@ void consensus()
 
                 if (ctx.stage == 3)
                 {
-                    ctx.prev_close_time = stg_prop.time;
                     apply_ledger(stg_prop);
 
                     // node has finished a consensus round (all 4 stages).
@@ -228,10 +222,42 @@ void consensus()
 }
 
 /**
+ * Cleanup any outdated proposals from the candidate set.
+ */
+void purify_candidate_proposals()
+{
+    auto itr = ctx.candidate_proposals.begin();
+    while (itr != ctx.candidate_proposals.end())
+    {
+        const p2p::proposal &cp = itr->second;
+
+        // only consider recent proposals and proposals from previous stage and current stage.
+        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && cp.stage >= (ctx.stage - 1))
+        {
+            ++itr;
+
+            bool self = cp.pubkey == conf::cfg.pubkey;
+            LOG_DBG << "Proposal [stage" << std::to_string(cp.stage)
+                    << "] users:" << cp.users.size()
+                    << " hinp:" << cp.hash_inputs.size()
+                    << " hout:" << cp.hash_outputs.size()
+                    << " ts:" << std::to_string(cp.time)
+                    << " lcl:" << cp.lcl.substr(0, 15)
+                    << " state:" << *reinterpret_cast<const hasher::B2H *>(cp.curr_hash_state.c_str())
+                    << " self:" << self;
+        }
+        else
+        {
+            ctx.candidate_proposals.erase(itr++);
+        }
+    }
+}
+
+/**
  * Syncrhonise the stage/round time for fixed intervals and reset the stage.
  * @return True if consensus can proceed in the current round. False if stage is reset.
  */
-bool wait_and_proceed_stage()
+bool wait_and_proceed_stage(uint64_t &stage_start)
 {
     // Here, nodes try to synchronise nodes stages using network clock.
     // We devide universal time to windows of equal size of roundtime. Each round must be synced with the
@@ -246,7 +272,7 @@ bool wait_and_proceed_stage()
     if (ctx.stage == 0)
     {
         // Stage 0 must start in the next round window.
-        const uint64_t stage_start = current_round_start + conf::cfg.roundtime;
+        stage_start = current_round_start + conf::cfg.roundtime;
         const int64_t to_wait = stage_start - now;
 
         LOG_DBG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 0";
@@ -255,7 +281,7 @@ bool wait_and_proceed_stage()
     }
     else
     {
-        const uint64_t stage_start = current_round_start + (ctx.stage * ctx.stage_time);
+        stage_start = current_round_start + (ctx.stage * ctx.stage_time);
 
         // Compute stage time wait.
         // Node wait between stages to collect enough proposals from previous stages from other nodes.
@@ -302,9 +328,9 @@ void broadcast_nonunl_proposal()
         nup.user_messages.try_emplace(user.pubkey, std::move(usermsgs));
     }
 
-    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2pmsg::create_msg_from_nonunl_proposal(msg.builder(), nup);
-    p2p::broadcast_message(msg, true);
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    p2pmsg::create_msg_from_nonunl_proposal(fbuf, nup);
+    p2p::broadcast_message(fbuf, true);
 
     LOG_DBG << "NUP sent."
             << " users:" << nup.user_messages.size();
@@ -316,14 +342,17 @@ void broadcast_nonunl_proposal()
  */
 void verify_and_populate_candidate_user_inputs()
 {
+    // Lock the user sessions.
+    std::lock_guard<std::mutex> users_lock(usr::ctx.users_mutex);
+
     // Lock the list so any network activity is blocked.
-    std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+    std::lock_guard<std::mutex> nups_lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
     for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
     {
         for (const auto &[pubkey, umsgs] : p.user_messages)
         {
             // Locate this user's socket session in case we need to send any status messages regarding user inputs.
-            sock::socket_session<usr::user_outbound_message> *session = usr::get_session_by_pubkey(pubkey);
+            const comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
 
             // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
@@ -398,11 +427,15 @@ void verify_and_populate_candidate_user_inputs()
                     reject_reason = jusrmsg::REASON_DUPLICATE_MSG;
                 }
 
-                usr::send_request_status_result(session,
-                                                reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
-                                                reject_reason == NULL ? "" : reject_reason,
-                                                jusrmsg::MSGTYPE_CONTRACT_INPUT,
-                                                jusrmsg::origin_data_for_contract_input(umsg.sig));
+                // Send the request status result if this user is connected to us.
+                if (session != NULL)
+                {
+                    usr::send_request_status_result(*session,
+                                                    reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
+                                                    reject_reason == NULL ? "" : reject_reason,
+                                                    jusrmsg::MSGTYPE_CONTRACT_INPUT,
+                                                    jusrmsg::origin_data_for_contract_input(umsg.sig));
+                }
             }
         }
     }
@@ -569,11 +602,6 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
         }
     }
 
-    if (ctx.stage == 3)
-        stg_prop.time = get_ledger_time_resolution(stg_prop.time);
-    else
-        stg_prop.time = get_stage_time_resolution(stg_prop.time);
-
     return stg_prop;
 }
 
@@ -583,19 +611,20 @@ p2p::proposal create_stage123_proposal(vote_counter &votes)
  */
 void broadcast_proposal(const p2p::proposal &p)
 {
-    p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-    p2pmsg::create_msg_from_proposal(msg.builder(), p);
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    p2pmsg::create_msg_from_proposal(fbuf, p);
 
     // In observer mode, we only send out the proposal to ourselves.
     if (conf::cfg.current_mode == conf::OPERATING_MODE::OBSERVER)
-        p2p::send_message_to_self(msg);
+        p2p::send_message_to_self(fbuf);
     else
-        p2p::broadcast_message(msg, true);
+        p2p::broadcast_message(fbuf, true);
 
     // LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
     //         << "] users:" << p.users.size()
     //         << " hinp:" << p.hash_inputs.size()
-    //         << " hout:" << p.hash_outputs.size();
+    //         << " hout:" << p.hash_outputs.size()
+    //         << " ts:" << std::to_string(p.time);
 }
 
 /**
@@ -607,12 +636,8 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
-        // only consider recent proposals and proposals from previous stage and current stage.
-        if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && cp.stage >= (ctx.stage - 1))
-        {
-            increment(votes.lcl, cp.lcl);
-            total_lcl_votes++;
-        }
+        increment(votes.lcl, cp.lcl);
+        total_lcl_votes++;
     }
 
     is_desync = false;
@@ -620,7 +645,7 @@ void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string 
 
     if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
     {
-        LOG_DBG << "Not enough peers proposer to perform consensus votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        LOG_DBG << "Not enough peers proposing to perform consensus. votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
         is_desync = true;
 
         //Not enough nodes are propsing. So Node is switching to Proposer if it's in observer mode.
@@ -679,39 +704,6 @@ float_t get_stage_threshold(const uint8_t stage)
         return cons::STAGE3_THRESHOLD * conf::cfg.unl.size();
     }
     return -1;
-}
-
-/**
-* Calculate the effective ledger close time
-* After adjusting the ledger close time based on the current resolution,
-* also ensure it is sufficiently separated from the prior close time.
-* @param close_time voted/agreed closed time
-*/
-uint64_t get_ledger_time_resolution(const uint64_t time)
-{
-    uint64_t closeResolution = conf::cfg.roundtime / 4;
-    //todo: change time resolution dynamically.
-    //When nodes agree often reduce resolution time and increase if they don't.
-    uint64_t close_time = time;
-    close_time += (closeResolution / 2);
-    close_time -= (close_time % closeResolution);
-
-    return std::max(close_time, (ctx.prev_close_time + conf::cfg.roundtime));
-}
-
-/**
-* Calculate the stage time
-* Adjusting the stage time based on the current resolution.
-* @param stage_time voted/agreed closed time
-*/
-uint64_t get_stage_time_resolution(const uint64_t time)
-{
-    uint64_t closeResolution = conf::cfg.roundtime / 8;
-    uint64_t stage_time = time;
-    stage_time += (closeResolution / 2);
-    stage_time -= (stage_time % closeResolution);
-
-    return stage_time;
 }
 
 /**
@@ -794,7 +786,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
                     jusrmsg::create_contract_output_container(msg, outputtosend);
 
                     const usr::connected_user &user = user_itr->second;
-                    user.session->send(usr::user_outbound_message(std::move(msg)));
+                    user.session.send(msg);
                 }
             }
 
@@ -845,7 +837,7 @@ void check_state(vote_counter &votes)
             conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
             const hasher::B2H majority_state_hash = *reinterpret_cast<const hasher::B2H *>(majority_state.c_str());
-            LOG_INFO << "Starting state sync. Curr state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
+            LOG_INFO << "Syncing state. Curr state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
 
             start_state_sync(majority_state_hash);
 
@@ -932,9 +924,9 @@ void broadcast_npl_output(std::string &output)
         p2p::npl_message npl;
         npl.data.swap(output);
 
-        p2p::peer_outbound_message msg(std::make_shared<flatbuffers::FlatBufferBuilder>(1024));
-        p2pmsg::create_msg_from_npl_output(msg.builder(), npl, ctx.lcl);
-        p2p::broadcast_message(msg, false);
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        p2pmsg::create_msg_from_npl_output(fbuf, npl, ctx.lcl);
+        p2p::broadcast_message(fbuf, false);
     }
 }
 

@@ -1,7 +1,6 @@
 #ifndef _HP_FBSCHEMA_P2PMSG_HELPERS_
 #define _HP_FBSCHEMA_P2PMSG_HELPERS_
 
-#include <flatbuffers/flatbuffers.h>
 #include "../pchheader.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
@@ -14,13 +13,17 @@ namespace fbschema::p2pmsg
  * This section contains Flatbuffer p2p message reading/writing helpers.
  */
 
-//---Message validation and reading helpers---/
+//---Message validation helpers---/
 
 int validate_and_extract_container(const Container **container_ref, std::string_view container_buf);
 
 int validate_container_trust(const Container *container);
 
 int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, const flatbuffers::uoffset_t content_size);
+
+//---Message reading helpers---/
+
+std::string_view get_peerid_from_msg(const PeerId_Notify_Message &msg);
 
 const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp);
 
@@ -35,6 +38,8 @@ const p2p::state_request create_state_request_from_msg(const State_Request_Messa
 const p2p::block_response create_block_response_from_msg(const Block_Response &msg);
 
 //---Message creation helpers---//
+
+void create_msg_from_peerid(flatbuffers::FlatBufferBuilder &container_builder, std::string_view peerid);
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);
 

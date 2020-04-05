@@ -52,7 +52,7 @@ do
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 1000, \
+            roundtime: 2000, \
             loglevel: 'debug', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
@@ -111,7 +111,7 @@ do
     popd > /dev/null 2>&1
 done
 
-# Setup initial state data for all nodes but one.
+# Setup initial state data for all nodes.
 for (( i=1; i<=$ncount; i++ ))
 do
 

@@ -7,8 +7,8 @@
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/common_helpers.hpp"
-#include "../sock/socket_message.hpp"
-#include "../sock/socket_session.hpp"
+#include "../comm/comm_session.hpp"
+#include "../comm/comm_client.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 #include "../cons/ledger_handler.hpp"
@@ -26,32 +26,33 @@ util::rollover_hashset recent_peermsg_hashes(200);
 /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
-void peer_session_handler::on_connect(sock::socket_session<peer_outbound_message> *session)
+int peer_session_handler::on_connect(comm::comm_session &session) const
 {
-    if (session->flags[sock::SESSION_FLAG::INBOUND])
+    if (session.is_inbound)
     {
         // Limit max number of inbound connections.
         if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
         {
-            session->close();
-            LOG_DBG << "Max peer connections reached. Dropped connection " << session->uniqueid;
+            LOG_DBG << "Max peer connections reached. Dropped connection " << session.uniqueid;
+            return -1;
         }
     }
-    else
-    {
-        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
-        ctx.peer_connections.try_emplace(session->uniqueid, session);
-        LOG_DBG << "Adding peer to list: " << session->uniqueid;
-    }
+
+    // Send our peer id.
+    flatbuffers::FlatBufferBuilder fbuf(1024);
+    p2pmsg::create_msg_from_peerid(fbuf, conf::cfg.self_peerid);
+    std::string_view msg = std::string_view(
+        reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+    return session.send(msg);
 }
 
 //peer session on message callback method
 //validate and handle each type of peer messages.
-void peer_session_handler::on_message(sock::socket_session<peer_outbound_message> *session, std::string_view message)
+int peer_session_handler::on_message(comm::comm_session &session, std::string_view message) const
 {
     const p2pmsg::Container *container;
     if (p2pmsg::validate_and_extract_container(&container, message) != 0)
-        return;
+        return 0;
 
     //Get serialised message content.
     const flatbuffers::Vector<uint8_t> *container_content = container->content();
@@ -62,25 +63,41 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
 
     const p2pmsg::Content *content;
     if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
-        return;
+        return 0;
 
     if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
     {
-        session->increment_metric(sock::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-        LOG_DBG << "Duplicate peer message.";
-        return;
+        session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
+        LOG_DBG << "Duplicate peer message. " << session.uniqueid;
+        return 0;
     }
 
     const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
-    if (content_message_type == p2pmsg::Message_Proposal_Message) //message is a proposal message
+    if (content_message_type == p2pmsg::Message_PeerId_Notify_Message) // message is a peer id announcement
+    {
+        // Ignore if Peer ID is already resolved.
+        if (!session.flags[comm::SESSION_FLAG::PEERID_RESOLVED])
+        {
+            const std::string peerid = std::string(p2pmsg::get_peerid_from_msg(*content->message_as_PeerId_Notify_Message()));
+            return p2p::resolve_session_peerid(session, peerid);
+        }
+    }
+
+    if (!session.flags[comm::SESSION_FLAG::PEERID_RESOLVED])
+    {
+        LOG_DBG << "Cannot accept messages. Peer id unresolved. " << session.uniqueid;
+        return 0;
+    }
+
+    if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
     {
         // We only trust proposals coming from trusted peers.
         if (p2pmsg::validate_container_trust(container) != 0)
         {
-            session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-            LOG_DBG << "Proposal rejected due to trust failure.";
-            return;
+            session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
+            LOG_DBG << "Proposal rejected due to trust failure. " << session.uniqueid;
+            return 0;
         }
 
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
@@ -99,8 +116,8 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     {
         if (p2pmsg::validate_container_trust(container) != 0)
         {
-            LOG_DBG << "NPL message rejected due to trust failure.";
-            return;
+            LOG_DBG << "NPL message rejected due to trust failure. " << session.uniqueid;
+            return 0;
         }
 
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.npl_messages_mutex); // Insert npl message with lock.
@@ -114,20 +131,24 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
     }
     else if (content_message_type == p2pmsg::Message_State_Request_Message)
     {
-        if (p2pmsg::validate_container_trust(container) != 0)
-        {
-            LOG_DBG << "State request message rejected due to trust failure.";
-            return;
-        }
-
         const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
-        p2p::peer_outbound_message msg(std::make_unique<flatbuffers::FlatBufferBuilder>(1024));
+        flatbuffers::FlatBufferBuilder fbuf(1024);
 
-        if (cons::create_state_response(msg, sr) == 0)
-            session->send(std::move(msg));
+        if (cons::create_state_response(fbuf, sr) == 0)
+        {
+            std::string_view msg = std::string_view(
+                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+            session.send(msg);
+        }
     }
     else if (content_message_type == p2pmsg::Message_State_Response_Message)
     {
+        if (p2pmsg::validate_container_trust(container) != 0)
+        {
+            LOG_DBG << "State response message rejected due to trust failure. " << session.uniqueid;
+            return 0;
+        }
+
         std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex); // Insert state_response with lock.
         std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
         ctx.collected_msgs.state_response.push_back(std::move(response));
@@ -139,30 +160,38 @@ void peer_session_handler::on_message(sock::socket_session<peer_outbound_message
         const bool req_lcl_avail = cons::check_required_lcl_availability(hr);
         if (req_lcl_avail)
         {
-            p2p::peer_outbound_message hr_msg = cons::send_ledger_history(hr);
-            session->send(hr_msg);
+            flatbuffers::FlatBufferBuilder fbuf(1024);
+            p2pmsg::create_msg_from_history_response(fbuf, cons::retrieve_ledger_history(hr));
+            std::string_view msg = std::string_view(
+                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+
+            session.send(msg);
         }
     }
     else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
     {
+        if (p2pmsg::validate_container_trust(container) != 0)
+        {
+            LOG_DBG << "History response message rejected due to trust failure. " << session.uniqueid;
+            return 0;
+        }
+
         cons::handle_ledger_history_response(
             p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message()));
     }
     else
     {
-        session->increment_metric(sock::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-        LOG_DBG << "Received invalid message type from peer";
+        session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+        LOG_DBG << "Received invalid peer message type. " << session.uniqueid;
     }
+    return 0;
 }
 
 //peer session on message callback method
-void peer_session_handler::on_close(sock::socket_session<peer_outbound_message> *session)
+void peer_session_handler::on_close(const comm::comm_session &session) const
 {
-    {
-        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
-        ctx.peer_connections.erase(session->uniqueid);
-    }
-    LOG_DBG << "Peer disonnected: " << session->uniqueid;
+    std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+    ctx.peer_connections.erase(session.uniqueid);
 }
 
 } // namespace p2p

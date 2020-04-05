@@ -17,6 +17,7 @@ contract_config cfg;
 
 const static char *MODE_OBSERVER = "observer";
 const static char *MODE_PROPOSER = "proposer";
+constexpr size_t PEERID_LEN = 16;
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -34,8 +35,14 @@ int init()
 
     // Append self peer to peer list.
     const std::string portstr = std::to_string(cfg.peerport);
-    cfg.self_peer_id = "0.0.0.0:" + portstr;
-    cfg.peers.emplace(cfg.self_peer_id, std::make_pair("0.0.0.0", portstr));
+
+    // We calculate the self peer id to be a random string.
+    // Use libsodium to generate the random challenge bytes.
+    unsigned char peerid_bytes[PEERID_LEN];
+    randombytes_buf(peerid_bytes, PEERID_LEN);
+    util::bin2hex(cfg.self_peerid, peerid_bytes, PEERID_LEN);
+
+    cfg.peers.emplace(std::make_pair(SELF_HOST, cfg.peerport));
 
     // Append self pubkey to unl list.
     cfg.unl.emplace(cfg.pubkey);
@@ -90,7 +97,6 @@ int create_contract()
     binpair_to_hex();
 
     cfg.startup_mode = OPERATING_MODE::PROPOSER;
-    cfg.listenip = "0.0.0.0";
     cfg.peerport = 22860;
     cfg.roundtime = 1000;
     cfg.pubport = 8080;
@@ -138,6 +144,8 @@ void set_contract_dir_paths(std::string exepath, std::string basedir)
 
     ctx.exe_dir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
     ctx.statemon_exe_path = ctx.exe_dir + "/" + "hpstatemon";
+    ctx.websocketd_exe_path = ctx.exe_dir + "/" + "websocketd";
+    ctx.websocat_exe_path = ctx.exe_dir + "/" + "websocat";
 
     ctx.contract_dir = basedir;
     ctx.config_dir = basedir + "/cfg";
@@ -213,7 +221,6 @@ int load_config()
 
     cfg.pubkeyhex = d["pubkeyhex"].GetString();
     cfg.seckeyhex = d["seckeyhex"].GetString();
-    cfg.listenip = d["listenip"].GetString();
 
     cfg.binary = d["binary"].GetString();
     cfg.binargs = d["binargs"].GetString();
@@ -248,8 +255,8 @@ int load_config()
         boost::split(splitted_peers, ipport_concat, boost::is_any_of(":"));
         if (splitted_peers.size() == 2)
         {
-            // Push the peer address and the port to peers array
-            cfg.peers.emplace(std::make_pair(ipport_concat, std::make_pair(splitted_peers.front(), splitted_peers.back())));
+            // Push the peer address and the port to peers set
+            cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
             splitted_peers.clear();
         }
     }
@@ -320,14 +327,13 @@ int save_config()
     d.AddMember("binargs", rapidjson::StringRef(cfg.binargs.data()), allocator);
     d.AddMember("appbill", rapidjson::StringRef(cfg.appbill.data()), allocator);
     d.AddMember("appbillargs", rapidjson::StringRef(cfg.appbillargs.data()), allocator);
-    d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
-    d.AddMember("listenip", rapidjson::StringRef(cfg.listenip.data()), allocator);
 
     rapidjson::Value peers(rapidjson::kArrayType);
-    for (const auto &[ipport_concat, ipport_pair] : cfg.peers)
+    for (const auto &ipport_pair : cfg.peers)
     {
         rapidjson::Value v;
-        v.SetString(rapidjson::StringRef(ipport_concat.data()), allocator);
+        const std::string concat_str = std::string(ipport_pair.first).append(":").append(std::to_string(ipport_pair.second));
+        v.SetString(rapidjson::StringRef(concat_str.data()), allocator);
         peers.PushBack(v, allocator);
     }
     d.AddMember("peers", peers, allocator);
@@ -459,7 +465,6 @@ int validate_config()
     bool fields_missing = false;
 
     fields_missing |= cfg.binary.empty() && std::cout << "Missing cfg field: binary\n";
-    fields_missing |= cfg.listenip.empty() && std::cout << "Missing cfg field: listenip\n";
     fields_missing |= cfg.peerport == 0 && std::cout << "Missing cfg field: peerport\n";
     fields_missing |= cfg.roundtime == 0 && std::cout << "Missing cfg field: roundtime\n";
     fields_missing |= cfg.pubport == 0 && std::cout << "Missing cfg field: pubport\n";
@@ -550,7 +555,7 @@ int is_schema_valid(const rapidjson::Document &d)
     const char *cfg_schema =
         "{"
         "\"type\": \"object\","
-        "\"required\": [ \"mode\", \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"appbill\", \"appbillargs\", \"listenip\""
+        "\"required\": [ \"mode\", \"version\", \"pubkeyhex\", \"seckeyhex\", \"binary\", \"binargs\", \"appbill\", \"appbillargs\""
         ", \"peers\", \"unl\", \"pubport\", \"peerport\", \"roundtime\""
         ", \"pubmaxsize\", \"pubmaxcpm\", \"pubmaxbadmpm\", \"pubmaxcons\""
         ", \"peermaxsize\", \"peermaxcpm\", \"peermaxdupmpm\", \"peermaxbadmpm\", \"peermaxbadsigpm\", \"peermaxcons\""
@@ -564,7 +569,6 @@ int is_schema_valid(const rapidjson::Document &d)
         "\"binargs\": { \"type\": \"string\" },"
         "\"appbill\": { \"type\": \"string\" },"
         "\"appbillargs\": { \"type\": \"string\" },"
-        "\"listenip\": { \"type\": \"string\" },"
         "\"peers\": {"
         "\"type\": \"array\","
         "\"items\": { \"type\": \"string\" }"
@@ -615,9 +619,9 @@ void change_operating_mode(const OPERATING_MODE mode)
     cfg.current_mode = mode;
 
     if (mode == OPERATING_MODE::OBSERVER)
-        LOG_DBG << "Switched to OBSERVER mode.";
+        LOG_INFO << "Switched to OBSERVER mode.";
     else
-        LOG_DBG << "Switched back to PROPOSER mode.";
+        LOG_INFO << "Switched back to PROPOSER mode.";
 }
 
 } // namespace conf

@@ -2,6 +2,10 @@
 include "common_schema.fbs";
 namespace fbschema.p2pmsg;
 
+table PeerId_Notify_Message {
+    peerid:[ubyte];
+}
+
 table UserSubmittedMessage {
     content:[ubyte];
     signature:[ubyte];
@@ -12,7 +16,7 @@ table UserSubmittedMessageGroup {
     messages:[UserSubmittedMessage];
 }
 
-union Message { NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, State_Response_Message, History_Request_Message, History_Response_Message } //message content type
+union Message { PeerId_Notify_Message, NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, State_Response_Message, History_Request_Message, History_Response_Message } //message content type
 
 table Content {
     message:Message;

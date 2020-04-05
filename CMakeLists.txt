@@ -49,7 +49,6 @@ target_link_libraries(hpstatemon
     backtrace
     pthread
     crypto
-    ssl
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
 
@@ -69,11 +68,9 @@ add_executable(hpcore
     src/statefs/hashtree_builder.cpp
     src/statefs/state_restore.cpp
     src/statefs/state_store.cpp
-    src/sock/socket_client.cpp
-    src/sock/socket_server.cpp
-    src/sock/socket_message.cpp
-    src/sock/socket_session.cpp
-    src/sock/socket_session_lambda.cpp
+    src/comm/comm_session.cpp
+    src/comm/comm_server.cpp
+    src/comm/comm_client.cpp
     src/fbschema/common_helpers.cpp
     src/fbschema/p2pmsg_helpers.cpp
     src/fbschema/ledger_helpers.cpp
@@ -98,7 +95,6 @@ target_link_libraries(hpcore
     backtrace
     pthread
     crypto
-    ssl
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
 add_dependencies(hpcore
@@ -106,11 +102,13 @@ add_dependencies(hpcore
     appbill
 )
 
-# add_custom_command(TARGET hpcore POST_BUILD
-#     COMMAND strip ./build/hpcore
-#     COMMAND strip ./build/hpstatemon
-#     COMMAND strip ./build/appbill
-# )
+add_custom_command(TARGET hpcore POST_BUILD
+    # COMMAND strip ./build/hpcore
+    # COMMAND strip ./build/hpstatemon
+    # COMMAND strip ./build/appbill
+    COMMAND cp ./test/bin/websocketd ./build/websocketd
+    COMMAND cp ./test/bin/websocat ./build/websocat
+)
     
 target_precompile_headers(hpstatemon PUBLIC src/pchheader.hpp)
 target_precompile_headers(hpcore REUSE_FROM hpstatemon)
@@ -120,7 +118,7 @@ target_precompile_headers(hpcore REUSE_FROM hpstatemon)
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
   COMMAND cp ./build/hpcore ./build/hpstatemon ./build/appbill ./test/local-cluster/bin/
-  COMMAND cp ./test/fusebin/fusermount3 ./test/fusebin/libfuse3.so.3 ./test/local-cluster/bin/
+  COMMAND cp ./test/bin/fusermount3 ./test/bin/libfuse3.so.3 ./test/bin/websocketd ./test/bin/websocat ./test/local-cluster/bin/
   COMMAND docker build -t hpcore:latest ./test/local-cluster
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)

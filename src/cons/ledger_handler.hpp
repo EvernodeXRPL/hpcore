@@ -39,8 +39,6 @@ bool check_required_lcl_availability(const p2p::history_request &hr);
 
 const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr);
 
-p2p::peer_outbound_message send_ledger_history(const p2p::history_request &hr);
-
 void handle_ledger_history_response(const p2p::history_response &hr);
 
 } // namespace cons
