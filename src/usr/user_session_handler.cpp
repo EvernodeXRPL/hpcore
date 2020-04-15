@@ -24,7 +24,7 @@ int user_session_handler::on_connect(comm::comm_session &session) const
     LOG_DBG << "User client connected " << session.uniqueid;
 
     // As soon as a user connects, we issue them a challenge message. We remember the
-    // challenge we issued and later verifies the user's response with it.
+    // challenge we issued and later verify the user's response with it.
     std::string msgstr;
     jusrmsg::create_user_challenge(msgstr, session.issued_challenge);
     session.send(msgstr);
@@ -41,7 +41,7 @@ int user_session_handler::on_connect(comm::comm_session &session) const
 int user_session_handler::on_message(comm::comm_session &session, std::string_view message) const
 {
     // First check whether this session is pending challenge.
-    // Meaning we have previously issued a challenge to the client,
+    // Meaning we have previously issued a challenge to the client.
     if (session.flags[comm::SESSION_FLAG::USER_CHALLENGE_ISSUED])
     {
         if (verify_challenge(message, session) == 0)

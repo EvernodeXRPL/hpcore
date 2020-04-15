@@ -12,15 +12,16 @@ namespace proc
 {
 
 /**
- * Represents list of inputs to the contract and the accumilated contract output for those inputs.
+ * Represents list of inputs to the contract and the accumulated contract output for those inputs.
  */
 struct contract_iobuf_pair
 {
     // List of inputs to be fed into the contract.
     std::list<std::string> inputs;
 
-    // Output emitted by contract after execution. (Because we are reading output at the end, there's no way to
-    // get a "list" of outputs. So it's always a one contingous output.)
+    // Output emitted by contract after execution.
+    // (Because we are reading output at the end, there's no way to
+    // get a "list" of outputs. So it's always a one contiguous output.)
     std::string output;
 };
 

@@ -38,8 +38,8 @@ const size_t CHALLENGE_LEN = 16;
 
 /**
  * Constructs user challenge message json and the challenge string required for
- * initial user challenge handshake. This gets called when a user gets establishes
- * a web sockets connection to HP.
+ * initial user challenge handshake. This gets called when a user establishes
+ * a web socket connection to HP.
  * 
  * @param msg String reference to copy the generated json message string into.
  *            Message format:
@@ -64,7 +64,7 @@ void create_user_challenge(std::string &msg, std::string &challengehex)
     // Construct the challenge msg json.
     // We do not use RapidJson here in favour of performance because this is a simple json message.
 
-    // Since we know the rough size of the challenge massage we reserve adequate amount for the holder.
+    // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
     // Only Hot Pocket version number is variable length. Therefore message size is roughly 90 bytes
     // so allocating 128bytes for heap padding.
     msg.reserve(128);
@@ -305,7 +305,7 @@ int extract_signed_input_container(
 
     if (!d[FLD_CONTENT].IsString() || !d[FLD_SIG].IsString())
     {
-        LOG_DBG << "User signed input invaid field values.";
+        LOG_DBG << "User signed input invalid field values.";
         return -1;
     }
 
@@ -354,7 +354,7 @@ int extract_input_container(std::string &nonce, std::string &input, uint64_t &ma
 
     if (!d[FLD_NONCE].IsString() || !d[FLD_INPUT].IsString() || !d[FLD_MAX_LED_SEQ].IsUint64())
     {
-        LOG_DBG << "User input container invaid field values.";
+        LOG_DBG << "User input container invalid field values.";
         return -1;
     }
 
