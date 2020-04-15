@@ -180,7 +180,7 @@ int version_compare(const std::string &x, const std::string &y)
 
 /**
  * Returns a std::string_view pointing to the rapidjson Value which is assumed
- * to be a string. We use this function because rapidjson does not have build-in string_view
+ * to be a string. We use this function because rapidjson does not have built-in string_view
  * support. Passing a non-string 'v' is not supported.
  */
 std::string_view getsv(const rapidjson::Value &v)

@@ -29,10 +29,10 @@ void state_monitor::create_checkpoint()
     /**
      * Checkpoints are numbered 0, -1, -2, ...
      * Checkpoint 0 is the latest state containing "state", "data", "delta", "bhmap", "htree" directories.
-     * Checkpoints -1 and lower cotnains only the "delta" dirs containing older state changesets.
+     * Checkpoints -1 and lower contains only the "delta" dirs containing older state changesets.
      */
 
-    // Shift "-1" and older checkpoints by 1 more. And then copy checkpoint 0 delta dir to "-1"
+    // Shift "-1" and older checkpoints by 1 more. And then copy checkpoint 0 delta dir to "-1".
     // If MAX oldest checkpoint is there, remove it and work our way upwards.
     int16_t oldest_chkpnt = MAX_CHECKPOINTS * -1;
     for (int16_t chkpnt = oldest_chkpnt; chkpnt <= -1; chkpnt++)
@@ -113,7 +113,7 @@ void state_monitor::onopen(const int inodefd, const int flags)
  */
 void state_monitor::onwrite(const int fd, const off_t offset, const size_t length)
 {
-    // TODO: Known issue: Onwrite can get called if the client program deletes a file before
+    // TODO: Known issue: onwrite can get called if the client program deletes a file before
     // closing the currently open file. If there were some bytes on the write buffer, the flush happens
     // when the client closes the fd. By that time the fd is invalid since the file is deleted.
     // However nothing happens to us as our code simply returns on invalild fd error.
@@ -244,8 +244,8 @@ int state_monitor::get_fd_filepath(std::string &filepath, const int fd)
 void state_monitor::oncreate_filepath(const std::string &filepath)
 {
     // Check whether we are already tracking this file path.
-    // Only way we could be tracking this patth already is deleting an existing file and creating
-    // a new file with same name.
+    // Only way we could be tracking this path already is deleting an existing file and creating
+    // a new file with the same name.
     if (file_info_map.count(filepath) == 0)
     {
         // Add an entry for the new file in the file info map. This information will be used to ignore

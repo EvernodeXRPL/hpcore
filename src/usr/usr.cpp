@@ -69,7 +69,7 @@ int verify_challenge(std::string_view message, comm::comm_session &session)
     std::string_view original_challenge = session.issued_challenge;
     if (jusrmsg::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
     {
-        // Challenge singature verification successful.
+        // Challenge signature verification successful.
 
         // Decode hex pubkey and get binary pubkey. We are only going to keep
         // the binary pubkey due to reduced memory footprint.
@@ -80,7 +80,7 @@ int verify_challenge(std::string_view message, comm::comm_session &session)
             userpubkey.length(),
             userpubkeyhex);
 
-        // Now check whether this user public key is duplicate.
+        // Now check whether this user public key is a duplicate.
         if (ctx.sessionids.count(userpubkey) == 0)
         {
             // All good. Unique public key.
