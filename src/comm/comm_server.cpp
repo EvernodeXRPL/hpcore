@@ -92,6 +92,8 @@ void comm_server::connection_watchdog(
             continue;
         }
 
+        util::sleep(10);
+
         // Accept any new incoming connection if available.
         check_for_new_connection(sessions, accept_fd, session_type, is_binary, metric_thresholds);
 

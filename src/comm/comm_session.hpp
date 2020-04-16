@@ -42,6 +42,8 @@ class comm_session
     const SESSION_TYPE session_type;
     std::vector<session_threshold> thresholds; // track down various communication thresholds
     uint32_t expected_msg_size = 0;            // Next expected message size based on size header.
+    std::vector<char> read_buffer;             // Local buffer to keep collecting data until a complete message can be constructed.
+    uint32_t read_buffer_filled_size = 0;      // How many bytes have been buffered so far.
 
     uint32_t get_binary_msg_read_len(const size_t available_bytes);
     int on_message(std::string_view message);
