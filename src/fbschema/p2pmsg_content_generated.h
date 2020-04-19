@@ -11,8 +11,11 @@
 namespace fbschema {
 namespace p2pmsg {
 
-struct PeerId_Notify_Message;
-struct PeerId_Notify_MessageBuilder;
+struct Peer_Challenge_Message;
+struct Peer_Challenge_MessageBuilder;
+
+struct Peer_Challenge_Response_Message;
+struct Peer_Challenge_Response_MessageBuilder;
 
 struct UserSubmittedMessage;
 struct UserSubmittedMessageBuilder;
@@ -64,22 +67,24 @@ struct State_FS_Hash_EntryBuilder;
 
 enum Message {
   Message_NONE = 0,
-  Message_PeerId_Notify_Message = 1,
-  Message_NonUnl_Proposal_Message = 2,
-  Message_Proposal_Message = 3,
-  Message_Npl_Message = 4,
-  Message_State_Request_Message = 5,
-  Message_State_Response_Message = 6,
-  Message_History_Request_Message = 7,
-  Message_History_Response_Message = 8,
+  Message_Peer_Challenge_Response_Message = 1,
+  Message_Peer_Challenge_Message = 2,
+  Message_NonUnl_Proposal_Message = 3,
+  Message_Proposal_Message = 4,
+  Message_Npl_Message = 5,
+  Message_State_Request_Message = 6,
+  Message_State_Response_Message = 7,
+  Message_History_Request_Message = 8,
+  Message_History_Response_Message = 9,
   Message_MIN = Message_NONE,
   Message_MAX = Message_History_Response_Message
 };
 
-inline const Message (&EnumValuesMessage())[9] {
+inline const Message (&EnumValuesMessage())[10] {
   static const Message values[] = {
     Message_NONE,
-    Message_PeerId_Notify_Message,
+    Message_Peer_Challenge_Response_Message,
+    Message_Peer_Challenge_Message,
     Message_NonUnl_Proposal_Message,
     Message_Proposal_Message,
     Message_Npl_Message,
@@ -92,9 +97,10 @@ inline const Message (&EnumValuesMessage())[9] {
 }
 
 inline const char * const *EnumNamesMessage() {
-  static const char * const names[10] = {
+  static const char * const names[11] = {
     "NONE",
-    "PeerId_Notify_Message",
+    "Peer_Challenge_Response_Message",
+    "Peer_Challenge_Message",
     "NonUnl_Proposal_Message",
     "Proposal_Message",
     "Npl_Message",
@@ -117,8 +123,12 @@ template<typename T> struct MessageTraits {
   static const Message enum_value = Message_NONE;
 };
 
-template<> struct MessageTraits<fbschema::p2pmsg::PeerId_Notify_Message> {
-  static const Message enum_value = Message_PeerId_Notify_Message;
+template<> struct MessageTraits<fbschema::p2pmsg::Peer_Challenge_Response_Message> {
+  static const Message enum_value = Message_Peer_Challenge_Response_Message;
+};
+
+template<> struct MessageTraits<fbschema::p2pmsg::Peer_Challenge_Message> {
+  static const Message enum_value = Message_Peer_Challenge_Message;
 };
 
 template<> struct MessageTraits<fbschema::p2pmsg::NonUnl_Proposal_Message> {
@@ -240,59 +250,129 @@ template<> struct State_ResponseTraits<fbschema::p2pmsg::Fs_Entry_Response> {
 bool VerifyState_Response(flatbuffers::Verifier &verifier, const void *obj, State_Response type);
 bool VerifyState_ResponseVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-struct PeerId_Notify_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef PeerId_Notify_MessageBuilder Builder;
+struct Peer_Challenge_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Peer_Challenge_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PEERID = 4
+    VT_CHALLENGE = 4
   };
-  const flatbuffers::Vector<uint8_t> *peerid() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PEERID);
+  const flatbuffers::Vector<uint8_t> *challenge() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
   }
-  flatbuffers::Vector<uint8_t> *mutable_peerid() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PEERID);
+  flatbuffers::Vector<uint8_t> *mutable_challenge() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_PEERID) &&
-           verifier.VerifyVector(peerid()) &&
+           VerifyOffset(verifier, VT_CHALLENGE) &&
+           verifier.VerifyVector(challenge()) &&
            verifier.EndTable();
   }
 };
 
-struct PeerId_Notify_MessageBuilder {
-  typedef PeerId_Notify_Message Table;
+struct Peer_Challenge_MessageBuilder {
+  typedef Peer_Challenge_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_peerid(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> peerid) {
-    fbb_.AddOffset(PeerId_Notify_Message::VT_PEERID, peerid);
+  void add_challenge(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge) {
+    fbb_.AddOffset(Peer_Challenge_Message::VT_CHALLENGE, challenge);
   }
-  explicit PeerId_Notify_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit Peer_Challenge_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  PeerId_Notify_MessageBuilder &operator=(const PeerId_Notify_MessageBuilder &);
-  flatbuffers::Offset<PeerId_Notify_Message> Finish() {
+  flatbuffers::Offset<Peer_Challenge_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<PeerId_Notify_Message>(end);
+    auto o = flatbuffers::Offset<Peer_Challenge_Message>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<PeerId_Notify_Message> CreatePeerId_Notify_Message(
+inline flatbuffers::Offset<Peer_Challenge_Message> CreatePeer_Challenge_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> peerid = 0) {
-  PeerId_Notify_MessageBuilder builder_(_fbb);
-  builder_.add_peerid(peerid);
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge = 0) {
+  Peer_Challenge_MessageBuilder builder_(_fbb);
+  builder_.add_challenge(challenge);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<PeerId_Notify_Message> CreatePeerId_Notify_MessageDirect(
+inline flatbuffers::Offset<Peer_Challenge_Message> CreatePeer_Challenge_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *peerid = nullptr) {
-  auto peerid__ = peerid ? _fbb.CreateVector<uint8_t>(*peerid) : 0;
-  return fbschema::p2pmsg::CreatePeerId_Notify_Message(
+    const std::vector<uint8_t> *challenge = nullptr) {
+  auto challenge__ = challenge ? _fbb.CreateVector<uint8_t>(*challenge) : 0;
+  return fbschema::p2pmsg::CreatePeer_Challenge_Message(
       _fbb,
-      peerid__);
+      challenge__);
+}
+
+struct Peer_Challenge_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Peer_Challenge_Response_MessageBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CHALLENGE = 4,
+    VT_SIG = 6
+  };
+  const flatbuffers::Vector<uint8_t> *challenge() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_challenge() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
+  }
+  const flatbuffers::Vector<uint8_t> *sig() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIG);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_sig() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SIG);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_CHALLENGE) &&
+           verifier.VerifyVector(challenge()) &&
+           VerifyOffset(verifier, VT_SIG) &&
+           verifier.VerifyVector(sig()) &&
+           verifier.EndTable();
+  }
+};
+
+struct Peer_Challenge_Response_MessageBuilder {
+  typedef Peer_Challenge_Response_Message Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_challenge(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge) {
+    fbb_.AddOffset(Peer_Challenge_Response_Message::VT_CHALLENGE, challenge);
+  }
+  void add_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig) {
+    fbb_.AddOffset(Peer_Challenge_Response_Message::VT_SIG, sig);
+  }
+  explicit Peer_Challenge_Response_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Peer_Challenge_Response_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Peer_Challenge_Response_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Peer_Challenge_Response_Message> CreatePeer_Challenge_Response_Message(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0) {
+  Peer_Challenge_Response_MessageBuilder builder_(_fbb);
+  builder_.add_sig(sig);
+  builder_.add_challenge(challenge);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Peer_Challenge_Response_Message> CreatePeer_Challenge_Response_MessageDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *challenge = nullptr,
+    const std::vector<uint8_t> *sig = nullptr) {
+  auto challenge__ = challenge ? _fbb.CreateVector<uint8_t>(*challenge) : 0;
+  auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
+  return fbschema::p2pmsg::CreatePeer_Challenge_Response_Message(
+      _fbb,
+      challenge__,
+      sig__);
 }
 
 struct UserSubmittedMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -337,7 +417,6 @@ struct UserSubmittedMessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  UserSubmittedMessageBuilder &operator=(const UserSubmittedMessageBuilder &);
   flatbuffers::Offset<UserSubmittedMessage> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<UserSubmittedMessage>(end);
@@ -410,7 +489,6 @@ struct UserSubmittedMessageGroupBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  UserSubmittedMessageGroupBuilder &operator=(const UserSubmittedMessageGroupBuilder &);
   flatbuffers::Offset<UserSubmittedMessageGroup> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<UserSubmittedMessageGroup>(end);
@@ -453,8 +531,11 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetPointer<const void *>(VT_MESSAGE);
   }
   template<typename T> const T *message_as() const;
-  const fbschema::p2pmsg::PeerId_Notify_Message *message_as_PeerId_Notify_Message() const {
-    return message_type() == fbschema::p2pmsg::Message_PeerId_Notify_Message ? static_cast<const fbschema::p2pmsg::PeerId_Notify_Message *>(message()) : nullptr;
+  const fbschema::p2pmsg::Peer_Challenge_Response_Message *message_as_Peer_Challenge_Response_Message() const {
+    return message_type() == fbschema::p2pmsg::Message_Peer_Challenge_Response_Message ? static_cast<const fbschema::p2pmsg::Peer_Challenge_Response_Message *>(message()) : nullptr;
+  }
+  const fbschema::p2pmsg::Peer_Challenge_Message *message_as_Peer_Challenge_Message() const {
+    return message_type() == fbschema::p2pmsg::Message_Peer_Challenge_Message ? static_cast<const fbschema::p2pmsg::Peer_Challenge_Message *>(message()) : nullptr;
   }
   const fbschema::p2pmsg::NonUnl_Proposal_Message *message_as_NonUnl_Proposal_Message() const {
     return message_type() == fbschema::p2pmsg::Message_NonUnl_Proposal_Message ? static_cast<const fbschema::p2pmsg::NonUnl_Proposal_Message *>(message()) : nullptr;
@@ -489,8 +570,12 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-template<> inline const fbschema::p2pmsg::PeerId_Notify_Message *Content::message_as<fbschema::p2pmsg::PeerId_Notify_Message>() const {
-  return message_as_PeerId_Notify_Message();
+template<> inline const fbschema::p2pmsg::Peer_Challenge_Response_Message *Content::message_as<fbschema::p2pmsg::Peer_Challenge_Response_Message>() const {
+  return message_as_Peer_Challenge_Response_Message();
+}
+
+template<> inline const fbschema::p2pmsg::Peer_Challenge_Message *Content::message_as<fbschema::p2pmsg::Peer_Challenge_Message>() const {
+  return message_as_Peer_Challenge_Message();
 }
 
 template<> inline const fbschema::p2pmsg::NonUnl_Proposal_Message *Content::message_as<fbschema::p2pmsg::NonUnl_Proposal_Message>() const {
@@ -535,7 +620,6 @@ struct ContentBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ContentBuilder &operator=(const ContentBuilder &);
   flatbuffers::Offset<Content> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Content>(end);
@@ -584,7 +668,6 @@ struct NonUnl_Proposal_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  NonUnl_Proposal_MessageBuilder &operator=(const NonUnl_Proposal_MessageBuilder &);
   flatbuffers::Offset<NonUnl_Proposal_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<NonUnl_Proposal_Message>(end);
@@ -700,7 +783,6 @@ struct Proposal_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Proposal_MessageBuilder &operator=(const Proposal_MessageBuilder &);
   flatbuffers::Offset<Proposal_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Proposal_Message>(end);
@@ -778,7 +860,6 @@ struct Npl_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Npl_MessageBuilder &operator=(const Npl_MessageBuilder &);
   flatbuffers::Offset<Npl_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Npl_Message>(end);
@@ -845,7 +926,6 @@ struct History_Request_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  History_Request_MessageBuilder &operator=(const History_Request_MessageBuilder &);
   flatbuffers::Offset<History_Request_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<History_Request_Message>(end);
@@ -917,7 +997,6 @@ struct History_Response_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  History_Response_MessageBuilder &operator=(const History_Response_MessageBuilder &);
   flatbuffers::Offset<History_Response_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<History_Response_Message>(end);
@@ -987,7 +1066,6 @@ struct HistoryLedgerPairBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  HistoryLedgerPairBuilder &operator=(const HistoryLedgerPairBuilder &);
   flatbuffers::Offset<HistoryLedgerPair> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HistoryLedgerPair>(end);
@@ -1059,7 +1137,6 @@ struct HistoryLedgerBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  HistoryLedgerBuilder &operator=(const HistoryLedgerBuilder &);
   flatbuffers::Offset<HistoryLedger> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HistoryLedger>(end);
@@ -1158,7 +1235,6 @@ struct State_Request_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  State_Request_MessageBuilder &operator=(const State_Request_MessageBuilder &);
   flatbuffers::Offset<State_Request_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<State_Request_Message>(end);
@@ -1268,7 +1344,6 @@ struct State_Response_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  State_Response_MessageBuilder &operator=(const State_Response_MessageBuilder &);
   flatbuffers::Offset<State_Response_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<State_Response_Message>(end);
@@ -1344,7 +1419,6 @@ struct Fs_Entry_ResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Fs_Entry_ResponseBuilder &operator=(const Fs_Entry_ResponseBuilder &);
   flatbuffers::Offset<Fs_Entry_Response> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Fs_Entry_Response>(end);
@@ -1427,7 +1501,6 @@ struct File_HashMap_ResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  File_HashMap_ResponseBuilder &operator=(const File_HashMap_ResponseBuilder &);
   flatbuffers::Offset<File_HashMap_Response> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<File_HashMap_Response>(end);
@@ -1514,7 +1587,6 @@ struct Block_ResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Block_ResponseBuilder &operator=(const Block_ResponseBuilder &);
   flatbuffers::Offset<Block_Response> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Block_Response>(end);
@@ -1601,7 +1673,6 @@ struct State_FS_Hash_EntryBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  State_FS_Hash_EntryBuilder &operator=(const State_FS_Hash_EntryBuilder &);
   flatbuffers::Offset<State_FS_Hash_Entry> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<State_FS_Hash_Entry>(end);
@@ -1640,8 +1711,12 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
     case Message_NONE: {
       return true;
     }
-    case Message_PeerId_Notify_Message: {
-      auto ptr = reinterpret_cast<const fbschema::p2pmsg::PeerId_Notify_Message *>(obj);
+    case Message_Peer_Challenge_Response_Message: {
+      auto ptr = reinterpret_cast<const fbschema::p2pmsg::Peer_Challenge_Response_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Message_Peer_Challenge_Message: {
+      auto ptr = reinterpret_cast<const fbschema::p2pmsg::Peer_Challenge_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case Message_NonUnl_Proposal_Message: {

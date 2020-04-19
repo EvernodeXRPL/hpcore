@@ -12,6 +12,8 @@
 namespace fbschema::p2pmsg
 {
 
+constexpr size_t PEERCHALLENGE_LEN = 16;
+
 /**
  * This section contains Flatbuffer message reading/writing helpers.
  * These helpers are mainly used by peer_session_handler.
@@ -140,9 +142,30 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
 
 //---Message reading helpers---/
 
-std::string_view get_peerid_from_msg(const PeerId_Notify_Message &msg)
+/**
+ * Returns challenge from the peer challenge message.
+ * @param The Flatbuffer peer challenge message received from the peer.
+ * @return binary challenge.
+ */
+const std::string_view get_peer_challenge_from_msg(const Peer_Challenge_Message &msg)
 {
-    return flatbuff_bytes_to_sv(msg.peerid());
+    return flatbuff_bytes_to_sv(msg.challenge());
+}
+
+/**
+ * Creates a peer challenge response struct from the given peer challenge response message.
+ * @param The Flatbuffer peer challenge response message received from the peer.
+ * @return A peer challenge response struct representing the message.
+ */
+const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const Peer_Challenge_Response_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey)
+{
+    p2p::peer_challenge_response pchalresp;
+
+    pchalresp.challenge = flatbuff_bytes_to_sv(msg.challenge());
+    pchalresp.signature = flatbuff_bytes_to_sv(msg.sig());
+    pchalresp.pubkey = flatbuff_bytes_to_sv(pubkey);
+
+    return pchalresp;
 }
 
 /**
@@ -258,21 +281,53 @@ const p2p::block_response create_block_response_from_msg(const Block_Response &m
 
 //---Message creation helpers---//
 
-void create_msg_from_peerid(flatbuffers::FlatBufferBuilder &container_builder, std::string_view peerid)
+/**
+ * Create peer challenge message from the given challenge.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param challenge Challenge message needed to convert to flatbuffer message.
+ */
+void create_msg_from_peer_challenge(flatbuffers::FlatBufferBuilder &container_builder, std::string &challenge)
 {
     flatbuffers::FlatBufferBuilder builder(1024);
 
-    const flatbuffers::Offset<PeerId_Notify_Message> peerid_msg =
-        CreatePeerId_Notify_Message(
-            builder,
-            sv_to_flatbuff_bytes(builder, peerid));
+    // We calculate the peer challenge to be a random string.
+    // Use libsodium to generate the random challenge bytes.
+    challenge.resize(PEERCHALLENGE_LEN);
+    randombytes_buf(challenge.data(), PEERCHALLENGE_LEN);
 
-    const flatbuffers::Offset<Content> message = CreateContent(builder, Message_PeerId_Notify_Message, peerid_msg.Union());
+    const flatbuffers::Offset<Peer_Challenge_Message> peer_challenge_msg =
+        CreatePeer_Challenge_Message(
+            builder,
+            sv_to_flatbuff_bytes(builder, challenge));
+
+    const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Message, peer_challenge_msg.Union());
+    builder.Finish(message); // Finished building message content to get serialised content.
+
+    // Now that we have built the content message
+    create_containermsg_from_content(container_builder, builder, nullptr, false);
+}
+
+/**
+ * Create peer challenge response message from the given challenge.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param challenge Message which need to be signed and placed in the container message.
+ */
+void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &container_builder, const std::string &challenge)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+
+    const flatbuffers::Offset<Peer_Challenge_Response_Message> challenge_resp_msg =
+        CreatePeer_Challenge_Response_Message(
+            builder,
+            sv_to_flatbuff_bytes(builder, challenge),
+            sv_to_flatbuff_bytes(builder, crypto::sign(challenge, conf::cfg.seckey)));
+
+    const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Response_Message, challenge_resp_msg.Union());
     builder.Finish(message); // Finished building message content to get serialised content.
 
     // Now that we have built the content message,
     // we need to sign it and place it inside a container message.
-    create_containermsg_from_content(container_builder, builder, nullptr, false);
+    create_containermsg_from_content(container_builder, builder, nullptr, true);
 }
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)

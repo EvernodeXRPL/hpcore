@@ -23,7 +23,9 @@ int validate_and_extract_content(const Content **content_ref, const uint8_t *con
 
 //---Message reading helpers---/
 
-std::string_view get_peerid_from_msg(const PeerId_Notify_Message &msg);
+const std::string_view get_peer_challenge_from_msg(const Peer_Challenge_Message &msg);
+
+const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const Peer_Challenge_Response_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey);
 
 const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp);
 
@@ -38,8 +40,9 @@ const p2p::state_request create_state_request_from_msg(const State_Request_Messa
 const p2p::block_response create_block_response_from_msg(const Block_Response &msg);
 
 //---Message creation helpers---//
+void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &container_builder, const std::string &challenge);
 
-void create_msg_from_peerid(flatbuffers::FlatBufferBuilder &container_builder, std::string_view peerid);
+void create_msg_from_peer_challenge(flatbuffers::FlatBufferBuilder &container_builder, std::string &challenge);
 
 void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);
 
@@ -53,8 +56,8 @@ void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builde
 
 void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::state_request &hr, std::string_view lcl);
 
-void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, 
-std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, hasher::B2H expected_hash, std::string_view lcl);
+void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
+                                      std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, hasher::B2H expected_hash, std::string_view lcl);
 
 void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, hasher::B2H expected_hash, std::string_view lcl);
 
@@ -79,13 +82,11 @@ flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffe
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
 historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map);
 
-void
-flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, 
-const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
+void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries,
+                                                  const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
 
 void statefilehash_to_flatbuf_statefilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> &list,
                                             std::string_view full_path, bool is_file, std::string_view hash);
-
 
 flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>>
 statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &builder, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries);
