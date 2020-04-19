@@ -29,8 +29,8 @@ int user_session_handler::on_connect(comm::comm_session &session) const
     jusrmsg::create_user_challenge(msgstr, session.issued_challenge);
     session.send(msgstr);
 
-    // Set the challenge-issued flag to help later checks in on_message.
-    session.flags.set(comm::SESSION_FLAG::USER_CHALLENGE_ISSUED);
+    // Set the challenge-issued value to true.
+    session.challenge_status = comm::CHALLENGE_ISSUED;
 
     return 0;
 }
@@ -42,13 +42,13 @@ int user_session_handler::on_message(comm::comm_session &session, std::string_vi
 {
     // First check whether this session is pending challenge.
     // Meaning we have previously issued a challenge to the client.
-    if (session.flags[comm::SESSION_FLAG::USER_CHALLENGE_ISSUED])
+    if (session.challenge_status == comm::CHALLENGE_ISSUED)
     {
         if (verify_challenge(message, session) == 0)
             return 0;
     }
     // Check whether this session belongs to an authenticated (challenge-verified) user.
-    else if (session.flags[comm::SESSION_FLAG::USER_AUTHED])
+    else if (session.challenge_status == comm::CHALLENGE_VERIFIED)
     {
         // Check whether this user is among authenticated users
         // and perform authenticated msg processing.
@@ -86,7 +86,7 @@ int user_session_handler::on_message(comm::comm_session &session, std::string_vi
 void user_session_handler::on_close(const comm::comm_session &session) const
 {
     // Session belongs to an authed user.
-    if (session.flags[comm::SESSION_FLAG::USER_AUTHED])
+    if (session.challenge_status == comm::CHALLENGE_VERIFIED)
         remove_user(session.uniqueid);
 }
 

@@ -83,7 +83,7 @@ int resolve_peer_challenge(comm::comm_session &session, const peer_challenge_res
     {
         // Add the new connection straight away, if we haven't seen it before.
         session.uniqueid.swap(pubkeyhex);
-        session.flags.set(comm::SESSION_FLAG::PEERCHALLENGE_RESOLVED);
+        session.challenge_status = comm::CHALLENGE_VERIFIED;
         p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session);
         return 0;
     }
@@ -91,7 +91,7 @@ int resolve_peer_challenge(comm::comm_session &session, const peer_challenge_res
     {
         session.is_self = true;
         session.uniqueid.swap(pubkeyhex);
-        session.flags.set(comm::SESSION_FLAG::PEERCHALLENGE_RESOLVED);
+        session.challenge_status = comm::CHALLENGE_VERIFIED;
         return 0;
     }
     else // New connection is not self but with same pub key.
@@ -108,10 +108,10 @@ int resolve_peer_challenge(comm::comm_session &session, const peer_challenge_res
                 if (session.known_ipport.first.empty())
                     session.known_ipport.swap(ex_session.known_ipport);
                 session.uniqueid.swap(pubkeyhex);
-                session.flags.set(comm::SESSION_FLAG::PEERCHALLENGE_RESOLVED);
+                session.challenge_status = comm::CHALLENGE_VERIFIED;
 
                 ex_session.close(false);
-                p2p::ctx.peer_connections.erase(iter);                                  // remove existing session.
+                p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
                 p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
                 LOG_DBG << "Replacing existing connection [" << session.uniqueid << "]";

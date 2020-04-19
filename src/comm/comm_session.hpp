@@ -7,17 +7,11 @@
 
 namespace comm
 {
-
-/**
- * Set of flags used to mark status information on the session.
- * usr and p2p subsystems make use of this to mark status information of user and peer sessions.
- * Set flags are stored in 'flags' bitset of comm_session.
- */
-enum SESSION_FLAG
+    
+enum CHALLENGE_STATUS
 {
-    USER_CHALLENGE_ISSUED,
-    USER_AUTHED,
-    PEERCHALLENGE_RESOLVED
+    CHALLENGE_ISSUED,
+    CHALLENGE_VERIFIED
 };
 
 enum SESSION_STATE
@@ -55,11 +49,7 @@ public:
     std::string issued_challenge;
     conf::ip_port_pair known_ipport;
     SESSION_STATE state;
-
-    // The set of SESSION_FLAG enum flags that will be set by user-code of this class.
-    // We mainly use this to store contexual information about this session based on the use case.
-    // Setting and reading flags to this is completely managed by user-code.
-    std::bitset<8> flags;
+    CHALLENGE_STATUS challenge_status;
 
     comm_session(
         std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,

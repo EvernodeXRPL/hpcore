@@ -43,7 +43,9 @@ int peer_session_handler::on_connect(comm::comm_session &session) const
     p2pmsg::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
     std::string_view msg = std::string_view(
         reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-    return session.send(msg);
+    session.send(msg);
+    session.challenge_status = comm::CHALLENGE_ISSUED;
+    return 0;
 }
 
 //peer session on message callback method
@@ -76,30 +78,26 @@ int peer_session_handler::on_message(comm::comm_session &session, std::string_vi
 
     if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
     {
-        // Ignore if challenge is already resolved.
-        if (!session.flags[comm::SESSION_FLAG::PEERCHALLENGE_RESOLVED])
-        {
-            // Sending the challenge response to the respected peer.
-            const std::string challenge = std::string(p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message()));
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_peer_challenge_response_from_challenge(fbuf, challenge);
-            std::string_view msg = std::string_view(
-                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-            return session.send(msg);
-        }
+        // Sending the challenge response to the respected peer.
+        const std::string challenge = std::string(p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message()));
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        p2pmsg::create_peer_challenge_response_from_challenge(fbuf, challenge);
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+        return session.send(msg);
     }
 
     if (content_message_type == p2pmsg::Message_Peer_Challenge_Response_Message) // message is a peer challenge response
     {
         // Ignore if challenge is already resolved.
-        if (!session.flags[comm::SESSION_FLAG::PEERCHALLENGE_RESOLVED])
+        if (session.challenge_status == comm::CHALLENGE_ISSUED)
         {
             const p2p::peer_challenge_response challenge_resp = p2pmsg::create_peer_challenge_response_from_msg(*content->message_as_Peer_Challenge_Response_Message(), container->pubkey());
             return p2p::resolve_peer_challenge(session, challenge_resp);
         }
     }
 
-    if (!session.flags[comm::SESSION_FLAG::PEERCHALLENGE_RESOLVED])
+    if (session.challenge_status != comm::CHALLENGE_VERIFIED)
     {
         LOG_DBG << "Cannot accept messages. Peer challenge unresolved. " << session.uniqueid;
         return 0;

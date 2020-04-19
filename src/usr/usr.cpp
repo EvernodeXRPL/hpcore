@@ -86,8 +86,7 @@ int verify_challenge(std::string_view message, comm::comm_session &session)
             // All good. Unique public key.
             // Promote the connection from pending-challenges to authenticated users.
 
-            session.flags.reset(comm::SESSION_FLAG::USER_CHALLENGE_ISSUED); // Clear challenge-issued flag
-            session.flags.set(comm::SESSION_FLAG::USER_AUTHED);             // Set the user-authed flag
+            session.challenge_status = comm::CHALLENGE_VERIFIED;             // Set as challenge verified
             add_user(session, userpubkey);                                  // Add the user to the global authed user list
             session.issued_challenge.clear();                               // Remove the stored challenge
 
