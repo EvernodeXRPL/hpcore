@@ -17,7 +17,6 @@ contract_config cfg;
 
 const static char *MODE_OBSERVER = "observer";
 const static char *MODE_PROPOSER = "proposer";
-constexpr size_t PEERID_LEN = 16;
 
 /**
  * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -35,12 +34,6 @@ int init()
 
     // Append self peer to peer list.
     const std::string portstr = std::to_string(cfg.peerport);
-
-    // We calculate the self peer id to be a random string.
-    // Use libsodium to generate the random challenge bytes.
-    unsigned char peerid_bytes[PEERID_LEN];
-    randombytes_buf(peerid_bytes, PEERID_LEN);
-    util::bin2hex(cfg.self_peerid, peerid_bytes, PEERID_LEN);
 
     cfg.peers.emplace(std::make_pair(SELF_HOST, cfg.peerport));
 

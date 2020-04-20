@@ -44,6 +44,13 @@ struct history_ledger
     std::vector<uint8_t> raw_ledger;
 };
 
+struct peer_challenge_response
+{
+    std::string challenge;
+    std::string signature;
+    std::string pubkey;
+};
+
 enum LEDGER_RESPONSE_ERROR
 {
     NONE = 0,
@@ -124,7 +131,7 @@ void deinit();
 
 int start_peer_connections();
 
-int resolve_session_peerid(comm::comm_session &session, const std::string &peerid);
+int resolve_peer_challenge(comm::comm_session &session, const peer_challenge_response &challenge_resp);
 
 void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self);
 

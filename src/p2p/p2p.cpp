@@ -43,39 +43,60 @@ int start_peer_connections()
     return 0;
 }
 
-int resolve_session_peerid(comm::comm_session &session, const std::string &peerid)
+int resolve_peer_challenge(comm::comm_session &session, const peer_challenge_response &challenge_resp)
 {
-    const int res = peerid.compare(conf::cfg.self_peerid);
 
-    // If peerid is same as our (self) peerid, then this is the loopback connection to ourselves.
+    // Compare the response challenge string with the original issued challenge.
+    if (session.issued_challenge != challenge_resp.challenge)
+    {
+        LOG_DBG << "Peer challenge response, challenge invalid.";
+        return -1;
+    }
+
+    // Verify the challenge signature.
+    if (crypto::verify(
+            challenge_resp.challenge,
+            challenge_resp.signature,
+            challenge_resp.pubkey) != 0)
+    {
+        LOG_DBG << "Peer challenge response signature verification failed.";
+        return -1;
+    }
+
+    // Converting the binary pub key into hexa decimal string this will be used as the key in storing peer sessions
+    std::string pubkeyhex;
+    util::bin2hex(pubkeyhex, reinterpret_cast<const unsigned char *>(challenge_resp.pubkey.data()), challenge_resp.pubkey.length());
+
+    const int res = challenge_resp.pubkey.compare(conf::cfg.pubkey);
+
+    // If pub key is same as our (self) pub key, then this is the loopback connection to ourselves.
     // Hence we must keep the connection but only one of two sessions must be added to peer_connections.
-    // If peerid is greater than our id (< 0), then we should give priority to any existing inbound connection
+    // If pub key is greater than our id (< 0), then we should give priority to any existing inbound connection
     // from the same peer and drop the outbound connection.
-    // If peerid is lower than our id (> 0), then we should give priority to any existing outbound connection
+    // If pub key is lower than our id (> 0), then we should give priority to any existing outbound connection
     // from the same peer and drop the inbound connection.
 
     std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
 
-    const auto iter = p2p::ctx.peer_connections.find(peerid);
+    const auto iter = p2p::ctx.peer_connections.find(pubkeyhex);
     if (iter == p2p::ctx.peer_connections.end())
     {
         // Add the new connection straight away, if we haven't seen it before.
-        session.uniqueid = peerid;
-        session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
-        p2p::ctx.peer_connections.try_emplace(peerid, &session);
+        session.uniqueid.swap(pubkeyhex);
+        session.challenge_status = comm::CHALLENGE_VERIFIED;
+        p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session);
         return 0;
     }
     else if (res == 0) // New connection is self (There can be two sessions for self (inbound/outbound))
     {
         session.is_self = true;
-        session.uniqueid = peerid;
-        session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
+        session.uniqueid.swap(pubkeyhex);
+        session.challenge_status = comm::CHALLENGE_VERIFIED;
         return 0;
     }
-    else // New connection is not self but with same peer id.
+    else // New connection is not self but with same pub key.
     {
         comm::comm_session &ex_session = *iter->second;
-
         // We don't allow duplicate connections to the same peer to same direction.
         if (ex_session.is_inbound != session.is_inbound)
         {
@@ -86,14 +107,14 @@ int resolve_session_peerid(comm::comm_session &session, const std::string &peeri
                 // If we happen to replace a peer session with known IP, transfer required details to the new session.
                 if (session.known_ipport.first.empty())
                     session.known_ipport.swap(ex_session.known_ipport);
-                session.uniqueid = peerid;
-                session.flags.set(comm::SESSION_FLAG::PEERID_RESOLVED);
+                session.uniqueid.swap(pubkeyhex);
+                session.challenge_status = comm::CHALLENGE_VERIFIED;
 
                 ex_session.close(false);
-                p2p::ctx.peer_connections.erase(iter);                   // remove existing session.
-                p2p::ctx.peer_connections.try_emplace(peerid, &session); // add new session.
+                p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
+                p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
-                LOG_DBG << "Replacing existing connection [" << peerid << "]";
+                LOG_DBG << "Replacing existing connection [" << session.uniqueid << "]";
                 return 0;
             }
             else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
@@ -104,7 +125,7 @@ int resolve_session_peerid(comm::comm_session &session, const std::string &peeri
         }
 
         // Reaching this point means we don't need the new session.
-        LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << peerid << "]";
+        LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << pubkeyhex << "]";
         return -1;
     }
 }
@@ -147,7 +168,7 @@ void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
     std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
     // Find the peer session connected to self.
-    const auto peer_itr = ctx.peer_connections.find(conf::cfg.self_peerid);
+    const auto peer_itr = ctx.peer_connections.find(conf::cfg.pubkeyhex);
     if (peer_itr != ctx.peer_connections.end())
     {
         std::string_view msg = std::string_view(
