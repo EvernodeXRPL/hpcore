@@ -125,7 +125,18 @@ void comm_server::connection_watchdog(
                 if (!should_disconnect)
                 {
                     if (result & POLLIN)
+                    {
                         should_disconnect = (session.attempt_read(max_msg_size) == -1);
+                        if (should_disconnect)
+                        {
+                            // Workaround to get websocketd to close the connection properly.
+                            // This can be removed once websocketd issue is fixed.
+                            // We are triggering this condition:
+                            // https://github.com/codetsunami/websocketd/blob/c010d8b81dd48bd5948949946f31eacecf591071/libwebsocketd/process_endpoint.go#L141
+                            const uint32_t large_header = UINT32_MAX;
+                            write(fd, &large_header, sizeof(uint32_t));
+                        }
+                    }
 
                     if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
                         should_disconnect = true;
