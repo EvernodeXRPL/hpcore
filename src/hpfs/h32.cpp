@@ -32,7 +32,7 @@ namespace hpfs
     std::ostream &operator<<(std::ostream &output, const h32 &h)
     {
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(&h);
-        for (int i = 0; i < sizeof(h32); i++)
+        for (int i = 0; i < 8; i++)
             output << std::hex << std::setfill('0') << std::setw(2) << (int)buf[i];
 
         return output;
