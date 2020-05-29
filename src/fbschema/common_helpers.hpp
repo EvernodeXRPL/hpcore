@@ -2,8 +2,8 @@
 #define _HP_FBSCHEMA_COMMON_HELPERS_
 
 #include "../pchheader.hpp"
+#include "../hpfs/h32.hpp"
 #include "common_schema_generated.h"
-#include "../statefs/hasher.hpp"
 
 namespace fbschema
 {
@@ -19,7 +19,7 @@ std::string_view flatbuff_bytes_to_sv(const flatbuffers::Vector<uint8_t> *buffer
 
 std::string_view flatbuff_str_to_sv(const flatbuffers::String *buffer);
 
-hasher::B2H flatbuff_bytes_to_hash(const flatbuffers::Vector<uint8_t> *buffer);
+hpfs::h32 flatbuff_bytes_to_hash(const flatbuffers::Vector<uint8_t> *buffer);
 
 const std::set<std::string>
 flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
@@ -36,7 +36,7 @@ const flatbuffers::Offset<flatbuffers::String>
 sv_to_flatbuff_str(flatbuffers::FlatBufferBuilder &builder, std::string_view sv);
 
 const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>
-hash_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, hasher::B2H hash);
+hash_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, hpfs::h32 hash);
 
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
 stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::set<std::string> &set);

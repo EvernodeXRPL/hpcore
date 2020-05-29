@@ -4,7 +4,7 @@
 #include "../pchheader.hpp"
 #include "../p2p/p2p.hpp"
 #include "../fbschema/p2pmsg_content_generated.h"
-#include "../statefs/hasher.hpp"
+#include "../hpfs/h32.hpp"
 
 namespace cons
 {
@@ -22,7 +22,7 @@ struct backlog_item
     BACKLOG_ITEM_TYPE type;
     std::string path;
     int32_t block_id = -1; // Only relevant if type=BLOCK
-    hasher::B2H expected_hash;
+    hpfs::h32 expected_hash;
 
     // No. of cycles that this item has been waiting in pending state.
     // Used by pending_responses list to increase wait count.
@@ -33,9 +33,9 @@ extern std::list<std::string> candidate_state_responses;
 
 int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr);
 
-void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hasher::B2H expected_hash);
+void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash);
 
-void start_state_sync(const hasher::B2H state_hash_to_request);
+void start_state_sync(const hpfs::h32 state_hash_to_request);
 
 int run_state_sync_iterator();
 

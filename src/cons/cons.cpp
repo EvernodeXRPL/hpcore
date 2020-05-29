@@ -10,11 +10,10 @@
 #include "../hplog.hpp"
 #include "../crypto.hpp"
 #include "../proc.hpp"
+#include "../hpfs/h32.hpp"
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 #include "cons.hpp"
-#include "../statefs/state_common.hpp"
-#include "../statefs/state_store.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
 namespace jusrmsg = jsonschema::usrmsg;
@@ -43,13 +42,12 @@ int init()
     ctx.lcl = ldr_hist.lcl;
     ctx.ledger_cache.swap(ldr_hist.cache);
 
-    hasher::B2H root_hash = hasher::B2H_empty;
-    if (statefs::compute_hash_tree(root_hash, true) == -1)
-        return -1;
+    hpfs::h32 root_hash = hpfs::h32_empty;
+    // TODO: Get root hash from hpfs
 
     LOG_INFO << "Initial state: " << root_hash;
 
-    std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
+    std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), sizeof(hpfs::h32));
     str_root_hash.swap(ctx.curr_hash_state);
 
     if (!ctx.ledger_cache.empty())
@@ -211,7 +209,7 @@ void consensus()
 
                     // node has finished a consensus round (all 4 stages).
                     LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
-                             << " state:" << *reinterpret_cast<const hasher::B2H *>(cons::ctx.curr_hash_state.c_str()) << ")";
+                             << " state:" << *reinterpret_cast<const hpfs::h32 *>(cons::ctx.curr_hash_state.c_str()) << ")";
                 }
             }
         }
@@ -243,7 +241,7 @@ void purify_candidate_proposals()
                     << " hout:" << cp.hash_outputs.size()
                     << " ts:" << std::to_string(cp.time)
                     << " lcl:" << cp.lcl.substr(0, 15)
-                    << " state:" << *reinterpret_cast<const hasher::B2H *>(cp.curr_hash_state.c_str())
+                    << " state:" << *reinterpret_cast<const hpfs::h32 *>(cp.curr_hash_state.c_str())
                     << " self:" << self;
         }
         else
@@ -476,7 +474,7 @@ bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
     if (pid == 0)
     {
         // before execution chdir into a valid the latest state data directory that contains an appbill.table
-        chdir(statefs::current_ctx.data_dir.c_str());
+        chdir(conf::ctx.state_rw_dir.c_str());
         int ret = execv(execv_args[0], execv_args);
         LOG_ERR << "Appbill process execv failed: " << ret;
         return false;
@@ -822,9 +820,11 @@ void check_state(vote_counter &votes)
     if (ctx.is_state_syncing)
     {
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
-        hasher::B2H root_hash = hasher::B2H_empty;
-        int ret = statefs::compute_hash_tree(root_hash);
-        std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), hasher::HASH_SIZE);
+        hpfs::h32 root_hash = hpfs::h32_empty;
+        
+        // TODO: Get root hash from hpfs
+
+        std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), sizeof(hpfs::h32));
         str_root_hash.swap(ctx.curr_hash_state);
     }
 
@@ -836,8 +836,8 @@ void check_state(vote_counter &votes)
             // Switch to observer mode to avoid sending out proposals till the state is synced
             conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
-            const hasher::B2H majority_state_hash = *reinterpret_cast<const hasher::B2H *>(majority_state.c_str());
-            LOG_INFO << "Syncing state. Curr state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
+            const hpfs::h32 majority_state_hash = *reinterpret_cast<const hpfs::h32 *>(majority_state.c_str());
+            LOG_INFO << "Syncing state. Curr state:" << *reinterpret_cast<const hpfs::h32 *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
 
             start_state_sync(majority_state_hash);
 
@@ -847,7 +847,7 @@ void check_state(vote_counter &votes)
     }
     else if (majority_state == ctx.curr_hash_state && ctx.is_state_syncing)
     {
-        LOG_INFO << "State sync complete. state:" << *reinterpret_cast<const hasher::B2H *>(ctx.curr_hash_state.c_str());
+        LOG_INFO << "State sync complete. state:" << *reinterpret_cast<const hpfs::h32 *>(ctx.curr_hash_state.c_str());
 
         ctx.is_state_syncing = false;
         ctx.state_sync_lcl.clear();

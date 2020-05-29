@@ -477,7 +477,7 @@ void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_bui
  * @param expected_hash The exptected hash of the requested path.
  * @param lcl Lcl to be include in the container msg.
  */
-void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, hasher::B2H expected_hash, std::string_view lcl)
+void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, hpfs::h32 expected_hash, std::string_view lcl)
 {
     flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -507,7 +507,7 @@ void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_
  * @param hashmap Hashmap of the file
  * @param lcl Lcl to be include in the container msg.
  */
-void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, hasher::B2H expected_hash, std::string_view lcl)
+void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl)
 {
     // todo:get a average propsal message size and allocate content builder based on that.
     flatbuffers::FlatBufferBuilder builder(1024);

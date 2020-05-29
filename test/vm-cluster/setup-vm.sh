@@ -11,7 +11,6 @@ echo $nodeid. $vmip
 if [ $mode = "new" ]; then
 
     sshpass -f vmpass.txt scp $hpcore/build/hpcore \
-                            $hpcore/build/hpstatemon \
                             $hpcore/examples/echo_contract/contract.js \
                             ../bin/libfuse3.so.3 \
                             ../bin/fusermount3 \
@@ -26,7 +25,6 @@ if [ $mode = "new" ]; then
     sshpass -f vmpass.txt scp geveo@$vmip:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
 else
     sshpass -f vmpass.txt scp $hpcore/build/hpcore \
-                            $hpcore/build/hpstatemon \
                             $hpcore/examples/echo_contract/contract.js \
                             ./consensus-test-continuous.sh \
                             geveo@$vmip:~/

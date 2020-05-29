@@ -7,7 +7,7 @@
 #include "../comm/comm_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
-#include "../statefs/hasher.hpp"
+#include "../hpfs/h32.hpp"
 #include "../conf.hpp"
 
 namespace p2p
@@ -75,14 +75,14 @@ struct state_request
     std::string parent_path;   // The requested file or dir path.
     bool is_file;              // Whether the path is a file or dir.
     int32_t block_id;          // Block id of the file if we are requesting for file block. Otherwise -1.
-    hasher::B2H expected_hash; // The expected hash of the requested result.
+    hpfs::h32 expected_hash; // The expected hash of the requested result.
 };
 
 // Represents state file system entry.
 struct state_fs_hash_entry
 {
     bool is_file;     // Whether this is a file or dir.
-    hasher::B2H hash; // Hash of the file or dir.
+    hpfs::h32 hash; // Hash of the file or dir.
 };
 
 // Represents a file block data resposne.
@@ -91,7 +91,7 @@ struct block_response
     std::string path;      // Path of the file.
     uint32_t block_id;     // Id of the block where the data belongs to.
     std::string_view data; // The block data.
-    hasher::B2H hash;      // Hash of the bloc data.
+    hpfs::h32 hash;      // Hash of the bloc data.
 };
 
 struct message_collection

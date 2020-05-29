@@ -4,9 +4,6 @@
 #include "fbschema/common_helpers.hpp"
 #include "fbschema/p2pmsg_container_generated.h"
 #include "fbschema/p2pmsg_content_generated.h"
-#include "statefs/hasher.hpp"
-#include "statefs/state_common.hpp"
-#include "statefs/hashtree_builder.hpp"
 #include "proc.hpp"
 #include "cons/cons.hpp"
 
@@ -147,79 +144,18 @@ int await_process_execution(pid_t pid)
 }
 
 /**
- * Mounts the fuse file system at the contract state dir by starting the state monitor process.
- * State monitor will automatically create a state history checkpoint as well.
+ * Starts the hpfs state filesystem.
  */
 int start_state_monitor()
 {
-    pid_t pid = fork();
-    if (pid > 0)
-    {
-        // HP process.
-        statemon_pid = pid;
-
-        // Give enough time for the state monitor to start.
-        // We wait until Fuse filesystem is mounted for max number of retries.
-        uint16_t retry_count = 0;
-        std::string findmnt_command = FINDMNT_COMMAND + conf::ctx.state_dir;
-        while (retry_count < 50)
-        {
-            util::sleep(10);
-            int ret = system(findmnt_command.c_str());
-            if (WEXITSTATUS(ret) == 0) // Success. Fuse fs has been mounted.
-                return 0;
-            retry_count++;
-        }
-
-        // We waited enough time for Fuse fs to be mounted but no luck.
-        return -1;
-    }
-    else if (pid == 0)
-    {
-        // State monitor process.
-        LOG_DBG << "Starting state monitor...";
-
-        // Fill process args.
-        char *execv_args[4];
-        execv_args[0] = conf::ctx.statemon_exe_path.data();
-        execv_args[1] = conf::ctx.state_hist_dir.data();
-        execv_args[2] = conf::ctx.state_dir.data();
-        execv_args[3] = NULL;
-
-        int ret = execv(execv_args[0], execv_args);
-        LOG_ERR << errno << ": State monitor execv failed.";
-        exit(1);
-    }
-    else if (pid < 0)
-    {
-        LOG_ERR << "fork() failed when starting state monitor.";
-        return -1;
-    }
+    return 0;
 }
 
 /**
- * Terminate the state monitor and update the latest state hash tree.
+ * Stops the hpfs state filesystem.
  */
 int stop_state_monitor()
 {
-    kill(statemon_pid, SIGINT);
-
-    // Wait for state monitor process to complete execution after the SIGINT.
-    const int presult = await_process_execution(statemon_pid);
-    LOG_DBG << "State monitor stopped.";
-
-    statemon_pid = 0;
-
-    if (presult != 0)
-        LOG_ERR << "State monitor process exited with non-normal status code: " << presult;
-
-    // Update the hash tree.
-    hasher::B2H statehash = hasher::B2H_empty;
-    statefs::hashtree_builder htree_builder(statefs::get_state_dir_context());
-    if (htree_builder.generate(statehash) != 0)
-        return -1;
-
-    cons::ctx.curr_hash_state = std::string(reinterpret_cast<const char *>(&statehash), hasher::HASH_SIZE);
     return 0;
 }
 

@@ -15,7 +15,7 @@ COPY ./bin/fusermount3 /usr/local/bin/
 # hpcore binary is copied to /hp directory withtin the docker image.
 WORKDIR /hp
 COPY ./bin/hpcore .
-COPY ./bin/hpstatemon .
+COPY ./bin/hpfs .
 COPY ./bin/websocketd .
 COPY ./bin/websocat .
 

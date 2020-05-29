@@ -5,7 +5,6 @@
 #include "../p2p/p2p.hpp"
 #include "../pchheader.hpp"
 #include "../cons/cons.hpp"
-#include "../statefs/state_store.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
 
@@ -24,7 +23,7 @@ std::list<std::string> candidate_state_responses;
 std::list<backlog_item> pending_requests;
 
 // List of submitted requests we are awaiting responses for, keyed by expected response hash.
-std::unordered_map<hasher::B2H, backlog_item, hasher::B2H_std_key_hasher> submitted_requests;
+std::unordered_map<hpfs::h32, backlog_item, hpfs::h32_std_key_hasher> submitted_requests;
 
 /**
  * Sends a state request to a random peer.
@@ -33,7 +32,7 @@ std::unordered_map<hasher::B2H, backlog_item, hasher::B2H_std_key_hasher> submit
  * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
  * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
  */
-void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hasher::B2H expected_hash)
+void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash)
 {
     p2p::state_request sr;
     sr.parent_path = path;
@@ -59,8 +58,8 @@ int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state
         // Vector to hold the block bytes. Normally block size is constant BLOCK_SIZE (4MB), but the
         // last block of a file may have a smaller size.
         std::vector<uint8_t> block;
-        if (statefs::get_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
-            return -1;
+        
+        // TODO: get block
 
         p2p::block_response resp;
         resp.path = sr.parent_path;
@@ -76,17 +75,19 @@ int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state
         if (sr.is_file)
         {
             std::vector<uint8_t> existing_block_hashmap;
-            if (statefs::get_block_hash_map(existing_block_hashmap, sr.parent_path, sr.expected_hash) == -1)
-                return -1;
+            
+            // TODO: get block hash list
+            // TODO: get file length
+            std::size_t file_length = 0;
 
-            fbschema::p2pmsg::create_msg_from_filehashmap_response(fbuf, sr.parent_path, existing_block_hashmap, statefs::get_file_length(sr.parent_path), sr.expected_hash, ctx.lcl);
+            fbschema::p2pmsg::create_msg_from_filehashmap_response(fbuf, sr.parent_path, existing_block_hashmap, file_length, sr.expected_hash, ctx.lcl);
         }
         else
         {
             // If the state request is for a directory we need to reply with the file system entries and their hashes inside that dir.
             std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
-            if (statefs::get_fs_entry_hashes(existing_fs_entries, sr.parent_path, sr.expected_hash) == -1)
-                return -1;
+            
+            // TODO: get fs entry hashes
 
             fbschema::p2pmsg::create_msg_from_fsentry_response(fbuf, sr.parent_path, existing_fs_entries, sr.expected_hash, ctx.lcl);
         }
@@ -100,7 +101,7 @@ int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state
  * @param state_hash_to_request Peer's expected state hash. If peer doesn't have this as its state hash the
  *                              request will be ignord.
  */
-void start_state_sync(const hasher::B2H state_hash_to_request)
+void start_state_sync(const hpfs::h32 state_hash_to_request)
 {
     {
         std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
@@ -155,7 +156,7 @@ int run_state_sync_iterator()
             const fbschema::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
             // Check whether we are actually waiting for this response's hash. If not, ignore it.
-            hasher::B2H response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
+            hpfs::h32 response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
             const auto pending_resp_itr = submitted_requests.find(response_hash);
             if (pending_resp_itr == submitted_requests.end())
                 continue;
@@ -250,15 +251,17 @@ int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry
     std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(fs_entry_resp->path());
     std::string root_path_str(root_path_sv.data(), root_path_sv.size());
 
-    if (!statefs::is_dir_exists(root_path_str))
-    {
-        statefs::create_dir(root_path_str);
-    }
-    else
-    {
-        if (statefs::get_fs_entry_hashes(existing_fs_entries, std::move(root_path_str), hasher::B2H_empty) == -1)
-            return -1;
-    }
+    // TODO: Create state path dir if not exist.
+    // TODO: Get existing fs entries hash map.
+    // if (!statefs::is_dir_exists(root_path_str))
+    // {
+    //     statefs::create_dir(root_path_str);
+    // }
+    // else
+    // {
+    //     if (statefs::get_fs_entry_hashes(existing_fs_entries, std::move(root_path_str), hpfs::h32_empty) == -1)
+    //         return -1;
+    // }
 
     // Request more info on fs entries that exist on both sides but are different.
     for (const auto &[path, fs_entry] : existing_fs_entries)
@@ -281,13 +284,13 @@ int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry
             // If there was an entry that does not exist on other side, delete it from this node.
             if (fs_entry.is_file)
             {
-                if (statefs::delete_file(path) == -1)
-                    return -1;
+                //if (statefs::delete_file(path) == -1)
+                //    return -1;
             }
             else
             {
-                if (statefs::delete_dir(path) == -1)
-                    return -1;
+                //if (statefs::delete_dir(path) == -1)
+                //    return -1;
             }
         }
     }
@@ -310,14 +313,14 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
     const std::string path_str(path_sv.data(), path_sv.size());
 
     std::vector<uint8_t> existing_block_hashmap;
-    if (statefs::get_block_hash_map(existing_block_hashmap, path_str, hasher::B2H_empty) == -1)
-        return -1;
+    //if (statefs::get_block_hash_map(existing_block_hashmap, path_str, hpfs::h32_empty) == -1)
+    //    return -1;
 
-    const hasher::B2H *existing_hashes = reinterpret_cast<const hasher::B2H *>(existing_block_hashmap.data());
-    auto existing_hash_count = existing_block_hashmap.size() / hasher::HASH_SIZE;
+    const hpfs::h32 *existing_hashes = reinterpret_cast<const hpfs::h32 *>(existing_block_hashmap.data());
+    auto existing_hash_count = existing_block_hashmap.size() / sizeof(hpfs::h32);
 
-    const hasher::B2H *resp_hashes = reinterpret_cast<const hasher::B2H *>(file_resp->hash_map()->data());
-    auto resp_hash_count = file_resp->hash_map()->size() / hasher::HASH_SIZE;
+    const hpfs::h32 *resp_hashes = reinterpret_cast<const hpfs::h32 *>(file_resp->hash_map()->data());
+    auto resp_hash_count = file_resp->hash_map()->size() / sizeof(hpfs::h32);
 
     auto insert_itr = pending_requests.begin();
 
@@ -335,8 +338,8 @@ int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *
 
     if (existing_hash_count > resp_hash_count)
     {
-        if (statefs::truncate_file(path_str, file_resp->file_length()) == -1)
-            return -1;
+        //if (statefs::truncate_file(path_str, file_resp->file_length()) == -1)
+        //    return -1;
     }
     else if (existing_hash_count < resp_hash_count)
     {
@@ -354,8 +357,8 @@ int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg
 {
     p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*block_msg);
 
-    if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
-        return -1;
+    //if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
+    //    return -1;
 
     return 0;
 }
