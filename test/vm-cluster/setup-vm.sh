@@ -17,6 +17,7 @@ if [ $mode = "new" ]; then
                             ../bin/fusermount3 \
                             ../bin/websocketd \
                             ../bin/websocat \
+                            ../bin/hpfs \
                             ./consensus-test-continuous.sh \
                             ./setup-hp.sh \
                             geveo@$vmip:~/
