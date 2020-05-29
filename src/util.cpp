@@ -1,84 +1,85 @@
 #include "pchheader.hpp"
+#include "hplog.hpp"
 #include "util.hpp"
 
 namespace util
 {
 
-// rollover_hashset class methods
+    // rollover_hashset class methods
 
-rollover_hashset::rollover_hashset(const uint32_t maxsize)
-{
-    this->maxsize = maxsize == 0 ? 1 : maxsize;
-}
+    rollover_hashset::rollover_hashset(const uint32_t maxsize)
+    {
+        this->maxsize = maxsize == 0 ? 1 : maxsize;
+    }
 
-/**
+    /**
  * Inserts the given hash to the list.
  * @return True on succesful insertion. False if hash already exists.
  */
-bool rollover_hashset::try_emplace(const std::string hash)
-{
-    const auto itr = recent_hashes.find(hash);
-    if (itr == recent_hashes.end()) // Not found
+    bool rollover_hashset::try_emplace(const std::string hash)
     {
-        // Add the new message hash to the set.
-        const auto [newitr, success] = recent_hashes.emplace(std::move(hash));
-
-        // Insert a pointer to the stored hash value to the back of the ordered list of hashes.
-        recent_hashes_list.push_back(&(*newitr));
-
-        // Remove oldest hash if exceeding max size.
-        if (recent_hashes_list.size() > maxsize)
+        const auto itr = recent_hashes.find(hash);
+        if (itr == recent_hashes.end()) // Not found
         {
-            const std::string &oldest_hash = *recent_hashes_list.front();
-            recent_hashes.erase(oldest_hash);
-            recent_hashes_list.pop_front();
+            // Add the new message hash to the set.
+            const auto [newitr, success] = recent_hashes.emplace(std::move(hash));
+
+            // Insert a pointer to the stored hash value to the back of the ordered list of hashes.
+            recent_hashes_list.push_back(&(*newitr));
+
+            // Remove oldest hash if exceeding max size.
+            if (recent_hashes_list.size() > maxsize)
+            {
+                const std::string &oldest_hash = *recent_hashes_list.front();
+                recent_hashes.erase(oldest_hash);
+                recent_hashes_list.pop_front();
+            }
+
+            return true; // Hash was inserted successfuly.
         }
 
-        return true; // Hash was inserted successfuly.
+        return false; // Hash already exists.
     }
 
-    return false; // Hash already exists.
-}
+    // ttl_set class methods.
 
-// ttl_set class methods.
-
-/**
+    /**
  * If key does not exist, inserts it with the specified ttl. If key exists,
  * renews the expiration time to match the time-to-live from now onwards.
  * @param key Object to insert.
  * @param ttl Time to live in milliseonds.
  */
-void ttl_set::emplace(const std::string key, uint64_t ttl_milli)
-{
-    ttlmap[key] = util::get_epoch_milliseconds() + ttl_milli;
-}
+    void ttl_set::emplace(const std::string key, uint64_t ttl_milli)
+    {
+        ttlmap[key] = util::get_epoch_milliseconds() + ttl_milli;
+    }
 
-void ttl_set::erase(const std::string &key)
-{
-    const auto itr = ttlmap.find(key);
-    if (itr != ttlmap.end())
-        ttlmap.erase(itr);
-}
+    void ttl_set::erase(const std::string &key)
+    {
+        const auto itr = ttlmap.find(key);
+        if (itr != ttlmap.end())
+            ttlmap.erase(itr);
+    }
 
-/**
+    /**
  * Returns true of the key exists and not expired. Returns false if key does not exist
  * or has expired.
  */
-bool ttl_set::exists(const std::string &key)
-{
-    const auto itr = ttlmap.find(key);
-    if (itr == ttlmap.end()) // Not found
-        return false;
+    bool ttl_set::exists(const std::string &key)
+    {
+        const auto itr = ttlmap.find(key);
+        if (itr == ttlmap.end()) // Not found
+            return false;
 
-    // Check whether we are passed the expiration time (itr->second is the expiration time)
-    const bool expired = util::get_epoch_milliseconds() > itr->second;
-    if (expired)
-        ttlmap.erase(itr);
+        // Check whether we are passed the expiration time (itr->second is the expiration time)
+        const bool expired = util::get_epoch_milliseconds() > itr->second;
+        if (expired)
+            ttlmap.erase(itr);
 
-    return !expired;
-}
+        return !expired;
+    }
 
-/**
+    /**
  * Encodes provided bytes to hex string.
  * 
  * @param encoded_string String reference to assign the hex encoded output.
@@ -86,63 +87,63 @@ bool ttl_set::exists(const std::string &key)
  * @param bin_len Bytes length.
  * @return Always returns 0.
  */
-int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len)
-{
-    // Allocate the target string.
-    encoded_string.resize(bin_len * 2);
+    int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len)
+    {
+        // Allocate the target string.
+        encoded_string.resize(bin_len * 2);
 
-    // Get encoded string.
-    sodium_bin2hex(
-        encoded_string.data(),
-        encoded_string.length() + 1, // + 1 because sodium writes ending '\0' character as well.
-        bin,
-        bin_len);
+        // Get encoded string.
+        sodium_bin2hex(
+            encoded_string.data(),
+            encoded_string.length() + 1, // + 1 because sodium writes ending '\0' character as well.
+            bin,
+            bin_len);
 
-    return 0;
-}
+        return 0;
+    }
 
-/**
+    /**
  * Decodes provided hex string into bytes.
  * 
  * @param decodedbuf Buffer to assign decoded bytes.
  * @param decodedbuf_len Decoded buffer size.
  * @param hex_str hex string to decode.
  */
-int hex2bin(unsigned char *decodedbuf, const size_t decodedbuf_len, std::string_view hex_str)
-{
-    const char *hex_end;
-    size_t bin_len;
-    if (sodium_hex2bin(
-            decodedbuf, decodedbuf_len,
-            hex_str.data(),
-            hex_str.length(),
-            "", &bin_len, &hex_end))
+    int hex2bin(unsigned char *decodedbuf, const size_t decodedbuf_len, std::string_view hex_str)
     {
-        return -1;
+        const char *hex_end;
+        size_t bin_len;
+        if (sodium_hex2bin(
+                decodedbuf, decodedbuf_len,
+                hex_str.data(),
+                hex_str.length(),
+                "", &bin_len, &hex_end))
+        {
+            return -1;
+        }
+
+        return 0;
     }
 
-    return 0;
-}
-
-/**
+    /**
  * Returns current time in UNIX epoch milliseconds.
  */
-int64_t get_epoch_milliseconds()
-{
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
+    int64_t get_epoch_milliseconds()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    }
 
-/**
+    /**
  * Sleeps the current thread for specified no. of milliseconds.
  */
-void sleep(const uint64_t milliseconds)
-{
-    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
-}
+    void sleep(const uint64_t milliseconds)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    }
 
-/**
+    /**
  * Compare two version strings in the format of "1.12.3".
  * v1 <  v2  -> returns -1
  * v1 == v2  -> returns  0
@@ -154,56 +155,76 @@ void sleep(const uint64_t milliseconds)
  * syntax because istringstream doesn't support string_view. It's not worth optmising
  * this code as it's not being used in high-scale processing.
  */
-int version_compare(const std::string &x, const std::string &y)
-{
-    std::istringstream ix(x), iy(y);
-    while (ix.good() || iy.good())
+    int version_compare(const std::string &x, const std::string &y)
     {
-        int cx = 0, cy = 0;
-        ix >> cx;
-        iy >> cy;
+        std::istringstream ix(x), iy(y);
+        while (ix.good() || iy.good())
+        {
+            int cx = 0, cy = 0;
+            ix >> cx;
+            iy >> cy;
 
-        if ((!ix.eof() && !ix.good()) || (!iy.eof() && !iy.good()))
-            return -2;
+            if ((!ix.eof() && !ix.good()) || (!iy.eof() && !iy.good()))
+                return -2;
 
-        if (cx > cy)
-            return 1;
-        if (cx < cy)
-            return -1;
+            if (cx > cy)
+                return 1;
+            if (cx < cy)
+                return -1;
 
-        ix.ignore();
-        iy.ignore();
+            ix.ignore();
+            iy.ignore();
+        }
+
+        return 0;
     }
 
-    return 0;
-}
-
-/**
+    /**
  * Returns a std::string_view pointing to the rapidjson Value which is assumed
  * to be a string. We use this function because rapidjson does not have built-in string_view
  * support. Passing a non-string 'v' is not supported.
  */
-std::string_view getsv(const rapidjson::Value &v)
-{
-    return std::string_view(v.GetString(), v.GetStringLength());
-}
+    std::string_view getsv(const rapidjson::Value &v)
+    {
+        return std::string_view(v.GetString(), v.GetStringLength());
+    }
 
-// Provide a safe std::string overload for realpath
-std::string realpath(std::string path)
-{
-    std::array<char, PATH_MAX> buffer;
-    ::realpath(path.c_str(), buffer.data());
-    buffer[PATH_MAX] = '\0';
-    return buffer.data();
-}
+    // Provide a safe std::string overload for realpath
+    std::string realpath(std::string path)
+    {
+        std::array<char, PATH_MAX> buffer;
+        ::realpath(path.c_str(), buffer.data());
+        buffer[PATH_MAX] = '\0';
+        return buffer.data();
+    }
 
-// Applies signal mask to the calling thread.
-void mask_signal()
-{
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGINT);
-    pthread_sigmask(SIG_BLOCK, &mask, NULL);
-}
+    // Applies signal mask to the calling thread.
+    void mask_signal()
+    {
+        sigset_t mask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGINT);
+        pthread_sigmask(SIG_BLOCK, &mask, NULL);
+    }
+
+    // Kill a process with SIGINT and wait until it stops running.
+    // If it keeps running then issue SIGKILL
+    int kill_process(const pid_t pid)
+    {
+        if (kill(pid, SIGINT) == -1)
+        {
+            LOG_ERR << errno << ": Error issuing SIGINT to pid " << pid;
+            return -1;
+        }
+
+        int pid_status;
+        if (waitpid(pid, &pid_status, 0) == -1)
+        {
+            LOG_ERR << errno << ": waitpid failed.";
+            return -1;
+        }
+
+        return 0;
+    }
 
 } // namespace util

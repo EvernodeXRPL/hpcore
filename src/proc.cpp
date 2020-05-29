@@ -6,6 +6,7 @@
 #include "fbschema/p2pmsg_content_generated.h"
 #include "proc.hpp"
 #include "cons/cons.hpp"
+#include "hpfs/hpfs.hpp"
 
 namespace proc
 {
@@ -35,8 +36,8 @@ std::vector<int> hpscfds;
 // Holds the contract process id (if currently executing).
 pid_t contract_pid;
 
-// Holds the state monitor process id (if currently executing).
-pid_t statemon_pid;
+// Holds the hpfs rw process id (if currently executing).
+pid_t hpfs_pid;
 
 const char *FINDMNT_COMMAND = "findmnt --noheadings ";
 
@@ -114,6 +115,8 @@ int exec_contract(const contract_exec_args &args)
             execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
         execv_args[len - 1] = NULL;
 
+        chdir(conf::ctx.state_rw_dir.c_str());
+
         int ret = execv(execv_args[0], execv_args);
         LOG_ERR << errno << ": Contract process execv failed.";
         exit(1);
@@ -128,7 +131,7 @@ int exec_contract(const contract_exec_args &args)
 }
 
 /**
- * Blocks the calling thread until the specified process compelted exeution (if running).
+ * Blocks the calling thread until the specified process completed exeution (if running).
  * @return 0 if process exited normally or exit code of process if abnormally exited.
  */
 int await_process_execution(pid_t pid)
@@ -144,11 +147,17 @@ int await_process_execution(pid_t pid)
 }
 
 /**
- * Starts the hpfs state filesystem.
+ * Starts the hpfs read/write state filesystem.
  */
 int start_state_monitor()
 {
-    return 0;
+    LOG_DBG << "Starting hpfs rw session...";
+    int res = hpfs::start_hpfs_process("rw", conf::ctx.state_rw_dir.c_str());
+    if (res == -1)
+        return -1;
+
+    hpfs_pid = res;
+    LOG_DBG << "hpfs rw session started.";
 }
 
 /**
@@ -156,6 +165,12 @@ int start_state_monitor()
  */
 int stop_state_monitor()
 {
+    LOG_DBG << "Stopping hpfs rw session...";
+    if (util::kill_process(hpfs_pid) == -1)
+        return -1;
+
+    hpfs_pid = 0;
+    LOG_DBG << "hpfs rw session stopped.";
     return 0;
 }
 
@@ -660,8 +675,8 @@ void deinit()
     if (contract_pid > 0)
         kill(contract_pid, SIGINT);
 
-    if (statemon_pid > 0)
-        kill(statemon_pid, SIGINT);
+    if (hpfs_pid > 0)
+        kill(hpfs_pid, SIGINT);
 }
 
 } // namespace proc

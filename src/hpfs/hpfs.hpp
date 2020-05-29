@@ -7,7 +7,7 @@ namespace hpfs
 {
     int init();
     void deinit();
-    int start_hpfs_process(const char *mode, const char *mount_dir = NULL);
+    int start_hpfs_process(const char *mode, const char *mount_dir);
 }
 
 #endif

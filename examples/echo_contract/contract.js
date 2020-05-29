@@ -9,7 +9,7 @@ const fs = require('fs')
 let hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
 
 // We just save execution args as an example state file change.
-fs.appendFileSync("state/exects.txt", "ts:" + hpargs.ts + "\n");
+fs.appendFileSync("exects.txt", "ts:" + hpargs.ts + "\n");
 
 Object.keys(hpargs.usrfd).forEach(function (key, index) {
     let userfds = hpargs.usrfd[key];
@@ -17,7 +17,7 @@ Object.keys(hpargs.usrfd).forEach(function (key, index) {
 
     if (userinput.length > 0) {
         // Append user input to a state file.
-        fs.appendFileSync("state/userinputs.txt", userinput + "\n");
+        fs.appendFileSync("userinputs.txt", userinput + "\n");
         fs.writeSync(userfds[1], "Echoing: " + userinput);
     }
 });
