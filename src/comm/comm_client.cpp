@@ -7,90 +7,89 @@
 namespace comm
 {
 
-int comm_client::start(std::string_view host, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
-{
-    return start_websocat_process(host, port);
-}
-
-void comm_client::stop()
-{
-    if (read_fd > 0)
-        close(read_fd);
-    if (write_fd > 0)
-        close(write_fd);
-
-    if (websocat_pid > 0)
-        kill(websocat_pid, SIGINT); // Kill websocat.
-}
-
-int comm_client::start_websocat_process(std::string_view host, const uint16_t port)
-{
-    // setup pipe I/O
-    if (pipe(read_pipe) < 0 || pipe(write_pipe) < 0)
+    int comm_client::start(std::string_view host, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
     {
-        LOG_ERR << errno << ": websocat pipe creation failed.";
-        return -1;
+        return start_websocat_process(host, port);
     }
 
-    const pid_t pid = fork();
-
-    if (pid > 0)
+    void comm_client::stop()
     {
-        // HotPocket process.
-        websocat_pid = pid;
-
-        read_fd = read_pipe[0];
-        write_fd = write_pipe[1];
-
-        // Close unused fds by us.
-        close(write_pipe[0]);
-        close(read_pipe[1]);
-
-        // Wait for some time and check if websocat is still running properly.
-        util::sleep(20);
-        int pid_status;
-        waitpid(websocat_pid, &pid_status, WNOHANG);
-        if (WIFEXITED(pid_status)) // This means websocat has exited.
-        {
+        if (read_fd > 0)
             close(read_fd);
+        if (write_fd > 0)
             close(write_fd);
+
+        if (websocat_pid > 0)
+            kill(websocat_pid, SIGINT); // Kill websocat.
+    }
+
+    int comm_client::start_websocat_process(std::string_view host, const uint16_t port)
+    {
+        // setup pipe I/O
+        if (pipe(read_pipe) < 0 || pipe(write_pipe) < 0)
+        {
+            LOG_ERR << errno << ": websocat pipe creation failed.";
             return -1;
         }
+
+        const pid_t pid = fork();
+
+        if (pid > 0)
+        {
+            // HotPocket process.
+
+            read_fd = read_pipe[0];
+            write_fd = write_pipe[1];
+
+            // Close unused fds by us.
+            close(write_pipe[0]);
+            close(read_pipe[1]);
+
+            // Wait for some time and check if websocat is still running properly.
+            util::sleep(20);
+            if (kill(pid, 0) == -1)
+            {
+                close(read_fd);
+                close(write_fd);
+                return -1;
+            }
+
+            websocat_pid = pid;
+        }
+        else if (pid == 0)
+        {
+            // Websocat process.
+            close(write_pipe[1]); //parent write
+            close(read_pipe[0]);  //parent read
+
+            dup2(write_pipe[0], STDIN_FILENO); //child read
+            close(write_pipe[0]);
+            dup2(read_pipe[1], STDOUT_FILENO); //child write
+            close(read_pipe[1]);
+
+            std::string url = std::string("wss://").append(host).append(":").append(std::to_string(port));
+
+            // Fill process args.
+            char *execv_args[] = {
+                conf::ctx.websocat_exe_path.data(),
+                url.data(),
+                (char *)"-k", // Accept invalid certificates
+                (char *)"-b", // Binary mode
+                (char *)"-E", // Close on EOF
+                (char *)"-q", // Quiet mode
+                NULL};
+
+            const int ret = execv(execv_args[0], execv_args);
+            LOG_ERR << errno << ": websocat process execv failed.";
+            exit(1);
+        }
+        else
+        {
+            LOG_ERR << "fork() failed when starting websocat process.";
+            return -1;
+        }
+
+        return 0;
     }
-    else if (pid == 0)
-    {
-        // Websocat process.
-        close(write_pipe[1]); //parent write
-        close(read_pipe[0]);  //parent read
-
-        dup2(write_pipe[0], STDIN_FILENO); //child read
-        close(write_pipe[0]);
-        dup2(read_pipe[1], STDOUT_FILENO); //child write
-        close(read_pipe[1]);
-
-        std::string url = std::string("wss://").append(host).append(":").append(std::to_string(port));
-
-        // Fill process args.
-        char *execv_args[] = {
-            conf::ctx.websocat_exe_path.data(),
-            url.data(),
-            (char *)"-k", // Accept invalid certificates
-            (char *)"-b", // Binary mode
-            (char *)"-E", // Close on EOF
-            (char *)"-q", // Quiet mode
-            NULL};
-
-        const int ret = execv(execv_args[0], execv_args);
-        LOG_ERR << errno << ": websocat process execv failed.";
-        exit(1);
-    }
-    else
-    {
-        LOG_ERR << "fork() failed when starting websocat process.";
-        return -1;
-    }
-
-    return 0;
-}
 
 } // namespace comm

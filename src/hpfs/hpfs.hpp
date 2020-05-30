@@ -7,7 +7,9 @@ namespace hpfs
 {
     int init();
     void deinit();
-    int start_hpfs_process(const char *mode, const char *mount_dir);
+    int start_merge_process();
+    int start_fs_session(pid_t &session_pid, std::string &mount_dir,
+                         const char *mode, const bool hash_map_enabled);
 }
 
 #endif
