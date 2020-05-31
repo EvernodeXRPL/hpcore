@@ -104,7 +104,7 @@ namespace hpfs
             if (!hpfs_initialized)
             {
                 LOG_ERR << "Couldn't initialize hpfs session.";
-                kill(pid, SIGKILL);
+                util::kill_process(pid);
                 return -1;
             }
 
@@ -151,7 +151,7 @@ namespace hpfs
             return -1;
 
         int res = get_hash(hash, mount_dir, "/");
-        kill(pid, SIGINT);
+        util::kill_process(pid);
 
         return res;
     }

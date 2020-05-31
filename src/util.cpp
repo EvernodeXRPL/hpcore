@@ -208,7 +208,6 @@ namespace util
     }
 
     // Kill a process with SIGINT and wait until it stops running.
-    // If it keeps running then issue SIGKILL
     int kill_process(const pid_t pid)
     {
         if (kill(pid, SIGINT) == -1)

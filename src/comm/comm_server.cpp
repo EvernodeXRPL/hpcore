@@ -402,7 +402,7 @@ namespace comm
         watchdog_thread.join();
 
         if (websocketd_pid > 0)
-            kill(websocketd_pid, SIGINT); // Kill websocketd.
+            util::kill_process(websocketd_pid); // Kill websocketd.
     }
 
 } // namespace comm

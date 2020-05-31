@@ -674,10 +674,10 @@ namespace proc
     void deinit()
     {
         if (contract_pid > 0)
-            kill(contract_pid, SIGINT);
+            util::kill_process(contract_pid);
 
         if (hpfs_pid > 0)
-            kill(hpfs_pid, SIGINT);
+            util::kill_process(hpfs_pid);
     }
 
 } // namespace proc
