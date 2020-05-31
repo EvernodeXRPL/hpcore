@@ -189,7 +189,10 @@ int main(int argc, char **argv)
                          << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
 
                 if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
+                {
+                    deinit();
                     return -1;
+                }
 
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);

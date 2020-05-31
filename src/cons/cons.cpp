@@ -32,6 +32,8 @@ namespace cons
 
     consensus_context ctx;
 
+    bool init_success = false;
+
     int init()
     {
         //set start stage
@@ -56,6 +58,7 @@ namespace cons
         ctx.stage_time = conf::cfg.roundtime / 5;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
+        init_success = true;
         return 0;
     }
 
@@ -64,8 +67,11 @@ namespace cons
  */
     void deinit()
     {
-        ctx.is_shutting_down = true;
-        ctx.state_syncing_thread.join();
+        if (init_success)
+        {
+            ctx.is_shutting_down = true;
+            ctx.state_syncing_thread.join();
+        }
     }
 
     void consensus()

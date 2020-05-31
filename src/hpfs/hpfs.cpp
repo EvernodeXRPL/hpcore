@@ -8,6 +8,8 @@ namespace hpfs
 {
     pid_t merge_pid = 0;
 
+    bool init_success = false;
+
     int init()
     {
         LOG_INFO << "Starting hpfs merge process...";
@@ -15,14 +17,18 @@ namespace hpfs
             return -1;
 
         LOG_INFO << "Started hpfs merge process. pid:" << merge_pid;
+        init_success = true;
         return 0;
     }
 
     void deinit()
     {
-        LOG_INFO << "Stopping hpfs merge process... pid:" << merge_pid;
-        if (merge_pid > 0 && util::kill_process(merge_pid) == 0)
-            LOG_INFO << "Stopped hpfs merge process.";
+        if (init_success)
+        {
+            LOG_INFO << "Stopping hpfs merge process... pid:" << merge_pid;
+            if (merge_pid > 0 && util::kill_process(merge_pid) == 0)
+                LOG_INFO << "Stopped hpfs merge process.";
+        }
     }
 
     int start_merge_process()
@@ -141,12 +147,13 @@ namespace hpfs
     {
         pid_t pid;
         std::string mount_dir;
-        if (start_fs_session(pid, mount_dir, "ro", true) == -1 ||
-            get_hash(hash, mount_dir, "/") == -1 ||
-            kill(pid, SIGINT) == -1)
+        if (start_fs_session(pid, mount_dir, "ro", true) == -1)
             return -1;
 
-        return 0;
+        int res = get_hash(hash, mount_dir, "/");
+        kill(pid, SIGINT);
+
+        return res;
     }
 
     int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
