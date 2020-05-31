@@ -5,7 +5,6 @@
 #include "fbschema/p2pmsg_container_generated.h"
 #include "fbschema/p2pmsg_content_generated.h"
 #include "proc.hpp"
-#include "cons/cons.hpp"
 #include "hpfs/hpfs.hpp"
 
 namespace proc
@@ -45,7 +44,7 @@ namespace proc
  * Executes the contract process and passes the specified arguments.
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
  */
-    int exec_contract(const contract_exec_args &args)
+    int exec_contract(const contract_exec_args &args, hpfs::h32 &state_hash)
     {
         // Setup io pipes and feed all inputs to them.
         create_iopipes_for_fdmap(userfds, args.userbufs);
@@ -79,7 +78,7 @@ namespace proc
                 return -1;
             }
 
-            if (stop_state_monitor() != 0)
+            if (stop_state_monitor(state_hash) != 0)
                 return -1;
 
             // After contract execution, collect contract outputs.
@@ -161,8 +160,12 @@ namespace proc
     /**
  * Stops the hpfs state filesystem.
  */
-    int stop_state_monitor()
+    int stop_state_monitor(hpfs::h32 &state_hash)
     {
+        // Read the root hash.
+        if (hpfs::get_hash(state_hash, conf::ctx.state_rw_dir, "/") == -1)
+            return -1;
+
         LOG_DBG << "Stopping hpfs rw session... pid:" << hpfs_pid;
         if (util::kill_process(hpfs_pid) == -1)
             return -1;

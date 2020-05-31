@@ -926,7 +926,8 @@ namespace cons
         // todo:implement exchange of hpsc bufs
         proc::contract_iobuf_pair hpscbufpair;
         proc::exec_contract(
-            proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair));
+            proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair),
+            ctx.curr_state_hash);
     }
 
     /**

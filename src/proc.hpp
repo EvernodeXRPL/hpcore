@@ -3,6 +3,7 @@
 
 #include "pchheader.hpp"
 #include "usr/usr.hpp"
+#include "hpfs/h32.hpp"
 #include "util.hpp"
 
 /**
@@ -66,7 +67,7 @@ struct contract_exec_args
     }
 };
 
-int exec_contract(const contract_exec_args &args);
+int exec_contract(const contract_exec_args &args, hpfs::h32 &state_hash);
 
 void deinit();
 
@@ -76,7 +77,7 @@ int await_process_execution(pid_t pid);
 
 int start_state_monitor();
 
-int stop_state_monitor();
+int stop_state_monitor(hpfs::h32 &state_hash);
 
 int write_contract_args(const contract_exec_args &args);
 
