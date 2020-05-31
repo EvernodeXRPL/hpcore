@@ -75,9 +75,9 @@ void deinit();
 
 int await_process_execution(pid_t pid);
 
-int start_state_monitor();
+int start_hpfs_rw_session();
 
-int stop_state_monitor(hpfs::h32 &state_hash);
+int stop_hpfs_rw_session(hpfs::h32 &state_hash);
 
 int write_contract_args(const contract_exec_args &args);
 

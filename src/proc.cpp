@@ -54,8 +54,8 @@ namespace proc
         if (feed_inputs(args) != 0)
             return -1;
 
-        // Start the state monitor before starting the contract process.
-        if (start_state_monitor() != 0)
+        // Start the hpfs rw session before starting the contract process.
+        if (start_hpfs_rw_session() != 0)
             return -1;
 
         const pid_t pid = fork();
@@ -78,7 +78,7 @@ namespace proc
                 return -1;
             }
 
-            if (stop_state_monitor(state_hash) != 0)
+            if (stop_hpfs_rw_session(state_hash) != 0)
                 return -1;
 
             // After contract execution, collect contract outputs.
@@ -148,7 +148,7 @@ namespace proc
     /**
  * Starts the hpfs read/write state filesystem.
  */
-    int start_state_monitor()
+    int start_hpfs_rw_session()
     {
         LOG_DBG << "Starting hpfs rw session...";
         if (hpfs::start_fs_session(hpfs_pid, conf::ctx.state_rw_dir, "rw", true) == -1)
@@ -160,7 +160,7 @@ namespace proc
     /**
  * Stops the hpfs state filesystem.
  */
-    int stop_state_monitor(hpfs::h32 &state_hash)
+    int stop_hpfs_rw_session(hpfs::h32 &state_hash)
     {
         // Read the root hash.
         if (hpfs::get_hash(state_hash, conf::ctx.state_rw_dir, "/") == -1)
