@@ -29,6 +29,26 @@ namespace hpfs
         this->data[3] ^= rhs.data[3];
     }
 
+    std::string_view h32::to_string_view() const
+    {
+        return std::string_view(reinterpret_cast<const char *>(this), sizeof(hpfs::h32));
+    }
+
+    h32 &h32::operator=(std::string_view sv)
+    {
+        memcpy(this->data, sv.data(), sizeof(h32));
+        return *this;
+    }
+
+    // Comparison operator for std::map key support.
+    bool h32::operator<(const h32 rhs) const
+    {
+        // Here we do not actually care about true comparison value.
+        // We just need the comparison to return consistent result based on
+        // a fixed criteria.
+        return this->data[0] < rhs.data[0];
+    }
+
     std::ostream &operator<<(std::ostream &output, const h32 &h)
     {
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(&h);

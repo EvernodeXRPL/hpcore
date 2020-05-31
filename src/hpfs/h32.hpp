@@ -15,6 +15,9 @@ namespace hpfs
         bool operator==(const h32 rhs) const;
         bool operator!=(const h32 rhs) const;
         void operator^=(const h32 rhs);
+        std::string_view to_string_view() const;
+        h32 &operator=(std::string_view sv);
+        bool operator<(const h32 rhs) const;
     };
     extern h32 h32_empty;
 

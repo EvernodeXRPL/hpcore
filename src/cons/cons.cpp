@@ -42,13 +42,10 @@ int init()
     ctx.lcl = ldr_hist.lcl;
     ctx.ledger_cache.swap(ldr_hist.cache);
 
-    hpfs::h32 root_hash = hpfs::h32_empty;
+    ctx.curr_hash_state = hpfs::h32_empty;
     // TODO: Get root hash from hpfs
 
-    LOG_INFO << "Initial state: " << root_hash;
-
-    std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), sizeof(hpfs::h32));
-    str_root_hash.swap(ctx.curr_hash_state);
+    LOG_INFO << "Initial state: " << ctx.curr_hash_state;
 
     ctx.state_syncing_thread = std::thread(&run_state_sync_iterator);
 
@@ -200,7 +197,7 @@ void consensus()
 
                     // node has finished a consensus round (all 4 stages).
                     LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
-                             << " state:" << *reinterpret_cast<const hpfs::h32 *>(cons::ctx.curr_hash_state.c_str()) << ")";
+                             << " state:" << ctx.curr_hash_state << ")";
                 }
             }
         }
@@ -232,7 +229,7 @@ void purify_candidate_proposals()
                     << " hout:" << cp.hash_outputs.size()
                     << " ts:" << std::to_string(cp.time)
                     << " lcl:" << cp.lcl.substr(0, 15)
-                    << " state:" << *reinterpret_cast<const hpfs::h32 *>(cp.curr_hash_state.c_str())
+                    << " state:" << cp.curr_hash_state
                     << " self:" << self;
         }
         else
@@ -786,7 +783,7 @@ void dispatch_user_outputs(const p2p::proposal &cons_prop)
  */
 void check_state(vote_counter &votes)
 {
-    std::string majority_state;
+    hpfs::h32 majority_state;
 
     for (const auto &[pubkey, cp] : ctx.candidate_proposals)
     {
@@ -806,12 +803,9 @@ void check_state(vote_counter &votes)
     if (ctx.is_state_syncing)
     {
         std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
-        hpfs::h32 root_hash = hpfs::h32_empty;
         
         // TODO: Get root hash from hpfs
-
-        std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), sizeof(hpfs::h32));
-        str_root_hash.swap(ctx.curr_hash_state);
+        // ctx.curr_hash_state == <root hash>
     }
 
     // We do not initiate state sync in stage 3 because the majority state is likely to get changed soon.
@@ -822,10 +816,9 @@ void check_state(vote_counter &votes)
             // Switch to observer mode to avoid sending out proposals till the state is synced
             conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
-            const hpfs::h32 majority_state_hash = *reinterpret_cast<const hpfs::h32 *>(majority_state.c_str());
-            LOG_INFO << "Syncing state. Curr state:" << *reinterpret_cast<const hpfs::h32 *>(ctx.curr_hash_state.c_str()) << " majority:" << majority_state_hash;
+            LOG_INFO << "Syncing state. Curr state:" << ctx.curr_hash_state << " majority:" << majority_state;
 
-            start_state_sync(majority_state_hash);
+            start_state_sync(majority_state);
 
             ctx.is_state_syncing = true;
             ctx.state_sync_lcl = ctx.lcl;
@@ -833,7 +826,7 @@ void check_state(vote_counter &votes)
     }
     else if (majority_state == ctx.curr_hash_state && ctx.is_state_syncing)
     {
-        LOG_INFO << "State sync complete. state:" << *reinterpret_cast<const hpfs::h32 *>(ctx.curr_hash_state.c_str());
+        LOG_INFO << "State sync complete. state:" << ctx.curr_hash_state;
 
         ctx.is_state_syncing = false;
         ctx.state_sync_lcl.clear();

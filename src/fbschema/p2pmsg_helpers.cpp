@@ -365,7 +365,7 @@ void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder,
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
-            sv_to_flatbuff_bytes(builder, p.curr_hash_state));
+            sv_to_flatbuff_bytes(builder, p.curr_hash_state.to_string_view()));
 
     const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
     builder.Finish(message); // Finished building message content to get serialised content.

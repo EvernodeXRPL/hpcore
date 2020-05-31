@@ -20,7 +20,7 @@ struct proposal
     uint64_t time;
     uint8_t stage;
     std::string lcl;
-    std::string curr_hash_state;
+    hpfs::h32 curr_hash_state;
     std::set<std::string> users;
     std::set<std::string> hash_inputs;
     std::set<std::string> hash_outputs;

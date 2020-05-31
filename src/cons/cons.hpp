@@ -6,6 +6,7 @@
 #include "../proc.hpp"
 #include "../p2p/p2p.hpp"
 #include "../usr/user_input.hpp"
+#include "../hpfs/h32.hpp"
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 
@@ -73,7 +74,7 @@ struct consensus_context
     uint64_t time_now = 0;
     std::string lcl;
     uint64_t led_seq_no = 0;
-    std::string curr_hash_state;
+    hpfs::h32 curr_hash_state;
 
     //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
     //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.
@@ -107,7 +108,7 @@ struct vote_counter
     std::map<std::string, int32_t> users;
     std::map<std::string, int32_t> inputs;
     std::map<std::string, int32_t> outputs;
-    std::map<std::string, int32_t> state;
+    std::map<hpfs::h32, int32_t> state;
 };
 
 extern consensus_context ctx;
