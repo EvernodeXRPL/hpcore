@@ -730,10 +730,6 @@ void apply_ledger(const p2p::proposal &cons_prop)
     // Send any output from the previous consensus round to locally connected users.
     dispatch_user_outputs(cons_prop);
 
-    // This will hold a list of file blocks that was updated by the contract process.
-    // We then feed this information to state tracking logic.
-    proc::contract_fblockmap_t updated_blocks;
-
     proc::contract_bufmap_t useriobufmap;
 
     proc::contract_iobuf_pair nplbufpair;
@@ -741,7 +737,7 @@ void apply_ledger(const p2p::proposal &cons_prop)
 
     feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
 
-    run_contract_binary(cons_prop.time, useriobufmap, nplbufpair, updated_blocks);
+    run_contract_binary(cons_prop.time, useriobufmap, nplbufpair);
 
     extract_user_outputs_from_contract_bufmap(useriobufmap);
     broadcast_npl_output(nplbufpair.output);
@@ -935,12 +931,12 @@ void broadcast_npl_output(std::string &output)
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair, proc::contract_fblockmap_t &state_updates)
+void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair)
 {
     // todo:implement exchange of hpsc bufs
     proc::contract_iobuf_pair hpscbufpair;
     proc::exec_contract(
-        proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair, state_updates));
+        proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair));
 }
 
 /**

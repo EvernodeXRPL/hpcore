@@ -33,11 +33,6 @@ typedef std::unordered_map<std::string, std::vector<int>> contract_fdmap_t;
 // This is used to keep track of input/output buffers for a given public key (eg. user, npl)
 typedef std::unordered_map<std::string, contract_iobuf_pair> contract_bufmap_t;
 
-// Common typedef for a map of updated blocks of state files by the contract process.
-// This is used as a hint in updating the state merkle tree.
-// filename->modified blocks
-typedef std::unordered_map<std::string, std::set<uint32_t>> contract_fblockmap_t;
-
 /**
  * Holds information that should be passed into the contract process.
  */
@@ -54,10 +49,6 @@ struct contract_exec_args
     // Pair of HP<->SC JSON message buffers (mainly used for control messages).
     // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
     contract_iobuf_pair &hpscbufs;
-
-    // The map of state files that was updated with updated block ids.
-    // Each block id N represents Nth 4MB block of the file.
-    contract_fblockmap_t &state_updates;
     
     // Current HotPocket timestamp.
     const int64_t timestamp;
@@ -66,12 +57,10 @@ struct contract_exec_args
         int64_t timestamp,
         contract_bufmap_t &userbufs,
         contract_iobuf_pair &nplbuff,
-        contract_iobuf_pair &hpscbufs,
-        contract_fblockmap_t &state_updates) :
+        contract_iobuf_pair &hpscbufs) :
             userbufs(userbufs),
             nplbuff(nplbuff),
             hpscbufs(hpscbufs),
-            state_updates(state_updates),
             timestamp(timestamp)
     {
     }
