@@ -117,7 +117,9 @@ int init();
 
 void deinit();
 
-void consensus();
+int run_consensus();
+
+int consensus();
 
 void purify_candidate_proposals();
 
@@ -145,7 +147,7 @@ uint64_t get_ledger_time_resolution(const uint64_t time);
 
 uint64_t get_stage_time_resolution(const uint64_t time);
 
-void apply_ledger(const p2p::proposal &proposal);
+int apply_ledger(const p2p::proposal &proposal);
 
 void dispatch_user_outputs(const p2p::proposal &cons_prop);
 
@@ -157,7 +159,7 @@ void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
 
 void broadcast_npl_output(std::string &output);
 
-void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair);
+int run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair);
 
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);

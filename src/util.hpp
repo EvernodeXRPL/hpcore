@@ -80,7 +80,7 @@ std::string realpath(std::string path);
 
 void mask_signal();
 
-int kill_process(const pid_t pid);
+int kill_process(const pid_t pid, const bool wait);
 
 } // namespace util
 

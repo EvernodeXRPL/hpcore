@@ -167,7 +167,7 @@ namespace proc
             return -1;
 
         LOG_DBG << "Stopping hpfs rw session... pid:" << hpfs_pid;
-        if (util::kill_process(hpfs_pid) == -1)
+        if (util::kill_process(hpfs_pid, true) == -1)
             return -1;
 
         hpfs_pid = 0;
@@ -674,10 +674,10 @@ namespace proc
     void deinit()
     {
         if (contract_pid > 0)
-            util::kill_process(contract_pid);
+            util::kill_process(contract_pid, true);
 
         if (hpfs_pid > 0)
-            util::kill_process(hpfs_pid);
+            util::kill_process(hpfs_pid, true);
     }
 
 } // namespace proc

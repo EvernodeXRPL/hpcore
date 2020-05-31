@@ -74,14 +74,25 @@ namespace cons
         }
     }
 
-    void consensus()
+    int run_consensus()
+    {
+        while (true)
+        {
+            if (consensus() == -1)
+                return -1;
+        }
+
+        return 0;
+    }
+
+    int consensus()
     {
         // A consensus round consists of 4 stages (0,1,2,3).
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
         uint64_t stage_start = 0;
         if (!wait_and_proceed_stage(stage_start))
-            return; // This means the stage has been reset.
+            return 0; // This means the stage has been reset.
 
         // Get the latest current time.
         ctx.time_now = stage_start;
@@ -200,7 +211,8 @@ namespace cons
 
                     if (ctx.stage == 3)
                     {
-                        apply_ledger(stg_prop);
+                        if (apply_ledger(stg_prop) == -1)
+                            return -1;
 
                         // node has finished a consensus round (all 4 stages).
                         LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
@@ -212,6 +224,7 @@ namespace cons
 
         // Node has finished a consensus stage. Transition to next stage.
         ctx.stage = (ctx.stage + 1) % 4;
+        return 0;
     }
 
     /**
@@ -703,7 +716,7 @@ namespace cons
  * Finalize the ledger after consensus.
  * @param cons_prop The proposal that reached consensus.
  */
-    void apply_ledger(const p2p::proposal &cons_prop)
+    int apply_ledger(const p2p::proposal &cons_prop)
     {
         const std::tuple<const uint64_t, std::string> new_lcl = save_ledger(cons_prop);
         ctx.led_seq_no = std::get<0>(new_lcl);
@@ -731,10 +744,12 @@ namespace cons
 
         feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
 
-        run_contract_binary(cons_prop.time, useriobufmap, nplbufpair);
+        if (run_contract_binary(cons_prop.time, useriobufmap, nplbufpair) == -1)
+            return -1;
 
         extract_user_outputs_from_contract_bufmap(useriobufmap);
         broadcast_npl_output(nplbufpair.output);
+        return 0;
     }
 
     /**
@@ -921,11 +936,11 @@ namespace cons
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-    void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair)
+    int run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair)
     {
         // todo:implement exchange of hpsc bufs
         proc::contract_iobuf_pair hpscbufpair;
-        proc::exec_contract(
+        return proc::exec_contract(
             proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair),
             ctx.curr_state_hash);
     }

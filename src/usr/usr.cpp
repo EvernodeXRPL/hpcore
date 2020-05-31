@@ -27,10 +27,10 @@ namespace usr
     int init()
     {
         // Start listening for incoming user connections.
-        if (start_listening() == -1)
-            return -1;
+        // if (start_listening() == -1)
+        //     return -1;
 
-        init_success = true;
+        // init_success = true;
         return 0;
     }
 

@@ -208,7 +208,7 @@ namespace util
     }
 
     // Kill a process with SIGINT and wait until it stops running.
-    int kill_process(const pid_t pid)
+    int kill_process(const pid_t pid, const bool wait)
     {
         if (kill(pid, SIGINT) == -1)
         {
@@ -217,7 +217,7 @@ namespace util
         }
 
         int pid_status;
-        if (waitpid(pid, &pid_status, 0) == -1)
+        if (wait && waitpid(pid, &pid_status, 0) == -1)
         {
             LOG_ERR << errno << ": waitpid failed.";
             return -1;

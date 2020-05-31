@@ -26,7 +26,7 @@ namespace hpfs
         if (init_success)
         {
             LOG_INFO << "Stopping hpfs merge process... pid:" << merge_pid;
-            if (merge_pid > 0 && util::kill_process(merge_pid) == 0)
+            if (merge_pid > 0 && util::kill_process(merge_pid, true) == 0)
                 LOG_INFO << "Stopped hpfs merge process.";
         }
     }
@@ -104,7 +104,7 @@ namespace hpfs
             if (!hpfs_initialized)
             {
                 LOG_ERR << "Couldn't initialize hpfs session.";
-                util::kill_process(pid);
+                util::kill_process(pid, true);
                 return -1;
             }
 
@@ -151,7 +151,7 @@ namespace hpfs
             return -1;
 
         int res = get_hash(hash, mount_dir, "/");
-        util::kill_process(pid);
+        util::kill_process(pid, true);
 
         return res;
     }

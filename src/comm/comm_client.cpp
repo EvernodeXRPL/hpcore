@@ -20,7 +20,7 @@ namespace comm
             close(write_fd);
 
         if (websocat_pid > 0)
-            util::kill_process(websocat_pid); // Kill websocat.
+            util::kill_process(websocat_pid, false); // Kill websocat.
     }
 
     int comm_client::start_websocat_process(std::string_view host, const uint16_t port)
