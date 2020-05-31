@@ -50,15 +50,6 @@ int init()
     std::string str_root_hash(reinterpret_cast<const char *>(&root_hash), sizeof(hpfs::h32));
     str_root_hash.swap(ctx.curr_hash_state);
 
-    if (!ctx.ledger_cache.empty())
-    {
-        ctx.prev_hash_state = ctx.ledger_cache.rbegin()->second.state;
-    }
-    else
-    {
-        ctx.prev_hash_state = ctx.curr_hash_state;
-    }
-
     ctx.state_syncing_thread = std::thread(&run_state_sync_iterator);
 
     // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
@@ -713,7 +704,6 @@ void apply_ledger(const p2p::proposal &cons_prop)
     const std::tuple<const uint64_t, std::string> new_lcl = save_ledger(cons_prop);
     ctx.led_seq_no = std::get<0>(new_lcl);
     ctx.lcl = std::get<1>(new_lcl);
-    ctx.prev_hash_state = ctx.curr_hash_state;
 
     // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
     {
