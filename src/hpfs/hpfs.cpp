@@ -1,4 +1,5 @@
 #include "hpfs.hpp"
+#include "h32.hpp"
 #include "../conf.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
@@ -112,7 +113,7 @@ namespace hpfs
             if (mount_dir.empty())
                 mount_dir = std::string(conf::ctx.state_dir)
                                 .append("/")
-                                .append(std::to_string(pid));
+                                .append(std::to_string(self_pid));
 
             // Fill process args.
             char *execv_args[] = {
@@ -135,4 +136,36 @@ namespace hpfs
 
         return 0;
     }
+
+    int get_root_hash(h32 &hash)
+    {
+        pid_t pid;
+        std::string mount_dir;
+        if (start_fs_session(pid, mount_dir, "ro", true) == -1 ||
+            get_hash(hash, mount_dir, "/") == -1 ||
+            kill(pid, SIGINT) == -1)
+            return -1;
+
+        return 0;
+    }
+
+    int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
+    {
+        std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.hash");
+        int fd = open(path.c_str(), O_RDONLY);
+        if (fd == -1)
+        {
+            LOG_ERR << errno << ": Error opening hash file.";
+            return -1;
+        }
+        int res = read(fd, &hash, sizeof(h32));
+        close(fd);
+        if (res == -1)
+        {
+            LOG_ERR << errno << ": Error reading hash file.";
+            return -1;
+        }
+        return 0;
+    }
+
 } // namespace hpfs
