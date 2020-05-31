@@ -45,10 +45,10 @@ namespace cons
         ctx.lcl = ldr_hist.lcl;
         ctx.ledger_cache.swap(ldr_hist.cache);
 
-        if (hpfs::get_root_hash(ctx.curr_hash_state) == -1)
+        if (hpfs::get_root_hash(ctx.curr_state_hash) == -1)
             return -1;
 
-        LOG_INFO << "Initial state: " << ctx.curr_hash_state;
+        LOG_INFO << "Initial state: " << ctx.curr_state_hash;
 
         ctx.state_syncing_thread = std::thread(&run_state_sync_iterator);
 
@@ -204,7 +204,7 @@ namespace cons
 
                         // node has finished a consensus round (all 4 stages).
                         LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
-                                 << " state:" << ctx.curr_hash_state << ")";
+                                 << " state:" << ctx.curr_state_hash << ")";
                     }
                 }
             }
@@ -236,7 +236,7 @@ namespace cons
                         << " hout:" << cp.hash_outputs.size()
                         << " ts:" << std::to_string(cp.time)
                         << " lcl:" << cp.lcl.substr(0, 15)
-                        << " state:" << cp.curr_hash_state
+                        << " state:" << cp.curr_state_hash
                         << " self:" << self;
             }
             else
@@ -502,7 +502,7 @@ namespace cons
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
         stg_prop.lcl = ctx.lcl;
-        stg_prop.curr_hash_state = ctx.curr_hash_state;
+        stg_prop.curr_state_hash = ctx.curr_state_hash;
 
         // Populate the proposal with set of candidate user pubkeys.
         for (const std::string &pubkey : ctx.candidate_users)
@@ -534,7 +534,7 @@ namespace cons
         // if there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork
         stg_prop.lcl = ctx.lcl;
-        stg_prop.curr_hash_state = ctx.curr_hash_state;
+        stg_prop.curr_state_hash = ctx.curr_state_hash;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -794,7 +794,7 @@ namespace cons
 
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
-            increment(votes.state, cp.curr_hash_state);
+            increment(votes.state, cp.curr_state_hash);
         }
 
         int32_t winning_votes = 0;
@@ -812,18 +812,18 @@ namespace cons
             std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
 
             // TODO: Get root hash from hpfs
-            // ctx.curr_hash_state == <root hash>
+            // ctx.curr_state_hash == <root hash>
         }
 
         // We do not initiate state sync in stage 3 because the majority state is likely to get changed soon.
-        if (ctx.stage < 3 && majority_state != ctx.curr_hash_state)
+        if (ctx.stage < 3 && majority_state != ctx.curr_state_hash)
         {
             if (ctx.state_sync_lcl != ctx.lcl)
             {
                 // Switch to observer mode to avoid sending out proposals till the state is synced
                 conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
-                LOG_INFO << "Syncing state. Curr state:" << ctx.curr_hash_state << " majority:" << majority_state;
+                LOG_INFO << "Syncing state. Curr state:" << ctx.curr_state_hash << " majority:" << majority_state;
 
                 start_state_sync(majority_state);
 
@@ -831,9 +831,9 @@ namespace cons
                 ctx.state_sync_lcl = ctx.lcl;
             }
         }
-        else if (majority_state == ctx.curr_hash_state && ctx.is_state_syncing)
+        else if (majority_state == ctx.curr_state_hash && ctx.is_state_syncing)
         {
-            LOG_INFO << "State sync complete. state:" << ctx.curr_hash_state;
+            LOG_INFO << "State sync complete. state:" << ctx.curr_state_hash;
 
             ctx.is_state_syncing = false;
             ctx.state_sync_lcl.clear();
