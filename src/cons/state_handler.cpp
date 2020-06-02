@@ -109,7 +109,6 @@ void start_state_sync(const hpfs::h32 state_hash_to_request)
     }
 
     {
-        std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
         candidate_state_responses.clear();
         pending_requests.clear();
         submitted_requests.clear();
@@ -134,8 +133,6 @@ int run_state_sync_iterator()
         util::sleep(SYNC_LOOP_WAIT);
 
         // TODO: Also bypass peer session handler state responses if we're not syncing.
-        if (!ctx.is_state_syncing)
-            continue;
 
         {
             std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
@@ -144,8 +141,6 @@ int run_state_sync_iterator()
             if (!p2p::ctx.collected_msgs.state_response.empty())
                 candidate_state_responses.splice(candidate_state_responses.end(), p2p::ctx.collected_msgs.state_response);
         }
-
-        std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
 
         for (auto &response : candidate_state_responses)
         {

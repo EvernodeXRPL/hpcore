@@ -50,8 +50,6 @@ namespace cons
 
         LOG_INFO << "Initial state: " << ctx.curr_state_hash;
 
-        ctx.state_syncing_thread = std::thread(&run_state_sync_iterator);
-
         // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
         // Stage 3 is allocated an extra stage_time unit becayse a node needs enough time to
         // catch up from lcl/state desync.
@@ -69,8 +67,7 @@ namespace cons
     {
         if (init_success)
         {
-            ctx.is_shutting_down = true;
-            ctx.state_syncing_thread.join();
+
         }
     }
 
@@ -197,10 +194,11 @@ namespace cons
                 const bool lcl_syncing_just_finished = ctx.is_lcl_syncing;
                 ctx.is_lcl_syncing = false;
 
-                if (lcl_syncing_just_finished || ctx.stage == 1 || (ctx.stage == 3 && ctx.is_state_syncing))
-                    check_state(votes);
+                if (lcl_syncing_just_finished)
+                    ; //TODO: Check and compare majotiry state and start state sync.
+                bool is_state_syncing = false;
 
-                if (!ctx.is_state_syncing)
+                if (!is_state_syncing)
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
 
@@ -805,7 +803,7 @@ namespace cons
  */
     void check_state(vote_counter &votes)
     {
-        hpfs::h32 majority_state;
+        hpfs::h32 majority_state = hpfs::h32_empty;
 
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
@@ -820,38 +818,6 @@ namespace cons
                 winning_votes = votes;
                 majority_state = state;
             }
-        }
-
-        if (ctx.is_state_syncing)
-        {
-            std::lock_guard<std::mutex> lock(cons::ctx.state_syncing_mutex);
-
-            // TODO: Get root hash from hpfs
-            // ctx.curr_state_hash == <root hash>
-        }
-
-        // We do not initiate state sync in stage 3 because the majority state is likely to get changed soon.
-        if (ctx.stage < 3 && majority_state != ctx.curr_state_hash)
-        {
-            if (ctx.state_sync_lcl != ctx.lcl)
-            {
-                // Switch to observer mode to avoid sending out proposals till the state is synced
-                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-
-                LOG_INFO << "Syncing state. Curr state:" << ctx.curr_state_hash << " majority:" << majority_state;
-
-                start_state_sync(majority_state);
-
-                ctx.is_state_syncing = true;
-                ctx.state_sync_lcl = ctx.lcl;
-            }
-        }
-        else if (majority_state == ctx.curr_state_hash && ctx.is_state_syncing)
-        {
-            LOG_INFO << "State sync complete. state:" << ctx.curr_state_hash;
-
-            ctx.is_state_syncing = false;
-            ctx.state_sync_lcl.clear();
         }
     }
 
