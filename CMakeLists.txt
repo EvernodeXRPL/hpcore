@@ -87,7 +87,7 @@ target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
   COMMAND cp ./build/hpcore ./build/appbill ./test/local-cluster/bin/
-  COMMAND cp ./test/bin/fusermount3 ./test/bin/libfuse3.so.3 ./test/bin/websocketd ./test/bin/websocat ./test/bin/hpfs ./test/local-cluster/bin/
+  COMMAND cp ./test/bin/fusermount3 ./test/bin/libfuse3.so.3 ./test/bin/libb2.so.1 ./test/bin/websocketd ./test/bin/websocat ./test/bin/hpfs ./test/local-cluster/bin/
   COMMAND docker build -t hpcore:latest ./test/local-cluster
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)

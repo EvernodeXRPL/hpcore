@@ -13,6 +13,7 @@ if [ $mode = "new" ]; then
     sshpass -f vmpass.txt scp $hpcore/build/hpcore \
                             $hpcore/examples/echo_contract/contract.js \
                             ../bin/libfuse3.so.3 \
+                            ../bin/libb2.so.1 \
                             ../bin/fusermount3 \
                             ../bin/websocketd \
                             ../bin/websocat \
