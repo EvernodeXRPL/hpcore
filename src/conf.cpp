@@ -79,8 +79,7 @@ int create_contract()
 
     boost::filesystem::create_directories(ctx.config_dir);
     boost::filesystem::create_directories(ctx.hist_dir);
-    boost::filesystem::create_directories(ctx.state_dir);
-    boost::filesystem::create_directories(ctx.state_hist_dir);
+    boost::filesystem::create_directories(ctx.state_rw_dir);
 
     //Create config file with default settings.
 
@@ -136,9 +135,9 @@ void set_contract_dir_paths(std::string exepath, std::string basedir)
     basedir = util::realpath(basedir);
 
     ctx.exe_dir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
-    ctx.statemon_exe_path = ctx.exe_dir + "/" + "hpstatemon";
     ctx.websocketd_exe_path = ctx.exe_dir + "/" + "websocketd";
     ctx.websocat_exe_path = ctx.exe_dir + "/" + "websocat";
+    ctx.hpfs_exe_path = ctx.exe_dir + "/" + "hpfs";
 
     ctx.contract_dir = basedir;
     ctx.config_dir = basedir + "/cfg";
@@ -147,7 +146,7 @@ void set_contract_dir_paths(std::string exepath, std::string basedir)
     ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
     ctx.hist_dir = basedir + "/hist";
     ctx.state_dir = basedir + "/state";
-    ctx.state_hist_dir = basedir + "/statehist";
+    ctx.state_rw_dir = ctx.state_dir + "/rw";
     ctx.log_dir = basedir + "/log";
 }
 
@@ -507,12 +506,11 @@ int validate_config()
  */
 int validate_contract_dir_paths()
 {
-    const std::string paths[7] = {
+    const std::string paths[6] = {
         ctx.contract_dir,
         ctx.config_file,
         ctx.hist_dir,
         ctx.state_dir,
-        ctx.state_hist_dir,
         ctx.tls_key_file,
         ctx.tls_cert_file};
 

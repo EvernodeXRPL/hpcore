@@ -13,8 +13,9 @@ fi
 if [ -x "$(command -v fusermount3)" ]; then
    echo "FUSE already installed."
 else
-   echo "Installing FUSE..."
-   sudo cp ./libfuse3.so.3 /usr/local/lib/
+   echo "Installing FUSE and other shared libraries..."
+   sudo apt-get -y install libgomp1
+   sudo cp ./libfuse3.so.3 ./libb2.so.1 /usr/local/lib/
    sudo ldconfig
    sudo cp ./fusermount3 /usr/local/bin/
 fi

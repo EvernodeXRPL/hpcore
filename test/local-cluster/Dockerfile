@@ -4,18 +4,19 @@ FROM node:10.17.0-buster-slim
 
 RUN apt-get update
 # Install netcat for websocketd <--> domain socket redirection.
-RUN apt-get install -y netcat-openbsd
+RUN apt-get install -y netcat-openbsd libgomp1
 
-# Install fuse.
-# Copy fuse shared library and register it.
+# Install shared libraries.
+# Copy shared libraries and register it.
 COPY ./bin/libfuse3.so.3 /usr/local/lib/
+COPY ./bin/libb2.so.1 /usr/local/lib/
 RUN ldconfig
 COPY ./bin/fusermount3 /usr/local/bin/
 
 # hpcore binary is copied to /hp directory withtin the docker image.
 WORKDIR /hp
 COPY ./bin/hpcore .
-COPY ./bin/hpstatemon .
+COPY ./bin/hpfs .
 COPY ./bin/websocketd .
 COPY ./bin/websocat .
 

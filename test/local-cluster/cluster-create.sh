@@ -47,7 +47,7 @@ do
     # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
-            binargs: './bin/contract.js', \
+            binargs: '/contract/bin/contract.js', \
             appbill: '', \
             appbillargs: '', \
             peerport: ${peerport}, \

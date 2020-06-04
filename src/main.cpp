@@ -11,7 +11,7 @@
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
 #include "cons/cons.hpp"
-#include "statefs/state_common.hpp"
+#include "hpfs/hpfs.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -68,6 +68,7 @@ void deinit()
     p2p::deinit();
     cons::deinit();
     proc::deinit();
+    hpfs::deinit();
     hplog::deinit();
 }
 
@@ -82,18 +83,18 @@ void signal_handler(int signum)
 namespace boost
 {
 
-inline void assertion_failed_msg(char const *expr, char const *msg, char const *function, char const * /*file*/, long /*line*/)
-{
-    LOG_ERR << "Expression '" << expr << "' is false in function '" << function << "': " << (msg ? msg : "<...>") << ".\n"
-            << "Backtrace:\n"
-            << boost::stacktrace::stacktrace() << '\n';
-    std::abort();
-}
+    inline void assertion_failed_msg(char const *expr, char const *msg, char const *function, char const * /*file*/, long /*line*/)
+    {
+        LOG_ERR << "Expression '" << expr << "' is false in function '" << function << "': " << (msg ? msg : "<...>") << ".\n"
+                << "Backtrace:\n"
+                << boost::stacktrace::stacktrace() << '\n';
+        std::abort();
+    }
 
-inline void assertion_failed(char const *expr, char const *function, char const *file, long line)
-{
-    ::boost::assertion_failed_msg(expr, 0 /*nullptr*/, function, file, line);
-}
+    inline void assertion_failed(char const *expr, char const *function, char const *file, long line)
+    {
+        ::boost::assertion_failed_msg(expr, 0 /*nullptr*/, function, file, line);
+    }
 } // namespace boost
 
 /**
@@ -187,18 +188,22 @@ int main(int argc, char **argv)
                 LOG_INFO << "Operating mode: "
                          << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
 
-                statefs::init(conf::ctx.state_hist_dir);
-
-                if (p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
+                if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 || cons::init() != 0)
+                {
+                    deinit();
                     return -1;
+                }
 
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, signal_handler);
 
-                while (true)
-                    cons::consensus();
+                if (cons::run_consensus() == -1)
+                {
+                    LOG_ERR << "Error occured in consensus.";
+                    deinit();
+                    return -1;
+                }
 
-                // Free resources.
                 deinit();
             }
         }

@@ -19,7 +19,7 @@ const std::string_view create_ledger_from_proposal(flatbuffers::FlatBufferBuilde
             seq_no,
             p.time,
             sv_to_flatbuff_bytes(builder, p.lcl),
-            sv_to_flatbuff_bytes(builder, p.curr_hash_state),
+            sv_to_flatbuff_bytes(builder, p.curr_state_hash.to_string_view()),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
             stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));

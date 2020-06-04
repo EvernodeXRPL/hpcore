@@ -6,6 +6,7 @@
 #include "../proc.hpp"
 #include "../p2p/p2p.hpp"
 #include "../usr/user_input.hpp"
+#include "../hpfs/h32.hpp"
 #include "ledger_handler.hpp"
 #include "state_handler.hpp"
 
@@ -73,8 +74,7 @@ struct consensus_context
     uint64_t time_now = 0;
     std::string lcl;
     uint64_t led_seq_no = 0;
-    std::string curr_hash_state;
-    std::string prev_hash_state;
+    hpfs::h32 curr_state_hash;
 
     //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
     //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.
@@ -87,11 +87,6 @@ struct consensus_context
     //ledger close time of previous hash
     uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
     uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
-
-    bool is_state_syncing = false;
-    std::string state_sync_lcl;
-    std::thread state_syncing_thread;
-    std::mutex state_syncing_mutex;
 
     bool is_shutting_down = false;
 
@@ -108,7 +103,7 @@ struct vote_counter
     std::map<std::string, int32_t> users;
     std::map<std::string, int32_t> inputs;
     std::map<std::string, int32_t> outputs;
-    std::map<std::string, int32_t> state;
+    std::map<hpfs::h32, int32_t> state;
 };
 
 extern consensus_context ctx;
@@ -117,7 +112,9 @@ int init();
 
 void deinit();
 
-void consensus();
+int run_consensus();
+
+int consensus();
 
 void purify_candidate_proposals();
 
@@ -145,7 +142,7 @@ uint64_t get_ledger_time_resolution(const uint64_t time);
 
 uint64_t get_stage_time_resolution(const uint64_t time);
 
-void apply_ledger(const p2p::proposal &proposal);
+int apply_ledger(const p2p::proposal &proposal);
 
 void dispatch_user_outputs(const p2p::proposal &cons_prop);
 
@@ -157,7 +154,7 @@ void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap);
 
 void broadcast_npl_output(std::string &output);
 
-void run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair, proc::contract_fblockmap_t &state_updates);
+int run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair);
 
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);
