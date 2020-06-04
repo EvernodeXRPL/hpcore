@@ -105,7 +105,7 @@ function main() {
                 if (inp == "stat")
                     msgtosend = create_status_request();
                 else {
-                    var fileContent = fs.readFileSync(inp);
+                    var fileContent = fs.readFileSync("/home/ravin/Downloads/pics.zip");
                     msgtosend = create_input_container(fileContent);
 
                     console.log("Sending file (len: " + fileContent.length / 1024 + " KB)");

@@ -52,6 +52,11 @@ namespace proc
         create_iopipes(nplfds, !args.nplbuff.inputs.empty());
         create_iopipes(hpscfds, !args.hpscbufs.inputs.empty());
 
+        // Write the inputs into the contract process.
+        // (This has to be done before hpfs process start due to new fds getting opened)
+        if (feed_inputs(args) != 0)
+            goto failure;
+
         // Start the hpfs rw session before starting the contract process.
         if (start_hpfs_rw_session() != 0)
             goto failure;
@@ -64,9 +69,6 @@ namespace proc
 
             // Close all fds unused by HP process.
             close_unused_fds(true);
-
-            if (feed_inputs(args) != 0)
-                goto failure;
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(contract_pid);
@@ -510,7 +512,7 @@ namespace proc
 
             // We use vmsplice to map (zero-copy) the inputs into the fd.
             if (vmsplice(writefd, memsegs, inputs.size(), 0) == -1)
-                 vmsplice_error = true;
+                vmsplice_error = true;
 
             // It's important that we DO NOT clear the input buffer string until the contract
             // process has actually read from the fd. Because the OS is just mapping our
@@ -689,8 +691,9 @@ namespace proc
                 close(fds[i]);
                 fds[i] = -1;
             }
-            fds.clear();
         }
+
+        fds.clear();
     }
 
     /**
