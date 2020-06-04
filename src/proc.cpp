@@ -44,6 +44,9 @@ namespace proc
  */
     int exec_contract(const contract_exec_args &args, hpfs::h32 &state_hash)
     {
+        int ret = 0;
+        pid_t pid = 0;
+
         // Setup io pipes and feed all inputs to them.
         create_iopipes_for_fdmap(userfds, args.userbufs);
         create_iopipes(nplfds, !args.nplbuff.inputs.empty());
@@ -51,9 +54,9 @@ namespace proc
 
         // Start the hpfs rw session before starting the contract process.
         if (start_hpfs_rw_session() != 0)
-            return -1;
+            goto failure;
 
-        const pid_t pid = fork();
+        pid = fork();
         if (pid > 0)
         {
             // HotPocket process.
@@ -63,7 +66,7 @@ namespace proc
             close_unused_fds(true);
 
             if (feed_inputs(args) != 0)
-                return -1;
+                goto failure;
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(contract_pid);
@@ -73,15 +76,15 @@ namespace proc
             if (presult != 0)
             {
                 LOG_ERR << "Contract process exited with non-normal status code: " << presult;
-                return -1;
+                goto failure;
             }
 
             if (stop_hpfs_rw_session(state_hash) != 0)
-                return -1;
+                goto failure;
 
             // After contract execution, collect contract outputs.
             if (fetch_outputs(args) != 0)
-                return -1;
+                goto failure;
         }
         else if (pid == 0)
         {
@@ -121,10 +124,19 @@ namespace proc
         else
         {
             LOG_ERR << "fork() failed when starting contract process.";
-            return -1;
+            goto failure;
         }
 
-        return 0;
+        goto success;
+    failure:
+        ret = -1;
+
+    success:
+        cleanup_fdmap(userfds);
+        cleanup_vectorfds(hpscfds);
+        cleanup_vectorfds(nplfds);
+
+        return ret;
     }
 
     /**
@@ -259,7 +271,6 @@ namespace proc
         // Write any verified (consensus-reached) user inputs to user pipes.
         if (write_contract_fdmap_inputs(userfds, args.userbufs) != 0)
         {
-            cleanup_fdmap(userfds);
             LOG_ERR << "Failed to write user inputs to contract.";
             return -1;
         }
@@ -280,8 +291,6 @@ namespace proc
             return -1;
         }
 
-        nplfds.clear();
-        userfds.clear();
         return 0;
     }
 
@@ -433,14 +442,9 @@ namespace proc
     void cleanup_fdmap(contract_fdmap_t &fdmap)
     {
         for (auto &[pubkey, fds] : fdmap)
-        {
-            for (int i = 0; i < 4; i++)
-            {
-                if (fds[i] != -1)
-                    close(fds[i]);
-                fds[i] = -1;
-            }
-        }
+            cleanup_vectorfds(fds);
+
+        fdmap.clear();
     }
 
     /**
@@ -506,7 +510,7 @@ namespace proc
 
             // We use vmsplice to map (zero-copy) the inputs into the fd.
             if (vmsplice(writefd, memsegs, inputs.size(), 0) == -1)
-                vmsplice_error = true;
+                 vmsplice_error = true;
 
             // It's important that we DO NOT clear the input buffer string until the contract
             // process has actually read from the fd. Because the OS is just mapping our
@@ -670,6 +674,22 @@ namespace proc
                 close(fd);
                 fds[fdtype] = -1;
             }
+        }
+    }
+
+    /**
+ * Closes all fds in a vector fd set.
+ */
+    void cleanup_vectorfds(std::vector<int> &fds)
+    {
+        for (int i = 0; i < fds.size(); i++)
+        {
+            if (fds[i] != -1)
+            {
+                close(fds[i]);
+                fds[i] = -1;
+            }
+            fds.clear();
         }
     }
 
