@@ -5,7 +5,7 @@
 
 A C++ version of hotpocket designed for production envrionments, original prototype here: https://github.com/codetsunami/hotpocket
 
-[Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki/Hot-Pocket-Wiki)
+[Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki)
 
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
@@ -81,7 +81,7 @@ This will update your linker library cache and avoid potential issues when runni
 1. Run `make` (Hot Pocket binary will be created as `./build/hpcore`)
 1. Refer to [Running Hot Pocket](https://github.com/HotPocketDev/core/wiki/Running-Hot-Pocket) in the Wiki.
 
-Refer to [Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki/Hot-Pocket-Wiki) for more info.
+Refer to [Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki) for more info.
 
 ## Code structure
 Code is divided into subsystems via namespaces.
@@ -102,4 +102,4 @@ Code is divided into subsystems via namespaces.
 
 **util::** Contains shared data structures/helper functions used by multiple subsystems.
 
-**statefs::** Fuse-based state filesystem monitoring and contract state maintenance subsystem.
+**hpfs::** [hpfs](https://github.com/HotPocketDev/hpfs) state management client helpers.
