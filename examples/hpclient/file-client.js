@@ -51,12 +51,9 @@ function main() {
 
     function create_input_container(inp) {
         
-        let hexInp = inp.toString('hex');
-        console.log("hex " + hexInp.length);
-
         let inp_container = {
             nonce: (new Date()).getTime().toString(),
-            input: hexInp,
+            input: inp.toString('hex'),
             max_ledger_seqno: 9999999
         }
         let inp_container_bytes = JSON.stringify(inp_container);

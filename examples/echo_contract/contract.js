@@ -13,9 +13,9 @@ fs.appendFileSync("exects.txt", "ts:" + hpargs.ts + "\n");
 
 Object.keys(hpargs.usrfd).forEach(function (key, index) {
     let userfds = hpargs.usrfd[key];
-    let userinput = fs.readFileSync(userfds[0], 'utf8');
 
-    if (userinput.length > 0) {
+    if (userfds[0] != -1) {
+        let userinput = fs.readFileSync(userfds[0], 'utf8');
         // Append user input to a state file.
         fs.appendFileSync("userinputs.txt", userinput + "\n");
         fs.writeSync(userfds[1], "Echoing: " + userinput);

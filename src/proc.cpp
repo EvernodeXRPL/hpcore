@@ -38,8 +38,6 @@ namespace proc
     // Holds the hpfs rw process id (if currently executing).
     pid_t hpfs_pid;
 
-    const char *FINDMNT_COMMAND = "findmnt --noheadings ";
-
     /**
  * Executes the contract process and passes the specified arguments.
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -48,11 +46,8 @@ namespace proc
     {
         // Setup io pipes and feed all inputs to them.
         create_iopipes_for_fdmap(userfds, args.userbufs);
-        create_iopipes(nplfds);
-        create_iopipes(hpscfds);
-
-        if (feed_inputs(args) != 0)
-            return -1;
+        create_iopipes(nplfds, !args.nplbuff.inputs.empty());
+        create_iopipes(hpscfds, !args.hpscbufs.inputs.empty());
 
         // Start the hpfs rw session before starting the contract process.
         if (start_hpfs_rw_session() != 0)
@@ -66,6 +61,9 @@ namespace proc
 
             // Close all fds unused by HP process.
             close_unused_fds(true);
+
+            if (feed_inputs(args) != 0)
+                return -1;
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(contract_pid);
@@ -372,7 +370,7 @@ namespace proc
         for (auto &[pubkey, buflist] : bufmap)
         {
             std::vector<int> fds = std::vector<int>();
-            if (create_iopipes(fds) != 0)
+            if (create_iopipes(fds, !buflist.inputs.empty()) != 0)
                 return -1;
 
             fdmap.emplace(pubkey, std::move(fds));
@@ -438,9 +436,9 @@ namespace proc
         {
             for (int i = 0; i < 4; i++)
             {
-                if (fds[i] > 0)
+                if (fds[i] != -1)
                     close(fds[i]);
-                fds[i] = 0;
+                fds[i] = -1;
             }
         }
     }
@@ -449,19 +447,23 @@ namespace proc
  * Common function to create a pair of pipes (Hp->SC, SC->HP).
  * @param fds Vector to populate fd list.
  * @param inputbuffer Buffer to write into the HP write fd.
+ * @param create_inpipe Whether to create the input pipe from HP to SC.
  */
-    int create_iopipes(std::vector<int> &fds)
+    int create_iopipes(std::vector<int> &fds, const bool create_inpipe)
     {
-        int inpipe[2];
-        if (pipe(inpipe) != 0)
+        int inpipe[2] = {-1, -1};
+        if (create_inpipe && pipe(inpipe) != 0)
             return -1;
 
-        int outpipe[2];
+        int outpipe[2] = {-1, -1};
         if (pipe(outpipe) != 0)
         {
-            // Close the earlier created pipe.
-            close(inpipe[0]);
-            close(inpipe[1]);
+            if (create_inpipe)
+            {
+                // Close the earlier created pipe.
+                close(inpipe[0]);
+                close(inpipe[1]);
+            }
             return -1;
         }
 
@@ -485,6 +487,9 @@ namespace proc
         // Write the inputs (if any) into the contract and close the writefd.
 
         const int writefd = fds[FDTYPE::HPWRITE];
+        if (writefd == -1)
+            return 0;
+
         bool vmsplice_error = false;
 
         if (!inputs.empty())
@@ -511,7 +516,7 @@ namespace proc
 
         // Close the writefd since we no longer need it.
         close(writefd);
-        fds[FDTYPE::HPWRITE] = 0;
+        fds[FDTYPE::HPWRITE] = -1;
 
         return vmsplice_error ? -1 : 0;
     }
@@ -529,6 +534,9 @@ namespace proc
      * Length of the message is calculated without including public key length
      */
         const int writefd = fds[FDTYPE::HPWRITE];
+        if (writefd == -1)
+            return 0;
+
         bool vmsplice_error = false;
         if (!inputs.empty())
         {
@@ -589,7 +597,7 @@ namespace proc
 
         // Close the writefd since we no longer need it.
         close(writefd);
-        fds[FDTYPE::HPWRITE] = 0;
+        fds[FDTYPE::HPWRITE] = -1;
 
         return vmsplice_error ? -1 : 0;
     }
@@ -626,7 +634,7 @@ namespace proc
 
         // Close readfd fd on HP process side because we are done with contract process I/O.
         close(readfd);
-        fds[FDTYPE::HPREAD] = 0;
+        fds[FDTYPE::HPREAD] = -1;
 
         return vmsplice_error ? -1 : 0;
     }
@@ -649,22 +657,19 @@ namespace proc
  */
     void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds)
     {
-        if (is_hp)
-        {
-            // Close unused fds in Hot Pocket process.
-            close(fds[FDTYPE::SCREAD]);
-            fds[FDTYPE::SCREAD] = 0;
-            close(fds[FDTYPE::SCWRITE]);
-            fds[FDTYPE::SCWRITE] = 0;
-        }
-        else
-        {
-            // Close unused fds in smart contract process.
-            close(fds[FDTYPE::HPREAD]);
-            fds[FDTYPE::HPREAD] = 0;
+        const int fdtypes_to_close[2] = {
+            is_hp ? FDTYPE::SCREAD : FDTYPE::HPREAD,
+            is_hp ? FDTYPE::SCWRITE : FDTYPE::HPWRITE,
+        };
 
-            // HPWRITE fd has aleady been closed by HP process after writing
-            // inputs (before the fork).
+        for (const int fdtype : fdtypes_to_close)
+        {
+            const int fd = fds[fdtype];
+            if (fd != -1)
+            {
+                close(fd);
+                fds[fdtype] = -1;
+            }
         }
     }
 

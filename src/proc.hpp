@@ -101,7 +101,7 @@ int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufm
 
 void cleanup_fdmap(contract_fdmap_t &fdmap);
 
-int create_iopipes(std::vector<int> &fds);
+int create_iopipes(std::vector<int> &fds, const bool create_inpipe);
 
 int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
 
