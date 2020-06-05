@@ -22,7 +22,8 @@ namespace comm
             watchdog_thread = std::thread(
                 &comm_server::connection_watchdog, this, accept_fd, session_type, is_binary,
                 std::ref(metric_thresholds), req_known_remotes, max_msg_size);
-            return start_websocketd_process(port, domain_socket_name, is_binary, use_size_header);
+            return start_websocketd_process(port, domain_socket_name, is_binary,
+                                            use_size_header, max_msg_size);
         }
 
         return -1;
@@ -255,7 +256,9 @@ namespace comm
         }
     }
 
-    int comm_server::start_websocketd_process(const uint16_t port, const char *domain_socket_name, const bool is_binary, const bool use_size_header)
+    int comm_server::start_websocketd_process(
+        const uint16_t port, const char *domain_socket_name,
+        const bool is_binary, const bool use_size_header, const uint64_t max_msg_size)
     {
         // setup pipe for firewall
         int firewall_pipe[2]; // parent to child pipe
@@ -299,10 +302,10 @@ namespace comm
                 dup2(firewall_pipe[0], 0);
             }
 
-            // Override stdout in the child's file table with /dev/null
-            //        int null_fd = open("/dev/null", O_WRONLY);
-            //        if (null_fd)
-            //            dup2(null_fd, 1);
+            std::string max_frame = std::string("--maxframe=")
+                                              .append(use_size_header
+                                                          ? "4294967296" // 4GB
+                                                          : std::to_string(max_msg_size));
 
             // Fill process args.
             char *execv_args[] = {
@@ -316,6 +319,7 @@ namespace comm
                 conf::ctx.tls_key_file.data(),
                 (char *)(is_binary ? "--binary=true" : "--binary=false"),
                 (char *)(use_size_header ? "--sizeheader=true" : "--sizeheader=false"),
+                max_frame.data(),
                 (char *)"--loglevel=error",
                 (char *)"nc", // netcat (OpenBSD) is used for domain socket redirection.
                 (char *)"-U", // Use UNIX domain socket

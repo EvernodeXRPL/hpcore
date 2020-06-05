@@ -13,9 +13,11 @@ fs.appendFileSync("exects.txt", "ts:" + hpargs.ts + "\n");
 
 Object.keys(hpargs.usrfd).forEach(function (key, index) {
     let userfds = hpargs.usrfd[key];
-    let fileContent = fs.readFileSync(userfds[0]);
 
-    if (fileContent.length > 0) {
+    if (userfds[0] != -1) {
+
+        let fileContent = fs.readFileSync(userfds[0]);
+
         // Save the content into a new file.
         var fileName = new Date().getTime().toString();
         fs.writeFileSync(fileName, fileContent);

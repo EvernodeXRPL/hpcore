@@ -10,9 +10,9 @@
 
 name=$1
 loc=$2
-vmsize=Standard_B1ls
+vmsize=Standard_B1s
 vmpass=$(cat vmpass.txt)
-resgroup=My-ResGroup
+resgroup=HotPocket-ResGroup
 
 az vm create --name $name --resource-group $resgroup --size $vmsize --admin-username geveo --admin-password $vmpass --image UbuntuLTS --location $loc --generate-ssh-keys
 az vm open-port --resource-group $resgroup --name $name --port 22860 --priority 900 && \
