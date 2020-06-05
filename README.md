@@ -90,7 +90,7 @@ Code is divided into subsystems via namespaces.
 
 **crypto::** Handles cryptographic activities. Wraps libsodium and offers convenience functions.
 
-**proc::** Handles contract process execution and managing user/SC I/O and npl I/O. Makes use of **usr** and **p2p**.
+**sc::** Handles smart contract process execution and managing user/SC I/O and npl I/O. Makes use of **usr**, **p2p** and **hpfs**.
 
 **usr::** Handles user connections. Makes use of **crypto** and **comm**.
 

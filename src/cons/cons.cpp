@@ -9,7 +9,7 @@
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
-#include "../proc.hpp"
+#include "../sc.hpp"
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "ledger_handler.hpp"
@@ -735,9 +735,9 @@ namespace cons
         // Send any output from the previous consensus round to locally connected users.
         dispatch_user_outputs(cons_prop);
 
-        proc::contract_bufmap_t useriobufmap;
+        sc::contract_bufmap_t useriobufmap;
 
-        proc::contract_iobuf_pair nplbufpair;
+        sc::contract_iobuf_pair nplbufpair;
         nplbufpair.inputs.splice(nplbufpair.inputs.end(), ctx.candidate_npl_messages);
 
         feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
@@ -826,12 +826,12 @@ namespace cons
  * @param bufmap The contract bufmap which needs to be populated with inputs.
  * @param cons_prop The proposal that achieved consensus.
  */
-    void feed_user_inputs_to_contract_bufmap(proc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
+    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
     {
         // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
         // This is in case the contract wanted to emit some data to a user without needing any input.
         for (const std::string &pubkey : cons_prop.users)
-            bufmap.try_emplace(pubkey, proc::contract_iobuf_pair());
+            bufmap.try_emplace(pubkey, sc::contract_iobuf_pair());
 
         for (const std::string &hash : cons_prop.hash_inputs)
         {
@@ -852,7 +852,7 @@ namespace cons
                 std::string inputtofeed;
                 inputtofeed.swap(cand_input.input);
 
-                proc::contract_iobuf_pair &bufpair = bufmap[cand_input.userpubkey];
+                sc::contract_iobuf_pair &bufpair = bufmap[cand_input.userpubkey];
                 bufpair.inputs.push_back(std::move(inputtofeed));
 
                 // Remove the input from the candidate set because we no longer need it.
@@ -867,7 +867,7 @@ namespace cons
  * for the next consensus round.
  * @param bufmap The contract bufmap containing the outputs produced by the contract.
  */
-    void extract_user_outputs_from_contract_bufmap(proc::contract_bufmap_t &bufmap)
+    void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap)
     {
         for (auto &[pubkey, bufpair] : bufmap)
         {
@@ -902,12 +902,12 @@ namespace cons
  * @param time_now The time that must be passed on to the contract.
  * @param useriobufmap The contract bufmap which holds user I/O buffers.
  */
-    int run_contract_binary(const int64_t time_now, proc::contract_bufmap_t &useriobufmap, proc::contract_iobuf_pair &nplbufpair)
+    int run_contract_binary(const int64_t time_now, sc::contract_bufmap_t &useriobufmap, sc::contract_iobuf_pair &nplbufpair)
     {
         // todo:implement exchange of hpsc bufs
-        proc::contract_iobuf_pair hpscbufpair;
-        return proc::exec_contract(
-            proc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair),
+        sc::contract_iobuf_pair hpscbufpair;
+        return sc::exec_contract(
+            sc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair),
             ctx.curr_state_hash);
     }
 

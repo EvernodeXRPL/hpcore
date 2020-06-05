@@ -4,45 +4,12 @@
 #include "fbschema/common_helpers.hpp"
 #include "fbschema/p2pmsg_container_generated.h"
 #include "fbschema/p2pmsg_content_generated.h"
-#include "proc.hpp"
+#include "sc.hpp"
 #include "hpfs/hpfs.hpp"
 
-namespace proc
+namespace sc
 {
-    constexpr size_t OUTPUT_READ_BUF_SIZE = 64 * 1024; //64KB
-
-    // Enum used to differenciate pipe fds maintained for SC I/O pipes.
-    enum FDTYPE
-    {
-        // Used by Smart Contract to read input sent by Hot Pocket
-        SCREAD = 0,
-        // Used by Hot Pocket to write input to the smart contract.
-        HPWRITE = 1,
-        // Used by Hot Pocket to read output from the smart contract.
-        HPREAD = 2,
-        // Used by Smart Contract to write output back to Hot Pocket.
-        SCWRITE = 3
-    };
-
-    // Map of user pipe fds (map key: user public key)
-    contract_fdmap_t userfds;
-
-    // Pipe fds for NPL <--> messages.
-    std::vector<int> nplfds;
-
-    // Pipe fds for HP <--> messages.
-    std::vector<int> hpscfds;
-
-    // Holds the contract process id (if currently executing).
-    pid_t contract_pid;
-
-    // Holds the hpfs rw process id (if currently executing).
-    pid_t hpfs_pid;
-
-    // Thread to collect contract outputs while contract is running.
-    std::thread output_fetcher_thread;
-
-    bool should_deinit = false;
+    execution_context ctx;
 
     /**
  * Executes the contract process and passes the specified arguments.
@@ -55,34 +22,34 @@ namespace proc
             return -1;
 
         // Setup io pipes and feed all inputs to them.
-        create_iopipes_for_fdmap(userfds, args.userbufs);
-        create_iopipes(nplfds, !args.nplbuff.inputs.empty());
-        create_iopipes(hpscfds, !args.hpscbufs.inputs.empty());
+        create_iopipes_for_fdmap(ctx.userfds, args.userbufs);
+        create_iopipes(ctx.nplfds, !args.nplbuff.inputs.empty());
+        create_iopipes(ctx.hpscfds, !args.hpscbufs.inputs.empty());
 
         int ret = 0;
         const pid_t pid = fork();
         if (pid > 0)
         {
             // HotPocket process.
-            contract_pid = pid;
+            ctx.contract_pid = pid;
 
             // Close all fds unused by HP process.
             close_unused_fds(true);
 
             // Start the contract output collection thread.
-            output_fetcher_thread = std::thread(fetch_outputs, std::ref(args));
+            ctx.output_fetcher_thread = std::thread(fetch_outputs, std::ref(args));
 
             // Write the inputs into the contract process.
             if (feed_inputs(args) != 0)
                 goto failure;
 
             // Wait for child process (contract process) to complete execution.
-            const int presult = await_process_execution(contract_pid);
-            contract_pid = 0;
+            const int presult = await_process_execution(ctx.contract_pid);
+            ctx.contract_pid = 0;
             LOG_DBG << "Contract process ended.";
 
             // Wait for the output collection thread to gracefully stop.
-            output_fetcher_thread.join();
+            ctx.output_fetcher_thread.join();
 
             if (presult != 0)
             {
@@ -139,9 +106,9 @@ namespace proc
         ret = -1;
 
     success:
-        cleanup_fdmap(userfds);
-        cleanup_vectorfds(hpscfds);
-        cleanup_vectorfds(nplfds);
+        cleanup_fdmap(ctx.userfds);
+        cleanup_vectorfds(ctx.hpscfds);
+        cleanup_vectorfds(ctx.nplfds);
 
         return ret;
     }
@@ -168,10 +135,10 @@ namespace proc
     int start_hpfs_rw_session()
     {
         LOG_DBG << "Starting hpfs rw session...";
-        if (hpfs::start_fs_session(hpfs_pid, conf::ctx.state_rw_dir, "rw", true) == -1)
+        if (hpfs::start_fs_session(ctx.hpfs_pid, conf::ctx.state_rw_dir, "rw", true) == -1)
             return -1;
 
-        LOG_DBG << "hpfs rw session started. pid:" << hpfs_pid;
+        LOG_DBG << "hpfs rw session started. pid:" << ctx.hpfs_pid;
     }
 
     /**
@@ -183,11 +150,11 @@ namespace proc
         if (hpfs::get_hash(state_hash, conf::ctx.state_rw_dir, "/") == -1)
             return -1;
 
-        LOG_DBG << "Stopping hpfs rw session... pid:" << hpfs_pid;
-        if (util::kill_process(hpfs_pid, true) == -1)
+        LOG_DBG << "Stopping hpfs rw session... pid:" << ctx.hpfs_pid;
+        if (util::kill_process(ctx.hpfs_pid, true) == -1)
             return -1;
 
-        hpfs_pid = 0;
+        ctx.hpfs_pid = 0;
         LOG_DBG << "hpfs rw session stopped.";
         return 0;
     }
@@ -215,12 +182,12 @@ namespace proc
         os << "{\"version\":\"" << util::HP_VERSION
            << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
            << "\",\"ts\":" << args.timestamp
-           << ",\"hpfd\":[" << hpscfds[FDTYPE::SCREAD] << "," << hpscfds[FDTYPE::SCWRITE]
+           << ",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
            << "],\"usrfd\":{";
 
-        fdmap_json_to_stream(userfds, os);
+        fdmap_json_to_stream(ctx.userfds, os);
 
-        os << "},\"nplfd\":[" << nplfds[FDTYPE::SCREAD] << "," << nplfds[FDTYPE::SCWRITE]
+        os << "},\"nplfd\":[" << ctx.nplfds[FDTYPE::SCREAD] << "," << ctx.nplfds[FDTYPE::SCWRITE]
            << "],\"unl\":[";
 
         for (auto nodepk = conf::cfg.unl.begin(); nodepk != conf::cfg.unl.end(); nodepk++)
@@ -276,7 +243,7 @@ namespace proc
         }
 
         // Write any verified (consensus-reached) user inputs to user pipes.
-        if (write_contract_fdmap_inputs(userfds, args.userbufs) != 0)
+        if (write_contract_fdmap_inputs(ctx.userfds, args.userbufs) != 0)
         {
             LOG_ERR << "Failed to write user inputs to contract.";
             return -1;
@@ -289,14 +256,14 @@ namespace proc
     {
         while (true)
         {
-            if (should_deinit)
+            if (ctx.should_deinit)
                 break;
 
             const int hpsc_npl_res = read_contract_hp_npl_outputs(args);
             if (hpsc_npl_res == -1)
                 return -1;
 
-            const int user_res = read_contract_fdmap_outputs(userfds, args.userbufs);
+            const int user_res = read_contract_fdmap_outputs(ctx.userfds, args.userbufs);
             if (user_res == -1)
             {
                 LOG_ERR << "Error reading user outputs from the contract.";
@@ -304,7 +271,7 @@ namespace proc
             }
 
             // If no bytes were read after contract finished execution, exit the read loop.
-            if (hpsc_npl_res == 0 && user_res == 0 && contract_pid == 0)
+            if (hpsc_npl_res == 0 && user_res == 0 && ctx.contract_pid == 0)
                 break;
 
             util::sleep(20);
@@ -319,13 +286,13 @@ namespace proc
  */
     int write_contract_hp_npl_inputs(const contract_exec_args &args)
     {
-        if (write_iopipe(hpscfds, args.hpscbufs.inputs) != 0)
+        if (write_iopipe(ctx.hpscfds, args.hpscbufs.inputs) != 0)
         {
             LOG_ERR << "Error writing HP inputs to SC";
             return -1;
         }
 
-        if (write_npl_iopipe(nplfds, args.nplbuff.inputs) != 0)
+        if (write_npl_iopipe(ctx.nplfds, args.nplbuff.inputs) != 0)
         {
             LOG_ERR << "Error writing NPL inputs to SC";
             return -1;
@@ -342,14 +309,14 @@ namespace proc
  */
     int read_contract_hp_npl_outputs(const contract_exec_args &args)
     {
-        const int hpsc_res = read_iopipe(hpscfds, args.hpscbufs.output);
+        const int hpsc_res = read_iopipe(ctx.hpscfds, args.hpscbufs.output);
         if (hpsc_res == -1)
         {
             LOG_ERR << "Error reading HP output from the contract.";
             return -1;
         }
 
-        const int npl_res = read_iopipe(nplfds, args.nplbuff.output);
+        const int npl_res = read_iopipe(ctx.nplfds, args.nplbuff.output);
         if (npl_res == -1)
         {
             LOG_ERR << "Error reading NPL output from the contract.";
@@ -361,7 +328,7 @@ namespace proc
 
     /**
  * Common helper function to write json output of fdmap to given ostream.
- * @param fdmap Any pubkey->fdlist map. (eg. userfds, nplfds)
+ * @param fdmap Any pubkey->fdlist map. (eg. ctx.userfds, ctx.nplfds)
  * @param os An output stream.
  */
     void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os)
@@ -456,7 +423,7 @@ namespace proc
 
     /**
  * Common function to close any open fds in the map after an error.
- * @param fdmap Any pubkey->fdlist map. (eg. userfds, nplfds)
+ * @param fdmap Any pubkey->fdlist map. (eg. ctx.userfds, ctx.nplfds)
  */
     void cleanup_fdmap(contract_fdmap_t &fdmap)
     {
@@ -664,12 +631,12 @@ namespace proc
 
     void close_unused_fds(const bool is_hp)
     {
-        close_unused_vectorfds(is_hp, hpscfds);
+        close_unused_vectorfds(is_hp, ctx.hpscfds);
 
-        close_unused_vectorfds(is_hp, nplfds);
+        close_unused_vectorfds(is_hp, ctx.nplfds);
 
         // Loop through user fds.
-        for (auto &[pubkey, fds] : userfds)
+        for (auto &[pubkey, fds] : ctx.userfds)
             close_unused_vectorfds(is_hp, fds);
     }
 
@@ -718,16 +685,16 @@ namespace proc
  */
     void deinit()
     {
-        should_deinit = true;
+        ctx.should_deinit = true;
 
-        if (contract_pid > 0)
-            util::kill_process(contract_pid, true);
+        if (ctx.contract_pid > 0)
+            util::kill_process(ctx.contract_pid, true);
 
-        if (hpfs_pid > 0)
-            util::kill_process(hpfs_pid, true);
+        if (ctx.hpfs_pid > 0)
+            util::kill_process(ctx.hpfs_pid, true);
 
-        if (output_fetcher_thread.joinable())
-            output_fetcher_thread.join();
+        if (ctx.output_fetcher_thread.joinable())
+            ctx.output_fetcher_thread.join();
     }
 
-} // namespace proc
+} // namespace sc

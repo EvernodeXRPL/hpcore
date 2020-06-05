@@ -9,8 +9,21 @@
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
  */
-namespace proc
+namespace sc
 {
+
+    // Enum used to differenciate pipe fds maintained for SC I/O pipes.
+    enum FDTYPE
+    {
+        // Used by Smart Contract to read input sent by Hot Pocket
+        SCREAD = 0,
+        // Used by Hot Pocket to write input to the smart contract.
+        HPWRITE = 1,
+        // Used by Hot Pocket to read output from the smart contract.
+        HPREAD = 2,
+        // Used by Smart Contract to write output back to Hot Pocket.
+        SCWRITE = 3
+    };
 
     /**
  * Represents list of inputs to the contract and the accumulated contract output for those inputs.
@@ -66,6 +79,33 @@ namespace proc
         }
     };
 
+    /**
+ * Holds context information relating to contract execution environment.
+ */
+    struct execution_context
+    {
+        // Map of user pipe fds (map key: user public key)
+        contract_fdmap_t userfds;
+
+        // Pipe fds for NPL <--> messages.
+        std::vector<int> nplfds;
+
+        // Pipe fds for HP <--> messages.
+        std::vector<int> hpscfds;
+
+        // Holds the contract process id (if currently executing).
+        pid_t contract_pid;
+
+        // Holds the hpfs rw process id (if currently executing).
+        pid_t hpfs_pid;
+
+        // Thread to collect contract outputs while contract is running.
+        std::thread output_fetcher_thread;
+
+        // Indicates that the deinit procedure has begun.
+        bool should_deinit = false;
+    };
+
     int exec_contract(const contract_exec_args &args, hpfs::h32 &state_hash);
 
     void deinit();
@@ -114,6 +154,6 @@ namespace proc
 
     void cleanup_vectorfds(std::vector<int> &fds);
 
-} // namespace proc
+} // namespace sc
 
 #endif

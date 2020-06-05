@@ -6,7 +6,7 @@
 #include "util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "proc.hpp"
+#include "sc.hpp"
 #include "hplog.hpp"
 #include "usr/usr.hpp"
 #include "p2p/p2p.hpp"
@@ -67,7 +67,7 @@ void deinit()
     usr::deinit();
     p2p::deinit();
     cons::deinit();
-    proc::deinit();
+    sc::deinit();
     hpfs::deinit();
     hplog::deinit();
 }
