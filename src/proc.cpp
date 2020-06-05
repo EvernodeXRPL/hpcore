@@ -9,6 +9,7 @@
 
 namespace proc
 {
+    constexpr size_t OUTPUT_READ_BUF_SIZE = 64 * 1024; //64KB
 
     // Enum used to differenciate pipe fds maintained for SC I/O pipes.
     enum FDTYPE
@@ -38,6 +39,11 @@ namespace proc
     // Holds the hpfs rw process id (if currently executing).
     pid_t hpfs_pid;
 
+    // Thread to collect contract outputs while contract is running.
+    std::thread output_fetcher_thread;
+
+    bool should_deinit = false;
+
     /**
  * Executes the contract process and passes the specified arguments.
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -63,15 +69,21 @@ namespace proc
             // Close all fds unused by HP process.
             close_unused_fds(true);
 
+            // Start the contract output collection thread.
+            output_fetcher_thread = std::thread(fetch_outputs, std::ref(args));
+
             // Write the inputs into the contract process.
             if (feed_inputs(args) != 0)
                 goto failure;
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(contract_pid);
+            contract_pid = 0;
             LOG_DBG << "Contract process ended.";
 
-            contract_pid = 0;
+            // Wait for the output collection thread to gracefully stop.
+            output_fetcher_thread.join();
+
             if (presult != 0)
             {
                 LOG_ERR << "Contract process exited with non-normal status code: " << presult;
@@ -79,10 +91,6 @@ namespace proc
             }
 
             if (stop_hpfs_rw_session(state_hash) != 0)
-                goto failure;
-
-            // After contract execution, collect contract outputs.
-            if (fetch_outputs(args) != 0)
                 goto failure;
         }
         else if (pid == 0)
@@ -279,17 +287,30 @@ namespace proc
 
     int fetch_outputs(const contract_exec_args &args)
     {
-        if (read_contract_hp_npl_outputs(args) != 0)
+        while (true)
         {
-            return -1;
+            if (should_deinit)
+                break;
+
+            const int hpsc_npl_res = read_contract_hp_npl_outputs(args);
+            if (hpsc_npl_res == -1)
+                return -1;
+
+            const int user_res = read_contract_fdmap_outputs(userfds, args.userbufs);
+            if (user_res == -1)
+            {
+                LOG_ERR << "Error reading user outputs from the contract.";
+                return -1;
+            }
+
+            // If no bytes were read after contract finished execution, exit the read loop.
+            if (hpsc_npl_res == 0 && user_res == 0 && contract_pid == 0)
+                break;
+
+            util::sleep(20);
         }
 
-        if (read_contract_fdmap_outputs(userfds, args.userbufs) != 0)
-        {
-            LOG_ERR << "Error reading User output from the contract.";
-            return -1;
-        }
-
+        LOG_DBG << "Contract outputs collected.\n";
         return 0;
     }
 
@@ -317,27 +338,25 @@ namespace proc
  * Read all HP output messages produced by the contract process and store them in
  * the buffer for later processing.
  * 
- * @return 0 on success. -1 on failure.
+ * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
  */
     int read_contract_hp_npl_outputs(const contract_exec_args &args)
     {
-        // Clear the input buffers because we are sure the contract has finished reading from
-        // that mapped memory portion.
-        args.hpscbufs.inputs.clear();
-
-        if (read_iopipe(hpscfds, args.hpscbufs.output) != 0) // hpscbufs.second is the output buffer.
+        const int hpsc_res = read_iopipe(hpscfds, args.hpscbufs.output);
+        if (hpsc_res == -1)
         {
             LOG_ERR << "Error reading HP output from the contract.";
             return -1;
         }
 
-        if (read_iopipe(nplfds, args.nplbuff.output) != 0) // hpscbufs.second is the output buffer.
+        const int npl_res = read_iopipe(nplfds, args.nplbuff.output);
+        if (npl_res == -1)
         {
             LOG_ERR << "Error reading NPL output from the contract.";
             return -1;
         }
 
-        return 0;
+        return (hpsc_res == 0 && npl_res == 0) ? 0 : 1;
     }
 
     /**
@@ -414,24 +433,25 @@ namespace proc
  * 
  * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
  * @param bufmap A map which has a public key and input/output buffer pair for that public key.
- * @return 0 on success. -1 on failure.
+ * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
  */
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
     {
+        bool bytes_read = false;
         for (auto &[pubkey, bufpair] : bufmap)
         {
-            // Clear the input buffer because we are sure the contract has finished reading from
-            // the inputs' mapped memory portion.
-            bufpair.inputs.clear();
-
             // Get fds for the pubkey.
             std::vector<int> &fds = fdmap[pubkey];
 
-            if (read_iopipe(fds, bufpair.output) != 0) // bufpair.second is the output buffer.
+            const int res = read_iopipe(fds, bufpair.output);
+            if (res == -1)
                 return -1;
+
+            if (res > 0)
+                bytes_read = true;
         }
 
-        return 0;
+        return bytes_read ? 1 : 0;
     }
 
     /**
@@ -600,40 +620,46 @@ namespace proc
     }
 
     /**
- * Common function to read and close SC output from the pipe and populate the output list.
+ * Common function to read buffered output from the pipe and populate the output list.
  * @param fds Vector representing the pipes fd list.
  * @param output The buffer to place the read output.
+ * @return -1 on error. Otherwise no. of bytes read.
  */
     int read_iopipe(std::vector<int> &fds, std::string &output)
     {
-        // Read any data that have been written by the contract process
+        // Read any available data that have been written by the contract process
         // from the output pipe and store in the output buffer.
         // Outputs will be read by the consensus process later when it wishes so.
 
         const int readfd = fds[FDTYPE::HPREAD];
-        int bytes_available = 0;
-        ioctl(readfd, FIONREAD, &bytes_available);
-        bool vmsplice_error = false;
+        if (readfd == -1)
+            return 0;
 
-        if (bytes_available > 0)
+        bool read_error = false;
+        size_t available_bytes = 0;
+        if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
         {
-            output.resize(bytes_available);
+            if (available_bytes == 0)
+                return 0;
 
-            // Populate the user output buffer with new data from the pipe.
-            // We use vmsplice to map (zero-copy) the output from the fd into output bbuffer.
-            iovec memsegs[1];
-            memsegs[0].iov_base = output.data();
-            memsegs[0].iov_len = bytes_available;
+            const size_t current_size = output.size();
+            output.resize(current_size + available_bytes);
+            const int res = read(readfd, output.data() + current_size, available_bytes);
 
-            if (vmsplice(readfd, memsegs, 1, 0) == -1)
-                vmsplice_error = true;
+            if (res >= 0)
+            {
+                if (res == 0) // EOF
+                {
+                    close(readfd);
+                    fds[FDTYPE::HPREAD] = -1;
+                }
+                return res;
+            }
         }
 
-        // Close readfd fd on HP process side because we are done with contract process I/O.
         close(readfd);
         fds[FDTYPE::HPREAD] = -1;
-
-        return vmsplice_error ? -1 : 0;
+        return -1;
     }
 
     void close_unused_fds(const bool is_hp)
@@ -692,11 +718,16 @@ namespace proc
  */
     void deinit()
     {
+        should_deinit = true;
+
         if (contract_pid > 0)
             util::kill_process(contract_pid, true);
 
         if (hpfs_pid > 0)
             util::kill_process(hpfs_pid, true);
+
+        if (output_fetcher_thread.joinable())
+            output_fetcher_thread.join();
     }
 
 } // namespace proc
