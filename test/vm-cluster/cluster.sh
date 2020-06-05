@@ -42,7 +42,7 @@ fi
 if [ $mode = "check" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmip 'echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)  websocat pid:$(pidof websocat)'
     exit 0
 fi
 
@@ -59,6 +59,7 @@ if [ $mode = "kill" ]; then
     sshpass -f vmpass.txt ssh geveo@$vmip 'sudo kill $(pidof hpcore) > /dev/null 2>&1'
     sshpass -f vmpass.txt ssh geveo@$vmip 'sudo kill $(pidof hpfs) > /dev/null 2>&1'
     sshpass -f vmpass.txt ssh geveo@$vmip 'sudo kill $(pidof websocketd) > /dev/null 2>&1'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'sudo kill $(pidof websocat) > /dev/null 2>&1'
     exit 0
 fi
 
