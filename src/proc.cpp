@@ -44,24 +44,17 @@ namespace proc
  */
     int exec_contract(const contract_exec_args &args, hpfs::h32 &state_hash)
     {
-        int ret = 0;
-        pid_t pid = 0;
+        // Start the hpfs rw session before starting the contract process.
+        if (start_hpfs_rw_session() != 0)
+            return -1;
 
         // Setup io pipes and feed all inputs to them.
         create_iopipes_for_fdmap(userfds, args.userbufs);
         create_iopipes(nplfds, !args.nplbuff.inputs.empty());
         create_iopipes(hpscfds, !args.hpscbufs.inputs.empty());
 
-        // Write the inputs into the contract process.
-        // (This has to be done before hpfs process start due to new fds getting opened)
-        if (feed_inputs(args) != 0)
-            goto failure;
-
-        // Start the hpfs rw session before starting the contract process.
-        if (start_hpfs_rw_session() != 0)
-            goto failure;
-
-        pid = fork();
+        int ret = 0;
+        const pid_t pid = fork();
         if (pid > 0)
         {
             // HotPocket process.
@@ -69,6 +62,10 @@ namespace proc
 
             // Close all fds unused by HP process.
             close_unused_fds(true);
+
+            // Write the inputs into the contract process.
+            if (feed_inputs(args) != 0)
+                goto failure;
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(contract_pid);
@@ -496,11 +493,11 @@ namespace proc
         if (writefd == -1)
             return 0;
 
-        bool vmsplice_error = false;
+        bool write_error = false;
 
         if (!inputs.empty())
         {
-            // Prepare the input memory segments to map with vmsplice.
+            // Prepare the input memory segments to write with wrtiev.
             size_t i = 0;
             iovec memsegs[inputs.size()];
             for (std::string &input : inputs)
@@ -510,21 +507,17 @@ namespace proc
                 i++;
             }
 
-            // We use vmsplice to map (zero-copy) the inputs into the fd.
-            if (vmsplice(writefd, memsegs, inputs.size(), 0) == -1)
-                vmsplice_error = true;
+            if (writev(writefd, memsegs, inputs.size()) == -1)
+                write_error = true;
 
-            // It's important that we DO NOT clear the input buffer string until the contract
-            // process has actually read from the fd. Because the OS is just mapping our
-            // input buffer memory portion into the fd, if we clear it now, the contract process
-            // will get invaid bytes when reading the fd.
+            inputs.clear();
         }
 
         // Close the writefd since we no longer need it.
         close(writefd);
         fds[FDTYPE::HPWRITE] = -1;
 
-        return vmsplice_error ? -1 : 0;
+        return write_error ? -1 : 0;
     }
 
     /**
@@ -543,7 +536,7 @@ namespace proc
         if (writefd == -1)
             return 0;
 
-        bool vmsplice_error = false;
+        bool write_error = false;
         if (!inputs.empty())
         {
             int8_t total_memsegs = inputs.size() * 3;
@@ -593,19 +586,17 @@ namespace proc
                 i++;
             }
 
-            if (vmsplice(writefd, memsegs, total_memsegs, 0) == -1)
-                vmsplice_error = true;
+            if (writev(writefd, memsegs, total_memsegs) == -1)
+                write_error = true;
+
+            inputs.clear();
         }
-        // It's important that we DO NOT clear the input buffer string until the contract
-        // process has actually read from the fd. Because the OS is just mapping our
-        // input buffer memory portion into the fd, if we clear it now, the contract process
-        // will get invaid bytes when reading the fd.
 
         // Close the writefd since we no longer need it.
         close(writefd);
         fds[FDTYPE::HPWRITE] = -1;
 
-        return vmsplice_error ? -1 : 0;
+        return write_error ? -1 : 0;
     }
 
     /**
