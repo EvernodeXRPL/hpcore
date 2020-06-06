@@ -355,45 +355,36 @@ namespace state_sync
  */
     int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *file_resp)
     {
-        std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
-        const std::string path_str(path_sv.data(), path_sv.size());
+        // Get the file path of the block hashes we have received.
+        std::string file_vpath = std::string(fbschema::flatbuff_str_to_sv(file_resp->path()));
+        LOG_DBG << "State sync: Processing file block hashes response for " << file_vpath;
 
-        std::vector<uint8_t> existing_block_hashmap;
-        //if (statefs::get_block_hash_map(existing_block_hashmap, path_str, hpfs::h32_empty) == -1)
-        //    return -1;
+        // File block hashes on our side.
+        std::vector<hpfs::h32> existing_hashes;
+        if (hpfs::get_file_block_hashes(existing_hashes, ctx.hpfs_mount_dir, file_vpath) == -1)
+            return -1;
+        const size_t existing_hash_count = existing_hashes.size();
 
-        const hpfs::h32 *existing_hashes = reinterpret_cast<const hpfs::h32 *>(existing_block_hashmap.data());
-        auto existing_hash_count = existing_block_hashmap.size() / sizeof(hpfs::h32);
+        // File block hashes we received from the peer.
+        const hpfs::h32 *peer_hashes = reinterpret_cast<const hpfs::h32 *>(file_resp->hash_map()->data());
+        const size_t peer_hash_count = file_resp->hash_map()->size() / sizeof(hpfs::h32);
 
-        const hpfs::h32 *resp_hashes = reinterpret_cast<const hpfs::h32 *>(file_resp->hash_map()->data());
-        auto resp_hash_count = file_resp->hash_map()->size() / sizeof(hpfs::h32);
-
+        // Compare the block hashes and request any differences.
         auto insert_itr = ctx.pending_requests.begin();
-
-        for (int block_id = 0; block_id < existing_hash_count; ++block_id)
+        const int32_t max_block_id = MAX(existing_hash_count, peer_hash_count);
+        for (int32_t block_id = 0; block_id <= max_block_id; block_id++)
         {
-            if (block_id >= resp_hash_count)
-                break;
-
-            if (existing_hashes[block_id] != resp_hashes[block_id])
-            {
-                // Insert at front to give priority to block requests while preserving block order.
-                ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
-            }
+            // Insert at front to give priority to block requests while preserving block order.
+            if (block_id >= existing_hash_count || existing_hashes[block_id] != peer_hashes[block_id])
+                insert_itr = ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, file_vpath, block_id, peer_hashes[block_id]});
         }
 
-        if (existing_hash_count > resp_hash_count)
+        if (existing_hashes.size() >= peer_hash_count)
         {
-            //if (statefs::truncate_file(path_str, file_resp->file_length()) == -1)
-            //    return -1;
-        }
-        else if (existing_hash_count < resp_hash_count)
-        {
-            for (int block_id = existing_hash_count; block_id < resp_hash_count; ++block_id)
-            {
-                // Insert at front to give priority to block requests while preserving block order.
-                ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, path_str, block_id, resp_hashes[block_id]});
-            }
+            // If peer file might be smaller, truncate our file to match with peer file.
+            std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(file_vpath);
+            if (truncate(file_physical_path.c_str(), file_resp->file_length()) == -1)
+                return -1;
         }
 
         return 0;
