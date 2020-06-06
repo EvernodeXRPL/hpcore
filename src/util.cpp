@@ -226,4 +226,33 @@ namespace util
         return 0;
     }
 
+    bool is_dir_exists(std::string_view path)
+    {
+        struct stat st;
+        return (stat(path.data(), &st) == 0 && S_ISDIR(st.st_mode));
+    }
+
+    int create_dir_tree_recursive(std::string_view path)
+    {
+        if (strcmp(path.data(), "/") == 0) // No need of checking if we are at root.
+            return 0;
+
+        // Check whether this dir exists or not.
+        struct stat st;
+        if (stat(path.data(), &st) != 0 || !S_ISDIR(st.st_mode))
+        {
+            // Check and create parent dir tree first.
+            char *path2 = strdup(path.data());
+            char *parent_dir_path = dirname(path2);
+            if (create_dir_tree_recursive(parent_dir_path) == -1)
+                return -1;
+
+            // Create this dir.
+            if (mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
+                return -1;
+        }
+
+        return 0;
+    }
+
 } // namespace util

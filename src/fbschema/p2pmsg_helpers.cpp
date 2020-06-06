@@ -734,14 +734,14 @@ namespace fbschema::p2pmsg
 
     void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes)
     {
-
         for (const State_FS_Hash_Entry *f_hash : *fhashes)
         {
-            p2p::state_fs_hash_entry h;
-
-            h.is_file = f_hash->is_file();
-            h.hash = flatbuff_bytes_to_hash(f_hash->hash());
-            fs_entries.emplace(flatbuff_str_to_sv(f_hash->path()), std::move(h));
+            p2p::state_fs_hash_entry entry;
+            entry.name = flatbuff_str_to_sv(f_hash->name());
+            entry.is_file = f_hash->is_file();
+            entry.hash = flatbuff_bytes_to_hash(f_hash->hash());
+            
+            fs_entries.emplace(entry.name, std::move(entry));
         }
     }
 

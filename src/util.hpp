@@ -83,6 +83,10 @@ namespace util
 
     int kill_process(const pid_t pid, const bool wait);
 
+    bool is_dir_exists(std::string_view path);
+
+    int create_dir_tree_recursive(std::string_view path);
+
 } // namespace util
 
 #endif

@@ -81,8 +81,9 @@ struct state_request
 // Represents state file system entry.
 struct state_fs_hash_entry
 {
+    std::string name; // Name of the file/dir.
     bool is_file;     // Whether this is a file or dir.
-    hpfs::h32 hash; // Hash of the file or dir.
+    hpfs::h32 hash;   // Hash of the file or dir.
 };
 
 // Represents a file block data resposne.

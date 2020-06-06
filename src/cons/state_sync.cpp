@@ -56,7 +56,7 @@ namespace state_sync
 
         if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.hpfs_mount_dir, "rw", true) == -1)
         {
-            LOG_ERR << "Failed to start hpfs rw session for state sync.";
+            LOG_ERR << "State sync: Failed to start hpfs rw session";
             return -1;
         }
 
@@ -69,7 +69,7 @@ namespace state_sync
         state_request_processor();
 
         // Stop hpfs rw session.
-        LOG_DBG << "Stopping state sync hpfs session... pid:" << ctx.hpfs_pid;
+        LOG_DBG << "State sync: Stopping hpfs session... pid:" << ctx.hpfs_pid;
         util::kill_process(ctx.hpfs_pid, true);
 
         ctx.candidate_state_responses.clear();
@@ -140,7 +140,7 @@ namespace state_sync
 
                 if (cons::ctx.state == ctx.target_state)
                 {
-                    LOG_INFO << "State sync achieved target state: " << ctx.target_state;
+                    LOG_INFO << "State sync: Achieved target state: " << ctx.target_state;
                     break;
                 }
             }
@@ -163,7 +163,7 @@ namespace state_sync
                 {
                     // Reset the counter and re-submit request.
                     request.waiting_cycles = 0;
-                    LOG_DBG << "Resubmitting state request...";
+                    LOG_DBG << "State sync: Resubmitting state request...";
                     submit_request(request);
                 }
             }
@@ -265,7 +265,7 @@ namespace state_sync
  */
     void submit_request(const backlog_item &request)
     {
-        LOG_DBG << "Submitting state request. type:" << request.type << " path:" << request.path << " block_id:" << request.block_id;
+        LOG_DBG << "State sync: Submitting state request. type:" << request.type << " path:" << request.path << " block_id:" << request.block_id;
 
         ctx.submitted_requests.try_emplace(request.expected_hash, request);
 
@@ -274,73 +274,85 @@ namespace state_sync
     }
 
     /**
- * Process state file system entry response for a directory.
+ * Process dir children response.
  */
     int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp)
     {
-        std::unordered_map<std::string, p2p::state_fs_hash_entry> state_fs_entry_list;
-        fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(state_fs_entry_list, fs_entry_resp->entries());
+        // Get the parent path of the fs entries we have received.
+        std::string_view parent_vpath = fbschema::flatbuff_str_to_sv(fs_entry_resp->path());
+        LOG_DBG << "State sync: Processing fs entries response for " << parent_vpath;
 
-        std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
-        std::string_view root_path_sv = fbschema::flatbuff_str_to_sv(fs_entry_resp->path());
-        std::string root_path_str(root_path_sv.data(), root_path_sv.size());
+        // Get fs entries we have received.
+        std::unordered_map<std::string, p2p::state_fs_hash_entry> peer_fs_entry_map;
+        fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(peer_fs_entry_map, fs_entry_resp->entries());
 
-        // TODO: Create state path dir if not exist.
-        // TODO: Get existing fs entries hash map.
-        // if (!statefs::is_dir_exists(root_path_str))
-        // {
-        //     statefs::create_dir(root_path_str);
-        // }
-        // else
-        // {
-        //     if (statefs::get_fs_entry_hashes(existing_fs_entries, std::move(root_path_str), hpfs::h32_empty) == -1)
-        //         return -1;
-        // }
+        // Create physical directory on our side if not exist.
+        std::string parent_physical_path = std::string(ctx.hpfs_mount_dir).append(parent_vpath);
+        if (util::create_dir_tree_recursive(parent_physical_path) == -1)
+            return -1;
+
+        // Get the children hash entries and compare with what we got from peer.
+        std::vector<hpfs::child_hash_node> existing_fs_entries;
+        if (hpfs::get_dir_children_hashes(existing_fs_entries, ctx.hpfs_mount_dir, parent_vpath) == -1)
+            return -1;
 
         // Request more info on fs entries that exist on both sides but are different.
-        for (const auto &[path, fs_entry] : existing_fs_entries)
+        for (const auto &ex_entry : existing_fs_entries)
         {
-            const auto fs_itr = state_fs_entry_list.find(path);
-            if (fs_itr != state_fs_entry_list.end())
+            // Construct child vpath.
+            std::string child_vpath = std::string(parent_vpath)
+                                          .append(parent_vpath.back() != '/' ? "/" : "")
+                                          .append(ex_entry.name);
+
+            const auto peer_itr = peer_fs_entry_map.find(ex_entry.name);
+            if (peer_itr != peer_fs_entry_map.end())
             {
-                if (fs_itr->second.hash != fs_entry.hash)
+                // Request state if hash is different.
+                if (peer_itr->second.hash != ex_entry.hash)
                 {
-                    if (fs_entry.is_file)
-                        ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, path, -1, fs_itr->second.hash});
+                    // Prioritize file state requests over directories.
+                    if (ex_entry.is_file)
+                        ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, peer_itr->second.hash});
                     else
-                        ctx.pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, path, -1, fs_itr->second.hash});
+                        ctx.pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, peer_itr->second.hash});
                 }
 
-                state_fs_entry_list.erase(fs_itr);
+                peer_fs_entry_map.erase(peer_itr);
             }
             else
             {
-                // If there was an entry that does not exist on other side, delete it from this node.
-                if (fs_entry.is_file)
-                {
-                    //if (statefs::delete_file(path) == -1)
-                    //    return -1;
-                }
-                else
-                {
-                    //if (statefs::delete_dir(path) == -1)
-                    //    return -1;
-                }
+                // If there was an entry that does not exist on other side, delete it.
+                std::string child_physical_path = std::string(ctx.hpfs_mount_dir).append(child_vpath);
+
+                if ((ex_entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
+                    !ex_entry.is_file && rmdir(child_physical_path.c_str()) == -1)
+                    return -1;
+
+                LOG_DBG << "State sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
             }
         }
 
-        // Queue the remaining fs entries (that this node does not have at all) to request.
-        for (const auto &[path, fs_entry] : state_fs_entry_list)
+        // Queue the remaining peer fs entries (that our side does not have at all) to request.
+        for (const auto &[name, fs_entry] : peer_fs_entry_map)
         {
+            // Construct child vpath.
+            std::string child_vpath = std::string(parent_vpath)
+                                          .append(parent_vpath.back() != '/' ? "/" : "")
+                                          .append(name);
+
+            // Prioritize file state requests over directories.
             if (fs_entry.is_file)
-                ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, path, -1, fs_entry.hash});
+                ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, fs_entry.hash});
             else
-                ctx.pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, path, -1, fs_entry.hash});
+                ctx.pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, fs_entry.hash});
         }
 
         return 0;
     }
 
+    /**
+ * Process file block hash map response.
+ */
     int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *file_resp)
     {
         std::string_view path_sv = fbschema::flatbuff_str_to_sv(file_resp->path());
@@ -387,6 +399,9 @@ namespace state_sync
         return 0;
     }
 
+    /**
+ * Process file block response.
+ */
     int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg)
     {
         p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*block_msg);
