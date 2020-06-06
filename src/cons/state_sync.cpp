@@ -19,6 +19,8 @@ namespace state_sync
     // Syncing loop sleep delay.
     constexpr uint16_t SYNC_LOOP_WAIT = 100;
 
+    constexpr int FILE_PERMS = 0644;
+
     sync_context ctx;
 
     /**
@@ -395,10 +397,30 @@ namespace state_sync
  */
     int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg)
     {
-        p2p::block_response block_resp = fbschema::p2pmsg::create_block_response_from_msg(*block_msg);
+        // Get the file path of the block data we have received.
+        std::string_view file_vpath = std::string(fbschema::flatbuff_str_to_sv(block_msg->path()));
+        p2p::block_response resp = fbschema::p2pmsg::create_block_response_from_msg(*block_msg);
 
-        //if (statefs::write_block(block_resp.path, block_resp.block_id, block_resp.data.data(), block_resp.data.size()) == -1)
-        //    return -1;
+        LOG_DBG << "State sync: Writing block id " << resp.block_id
+                << "(len:" << resp.data.length()
+                << ") of " << file_vpath;
+
+        std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(file_vpath);
+        int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
+        if (fd == -1)
+        {
+            LOG_ERR << errno << " Open failed " << file_physical_path;
+            return -1;
+        }
+
+        const off_t offset = resp.block_id * BLOCK_SIZE;
+        int ret = pwrite(fd, resp.data.data(), resp.data.length(), offset);
+        close(fd);
+        if (ret == -1)
+        {
+            LOG_ERR << errno << " Write failed " << file_physical_path;
+            return -1;
+        }
 
         return 0;
     }

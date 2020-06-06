@@ -6,8 +6,6 @@
 
 namespace state_sync
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
-
     /**
  * Retrieves the specified data block from a state file if expected hash matches.
  * @return Number of bytes read on success. -1 on failure.

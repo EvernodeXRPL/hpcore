@@ -6,6 +6,8 @@
 
 namespace state_sync
 {
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
+
     int get_file_block(std::vector<uint8_t> &vec, const std::string_view vpath,
                        const uint32_t block_id, const hpfs::h32 expected_hash);
 
