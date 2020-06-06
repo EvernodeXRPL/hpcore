@@ -252,6 +252,8 @@ namespace sc
 
     int fetch_outputs(const contract_exec_args &args)
     {
+        util::mask_signal();
+
         while (true)
         {
             if (ctx.should_deinit)

@@ -12,8 +12,8 @@
 #include "../sc.hpp"
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"
+#include "../state/state_sync.hpp"
 #include "ledger_handler.hpp"
-#include "state_sync.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -650,10 +650,6 @@ namespace cons
         {
             LOG_DBG << "Not enough peers proposing to perform consensus. votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
             is_desync = true;
-
-            //Not enough nodes are propsing. So Node is switching to Proposer if it's in observer mode.
-            conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
-
             return;
         }
 
@@ -712,7 +708,7 @@ namespace cons
             }
         }
 
-        is_desync = (ctx.state == majority_state);
+        is_desync = (ctx.state != majority_state);
     }
 
     /**

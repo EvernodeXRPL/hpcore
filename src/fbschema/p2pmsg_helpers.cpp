@@ -273,21 +273,6 @@ namespace fbschema::p2pmsg
         return sr;
     }
 
-    /**
- * Creates a block response struct from the given block response message.
- * @param msg Flatbuffer block response message received from the peer.
- * @return A Block response struct representing the message.
- */
-    const p2p::block_response create_block_response_from_msg(const Block_Response &msg)
-    {
-        p2p::block_response br;
-
-        br.path = flatbuff_str_to_sv(msg.path());
-        br.block_id = msg.block_id();
-        br.data = flatbuff_bytes_to_sv(msg.data());
-        return br;
-    }
-
     //---Message creation helpers---//
 
     /**

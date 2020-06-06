@@ -38,8 +38,6 @@ namespace fbschema::p2pmsg
 
     const p2p::state_request create_state_request_from_msg(const State_Request_Message &msg);
 
-    const p2p::block_response create_block_response_from_msg(const Block_Response &msg);
-
     //---Message creation helpers---//
     void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &container_builder, const std::string &challenge);
 

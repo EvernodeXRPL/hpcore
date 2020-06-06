@@ -2,10 +2,75 @@
 #include "../hpfs/hpfs.hpp"
 #include "../hpfs/h32.hpp"
 #include "../util.hpp"
-#include "state_sync_hpfs.hpp"
+#include "../p2p/p2p.hpp"
+#include "../fbschema/p2pmsg_content_generated.h"
+#include "../fbschema/p2pmsg_helpers.hpp"
+#include "../fbschema/common_helpers.hpp"
+#include "../cons/cons.hpp"
+#include "state_serve.hpp"
 
-namespace state_sync
+/**
+ * Helper functions for serving state requests from other peers.
+ */
+namespace state_serve
 {
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
+
+    /**
+ * Creates the reply message for a given state request.
+ * @param msg The peer outbound message reference to build up the reply message.
+ * @param sr The state request which should be replied to.
+ */
+    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr)
+    {
+        // If block_id > -1 this means this is a file block data request.
+        if (sr.block_id > -1)
+        {
+            // Vector to hold the block bytes. Normally block size is constant BLOCK_SIZE (4MB), but the
+            // last block of a file may have a smaller size.
+            std::vector<uint8_t> block;
+
+            if (get_file_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
+                return -1;
+
+            p2p::block_response resp;
+            resp.path = sr.parent_path;
+            resp.block_id = sr.block_id;
+            resp.hash = sr.expected_hash;
+            resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
+
+            fbschema::p2pmsg::create_msg_from_block_response(fbuf, resp, cons::ctx.lcl);
+        }
+        else
+        {
+            // File state request means we have to reply with the file block hash map.
+            if (sr.is_file)
+            {
+                std::vector<hpfs::h32> block_hashes;
+                std::size_t file_length = 0;
+                if (get_file_block_hashes(block_hashes, file_length, sr.parent_path, sr.expected_hash) == -1)
+                    return -1;
+
+                fbschema::p2pmsg::create_msg_from_filehashmap_response(
+                    fbuf, sr.parent_path, block_hashes,
+                    file_length, sr.expected_hash, cons::ctx.lcl);
+            }
+            else
+            {
+                // If the state request is for a directory we need to reply with the
+                // file system entries and their hashes inside that dir.
+                std::vector<hpfs::child_hash_node> child_hash_nodes;
+                if (get_dir_children_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
+                    return -1;
+
+                fbschema::p2pmsg::create_msg_from_fsentry_response(
+                    fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, cons::ctx.lcl);
+            }
+        }
+
+        return 0;
+    }
+
     /**
  * Retrieves the specified data block from a state file if expected hash matches.
  * @return Number of bytes read on success. -1 on failure.

@@ -12,7 +12,8 @@
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 #include "../cons/ledger_handler.hpp"
-#include "../cons/state_sync.hpp"
+#include "../state/state_sync.hpp"
+#include "../state/state_serve.hpp"
 #include "../cons/cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -147,7 +148,7 @@ namespace p2p
             const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
             flatbuffers::FlatBufferBuilder fbuf(1024);
 
-            if (state_sync::create_state_response(fbuf, sr) == 0)
+            if (state_serve::create_state_response(fbuf, sr) == 0)
             {
                 std::string_view msg = std::string_view(
                     reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());

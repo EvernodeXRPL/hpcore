@@ -54,8 +54,8 @@ add_executable(hpcore
     src/usr/usr.cpp
     src/cons/cons.cpp
     src/cons/ledger_handler.cpp
-    src/cons/state_sync.cpp
-    src/cons/state_sync_hpfs.cpp
+    src/state/state_sync.cpp
+    src/state/state_serve.cpp
     src/main.cpp
 )
 target_link_libraries(hpcore

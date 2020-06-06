@@ -62,8 +62,6 @@ namespace state_sync
 
     int state_request_processor();
 
-    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr);
-
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash);
 
     void submit_request(const backlog_item &request);

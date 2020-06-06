@@ -1,12 +1,14 @@
-#ifndef _HP_CONS_STATE_SYNC_HPFS_
-#define _HP_CONS_STATE_SYNC_HPFS_
+#ifndef _HP_CONS_STATE_SERVE_
+#define _HP_CONS_STATE_SERVE_
 
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"
+#include "../p2p/p2p.hpp"
+#include "../fbschema/p2pmsg_content_generated.h"
 
-namespace state_sync
+namespace state_serve
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
+    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr);
 
     int get_file_block(std::vector<uint8_t> &vec, const std::string_view vpath,
                        const uint32_t block_id, const hpfs::h32 expected_hash);

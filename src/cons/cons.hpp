@@ -8,7 +8,6 @@
 #include "../usr/user_input.hpp"
 #include "../hpfs/h32.hpp"
 #include "ledger_handler.hpp"
-#include "state_sync.hpp"
 
 namespace cons
 {

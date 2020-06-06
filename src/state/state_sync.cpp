@@ -1,5 +1,4 @@
-#include "state_sync.hpp"
-#include "state_sync_hpfs.hpp"
+#include "../state/state_sync.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/common_helpers.hpp"
@@ -19,6 +18,8 @@ namespace state_sync
     // Syncing loop sleep delay.
     constexpr uint16_t SYNC_LOOP_WAIT = 100;
 
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
+
     constexpr int FILE_PERMS = 0644;
 
     sync_context ctx;
@@ -32,6 +33,11 @@ namespace state_sync
         // Do not do anything if we are already syncing towards the the specified target state.
         if (ctx.is_state_syncing && ctx.target_state == target_state)
             return;
+
+        if (ctx.target_state == hpfs::h32_empty)
+            LOG_INFO << "State sync: Starting sync for target state: " << target_state;
+        else
+            LOG_INFO << "State sync: Resetting sync for new target state: " << target_state;
 
         // Stop any ongoing state sync operation.
         stop_state_sync();
@@ -208,61 +214,6 @@ namespace state_sync
     }
 
     /**
- * Creates the reply message for a given state request.
- * @param msg The peer outbound message reference to build up the reply message.
- * @param sr The state request which should be replied to.
- */
-    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr)
-    {
-        // If block_id > -1 this means this is a file block data request.
-        if (sr.block_id > -1)
-        {
-            // Vector to hold the block bytes. Normally block size is constant BLOCK_SIZE (4MB), but the
-            // last block of a file may have a smaller size.
-            std::vector<uint8_t> block;
-
-            if (get_file_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
-                return -1;
-
-            p2p::block_response resp;
-            resp.path = sr.parent_path;
-            resp.block_id = sr.block_id;
-            resp.hash = sr.expected_hash;
-            resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
-
-            fbschema::p2pmsg::create_msg_from_block_response(fbuf, resp, cons::ctx.lcl);
-        }
-        else
-        {
-            // File state request means we have to reply with the file block hash map.
-            if (sr.is_file)
-            {
-                std::vector<hpfs::h32> block_hashes;
-                std::size_t file_length = 0;
-                if (get_file_block_hashes(block_hashes, file_length, sr.parent_path, sr.expected_hash) == -1)
-                    return -1;
-
-                fbschema::p2pmsg::create_msg_from_filehashmap_response(
-                    fbuf, sr.parent_path, block_hashes,
-                    file_length, sr.expected_hash, cons::ctx.lcl);
-            }
-            else
-            {
-                // If the state request is for a directory we need to reply with the
-                // file system entries and their hashes inside that dir.
-                std::vector<hpfs::child_hash_node> child_hash_nodes;
-                if (get_dir_children_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
-                    return -1;
-
-                fbschema::p2pmsg::create_msg_from_fsentry_response(
-                    fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, cons::ctx.lcl);
-            }
-        }
-
-        return 0;
-    }
-
-    /**
  * Submits a pending state request to the peer.
  */
     void submit_request(const backlog_item &request)
@@ -398,25 +349,26 @@ namespace state_sync
     int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg)
     {
         // Get the file path of the block data we have received.
-        std::string_view file_vpath = std::string(fbschema::flatbuff_str_to_sv(block_msg->path()));
-        p2p::block_response resp = fbschema::p2pmsg::create_block_response_from_msg(*block_msg);
+        std::string_view file_vpath = fbschema::flatbuff_str_to_sv(block_msg->path());
+        const uint32_t block_id = block_msg->block_id();
+        std::string_view buf = fbschema::flatbuff_bytes_to_sv(block_msg->data());
 
-        LOG_DBG << "State sync: Writing block id " << resp.block_id
-                << "(len:" << resp.data.length()
+        LOG_DBG << "State sync: Writing block id " << block_id
+                << "(len:" << buf.length()
                 << ") of " << file_vpath;
 
         std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(file_vpath);
-        int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
+        const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
         if (fd == -1)
         {
             LOG_ERR << errno << " Open failed " << file_physical_path;
             return -1;
         }
 
-        const off_t offset = resp.block_id * BLOCK_SIZE;
-        int ret = pwrite(fd, resp.data.data(), resp.data.length(), offset);
+        const off_t offset = block_id * BLOCK_SIZE;
+        const int res = pwrite(fd, buf.data(), buf.length(), offset);
         close(fd);
-        if (ret == -1)
+        if (res < buf.length())
         {
             LOG_ERR << errno << " Write failed " << file_physical_path;
             return -1;
