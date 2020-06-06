@@ -53,20 +53,41 @@ namespace state_sync
     {
         util::mask_signal();
 
+        if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.hpfs_mount_dir, "rw", true) == -1)
+        {
+            LOG_ERR << "Failed to start hpfs rw session for state sync.";
+            return -1;
+        }
+
         ctx.target_state = target_state;
         ctx.is_state_syncing = true;
 
         // Send the root state request.
         submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, ctx.target_state});
 
+        state_request_processor();
+
+        // Stop hpfs rw session.
+        LOG_DBG << "Stopping state sync hpfs session... pid:" << ctx.hpfs_pid;
+        util::kill_process(ctx.hpfs_pid, true);
+
+        ctx.candidate_state_responses.clear();
+        ctx.pending_requests.clear();
+        ctx.submitted_requests.clear();
+
+        ctx.is_state_syncing = false;
+        ctx.target_state = hpfs::h32_empty;
+        return 0;
+    }
+
+    int state_request_processor()
+    {
         while (true)
         {
             if (ctx.should_stop_syncing)
                 break;
 
             util::sleep(SYNC_LOOP_WAIT);
-
-            // TODO: Also bypass peer session handler state responses if we're not syncing.
 
             {
                 std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
@@ -111,6 +132,16 @@ namespace state_sync
                     if (handle_file_block_response(resp_msg->state_response_as_Block_Response()) == -1)
                         return -1;
                 }
+
+                // After handling each response, check whether we have reached target state.
+                if (hpfs::get_hash(cons::ctx.state, ctx.hpfs_mount_dir, "/") == -1)
+                    return -1;
+
+                if (cons::ctx.state == ctx.target_state)
+                {
+                    LOG_INFO << "State sync achieved target state: " << ctx.target_state;
+                    break;
+                }
             }
 
             ctx.candidate_state_responses.clear();
@@ -151,14 +182,6 @@ namespace state_sync
                 }
             }
         }
-
-        ctx.candidate_state_responses.clear();
-        ctx.pending_requests.clear();
-        ctx.submitted_requests.clear();
-
-        ctx.is_state_syncing = false;
-        ctx.target_state = hpfs::h32_empty;
-        return 0;
     }
 
     /**
