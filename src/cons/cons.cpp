@@ -13,7 +13,7 @@
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "ledger_handler.hpp"
-#include "state_handler.hpp"
+#include "state_sync.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -45,10 +45,10 @@ namespace cons
         ctx.lcl = ldr_hist.lcl;
         ctx.ledger_cache.swap(ldr_hist.cache);
 
-        if (hpfs::get_root_hash(ctx.curr_state_hash) == -1)
+        if (hpfs::get_root_hash(ctx.state) == -1)
             return -1;
 
-        LOG_INFO << "Initial state: " << ctx.curr_state_hash;
+        LOG_INFO << "Initial state: " << ctx.state;
 
         // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
         // Stage 3 is allocated an extra stage_time unit becayse a node needs enough time to
@@ -157,7 +157,7 @@ namespace cons
             vote_counter votes;
 
             // check if we're ahead/behind of consensus lcl
-            bool is_lcl_desync, should_request_history;
+            bool is_lcl_desync = false, should_request_history = false;
             std::string majority_lcl;
             check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes);
 
@@ -188,10 +188,16 @@ namespace cons
             }
             else
             {
-                //TODO: Check and compare majotiry state and start state sync.
-                bool is_state_syncing = false;
+                bool is_state_desync = false;
+                hpfs::h32 majority_state = hpfs::h32_empty;
+                check_state_votes(is_state_desync, majority_state, votes);
 
-                if (!is_state_syncing)
+                if (is_state_desync)
+                {
+                    conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                    state_sync::sync_state(majority_state);
+                }
+                else
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
 
@@ -207,7 +213,7 @@ namespace cons
 
                         // node has finished a consensus round (all 4 stages).
                         LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
-                                 << " state:" << ctx.curr_state_hash << ")";
+                                 << " state:" << ctx.state << ")";
                     }
                 }
             }
@@ -240,7 +246,7 @@ namespace cons
                         << " hout:" << cp.hash_outputs.size()
                         << " ts:" << std::to_string(cp.time)
                         << " lcl:" << cp.lcl.substr(0, 15)
-                        << " state:" << cp.curr_state_hash
+                        << " state:" << cp.state
                         << " self:" << self;
             }
             else
@@ -506,7 +512,7 @@ namespace cons
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
         stg_prop.lcl = ctx.lcl;
-        stg_prop.curr_state_hash = ctx.curr_state_hash;
+        stg_prop.state = ctx.state;
 
         // Populate the proposal with set of candidate user pubkeys.
         for (const std::string &pubkey : ctx.candidate_users)
@@ -538,7 +544,7 @@ namespace cons
         // if there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork
         stg_prop.lcl = ctx.lcl;
-        stg_prop.curr_state_hash = ctx.curr_state_hash;
+        stg_prop.state = ctx.state;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -693,7 +699,7 @@ namespace cons
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
-            increment(votes.state, cp.curr_state_hash);
+            increment(votes.state, cp.state);
         }
 
         int32_t winning_votes = 0;
@@ -706,7 +712,7 @@ namespace cons
             }
         }
 
-        is_desync = (ctx.curr_state_hash == majority_state);
+        is_desync = (ctx.state == majority_state);
     }
 
     /**
@@ -901,7 +907,7 @@ namespace cons
         sc::contract_iobuf_pair hpscbufpair;
         return sc::exec_contract(
             sc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair),
-            ctx.curr_state_hash);
+            ctx.state);
     }
 
     /**

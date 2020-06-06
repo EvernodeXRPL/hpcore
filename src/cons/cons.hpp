@@ -8,7 +8,7 @@
 #include "../usr/user_input.hpp"
 #include "../hpfs/h32.hpp"
 #include "ledger_handler.hpp"
-#include "state_handler.hpp"
+#include "state_sync.hpp"
 
 namespace cons
 {
@@ -74,7 +74,7 @@ struct consensus_context
     uint64_t time_now = 0;
     std::string lcl;
     uint64_t led_seq_no = 0;
-    hpfs::h32 curr_state_hash;
+    hpfs::h32 state = hpfs::h32_empty;
 
     //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
     //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.

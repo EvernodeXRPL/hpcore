@@ -37,7 +37,7 @@ table Proposal_Message { //Proposal type message schema
     users:[ByteArray];
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
-    curr_state_hash: [ubyte];
+    state: [ubyte];
 }
 
 table Npl_Message { //NPL type message schema

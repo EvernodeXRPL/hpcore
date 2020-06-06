@@ -732,7 +732,7 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *mutable_hash_outputs() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_HASH_OUTPUTS);
   }
-  const flatbuffers::Vector<uint8_t> *curr_state_hash() const {
+  const flatbuffers::Vector<uint8_t> *state() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CURR_STATE_HASH);
   }
   flatbuffers::Vector<uint8_t> *mutable_curr_state_hash() {
@@ -752,7 +752,7 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(hash_outputs()) &&
            verifier.VerifyVectorOfTables(hash_outputs()) &&
            VerifyOffset(verifier, VT_CURR_STATE_HASH) &&
-           verifier.VerifyVector(curr_state_hash()) &&
+           verifier.VerifyVector(state()) &&
            verifier.EndTable();
   }
 };
@@ -776,8 +776,8 @@ struct Proposal_MessageBuilder {
   void add_hash_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs) {
     fbb_.AddOffset(Proposal_Message::VT_HASH_OUTPUTS, hash_outputs);
   }
-  void add_curr_state_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> curr_state_hash) {
-    fbb_.AddOffset(Proposal_Message::VT_CURR_STATE_HASH, curr_state_hash);
+  void add_curr_state_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
+    fbb_.AddOffset(Proposal_Message::VT_CURR_STATE_HASH, state);
   }
   explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -797,10 +797,10 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> curr_state_hash = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
-  builder_.add_curr_state_hash(curr_state_hash);
+  builder_.add_curr_state_hash(state);
   builder_.add_hash_outputs(hash_outputs);
   builder_.add_hash_inputs(hash_inputs);
   builder_.add_users(users);
@@ -815,11 +815,11 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_inputs = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_outputs = nullptr,
-    const std::vector<uint8_t> *curr_state_hash = nullptr) {
+    const std::vector<uint8_t> *state = nullptr) {
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*users) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_inputs) : 0;
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_outputs) : 0;
-  auto curr_state_hash__ = curr_state_hash ? _fbb.CreateVector<uint8_t>(*curr_state_hash) : 0;
+  auto curr_state_hash__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
   return fbschema::p2pmsg::CreateProposal_Message(
       _fbb,
       stage,

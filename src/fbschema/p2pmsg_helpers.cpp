@@ -222,7 +222,7 @@ namespace fbschema::p2pmsg
         p.time = msg.time();
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
-        p.curr_state_hash = flatbuff_bytes_to_sv(msg.curr_state_hash());
+        p.state = flatbuff_bytes_to_sv(msg.state());
 
         if (msg.users())
             p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
@@ -372,7 +372,7 @@ namespace fbschema::p2pmsg
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
-                sv_to_flatbuff_bytes(builder, p.curr_state_hash.to_string_view()));
+                sv_to_flatbuff_bytes(builder, p.state.to_string_view()));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
