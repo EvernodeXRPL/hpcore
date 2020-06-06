@@ -67,7 +67,6 @@ namespace cons
     {
         if (init_success)
         {
-
         }
     }
 
@@ -164,8 +163,6 @@ namespace cons
 
             if (is_lcl_desync)
             {
-                ctx.is_lcl_syncing = true;
-
                 if (should_request_history)
                 {
                     LOG_INFO << "Syncing lcl. Curr lcl:" << cons::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
@@ -191,11 +188,7 @@ namespace cons
             }
             else
             {
-                const bool lcl_syncing_just_finished = ctx.is_lcl_syncing;
-                ctx.is_lcl_syncing = false;
-
-                if (lcl_syncing_just_finished)
-                    ; //TODO: Check and compare majotiry state and start state sync.
+                //TODO: Check and compare majotiry state and start state sync.
                 bool is_state_syncing = false;
 
                 if (!is_state_syncing)
@@ -693,6 +686,30 @@ namespace cons
     }
 
     /**
+ * Check state against the winning and canonical state
+ * @param votes The voting table.
+ */
+    void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes)
+    {
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            increment(votes.state, cp.curr_state_hash);
+        }
+
+        int32_t winning_votes = 0;
+        for (const auto [state, votes] : votes.state)
+        {
+            if (votes > winning_votes)
+            {
+                winning_votes = votes;
+                majority_state = state;
+            }
+        }
+
+        is_desync = (ctx.curr_state_hash == majority_state);
+    }
+
+    /**
  * Returns the consensus percentage threshold for the specified stage.
  * @param stage The consensus stage [1, 2, 3]
  */
@@ -793,30 +810,6 @@ namespace cons
 
                 // now we can safely delete this candidate output.
                 ctx.candidate_user_outputs.erase(cu_itr);
-            }
-        }
-    }
-
-    /**
- * Check state against the winning and canonical state
- * @param votes The voting table.
- */
-    void check_state(vote_counter &votes)
-    {
-        hpfs::h32 majority_state = hpfs::h32_empty;
-
-        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
-        {
-            increment(votes.state, cp.curr_state_hash);
-        }
-
-        int32_t winning_votes = 0;
-        for (const auto [state, votes] : votes.state)
-        {
-            if (votes > winning_votes)
-            {
-                winning_votes = votes;
-                majority_state = state;
             }
         }
     }

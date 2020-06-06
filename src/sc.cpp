@@ -56,9 +56,6 @@ namespace sc
                 LOG_ERR << "Contract process exited with non-normal status code: " << presult;
                 goto failure;
             }
-
-            if (stop_hpfs_rw_session(state_hash) != 0)
-                goto failure;
         }
         else if (pid == 0)
         {
@@ -106,6 +103,7 @@ namespace sc
         ret = -1;
 
     success:
+        stop_hpfs_rw_session(state_hash);
         cleanup_fdmap(ctx.userfds);
         cleanup_vectorfds(ctx.hpscfds);
         cleanup_vectorfds(ctx.nplfds);

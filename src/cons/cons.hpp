@@ -82,7 +82,6 @@ struct consensus_context
     //We will use this to track lcls related logic.- track state, lcl request, response.
     std::map<uint64_t, ledger_cache_entry> ledger_cache;
     std::string last_requested_lcl;
-    bool is_lcl_syncing = false;
 
     //ledger close time of previous hash
     uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
@@ -134,6 +133,8 @@ void broadcast_proposal(const p2p::proposal &p);
 
 void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
+void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
+
 float_t get_stage_threshold(const uint8_t stage);
 
 void timewait_stage(const bool reset, const uint64_t time);
@@ -145,8 +146,6 @@ uint64_t get_stage_time_resolution(const uint64_t time);
 int apply_ledger(const p2p::proposal &proposal);
 
 void dispatch_user_outputs(const p2p::proposal &cons_prop);
-
-void check_state(vote_counter &votes);
 
 void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
