@@ -6,90 +6,96 @@
 #include "p2pmsg_content_generated.h"
 #include "../p2p/p2p.hpp"
 #include "../hpfs/h32.hpp"
+#include "../hpfs/hpfs.hpp"
 
 namespace fbschema::p2pmsg
 {
-/**
+    /**
  * This section contains Flatbuffer p2p message reading/writing helpers.
  */
 
-//---Message validation helpers---/
+    //---Message validation helpers---/
 
-int validate_and_extract_container(const Container **container_ref, std::string_view container_buf);
+    int validate_and_extract_container(const Container **container_ref, std::string_view container_buf);
 
-int validate_container_trust(const Container *container);
+    int validate_container_trust(const Container *container);
 
-int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, const flatbuffers::uoffset_t content_size);
+    int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, const flatbuffers::uoffset_t content_size);
 
-//---Message reading helpers---/
+    //---Message reading helpers---/
 
-const std::string_view get_peer_challenge_from_msg(const Peer_Challenge_Message &msg);
+    const std::string_view get_peer_challenge_from_msg(const Peer_Challenge_Message &msg);
 
-const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const Peer_Challenge_Response_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey);
+    const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const Peer_Challenge_Response_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey);
 
-const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp);
+    const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp);
 
-const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const flatbuffers::Vector<uint8_t> *lcl);
+    const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const flatbuffers::Vector<uint8_t> *lcl);
 
-const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg);
+    const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg);
 
-const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg);
+    const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg);
 
-const p2p::state_request create_state_request_from_msg(const State_Request_Message &msg);
+    const p2p::state_request create_state_request_from_msg(const State_Request_Message &msg);
 
-const p2p::block_response create_block_response_from_msg(const Block_Response &msg);
+    const p2p::block_response create_block_response_from_msg(const Block_Response &msg);
 
-//---Message creation helpers---//
-void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &container_builder, const std::string &challenge);
+    //---Message creation helpers---//
+    void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &container_builder, const std::string &challenge);
 
-void create_msg_from_peer_challenge(flatbuffers::FlatBufferBuilder &container_builder, std::string &challenge);
+    void create_msg_from_peer_challenge(flatbuffers::FlatBufferBuilder &container_builder, std::string &challenge);
 
-void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);
+    void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup);
 
-void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::proposal &p);
+    void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::proposal &p);
 
-void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_request &hr);
+    void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_request &hr);
 
-void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_response &hr);
+    void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_response &hr);
 
-void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const p2p::npl_message &npl, std::string_view lcl);
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const p2p::npl_message &npl, std::string_view lcl);
 
-void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::state_request &hr, std::string_view lcl);
+    void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::state_request &hr, std::string_view lcl);
 
-void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
-                                      std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, hpfs::h32 expected_hash, std::string_view lcl);
+    void create_msg_from_fsentry_response(
+        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
+        std::vector<hpfs::child_hash_node> &hash_nodes, hpfs::h32 expected_hash, std::string_view lcl);
 
-void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl);
+    void create_msg_from_filehashmap_response(
+        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path,
+        std::vector<hpfs::h32> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl);
 
-void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl);
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl);
 
-void create_containermsg_from_content(
-    flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign);
+    void create_containermsg_from_content(
+        flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign);
 
-//---Conversion helpers from flatbuffers data types to std data types---//
+    //---Conversion helpers from flatbuffers data types to std data types---//
 
-const std::unordered_map<std::string, const std::list<usr::user_submitted_message>>
-flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>> *fbvec);
+    const std::unordered_map<std::string, const std::list<usr::user_submitted_message>>
+    flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>> *fbvec);
 
-//---Conversion helpers from std data types to flatbuffers data types---//
+    //---Conversion helpers from std data types to flatbuffers data types---//
 
-const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>>>
-usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_message>> &map);
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>>>
+    usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_message>> &map);
 
-const std::map<uint64_t, const p2p::history_ledger>
-flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *fbvec);
+    const std::map<uint64_t, const p2p::history_ledger>
+    flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *fbvec);
 
-const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
-historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map);
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
+    historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map);
 
-void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries,
-                                                  const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
+    void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries,
+                                                      const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
 
-void statefilehash_to_flatbuf_statefilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> &list,
-                                            std::string_view full_path, bool is_file, std::string_view hash);
+    void statefilehash_to_flatbuf_statefilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> &list,
+                                                std::string_view full_path, bool is_file, std::string_view hash);
 
-flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>>
-statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &builder, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries);
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>>
+    statefshashentry_to_flatbuff_statefshashentry(
+        flatbuffers::FlatBufferBuilder &builder,
+        std::vector<hpfs::child_hash_node> &hash_nodes);
 
 } // namespace fbschema::p2pmsg
 

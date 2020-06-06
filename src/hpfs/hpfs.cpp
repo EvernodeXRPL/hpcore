@@ -175,4 +175,66 @@ namespace hpfs
         return 0;
     }
 
+    int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath)
+    {
+        std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.children");
+        int fd = open(path.c_str(), O_RDONLY);
+        if (fd == -1)
+        {
+            LOG_ERR << errno << ": Error opening block hashes.";
+            return -1;
+        }
+
+        struct stat st;
+        if (fstat(fd, &st) == -1 || !S_ISREG(st.st_mode))
+        {
+            close(fd);
+            LOG_ERR << errno << ": Error reading block hashes length.";
+            return -1;
+        }
+
+        const int children_count = st.st_size / sizeof(h32);
+        hashes.resize(children_count);
+
+        int res = read(fd, hashes.data(), st.st_size);
+        close(fd);
+        if (res == -1)
+        {
+            LOG_ERR << errno << ": Error reading hash block hashes.";
+            return -1;
+        }
+        return 0;
+    }
+
+    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath)
+    {
+        std::string path = std::string(mount_dir).append(dir_vpath).append("::hpfs.hmap.children");
+        int fd = open(path.c_str(), O_RDONLY);
+        if (fd == -1)
+        {
+            LOG_ERR << errno << ": Error opening hash children nodes.";
+            return -1;
+        }
+
+        struct stat st;
+        if (fstat(fd, &st) == -1 || !S_ISDIR(st.st_mode))
+        {
+            close(fd);
+            LOG_ERR << errno << ": Error reading hash children nodes length.";
+            return -1;
+        }
+
+        const int children_count = st.st_size / sizeof(child_hash_node);
+        hash_nodes.resize(children_count);
+
+        int res = read(fd, hash_nodes.data(), st.st_size);
+        close(fd);
+        if (res == -1)
+        {
+            LOG_ERR << errno << ": Error reading hash children nodes.";
+            return -1;
+        }
+        return 0;
+    }
+
 } // namespace hpfs

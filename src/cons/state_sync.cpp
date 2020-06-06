@@ -1,4 +1,5 @@
 #include "state_sync.hpp"
+#include "state_sync_hpfs.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/common_helpers.hpp"
@@ -218,7 +219,8 @@ namespace state_sync
             // last block of a file may have a smaller size.
             std::vector<uint8_t> block;
 
-            // TODO: get block
+            if (get_file_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
+                return -1;
 
             p2p::block_response resp;
             resp.path = sr.parent_path;
@@ -233,22 +235,25 @@ namespace state_sync
             // File state request means we have to reply with the file block hash map.
             if (sr.is_file)
             {
-                std::vector<uint8_t> existing_block_hashmap;
-
-                // TODO: get block hash list
-                // TODO: get file length
+                std::vector<hpfs::h32> block_hashes;
                 std::size_t file_length = 0;
+                if (get_file_block_hashes(block_hashes, file_length, sr.parent_path, sr.expected_hash) == -1)
+                    return -1;
 
-                fbschema::p2pmsg::create_msg_from_filehashmap_response(fbuf, sr.parent_path, existing_block_hashmap, file_length, sr.expected_hash, cons::ctx.lcl);
+                fbschema::p2pmsg::create_msg_from_filehashmap_response(
+                    fbuf, sr.parent_path, block_hashes,
+                    file_length, sr.expected_hash, cons::ctx.lcl);
             }
             else
             {
-                // If the state request is for a directory we need to reply with the file system entries and their hashes inside that dir.
-                std::unordered_map<std::string, p2p::state_fs_hash_entry> existing_fs_entries;
+                // If the state request is for a directory we need to reply with the
+                // file system entries and their hashes inside that dir.
+                std::vector<hpfs::child_hash_node> child_hash_nodes;
+                if (get_dir_children_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
+                    return -1;
 
-                // TODO: get fs entry hashes
-
-                fbschema::p2pmsg::create_msg_from_fsentry_response(fbuf, sr.parent_path, existing_fs_entries, sr.expected_hash, cons::ctx.lcl);
+                fbschema::p2pmsg::create_msg_from_fsentry_response(
+                    fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, cons::ctx.lcl);
             }
         }
 

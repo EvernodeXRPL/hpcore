@@ -4,6 +4,8 @@
 #include "../util.hpp"
 #include "../hplog.hpp"
 #include "../p2p/p2p.hpp"
+#include "../hpfs/h32.hpp"
+#include "../hpfs/hpfs.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
 #include "common_helpers.hpp"
@@ -480,11 +482,13 @@ namespace fbschema::p2pmsg
  * Create content response message from the given content response.
  * @param container_builder Flatbuffer builder for the container message.
  * @param path The path of the directory.
- * @param fs_entries File or directory entries in the given parent path.
+ * @param hash_nodes File or directory entries with hashes in the given parent path.
  * @param expected_hash The exptected hash of the requested path.
  * @param lcl Lcl to be include in the container msg.
  */
-    void create_msg_from_fsentry_response(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries, hpfs::h32 expected_hash, std::string_view lcl)
+    void create_msg_from_fsentry_response(
+        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
+        std::vector<hpfs::child_hash_node> &hash_nodes, hpfs::h32 expected_hash, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -492,7 +496,7 @@ namespace fbschema::p2pmsg
             CreateFs_Entry_Response(
                 builder,
                 sv_to_flatbuff_str(builder, path),
-                statefshashentry_to_flatbuff_statefshashentry(builder, fs_entries));
+                statefshashentry_to_flatbuff_statefshashentry(builder, hash_nodes));
 
         const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(
             builder, State_Response_Fs_Entry_Response,
@@ -514,12 +518,14 @@ namespace fbschema::p2pmsg
  * @param hashmap Hashmap of the file
  * @param lcl Lcl to be include in the container msg.
  */
-    void create_msg_from_filehashmap_response(flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, std::vector<uint8_t> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl)
+    void create_msg_from_filehashmap_response(
+        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path,
+        std::vector<hpfs::h32> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);
 
-        std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size());
+        std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(hpfs::h32));
 
         const flatbuffers::Offset<File_HashMap_Response> resp =
             CreateFile_HashMap_Response(
@@ -740,17 +746,19 @@ namespace fbschema::p2pmsg
     }
 
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>>>
-    statefshashentry_to_flatbuff_statefshashentry(flatbuffers::FlatBufferBuilder &builder, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries)
+    statefshashentry_to_flatbuff_statefshashentry(
+        flatbuffers::FlatBufferBuilder &builder,
+        std::vector<hpfs::child_hash_node> &hash_nodes)
     {
         std::vector<flatbuffers::Offset<State_FS_Hash_Entry>> fbvec;
-        fbvec.reserve(fs_entries.size());
-        for (auto const &[path, fs_entry] : fs_entries)
+        fbvec.reserve(hash_nodes.size());
+        for (auto const &hash_node : hash_nodes)
         {
             flatbuffers::Offset<State_FS_Hash_Entry> state_fs_entry = CreateState_FS_Hash_Entry(
                 builder,
-                sv_to_flatbuff_str(builder, path),
-                fs_entry.is_file,
-                hash_to_flatbuff_bytes(builder, fs_entry.hash));
+                sv_to_flatbuff_str(builder, hash_node.name),
+                hash_node.is_file,
+                hash_to_flatbuff_bytes(builder, hash_node.hash));
 
             fbvec.push_back(state_fs_entry);
         }
