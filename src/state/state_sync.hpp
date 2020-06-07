@@ -44,8 +44,9 @@ namespace state_sync
         std::unordered_map<hpfs::h32, backlog_item, hpfs::h32_std_key_hasher> submitted_requests;
 
         std::thread state_sync_thread;
-        bool is_state_syncing = false;
-        bool should_stop_syncing = false;
+        std::mutex target_update_lock;
+        bool is_syncing = false;
+        bool is_shutting_down = false;
         pid_t hpfs_pid = 0;
         std::string hpfs_mount_dir;
     };
@@ -54,13 +55,17 @@ namespace state_sync
 
     extern std::list<std::string> candidate_state_responses;
 
+    int init();
+
+    void deinit();
+
     void sync_state(const hpfs::h32 target_state);
 
-    void stop_state_sync();
+    void state_syncer_loop();
 
-    int state_syncer(const hpfs::h32 target_state);
+    void state_request_processor(const hpfs::h32 target_state, hpfs::h32 &current_state);
 
-    int state_request_processor();
+    bool should_stop_processing(const hpfs::h32 current_target);
 
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash);
 

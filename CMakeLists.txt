@@ -76,8 +76,8 @@ add_dependencies(hpcore
 )
 
 add_custom_command(TARGET hpcore POST_BUILD
-    COMMAND strip ./build/hpcore
-    COMMAND strip ./build/appbill
+    # COMMAND strip ./build/hpcore
+    # COMMAND strip ./build/appbill
     COMMAND cp ./test/bin/websocketd ./test/bin/websocat ./test/bin/hpfs ./build/
 )
     

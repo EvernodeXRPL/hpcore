@@ -65,8 +65,6 @@ namespace cons
  */
     void deinit()
     {
-        if (init_success)
-            state_sync::stop_state_sync();
     }
 
     int run_consensus()
@@ -707,7 +705,7 @@ namespace cons
             }
         }
 
-        is_desync = (ctx.state != majority_state);
+        is_desync = (ctx.state == majority_state);
     }
 
     /**

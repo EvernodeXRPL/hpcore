@@ -163,7 +163,7 @@ namespace p2p
                 return 0;
             }
 
-            if (state_sync::ctx.is_state_syncing) // Only accept state responses if state is syncing.
+            if (state_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
             {
                 // Insert state_response with lock.
                 std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex);
