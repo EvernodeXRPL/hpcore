@@ -171,7 +171,7 @@ namespace state_sync
                 {
                     // Reset the counter and re-submit request.
                     request.waiting_cycles = 0;
-                    LOG_DBG << "State sync: Resubmitting state request...";
+                    LOG_DBG << "State sync: Resubmitting request...";
                     submit_request(request);
                 }
             }
@@ -218,7 +218,7 @@ namespace state_sync
  */
     void submit_request(const backlog_item &request)
     {
-        LOG_DBG << "State sync: Submitting state request. type:" << request.type << " path:" << request.path << " block_id:" << request.block_id;
+        LOG_DBG << "State sync: Submitting request. type:" << request.type << " path:" << request.path << " block_id:" << request.block_id;
 
         ctx.submitted_requests.try_emplace(request.expected_hash, request);
 

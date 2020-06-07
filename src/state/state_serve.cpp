@@ -18,7 +18,7 @@ namespace state_serve
 
     /**
  * Creates the reply message for a given state request.
- * @param msg The peer outbound message reference to build up the reply message.
+ * @param fbuf The flatbuffer builder to construct the reply message.
  * @param sr The state request which should be replied to.
  */
     int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr)
@@ -29,7 +29,6 @@ namespace state_serve
             // Vector to hold the block bytes. Normally block size is constant BLOCK_SIZE (4MB), but the
             // last block of a file may have a smaller size.
             std::vector<uint8_t> block;
-
             if (get_file_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
                 return -1;
 
@@ -60,7 +59,7 @@ namespace state_serve
                 // If the state request is for a directory we need to reply with the
                 // file system entries and their hashes inside that dir.
                 std::vector<hpfs::child_hash_node> child_hash_nodes;
-                if (get_dir_children_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
+                if (get_fs_entry_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
                     return -1;
 
                 fbschema::p2pmsg::create_msg_from_fsentry_response(
@@ -152,7 +151,7 @@ namespace state_serve
         return 0;
     }
 
-    int get_dir_children_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
+    int get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
                                 const std::string_view vpath, const hpfs::h32 expected_hash)
     {
         pid_t hpfs_pid = 0;
@@ -166,7 +165,7 @@ namespace state_serve
             dir_hash != expected_hash)
             goto failure;
 
-        // Get the hash nodes.
+        // Get the children hash nodes.
         if (hpfs::get_dir_children_hashes(hash_nodes, mount_dir, vpath) == -1)
             goto failure;
 

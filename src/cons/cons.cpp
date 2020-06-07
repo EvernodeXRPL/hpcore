@@ -66,8 +66,7 @@ namespace cons
     void deinit()
     {
         if (init_success)
-        {
-        }
+            state_sync::stop_state_sync();
     }
 
     int run_consensus()
