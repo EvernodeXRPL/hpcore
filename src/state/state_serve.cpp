@@ -7,6 +7,7 @@
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/common_helpers.hpp"
 #include "../cons/cons.hpp"
+#include "../hplog.hpp"
 #include "state_serve.hpp"
 
 /**
@@ -23,6 +24,8 @@ namespace state_serve
  */
     int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr)
     {
+        LOG_DBG << "Serving state req. path:" << sr.parent_path << " block_id:" << sr.block_id;
+
         // If block_id > -1 this means this is a file block data request.
         if (sr.block_id > -1)
         {
@@ -152,7 +155,7 @@ namespace state_serve
     }
 
     int get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
-                                const std::string_view vpath, const hpfs::h32 expected_hash)
+                            const std::string_view vpath, const hpfs::h32 expected_hash)
     {
         pid_t hpfs_pid = 0;
         std::string mount_dir;
@@ -177,4 +180,4 @@ namespace state_serve
             return -1;
         return 0;
     }
-} // namespace state_sync
+} // namespace state_serve

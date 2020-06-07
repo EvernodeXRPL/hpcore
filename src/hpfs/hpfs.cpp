@@ -77,11 +77,16 @@ namespace hpfs
         {
             // HotPocket process.
 
-            // If the mound dir is not specified, assign a mount dir based on hpfs process id.
+            // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             if (mount_dir.empty())
                 mount_dir = std::string(conf::ctx.state_dir)
                                 .append("/")
                                 .append(std::to_string(pid));
+
+            // The path used for checking whether hpfs has finished initializing.
+            const std::string check_path = hash_map_enabled
+                                               ? std::string(mount_dir).append("/::hpfs.hmap.hash")
+                                               : mount_dir;
 
             // Wait until hpfs is initialized properly.
             bool hpfs_initialized = false;
@@ -94,9 +99,11 @@ namespace hpfs
                 if (kill(pid, 0) == -1)
                     break;
 
-                // If hpfs is initialized, the inode no. of the mounted root dir is always 1.
+                // If hash map is enabled we check whether stat succeeds on the root hash.
+                // If not, we check whether the inode no. of the mounted root dir is 1.
                 struct stat st;
-                hpfs_initialized = (stat(mount_dir.c_str(), &st) == 0 && st.st_ino == 1);
+                hpfs_initialized = (stat(check_path.c_str(), &st) == 0 &&
+                                    (hash_map_enabled || st.st_ino == 1));
 
             } while (!hpfs_initialized && ++retry_count < 100);
 
@@ -127,7 +134,7 @@ namespace hpfs
                 (char *)mode, // hpfs mode: rw | ro
                 conf::ctx.state_dir.data(),
                 mount_dir.data(),
-                (char *)(hash_map_enabled ? "hmap=true" : "hmap-false"),
+                (char *)(hash_map_enabled ? "hmap=true" : "hmap=false"),
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
@@ -186,7 +193,7 @@ namespace hpfs
         }
 
         struct stat st;
-        if (fstat(fd, &st) == -1 || !S_ISREG(st.st_mode))
+        if (fstat(fd, &st) == -1)
         {
             close(fd);
             LOG_ERR << errno << ": Error reading block hashes length.";
@@ -217,7 +224,7 @@ namespace hpfs
         }
 
         struct stat st;
-        if (fstat(fd, &st) == -1 || !S_ISDIR(st.st_mode))
+        if (fstat(fd, &st) == -1)
         {
             close(fd);
             LOG_ERR << errno << ": Error reading hash children nodes length.";

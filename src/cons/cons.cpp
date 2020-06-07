@@ -46,7 +46,10 @@ namespace cons
         ctx.ledger_cache.swap(ldr_hist.cache);
 
         if (hpfs::get_root_hash(ctx.state) == -1)
+        {
+            LOG_ERR << "Failed to get root hash.";
             return -1;
+        }
 
         LOG_INFO << "Initial state: " << ctx.state;
 

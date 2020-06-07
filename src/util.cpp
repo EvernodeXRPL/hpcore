@@ -207,19 +207,19 @@ namespace util
         pthread_sigmask(SIG_BLOCK, &mask, NULL);
     }
 
-    // Kill a process with SIGINT and wait until it stops running.
-    int kill_process(const pid_t pid, const bool wait)
+    // Kill a process with a signal and wait until it stops running.
+    int kill_process(const pid_t pid, const bool wait, int signal)
     {
-        if (kill(pid, SIGINT) == -1)
+        if (kill(pid, signal) == -1)
         {
-            LOG_ERR << errno << ": Error issuing SIGINT to pid " << pid;
+            LOG_ERR << errno << ": Error issuing signal to pid " << pid;
             return -1;
         }
 
         int pid_status;
         if (wait && waitpid(pid, &pid_status, 0) == -1)
         {
-            LOG_ERR << errno << ": waitpid failed.";
+            LOG_ERR << errno << ": waitpid after kill failed.";
             return -1;
         }
 

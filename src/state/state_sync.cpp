@@ -61,20 +61,26 @@ namespace state_sync
     {
         util::mask_signal();
 
+        LOG_INFO << "State sync: Worker started.";
+
         while (!ctx.is_shutting_down)
         {
             util::sleep(SYNC_LOOP_WAIT);
 
             // Keep idling if we are not doing any sync activity.
-            if (!ctx.is_syncing)
-                continue;
+            {
+                std::lock_guard<std::mutex> lock(ctx.target_update_lock);
+                if (!ctx.is_syncing)
+                    continue;
 
+                LOG_INFO << "State sync: Starting sync for target state: " << ctx.target_state;
+            }
+
+            LOG_DBG << "State sync: Starting hpfs rw session...";
             if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.hpfs_mount_dir, "rw", true) != -1)
             {
                 while (!ctx.is_shutting_down)
                 {
-                    LOG_INFO << "State sync: Starting sync for target state: " << ctx.target_state;
-
                     hpfs::h32 new_state = hpfs::h32_empty;
                     state_request_processor(ctx.target_state, new_state);
 
@@ -99,7 +105,8 @@ namespace state_sync
 
                 // Stop hpfs rw session.
                 LOG_DBG << "State sync: Stopping hpfs session... pid:" << ctx.hpfs_pid;
-                util::kill_process(ctx.hpfs_pid, true);
+                util::kill_process(ctx.hpfs_pid, true, SIGTERM); // Issue: Only in this location SIGINT does not kill hpfs.
+                ctx.hpfs_pid = 0;
             }
             else
             {
@@ -110,7 +117,7 @@ namespace state_sync
             ctx.is_syncing = false;
         }
 
-        LOG_INFO << "State sync worker stopped.";
+        LOG_INFO << "State sync: Worker stopped.";
     }
 
     void state_request_processor(const hpfs::h32 target_state, hpfs::h32 &current_state)
@@ -132,14 +139,14 @@ namespace state_sync
 
             for (auto &response : ctx.candidate_state_responses)
             {
-                if (!should_stop_processing(target_state))
+                if (should_stop_processing(target_state))
                     break;
 
                 const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(response.data());
                 const fbschema::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
                 // Check whether we are actually waiting for this response's hash. If not, ignore it.
-                hpfs::h32 response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
+                const hpfs::h32 response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
                 const auto pending_resp_itr = ctx.submitted_requests.find(response_hash);
                 if (pending_resp_itr == ctx.submitted_requests.end())
                     continue;
@@ -168,7 +175,7 @@ namespace state_sync
             // Check for long-awaited responses and re-request them.
             for (auto &[hash, request] : ctx.submitted_requests)
             {
-                if (!should_stop_processing(target_state))
+                if (should_stop_processing(target_state))
                     break;
 
                 // We wait for half of round time before each request is resubmitted.
@@ -192,7 +199,7 @@ namespace state_sync
                 const uint16_t available_slots = MAX_AWAITING_REQUESTS - ctx.submitted_requests.size();
                 for (int i = 0; i < available_slots && !ctx.pending_requests.empty(); i++)
                 {
-                    if (!should_stop_processing(target_state))
+                    if (should_stop_processing(target_state))
                         break;
 
                     const backlog_item &request = ctx.pending_requests.front();
@@ -213,7 +220,7 @@ namespace state_sync
     bool should_stop_processing(const hpfs::h32 current_target)
     {
         if (ctx.is_shutting_down)
-            true;
+            return true;
 
         std::lock_guard<std::mutex> lock(ctx.target_update_lock);
         return current_target != ctx.target_state;

@@ -89,6 +89,7 @@ namespace p2p
         if (iter == p2p::ctx.peer_connections.end())
         {
             // Add the new connection straight away, if we haven't seen it before.
+            session.is_self = (res == 0);
             session.uniqueid.swap(pubkeyhex);
             session.challenge_status = comm::CHALLENGE_VERIFIED;
             p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session);
@@ -198,12 +199,12 @@ namespace p2p
         const size_t connected_peers = ctx.peer_connections.size();
         if (connected_peers == 0)
         {
-            LOG_DBG << "No peers to send (not even self).";
+            LOG_DBG << "No peers to random send.";
             return;
         }
         else if (connected_peers == 1 && ctx.peer_connections.begin()->second->is_self)
         {
-            LOG_DBG << "Only self is connected.";
+            LOG_DBG << "Only self is connected. Cannot random send.";
             return;
         }
 
