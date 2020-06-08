@@ -47,7 +47,6 @@ namespace state_sync
         std::mutex target_update_lock;
         bool is_syncing = false;
         bool is_shutting_down = false;
-        pid_t hpfs_pid = 0;
         std::string hpfs_mount_dir;
     };
 

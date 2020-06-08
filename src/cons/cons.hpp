@@ -157,6 +157,8 @@ int run_contract_binary(const int64_t time_now, sc::contract_bufmap_t &useriobuf
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);
 
+int get_state_hash(hpfs::h32 &hash);
+
 } // namespace cons
 
 #endif

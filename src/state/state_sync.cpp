@@ -77,7 +77,8 @@ namespace state_sync
             }
 
             LOG_DBG << "State sync: Starting hpfs rw session...";
-            if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.hpfs_mount_dir, "rw", true) != -1)
+            pid_t hpfs_pid = 0;
+            if (hpfs::start_fs_session(hpfs_pid, ctx.hpfs_mount_dir, "rw", true) != -1)
             {
                 while (!ctx.is_shutting_down)
                 {
@@ -104,9 +105,8 @@ namespace state_sync
                 }
 
                 // Stop hpfs rw session.
-                LOG_DBG << "State sync: Stopping hpfs session... pid:" << ctx.hpfs_pid;
-                util::kill_process(ctx.hpfs_pid, true);
-                ctx.hpfs_pid = 0;
+                LOG_DBG << "State sync: Stopping hpfs session... pid:" << hpfs_pid;
+                util::kill_process(hpfs_pid, true);
             }
             else
             {

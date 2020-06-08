@@ -153,19 +153,6 @@ namespace hpfs
         return 0;
     }
 
-    int get_root_hash(h32 &hash)
-    {
-        pid_t pid;
-        std::string mount_dir;
-        if (start_fs_session(pid, mount_dir, "ro", true) == -1)
-            return -1;
-
-        int res = get_hash(hash, mount_dir, "/");
-        util::kill_process(pid, true);
-
-        return res;
-    }
-
     int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
     {
         std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.hash");

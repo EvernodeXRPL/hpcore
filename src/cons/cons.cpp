@@ -45,9 +45,9 @@ namespace cons
         ctx.lcl = ldr_hist.lcl;
         ctx.ledger_cache.swap(ldr_hist.cache);
 
-        if (hpfs::get_root_hash(ctx.state) == -1)
+        if (get_state_hash(ctx.state) == -1)
         {
-            LOG_ERR << "Failed to get root hash.";
+            LOG_ERR << "Failed to get state hash.";
             return -1;
         }
 
@@ -247,7 +247,7 @@ namespace cons
                         << " ts:" << std::to_string(cp.time)
                         << " lcl:" << cp.lcl.substr(0, 15)
                         << " state:" << cp.state
-                        << " self:" << self;
+                        << (self ? " [self]" : "");
             }
             else
             {
@@ -480,7 +480,7 @@ namespace cons
         {
             // appbill process.
             util::unmask_signal();
-            
+
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
             chdir(conf::ctx.state_rw_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
@@ -921,6 +921,21 @@ namespace cons
             counter[candidate]++;
         else
             counter.try_emplace(candidate, 1);
+    }
+
+    /**
+ * Get the contract state hash.
+ */
+    int get_state_hash(hpfs::h32 &hash)
+    {
+        pid_t pid;
+        std::string mount_dir;
+        if (hpfs::start_fs_session(pid, mount_dir, "ro", true) == -1)
+            return -1;
+
+        int res = get_hash(hash, mount_dir, "/");
+        util::kill_process(pid, true);
+        return res;
     }
 
 } // namespace cons
