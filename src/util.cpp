@@ -207,6 +207,15 @@ namespace util
         pthread_sigmask(SIG_BLOCK, &mask, NULL);
     }
 
+    // Clears signal mask from the calling thread.
+    // Used for other processes forked from hpcore threads.
+    void unmask_signal()
+    {
+        sigset_t mask;
+        sigemptyset(&mask);
+        pthread_sigmask(SIG_SETMASK, &mask, NULL);
+    }
+
     // Kill a process with a signal and wait until it stops running.
     int kill_process(const pid_t pid, const bool wait, int signal)
     {

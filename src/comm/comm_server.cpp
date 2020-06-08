@@ -292,6 +292,8 @@ namespace comm
         else if (pid == 0)
         {
             // Websocketd process.
+            util::unmask_signal();
+            
             // We are using websocketd forked repo: https://github.com/codetsunami/websocketd
 
             if (firewall_out > 0)

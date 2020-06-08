@@ -81,6 +81,8 @@ namespace util
 
     void mask_signal();
 
+    void unmask_signal();
+
     int kill_process(const pid_t pid, const bool wait, int signal = SIGINT);
 
     bool is_dir_exists(std::string_view path);

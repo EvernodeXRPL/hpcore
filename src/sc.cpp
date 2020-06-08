@@ -60,6 +60,8 @@ namespace sc
         else if (pid == 0)
         {
             // Contract process.
+            util::unmask_signal();
+            
             // Set up the process environment and overlay the contract binary program with execv().
 
             // Close all fds unused by SC process.

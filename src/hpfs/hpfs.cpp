@@ -48,6 +48,8 @@ namespace hpfs
         else if (pid == 0)
         {
             // hpfs process.
+            util::unmask_signal();
+
             // Fill process args.
             char *execv_args[] = {
                 conf::ctx.hpfs_exe_path.data(),
@@ -120,8 +122,9 @@ namespace hpfs
         else if (pid == 0)
         {
             // hpfs process.
+            util::unmask_signal();
 
-            // If the mound dir is not specified, assign a mount dir based on hpfs process id.
+            // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             const pid_t self_pid = getpid();
             if (mount_dir.empty())
                 mount_dir = std::string(conf::ctx.state_dir)

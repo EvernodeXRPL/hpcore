@@ -105,7 +105,7 @@ namespace state_sync
 
                 // Stop hpfs rw session.
                 LOG_DBG << "State sync: Stopping hpfs session... pid:" << ctx.hpfs_pid;
-                util::kill_process(ctx.hpfs_pid, true, SIGTERM); // Issue: Only in this location SIGINT does not kill hpfs.
+                util::kill_process(ctx.hpfs_pid, true);
                 ctx.hpfs_pid = 0;
             }
             else

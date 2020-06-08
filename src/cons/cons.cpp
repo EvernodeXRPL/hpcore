@@ -478,6 +478,9 @@ namespace cons
         int pid = fork();
         if (pid == 0)
         {
+            // appbill process.
+            util::unmask_signal();
+            
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
             chdir(conf::ctx.state_rw_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
@@ -708,7 +711,7 @@ namespace cons
             }
         }
 
-        is_desync = (ctx.state == majority_state);
+        is_desync = (ctx.state != majority_state);
     }
 
     /**
