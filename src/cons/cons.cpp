@@ -36,9 +36,6 @@ namespace cons
 
     int init()
     {
-        //set start stage
-        ctx.stage = 0;
-
         //load lcl details from lcl history.
         ledger_history ldr_hist = load_ledger();
         ctx.led_seq_no = ldr_hist.led_seq_no;

@@ -12,20 +12,27 @@
 
 namespace state_sync
 {
+    // Idle loop sleep time  (milliseconds).
+    constexpr uint16_t IDLE_WAIT = 50;
 
     // Max number of requests that can be awaiting response at any given time.
     constexpr uint16_t MAX_AWAITING_REQUESTS = 1;
-    // Syncing loop sleep delay.
-    constexpr uint16_t SYNC_LOOP_WAIT = 100;
+
+    // Request loop sleep time (milliseconds).
+    constexpr uint16_t REQUEST_LOOP_WAIT = 20;
 
     constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
 
     constexpr int FILE_PERMS = 0644;
 
+    // No. of milliseconds to wait before resubmitting a request.
+    uint16_t REQUEST_RESUBMIT_TIMEOUT;
+
     sync_context ctx;
 
     int init()
     {
+        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime / 2;
         ctx.target_state = hpfs::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
         return 0;
@@ -65,7 +72,7 @@ namespace state_sync
 
         while (!ctx.is_shutting_down)
         {
-            util::sleep(SYNC_LOOP_WAIT);
+            util::sleep(IDLE_WAIT);
 
             // Keep idling if we are not doing any sync activity.
             {
@@ -83,22 +90,27 @@ namespace state_sync
                 while (!ctx.is_shutting_down)
                 {
                     hpfs::h32 new_state = hpfs::h32_empty;
-                    state_request_processor(ctx.target_state, new_state);
+                    request_loop(ctx.target_state, new_state);
 
                     if (ctx.is_shutting_down)
                         break;
 
+                    ctx.pending_requests.clear();
+
                     {
                         std::lock_guard<std::mutex> lock(ctx.target_update_lock);
+                        cons::ctx.state = new_state;
+
                         if (new_state == ctx.target_state)
                         {
                             LOG_INFO << "State sync: Target state achieved: " << ctx.target_state;
-                            cons::ctx.state = new_state;
+                            ctx.candidate_state_responses.clear();
+                            ctx.submitted_requests.clear();
                             break;
                         }
                         else
                         {
-                            LOG_INFO << "State sync: Resetting sync for new target: " << ctx.target_state;
+                            LOG_INFO << "State sync: Continuing sync for new target: " << ctx.target_state;
                             continue;
                         }
                     }
@@ -120,14 +132,14 @@ namespace state_sync
         LOG_INFO << "State sync: Worker stopped.";
     }
 
-    void state_request_processor(const hpfs::h32 target_state, hpfs::h32 &current_state)
+    void request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state)
     {
         // Send the initial root state request.
-        submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, target_state});
+        submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, current_target});
 
-        while (!should_stop_processing(target_state))
+        while (!should_stop_request_loop(current_target))
         {
-            util::sleep(SYNC_LOOP_WAIT);
+            util::sleep(REQUEST_LOOP_WAIT);
 
             {
                 std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
@@ -139,8 +151,8 @@ namespace state_sync
 
             for (auto &response : ctx.candidate_state_responses)
             {
-                if (should_stop_processing(target_state))
-                    break;
+                if (should_stop_request_loop(current_target))
+                    return;
 
                 const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(response.data());
                 const fbschema::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
@@ -149,7 +161,10 @@ namespace state_sync
                 const hpfs::h32 response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
                 const auto pending_resp_itr = ctx.submitted_requests.find(response_hash);
                 if (pending_resp_itr == ctx.submitted_requests.end())
+                {
+                    LOG_DBG << "Skipping state response due to hash mismatch. Received:" << response_hash;
                     continue;
+                }
 
                 // Now that we have received matching hash, remove it from the waiting list.
                 ctx.submitted_requests.erase(pending_resp_itr);
@@ -165,9 +180,10 @@ namespace state_sync
                     handle_file_block_response(resp_msg->state_response_as_Block_Response());
 
                 // After handling each response, check whether we have reached target state.
-                hpfs::get_hash(current_state, ctx.hpfs_mount_dir, "/");
-                if (current_state == target_state)
-                    break;
+                hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/");
+                LOG_DBG << "State sync: current:" << updated_state << " | target:" << current_target;
+                if (updated_state == current_target)
+                   return;
             }
 
             ctx.candidate_state_responses.clear();
@@ -175,19 +191,18 @@ namespace state_sync
             // Check for long-awaited responses and re-request them.
             for (auto &[hash, request] : ctx.submitted_requests)
             {
-                if (should_stop_processing(target_state))
-                    break;
+                if (should_stop_request_loop(current_target))
+                    return;
 
-                // We wait for half of round time before each request is resubmitted.
-                if (request.waiting_cycles < (conf::cfg.roundtime / (SYNC_LOOP_WAIT * 2)))
+                if (request.waiting_time < REQUEST_RESUBMIT_TIMEOUT)
                 {
-                    // Increment counter.
-                    request.waiting_cycles++;
+                    // Increment wait time.
+                    request.waiting_time += REQUEST_LOOP_WAIT;
                 }
                 else
                 {
                     // Reset the counter and re-submit request.
-                    request.waiting_cycles = 0;
+                    request.waiting_time = 0;
                     LOG_DBG << "State sync: Resubmitting request...";
                     submit_request(request);
                 }
@@ -199,8 +214,8 @@ namespace state_sync
                 const uint16_t available_slots = MAX_AWAITING_REQUESTS - ctx.submitted_requests.size();
                 for (int i = 0; i < available_slots && !ctx.pending_requests.empty(); i++)
                 {
-                    if (should_stop_processing(target_state))
-                        break;
+                    if (should_stop_request_loop(current_target))
+                        return;
 
                     const backlog_item &request = ctx.pending_requests.front();
                     submit_request(request);
@@ -208,20 +223,17 @@ namespace state_sync
                 }
             }
         }
-
-        ctx.candidate_state_responses.clear();
-        ctx.pending_requests.clear();
-        ctx.submitted_requests.clear();
     }
 
     /**
  * Indicates whether to break out of state request processing loop.
  */
-    bool should_stop_processing(const hpfs::h32 current_target)
+    bool should_stop_request_loop(const hpfs::h32 current_target)
     {
         if (ctx.is_shutting_down)
             return true;
 
+        // Stop request loop if the target has changed.
         std::lock_guard<std::mutex> lock(ctx.target_update_lock);
         return current_target != ctx.target_state;
     }
@@ -251,7 +263,9 @@ namespace state_sync
  */
     void submit_request(const backlog_item &request)
     {
-        LOG_DBG << "State sync: Submitting request. type:" << request.type << " path:" << request.path << " block_id:" << request.block_id;
+        LOG_DBG << "State sync: Submitting request. type:" << request.type
+                << " path:" << request.path << " block_id:" << request.block_id
+                << " hash:" << request.expected_hash;
 
         ctx.submitted_requests.try_emplace(request.expected_hash, request);
 
@@ -345,9 +359,9 @@ namespace state_sync
         std::string file_vpath = std::string(fbschema::flatbuff_str_to_sv(file_resp->path()));
         LOG_DBG << "State sync: Processing file block hashes response for " << file_vpath;
 
-        // File block hashes on our side.
+        // File block hashes on our side (file might not exist on our side).
         std::vector<hpfs::h32> existing_hashes;
-        if (hpfs::get_file_block_hashes(existing_hashes, ctx.hpfs_mount_dir, file_vpath) == -1)
+        if (hpfs::get_file_block_hashes(existing_hashes, ctx.hpfs_mount_dir, file_vpath) == -1 && errno != ENOENT)
             return -1;
         const size_t existing_hash_count = existing_hashes.size();
 
@@ -357,12 +371,12 @@ namespace state_sync
 
         // Compare the block hashes and request any differences.
         auto insert_itr = ctx.pending_requests.begin();
-        const int32_t max_block_id = MAX(existing_hash_count, peer_hash_count);
+        const int32_t max_block_id = MAX(existing_hash_count, peer_hash_count) - 1;
         for (int32_t block_id = 0; block_id <= max_block_id; block_id++)
         {
             // Insert at front to give priority to block requests while preserving block order.
             if (block_id >= existing_hash_count || existing_hashes[block_id] != peer_hashes[block_id])
-                insert_itr = ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, file_vpath, block_id, peer_hashes[block_id]});
+                ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, file_vpath, block_id, peer_hashes[block_id]});
         }
 
         if (existing_hashes.size() >= peer_hash_count)
@@ -386,8 +400,8 @@ namespace state_sync
         const uint32_t block_id = block_msg->block_id();
         std::string_view buf = fbschema::flatbuff_bytes_to_sv(block_msg->data());
 
-        LOG_DBG << "State sync: Writing block id " << block_id
-                << "(len:" << buf.length()
+        LOG_DBG << "State sync: Writing block_id " << block_id
+                << " (len:" << buf.length()
                 << ") of " << file_vpath;
 
         std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(file_vpath);

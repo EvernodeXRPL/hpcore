@@ -24,9 +24,9 @@ namespace state_sync
         int32_t block_id = -1; // Only relevant if type=BLOCK
         hpfs::h32 expected_hash;
 
-        // No. of cycles that this item has been waiting in pending state.
-        // Used by pending_responses list to increase wait count.
-        int16_t waiting_cycles = 0;
+        // No. of millisconds that this item has been waiting in pending state.
+        // Used by pending_responses list to increase waiting time and resubmit request.
+        uint16_t waiting_time = 0;
     };
 
     struct sync_context
@@ -62,9 +62,9 @@ namespace state_sync
 
     void state_syncer_loop();
 
-    void state_request_processor(const hpfs::h32 target_state, hpfs::h32 &current_state);
+    void request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state);
 
-    bool should_stop_processing(const hpfs::h32 current_target);
+    bool should_stop_request_loop(const hpfs::h32 current_target);
 
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash);
 
