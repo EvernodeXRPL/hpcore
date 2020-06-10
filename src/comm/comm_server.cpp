@@ -196,17 +196,24 @@ namespace comm
         {
             // New client connected.
             const std::string ip = get_cgi_ip(client_fd);
-
-            if (corebill::is_banned(ip))
+            if (!ip.empty())
             {
-                LOG_DBG << "Dropping connection for banned host " << ip;
-                close(client_fd);
+                if (corebill::is_banned(ip))
+                {
+                    LOG_DBG << "Dropping connection for banned host " << ip;
+                    close(client_fd);
+                }
+                else
+                {
+                    comm_session session(ip, client_fd, client_fd, session_type, is_binary, true, metric_thresholds);
+                    if (session.on_connect() == 0)
+                        sessions.try_emplace(client_fd, std::move(session));
+                }
             }
             else
             {
-                comm_session session(ip, client_fd, client_fd, session_type, is_binary, true, metric_thresholds);
-                if (session.on_connect() == 0)
-                    sessions.try_emplace(client_fd, std::move(session));
+                close(client_fd);
+                LOG_ERR << "Closed bad client socket: " << client_fd;
             }
         }
     }
@@ -293,7 +300,7 @@ namespace comm
         {
             // Websocketd process.
             util::unmask_signal();
-            
+
             // We are using websocketd forked repo: https://github.com/codetsunami/websocketd
 
             if (firewall_out > 0)
@@ -305,9 +312,9 @@ namespace comm
             }
 
             std::string max_frame = std::string("--maxframe=")
-                                              .append(use_size_header
-                                                          ? "4294967296" // 4GB
-                                                          : std::to_string(max_msg_size));
+                                        .append(use_size_header
+                                                    ? "4294967296" // 4GB
+                                                    : std::to_string(max_msg_size));
 
             // Fill process args.
             char *execv_args[] = {

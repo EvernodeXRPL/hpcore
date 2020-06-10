@@ -32,7 +32,7 @@ namespace state_sync
 
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime / 2;
+        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime;
         ctx.target_state = hpfs::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
         return 0;
@@ -96,6 +96,8 @@ namespace state_sync
                         break;
 
                     ctx.pending_requests.clear();
+                    ctx.candidate_state_responses.clear();
+                    ctx.submitted_requests.clear();
 
                     {
                         std::lock_guard<std::mutex> lock(ctx.target_update_lock);
@@ -104,8 +106,6 @@ namespace state_sync
                         if (new_state == ctx.target_state)
                         {
                             LOG_INFO << "State sync: Target state achieved: " << ctx.target_state;
-                            ctx.candidate_state_responses.clear();
-                            ctx.submitted_requests.clear();
                             break;
                         }
                         else
@@ -183,7 +183,7 @@ namespace state_sync
                 hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/");
                 LOG_DBG << "State sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
-                   return;
+                    return;
             }
 
             ctx.candidate_state_responses.clear();

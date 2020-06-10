@@ -177,10 +177,7 @@ namespace hpfs
         std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.children");
         int fd = open(path.c_str(), O_RDONLY);
         if (fd == -1)
-        {
-            LOG_ERR << errno << ": Error opening block hashes.";
             return -1;
-        }
 
         struct stat st;
         if (fstat(fd, &st) == -1)
