@@ -32,7 +32,7 @@ namespace state_sync
 
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime;
+        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime / 2;
         ctx.target_state = hpfs::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
         return 0;
@@ -46,17 +46,19 @@ namespace state_sync
     }
 
     /**
- * Initiates state sync process by setting up context variables and sending the initial state request.
+ * Sets a new target state for the syncing process.
  * @param target_state The target state which we should sync towards.
+ * @param completion_callback The callback function to call upon state sync completion.
  */
-    void sync_state(const hpfs::h32 target_state)
+    void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32))
     {
-        std::lock_guard<std::mutex> lock(ctx.target_update_lock);
+        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
 
         // Do not do anything if we are already syncing towards the specified target state.
         if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_state == target_state))
             return;
 
+        ctx.completion_callback = completion_callback;
         ctx.target_state = target_state;
         ctx.is_syncing = true;
     }
@@ -76,7 +78,7 @@ namespace state_sync
 
             // Keep idling if we are not doing any sync activity.
             {
-                std::lock_guard<std::mutex> lock(ctx.target_update_lock);
+                std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
                 if (!ctx.is_syncing)
                     continue;
 
@@ -100,12 +102,12 @@ namespace state_sync
                     ctx.submitted_requests.clear();
 
                     {
-                        std::lock_guard<std::mutex> lock(ctx.target_update_lock);
-                        cons::ctx.state = new_state;
+                        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
 
                         if (new_state == ctx.target_state)
                         {
-                            LOG_INFO << "State sync: Target state achieved: " << ctx.target_state;
+                            LOG_INFO << "State sync: Target state achieved: " << new_state;
+                            ctx.completion_callback(new_state);
                             break;
                         }
                         else
@@ -234,7 +236,7 @@ namespace state_sync
             return true;
 
         // Stop request loop if the target has changed.
-        std::lock_guard<std::mutex> lock(ctx.target_update_lock);
+        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
         return current_target != ctx.target_state;
     }
 

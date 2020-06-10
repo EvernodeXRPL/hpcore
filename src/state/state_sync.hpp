@@ -44,10 +44,12 @@ namespace state_sync
         std::unordered_map<hpfs::h32, backlog_item, hpfs::h32_std_key_hasher> submitted_requests;
 
         std::thread state_sync_thread;
-        std::mutex target_update_lock;
+        std::mutex target_state_update_lock;
         bool is_syncing = false;
         bool is_shutting_down = false;
         std::string hpfs_mount_dir;
+
+        void (*completion_callback)(const hpfs::h32);
     };
 
     extern sync_context ctx;
@@ -58,7 +60,7 @@ namespace state_sync
 
     void deinit();
 
-    void sync_state(const hpfs::h32 target_state);
+    void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32));
 
     void state_syncer_loop();
 

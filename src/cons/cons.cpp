@@ -42,9 +42,9 @@ namespace cons
         ctx.lcl = ldr_hist.lcl;
         ctx.ledger_cache.swap(ldr_hist.cache);
 
-        if (get_state_hash(ctx.state) == -1)
+        if (get_initial_state_hash(ctx.state) == -1)
         {
-            LOG_ERR << "Failed to get state hash.";
+            LOG_ERR << "Failed to get initial state hash.";
             return -1;
         }
 
@@ -192,7 +192,7 @@ namespace cons
                 if (is_state_desync)
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-                    state_sync::sync_state(majority_state);
+                    state_sync::set_target(majority_state, on_state_sync_completion);
                 }
                 else
                 {
@@ -708,7 +708,10 @@ namespace cons
             }
         }
 
-        is_desync = (ctx.state != majority_state);
+        {
+            std::lock_guard<std::mutex>(ctx.state_sync_lock);
+            is_desync = (ctx.state != majority_state);
+        }
     }
 
     /**
@@ -923,7 +926,7 @@ namespace cons
     /**
  * Get the contract state hash.
  */
-    int get_state_hash(hpfs::h32 &hash)
+    int get_initial_state_hash(hpfs::h32 &hash)
     {
         pid_t pid;
         std::string mount_dir;
@@ -933,6 +936,12 @@ namespace cons
         int res = get_hash(hash, mount_dir, "/");
         util::kill_process(pid, true);
         return res;
+    }
+
+    void on_state_sync_completion(const hpfs::h32 new_state)
+    {
+        std::lock_guard<std::mutex>(ctx.state_sync_lock);
+        ctx.state = new_state;
     }
 
 } // namespace cons

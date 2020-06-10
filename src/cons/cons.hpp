@@ -86,6 +86,7 @@ struct consensus_context
     uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
     uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
+    std::mutex state_sync_lock;
     bool is_shutting_down = false;
 
     consensus_context()
@@ -157,7 +158,9 @@ int run_contract_binary(const int64_t time_now, sc::contract_bufmap_t &useriobuf
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);
 
-int get_state_hash(hpfs::h32 &hash);
+int get_initial_state_hash(hpfs::h32 &hash);
+
+void on_state_sync_completion(const hpfs::h32 new_state);
 
 } // namespace cons
 
