@@ -48,6 +48,8 @@ namespace hpfs
         else if (pid == 0)
         {
             // hpfs process.
+            util::unmask_signal();
+
             // Fill process args.
             char *execv_args[] = {
                 conf::ctx.hpfs_exe_path.data(),
@@ -77,11 +79,16 @@ namespace hpfs
         {
             // HotPocket process.
 
-            // If the mound dir is not specified, assign a mount dir based on hpfs process id.
+            // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             if (mount_dir.empty())
                 mount_dir = std::string(conf::ctx.state_dir)
                                 .append("/")
                                 .append(std::to_string(pid));
+
+            // The path used for checking whether hpfs has finished initializing.
+            const std::string check_path = hash_map_enabled
+                                               ? std::string(mount_dir).append("/::hpfs.hmap.hash")
+                                               : mount_dir;
 
             // Wait until hpfs is initialized properly.
             bool hpfs_initialized = false;
@@ -94,9 +101,11 @@ namespace hpfs
                 if (kill(pid, 0) == -1)
                     break;
 
-                // If hpfs is initialized, the inode no. of the mounted root dir is always 1.
+                // If hash map is enabled we check whether stat succeeds on the root hash.
+                // If not, we check whether the inode no. of the mounted root dir is 1.
                 struct stat st;
-                hpfs_initialized = (stat(mount_dir.c_str(), &st) == 0 && st.st_ino == 1);
+                hpfs_initialized = (stat(check_path.c_str(), &st) == 0 &&
+                                    (hash_map_enabled || st.st_ino == 1));
 
             } while (!hpfs_initialized && ++retry_count < 100);
 
@@ -113,8 +122,9 @@ namespace hpfs
         else if (pid == 0)
         {
             // hpfs process.
+            util::unmask_signal();
 
-            // If the mound dir is not specified, assign a mount dir based on hpfs process id.
+            // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             const pid_t self_pid = getpid();
             if (mount_dir.empty())
                 mount_dir = std::string(conf::ctx.state_dir)
@@ -127,7 +137,7 @@ namespace hpfs
                 (char *)mode, // hpfs mode: rw | ro
                 conf::ctx.state_dir.data(),
                 mount_dir.data(),
-                (char *)(hash_map_enabled ? "hmap=true" : "hmap-false"),
+                (char *)(hash_map_enabled ? "hmap=true" : "hmap=false"),
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
@@ -141,19 +151,6 @@ namespace hpfs
         }
 
         return 0;
-    }
-
-    int get_root_hash(h32 &hash)
-    {
-        pid_t pid;
-        std::string mount_dir;
-        if (start_fs_session(pid, mount_dir, "ro", true) == -1)
-            return -1;
-
-        int res = get_hash(hash, mount_dir, "/");
-        util::kill_process(pid, true);
-
-        return res;
     }
 
     int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
@@ -170,6 +167,65 @@ namespace hpfs
         if (res == -1)
         {
             LOG_ERR << errno << ": Error reading hash file.";
+            return -1;
+        }
+        return 0;
+    }
+
+    int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath)
+    {
+        std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.children");
+        int fd = open(path.c_str(), O_RDONLY);
+        if (fd == -1)
+            return -1;
+
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+        {
+            close(fd);
+            LOG_ERR << errno << ": Error reading block hashes length.";
+            return -1;
+        }
+
+        const int children_count = st.st_size / sizeof(h32);
+        hashes.resize(children_count);
+
+        int res = read(fd, hashes.data(), st.st_size);
+        close(fd);
+        if (res == -1)
+        {
+            LOG_ERR << errno << ": Error reading hash block hashes.";
+            return -1;
+        }
+        return 0;
+    }
+
+    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath)
+    {
+        std::string path = std::string(mount_dir).append(dir_vpath).append("::hpfs.hmap.children");
+        int fd = open(path.c_str(), O_RDONLY);
+        if (fd == -1)
+        {
+            LOG_ERR << errno << ": Error opening hash children nodes.";
+            return -1;
+        }
+
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+        {
+            close(fd);
+            LOG_ERR << errno << ": Error reading hash children nodes length.";
+            return -1;
+        }
+
+        const int children_count = st.st_size / sizeof(child_hash_node);
+        hash_nodes.resize(children_count);
+
+        int res = read(fd, hash_nodes.data(), st.st_size);
+        close(fd);
+        if (res == -1)
+        {
+            LOG_ERR << errno << ": Error reading hash children nodes.";
             return -1;
         }
         return 0;

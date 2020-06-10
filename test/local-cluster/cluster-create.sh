@@ -117,14 +117,16 @@ do
 
     mkdir -p ./node$i/state/seed > /dev/null 2>&1
 
-    # Load credit balance for user for appbill testing purposes.
     pushd ./node$i/state/seed/ > /dev/null 2>&1
+    
+    # Load credit balance for user for appbill testing purposes.
     >appbill.table
     ../../../../bin/appbill --credit "705bf26354ee4c63c0e5d5d883c07cefc3196d049bd3825f827eb3bc23ead035" 10000
-    popd > /dev/null 2>&1
 
     # Copy any more initial state files for testing.
-    #cp ~/my_big_file ~/hpcore/hpcluster/node$i/state/seed/
+    # cp ~/my_big_file .
+
+    popd > /dev/null 2>&1
 
 done
 

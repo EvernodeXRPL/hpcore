@@ -54,7 +54,8 @@ add_executable(hpcore
     src/usr/usr.cpp
     src/cons/cons.cpp
     src/cons/ledger_handler.cpp
-    src/cons/state_handler.cpp
+    src/state/state_sync.cpp
+    src/state/state_serve.cpp
     src/main.cpp
 )
 target_link_libraries(hpcore
@@ -75,8 +76,8 @@ add_dependencies(hpcore
 )
 
 add_custom_command(TARGET hpcore POST_BUILD
-    COMMAND strip ./build/hpcore
-    COMMAND strip ./build/appbill
+    # COMMAND strip ./build/hpcore
+    # COMMAND strip ./build/appbill
     COMMAND cp ./test/bin/websocketd ./test/bin/websocat ./test/bin/hpfs ./build/
 )
     

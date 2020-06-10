@@ -30,6 +30,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <libgen.h>
 #include <list>
 #include <math.h>
 #include <memory>

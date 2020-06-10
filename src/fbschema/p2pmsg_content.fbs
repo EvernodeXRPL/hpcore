@@ -1,4 +1,6 @@
-//IDL file for p2p message content schema.
+// IDL file for p2p message content schema.
+// flatc -o src/fbschema/ --gen-mutable --cpp src/fbschema/p2pmsg_content.fbs
+
 include "common_schema.fbs";
 namespace fbschema.p2pmsg;
 
@@ -37,7 +39,7 @@ table Proposal_Message { //Proposal type message schema
     users:[ByteArray];
     hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
     hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
-    curr_state_hash: [ubyte];
+    state: [ubyte];
 }
 
 table Npl_Message { //NPL type message schema
@@ -104,7 +106,7 @@ table Block_Response{
 }
 
 table State_FS_Hash_Entry{
-    path: string;
+    name: string;
     is_file: bool;
     hash: [ubyte];
 }

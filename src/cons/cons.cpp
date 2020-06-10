@@ -12,8 +12,8 @@
 #include "../sc.hpp"
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"
+#include "../state/state_sync.hpp"
 #include "ledger_handler.hpp"
-#include "state_handler.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -36,19 +36,19 @@ namespace cons
 
     int init()
     {
-        //set start stage
-        ctx.stage = 0;
-
         //load lcl details from lcl history.
         ledger_history ldr_hist = load_ledger();
         ctx.led_seq_no = ldr_hist.led_seq_no;
         ctx.lcl = ldr_hist.lcl;
         ctx.ledger_cache.swap(ldr_hist.cache);
 
-        if (hpfs::get_root_hash(ctx.curr_state_hash) == -1)
+        if (get_initial_state_hash(ctx.state) == -1)
+        {
+            LOG_ERR << "Failed to get initial state hash.";
             return -1;
+        }
 
-        LOG_INFO << "Initial state: " << ctx.curr_state_hash;
+        LOG_INFO << "Initial state: " << ctx.state;
 
         // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
         // Stage 3 is allocated an extra stage_time unit becayse a node needs enough time to
@@ -65,10 +65,6 @@ namespace cons
  */
     void deinit()
     {
-        if (init_success)
-        {
-
-        }
     }
 
     int run_consensus()
@@ -158,14 +154,12 @@ namespace cons
             vote_counter votes;
 
             // check if we're ahead/behind of consensus lcl
-            bool is_lcl_desync, should_request_history;
+            bool is_lcl_desync = false, should_request_history = false;
             std::string majority_lcl;
             check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes);
 
             if (is_lcl_desync)
             {
-                ctx.is_lcl_syncing = true;
-
                 if (should_request_history)
                 {
                     LOG_INFO << "Syncing lcl. Curr lcl:" << cons::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
@@ -191,14 +185,16 @@ namespace cons
             }
             else
             {
-                const bool lcl_syncing_just_finished = ctx.is_lcl_syncing;
-                ctx.is_lcl_syncing = false;
+                bool is_state_desync = false;
+                hpfs::h32 majority_state = hpfs::h32_empty;
+                check_state_votes(is_state_desync, majority_state, votes);
 
-                if (lcl_syncing_just_finished)
-                    ; //TODO: Check and compare majotiry state and start state sync.
-                bool is_state_syncing = false;
-
-                if (!is_state_syncing)
+                if (is_state_desync)
+                {
+                    conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                    state_sync::set_target(majority_state, on_state_sync_completion);
+                }
+                else
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
 
@@ -214,7 +210,7 @@ namespace cons
 
                         // node has finished a consensus round (all 4 stages).
                         LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
-                                 << " state:" << ctx.curr_state_hash << ")";
+                                 << " state:" << ctx.state << ")";
                     }
                 }
             }
@@ -247,8 +243,8 @@ namespace cons
                         << " hout:" << cp.hash_outputs.size()
                         << " ts:" << std::to_string(cp.time)
                         << " lcl:" << cp.lcl.substr(0, 15)
-                        << " state:" << cp.curr_state_hash
-                        << " self:" << self;
+                        << " state:" << cp.state
+                        << (self ? " [self]" : "");
             }
             else
             {
@@ -479,6 +475,9 @@ namespace cons
         int pid = fork();
         if (pid == 0)
         {
+            // appbill process.
+            util::unmask_signal();
+
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
             chdir(conf::ctx.state_rw_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
@@ -513,7 +512,7 @@ namespace cons
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
         stg_prop.lcl = ctx.lcl;
-        stg_prop.curr_state_hash = ctx.curr_state_hash;
+        stg_prop.state = ctx.state;
 
         // Populate the proposal with set of candidate user pubkeys.
         for (const std::string &pubkey : ctx.candidate_users)
@@ -545,7 +544,7 @@ namespace cons
         // if there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork
         stg_prop.lcl = ctx.lcl;
-        stg_prop.curr_state_hash = ctx.curr_state_hash;
+        stg_prop.state = ctx.state;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -651,10 +650,6 @@ namespace cons
         {
             LOG_DBG << "Not enough peers proposing to perform consensus. votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
             is_desync = true;
-
-            //Not enough nodes are propsing. So Node is switching to Proposer if it's in observer mode.
-            conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
-
             return;
         }
 
@@ -689,6 +684,33 @@ namespace cons
             LOG_DBG << "No consensus on lcl. Possible fork condition. won:" << std::to_string(winning_votes) << " total:" << std::to_string(ctx.candidate_proposals.size());
             is_desync = true;
             return;
+        }
+    }
+
+    /**
+ * Check state against the winning and canonical state
+ * @param votes The voting table.
+ */
+    void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes)
+    {
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            increment(votes.state, cp.state);
+        }
+
+        int32_t winning_votes = 0;
+        for (const auto [state, votes] : votes.state)
+        {
+            if (votes > winning_votes)
+            {
+                winning_votes = votes;
+                majority_state = state;
+            }
+        }
+
+        {
+            std::lock_guard<std::mutex>(ctx.state_sync_lock);
+            is_desync = (ctx.state != majority_state);
         }
     }
 
@@ -798,30 +820,6 @@ namespace cons
     }
 
     /**
- * Check state against the winning and canonical state
- * @param votes The voting table.
- */
-    void check_state(vote_counter &votes)
-    {
-        hpfs::h32 majority_state = hpfs::h32_empty;
-
-        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
-        {
-            increment(votes.state, cp.curr_state_hash);
-        }
-
-        int32_t winning_votes = 0;
-        for (const auto [state, votes] : votes.state)
-        {
-            if (votes > winning_votes)
-            {
-                winning_votes = votes;
-                majority_state = state;
-            }
-        }
-    }
-
-    /**
  * Transfers consensus-reached inputs into the provided contract buf map so it can be fed into the contract process.
  * @param bufmap The contract bufmap which needs to be populated with inputs.
  * @param cons_prop The proposal that achieved consensus.
@@ -908,7 +906,7 @@ namespace cons
         sc::contract_iobuf_pair hpscbufpair;
         return sc::exec_contract(
             sc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair),
-            ctx.curr_state_hash);
+            ctx.state);
     }
 
     /**
@@ -923,6 +921,27 @@ namespace cons
             counter[candidate]++;
         else
             counter.try_emplace(candidate, 1);
+    }
+
+    /**
+ * Get the contract state hash.
+ */
+    int get_initial_state_hash(hpfs::h32 &hash)
+    {
+        pid_t pid;
+        std::string mount_dir;
+        if (hpfs::start_fs_session(pid, mount_dir, "ro", true) == -1)
+            return -1;
+
+        int res = get_hash(hash, mount_dir, "/");
+        util::kill_process(pid, true);
+        return res;
+    }
+
+    void on_state_sync_completion(const hpfs::h32 new_state)
+    {
+        std::lock_guard<std::mutex>(ctx.state_sync_lock);
+        ctx.state = new_state;
     }
 
 } // namespace cons

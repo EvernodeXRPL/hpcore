@@ -700,7 +700,7 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_USERS = 8,
     VT_HASH_INPUTS = 10,
     VT_HASH_OUTPUTS = 12,
-    VT_CURR_STATE_HASH = 14
+    VT_STATE = 14
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -732,11 +732,11 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *mutable_hash_outputs() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>> *>(VT_HASH_OUTPUTS);
   }
-  const flatbuffers::Vector<uint8_t> *curr_state_hash() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CURR_STATE_HASH);
+  const flatbuffers::Vector<uint8_t> *state() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE);
   }
-  flatbuffers::Vector<uint8_t> *mutable_curr_state_hash() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CURR_STATE_HASH);
+  flatbuffers::Vector<uint8_t> *mutable_state() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -751,8 +751,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_HASH_OUTPUTS) &&
            verifier.VerifyVector(hash_outputs()) &&
            verifier.VerifyVectorOfTables(hash_outputs()) &&
-           VerifyOffset(verifier, VT_CURR_STATE_HASH) &&
-           verifier.VerifyVector(curr_state_hash()) &&
+           VerifyOffset(verifier, VT_STATE) &&
+           verifier.VerifyVector(state()) &&
            verifier.EndTable();
   }
 };
@@ -776,8 +776,8 @@ struct Proposal_MessageBuilder {
   void add_hash_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs) {
     fbb_.AddOffset(Proposal_Message::VT_HASH_OUTPUTS, hash_outputs);
   }
-  void add_curr_state_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> curr_state_hash) {
-    fbb_.AddOffset(Proposal_Message::VT_CURR_STATE_HASH, curr_state_hash);
+  void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
+    fbb_.AddOffset(Proposal_Message::VT_STATE, state);
   }
   explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -797,10 +797,10 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fbschema::ByteArray>>> hash_outputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> curr_state_hash = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
-  builder_.add_curr_state_hash(curr_state_hash);
+  builder_.add_state(state);
   builder_.add_hash_outputs(hash_outputs);
   builder_.add_hash_inputs(hash_inputs);
   builder_.add_users(users);
@@ -815,11 +815,11 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_inputs = nullptr,
     const std::vector<flatbuffers::Offset<fbschema::ByteArray>> *hash_outputs = nullptr,
-    const std::vector<uint8_t> *curr_state_hash = nullptr) {
+    const std::vector<uint8_t> *state = nullptr) {
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*users) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_inputs) : 0;
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<fbschema::ByteArray>>(*hash_outputs) : 0;
-  auto curr_state_hash__ = curr_state_hash ? _fbb.CreateVector<uint8_t>(*curr_state_hash) : 0;
+  auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
   return fbschema::p2pmsg::CreateProposal_Message(
       _fbb,
       stage,
@@ -827,7 +827,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       users__,
       hash_inputs__,
       hash_outputs__,
-      curr_state_hash__);
+      state__);
 }
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -1623,15 +1623,15 @@ inline flatbuffers::Offset<Block_Response> CreateBlock_ResponseDirect(
 struct State_FS_Hash_Entry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef State_FS_Hash_EntryBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PATH = 4,
+    VT_NAME = 4,
     VT_IS_FILE = 6,
     VT_HASH = 8
   };
-  const flatbuffers::String *path() const {
-    return GetPointer<const flatbuffers::String *>(VT_PATH);
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
   }
-  flatbuffers::String *mutable_path() {
-    return GetPointer<flatbuffers::String *>(VT_PATH);
+  flatbuffers::String *mutable_name() {
+    return GetPointer<flatbuffers::String *>(VT_NAME);
   }
   bool is_file() const {
     return GetField<uint8_t>(VT_IS_FILE, 0) != 0;
@@ -1647,8 +1647,8 @@ struct State_FS_Hash_Entry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_PATH) &&
-           verifier.VerifyString(path()) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
            VerifyField<uint8_t>(verifier, VT_IS_FILE) &&
            VerifyOffset(verifier, VT_HASH) &&
            verifier.VerifyVector(hash()) &&
@@ -1660,8 +1660,8 @@ struct State_FS_Hash_EntryBuilder {
   typedef State_FS_Hash_Entry Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_path(flatbuffers::Offset<flatbuffers::String> path) {
-    fbb_.AddOffset(State_FS_Hash_Entry::VT_PATH, path);
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(State_FS_Hash_Entry::VT_NAME, name);
   }
   void add_is_file(bool is_file) {
     fbb_.AddElement<uint8_t>(State_FS_Hash_Entry::VT_IS_FILE, static_cast<uint8_t>(is_file), 0);
@@ -1682,26 +1682,26 @@ struct State_FS_Hash_EntryBuilder {
 
 inline flatbuffers::Offset<State_FS_Hash_Entry> CreateState_FS_Hash_Entry(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> path = 0,
+    flatbuffers::Offset<flatbuffers::String> name = 0,
     bool is_file = false,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash = 0) {
   State_FS_Hash_EntryBuilder builder_(_fbb);
   builder_.add_hash(hash);
-  builder_.add_path(path);
+  builder_.add_name(name);
   builder_.add_is_file(is_file);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<State_FS_Hash_Entry> CreateState_FS_Hash_EntryDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const char *path = nullptr,
+    const char *name = nullptr,
     bool is_file = false,
     const std::vector<uint8_t> *hash = nullptr) {
-  auto path__ = path ? _fbb.CreateString(path) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
   auto hash__ = hash ? _fbb.CreateVector<uint8_t>(*hash) : 0;
   return fbschema::p2pmsg::CreateState_FS_Hash_Entry(
       _fbb,
-      path__,
+      name__,
       is_file,
       hash__);
 }

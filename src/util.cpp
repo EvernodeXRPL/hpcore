@@ -207,20 +207,58 @@ namespace util
         pthread_sigmask(SIG_BLOCK, &mask, NULL);
     }
 
-    // Kill a process with SIGINT and wait until it stops running.
-    int kill_process(const pid_t pid, const bool wait)
+    // Clears signal mask from the calling thread.
+    // Used for other processes forked from hpcore threads.
+    void unmask_signal()
     {
-        if (kill(pid, SIGINT) == -1)
+        sigset_t mask;
+        sigemptyset(&mask);
+        pthread_sigmask(SIG_SETMASK, &mask, NULL);
+    }
+
+    // Kill a process with a signal and wait until it stops running.
+    int kill_process(const pid_t pid, const bool wait, int signal)
+    {
+        if (kill(pid, signal) == -1)
         {
-            LOG_ERR << errno << ": Error issuing SIGINT to pid " << pid;
+            LOG_ERR << errno << ": Error issuing signal to pid " << pid;
             return -1;
         }
 
         int pid_status;
         if (wait && waitpid(pid, &pid_status, 0) == -1)
         {
-            LOG_ERR << errno << ": waitpid failed.";
+            LOG_ERR << errno << ": waitpid after kill failed.";
             return -1;
+        }
+
+        return 0;
+    }
+
+    bool is_dir_exists(std::string_view path)
+    {
+        struct stat st;
+        return (stat(path.data(), &st) == 0 && S_ISDIR(st.st_mode));
+    }
+
+    int create_dir_tree_recursive(std::string_view path)
+    {
+        if (strcmp(path.data(), "/") == 0) // No need of checking if we are at root.
+            return 0;
+
+        // Check whether this dir exists or not.
+        struct stat st;
+        if (stat(path.data(), &st) != 0 || !S_ISDIR(st.st_mode))
+        {
+            // Check and create parent dir tree first.
+            char *path2 = strdup(path.data());
+            char *parent_dir_path = dirname(path2);
+            if (create_dir_tree_recursive(parent_dir_path) == -1)
+                return -1;
+
+            // Create this dir.
+            if (mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
+                return -1;
         }
 
         return 0;

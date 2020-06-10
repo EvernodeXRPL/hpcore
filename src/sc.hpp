@@ -1,5 +1,5 @@
-#ifndef _HP_PROC_
-#define _HP_PROC_
+#ifndef _HP_SC_
+#define _HP_SC_
 
 #include "pchheader.hpp"
 #include "usr/usr.hpp"

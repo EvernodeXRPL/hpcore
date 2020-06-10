@@ -8,7 +8,6 @@
 #include "../usr/user_input.hpp"
 #include "../hpfs/h32.hpp"
 #include "ledger_handler.hpp"
-#include "state_handler.hpp"
 
 namespace cons
 {
@@ -74,7 +73,7 @@ struct consensus_context
     uint64_t time_now = 0;
     std::string lcl;
     uint64_t led_seq_no = 0;
-    hpfs::h32 curr_state_hash;
+    hpfs::h32 state = hpfs::h32_empty;
 
     //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
     //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.
@@ -82,12 +81,12 @@ struct consensus_context
     //We will use this to track lcls related logic.- track state, lcl request, response.
     std::map<uint64_t, ledger_cache_entry> ledger_cache;
     std::string last_requested_lcl;
-    bool is_lcl_syncing = false;
 
     //ledger close time of previous hash
     uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
     uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
+    std::mutex state_sync_lock;
     bool is_shutting_down = false;
 
     consensus_context()
@@ -134,6 +133,8 @@ void broadcast_proposal(const p2p::proposal &p);
 
 void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
 
+void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
+
 float_t get_stage_threshold(const uint8_t stage);
 
 void timewait_stage(const bool reset, const uint64_t time);
@@ -146,8 +147,6 @@ int apply_ledger(const p2p::proposal &proposal);
 
 void dispatch_user_outputs(const p2p::proposal &cons_prop);
 
-void check_state(vote_counter &votes);
-
 void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
 void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
@@ -158,6 +157,10 @@ int run_contract_binary(const int64_t time_now, sc::contract_bufmap_t &useriobuf
 
 template <typename T>
 void increment(std::map<T, int32_t> &counter, const T &candidate);
+
+int get_initial_state_hash(hpfs::h32 &hash);
+
+void on_state_sync_completion(const hpfs::h32 new_state);
 
 } // namespace cons
 

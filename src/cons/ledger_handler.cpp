@@ -61,7 +61,7 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
 
     ledger_cache_entry c;
     c.lcl = file_name;
-    c.state = proposal.curr_state_hash.to_string_view();
+    c.state = proposal.state.to_string_view();
     cons::ctx.ledger_cache.emplace(led_seq_no, std::move(c));
 
     //Remove old ledgers that exceeds max sequence range.

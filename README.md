@@ -96,7 +96,7 @@ Code is divided into subsystems via namespaces.
 
 **p2p::** Handles peer-to-peer connections and message exchange between nodes. Makes use of **crypto** and **comm**.
 
-**cons::** Handles consensus and proposal rounds. Makes use of **usr**, **p2p** and **proc**
+**cons::** Handles consensus and proposal rounds. Makes use of **usr**, **p2p** and **sc**
 
 **comm::** Handles generic web sockets communication functionality. Mainly acts as a wrapper for websocketd/websocat.
 

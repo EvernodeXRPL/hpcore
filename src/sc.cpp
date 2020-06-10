@@ -56,13 +56,12 @@ namespace sc
                 LOG_ERR << "Contract process exited with non-normal status code: " << presult;
                 goto failure;
             }
-
-            if (stop_hpfs_rw_session(state_hash) != 0)
-                goto failure;
         }
         else if (pid == 0)
         {
             // Contract process.
+            util::unmask_signal();
+            
             // Set up the process environment and overlay the contract binary program with execv().
 
             // Close all fds unused by SC process.
@@ -106,6 +105,7 @@ namespace sc
         ret = -1;
 
     success:
+        stop_hpfs_rw_session(state_hash);
         cleanup_fdmap(ctx.userfds);
         cleanup_vectorfds(ctx.hpscfds);
         cleanup_vectorfds(ctx.nplfds);
@@ -254,6 +254,8 @@ namespace sc
 
     int fetch_outputs(const contract_exec_args &args)
     {
+        util::mask_signal();
+
         while (true)
         {
             if (ctx.should_deinit)
