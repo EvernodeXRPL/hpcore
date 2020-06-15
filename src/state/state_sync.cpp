@@ -27,22 +27,26 @@ namespace state_sync
 
     // No. of milliseconds to wait before resubmitting a request.
     uint16_t REQUEST_RESUBMIT_TIMEOUT;
-
     sync_context ctx;
+    bool init_success = false;
 
     int init()
     {
         REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime / 2;
         ctx.target_state = hpfs::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
+        init_success = true;
         return 0;
     }
 
     void deinit()
     {
-        ctx.is_syncing = false;
-        ctx.is_shutting_down = true;
-        ctx.state_sync_thread.join();
+        if (init_success)
+        {
+            ctx.is_syncing = false;
+            ctx.is_shutting_down = true;
+            ctx.state_sync_thread.join();
+        }
     }
 
     /**

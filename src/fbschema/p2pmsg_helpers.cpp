@@ -18,7 +18,7 @@ namespace fbschema::p2pmsg
     constexpr size_t PEERCHALLENGE_LEN = 16;
 
     // Max size of messages which are subjected to time (too old) check.
-    constexpr size_t MAX_SIZE_FOR_TIME_CHECK = 10 * 1024 * 1024; // 10 MB
+    constexpr size_t MAX_SIZE_FOR_TIME_CHECK = 1 * 1024 * 1024; // 1 MB
 
     /**
  * This section contains Flatbuffer message reading/writing helpers.

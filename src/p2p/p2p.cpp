@@ -14,6 +14,7 @@ namespace p2p
     // Holds global connected-peers and related objects.
     connected_context ctx;
 
+    uint64_t metric_thresholds[4];
     bool init_success = false;
 
     /**
@@ -22,6 +23,11 @@ namespace p2p
  */
     int init()
     {
+        metric_thresholds[0] = conf::cfg.peermaxcpm;
+        metric_thresholds[1] = conf::cfg.peermaxdupmpm;
+        metric_thresholds[2] = conf::cfg.peermaxbadsigpm;
+        metric_thresholds[3] = conf::cfg.peermaxbadmpm;
+
         //Entry point for p2p which will start peer connections to other nodes
         if (start_peer_connections() == -1)
             return -1;
@@ -41,7 +47,6 @@ namespace p2p
 
     int start_peer_connections()
     {
-        const uint64_t metric_thresholds[] = {conf::cfg.peermaxcpm, conf::cfg.peermaxdupmpm, conf::cfg.peermaxbadsigpm, conf::cfg.peermaxbadmpm};
         if (ctx.listener.start(
                 conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true, false, metric_thresholds, conf::cfg.peers, conf::cfg.peermaxsize) == -1)
             return -1;
