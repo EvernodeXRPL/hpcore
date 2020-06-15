@@ -34,7 +34,7 @@ namespace state_serve
             std::vector<uint8_t> block;
             if (get_file_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
             {
-                LOG_ERR << "Error in getting file block.";
+                LOG_ERR << "Error in getting file block: " << sr.parent_path;
                 return -1;
             }
 
@@ -55,7 +55,7 @@ namespace state_serve
                 std::size_t file_length = 0;
                 if (get_file_block_hashes(block_hashes, file_length, sr.parent_path, sr.expected_hash) == -1)
                 {
-                    LOG_ERR << "Error in getting block hashes.";
+                    LOG_ERR << "Error in getting block hashes: " << sr.parent_path;
                     return -1;
                 }
 
@@ -70,7 +70,7 @@ namespace state_serve
                 std::vector<hpfs::child_hash_node> child_hash_nodes;
                 if (get_fs_entry_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
                 {
-                    LOG_ERR << "Error in getting fs entries.";
+                    LOG_ERR << "Error in getting fs entries: " << sr.parent_path;
                     return -1;
                 }
 

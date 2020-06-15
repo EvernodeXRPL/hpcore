@@ -40,8 +40,8 @@ namespace state_sync
         // List of pending sync requests to be sent out.
         std::list<backlog_item> pending_requests;
 
-        // List of submitted requests we are awaiting responses for, keyed by expected response hash.
-        std::unordered_map<hpfs::h32, backlog_item, hpfs::h32_std_key_hasher> submitted_requests;
+        // List of submitted requests we are awaiting responses for, keyed by expected response path+hash.
+        std::unordered_map<std::string, backlog_item> submitted_requests;
 
         std::thread state_sync_thread;
         std::mutex target_state_update_lock;
@@ -72,11 +72,11 @@ namespace state_sync
 
     void submit_request(const backlog_item &request);
 
-    int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp);
+    int handle_fs_entry_response(std::string_view parent_vpath, const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp);
 
-    int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *file_resp);
+    int handle_file_hashmap_response(std::string_view file_vpath, const fbschema::p2pmsg::File_HashMap_Response *file_resp);
 
-    int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg);
+    int handle_file_block_response(std::string_view file_vpath, const fbschema::p2pmsg::Block_Response *block_msg);
 
 } // namespace state_sync
 

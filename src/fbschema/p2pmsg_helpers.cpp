@@ -480,13 +480,13 @@ namespace fbschema::p2pmsg
         const flatbuffers::Offset<Fs_Entry_Response> resp =
             CreateFs_Entry_Response(
                 builder,
-                sv_to_flatbuff_str(builder, path),
                 statefshashentry_to_flatbuff_statefshashentry(builder, hash_nodes));
 
         const flatbuffers::Offset<State_Response_Message> st_resp = CreateState_Response_Message(
             builder, State_Response_Fs_Entry_Response,
             resp.Union(),
-            hash_to_flatbuff_bytes(builder, expected_hash));
+            hash_to_flatbuff_bytes(builder, expected_hash),
+            sv_to_flatbuff_str(builder, path));
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -515,7 +515,6 @@ namespace fbschema::p2pmsg
         const flatbuffers::Offset<File_HashMap_Response> resp =
             CreateFile_HashMap_Response(
                 builder,
-                sv_to_flatbuff_str(builder, path),
                 file_length,
                 sv_to_flatbuff_bytes(builder, hashmap_sv));
 
@@ -523,7 +522,8 @@ namespace fbschema::p2pmsg
             builder,
             State_Response_File_HashMap_Response,
             resp.Union(),
-            hash_to_flatbuff_bytes(builder, expected_hash));
+            hash_to_flatbuff_bytes(builder, expected_hash),
+            sv_to_flatbuff_str(builder, path));
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -547,7 +547,6 @@ namespace fbschema::p2pmsg
         const flatbuffers::Offset<Block_Response> resp =
             CreateBlock_Response(
                 builder,
-                sv_to_flatbuff_str(builder, block_resp.path),
                 block_resp.block_id,
                 sv_to_flatbuff_bytes(builder, block_resp.data));
 
@@ -555,7 +554,8 @@ namespace fbschema::p2pmsg
             builder,
             State_Response_Block_Response,
             resp.Union(),
-            hash_to_flatbuff_bytes(builder, block_resp.hash));
+            hash_to_flatbuff_bytes(builder, block_resp.hash),
+            sv_to_flatbuff_str(builder, block_resp.path));
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_State_Response_Message, st_resp.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -710,7 +710,7 @@ namespace fbschema::p2pmsg
             entry.name = flatbuff_str_to_sv(f_hash->name());
             entry.is_file = f_hash->is_file();
             entry.hash = flatbuff_bytes_to_hash(f_hash->hash());
-            
+
             fs_entries.emplace(entry.name, std::move(entry));
         }
     }
