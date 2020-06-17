@@ -13,7 +13,6 @@
 #include "peer_session_handler.hpp"
 #include "../cons/ledger_handler.hpp"
 #include "../state/state_sync.hpp"
-#include "../state/state_serve.hpp"
 #include "../cons/cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
@@ -145,15 +144,16 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
-            const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-
-            if (state_serve::create_state_response(fbuf, sr) == 0)
+            if (p2pmsg::validate_container_trust(container) != 0)
             {
-                std::string_view msg = std::string_view(
-                    reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-                session.send(msg);
+                LOG_DBG << "State request message rejected due to trust failure. " << session.uniqueid;
+                return 0;
             }
+
+            // Insert request with lock.
+            std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
+            std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
+            ctx.collected_msgs.state_requests.push_back(std::make_pair(session.uniqueid, std::move(state_request_msg)));
         }
         else if (content_message_type == p2pmsg::Message_State_Response_Message)
         {
@@ -166,13 +166,19 @@ namespace p2p
             if (state_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
             {
                 // Insert state_response with lock.
-                std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_response_mutex);
+                std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
                 std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.state_response.push_back(std::move(response));
+                ctx.collected_msgs.state_responses.push_back(std::move(response));
             }
         }
         else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
         {
+            if (p2pmsg::validate_container_trust(container) != 0)
+            {
+                LOG_DBG << "History request message rejected due to trust failure. " << session.uniqueid;
+                return 0;
+            }
+
             const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
             //first check node has the required lcl available. -> if so send lcl history accordingly.
             const bool req_lcl_avail = cons::check_required_lcl_availability(hr);

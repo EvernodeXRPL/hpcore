@@ -8,6 +8,12 @@
 
 namespace state_serve
 {
+    int init();
+
+    void deinit();
+    
+    void state_serve_loop();
+
     int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr);
 
     int get_file_block(std::vector<uint8_t> &vec, const std::string_view vpath,

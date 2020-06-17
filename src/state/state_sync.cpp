@@ -1,4 +1,3 @@
-#include "../state/state_sync.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/common_helpers.hpp"
@@ -9,6 +8,8 @@
 #include "../util.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "../hpfs/h32.hpp"
+#include "state_sync.hpp"
+#include "state_common.hpp"
 
 namespace state_sync
 {
@@ -21,8 +22,6 @@ namespace state_sync
     // Request loop sleep time (milliseconds).
     constexpr uint16_t REQUEST_LOOP_WAIT = 20;
 
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
-
     constexpr int FILE_PERMS = 0644;
 
     // No. of milliseconds to wait before resubmitting a request.
@@ -32,7 +31,7 @@ namespace state_sync
 
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime / 2;
+        REQUEST_RESUBMIT_TIMEOUT = state_common::get_request_resubmit_timeout();
         ctx.target_state = hpfs::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
         init_success = true;
@@ -148,11 +147,11 @@ namespace state_sync
             util::sleep(REQUEST_LOOP_WAIT);
 
             {
-                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
 
                 // Move collected state responses over to local candidate responses list.
-                if (!p2p::ctx.collected_msgs.state_response.empty())
-                    ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.state_response);
+                if (!p2p::ctx.collected_msgs.state_responses.empty())
+                    ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.state_responses);
             }
 
             for (auto &response : ctx.candidate_state_responses)
@@ -420,7 +419,7 @@ namespace state_sync
             return -1;
         }
 
-        const off_t offset = block_id * BLOCK_SIZE;
+        const off_t offset = block_id * state_common::BLOCK_SIZE;
         const int res = pwrite(fd, buf.data(), buf.length(), offset);
         close(fd);
         if (res < buf.length())

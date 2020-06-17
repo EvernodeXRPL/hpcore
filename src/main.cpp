@@ -13,6 +13,7 @@
 #include "cons/cons.hpp"
 #include "hpfs/hpfs.hpp"
 #include "state/state_sync.hpp"
+#include "state/state_serve.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -68,6 +69,7 @@ void deinit()
     cons::deinit();
     sc::deinit();
     state_sync::deinit();
+    state_serve::deinit();
     usr::deinit();
     p2p::deinit();
     hpfs::deinit();
@@ -191,7 +193,7 @@ int main(int argc, char **argv)
                          << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
 
                 if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 ||
-                    state_sync::init() != 0 || cons::init() != 0)
+                    state_serve::init() != 0 || state_sync::init() != 0 || cons::init() != 0)
                 {
                     deinit();
                     return -1;
