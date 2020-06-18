@@ -28,7 +28,7 @@ namespace state_serve
 
     int init()
     {
-        REQUEST_BATCH_TIMEOUT = state_common::get_request_resubmit_timeout();
+        REQUEST_BATCH_TIMEOUT = state_common::get_request_resubmit_timeout() * 0.9;
         state_serve_thread = std::thread(state_serve_loop);
         init_success = true;
         return 0;
