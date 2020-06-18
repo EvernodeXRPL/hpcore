@@ -1,4 +1,3 @@
-#include "../state/state_sync.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/p2pmsg_content_generated.h"
 #include "../fbschema/common_helpers.hpp"
@@ -9,6 +8,8 @@
 #include "../util.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "../hpfs/h32.hpp"
+#include "state_sync.hpp"
+#include "state_common.hpp"
 
 namespace state_sync
 {
@@ -16,33 +17,35 @@ namespace state_sync
     constexpr uint16_t IDLE_WAIT = 50;
 
     // Max number of requests that can be awaiting response at any given time.
-    constexpr uint16_t MAX_AWAITING_REQUESTS = 1;
+    constexpr uint16_t MAX_AWAITING_REQUESTS = 4;
 
     // Request loop sleep time (milliseconds).
     constexpr uint16_t REQUEST_LOOP_WAIT = 20;
-
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
 
     constexpr int FILE_PERMS = 0644;
 
     // No. of milliseconds to wait before resubmitting a request.
     uint16_t REQUEST_RESUBMIT_TIMEOUT;
-
     sync_context ctx;
+    bool init_success = false;
 
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime / 2;
+        REQUEST_RESUBMIT_TIMEOUT = state_common::get_request_resubmit_timeout();
         ctx.target_state = hpfs::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
+        init_success = true;
         return 0;
     }
 
     void deinit()
     {
-        ctx.is_syncing = false;
-        ctx.is_shutting_down = true;
-        ctx.state_sync_thread.join();
+        if (init_success)
+        {
+            ctx.is_syncing = false;
+            ctx.is_shutting_down = true;
+            ctx.state_sync_thread.join();
+        }
     }
 
     /**
@@ -144,11 +147,11 @@ namespace state_sync
             util::sleep(REQUEST_LOOP_WAIT);
 
             {
-                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_response_mutex);
+                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
 
                 // Move collected state responses over to local candidate responses list.
-                if (!p2p::ctx.collected_msgs.state_response.empty())
-                    ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.state_response);
+                if (!p2p::ctx.collected_msgs.state_responses.empty())
+                    ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.state_responses);
             }
 
             for (auto &response : ctx.candidate_state_responses)
@@ -159,12 +162,15 @@ namespace state_sync
                 const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(response.data());
                 const fbschema::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
-                // Check whether we are actually waiting for this response's hash. If not, ignore it.
-                const hpfs::h32 response_hash = fbschema::flatbuff_bytes_to_hash(resp_msg->hash());
-                const auto pending_resp_itr = ctx.submitted_requests.find(response_hash);
+                // Check whether we are actually waiting for this response. If not, ignore it.
+                std::string_view hash = fbschema::flatbuff_bytes_to_sv(resp_msg->hash());
+                std::string_view vpath = fbschema::flatbuff_str_to_sv(resp_msg->path());
+
+                const std::string key = std::string(vpath).append(hash);
+                const auto pending_resp_itr = ctx.submitted_requests.find(key);
                 if (pending_resp_itr == ctx.submitted_requests.end())
                 {
-                    LOG_DBG << "Skipping state response due to hash mismatch. Received:" << response_hash;
+                    LOG_DBG << "Skipping state response due to hash mismatch.";
                     continue;
                 }
 
@@ -175,11 +181,11 @@ namespace state_sync
                 const fbschema::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
 
                 if (msg_type == fbschema::p2pmsg::State_Response_Fs_Entry_Response)
-                    handle_fs_entry_response(resp_msg->state_response_as_Fs_Entry_Response());
+                    handle_fs_entry_response(vpath, resp_msg->state_response_as_Fs_Entry_Response());
                 else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)
-                    handle_file_hashmap_response(resp_msg->state_response_as_File_HashMap_Response());
+                    handle_file_hashmap_response(vpath, resp_msg->state_response_as_File_HashMap_Response());
                 else if (msg_type == fbschema::p2pmsg::State_Response_Block_Response)
-                    handle_file_block_response(resp_msg->state_response_as_Block_Response());
+                    handle_file_block_response(vpath, resp_msg->state_response_as_Block_Response());
 
                 // After handling each response, check whether we have reached target state.
                 hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/");
@@ -269,7 +275,9 @@ namespace state_sync
                 << " path:" << request.path << " block_id:" << request.block_id
                 << " hash:" << request.expected_hash;
 
-        ctx.submitted_requests.try_emplace(request.expected_hash, request);
+        const std::string key = std::string(request.path)
+                                    .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(hpfs::h32));
+        ctx.submitted_requests.try_emplace(key, request);
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
         request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash);
@@ -278,10 +286,9 @@ namespace state_sync
     /**
  * Process dir children response.
  */
-    int handle_fs_entry_response(const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp)
+    int handle_fs_entry_response(std::string_view parent_vpath, const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp)
     {
         // Get the parent path of the fs entries we have received.
-        std::string_view parent_vpath = fbschema::flatbuff_str_to_sv(fs_entry_resp->path());
         LOG_DBG << "State sync: Processing fs entries response for " << parent_vpath;
 
         // Get fs entries we have received.
@@ -355,10 +362,9 @@ namespace state_sync
     /**
  * Process file block hash map response.
  */
-    int handle_file_hashmap_response(const fbschema::p2pmsg::File_HashMap_Response *file_resp)
+    int handle_file_hashmap_response(std::string_view file_vpath, const fbschema::p2pmsg::File_HashMap_Response *file_resp)
     {
         // Get the file path of the block hashes we have received.
-        std::string file_vpath = std::string(fbschema::flatbuff_str_to_sv(file_resp->path()));
         LOG_DBG << "State sync: Processing file block hashes response for " << file_vpath;
 
         // File block hashes on our side (file might not exist on our side).
@@ -378,7 +384,7 @@ namespace state_sync
         {
             // Insert at front to give priority to block requests while preserving block order.
             if (block_id >= existing_hash_count || existing_hashes[block_id] != peer_hashes[block_id])
-                ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, file_vpath, block_id, peer_hashes[block_id]});
+                ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(file_vpath), block_id, peer_hashes[block_id]});
         }
 
         if (existing_hashes.size() >= peer_hash_count)
@@ -395,10 +401,9 @@ namespace state_sync
     /**
  * Process file block response.
  */
-    int handle_file_block_response(const fbschema::p2pmsg::Block_Response *block_msg)
+    int handle_file_block_response(std::string_view file_vpath, const fbschema::p2pmsg::Block_Response *block_msg)
     {
         // Get the file path of the block data we have received.
-        std::string_view file_vpath = fbschema::flatbuff_str_to_sv(block_msg->path());
         const uint32_t block_id = block_msg->block_id();
         std::string_view buf = fbschema::flatbuff_bytes_to_sv(block_msg->data());
 
@@ -414,7 +419,7 @@ namespace state_sync
             return -1;
         }
 
-        const off_t offset = block_id * BLOCK_SIZE;
+        const off_t offset = block_id * state_common::BLOCK_SIZE;
         const int res = pwrite(fd, buf.data(), buf.length(), offset);
         close(fd);
         if (res < buf.length())

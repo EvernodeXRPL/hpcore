@@ -309,7 +309,8 @@ int extract_signed_input_container(
         return -1;
     }
 
-    // Verify the signature of the content.
+    // We do not verify the signature of the content here since we need to let each node
+    // (including self) to verify that individually after we broadcast the NUP proposal.
 
     const std::string content(d[FLD_CONTENT].GetString(), d[FLD_CONTENT].GetStringLength());
 

@@ -86,21 +86,19 @@ union State_Response{ File_HashMap_Response, Block_Response, Fs_Entry_Response }
 table State_Response_Message{
     state_response:State_Response;
     hash:[ubyte];
+    path: string;
 }
 
 table Fs_Entry_Response{
-     path: string;
      entries: [State_FS_Hash_Entry];
 }
 
 table File_HashMap_Response{
-    path: string;
     file_length:uint64;
     hash_map:[ubyte];
 }
 
 table Block_Response{
-    path: string;
     block_id:uint32;
     data: [ubyte];
 }

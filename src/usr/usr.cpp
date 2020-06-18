@@ -18,6 +18,7 @@ namespace usr
     // Holds global connected-users and related objects.
     connected_context ctx;
 
+    uint64_t metric_thresholds[4];
     bool init_success = false;
 
     /**
@@ -26,6 +27,11 @@ namespace usr
  */
     int init()
     {
+        metric_thresholds[0] = conf::cfg.pubmaxcpm;
+        metric_thresholds[1] = 0;
+        metric_thresholds[2] = 0;
+        metric_thresholds[3] = conf::cfg.pubmaxbadmpm;
+
         // Start listening for incoming user connections.
         if (start_listening() == -1)
             return -1;
@@ -48,7 +54,6 @@ namespace usr
  */
     int start_listening()
     {
-        const uint64_t metric_thresholds[] = {conf::cfg.pubmaxcpm, 0, 0, conf::cfg.pubmaxbadmpm};
         if (ctx.listener.start(
                 conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER, true, true, metric_thresholds, std::set<conf::ip_port_pair>(), conf::cfg.pubmaxsize) == -1)
             return -1;

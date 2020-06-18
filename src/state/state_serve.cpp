@@ -9,13 +9,101 @@
 #include "../cons/cons.hpp"
 #include "../hplog.hpp"
 #include "state_serve.hpp"
+#include "state_common.hpp"
+
+namespace p2pmsg = fbschema::p2pmsg;
 
 /**
  * Helper functions for serving state requests from other peers.
  */
 namespace state_serve
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
+    constexpr uint16_t LOOP_WAIT = 100; // Milliseconds
+
+    uint16_t REQUEST_BATCH_TIMEOUT;
+
+    bool is_shutting_down = false;
+    bool init_success = false;
+    std::thread state_serve_thread;
+
+    int init()
+    {
+        REQUEST_BATCH_TIMEOUT = state_common::get_request_resubmit_timeout() * 0.9;
+        state_serve_thread = std::thread(state_serve_loop);
+        init_success = true;
+        return 0;
+    }
+
+    void deinit()
+    {
+        if (init_success)
+        {
+            is_shutting_down = true;
+            state_serve_thread.join();
+        }
+    }
+
+    void state_serve_loop()
+    {
+        util::mask_signal();
+
+        LOG_INFO << "State server started.";
+
+        std::list<std::pair<std::string, std::string>> state_requests;
+
+        while (!is_shutting_down)
+        {
+            util::sleep(LOOP_WAIT);
+
+            {
+                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_requests_mutex);
+
+                // Move collected state requests over to local requests list.
+                if (!p2p::ctx.collected_msgs.state_requests.empty())
+                    state_requests.splice(state_requests.end(), p2p::ctx.collected_msgs.state_requests);
+            }
+
+            uint64_t time_start = util::get_epoch_milliseconds();
+
+            for (auto &[session_id, request] : state_requests)
+            {
+                if (is_shutting_down)
+                    break;
+
+                const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(request.data());
+
+                const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
+                flatbuffers::FlatBufferBuilder fbuf(1024);
+
+                uint64_t time_now = util::get_epoch_milliseconds();
+
+                // If we have spent too much time handling state requests, abandon the entire batch
+                // because the requester would have stopped waiting for us.
+                if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
+                    break;
+
+                if (state_serve::create_state_response(fbuf, sr) == 0)
+                {
+                    // Find the peer that we should send the state response to.
+                    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+                    const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
+
+                    if (peer_itr != p2p::ctx.peer_connections.end())
+                    {
+                        std::string_view msg = std::string_view(
+                            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+
+                        const comm::comm_session *session = peer_itr->second;
+                        session->send(msg);
+                    }
+                }
+            }
+
+            state_requests.clear();
+        }
+
+        LOG_INFO << "State server stopped.";
+    }
 
     /**
  * Creates the reply message for a given state request.
@@ -34,7 +122,7 @@ namespace state_serve
             std::vector<uint8_t> block;
             if (get_file_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
             {
-                LOG_ERR << "Error in getting file block.";
+                LOG_ERR << "Error in getting file block: " << sr.parent_path;
                 return -1;
             }
 
@@ -55,7 +143,7 @@ namespace state_serve
                 std::size_t file_length = 0;
                 if (get_file_block_hashes(block_hashes, file_length, sr.parent_path, sr.expected_hash) == -1)
                 {
-                    LOG_ERR << "Error in getting block hashes.";
+                    LOG_ERR << "Error in getting block hashes: " << sr.parent_path;
                     return -1;
                 }
 
@@ -70,7 +158,7 @@ namespace state_serve
                 std::vector<hpfs::child_hash_node> child_hash_nodes;
                 if (get_fs_entry_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
                 {
-                    LOG_ERR << "Error in getting fs entries.";
+                    LOG_ERR << "Error in getting fs entries: " << sr.parent_path;
                     return -1;
                 }
 
@@ -115,7 +203,7 @@ namespace state_serve
         // Get actual block data.
         {
             const std::string file_path = std::string(mount_dir).append(vpath);
-            const off_t block_offset = block_id * BLOCK_SIZE;
+            const off_t block_offset = block_id * state_common::BLOCK_SIZE;
             fd = open(file_path.c_str(), O_RDONLY);
             if (fd == -1)
             {
@@ -142,7 +230,7 @@ namespace state_serve
                 goto failure;
             }
 
-            const size_t read_len = MIN(BLOCK_SIZE, (st.st_size - block_offset));
+            const size_t read_len = MIN(state_common::BLOCK_SIZE, (st.st_size - block_offset));
             block.resize(read_len);
 
             lseek(fd, block_offset, SEEK_SET);
