@@ -9,6 +9,8 @@ namespace read_req
     
     void read_request_processor();
 
+    int execute_contract(std::unordered_map<std::string, std::list<std::string>> &read_requests);
+
 } // namespace read_req
 
 #endif

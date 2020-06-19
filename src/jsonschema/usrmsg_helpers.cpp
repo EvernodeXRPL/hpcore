@@ -174,6 +174,37 @@ namespace jsonschema::usrmsg
         return extra_data;
     }
 
+
+    /**
+ * Constructs a contract read response message.
+ * @param msg String reference to copy the generated json message string into.
+ *            Message format:
+ *            {
+ *              "type": "contract_read_response",
+ *              "content": "<hex encoded contract output>"
+ *            }
+ * @param content The contract binary output content to be put in the message.
+ */
+    void create_contract_read_response_container(std::string &msg, std::string_view content)
+    {
+        std::string contenthex;
+        util::bin2hex(
+            contenthex,
+            reinterpret_cast<const unsigned char *>(content.data()),
+            content.length());
+
+        msg.reserve(256);
+        msg.append("{\"")
+            .append(FLD_TYPE)
+            .append(SEP_COLON)
+            .append(MSGTYPE_CONTRACT_READ_RESPONSE)
+            .append(SEP_COMMA)
+            .append(FLD_CONTENT)
+            .append(SEP_COLON)
+            .append(contenthex)
+            .append("\"}");
+    }
+
     /**
  * Constructs a contract output container message.
  * @param msg String reference to copy the generated json message string into.

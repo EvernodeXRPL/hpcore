@@ -13,6 +13,7 @@ extern const char* const FLD_TYPE;
 constexpr const char* MSGTYPE_CHALLENGE = "public_challenge";
 constexpr const char* MSGTYPE_CHALLENGE_RESP = "challenge_resp";
 constexpr const char* MSGTYPE_CONTRACT_READ_REQUEST = "contract_read_request";
+constexpr const char* MSGTYPE_CONTRACT_READ_RESPONSE = "contract_read_response";
 constexpr const char* MSGTYPE_CONTRACT_INPUT = "contract_input";
 constexpr const char* MSGTYPE_CONTRACT_OUTPUT = "contract_output";
 constexpr const char* MSGTYPE_STAT = "stat";
@@ -36,6 +37,8 @@ void create_status_response(std::string &msg);
 void create_request_status_result(std::string &msg, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data);
 
 std::string origin_data_for_contract_input(std::string_view sig);
+
+void create_contract_read_response_container(std::string &msg, std::string_view content);
 
 void create_contract_output_container(std::string &msg, std::string_view content);
 
