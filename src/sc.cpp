@@ -13,7 +13,7 @@ namespace sc
  * Executes the contract process and passes the specified context arguments.
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
  */
-    int execute_contract(execution_context &ctx, hpfs::h32 &state_hash)
+    int execute_contract(execution_context &ctx)
     {
         // Start the hpfs rw session before starting the contract process.
         if (start_hpfs_rw_session(ctx) != 0)
@@ -87,7 +87,7 @@ namespace sc
                 execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            chdir(conf::ctx.state_rw_dir.c_str());
+            chdir(ctx.args.state_dir.c_str());
 
             int ret = execv(execv_args[0], execv_args);
             LOG_ERR << errno << ": Contract process execv failed.";
@@ -104,7 +104,7 @@ namespace sc
         ret = -1;
 
     success:
-        stop_hpfs_rw_session(ctx, state_hash);
+        stop_hpfs_rw_session(ctx);
         cleanup_fdmap(ctx.userfds);
         cleanup_vectorfds(ctx.hpscfds);
         cleanup_vectorfds(ctx.nplfds);
@@ -133,22 +133,22 @@ namespace sc
  */
     int start_hpfs_rw_session(execution_context &ctx)
     {
-        if (hpfs::start_fs_session(ctx.hpfs_pid, conf::ctx.state_rw_dir, "rw", true) == -1)
+        if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.args.state_dir, ctx.args.readonly ? "ro" : "rw", true) == -1)
             return -1;
 
-        LOG_DBG << "hpfs rw session started. pid:" << ctx.hpfs_pid;
+        LOG_DBG << "hpfs session started. pid:" << ctx.hpfs_pid;
     }
 
     /**
  * Stops the hpfs state filesystem.
  */
-    int stop_hpfs_rw_session(execution_context &ctx, hpfs::h32 &state_hash)
+    int stop_hpfs_rw_session(execution_context &ctx)
     {
-        // Read the root hash.
-        if (hpfs::get_hash(state_hash, conf::ctx.state_rw_dir, "/") == -1)
+        // Read the root hash if not in readonly mode.
+        if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.state_dir, "/") == -1)
             return -1;
 
-        LOG_DBG << "Stopping hpfs rw session... pid:" << ctx.hpfs_pid;
+        LOG_DBG << "Stopping hpfs session... pid:" << ctx.hpfs_pid;
         if (util::kill_process(ctx.hpfs_pid, true) == -1)
             return -1;
 
@@ -687,6 +687,7 @@ namespace sc
         args.nplbufs.inputs.clear();
         args.nplbufs.output.clear();
         args.time = 0;
+        args.post_execution_state_hash = hpfs::h32_empty;
     }
 
     /**

@@ -56,6 +56,8 @@ namespace cons
         ctx.stage_time = conf::cfg.roundtime / 5;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
+        ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
+
         init_success = true;
         return 0;
     }
@@ -767,11 +769,12 @@ namespace cons
             // Populate npl bufs and user bufs.
             args.nplbufs.inputs.splice(args.nplbufs.inputs.end(), ctx.candidate_npl_messages);
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
-            // TODO: Do something usefull with HP<-->SC chanel
+            // TODO: Do something usefull with HP<-->SC channel.
 
-            if (sc::execute_contract(ctx.contract_ctx, ctx.state) == -1)
+            if (sc::execute_contract(ctx.contract_ctx) == -1)
                 return -1;
 
+            ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);
             broadcast_npl_output(args.nplbufs.output);
 

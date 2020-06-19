@@ -52,6 +52,12 @@ namespace sc
  */
     struct contract_execution_args
     {
+        // Whether the contract should execute in read only mode (to serve read requests).
+        bool readonly = false;
+
+        // State dir path to be used for this execution.
+        std::string state_dir;
+
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
         contract_bufmap_t userbufs;
@@ -65,7 +71,10 @@ namespace sc
         contract_iobuf_pair hpscbufs;
 
         // Current HotPocket consensus time.
-        int64_t time;
+        int64_t time = 0;
+
+        // State hash after execution will be copied to this (not applicable to read only mode).
+        hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
     };
 
     /**
@@ -98,7 +107,7 @@ namespace sc
         bool should_stop = false;
     };
 
-    int execute_contract(execution_context &ctx, hpfs::h32 &state_hash);
+    int execute_contract(execution_context &ctx);
 
     //------Internal-use functions for this namespace.
 
@@ -106,7 +115,7 @@ namespace sc
 
     int start_hpfs_rw_session(execution_context &ctx);
 
-    int stop_hpfs_rw_session(execution_context &ctx, hpfs::h32 &state_hash);
+    int stop_hpfs_rw_session(execution_context &ctx);
 
     int write_contract_args(const execution_context &ctx);
 
