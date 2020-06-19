@@ -21,8 +21,12 @@ namespace sc
 
         // Setup io pipes and feed all inputs to them.
         create_iopipes_for_fdmap(ctx.userfds, ctx.args.userbufs);
-        create_iopipes(ctx.nplfds, !ctx.args.nplbufs.inputs.empty());
-        create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
+
+        if (!ctx.args.readonly)
+        {
+            create_iopipes(ctx.nplfds, !ctx.args.nplbufs.inputs.empty());
+            create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
+        }
 
         int ret = 0;
         const pid_t pid = fork();
@@ -45,7 +49,7 @@ namespace sc
             const int presult = await_process_execution(ctx.contract_pid);
             ctx.contract_pid = 0;
 
-            LOG_DBG << "Contract process ended.";
+            LOG_DBG << "Contract process ended." << (ctx.args.readonly ? " (rdonly)" : "");
 
             // Wait for the output collection thread to gracefully stop.
             ctx.output_fetcher_thread.join();
@@ -69,9 +73,9 @@ namespace sc
             // Write the contract input message from HotPocket to the stdin (0) of the contract process.
             write_contract_args(ctx);
 
-            LOG_DBG << "Starting contract process...";
+            LOG_DBG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
 
-            const bool using_appbill = !conf::cfg.appbill.empty();
+            const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
             int len = conf::cfg.runtime_binexec_args.size() + 1;
             if (using_appbill)
                 len += conf::cfg.runtime_appbill_args.size();
@@ -80,8 +84,10 @@ namespace sc
             char *execv_args[len];
             int j = 0;
             if (using_appbill)
+            {
                 for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++, j++)
                     execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
+            }
 
             for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++, j++)
                 execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
@@ -90,12 +96,12 @@ namespace sc
             chdir(ctx.args.state_dir.c_str());
 
             int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << errno << ": Contract process execv failed.";
+            LOG_ERR << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "");
             exit(1);
         }
         else
         {
-            LOG_ERR << "fork() failed when starting contract process.";
+            LOG_ERR << "fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
             goto failure;
         }
 
@@ -106,8 +112,11 @@ namespace sc
     success:
         stop_hpfs_rw_session(ctx);
         cleanup_fdmap(ctx.userfds);
-        cleanup_vectorfds(ctx.hpscfds);
-        cleanup_vectorfds(ctx.nplfds);
+        if (!ctx.args.readonly)
+        {
+            cleanup_vectorfds(ctx.hpscfds);
+            cleanup_vectorfds(ctx.nplfds);
+        }
 
         return ret;
     }
@@ -136,7 +145,7 @@ namespace sc
         if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.args.state_dir, ctx.args.readonly ? "ro" : "rw", true) == -1)
             return -1;
 
-        LOG_DBG << "hpfs session started. pid:" << ctx.hpfs_pid;
+        LOG_DBG << "hpfs session started. pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
     }
 
     /**
@@ -148,7 +157,8 @@ namespace sc
         if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.state_dir, "/") == -1)
             return -1;
 
-        LOG_DBG << "Stopping hpfs session... pid:" << ctx.hpfs_pid;
+        LOG_DBG << "Stopping hpfs session... pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
+        ;
         if (util::kill_process(ctx.hpfs_pid, true) == -1)
             return -1;
 
@@ -179,13 +189,19 @@ namespace sc
         os << "{\"version\":\"" << util::HP_VERSION
            << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
            << "\",\"ts\":" << ctx.args.time
-           << ",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
-           << "],\"usrfd\":{";
+           << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
+
+        if (!ctx.args.readonly)
+        {
+            os << ",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
+               << "],\"nplfd\":[" << ctx.nplfds[FDTYPE::SCREAD] << "," << ctx.nplfds[FDTYPE::SCWRITE] << "]";
+        }
+
+        os << ",\"usrfd\":{";
 
         fdmap_json_to_stream(ctx.userfds, os);
 
-        os << "},\"nplfd\":[" << ctx.nplfds[FDTYPE::SCREAD] << "," << ctx.nplfds[FDTYPE::SCWRITE]
-           << "],\"unl\":[";
+        os << "},\"unl\":[";
 
         for (auto nodepk = conf::cfg.unl.begin(); nodepk != conf::cfg.unl.end(); nodepk++)
         {
@@ -234,10 +250,8 @@ namespace sc
     int feed_inputs(execution_context &ctx)
     {
         // Write any hp or npl input messages to hp->sc and npl->sc pipe.
-        if (write_contract_hp_npl_inputs(ctx) != 0)
-        {
+        if (!ctx.args.readonly && write_contract_hp_npl_inputs(ctx) != 0)
             return -1;
-        }
 
         // Write any verified (consensus-reached) user inputs to user pipes.
         if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) != 0)
@@ -258,7 +272,7 @@ namespace sc
             if (ctx.should_stop)
                 break;
 
-            const int hpsc_npl_res = read_contract_hp_npl_outputs(ctx);
+            const int hpsc_npl_res = ctx.args.readonly ? 0 : read_contract_hp_npl_outputs(ctx);
             if (hpsc_npl_res == -1)
                 return -1;
 
@@ -630,9 +644,11 @@ namespace sc
 
     void close_unused_fds(execution_context &ctx, const bool is_hp)
     {
-        close_unused_vectorfds(is_hp, ctx.hpscfds);
-
-        close_unused_vectorfds(is_hp, ctx.nplfds);
+        if (!ctx.args.readonly)
+        {
+            close_unused_vectorfds(is_hp, ctx.hpscfds);
+            close_unused_vectorfds(is_hp, ctx.nplfds);
+        }
 
         // Loop through user fds.
         for (auto &[pubkey, fds] : ctx.userfds)

@@ -57,6 +57,7 @@ namespace cons
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
         ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
+        ctx.contract_ctx.args.readonly = false;
 
         init_success = true;
         return 0;
