@@ -80,6 +80,8 @@ int create_contract()
     boost::filesystem::create_directories(ctx.config_dir);
     boost::filesystem::create_directories(ctx.hist_dir);
     boost::filesystem::create_directories(ctx.state_rw_dir);
+    boost::filesystem::create_directories(ctx.state_read_req_dir);
+
 
     //Create config file with default settings.
 
@@ -147,6 +149,7 @@ void set_contract_dir_paths(std::string exepath, std::string basedir)
     ctx.hist_dir = basedir + "/hist";
     ctx.state_dir = basedir + "/state";
     ctx.state_rw_dir = ctx.state_dir + "/rw";
+    ctx.state_read_req_dir = ctx.state_dir + "/rr";
     ctx.log_dir = basedir + "/log";
 }
 

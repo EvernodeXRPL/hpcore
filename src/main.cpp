@@ -9,6 +9,7 @@
 #include "sc.hpp"
 #include "hplog.hpp"
 #include "usr/usr.hpp"
+#include "usr/read_req.hpp"
 #include "p2p/p2p.hpp"
 #include "cons/cons.hpp"
 #include "hpfs/hpfs.hpp"
@@ -67,9 +68,9 @@ int parse_cmd(int argc, char **argv)
 void deinit()
 {
     cons::deinit();
-    sc::deinit();
     state_sync::deinit();
     state_serve::deinit();
+    read_req::deinit();
     usr::deinit();
     p2p::deinit();
     hpfs::deinit();
@@ -192,7 +193,7 @@ int main(int argc, char **argv)
                 LOG_INFO << "Operating mode: "
                          << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
 
-                if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 ||
+                if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 || read_req::init() != 0 ||
                     state_serve::init() != 0 || state_sync::init() != 0 || cons::init() != 0)
                 {
                     deinit();

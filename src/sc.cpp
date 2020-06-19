@@ -9,22 +9,24 @@
 
 namespace sc
 {
-    execution_context ctx;
-
     /**
- * Executes the contract process and passes the specified arguments.
+ * Executes the contract process and passes the specified context arguments.
  * @return 0 on successful process creation. -1 on failure or contract process is already running.
  */
-    int exec_contract(const contract_exec_args &args, hpfs::h32 &state_hash)
+    int execute_contract(execution_context &ctx)
     {
         // Start the hpfs rw session before starting the contract process.
-        if (start_hpfs_rw_session() != 0)
+        if (start_hpfs_rw_session(ctx) != 0)
             return -1;
 
         // Setup io pipes and feed all inputs to them.
-        create_iopipes_for_fdmap(ctx.userfds, args.userbufs);
-        create_iopipes(ctx.nplfds, !args.nplbuff.inputs.empty());
-        create_iopipes(ctx.hpscfds, !args.hpscbufs.inputs.empty());
+        create_iopipes_for_fdmap(ctx.userfds, ctx.args.userbufs);
+
+        if (!ctx.args.readonly)
+        {
+            create_iopipes(ctx.nplfds, !ctx.args.nplbufs.inputs.empty());
+            create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
+        }
 
         int ret = 0;
         const pid_t pid = fork();
@@ -34,19 +36,20 @@ namespace sc
             ctx.contract_pid = pid;
 
             // Close all fds unused by HP process.
-            close_unused_fds(true);
+            close_unused_fds(ctx, true);
 
             // Start the contract output collection thread.
-            ctx.output_fetcher_thread = std::thread(fetch_outputs, std::ref(args));
+            ctx.output_fetcher_thread = std::thread(fetch_outputs, std::ref(ctx));
 
             // Write the inputs into the contract process.
-            if (feed_inputs(args) != 0)
+            if (feed_inputs(ctx) != 0)
                 goto failure;
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(ctx.contract_pid);
             ctx.contract_pid = 0;
-            LOG_DBG << "Contract process ended.";
+
+            LOG_DBG << "Contract process ended." << (ctx.args.readonly ? " (rdonly)" : "");
 
             // Wait for the output collection thread to gracefully stop.
             ctx.output_fetcher_thread.join();
@@ -61,18 +64,18 @@ namespace sc
         {
             // Contract process.
             util::unmask_signal();
-            
+
             // Set up the process environment and overlay the contract binary program with execv().
 
             // Close all fds unused by SC process.
-            close_unused_fds(false);
+            close_unused_fds(ctx, false);
 
             // Write the contract input message from HotPocket to the stdin (0) of the contract process.
-            write_contract_args(args);
+            write_contract_args(ctx);
 
-            LOG_DBG << "Starting contract process...";
+            LOG_DBG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
 
-            const bool using_appbill = !conf::cfg.appbill.empty();
+            const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
             int len = conf::cfg.runtime_binexec_args.size() + 1;
             if (using_appbill)
                 len += conf::cfg.runtime_appbill_args.size();
@@ -81,22 +84,24 @@ namespace sc
             char *execv_args[len];
             int j = 0;
             if (using_appbill)
+            {
                 for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++, j++)
                     execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
+            }
 
             for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++, j++)
                 execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            chdir(conf::ctx.state_rw_dir.c_str());
+            chdir(ctx.args.state_dir.c_str());
 
             int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << errno << ": Contract process execv failed.";
+            LOG_ERR << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "");
             exit(1);
         }
         else
         {
-            LOG_ERR << "fork() failed when starting contract process.";
+            LOG_ERR << "fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
             goto failure;
         }
 
@@ -105,10 +110,13 @@ namespace sc
         ret = -1;
 
     success:
-        stop_hpfs_rw_session(state_hash);
+        stop_hpfs_rw_session(ctx);
         cleanup_fdmap(ctx.userfds);
-        cleanup_vectorfds(ctx.hpscfds);
-        cleanup_vectorfds(ctx.nplfds);
+        if (!ctx.args.readonly)
+        {
+            cleanup_vectorfds(ctx.hpscfds);
+            cleanup_vectorfds(ctx.nplfds);
+        }
 
         return ret;
     }
@@ -132,30 +140,29 @@ namespace sc
     /**
  * Starts the hpfs read/write state filesystem.
  */
-    int start_hpfs_rw_session()
+    int start_hpfs_rw_session(execution_context &ctx)
     {
-        LOG_DBG << "Starting hpfs rw session...";
-        if (hpfs::start_fs_session(ctx.hpfs_pid, conf::ctx.state_rw_dir, "rw", true) == -1)
+        if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.args.state_dir, ctx.args.readonly ? "ro" : "rw", true) == -1)
             return -1;
 
-        LOG_DBG << "hpfs rw session started. pid:" << ctx.hpfs_pid;
+        LOG_DBG << "hpfs session started. pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
     }
 
     /**
  * Stops the hpfs state filesystem.
  */
-    int stop_hpfs_rw_session(hpfs::h32 &state_hash)
+    int stop_hpfs_rw_session(execution_context &ctx)
     {
-        // Read the root hash.
-        if (hpfs::get_hash(state_hash, conf::ctx.state_rw_dir, "/") == -1)
+        // Read the root hash if not in readonly mode.
+        if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.state_dir, "/") == -1)
             return -1;
 
-        LOG_DBG << "Stopping hpfs rw session... pid:" << ctx.hpfs_pid;
+        LOG_DBG << "Stopping hpfs session... pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
+        ;
         if (util::kill_process(ctx.hpfs_pid, true) == -1)
             return -1;
 
         ctx.hpfs_pid = 0;
-        LOG_DBG << "hpfs rw session stopped.";
         return 0;
     }
 
@@ -172,7 +179,7 @@ namespace sc
  *   "unl":[ "pkhex", ... ]
  * }
  */
-    int write_contract_args(const contract_exec_args &args)
+    int write_contract_args(const execution_context &ctx)
     {
         // Populate the json string with contract args.
         // We don't use a JSON parser here because it's lightweight to contrstuct the
@@ -181,14 +188,20 @@ namespace sc
         std::ostringstream os;
         os << "{\"version\":\"" << util::HP_VERSION
            << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
-           << "\",\"ts\":" << args.timestamp
-           << ",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
-           << "],\"usrfd\":{";
+           << "\",\"ts\":" << ctx.args.time
+           << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
+
+        if (!ctx.args.readonly)
+        {
+            os << ",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
+               << "],\"nplfd\":[" << ctx.nplfds[FDTYPE::SCREAD] << "," << ctx.nplfds[FDTYPE::SCWRITE] << "]";
+        }
+
+        os << ",\"usrfd\":{";
 
         fdmap_json_to_stream(ctx.userfds, os);
 
-        os << "},\"nplfd\":[" << ctx.nplfds[FDTYPE::SCREAD] << "," << ctx.nplfds[FDTYPE::SCWRITE]
-           << "],\"unl\":[";
+        os << "},\"unl\":[";
 
         for (auto nodepk = conf::cfg.unl.begin(); nodepk != conf::cfg.unl.end(); nodepk++)
         {
@@ -234,16 +247,14 @@ namespace sc
         return 0;
     }
 
-    int feed_inputs(const contract_exec_args &args)
+    int feed_inputs(execution_context &ctx)
     {
         // Write any hp or npl input messages to hp->sc and npl->sc pipe.
-        if (write_contract_hp_npl_inputs(args) != 0)
-        {
+        if (!ctx.args.readonly && write_contract_hp_npl_inputs(ctx) != 0)
             return -1;
-        }
 
         // Write any verified (consensus-reached) user inputs to user pipes.
-        if (write_contract_fdmap_inputs(ctx.userfds, args.userbufs) != 0)
+        if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) != 0)
         {
             LOG_ERR << "Failed to write user inputs to contract.";
             return -1;
@@ -252,20 +263,20 @@ namespace sc
         return 0;
     }
 
-    int fetch_outputs(const contract_exec_args &args)
+    int fetch_outputs(execution_context &ctx)
     {
         util::mask_signal();
 
         while (true)
         {
-            if (ctx.should_deinit)
+            if (ctx.should_stop)
                 break;
 
-            const int hpsc_npl_res = read_contract_hp_npl_outputs(args);
+            const int hpsc_npl_res = ctx.args.readonly ? 0 : read_contract_hp_npl_outputs(ctx);
             if (hpsc_npl_res == -1)
                 return -1;
 
-            const int user_res = read_contract_fdmap_outputs(ctx.userfds, args.userbufs);
+            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
             if (user_res == -1)
             {
                 LOG_ERR << "Error reading user outputs from the contract.";
@@ -286,15 +297,15 @@ namespace sc
     /**
  * Writes any hp input messages to the contract.
  */
-    int write_contract_hp_npl_inputs(const contract_exec_args &args)
+    int write_contract_hp_npl_inputs(execution_context &ctx)
     {
-        if (write_iopipe(ctx.hpscfds, args.hpscbufs.inputs) != 0)
+        if (write_iopipe(ctx.hpscfds, ctx.args.hpscbufs.inputs) != 0)
         {
             LOG_ERR << "Error writing HP inputs to SC";
             return -1;
         }
 
-        if (write_npl_iopipe(ctx.nplfds, args.nplbuff.inputs) != 0)
+        if (write_npl_iopipe(ctx.nplfds, ctx.args.nplbufs.inputs) != 0)
         {
             LOG_ERR << "Error writing NPL inputs to SC";
             return -1;
@@ -309,16 +320,16 @@ namespace sc
  * 
  * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
  */
-    int read_contract_hp_npl_outputs(const contract_exec_args &args)
+    int read_contract_hp_npl_outputs(execution_context &ctx)
     {
-        const int hpsc_res = read_iopipe(ctx.hpscfds, args.hpscbufs.output);
+        const int hpsc_res = read_iopipe(ctx.hpscfds, ctx.args.hpscbufs.output);
         if (hpsc_res == -1)
         {
             LOG_ERR << "Error reading HP output from the contract.";
             return -1;
         }
 
-        const int npl_res = read_iopipe(ctx.nplfds, args.nplbuff.output);
+        const int npl_res = read_iopipe(ctx.nplfds, ctx.args.nplbufs.output);
         if (npl_res == -1)
         {
             LOG_ERR << "Error reading NPL output from the contract.";
@@ -631,11 +642,13 @@ namespace sc
         return -1;
     }
 
-    void close_unused_fds(const bool is_hp)
+    void close_unused_fds(execution_context &ctx, const bool is_hp)
     {
-        close_unused_vectorfds(is_hp, ctx.hpscfds);
-
-        close_unused_vectorfds(is_hp, ctx.nplfds);
+        if (!ctx.args.readonly)
+        {
+            close_unused_vectorfds(is_hp, ctx.hpscfds);
+            close_unused_vectorfds(is_hp, ctx.nplfds);
+        }
 
         // Loop through user fds.
         for (auto &[pubkey, fds] : ctx.userfds)
@@ -682,12 +695,23 @@ namespace sc
         fds.clear();
     }
 
-    /**
- * Cleanup any running processes.
- */
-    void deinit()
+    void clear_args(contract_execution_args &args)
     {
-        ctx.should_deinit = true;
+        args.userbufs.clear();
+        args.hpscbufs.inputs.clear();
+        args.hpscbufs.output.clear();
+        args.nplbufs.inputs.clear();
+        args.nplbufs.output.clear();
+        args.time = 0;
+        args.post_execution_state_hash = hpfs::h32_empty;
+    }
+
+    /**
+ * Cleanup any running processes for the specified execution context.
+ */
+    void stop(execution_context &ctx)
+    {
+        ctx.should_stop = true;
 
         if (ctx.contract_pid > 0)
             util::kill_process(ctx.contract_pid, true);

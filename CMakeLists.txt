@@ -52,6 +52,7 @@ add_executable(hpcore
     src/p2p/p2p.cpp
     src/usr/user_session_handler.cpp
     src/usr/usr.cpp
+    src/usr/read_req.cpp
     src/cons/cons.cpp
     src/cons/ledger_handler.cpp
     src/state/state_sync.cpp

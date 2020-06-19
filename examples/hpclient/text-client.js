@@ -72,6 +72,19 @@ function main() {
         return JSON.stringify(signed_inp_container);
     }
 
+    function create_read_request_container(inp) {
+
+        if (inp.length == 0)
+            return "";
+
+        let container = {
+            type: "contract_read_request",
+            content: Buffer.from(inp).toString('hex'),
+        }
+
+        return JSON.stringify(container);
+    }
+
     function create_status_request() {
         let statreq = { type: 'stat' }
         return JSON.stringify(statreq);
@@ -108,12 +121,15 @@ function main() {
 
                 if (inp == "stat")
                     msgtosend = create_status_request();
+                else if (inp.startsWith("read "))
+                    msgtosend = create_read_request_container(inp.substr(5));
                 else
                     msgtosend = create_input_container(inp);
 
-                ws.send(msgtosend)
+                if (msgtosend.length > 0)
+                    ws.send(msgtosend)
 
-                input_pump()
+                input_pump();
             })
         }
         input_pump();
@@ -131,7 +147,7 @@ function main() {
         if (m.type == 'public_challenge') {
             handle_public_challange(m);
         }
-        else if (m.type == 'contract_output') {
+        else if (m.type == 'contract_output' || m.type == 'contract_read_response') {
             console.log(Buffer.from(m.content, 'hex').toString());
         }
         else if (m.type == 'request_status_result') {

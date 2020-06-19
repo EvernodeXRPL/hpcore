@@ -134,9 +134,27 @@ namespace usr
         {
             const char *msg_type = d[jusrmsg::FLD_TYPE].GetString();
 
-            // Message is a contract input message.
-            if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
+            if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_READ_REQUEST)
             {
+                std::string content;
+                if (jusrmsg::extract_read_request(content, d) == 0)
+                {
+                    std::lock_guard<std::mutex> lock(ctx.users_mutex);
+
+                    //Add to the user's pending read requests list.
+                    user.read_requests.push_back(std::move(content));
+                    return 0;
+                }
+                else
+                {
+                    send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, msg_type, "");
+                    return -1;
+                }
+            }
+            else if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
+            {
+                // Message is a contract input message.
+
                 std::string contentjson;
                 std::string sig;
                 if (jusrmsg::extract_signed_input_container(contentjson, sig, d) == 0)

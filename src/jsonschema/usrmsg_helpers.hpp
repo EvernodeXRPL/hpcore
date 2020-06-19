@@ -12,6 +12,8 @@ extern const char* const FLD_TYPE;
 // Message types
 constexpr const char* MSGTYPE_CHALLENGE = "public_challenge";
 constexpr const char* MSGTYPE_CHALLENGE_RESP = "challenge_resp";
+constexpr const char* MSGTYPE_CONTRACT_READ_REQUEST = "contract_read_request";
+constexpr const char* MSGTYPE_CONTRACT_READ_RESPONSE = "contract_read_response";
 constexpr const char* MSGTYPE_CONTRACT_INPUT = "contract_input";
 constexpr const char* MSGTYPE_CONTRACT_OUTPUT = "contract_output";
 constexpr const char* MSGTYPE_STAT = "stat";
@@ -36,9 +38,13 @@ void create_request_status_result(std::string &msg, std::string_view status, std
 
 std::string origin_data_for_contract_input(std::string_view sig);
 
+void create_contract_read_response_container(std::string &msg, std::string_view content);
+
 void create_contract_output_container(std::string &msg, std::string_view content);
 
 int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge);
+
+int extract_read_request(std::string &extracted_content, const rapidjson::Document &d);
 
 int extract_signed_input_container(std::string &extracted_content, std::string &extracted_sig, const rapidjson::Document &d);
 

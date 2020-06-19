@@ -56,6 +56,9 @@ namespace cons
         ctx.stage_time = conf::cfg.roundtime / 5;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
+        ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
+        ctx.contract_ctx.args.readonly = false;
+
         init_success = true;
         return 0;
     }
@@ -65,6 +68,8 @@ namespace cons
  */
     void deinit()
     {
+        // Stop the contract if running.
+        sc::stop(ctx.contract_ctx);
     }
 
     int run_consensus()
@@ -757,18 +762,25 @@ namespace cons
         // Send any output from the previous consensus round to locally connected users.
         dispatch_user_outputs(cons_prop);
 
-        sc::contract_bufmap_t useriobufmap;
+        // Execute the contract
+        {
+            sc::contract_execution_args &args = ctx.contract_ctx.args;
+            args.time = cons_prop.time;
 
-        sc::contract_iobuf_pair nplbufpair;
-        nplbufpair.inputs.splice(nplbufpair.inputs.end(), ctx.candidate_npl_messages);
+            // Populate npl bufs and user bufs.
+            args.nplbufs.inputs.splice(args.nplbufs.inputs.end(), ctx.candidate_npl_messages);
+            feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
+            // TODO: Do something usefull with HP<-->SC channel.
 
-        feed_user_inputs_to_contract_bufmap(useriobufmap, cons_prop);
+            if (sc::execute_contract(ctx.contract_ctx) == -1)
+                return -1;
 
-        if (run_contract_binary(cons_prop.time, useriobufmap, nplbufpair) == -1)
-            return -1;
+            ctx.state = args.post_execution_state_hash;
+            extract_user_outputs_from_contract_bufmap(args.userbufs);
+            broadcast_npl_output(args.nplbufs.output);
 
-        extract_user_outputs_from_contract_bufmap(useriobufmap);
-        broadcast_npl_output(nplbufpair.output);
+            sc::clear_args(args);
+        }
         return 0;
     }
 
@@ -893,20 +905,6 @@ namespace cons
             p2pmsg::create_msg_from_npl_output(fbuf, npl, ctx.lcl);
             p2p::broadcast_message(fbuf, false);
         }
-    }
-
-    /**
- * Executes the smart contract with the specified time and provided I/O buf maps.
- * @param time_now The time that must be passed on to the contract.
- * @param useriobufmap The contract bufmap which holds user I/O buffers.
- */
-    int run_contract_binary(const int64_t time_now, sc::contract_bufmap_t &useriobufmap, sc::contract_iobuf_pair &nplbufpair)
-    {
-        // todo:implement exchange of hpsc bufs
-        sc::contract_iobuf_pair hpscbufpair;
-        return sc::exec_contract(
-            sc::contract_exec_args(time_now, useriobufmap, nplbufpair, hpscbufpair),
-            ctx.state);
     }
 
     /**
