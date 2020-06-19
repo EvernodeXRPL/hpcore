@@ -67,7 +67,6 @@ int parse_cmd(int argc, char **argv)
 void deinit()
 {
     cons::deinit();
-    sc::deinit();
     state_sync::deinit();
     state_serve::deinit();
     usr::deinit();

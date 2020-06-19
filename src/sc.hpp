@@ -50,33 +50,22 @@ namespace sc
     /**
  * Holds information that should be passed into the contract process.
  */
-    struct contract_exec_args
+    struct contract_execution_args
     {
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
-        contract_bufmap_t &userbufs;
+        contract_bufmap_t userbufs;
 
         // Pair of NPL<->SC byte array message buffers.
         // Input buffers for NPL->SC messages, Output buffers for SC->NPL messages.
-        contract_iobuf_pair &nplbuff;
+        contract_iobuf_pair nplbufs;
 
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
-        contract_iobuf_pair &hpscbufs;
+        contract_iobuf_pair hpscbufs;
 
-        // Current HotPocket timestamp.
-        const int64_t timestamp;
-
-        contract_exec_args(
-            int64_t timestamp,
-            contract_bufmap_t &userbufs,
-            contract_iobuf_pair &nplbuff,
-            contract_iobuf_pair &hpscbufs) : userbufs(userbufs),
-                                             nplbuff(nplbuff),
-                                             hpscbufs(hpscbufs),
-                                             timestamp(timestamp)
-        {
-        }
+        // Current HotPocket consensus time.
+        int64_t time;
     };
 
     /**
@@ -84,6 +73,9 @@ namespace sc
  */
     struct execution_context
     {
+        // The arguments that was used to initiate this execution.
+        contract_execution_args args;
+
         // Map of user pipe fds (map key: user public key)
         contract_fdmap_t userfds;
 
@@ -103,30 +95,28 @@ namespace sc
         std::thread output_fetcher_thread;
 
         // Indicates that the deinit procedure has begun.
-        bool should_deinit = false;
+        bool should_stop = false;
     };
 
-    int exec_contract(const contract_exec_args &args, hpfs::h32 &state_hash);
-
-    void deinit();
+    int execute_contract(execution_context &ctx, hpfs::h32 &state_hash);
 
     //------Internal-use functions for this namespace.
 
     int await_process_execution(pid_t pid);
 
-    int start_hpfs_rw_session();
+    int start_hpfs_rw_session(execution_context &ctx);
 
-    int stop_hpfs_rw_session(hpfs::h32 &state_hash);
+    int stop_hpfs_rw_session(execution_context &ctx, hpfs::h32 &state_hash);
 
-    int write_contract_args(const contract_exec_args &args);
+    int write_contract_args(const execution_context &ctx);
 
-    int feed_inputs(const contract_exec_args &args);
+    int feed_inputs(execution_context &ctx);
 
-    int fetch_outputs(const contract_exec_args &args);
+    int fetch_outputs(execution_context &ctx);
 
-    int write_contract_hp_npl_inputs(const contract_exec_args &args);
+    int write_contract_hp_npl_inputs(execution_context &ctx);
 
-    int read_contract_hp_npl_outputs(const contract_exec_args &args);
+    int read_contract_hp_npl_outputs(execution_context &ctx);
 
     // Common helper functions
 
@@ -148,11 +138,15 @@ namespace sc
 
     int read_iopipe(std::vector<int> &fds, std::string &output);
 
-    void close_unused_fds(const bool is_hp);
+    void close_unused_fds(execution_context &ctx, const bool is_hp);
 
     void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds);
 
     void cleanup_vectorfds(std::vector<int> &fds);
+
+    void clear_args(contract_execution_args &args);
+
+    void stop(execution_context &ctx);
 
 } // namespace sc
 

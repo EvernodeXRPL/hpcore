@@ -1,6 +1,7 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
+#include "../sc.hpp"
 #include "usr.hpp"
 #include "read_req.hpp"
 
@@ -62,13 +63,31 @@ namespace read_req
             if (!read_requests.empty())
             {
                 // Process the read requests by executing the contract.
-                
+
 
                 read_requests.clear();
             }
         }
 
         LOG_INFO << "Read request server stopped.";
+    }
+
+    void feed_requests_to_contract(std::unordered_map<std::string, std::list<std::string>> &read_requests)
+    {
+        sc::contract_bufmap_t user_iobufmap;
+        sc::contract_iobuf_pair npl_bufpair;
+        sc::contract_iobuf_pair hpsc_bufpair;
+
+        // Populate read requests to user buf map.
+        for (auto &[pubkey, requests] : read_requests)
+        {
+            sc::contract_iobuf_pair user_bufpair;
+            user_bufpair.inputs.splice(user_bufpair.inputs.end(), requests);
+
+            user_iobufmap.try_emplace(pubkey, std::move(user_bufpair));
+        }
+
+        
     }
 
 } // namespace read_req
