@@ -61,7 +61,7 @@ make
 ##### Compiling FlatBuffers message definitions
 Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you need to run this:
 
-`flatc -o src/fbschema/ --gen-mutable --cpp src/fbschema/p2pmsg_content.fbs`
+`flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg_content.fbs`
 
 #### Install libfuse
 1. `sudo apt-get install -y meson ninja-build pkg-config`

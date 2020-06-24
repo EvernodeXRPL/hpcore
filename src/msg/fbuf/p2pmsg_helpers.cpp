@@ -1,17 +1,17 @@
-#include "../pchheader.hpp"
-#include "../conf.hpp"
-#include "../crypto.hpp"
-#include "../util.hpp"
-#include "../hplog.hpp"
-#include "../p2p/p2p.hpp"
-#include "../hpfs/h32.hpp"
-#include "../hpfs/hpfs.hpp"
+#include "../../pchheader.hpp"
+#include "../../conf.hpp"
+#include "../../crypto.hpp"
+#include "../../util.hpp"
+#include "../../hplog.hpp"
+#include "../../p2p/p2p.hpp"
+#include "../../hpfs/h32.hpp"
+#include "../../hpfs/hpfs.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
 #include "common_helpers.hpp"
 #include "p2pmsg_helpers.hpp"
 
-namespace fbschema::p2pmsg
+namespace msg::fbuf::p2pmsg
 {
 
     // Length of a peer connection challange.
@@ -735,4 +735,4 @@ namespace fbschema::p2pmsg
         return builder.CreateVector(fbvec);
     }
 
-} // namespace fbschema::p2pmsg
+} // namespace msg::fbuf::p2pmsg

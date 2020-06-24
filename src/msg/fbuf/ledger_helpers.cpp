@@ -1,10 +1,10 @@
-#include "../pchheader.hpp"
+#include "../../pchheader.hpp"
+#include "../../p2p/p2p.hpp"
 #include "ledger_schema_generated.h"
-#include "../p2p/p2p.hpp"
 #include "common_helpers.hpp"
 #include "ledger_helpers.hpp"
 
-namespace fbschema::ledger
+namespace msg::fbuf::ledger
 {
 
 /**
@@ -28,4 +28,4 @@ const std::string_view create_ledger_from_proposal(flatbuffers::FlatBufferBuilde
 
     return flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
 }
-} // namespace fbschema::ledger
+} // namespace msg::fbuf::ledger

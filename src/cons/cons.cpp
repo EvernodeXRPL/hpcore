@@ -3,8 +3,8 @@
 #include "../usr/usr.hpp"
 #include "../usr/user_input.hpp"
 #include "../p2p/p2p.hpp"
-#include "../fbschema/p2pmsg_helpers.hpp"
-#include "../fbschema/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/fbuf/common_helpers.hpp"
 #include "../msg/json/usrmsg_json.hpp"
 #include "../msg/usrmsg_common.hpp"
 #include "../p2p/peer_session_handler.hpp"
@@ -17,7 +17,7 @@
 #include "ledger_handler.hpp"
 #include "cons.hpp"
 
-namespace p2pmsg = fbschema::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 namespace jusrmsg = msg::usrmsg::json;
 namespace usrmsg = msg::usrmsg_common;
 
@@ -128,9 +128,9 @@ namespace cons
             std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
             for (const auto &npl : p2p::ctx.collected_msgs.npl_messages)
             {
-                const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(npl.data());
+                const msg::fbuf::p2pmsg::Container *container = msg::fbuf::p2pmsg::GetContainer(npl.data());
                 // Only the npl messages with a valid lcl will be passed down to the contract. lcl should match the previous round's lcl
-                if (fbschema::flatbuff_bytes_to_sv(container->lcl()) != ctx.lcl)
+                if (msg::fbuf::flatbuff_bytes_to_sv(container->lcl()) != ctx.lcl)
                     continue;
 
                 ctx.candidate_npl_messages.push_back(std::move(npl));

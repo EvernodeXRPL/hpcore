@@ -3,10 +3,10 @@
 #include "../crypto.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
-#include "../fbschema/p2pmsg_container_generated.h"
-#include "../fbschema/p2pmsg_content_generated.h"
-#include "../fbschema/p2pmsg_helpers.hpp"
-#include "../fbschema/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_container_generated.h"
+#include "../msg/fbuf/p2pmsg_content_generated.h"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/fbuf/common_helpers.hpp"
 #include "../comm/comm_session.hpp"
 #include "../comm/comm_client.hpp"
 #include "p2p.hpp"
@@ -15,7 +15,7 @@
 #include "../state/state_sync.hpp"
 #include "../cons/cons.hpp"
 
-namespace p2pmsg = fbschema::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {

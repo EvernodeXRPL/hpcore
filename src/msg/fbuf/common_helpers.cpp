@@ -1,6 +1,6 @@
 #include "common_helpers.hpp"
 
-namespace fbschema
+namespace msg::fbuf
 {
 
     //---Conversion helpers from flatbuffers data types to std data types---//
@@ -123,4 +123,4 @@ namespace fbschema
         return builder.CreateVector(fbvec);
     }
 
-} // namespace fbschema
+} // namespace msg::fbuf

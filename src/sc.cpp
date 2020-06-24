@@ -1,9 +1,9 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "hplog.hpp"
-#include "fbschema/common_helpers.hpp"
-#include "fbschema/p2pmsg_container_generated.h"
-#include "fbschema/p2pmsg_content_generated.h"
+#include "msg/fbuf/common_helpers.hpp"
+#include "msg/fbuf/p2pmsg_container_generated.h"
+#include "msg/fbuf/p2pmsg_content_generated.h"
 #include "sc.hpp"
 #include "hpfs/hpfs.hpp"
 
@@ -555,7 +555,7 @@ namespace sc
                 uint8_t reserve = 0;
 
                 //Get message container
-                const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(input.data());
+                const msg::fbuf::p2pmsg::Container *container = msg::fbuf::p2pmsg::GetContainer(input.data());
                 const flatbuffers::Vector<uint8_t> *container_content = container->content();
 
                 uint16_t msg_length = container_content->size();
@@ -576,7 +576,7 @@ namespace sc
                 memsegs[pre_header_index].iov_base = &pre_header;
                 memsegs[pre_header_index].iov_len = 4;
 
-                std::string_view msg_pubkey = fbschema::flatbuff_bytes_to_sv(container->pubkey());
+                std::string_view msg_pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
                 memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));
                 memsegs[pubkey_index].iov_len = msg_pubkey.size();
 

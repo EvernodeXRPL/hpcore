@@ -1,14 +1,14 @@
-#ifndef _HP_FBSCHEMA_P2PMSG_HELPERS_
-#define _HP_FBSCHEMA_P2PMSG_HELPERS_
+#ifndef _HP_MSG_FBUF_P2PMSG_HELPERS_
+#define _HP_MSG_FBUF_P2PMSG_HELPERS_
 
-#include "../pchheader.hpp"
+#include "../../pchheader.hpp"
+#include "../../p2p/p2p.hpp"
+#include "../../hpfs/h32.hpp"
+#include "../../hpfs/hpfs.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
-#include "../p2p/p2p.hpp"
-#include "../hpfs/h32.hpp"
-#include "../hpfs/hpfs.hpp"
 
-namespace fbschema::p2pmsg
+namespace msg::fbuf::p2pmsg
 {
     /**
  * This section contains Flatbuffer p2p message reading/writing helpers.
@@ -95,6 +95,6 @@ namespace fbschema::p2pmsg
         flatbuffers::FlatBufferBuilder &builder,
         std::vector<hpfs::child_hash_node> &hash_nodes);
 
-} // namespace fbschema::p2pmsg
+} // namespace msg::fbuf::p2pmsg
 
 #endif

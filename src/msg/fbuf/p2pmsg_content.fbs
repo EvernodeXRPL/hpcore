@@ -1,8 +1,8 @@
 // IDL file for p2p message content schema.
-// flatc -o src/fbschema/ --gen-mutable --cpp src/fbschema/p2pmsg_content.fbs
+// flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg_content.fbs
 
 include "common_schema.fbs";
-namespace fbschema.p2pmsg;
+namespace msg.fbuf.p2pmsg;
 
 table Peer_Challenge_Message {
     challenge:[ubyte];

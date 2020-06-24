@@ -1,11 +1,11 @@
-#ifndef _HP_FBSCHEMA_COMMON_HELPERS_
-#define _HP_FBSCHEMA_COMMON_HELPERS_
+#ifndef _HP_MSG_FBUF_COMMON_HELPERS_
+#define _HP_MSG_FBUF_COMMON_HELPERS_
 
-#include "../pchheader.hpp"
-#include "../hpfs/h32.hpp"
+#include "../../pchheader.hpp"
+#include "../../hpfs/h32.hpp"
 #include "common_schema_generated.h"
 
-namespace fbschema
+namespace msg::fbuf
 {
 /**
  * This section contains common Flatbuffer message reading/writing helpers.
@@ -44,6 +44,6 @@ stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, c
 const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<BytesKeyValuePair>>>
 stringmap_to_flatbuf_bytepairvector(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::string> &map);
 
-} // namespace fbschema
+} // namespace msg::fbuf
 
 #endif
