@@ -7,10 +7,6 @@
 
 namespace jsonschema::usrmsg
 {
-
-    // User JSON message schema version
-    constexpr const char *SCHEMA_VERSION = "0.1";
-
     // Separators
     constexpr const char *SEP_COMMA = "\",\"";
     constexpr const char *SEP_COLON = "\":\"";
@@ -18,19 +14,19 @@ namespace jsonschema::usrmsg
     constexpr const char *SEP_COLON_NOQUOTE = "\":";
 
     // Message field names
-    const char *const FLD_VERSION = "version";
     constexpr const char *FLD_TYPE = "type";
     constexpr const char *FLD_CHALLENGE = "challenge";
     constexpr const char *FLD_SIG = "sig";
     constexpr const char *FLD_PUBKEY = "pubkey";
     constexpr const char *FLD_INPUT = "input";
-    constexpr const char *FLD_MAX_LED_SEQ = "max_ledger_seqno";
+    constexpr const char *FLD_INPUT_CONTAINER = "input_container";
+    constexpr const char *FLD_INPUT_SIG = "input_sig";
+    constexpr const char *FLD_MAX_LCL_SEQ = "max_lcl_seqno";
     constexpr const char *FLD_CONTENT = "content";
     constexpr const char *FLD_NONCE = "nonce";
     constexpr const char *FLD_LCL = "lcl";
     constexpr const char *FLD_LCL_SEQ = "lcl_seqno";
     constexpr const char *FLD_STATUS = "status";
-    constexpr const char *FLD_ORIGIN = "origin";
     constexpr const char *FLD_REASON = "reason";
 
     // Length of user random challenge bytes.
@@ -44,8 +40,7 @@ namespace jsonschema::usrmsg
  * @param msg String reference to copy the generated json message string into.
  *            Message format:
  *            {
- *              "version": "<protocol version>",
- *              "type": "public_challenge",
+ *              "type": "handshake_challenge",
  *              "challenge": "<hex challenge string>"
  *            }
  * @param challengehex String reference to copy the generated hex challenge string into.
@@ -69,13 +64,9 @@ namespace jsonschema::usrmsg
         // so allocating 128bytes for heap padding.
         msg.reserve(128);
         msg.append("{\"")
-            .append(FLD_VERSION)
-            .append(SEP_COLON)
-            .append(SCHEMA_VERSION)
-            .append(SEP_COMMA)
             .append(FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_CHALLENGE)
+            .append(MSGTYPE_HANDSHAKE_CHALLENGE)
             .append(SEP_COMMA)
             .append(FLD_CHALLENGE)
             .append(SEP_COLON)
@@ -88,7 +79,7 @@ namespace jsonschema::usrmsg
  * @param msg String reference to copy the generated json message string into.
  *            Message format:
  *            {
- *              "type": "stat_resp",
+ *              "type": "stat_response",
  *              "lcl": "<lcl id>",
  *              "lcl_seqno": <integer>
  *            }
@@ -99,7 +90,7 @@ namespace jsonschema::usrmsg
         msg.append("{\"")
             .append(FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_STAT_RESP)
+            .append(MSGTYPE_STAT_RESPONSE)
             .append(SEP_COMMA)
             .append(FLD_LCL)
             .append(SEP_COLON)
@@ -112,30 +103,29 @@ namespace jsonschema::usrmsg
     }
 
     /**
- * Constructs a request result message.
+ * Constructs a contract input status message.
  * @param msg String reference to copy the generated json message string into.
  *            Message format:
  *            {
- *              "type": "request_status_result",
+ *              "type": "contract_input_status",
  *              "status": "<accepted|rejected>",
- *              "reason": "",
- *              "origin": {
- *                  "type": "<original msg type>",
- *                  ...
- *              }
+ *              "reason": "<reson>",
+ *              "input_sig": "<hex sig of original input message>"
  *            }
  * @param is_accepted Whether the original message was accepted or not.
  * @param reason Rejected reason. Empty if accepted.
- * @param origin_type Original message type which generated this result.
- * @param origin_extra_data Extra field data string to be injected into origin.
+ * @param input_sig Binary signature of the original input message which generated this result.
  */
-    void create_request_status_result(std::string &msg, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data)
+    void create_contract_input_status(std::string &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
     {
+        std::string sighex;
+        util::bin2hex(sighex, reinterpret_cast<const unsigned char *>(input_sig.data()), input_sig.length());
+
         msg.reserve(128);
         msg.append("{\"")
             .append(FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_REQUEST_STATUS_RESULT)
+            .append(MSGTYPE_CONTRACT_INPUT_STATUS)
             .append(SEP_COMMA)
             .append(FLD_STATUS)
             .append(SEP_COLON)
@@ -145,35 +135,11 @@ namespace jsonschema::usrmsg
             .append(SEP_COLON)
             .append(reason)
             .append(SEP_COMMA)
-            .append(FLD_ORIGIN)
-            .append("\":{\"")
-            .append(FLD_TYPE)
-            .append(SEP_COLON)
-            .append(origin_type)
-            .append("\"")
-            .append(origin_extra_data)
-            .append("}}");
-    }
-
-    /**
- * Returns concatenated string for contract input origin data fields to be included in request result.
- * @param sig Binary singature of the original contract input.
- */
-    std::string origin_data_for_contract_input(std::string_view sig)
-    {
-        std::string sighex;
-        util::bin2hex(sighex, reinterpret_cast<const unsigned char *>(sig.data()), sig.length());
-
-        std::string extra_data;
-        extra_data.append(",\"")
-            .append(FLD_SIG)
+            .append(FLD_INPUT_SIG)
             .append(SEP_COLON)
             .append(sighex)
-            .append("\"");
-
-        return extra_data;
+            .append("\"}");
     }
-
 
     /**
  * Constructs a contract read response message.
@@ -268,7 +234,7 @@ namespace jsonschema::usrmsg
             return -1;
 
         // Validate msg type.
-        if (d[FLD_TYPE] != MSGTYPE_CHALLENGE_RESP)
+        if (d[FLD_TYPE] != MSGTYPE_HANDSHAKE_RESPONSE)
         {
             LOG_DBG << "User challenge response type invalid. 'challenge_response' expected.";
             return -1;
@@ -357,27 +323,27 @@ namespace jsonschema::usrmsg
     /**
  * Extracts a signed input container message sent by user.
  * 
- * @param extracted_content The content extracted from the message.
+ * @param extracted_input_container The input container extracted from the message.
  * @param extracted_sig The binary signature extracted from the message. 
  * @param d The json document holding the input container.
  *          Accepted signed input container format:
  *          {
  *            "type": "contract_input",
- *            "content": "<stringified json input container message>",
+ *            "input_container": "<stringified json input container message>",
  *            "sig": "<hex encoded signature of the content>"
  *          }
  * @return 0 on successful extraction. -1 for failure.
  */
     int extract_signed_input_container(
-        std::string &extracted_content, std::string &extracted_sig, const rapidjson::Document &d)
+        std::string &extracted_input_container, std::string &extracted_sig, const rapidjson::Document &d)
     {
-        if (!d.HasMember(FLD_CONTENT) || !d.HasMember(FLD_SIG))
+        if (!d.HasMember(FLD_INPUT_CONTAINER) || !d.HasMember(FLD_SIG))
         {
             LOG_DBG << "User signed input required fields missing.";
             return -1;
         }
 
-        if (!d[FLD_CONTENT].IsString() || !d[FLD_SIG].IsString())
+        if (!d[FLD_INPUT_CONTAINER].IsString() || !d[FLD_SIG].IsString())
         {
             LOG_DBG << "User signed input invalid field values.";
             return -1;
@@ -386,32 +352,32 @@ namespace jsonschema::usrmsg
         // We do not verify the signature of the content here since we need to let each node
         // (including self) to verify that individually after we broadcast the NUP proposal.
 
-        const std::string content(d[FLD_CONTENT].GetString(), d[FLD_CONTENT].GetStringLength());
+        const std::string input_container(d[FLD_INPUT_CONTAINER].GetString(), d[FLD_INPUT_CONTAINER].GetStringLength());
 
         const std::string_view sighex(d[FLD_SIG].GetString(), d[FLD_SIG].GetStringLength());
         std::string sig;
         sig.resize(crypto_sign_ed25519_BYTES);
         util::hex2bin(reinterpret_cast<unsigned char *>(sig.data()), sig.length(), sighex);
 
-        extracted_content = std::move(content);
+        extracted_input_container = std::move(input_container);
         extracted_sig = std::move(sig);
         return 0;
     }
 
     /**
  * Extract the individual components of a given input container json.
- * @param nonce The extracted nonce.
  * @param input The extracted input.
- * @param max_ledger_seqno Themaxledgerseqno extracted max ledger sequence no.
+ * @param nonce The extracted nonce.
+ * @param max_lcl_seqno The extracted max ledger sequence no.
  * @param contentjson The json string containing the input container message.
  *                    {
- *                      "nonce": "<random string with optional sorted order>",
  *                      "input": "<hex encoded contract input content>",
- *                      "max_ledger_seqno": <integer>
+ *                      "nonce": "<random string with optional sorted order>",
+ *                      "max_lcl_seqno": <integer>
  *                    }
  * @return 0 on succesful extraction. -1 on failure.
  */
-    int extract_input_container(std::string &nonce, std::string &input, uint64_t &max_ledger_seqno, std::string_view contentjson)
+    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seqno, std::string_view contentjson)
     {
         rapidjson::Document d;
         d.Parse(contentjson.data());
@@ -421,13 +387,13 @@ namespace jsonschema::usrmsg
             return -1;
         }
 
-        if (!d.HasMember(FLD_NONCE) || !d.HasMember(FLD_INPUT) || !d.HasMember(FLD_MAX_LED_SEQ))
+        if (!d.HasMember(FLD_NONCE) || !d.HasMember(FLD_INPUT) || !d.HasMember(FLD_MAX_LCL_SEQ))
         {
             LOG_DBG << "User input container required fields missing.";
             return -1;
         }
 
-        if (!d[FLD_NONCE].IsString() || !d[FLD_INPUT].IsString() || !d[FLD_MAX_LED_SEQ].IsUint64())
+        if (!d[FLD_NONCE].IsString() || !d[FLD_INPUT].IsString() || !d[FLD_MAX_LCL_SEQ].IsUint64())
         {
             LOG_DBG << "User input container invalid field values.";
             return -1;
@@ -448,7 +414,7 @@ namespace jsonschema::usrmsg
         }
 
         nonce = d[FLD_NONCE].GetString();
-        max_ledger_seqno = d[FLD_MAX_LED_SEQ].GetUint64();
+        max_lcl_seqno = d[FLD_MAX_LCL_SEQ].GetUint64();
 
         return 0;
     }

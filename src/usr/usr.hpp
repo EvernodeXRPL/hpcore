@@ -72,7 +72,7 @@ namespace usr
 
     int handle_user_message(connected_user &user, std::string_view message);
 
-    void send_request_status_result(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data);
+    void send_input_status(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view input_sig);
 
     int add_user(const comm::comm_session &session, const std::string &pubkey);
 

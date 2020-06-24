@@ -54,14 +54,14 @@ function main() {
         let inp_container = {
             nonce: (new Date()).getTime().toString(),
             input: inp.toString('hex'),
-            max_ledger_seqno: 9999999
+            max_lcl_seqno: 9999999
         }
         let inp_container_bytes = JSON.stringify(inp_container);
         let sig_bytes = sodium.crypto_sign_detached(inp_container_bytes, keys.privateKey);
 
         let signed_inp_container = {
             type: "contract_input",
-            content: inp_container_bytes.toString('hex'),
+            input_container: inp_container_bytes.toString('hex'),
             sig: Buffer.from(sig_bytes).toString('hex')
         }
 
@@ -80,7 +80,7 @@ function main() {
         // sign the challenge and send back the response
         var sigbytes = sodium.crypto_sign_detached(m.challenge, keys.privateKey);
         var response = {
-            type: 'challenge_resp',
+            type: 'handshake_response',
             challenge: m.challenge,
             sig: Buffer.from(sigbytes).toString('hex'),
             pubkey: pkhex
@@ -128,13 +128,13 @@ function main() {
             return
         }
 
-        if (m.type == 'public_challenge') {
+        if (m.type == 'handshake_challenge') {
             handle_public_challange(m);
         }
         else if (m.type == 'contract_output') {
             console.log("Contract says: " + Buffer.from(m.content, 'hex').toString());
         }
-        else if (m.type == 'request_status_result') {
+        else if (m.type == 'contract_input_status') {
             if (m.status != "accepted")
                 console.log("Input status: " + m.status);
         }

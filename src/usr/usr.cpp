@@ -147,7 +147,7 @@ namespace usr
                 }
                 else
                 {
-                    send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, msg_type, "");
+                    send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, "");
                     return -1;
                 }
             }
@@ -155,21 +155,21 @@ namespace usr
             {
                 // Message is a contract input message.
 
-                std::string contentjson;
+                std::string input_container_json;
                 std::string sig;
-                if (jusrmsg::extract_signed_input_container(contentjson, sig, d) == 0)
+                if (jusrmsg::extract_signed_input_container(input_container_json, sig, d) == 0)
                 {
                     std::lock_guard<std::mutex> lock(ctx.users_mutex);
 
                     //Add to the submitted input list.
                     user.submitted_inputs.push_back(user_submitted_message(
-                        std::move(contentjson),
+                        std::move(input_container_json),
                         std::move(sig)));
                     return 0;
                 }
                 else
                 {
-                    send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_SIG, msg_type, jusrmsg::origin_data_for_contract_input(sig));
+                    send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_SIG, sig);
                     return -1;
                 }
             }
@@ -183,25 +183,25 @@ namespace usr
             else
             {
                 LOG_DBG << "Invalid user message type: " << msg_type;
-                send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_INVALID_MSG_TYPE, msg_type, "");
+                send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_INVALID_MSG_TYPE, "");
                 return -1;
             }
         }
         else
         {
             // Bad message.
-            send_request_status_result(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, msg_type, "");
+            send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, "");
             return -1;
         }
     }
 
     /**
- * Send the specified status result via the provided session.
+ * Send the specified contract input status result via the provided session.
  */
-    void send_request_status_result(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data)
+    void send_input_status(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view input_sig)
     {
         std::string msg;
-        jusrmsg::create_request_status_result(msg, status, reason, origin_type, origin_extra_data);
+        jusrmsg::create_contract_input_status(msg, status, reason, input_sig);
         session.send(msg);
     }
 

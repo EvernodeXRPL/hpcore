@@ -380,11 +380,11 @@ namespace cons
                         {
                             std::string nonce;
                             std::string input;
-                            uint64_t maxledgerseqno;
-                            jusrmsg::extract_input_container(nonce, input, maxledgerseqno, umsg.content);
+                            uint64_t max_lcl_seqno;
+                            jusrmsg::extract_input_container(input, nonce, max_lcl_seqno, umsg.content);
 
                             // Ignore the input if our ledger has passed the input TTL.
-                            if (maxledgerseqno > ctx.led_seq_no)
+                            if (max_lcl_seqno > ctx.led_seq_no)
                             {
                                 if (!appbill_balance_exceeded)
                                 {
@@ -399,7 +399,7 @@ namespace cons
                                     {
                                         ctx.candidate_user_inputs.try_emplace(
                                             hash,
-                                            candidate_user_input(pubkey, std::move(input), maxledgerseqno));
+                                            candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
                                     }
                                     else
                                     {
@@ -435,11 +435,10 @@ namespace cons
                     // Send the request status result if this user is connected to us.
                     if (session != NULL)
                     {
-                        usr::send_request_status_result(*session,
-                                                        reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
-                                                        reject_reason == NULL ? "" : reject_reason,
-                                                        jusrmsg::MSGTYPE_CONTRACT_INPUT,
-                                                        jusrmsg::origin_data_for_contract_input(umsg.sig));
+                        usr::send_input_status(*session,
+                                               reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
+                                               reject_reason == NULL ? "" : reject_reason,
+                                               umsg.sig);
                     }
                 }
             }

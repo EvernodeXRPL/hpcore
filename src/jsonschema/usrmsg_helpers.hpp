@@ -10,15 +10,15 @@ namespace jsonschema::usrmsg
 extern const char* const FLD_TYPE;
 
 // Message types
-constexpr const char* MSGTYPE_CHALLENGE = "public_challenge";
-constexpr const char* MSGTYPE_CHALLENGE_RESP = "challenge_resp";
+constexpr const char* MSGTYPE_HANDSHAKE_CHALLENGE = "handshake_challenge";
+constexpr const char* MSGTYPE_HANDSHAKE_RESPONSE = "handshake_response";
 constexpr const char* MSGTYPE_CONTRACT_READ_REQUEST = "contract_read_request";
 constexpr const char* MSGTYPE_CONTRACT_READ_RESPONSE = "contract_read_response";
 constexpr const char* MSGTYPE_CONTRACT_INPUT = "contract_input";
+constexpr const char* MSGTYPE_CONTRACT_INPUT_STATUS = "contract_input_status";
 constexpr const char* MSGTYPE_CONTRACT_OUTPUT = "contract_output";
 constexpr const char* MSGTYPE_STAT = "stat";
-constexpr const char* MSGTYPE_STAT_RESP = "stat_resp";
-constexpr const char* MSGTYPE_REQUEST_STATUS_RESULT = "request_status_result";
+constexpr const char* MSGTYPE_STAT_RESPONSE = "stat_response";
 constexpr const char* MSGTYPE_UNKNOWN = "unknown";
 
 constexpr const char *STATUS_ACCEPTED = "accepted";
@@ -34,9 +34,7 @@ void create_user_challenge(std::string &msg, std::string &challengehex);
 
 void create_status_response(std::string &msg);
 
-void create_request_status_result(std::string &msg, std::string_view status, std::string_view reason, std::string_view origin_type, std::string_view origin_extra_data);
-
-std::string origin_data_for_contract_input(std::string_view sig);
+void create_contract_input_status(std::string &msg, std::string_view status, std::string_view reason, std::string_view input_sig);
 
 void create_contract_read_response_container(std::string &msg, std::string_view content);
 
@@ -46,9 +44,9 @@ int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string
 
 int extract_read_request(std::string &extracted_content, const rapidjson::Document &d);
 
-int extract_signed_input_container(std::string &extracted_content, std::string &extracted_sig, const rapidjson::Document &d);
+int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig, const rapidjson::Document &d);
 
-int extract_input_container(std::string &nonce, std::string &input, uint64_t &max_ledger_seqno, std::string_view contentjson);
+int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seqno, std::string_view contentjson);
 
 int parse_user_message(rapidjson::Document &d, std::string_view message);
 
