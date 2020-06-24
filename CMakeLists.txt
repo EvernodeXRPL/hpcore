@@ -47,7 +47,7 @@ add_executable(hpcore
     src/fbschema/common_helpers.cpp
     src/fbschema/p2pmsg_helpers.cpp
     src/fbschema/ledger_helpers.cpp
-    src/jsonschema/usrmsg_helpers.cpp
+    src/msg/json/usrmsg_json.cpp
     src/p2p/peer_session_handler.cpp
     src/p2p/p2p.cpp
     src/usr/user_session_handler.cpp

@@ -5,7 +5,8 @@
 #include "../p2p/p2p.hpp"
 #include "../fbschema/p2pmsg_helpers.hpp"
 #include "../fbschema/common_helpers.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/json/usrmsg_json.hpp"
+#include "../msg/usrmsg_common.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
@@ -17,7 +18,8 @@
 #include "cons.hpp"
 
 namespace p2pmsg = fbschema::p2pmsg;
-namespace jusrmsg = jsonschema::usrmsg;
+namespace jusrmsg = msg::usrmsg::json;
+namespace usrmsg = msg::usrmsg_common;
 
 namespace cons
 {
@@ -406,37 +408,37 @@ namespace cons
                                         // Abandon processing further inputs from this user when we find out
                                         // an input cannot be processed with the account balance.
                                         appbill_balance_exceeded = true;
-                                        reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                        reject_reason = usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                                     }
                                 }
                                 else
                                 {
-                                    reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                    reject_reason = usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                                 }
                             }
                             else
                             {
                                 LOG_DBG << "User message bad max ledger seq expired.";
-                                reject_reason = jusrmsg::REASON_MAX_LEDGER_EXPIRED;
+                                reject_reason = usrmsg::REASON_MAX_LEDGER_EXPIRED;
                             }
                         }
                         else
                         {
                             LOG_DBG << "User message bad signature.";
-                            reject_reason = jusrmsg::REASON_BAD_SIG;
+                            reject_reason = usrmsg::REASON_BAD_SIG;
                         }
                     }
                     else
                     {
                         LOG_DBG << "Duplicate user message.";
-                        reject_reason = jusrmsg::REASON_DUPLICATE_MSG;
+                        reject_reason = usrmsg::REASON_DUPLICATE_MSG;
                     }
 
                     // Send the request status result if this user is connected to us.
                     if (session != NULL)
                     {
                         usr::send_input_status(*session,
-                                               reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
+                                               reject_reason == NULL ? usrmsg::STATUS_ACCEPTED : usrmsg::STATUS_REJECTED,
                                                reject_reason == NULL ? "" : reject_reason,
                                                umsg.sig);
                     }

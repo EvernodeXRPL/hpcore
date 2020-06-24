@@ -3,11 +3,11 @@
 #include "../util.hpp"
 #include "../sc.hpp"
 #include "../conf.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/json/usrmsg_json.hpp"
 #include "usr.hpp"
 #include "read_req.hpp"
 
-namespace jusrmsg = jsonschema::usrmsg;
+namespace jusrmsg = msg::usrmsg::json;
 
 /**
  * Helper functions for serving read requests from users.

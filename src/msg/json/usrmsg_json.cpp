@@ -1,36 +1,20 @@
-#include "../pchheader.hpp"
-#include "../util.hpp"
-#include "../crypto.hpp"
-#include "../cons/cons.hpp"
-#include "../hplog.hpp"
-#include "usrmsg_helpers.hpp"
+#include "../../pchheader.hpp"
+#include "../../util.hpp"
+#include "../../crypto.hpp"
+#include "../../cons/cons.hpp"
+#include "../../hplog.hpp"
+#include "../usrmsg_common.hpp"
+#include "usrmsg_json.hpp"
 
-namespace jsonschema::usrmsg
+namespace common = msg::usrmsg_common;
+
+namespace msg::usrmsg::json
 {
-    // Separators
+    // JSON separators
     constexpr const char *SEP_COMMA = "\",\"";
     constexpr const char *SEP_COLON = "\":\"";
     constexpr const char *SEP_COMMA_NOQUOTE = ",\"";
     constexpr const char *SEP_COLON_NOQUOTE = "\":";
-
-    // Message field names
-    constexpr const char *FLD_TYPE = "type";
-    constexpr const char *FLD_CHALLENGE = "challenge";
-    constexpr const char *FLD_SIG = "sig";
-    constexpr const char *FLD_PUBKEY = "pubkey";
-    constexpr const char *FLD_INPUT = "input";
-    constexpr const char *FLD_INPUT_CONTAINER = "input_container";
-    constexpr const char *FLD_INPUT_SIG = "input_sig";
-    constexpr const char *FLD_MAX_LCL_SEQ = "max_lcl_seqno";
-    constexpr const char *FLD_CONTENT = "content";
-    constexpr const char *FLD_NONCE = "nonce";
-    constexpr const char *FLD_LCL = "lcl";
-    constexpr const char *FLD_LCL_SEQ = "lcl_seqno";
-    constexpr const char *FLD_STATUS = "status";
-    constexpr const char *FLD_REASON = "reason";
-
-    // Length of user random challenge bytes.
-    const size_t CHALLENGE_LEN = 16;
 
     /**
  * Constructs user challenge message json and the challenge string required for
@@ -48,13 +32,13 @@ namespace jsonschema::usrmsg
     void create_user_challenge(std::string &msg, std::string &challengehex)
     {
         // Use libsodium to generate the random challenge bytes.
-        unsigned char challenge_bytes[CHALLENGE_LEN];
-        randombytes_buf(challenge_bytes, CHALLENGE_LEN);
+        unsigned char challenge_bytes[common::CHALLENGE_LEN];
+        randombytes_buf(challenge_bytes, common::CHALLENGE_LEN);
 
         // We pass the hex challenge string separately to the caller even though
         // we also include it in the challenge msg as well.
 
-        util::bin2hex(challengehex, challenge_bytes, CHALLENGE_LEN);
+        util::bin2hex(challengehex, challenge_bytes, common::CHALLENGE_LEN);
 
         // Construct the challenge msg json.
         // We do not use RapidJson here in favour of performance because this is a simple json message.
@@ -64,11 +48,11 @@ namespace jsonschema::usrmsg
         // so allocating 128bytes for heap padding.
         msg.reserve(128);
         msg.append("{\"")
-            .append(FLD_TYPE)
+            .append(common::FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_HANDSHAKE_CHALLENGE)
+            .append(common::MSGTYPE_HANDSHAKE_CHALLENGE)
             .append(SEP_COMMA)
-            .append(FLD_CHALLENGE)
+            .append(common::FLD_CHALLENGE)
             .append(SEP_COLON)
             .append(challengehex)
             .append("\"}");
@@ -88,15 +72,15 @@ namespace jsonschema::usrmsg
     {
         msg.reserve(128);
         msg.append("{\"")
-            .append(FLD_TYPE)
+            .append(common::FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_STAT_RESPONSE)
+            .append(common::MSGTYPE_STAT_RESPONSE)
             .append(SEP_COMMA)
-            .append(FLD_LCL)
+            .append(common::FLD_LCL)
             .append(SEP_COLON)
             .append(cons::ctx.lcl)
             .append(SEP_COMMA)
-            .append(FLD_LCL_SEQ)
+            .append(common::FLD_LCL_SEQ)
             .append(SEP_COLON_NOQUOTE)
             .append(std::to_string(cons::ctx.led_seq_no))
             .append("}");
@@ -123,19 +107,19 @@ namespace jsonschema::usrmsg
 
         msg.reserve(128);
         msg.append("{\"")
-            .append(FLD_TYPE)
+            .append(common::FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_CONTRACT_INPUT_STATUS)
+            .append(common::MSGTYPE_CONTRACT_INPUT_STATUS)
             .append(SEP_COMMA)
-            .append(FLD_STATUS)
+            .append(common::FLD_STATUS)
             .append(SEP_COLON)
             .append(status)
             .append(SEP_COMMA)
-            .append(FLD_REASON)
+            .append(common::FLD_REASON)
             .append(SEP_COLON)
             .append(reason)
             .append(SEP_COMMA)
-            .append(FLD_INPUT_SIG)
+            .append(common::FLD_INPUT_SIG)
             .append(SEP_COLON)
             .append(sighex)
             .append("\"}");
@@ -161,11 +145,11 @@ namespace jsonschema::usrmsg
 
         msg.reserve(256);
         msg.append("{\"")
-            .append(FLD_TYPE)
+            .append(common::FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_CONTRACT_READ_RESPONSE)
+            .append(common::MSGTYPE_CONTRACT_READ_RESPONSE)
             .append(SEP_COMMA)
-            .append(FLD_CONTENT)
+            .append(common::FLD_CONTENT)
             .append(SEP_COLON)
             .append(contenthex)
             .append("\"}");
@@ -193,19 +177,19 @@ namespace jsonschema::usrmsg
 
         msg.reserve(256);
         msg.append("{\"")
-            .append(FLD_TYPE)
+            .append(common::FLD_TYPE)
             .append(SEP_COLON)
-            .append(MSGTYPE_CONTRACT_OUTPUT)
+            .append(common::MSGTYPE_CONTRACT_OUTPUT)
             .append(SEP_COMMA)
-            .append(FLD_LCL)
+            .append(common::FLD_LCL)
             .append(SEP_COLON)
             .append(cons::ctx.lcl)
             .append(SEP_COMMA)
-            .append(FLD_LCL_SEQ)
+            .append(common::FLD_LCL_SEQ)
             .append(SEP_COLON_NOQUOTE)
             .append(std::to_string(cons::ctx.led_seq_no))
             .append(SEP_COMMA_NOQUOTE)
-            .append(FLD_CONTENT)
+            .append(common::FLD_CONTENT)
             .append(SEP_COLON)
             .append(contenthex)
             .append("\"}");
@@ -234,38 +218,38 @@ namespace jsonschema::usrmsg
             return -1;
 
         // Validate msg type.
-        if (d[FLD_TYPE] != MSGTYPE_HANDSHAKE_RESPONSE)
+        if (d[common::FLD_TYPE] != common::MSGTYPE_HANDSHAKE_RESPONSE)
         {
             LOG_DBG << "User challenge response type invalid. 'challenge_response' expected.";
             return -1;
         }
 
         // Compare the response challenge string with the original issued challenge.
-        if (!d.HasMember(FLD_CHALLENGE) || d[FLD_CHALLENGE] != original_challenge.data())
+        if (!d.HasMember(common::FLD_CHALLENGE) || d[common::FLD_CHALLENGE] != original_challenge.data())
         {
             LOG_DBG << "User challenge response challenge invalid.";
             return -1;
         }
 
         // Check for the 'sig' field existence.
-        if (!d.HasMember(FLD_SIG) || !d[FLD_SIG].IsString())
+        if (!d.HasMember(common::FLD_SIG) || !d[common::FLD_SIG].IsString())
         {
             LOG_DBG << "User challenge response signature invalid.";
             return -1;
         }
 
         // Check for the 'pubkey' field existence.
-        if (!d.HasMember(FLD_PUBKEY) || !d[FLD_PUBKEY].IsString())
+        if (!d.HasMember(common::FLD_PUBKEY) || !d[common::FLD_PUBKEY].IsString())
         {
             LOG_DBG << "User challenge response public key invalid.";
             return -1;
         }
 
         // Verify the challenge signature. We do this last due to signature verification cost.
-        std::string_view pubkeysv = util::getsv(d[FLD_PUBKEY]);
+        std::string_view pubkeysv = util::getsv(d[common::FLD_PUBKEY]);
         if (crypto::verify_hex(
                 original_challenge,
-                util::getsv(d[FLD_SIG]),
+                util::getsv(d[common::FLD_SIG]),
                 pubkeysv) != 0)
         {
             LOG_DBG << "User challenge response signature verification failed.";
@@ -291,20 +275,20 @@ namespace jsonschema::usrmsg
  */
     int extract_read_request(std::string &extracted_content, const rapidjson::Document &d)
     {
-        if (!d.HasMember(FLD_CONTENT))
+        if (!d.HasMember(common::FLD_CONTENT))
         {
             LOG_DBG << "Read request required fields missing.";
             return -1;
         }
 
-        if (!d[FLD_CONTENT].IsString())
+        if (!d[common::FLD_CONTENT].IsString())
         {
             LOG_DBG << "Read request invalid field values.";
             return -1;
         }
 
-        std::string_view contenthex(d[FLD_CONTENT].GetString(), d[FLD_CONTENT].GetStringLength());
-        
+        std::string_view contenthex(d[common::FLD_CONTENT].GetString(), d[common::FLD_CONTENT].GetStringLength());
+
         std::string content;
         content.resize(contenthex.length() / 2);
         if (util::hex2bin(
@@ -337,13 +321,13 @@ namespace jsonschema::usrmsg
     int extract_signed_input_container(
         std::string &extracted_input_container, std::string &extracted_sig, const rapidjson::Document &d)
     {
-        if (!d.HasMember(FLD_INPUT_CONTAINER) || !d.HasMember(FLD_SIG))
+        if (!d.HasMember(common::FLD_INPUT_CONTAINER) || !d.HasMember(common::FLD_SIG))
         {
             LOG_DBG << "User signed input required fields missing.";
             return -1;
         }
 
-        if (!d[FLD_INPUT_CONTAINER].IsString() || !d[FLD_SIG].IsString())
+        if (!d[common::FLD_INPUT_CONTAINER].IsString() || !d[common::FLD_SIG].IsString())
         {
             LOG_DBG << "User signed input invalid field values.";
             return -1;
@@ -352,9 +336,9 @@ namespace jsonschema::usrmsg
         // We do not verify the signature of the content here since we need to let each node
         // (including self) to verify that individually after we broadcast the NUP proposal.
 
-        const std::string input_container(d[FLD_INPUT_CONTAINER].GetString(), d[FLD_INPUT_CONTAINER].GetStringLength());
+        const std::string input_container(d[common::FLD_INPUT_CONTAINER].GetString(), d[common::FLD_INPUT_CONTAINER].GetStringLength());
 
-        const std::string_view sighex(d[FLD_SIG].GetString(), d[FLD_SIG].GetStringLength());
+        const std::string_view sighex(d[common::FLD_SIG].GetString(), d[common::FLD_SIG].GetStringLength());
         std::string sig;
         sig.resize(crypto_sign_ed25519_BYTES);
         util::hex2bin(reinterpret_cast<unsigned char *>(sig.data()), sig.length(), sighex);
@@ -387,19 +371,19 @@ namespace jsonschema::usrmsg
             return -1;
         }
 
-        if (!d.HasMember(FLD_NONCE) || !d.HasMember(FLD_INPUT) || !d.HasMember(FLD_MAX_LCL_SEQ))
+        if (!d.HasMember(common::FLD_NONCE) || !d.HasMember(common::FLD_INPUT) || !d.HasMember(common::FLD_MAX_LCL_SEQ))
         {
             LOG_DBG << "User input container required fields missing.";
             return -1;
         }
 
-        if (!d[FLD_NONCE].IsString() || !d[FLD_INPUT].IsString() || !d[FLD_MAX_LCL_SEQ].IsUint64())
+        if (!d[common::FLD_NONCE].IsString() || !d[common::FLD_INPUT].IsString() || !d[common::FLD_MAX_LCL_SEQ].IsUint64())
         {
             LOG_DBG << "User input container invalid field values.";
             return -1;
         }
 
-        const rapidjson::Value &inputval = d[FLD_INPUT];
+        const rapidjson::Value &inputval = d[common::FLD_INPUT];
         std::string_view inputhex(inputval.GetString(), inputval.GetStringLength());
 
         // Convert hex input to binary.
@@ -413,8 +397,8 @@ namespace jsonschema::usrmsg
             return -1;
         }
 
-        nonce = d[FLD_NONCE].GetString();
-        max_lcl_seqno = d[FLD_MAX_LCL_SEQ].GetUint64();
+        nonce = d[common::FLD_NONCE].GetString();
+        max_lcl_seqno = d[common::FLD_MAX_LCL_SEQ].GetUint64();
 
         return 0;
     }
@@ -443,7 +427,7 @@ namespace jsonschema::usrmsg
         }
 
         // Check existence of msg type field.
-        if (!d.HasMember(FLD_TYPE) || !d[FLD_TYPE].IsString())
+        if (!d.HasMember(common::FLD_TYPE) || !d[common::FLD_TYPE].IsString())
         {
             LOG_DBG << "User json message 'type' missing or invalid.";
             return -1;
@@ -452,4 +436,4 @@ namespace jsonschema::usrmsg
         return 0;
     }
 
-} // namespace jsonschema::usrmsg
+} // namespace msg::usrmsg::json

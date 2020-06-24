@@ -1,5 +1,6 @@
 #include "../pchheader.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/json/usrmsg_json.hpp"
+#include "../msg/usrmsg_common.hpp"
 #include "../comm/comm_server.hpp"
 #include "../comm/comm_session.hpp"
 #include "../util.hpp"
@@ -10,7 +11,8 @@
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
 
-namespace jusrmsg = jsonschema::usrmsg;
+namespace jusrmsg = msg::usrmsg::json;
+namespace usrmsg = msg::usrmsg_common;
 
 namespace usr
 {
@@ -128,13 +130,13 @@ namespace usr
     int handle_user_message(connected_user &user, std::string_view message)
     {
         rapidjson::Document d;
-        const char *msg_type = jusrmsg::MSGTYPE_UNKNOWN;
+        const char *msg_type = usrmsg::MSGTYPE_UNKNOWN;
 
         if (jusrmsg::parse_user_message(d, message) == 0)
         {
-            const char *msg_type = d[jusrmsg::FLD_TYPE].GetString();
+            const char *msg_type = d[usrmsg::FLD_TYPE].GetString();
 
-            if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_READ_REQUEST)
+            if (d[usrmsg::FLD_TYPE] == usrmsg::MSGTYPE_CONTRACT_READ_REQUEST)
             {
                 std::string content;
                 if (jusrmsg::extract_read_request(content, d) == 0)
@@ -147,11 +149,11 @@ namespace usr
                 }
                 else
                 {
-                    send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, "");
+                    send_input_status(user.session, usrmsg::STATUS_REJECTED, usrmsg::REASON_BAD_MSG_FORMAT, "");
                     return -1;
                 }
             }
-            else if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
+            else if (d[usrmsg::FLD_TYPE] == usrmsg::MSGTYPE_CONTRACT_INPUT)
             {
                 // Message is a contract input message.
 
@@ -169,11 +171,11 @@ namespace usr
                 }
                 else
                 {
-                    send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_SIG, sig);
+                    send_input_status(user.session, usrmsg::STATUS_REJECTED, usrmsg::REASON_BAD_SIG, sig);
                     return -1;
                 }
             }
-            else if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_STAT)
+            else if (d[usrmsg::FLD_TYPE] == usrmsg::MSGTYPE_STAT)
             {
                 std::string msg;
                 jusrmsg::create_status_response(msg);
@@ -183,14 +185,14 @@ namespace usr
             else
             {
                 LOG_DBG << "Invalid user message type: " << msg_type;
-                send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_INVALID_MSG_TYPE, "");
+                send_input_status(user.session, usrmsg::STATUS_REJECTED, usrmsg::REASON_INVALID_MSG_TYPE, "");
                 return -1;
             }
         }
         else
         {
             // Bad message.
-            send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, "");
+            send_input_status(user.session, usrmsg::STATUS_REJECTED, usrmsg::REASON_BAD_MSG_FORMAT, "");
             return -1;
         }
     }

@@ -1,11 +1,11 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/json/usrmsg_json.hpp"
 #include "../bill/corebill.h"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
-namespace jusrmsg = jsonschema::usrmsg;
+namespace jusrmsg = msg::usrmsg::json;
 
 namespace usr
 {
