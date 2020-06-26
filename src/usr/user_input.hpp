@@ -9,18 +9,18 @@ namespace usr
 /**
  * Represents a signed contract input message a network user has submitted.
  */
-struct user_submitted_message
+struct user_submitted_input
 {
-    const std::string content;
+    const std::string input_container;
     const std::string sig;
 
-    user_submitted_message(const std::string content, const std::string sig)
-        : content(std::move(content)), sig(std::move(sig))
+    user_submitted_input(const std::string input_container, const std::string sig)
+        : input_container(std::move(input_container)), sig(std::move(sig))
     {
     }
 
-    user_submitted_message(std::string_view content, std::string_view sig)
-        : content(content), sig(sig)
+    user_submitted_input(std::string_view input_container, std::string_view sig)
+        : input_container(input_container), sig(sig)
     {
     }
 };

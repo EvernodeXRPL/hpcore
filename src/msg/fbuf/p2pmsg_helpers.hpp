@@ -70,13 +70,13 @@ namespace msg::fbuf::p2pmsg
 
     //---Conversion helpers from flatbuffers data types to std data types---//
 
-    const std::unordered_map<std::string, const std::list<usr::user_submitted_message>>
+    const std::unordered_map<std::string, const std::list<usr::user_submitted_input>>
     flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>> *fbvec);
 
     //---Conversion helpers from std data types to flatbuffers data types---//
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>>>
-    usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_message>> &map);
+    usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_input>> &map);
 
     const std::map<uint64_t, const p2p::history_ledger>
     flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *fbvec);

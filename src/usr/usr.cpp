@@ -164,7 +164,7 @@ namespace usr
                     std::lock_guard<std::mutex> lock(ctx.users_mutex);
 
                     //Add to the submitted input list.
-                    user.submitted_inputs.push_back(user_submitted_message(
+                    user.submitted_inputs.push_back(user_submitted_input(
                         std::move(input_container_json),
                         std::move(sig)));
                     return 0;

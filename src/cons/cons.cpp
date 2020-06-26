@@ -327,12 +327,12 @@ namespace cons
 
         for (auto &[sid, user] : usr::ctx.users)
         {
-            std::list<usr::user_submitted_message> usermsgs;
+            std::list<usr::user_submitted_input> usermsgs;
             usermsgs.splice(usermsgs.end(), user.submitted_inputs);
 
             // We should create an entry for each user pubkey, even if the user has no inputs. This is
             // because this data map will be used to track connected users as well in addition to inputs.
-            nup.user_messages.try_emplace(user.pubkey, std::move(usermsgs));
+            nup.user_inputs.try_emplace(user.pubkey, std::move(usermsgs));
         }
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -340,7 +340,7 @@ namespace cons
         p2p::broadcast_message(fbuf, true);
 
         LOG_DBG << "NUP sent."
-                << " users:" << nup.user_messages.size();
+                << " users:" << nup.user_inputs.size();
     }
 
     /**
@@ -356,7 +356,7 @@ namespace cons
         std::lock_guard<std::mutex> nups_lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
         for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
         {
-            for (const auto &[pubkey, umsgs] : p.user_messages)
+            for (const auto &[pubkey, umsgs] : p.user_inputs)
             {
                 // Locate this user's socket session in case we need to send any status messages regarding user inputs.
                 const comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
@@ -369,7 +369,7 @@ namespace cons
                 size_t total_input_len = 0;
                 bool appbill_balance_exceeded = false;
 
-                for (const usr::user_submitted_message &umsg : umsgs)
+                for (const usr::user_submitted_input &umsg : umsgs)
                 {
                     const char *reject_reason = NULL;
                     const std::string sig_hash = crypto::get_hash(umsg.sig);
@@ -377,13 +377,13 @@ namespace cons
                     // Check for duplicate messages using hash of the signature.
                     if (ctx.recent_userinput_hashes.try_emplace(sig_hash))
                     {
-                        // Verify the signature of the message content.
-                        if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
+                        // Verify the signature of the input_container.
+                        if (crypto::verify(umsg.input_container, umsg.sig, pubkey) == 0)
                         {
                             std::string nonce;
                             std::string input;
                             uint64_t max_lcl_seqno;
-                            jusrmsg::extract_input_container(input, nonce, max_lcl_seqno, umsg.content);
+                            jusrmsg::extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
 
                             // Ignore the input if our ledger has passed the input TTL.
                             if (max_lcl_seqno > ctx.led_seq_no)

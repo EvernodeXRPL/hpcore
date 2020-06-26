@@ -6,7 +6,7 @@
 namespace msg::usrmsg_common
 {
     // Length of user random challenge bytes.
-    const size_t CHALLENGE_LEN = 16;
+    constexpr size_t CHALLENGE_LEN = 16;
 
     // Message field names
     constexpr const char *FLD_TYPE = "type";
