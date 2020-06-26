@@ -1,8 +1,3 @@
-//
-// HotPocket client example code adopted from:
-// https://github.com/codetsunami/hotpocket/blob/master/hp_client.js
-//
-
 const fs = require('fs')
 const ws_api = require('ws');
 const sodium = require('libsodium-wrappers')
@@ -10,7 +5,6 @@ const readline = require('readline')
 
 // sodium has a trigger when it's ready, we will wait and execute from there
 sodium.ready.then(main).catch((e) => { console.log(e) })
-
 
 function main() {
 
@@ -38,15 +32,6 @@ function main() {
     var ws = new ws_api(server, {
         rejectUnauthorized: false
     })
-
-    /* anatomy of a public challenge
-       {
-       version: '0.1',
-       type: 'public_challenge',
-       challenge: '<hex string>'
-       }
-     */
-
 
     // if the console ctrl + c's us we should close ws gracefully
     process.once('SIGINT', function (code) {
@@ -100,7 +85,8 @@ function main() {
             type: 'handshake_response',
             challenge: m.challenge,
             sig: Buffer.from(sigbytes).toString('hex'),
-            pubkey: pkhex
+            pubkey: pkhex,
+            protocol: 'json'
         }
 
         ws.send(JSON.stringify(response))

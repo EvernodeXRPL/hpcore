@@ -196,22 +196,25 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Verifies the user challenge response with the original challenge issued to the user
+ * Verifies the user handshake response with the original challenge issued to the user
  * and the user public key contained in the response.
  * 
- * @param extracted_pubkeyhex The hex public key extracted from the response. 
+ * @param extracted_pubkeyhex The hex public key extracted from the response.
+ * @param extracted_protocol The protocol code extracted from the response.
  * @param response The response bytes to verify. This will be parsed as json.
  *                 Accepted response format:
  *                 {
- *                   "type": "challenge_resp",
+ *                   "type": "handshake_response",
  *                   "challenge": "<original hex challenge the user received>",
  *                   "sig": "<hex signature of the challenge>",
- *                   "pubkey": "<hex public key of the user>"
+ *                   "pubkey": "<hex public key of the user>",
+ *                   "protocol": "<json | bson>"
  *                 }
  * @param original_challenge The original hex challenge string issued to the user.
  * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
  */
-    int verify_user_challenge_response(std::string &extracted_pubkeyhex, std::string_view response, std::string_view original_challenge)
+    int verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
+                                       std::string_view response, std::string_view original_challenge)
     {
         rapidjson::Document d;
         if (parse_user_message(d, response) != 0)
@@ -220,28 +223,43 @@ namespace msg::usrmsg::json
         // Validate msg type.
         if (d[common::FLD_TYPE] != common::MSGTYPE_HANDSHAKE_RESPONSE)
         {
-            LOG_DBG << "User challenge response type invalid. 'challenge_response' expected.";
+            LOG_DBG << "User handshake response type invalid. 'handshake_response' expected.";
             return -1;
         }
 
-        // Compare the response challenge string with the original issued challenge.
+        // Compare the response handshake string with the original issued challenge.
         if (!d.HasMember(common::FLD_CHALLENGE) || d[common::FLD_CHALLENGE] != original_challenge.data())
         {
-            LOG_DBG << "User challenge response challenge invalid.";
+            LOG_DBG << "User handshake response 'challenge' invalid.";
             return -1;
         }
 
         // Check for the 'sig' field existence.
         if (!d.HasMember(common::FLD_SIG) || !d[common::FLD_SIG].IsString())
         {
-            LOG_DBG << "User challenge response signature invalid.";
+            LOG_DBG << "User handshake response 'challenge signature' invalid.";
             return -1;
         }
 
         // Check for the 'pubkey' field existence.
         if (!d.HasMember(common::FLD_PUBKEY) || !d[common::FLD_PUBKEY].IsString())
         {
-            LOG_DBG << "User challenge response public key invalid.";
+            LOG_DBG << "User handshake response 'public key' invalid.";
+            return -1;
+        }
+
+        // Check for protocol field existence and valid value.
+        if (!d.HasMember(common::FLD_PROTOCOL) || !d[common::FLD_PROTOCOL].IsString())
+        {
+
+            LOG_DBG << "User handshake response 'protocol' invalid.";
+            return -1;
+        }
+
+        std::string_view protocolsv = util::getsv(d[common::FLD_PROTOCOL]);
+        if (protocolsv != "json" && protocolsv != "bson")
+        {
+            LOG_DBG << "User handshake response 'protocol' type invalid.";
             return -1;
         }
 
@@ -257,6 +275,7 @@ namespace msg::usrmsg::json
         }
 
         extracted_pubkeyhex = pubkeysv;
+        extracted_protocol = protocolsv;
 
         return 0;
     }

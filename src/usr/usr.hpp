@@ -15,6 +15,15 @@ namespace usr
 {
 
     /**
+     * The messaging protocol used in user web socket channel.
+     */
+    enum PROTOCOL
+    {
+        JSON = 0,
+        BSON = 1
+    };
+
+    /**
  * Holds information about an authenticated (challenge-verified) user
  * connected to the HotPocket node.
  */
@@ -33,12 +42,15 @@ namespace usr
         // We don't need to own the session object since the lifetime of user and session are coupled.
         const comm::comm_session &session;
 
+        // The messaging protocol used by this user.
+        const PROTOCOL protocol;
+
         /**
      * @param session The web socket session the user is connected to.
      * @param pubkey The public key of the user in binary format.
      */
-        connected_user(const comm::comm_session &session, std::string_view pubkey)
-            : session(session), pubkey(pubkey)
+        connected_user(const comm::comm_session &session, std::string_view pubkey, PROTOCOL protocol)
+            : session(session), pubkey(pubkey), protocol(protocol)
         {
         }
     };
@@ -74,7 +86,7 @@ namespace usr
 
     void send_input_status(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view input_sig);
 
-    int add_user(const comm::comm_session &session, const std::string &pubkey);
+    int add_user(const comm::comm_session &session, const std::string &pubkey, const PROTOCOL protocol);
 
     int remove_user(const std::string &sessionid);
 

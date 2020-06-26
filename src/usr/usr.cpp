@@ -80,8 +80,9 @@ namespace usr
         }
 
         std::string userpubkeyhex;
+        std::string protocol_code;
         std::string_view original_challenge = session.issued_challenge;
-        if (jusrmsg::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
+        if (jusrmsg::verify_user_handshake_response(userpubkeyhex, protocol_code, message, original_challenge) == 0)
         {
             // Challenge signature verification successful.
 
@@ -100,8 +101,10 @@ namespace usr
                 // All good. Unique public key.
                 // Promote the connection from pending-challenges to authenticated users.
 
+                const PROTOCOL user_protocol = (protocol_code == "json" ? PROTOCOL::JSON : PROTOCOL::BSON);
+
                 session.challenge_status = comm::CHALLENGE_VERIFIED; // Set as challenge verified
-                add_user(session, userpubkey);                       // Add the user to the global authed user list
+                add_user(session, userpubkey, user_protocol);        // Add the user to the global authed user list
                 session.issued_challenge.clear();                    // Remove the stored challenge
 
                 LOG_DBG << "User connection " << session.uniqueid << " authenticated. Public key "
@@ -213,9 +216,10 @@ namespace usr
  * 
  * @param session User socket session.
  * @param pubkey User's binary public key.
+ * @param protocol Messaging protocol used by user.
  * @return 0 on successful additions. -1 on failure.
  */
-    int add_user(const comm::comm_session &session, const std::string &pubkey)
+    int add_user(const comm::comm_session &session, const std::string &pubkey, const PROTOCOL protocol)
     {
         const std::string &sessionid = session.uniqueid;
         if (ctx.users.count(sessionid) == 1)
@@ -226,7 +230,7 @@ namespace usr
 
         {
             std::lock_guard<std::mutex> lock(ctx.users_mutex);
-            ctx.users.emplace(sessionid, usr::connected_user(session, pubkey));
+            ctx.users.emplace(sessionid, usr::connected_user(session, pubkey, protocol));
         }
 
         // Populate sessionid map so we can lookup by user pubkey.
