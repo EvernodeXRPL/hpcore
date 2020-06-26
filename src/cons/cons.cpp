@@ -327,12 +327,12 @@ namespace cons
 
         for (auto &[sid, user] : usr::ctx.users)
         {
-            std::list<usr::user_submitted_input> usermsgs;
-            usermsgs.splice(usermsgs.end(), user.submitted_inputs);
+            std::list<usr::user_input> user_inputs;
+            user_inputs.splice(user_inputs.end(), user.submitted_inputs);
 
             // We should create an entry for each user pubkey, even if the user has no inputs. This is
             // because this data map will be used to track connected users as well in addition to inputs.
-            nup.user_inputs.try_emplace(user.pubkey, std::move(usermsgs));
+            nup.user_inputs.try_emplace(user.pubkey, std::move(user_inputs));
         }
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -369,7 +369,7 @@ namespace cons
                 size_t total_input_len = 0;
                 bool appbill_balance_exceeded = false;
 
-                for (const usr::user_submitted_input &umsg : umsgs)
+                for (const usr::user_input &umsg : umsgs)
                 {
                     const char *reject_reason = NULL;
                     const std::string sig_hash = crypto::get_hash(umsg.sig);

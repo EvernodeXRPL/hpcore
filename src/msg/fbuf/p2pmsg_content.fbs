@@ -13,14 +13,14 @@ table Peer_Challenge_Response_Message {
     sig:[ubyte];
 }
 
-table UserSubmittedMessage {
-    content:[ubyte];
+table UserInput {
+    input_container:[ubyte];
     signature:[ubyte];
 }
 
-table UserSubmittedMessageGroup {
+table UserInputGroup {
     pubkey:[ubyte];
-    messages:[UserSubmittedMessage];
+    messages:[UserInput];
 }
 
 union Message { Peer_Challenge_Response_Message, Peer_Challenge_Message, NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, State_Response_Message, History_Request_Message, History_Response_Message } //message content type
@@ -30,7 +30,7 @@ table Content {
 }
 
 table NonUnl_Proposal_Message {
-    usermessages:[UserSubmittedMessageGroup];
+    user_inputs:[UserInputGroup];
 }
 
 table Proposal_Message { //Proposal type message schema

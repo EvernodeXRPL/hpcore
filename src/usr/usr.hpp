@@ -24,7 +24,7 @@ namespace usr
         const std::string pubkey;
 
         // Holds the unprocessed user inputs collected from websocket.
-        std::list<user_submitted_input> submitted_inputs;
+        std::list<user_input> submitted_inputs;
 
         // Holds the unprocessed read requests collected from websocket.
         std::list<std::string> read_requests;

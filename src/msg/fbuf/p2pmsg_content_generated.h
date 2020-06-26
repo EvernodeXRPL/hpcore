@@ -18,11 +18,11 @@ struct Peer_Challenge_MessageBuilder;
 struct Peer_Challenge_Response_Message;
 struct Peer_Challenge_Response_MessageBuilder;
 
-struct UserSubmittedMessage;
-struct UserSubmittedMessageBuilder;
+struct UserInput;
+struct UserInputBuilder;
 
-struct UserSubmittedMessageGroup;
-struct UserSubmittedMessageGroupBuilder;
+struct UserInputGroup;
+struct UserInputGroupBuilder;
 
 struct Content;
 struct ContentBuilder;
@@ -376,17 +376,17 @@ inline flatbuffers::Offset<Peer_Challenge_Response_Message> CreatePeer_Challenge
       sig__);
 }
 
-struct UserSubmittedMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef UserSubmittedMessageBuilder Builder;
+struct UserInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef UserInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_CONTENT = 4,
+    VT_INPUT_CONTAINER = 4,
     VT_SIGNATURE = 6
   };
-  const flatbuffers::Vector<uint8_t> *content() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CONTENT);
+  const flatbuffers::Vector<uint8_t> *input_container() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_INPUT_CONTAINER);
   }
-  flatbuffers::Vector<uint8_t> *mutable_content() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CONTENT);
+  flatbuffers::Vector<uint8_t> *mutable_input_container() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_INPUT_CONTAINER);
   }
   const flatbuffers::Vector<uint8_t> *signature() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIGNATURE);
@@ -396,59 +396,59 @@ struct UserSubmittedMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_CONTENT) &&
-           verifier.VerifyVector(content()) &&
+           VerifyOffset(verifier, VT_INPUT_CONTAINER) &&
+           verifier.VerifyVector(input_container()) &&
            VerifyOffset(verifier, VT_SIGNATURE) &&
            verifier.VerifyVector(signature()) &&
            verifier.EndTable();
   }
 };
 
-struct UserSubmittedMessageBuilder {
-  typedef UserSubmittedMessage Table;
+struct UserInputBuilder {
+  typedef UserInput Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_content(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content) {
-    fbb_.AddOffset(UserSubmittedMessage::VT_CONTENT, content);
+  void add_input_container(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> input_container) {
+    fbb_.AddOffset(UserInput::VT_INPUT_CONTAINER, input_container);
   }
   void add_signature(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature) {
-    fbb_.AddOffset(UserSubmittedMessage::VT_SIGNATURE, signature);
+    fbb_.AddOffset(UserInput::VT_SIGNATURE, signature);
   }
-  explicit UserSubmittedMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit UserInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<UserSubmittedMessage> Finish() {
+  flatbuffers::Offset<UserInput> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<UserSubmittedMessage>(end);
+    auto o = flatbuffers::Offset<UserInput>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<UserSubmittedMessage> CreateUserSubmittedMessage(
+inline flatbuffers::Offset<UserInput> CreateUserInput(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> input_container = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = 0) {
-  UserSubmittedMessageBuilder builder_(_fbb);
+  UserInputBuilder builder_(_fbb);
   builder_.add_signature(signature);
-  builder_.add_content(content);
+  builder_.add_input_container(input_container);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<UserSubmittedMessage> CreateUserSubmittedMessageDirect(
+inline flatbuffers::Offset<UserInput> CreateUserInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *content = nullptr,
+    const std::vector<uint8_t> *input_container = nullptr,
     const std::vector<uint8_t> *signature = nullptr) {
-  auto content__ = content ? _fbb.CreateVector<uint8_t>(*content) : 0;
+  auto input_container__ = input_container ? _fbb.CreateVector<uint8_t>(*input_container) : 0;
   auto signature__ = signature ? _fbb.CreateVector<uint8_t>(*signature) : 0;
-  return msg::fbuf::p2pmsg::CreateUserSubmittedMessage(
+  return msg::fbuf::p2pmsg::CreateUserInput(
       _fbb,
-      content__,
+      input_container__,
       signature__);
 }
 
-struct UserSubmittedMessageGroup FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef UserSubmittedMessageGroupBuilder Builder;
+struct UserInputGroup FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef UserInputGroupBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PUBKEY = 4,
     VT_MESSAGES = 6
@@ -459,11 +459,11 @@ struct UserSubmittedMessageGroup FLATBUFFERS_FINAL_CLASS : private flatbuffers::
   flatbuffers::Vector<uint8_t> *mutable_pubkey() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>> *messages() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>> *>(VT_MESSAGES);
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>> *messages() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>> *>(VT_MESSAGES);
   }
-  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>> *mutable_messages() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>> *>(VT_MESSAGES);
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>> *mutable_messages() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>> *>(VT_MESSAGES);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -476,44 +476,44 @@ struct UserSubmittedMessageGroup FLATBUFFERS_FINAL_CLASS : private flatbuffers::
   }
 };
 
-struct UserSubmittedMessageGroupBuilder {
-  typedef UserSubmittedMessageGroup Table;
+struct UserInputGroupBuilder {
+  typedef UserInputGroup Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
-    fbb_.AddOffset(UserSubmittedMessageGroup::VT_PUBKEY, pubkey);
+    fbb_.AddOffset(UserInputGroup::VT_PUBKEY, pubkey);
   }
-  void add_messages(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>>> messages) {
-    fbb_.AddOffset(UserSubmittedMessageGroup::VT_MESSAGES, messages);
+  void add_messages(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>>> messages) {
+    fbb_.AddOffset(UserInputGroup::VT_MESSAGES, messages);
   }
-  explicit UserSubmittedMessageGroupBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit UserInputGroupBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<UserSubmittedMessageGroup> Finish() {
+  flatbuffers::Offset<UserInputGroup> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<UserSubmittedMessageGroup>(end);
+    auto o = flatbuffers::Offset<UserInputGroup>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<UserSubmittedMessageGroup> CreateUserSubmittedMessageGroup(
+inline flatbuffers::Offset<UserInputGroup> CreateUserInputGroup(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>>> messages = 0) {
-  UserSubmittedMessageGroupBuilder builder_(_fbb);
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>>> messages = 0) {
+  UserInputGroupBuilder builder_(_fbb);
   builder_.add_messages(messages);
   builder_.add_pubkey(pubkey);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<UserSubmittedMessageGroup> CreateUserSubmittedMessageGroupDirect(
+inline flatbuffers::Offset<UserInputGroup> CreateUserInputGroupDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *pubkey = nullptr,
-    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>> *messages = nullptr) {
+    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>> *messages = nullptr) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
-  auto messages__ = messages ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessage>>(*messages) : 0;
-  return msg::fbuf::p2pmsg::CreateUserSubmittedMessageGroup(
+  auto messages__ = messages ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInput>>(*messages) : 0;
+  return msg::fbuf::p2pmsg::CreateUserInputGroup(
       _fbb,
       pubkey__,
       messages__);
@@ -641,19 +641,19 @@ inline flatbuffers::Offset<Content> CreateContent(
 struct NonUnl_Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef NonUnl_Proposal_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_USERMESSAGES = 4
+    VT_USER_INPUTS = 4
   };
-  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>> *usermessages() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>> *>(VT_USERMESSAGES);
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>> *user_inputs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>> *>(VT_USER_INPUTS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>> *mutable_usermessages() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>> *>(VT_USERMESSAGES);
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>> *mutable_user_inputs() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>> *>(VT_USER_INPUTS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_USERMESSAGES) &&
-           verifier.VerifyVector(usermessages()) &&
-           verifier.VerifyVectorOfTables(usermessages()) &&
+           VerifyOffset(verifier, VT_USER_INPUTS) &&
+           verifier.VerifyVector(user_inputs()) &&
+           verifier.VerifyVectorOfTables(user_inputs()) &&
            verifier.EndTable();
   }
 };
@@ -662,8 +662,8 @@ struct NonUnl_Proposal_MessageBuilder {
   typedef NonUnl_Proposal_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_usermessages(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>>> usermessages) {
-    fbb_.AddOffset(NonUnl_Proposal_Message::VT_USERMESSAGES, usermessages);
+  void add_user_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>>> user_inputs) {
+    fbb_.AddOffset(NonUnl_Proposal_Message::VT_USER_INPUTS, user_inputs);
   }
   explicit NonUnl_Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -678,19 +678,19 @@ struct NonUnl_Proposal_MessageBuilder {
 
 inline flatbuffers::Offset<NonUnl_Proposal_Message> CreateNonUnl_Proposal_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>>> usermessages = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>>> user_inputs = 0) {
   NonUnl_Proposal_MessageBuilder builder_(_fbb);
-  builder_.add_usermessages(usermessages);
+  builder_.add_user_inputs(user_inputs);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<NonUnl_Proposal_Message> CreateNonUnl_Proposal_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>> *usermessages = nullptr) {
-  auto usermessages__ = usermessages ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserSubmittedMessageGroup>>(*usermessages) : 0;
+    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>> *user_inputs = nullptr) {
+  auto user_inputs__ = user_inputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::UserInputGroup>>(*user_inputs) : 0;
   return msg::fbuf::p2pmsg::CreateNonUnl_Proposal_Message(
       _fbb,
-      usermessages__);
+      user_inputs__);
 }
 
 struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
