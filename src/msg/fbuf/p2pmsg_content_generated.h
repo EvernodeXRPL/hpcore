@@ -380,7 +380,8 @@ struct UserInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef UserInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INPUT_CONTAINER = 4,
-    VT_SIGNATURE = 6
+    VT_SIGNATURE = 6,
+    VT_PROTOCOL = 8
   };
   const flatbuffers::Vector<uint8_t> *input_container() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_INPUT_CONTAINER);
@@ -394,12 +395,19 @@ struct UserInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_signature() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SIGNATURE);
   }
+  uint8_t protocol() const {
+    return GetField<uint8_t>(VT_PROTOCOL, 0);
+  }
+  bool mutate_protocol(uint8_t _protocol) {
+    return SetField<uint8_t>(VT_PROTOCOL, _protocol, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_INPUT_CONTAINER) &&
            verifier.VerifyVector(input_container()) &&
            VerifyOffset(verifier, VT_SIGNATURE) &&
            verifier.VerifyVector(signature()) &&
+           VerifyField<uint8_t>(verifier, VT_PROTOCOL) &&
            verifier.EndTable();
   }
 };
@@ -413,6 +421,9 @@ struct UserInputBuilder {
   }
   void add_signature(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature) {
     fbb_.AddOffset(UserInput::VT_SIGNATURE, signature);
+  }
+  void add_protocol(uint8_t protocol) {
+    fbb_.AddElement<uint8_t>(UserInput::VT_PROTOCOL, protocol, 0);
   }
   explicit UserInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -428,23 +439,27 @@ struct UserInputBuilder {
 inline flatbuffers::Offset<UserInput> CreateUserInput(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> input_container = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = 0,
+    uint8_t protocol = 0) {
   UserInputBuilder builder_(_fbb);
   builder_.add_signature(signature);
   builder_.add_input_container(input_container);
+  builder_.add_protocol(protocol);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<UserInput> CreateUserInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *input_container = nullptr,
-    const std::vector<uint8_t> *signature = nullptr) {
+    const std::vector<uint8_t> *signature = nullptr,
+    uint8_t protocol = 0) {
   auto input_container__ = input_container ? _fbb.CreateVector<uint8_t>(*input_container) : 0;
   auto signature__ = signature ? _fbb.CreateVector<uint8_t>(*signature) : 0;
   return msg::fbuf::p2pmsg::CreateUserInput(
       _fbb,
       input_container__,
-      signature__);
+      signature__,
+      protocol);
 }
 
 struct UserInputGroup FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

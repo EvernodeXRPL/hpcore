@@ -626,7 +626,8 @@ namespace msg::fbuf::p2pmsg
             {
                 user_inputs_list.push_back(usr::user_input(
                     flatbuff_bytes_to_sv(msg->input_container()),
-                    flatbuff_bytes_to_sv(msg->signature())));
+                    flatbuff_bytes_to_sv(msg->signature()),
+                    static_cast<util::PROTOCOL>(msg->protocol())));
             }
 
             map.emplace(flatbuff_bytes_to_sv(group->pubkey()), std::move(user_inputs_list));
@@ -650,7 +651,8 @@ namespace msg::fbuf::p2pmsg
                 fbmsgsvec.push_back(CreateUserInput(
                     builder,
                     sv_to_flatbuff_bytes(builder, msg.input_container),
-                    sv_to_flatbuff_bytes(builder, msg.sig)));
+                    sv_to_flatbuff_bytes(builder, msg.sig),
+                    static_cast<uint8_t>(msg.protocol)));
             }
 
             fbvec.push_back(CreateUserInputGroup(

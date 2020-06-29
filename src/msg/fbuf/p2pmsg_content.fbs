@@ -16,6 +16,7 @@ table Peer_Challenge_Response_Message {
 table UserInput {
     input_container:[ubyte];
     signature:[ubyte];
+    protocol:uint8;
 }
 
 table UserInputGroup {

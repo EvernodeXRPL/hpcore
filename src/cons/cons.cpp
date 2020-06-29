@@ -369,7 +369,7 @@ namespace cons
 
                 for (const usr::user_input &umsg : umsgs)
                 {
-                    msg::usrmsg::usrmsg_parser parser(util::PROTOCOL::JSON);
+                    msg::usrmsg::usrmsg_parser parser(umsg.protocol);
 
                     const char *reject_reason = NULL;
                     const std::string sig_hash = crypto::get_hash(umsg.sig);

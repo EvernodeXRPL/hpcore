@@ -168,7 +168,8 @@ namespace usr
                     //Add to the submitted input list.
                     user.submitted_inputs.push_back(user_input(
                         std::move(input_container_json),
-                        std::move(sig)));
+                        std::move(sig),
+                        user.protocol));
                     return 0;
                 }
                 else
