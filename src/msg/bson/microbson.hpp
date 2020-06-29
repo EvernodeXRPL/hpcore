@@ -243,6 +243,12 @@ namespace microbson
             {
             }
 
+            void load(void* bytes, size_t count)
+            {
+                bytes = reinterpret_cast<byte*>(bytes);
+                size = count;
+            }
+
             bool valid() const
             {
                 return (size >= 7U) && (bytes[size -1] == 0);

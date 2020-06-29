@@ -1,9 +1,11 @@
 #include "../pchheader.hpp"
 #include "../util.hpp"
 #include "json/usrmsg_json.hpp"
+#include "bson/usrmsg_bson.hpp"
 #include "usrmsg_parser.hpp"
 
 namespace jusrmsg = msg::usrmsg::json;
+namespace busrmsg = msg::usrmsg::bson;
 
 namespace msg::usrmsg
 {
@@ -16,7 +18,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             jusrmsg::create_status_response(msg);
         else
-            ;
+            busrmsg::create_status_response(msg);
     }
 
     void usrmsg_parser::create_contract_input_status(std::string &msg, std::string_view status,

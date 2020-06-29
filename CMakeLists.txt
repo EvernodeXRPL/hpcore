@@ -48,6 +48,7 @@ add_executable(hpcore
     src/msg/fbuf/p2pmsg_helpers.cpp
     src/msg/fbuf/ledger_helpers.cpp
     src/msg/json/usrmsg_json.cpp
+    src/msg/bson/usrmsg_bson.cpp
     src/msg/usrmsg_parser.cpp
     src/p2p/peer_session_handler.cpp
     src/p2p/p2p.cpp
