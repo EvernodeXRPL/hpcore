@@ -5,7 +5,7 @@
 #include "../p2p/p2p.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../msg/json/usrmsg_json.hpp"
+#include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
@@ -18,8 +18,6 @@
 #include "cons.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
-namespace jusrmsg = msg::usrmsg::json;
-namespace usrmsg = msg::usrmsg::common;
 
 namespace cons
 {
@@ -371,6 +369,8 @@ namespace cons
 
                 for (const usr::user_input &umsg : umsgs)
                 {
+                    msg::usrmsg::usrmsg_parser parser(util::PROTOCOL::JSON);
+
                     const char *reject_reason = NULL;
                     const std::string sig_hash = crypto::get_hash(umsg.sig);
 
@@ -383,7 +383,7 @@ namespace cons
                             std::string nonce;
                             std::string input;
                             uint64_t max_lcl_seqno;
-                            jusrmsg::extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
+                            parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
 
                             // Ignore the input if our ledger has passed the input TTL.
                             if (max_lcl_seqno > ctx.led_seq_no)
@@ -408,37 +408,38 @@ namespace cons
                                         // Abandon processing further inputs from this user when we find out
                                         // an input cannot be processed with the account balance.
                                         appbill_balance_exceeded = true;
-                                        reject_reason = usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                        reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                                     }
                                 }
                                 else
                                 {
-                                    reject_reason = usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                    reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                                 }
                             }
                             else
                             {
                                 LOG_DBG << "User message bad max ledger seq expired.";
-                                reject_reason = usrmsg::REASON_MAX_LEDGER_EXPIRED;
+                                reject_reason = msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
                             }
                         }
                         else
                         {
                             LOG_DBG << "User message bad signature.";
-                            reject_reason = usrmsg::REASON_BAD_SIG;
+                            reject_reason = msg::usrmsg::REASON_BAD_SIG;
                         }
                     }
                     else
                     {
                         LOG_DBG << "Duplicate user message.";
-                        reject_reason = usrmsg::REASON_DUPLICATE_MSG;
+                        reject_reason = msg::usrmsg::REASON_DUPLICATE_MSG;
                     }
 
                     // Send the request status result if this user is connected to us.
                     if (session != NULL)
                     {
-                        usr::send_input_status(*session,
-                                               reject_reason == NULL ? usrmsg::STATUS_ACCEPTED : usrmsg::STATUS_REJECTED,
+                        usr::send_input_status(parser,
+                                               *session,
+                                               reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                                reject_reason == NULL ? "" : reject_reason,
                                                umsg.sig);
                     }
@@ -818,10 +819,12 @@ namespace cons
                         std::string outputtosend;
                         outputtosend.swap(cand_output.output);
 
-                        std::string msg;
-                        jusrmsg::create_contract_output_container(msg, outputtosend);
-
                         const usr::connected_user &user = user_itr->second;
+                        msg::usrmsg::usrmsg_parser parser(user.protocol);
+
+                        std::string msg;
+                        parser.create_contract_output_container(msg, outputtosend);
+
                         user.session.send(msg);
                     }
                 }

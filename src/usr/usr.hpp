@@ -5,6 +5,7 @@
 #include "../util.hpp"
 #include "../comm/comm_server.hpp"
 #include "../comm/comm_session.hpp"
+#include "../msg/usrmsg_parser.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
 
@@ -13,16 +14,6 @@
  */
 namespace usr
 {
-
-    /**
-     * The messaging protocol used in user web socket channel.
-     */
-    enum PROTOCOL
-    {
-        JSON = 0,
-        BSON = 1
-    };
-
     /**
  * Holds information about an authenticated (challenge-verified) user
  * connected to the HotPocket node.
@@ -43,13 +34,13 @@ namespace usr
         const comm::comm_session &session;
 
         // The messaging protocol used by this user.
-        const PROTOCOL protocol;
+        const util::PROTOCOL protocol;
 
         /**
      * @param session The web socket session the user is connected to.
      * @param pubkey The public key of the user in binary format.
      */
-        connected_user(const comm::comm_session &session, std::string_view pubkey, PROTOCOL protocol)
+        connected_user(const comm::comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
             : session(session), pubkey(pubkey), protocol(protocol)
         {
         }
@@ -84,9 +75,10 @@ namespace usr
 
     int handle_user_message(connected_user &user, std::string_view message);
 
-    void send_input_status(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view input_sig);
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, const comm::comm_session &session,
+                           std::string_view status, std::string_view reason, std::string_view input_sig);
 
-    int add_user(const comm::comm_session &session, const std::string &pubkey, const PROTOCOL protocol);
+    int add_user(const comm::comm_session &session, const std::string &pubkey, const util::PROTOCOL protocol);
 
     int remove_user(const std::string &sessionid);
 

@@ -65,6 +65,15 @@ namespace util
         bool exists(const std::string &key);
     };
 
+    /**
+     * The messaging protocol used in a web socket channel.
+     */
+    enum PROTOCOL
+    {
+        JSON = 0,
+        BSON = 1
+    };
+
     int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len);
 
     int hex2bin(unsigned char *decoded, const size_t decoded_len, std::string_view hex_str);

@@ -6,7 +6,7 @@
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
 
-namespace common = msg::usrmsg::common;
+namespace common = msg::usrmsg;
 
 namespace msg::usrmsg::json
 {
@@ -281,6 +281,48 @@ namespace msg::usrmsg::json
     }
 
     /**
+ * Parses a json message sent by a user.
+ * @param d RapidJson document to which the parsed json should be loaded.
+ * @param message The message to parse.
+ *                Accepted message format:
+ *                {
+ *                  'type': '<message type>'
+ *                  ...
+ *                }
+ * @return 0 on successful parsing. -1 for failure.
+ */
+    int parse_user_message(rapidjson::Document &d, std::string_view message)
+    {
+        // We load response raw bytes into json document.
+        // Because we project the response message directly from the binary socket buffer in a zero-copy manner, the response
+        // string is not null terminated. 'kParseStopWhenDoneFlag' avoids rapidjson error in this case.
+        d.Parse<rapidjson::kParseStopWhenDoneFlag>(message.data());
+        if (d.HasParseError())
+        {
+            LOG_DBG << "User json message parsing failed.";
+            return -1;
+        }
+
+        // Check existence of msg type field.
+        if (!d.HasMember(common::FLD_TYPE) || !d[common::FLD_TYPE].IsString())
+        {
+            LOG_DBG << "User json message 'type' missing or invalid.";
+            return -1;
+        }
+
+        return 0;
+    }
+
+    /**
+ * Extracts the message 'type' value from the json document.
+ */
+    int extract_type(std::string &extracted_type, const rapidjson::Document &d)
+    {
+        extracted_type = d[common::FLD_TYPE].GetString();
+        return 0;
+    }
+
+    /**
  * Extracts a contract read request message sent by user.
  * 
  * @param extracted_content The content to be passed to the contract, extracted from the message.
@@ -418,39 +460,6 @@ namespace msg::usrmsg::json
 
         nonce = d[common::FLD_NONCE].GetString();
         max_lcl_seqno = d[common::FLD_MAX_LCL_SEQ].GetUint64();
-
-        return 0;
-    }
-
-    /**
- * Parses a json message sent by a user.
- * @param d RapidJson document to which the parsed json should be loaded.
- * @param message The message to parse.
- *                Accepted message format:
- *                {
- *                  'type': '<message type>'
- *                  ...
- *                }
- * @return 0 on successful parsing. -1 for failure.
- */
-    int parse_user_message(rapidjson::Document &d, std::string_view message)
-    {
-        // We load response raw bytes into json document.
-        // Because we project the response message directly from the binary socket buffer in a zero-copy manner, the response
-        // string is not null terminated. 'kParseStopWhenDoneFlag' avoids rapidjson error in this case.
-        d.Parse<rapidjson::kParseStopWhenDoneFlag>(message.data());
-        if (d.HasParseError())
-        {
-            LOG_DBG << "User json message parsing failed.";
-            return -1;
-        }
-
-        // Check existence of msg type field.
-        if (!d.HasMember(common::FLD_TYPE) || !d[common::FLD_TYPE].IsString())
-        {
-            LOG_DBG << "User json message 'type' missing or invalid.";
-            return -1;
-        }
 
         return 0;
     }
