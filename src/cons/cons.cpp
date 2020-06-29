@@ -19,7 +19,7 @@
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 namespace jusrmsg = msg::usrmsg::json;
-namespace usrmsg = msg::usrmsg_common;
+namespace usrmsg = msg::usrmsg::common;
 
 namespace cons
 {

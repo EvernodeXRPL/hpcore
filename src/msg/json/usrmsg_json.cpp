@@ -6,7 +6,7 @@
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
 
-namespace common = msg::usrmsg_common;
+namespace common = msg::usrmsg::common;
 
 namespace msg::usrmsg::json
 {

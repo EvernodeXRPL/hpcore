@@ -3,7 +3,7 @@
 
 #include "../pchheader.hpp"
 
-namespace msg::usrmsg_common
+namespace msg::usrmsg::common
 {
     // Length of user random challenge bytes.
     constexpr size_t CHALLENGE_LEN = 16;

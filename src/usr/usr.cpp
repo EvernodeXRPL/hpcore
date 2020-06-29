@@ -12,7 +12,7 @@
 #include "user_input.hpp"
 
 namespace jusrmsg = msg::usrmsg::json;
-namespace usrmsg = msg::usrmsg_common;
+namespace usrmsg = msg::usrmsg::common;
 
 namespace usr
 {
