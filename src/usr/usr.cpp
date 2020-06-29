@@ -1,4 +1,5 @@
 #include "../pchheader.hpp"
+#include "../msg/json/usrmsg_json.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
 #include "../comm/comm_server.hpp"
@@ -80,8 +81,7 @@ namespace usr
         std::string protocol_code;
         std::string_view original_challenge = session.issued_challenge;
 
-        msg::usrmsg::usrmsg_parser parser(util::PROTOCOL::JSON);
-        if (parser.verify_user_handshake_response(userpubkeyhex, protocol_code, message, original_challenge) == 0)
+        if (msg::usrmsg::json::verify_user_handshake_response(userpubkeyhex, protocol_code, message, original_challenge) == 0)
         {
             // Challenge signature verification successful.
 

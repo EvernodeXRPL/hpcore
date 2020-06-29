@@ -11,14 +11,6 @@ namespace msg::usrmsg
     {
     }
 
-    void usrmsg_parser::create_user_challenge(std::string &msg, std::string &challengehex) const
-    {
-        if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_user_challenge(msg, challengehex);
-        else
-            ;
-    }
-
     void usrmsg_parser::create_status_response(std::string &msg) const
     {
         if (protocol == util::PROTOCOL::JSON)
@@ -50,15 +42,6 @@ namespace msg::usrmsg
             jusrmsg::create_contract_output_container(msg, content);
         else
             ;
-    }
-
-    int usrmsg_parser::verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
-                                                      std::string_view response, std::string_view original_challenge) const
-    {
-        if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::verify_user_handshake_response(extracted_pubkeyhex, extracted_protocol, response, original_challenge);
-        else
-            return -1;
     }
 
     int usrmsg_parser::parse(std::string_view message)

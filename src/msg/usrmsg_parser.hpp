@@ -19,8 +19,6 @@ namespace msg::usrmsg
     public:
         usrmsg_parser(const util::PROTOCOL protocol);
 
-        void create_user_challenge(std::string &msg, std::string &challengehex) const;
-
         void create_status_response(std::string &msg) const;
 
         void create_contract_input_status(std::string &msg, std::string_view status,
@@ -29,9 +27,6 @@ namespace msg::usrmsg
         void create_contract_read_response_container(std::string &msg, std::string_view content) const;
 
         void create_contract_output_container(std::string &msg, std::string_view content) const;
-
-        int verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
-                                           std::string_view response, std::string_view original_challenge) const;
 
         int parse(std::string_view message);
 
