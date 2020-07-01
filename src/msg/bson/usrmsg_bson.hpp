@@ -2,7 +2,6 @@
 #define _HP_MSG_BSON_USRMSG_BSON_
 
 #include "../../pchheader.hpp"
-#include "microbson.hpp"
 
 namespace msg::usrmsg::bson
 {
@@ -21,14 +20,14 @@ namespace msg::usrmsg::bson
     int verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
                                        std::string_view response, std::string_view original_challenge);
 
-    int parse_user_message(microbson::document &d, std::string_view message);
+    int parse_user_message(jsoncons::ojson &d, std::string_view message);
 
-    int extract_type(std::string &extracted_type, microbson::document &d);
+    int extract_type(std::string &extracted_type, jsoncons::ojson &d);
 
-    int extract_read_request(std::string &extracted_content, microbson::document &d);
+    int extract_read_request(std::string &extracted_content, jsoncons::ojson &d);
 
     int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig,
-                                       microbson::document &d);
+                                       jsoncons::ojson &d);
 
     int extract_input_container(std::string &input, std::string &nonce,
                                 uint64_t &max_lcl_seqno, std::string_view contentbson);

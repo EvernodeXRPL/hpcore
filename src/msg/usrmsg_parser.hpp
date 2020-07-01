@@ -1,7 +1,6 @@
 #ifndef _HP_MSG_USRMSG_PARSER_
 #define _HP_MSG_USRMSG_PARSER_
 
-#include "bson/microbson.hpp"
 #include "../util.hpp"
 #include "../pchheader.hpp"
 
@@ -14,7 +13,7 @@ namespace msg::usrmsg
     {
         const util::PROTOCOL protocol;
         rapidjson::Document jsonDoc;
-        microbson::document bsonDoc;
+        
 
     public:
         usrmsg_parser(const util::PROTOCOL protocol);
