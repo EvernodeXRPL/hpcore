@@ -159,15 +159,15 @@ namespace usr
             {
                 // Message is a contract input message.
 
-                std::string input_container_json;
+                std::string input_container;
                 std::string sig;
-                if (parser.extract_signed_input_container(input_container_json, sig) == 0)
+                if (parser.extract_signed_input_container(input_container, sig) == 0)
                 {
                     std::lock_guard<std::mutex> lock(ctx.users_mutex);
 
                     //Add to the submitted input list.
                     user.submitted_inputs.push_back(user_input(
-                        std::move(input_container_json),
+                        std::move(input_container),
                         std::move(sig),
                         user.protocol));
                     return 0;

@@ -379,7 +379,7 @@ namespace msg::usrmsg::json
  *          Accepted signed input container format:
  *          {
  *            "type": "contract_input",
- *            "input_container": "<stringified json input container message>",
+ *            "input_container": "<hex encoded stringified json input container message>",
  *            "sig": "<hex encoded signature of the content>"
  *          }
  * @return 0 on successful extraction. -1 for failure.
@@ -402,12 +402,15 @@ namespace msg::usrmsg::json
         // We do not verify the signature of the content here since we need to let each node
         // (including self) to verify that individually after we broadcast the NUP proposal.
 
-        const std::string input_container(d[msg::usrmsg::FLD_INPUT_CONTAINER].GetString(), d[msg::usrmsg::FLD_INPUT_CONTAINER].GetStringLength());
+        const std::string_view input_container_hex(d[msg::usrmsg::FLD_INPUT_CONTAINER].GetString(), d[msg::usrmsg::FLD_INPUT_CONTAINER].GetStringLength());
+        std::string input_container;
+        input_container.resize(input_container_hex.size() / 2);
+        util::hex2bin(reinterpret_cast<unsigned char *>(input_container.data()), input_container.length(), input_container_hex);
 
-        const std::string_view sighex(d[msg::usrmsg::FLD_SIG].GetString(), d[msg::usrmsg::FLD_SIG].GetStringLength());
+        const std::string_view sig_hex(d[msg::usrmsg::FLD_SIG].GetString(), d[msg::usrmsg::FLD_SIG].GetStringLength());
         std::string sig;
         sig.resize(crypto_sign_ed25519_BYTES);
-        util::hex2bin(reinterpret_cast<unsigned char *>(sig.data()), sig.length(), sighex);
+        util::hex2bin(reinterpret_cast<unsigned char *>(sig.data()), sig.length(), sig_hex);
 
         extracted_input_container = std::move(input_container);
         extracted_sig = std::move(sig);
