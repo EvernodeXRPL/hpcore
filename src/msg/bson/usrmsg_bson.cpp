@@ -124,6 +124,22 @@ namespace msg::usrmsg::bson
  */
    int parse_user_message(jsoncons::ojson &d, std::string_view message)
    {
+      try
+      {
+         d = jsoncons::bson::decode_bson<jsoncons::ojson>(message);
+      }
+      catch (const std::exception &e)
+      {
+         LOG_DBG << "User bson message parsing failed.";
+         return -1;
+      }
+
+      if (!d[FLD_TYPE].is_string())
+      {
+         LOG_DBG << "User bson message 'type' missing or invalid.";
+         return -1;
+      }
+
       return 0;
    }
 
@@ -132,6 +148,7 @@ namespace msg::usrmsg::bson
  */
    int extract_type(std::string &extracted_type, const jsoncons::ojson &d)
    {
+      extracted_type = d[FLD_TYPE].as<std::string>();
       return 0;
    }
 
@@ -149,6 +166,14 @@ namespace msg::usrmsg::bson
  */
    int extract_read_request(std::string &extracted_content, jsoncons::ojson &d)
    {
+      if (!d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
+      {
+         LOG_DBG << "Read request 'content' fields missing or invalid.";
+         return -1;
+      }
+
+      const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_CONTENT].as_byte_string_view();
+      extracted_content = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
       return 0;
    }
 
@@ -169,6 +194,18 @@ namespace msg::usrmsg::bson
    int extract_signed_input_container(
        std::string &extracted_input_container, std::string &extracted_sig, jsoncons::ojson &d)
    {
+      if (!d[msg::usrmsg::FLD_INPUT_CONTAINER].is_byte_string_view() || !d[msg::usrmsg::FLD_SIG].is_byte_string_view())
+      {
+         LOG_DBG << "User signed input required fields missing or invalid.";
+         return -1;
+      }
+
+      const jsoncons::byte_string_view &bsv1 = d[msg::usrmsg::FLD_INPUT_CONTAINER].as_byte_string_view();
+      extracted_input_container = std::string_view(reinterpret_cast<const char *>(bsv1.data()), bsv1.size());
+
+      const jsoncons::byte_string_view &bsv2 = d[msg::usrmsg::FLD_SIG].as_byte_string_view();
+      extracted_sig = std::string_view(reinterpret_cast<const char *>(bsv2.data()), bsv2.size());
+
       return 0;
    }
 
@@ -187,6 +224,28 @@ namespace msg::usrmsg::bson
  */
    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seqno, std::string_view contentbson)
    {
+      jsoncons::ojson d;
+      try
+      {
+         d = jsoncons::bson::decode_bson<jsoncons::ojson>(contentbson);
+      }
+      catch (const std::exception &e)
+      {
+         LOG_DBG << "User input container bson parsing failed.";
+         return -1;
+      }
+
+      if (!d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_string() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].is_uint64())
+      {
+         LOG_DBG << "User input container required fields missing or invalid.";
+         return -1;
+      }
+
+      const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_INPUT].as_byte_string_view();
+      input = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
+
+      nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
+      max_lcl_seqno = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
       return 0;
    }
 

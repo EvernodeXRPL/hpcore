@@ -437,13 +437,13 @@ namespace msg::usrmsg::json
             return -1;
         }
 
-        if (!d.HasMember(msg::usrmsg::FLD_NONCE) || !d.HasMember(msg::usrmsg::FLD_INPUT) || !d.HasMember(msg::usrmsg::FLD_MAX_LCL_SEQ))
+        if (!d.HasMember(msg::usrmsg::FLD_INPUT) || !d.HasMember(msg::usrmsg::FLD_NONCE) || !d.HasMember(msg::usrmsg::FLD_MAX_LCL_SEQ))
         {
             LOG_DBG << "User input container required fields missing.";
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_NONCE].IsString() || !d[msg::usrmsg::FLD_INPUT].IsString() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].IsUint64())
+        if (!d[msg::usrmsg::FLD_INPUT].IsString() || !d[msg::usrmsg::FLD_NONCE].IsString() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].IsUint64())
         {
             LOG_DBG << "User input container invalid field values.";
             return -1;
