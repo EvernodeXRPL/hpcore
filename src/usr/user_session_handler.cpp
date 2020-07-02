@@ -1,11 +1,11 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/json/usrmsg_json.hpp"
 #include "../bill/corebill.h"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 
-namespace jusrmsg = jsonschema::usrmsg;
+namespace jusrmsg = msg::usrmsg::json;
 
 namespace usr
 {
@@ -25,9 +25,9 @@ int user_session_handler::on_connect(comm::comm_session &session) const
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verify the user's response with it.
-    std::string msgstr;
-    jusrmsg::create_user_challenge(msgstr, session.issued_challenge);
-    session.send(msgstr);
+    std::vector<uint8_t> msg;
+    jusrmsg::create_user_challenge(msg, session.issued_challenge);
+    session.send(msg);
 
     // Set the challenge-issued value to true.
     session.challenge_status = comm::CHALLENGE_ISSUED;

@@ -5,6 +5,7 @@
 #include "../util.hpp"
 #include "../comm/comm_server.hpp"
 #include "../comm/comm_session.hpp"
+#include "../msg/usrmsg_parser.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
 
@@ -13,7 +14,6 @@
  */
 namespace usr
 {
-
     /**
  * Holds information about an authenticated (challenge-verified) user
  * connected to the HotPocket node.
@@ -24,7 +24,7 @@ namespace usr
         const std::string pubkey;
 
         // Holds the unprocessed user inputs collected from websocket.
-        std::list<user_submitted_message> submitted_inputs;
+        std::list<user_input> submitted_inputs;
 
         // Holds the unprocessed read requests collected from websocket.
         std::list<std::string> read_requests;
@@ -33,12 +33,15 @@ namespace usr
         // We don't need to own the session object since the lifetime of user and session are coupled.
         const comm::comm_session &session;
 
+        // The messaging protocol used by this user.
+        const util::PROTOCOL protocol;
+
         /**
      * @param session The web socket session the user is connected to.
      * @param pubkey The public key of the user in binary format.
      */
-        connected_user(const comm::comm_session &session, std::string_view pubkey)
-            : session(session), pubkey(pubkey)
+        connected_user(const comm::comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
+            : session(session), pubkey(pubkey), protocol(protocol)
         {
         }
     };
@@ -72,9 +75,10 @@ namespace usr
 
     int handle_user_message(connected_user &user, std::string_view message);
 
-    void send_input_status(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view input_sig);
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, const comm::comm_session &session,
+                           std::string_view status, std::string_view reason, std::string_view input_sig);
 
-    int add_user(const comm::comm_session &session, const std::string &pubkey);
+    int add_user(const comm::comm_session &session, const std::string &pubkey, const util::PROTOCOL protocol);
 
     int remove_user(const std::string &sessionid);
 

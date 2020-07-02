@@ -2,9 +2,9 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../p2p/p2p.hpp"
-#include "../fbschema/common_helpers.hpp"
-#include "../fbschema/ledger_helpers.hpp"
-#include "../fbschema/p2pmsg_helpers.hpp"
+#include "../msg/fbuf/common_helpers.hpp"
+#include "../msg/fbuf/ledger_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../hplog.hpp"
 #include "ledger_handler.hpp"
 #include "cons.hpp"
@@ -12,7 +12,7 @@
 namespace cons
 {
 
-namespace p2pmsg = fbschema::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 /**
  * Create and save ledger from the given proposal message.
@@ -37,7 +37,7 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
 
     //Serialize lcl using flatbuffer ledger schema.
     flatbuffers::FlatBufferBuilder builder(1024);
-    const std::string_view ledger_str = fbschema::ledger::create_ledger_from_proposal(builder, proposal, led_seq_no);
+    const std::string_view ledger_str = msg::fbuf::ledger::create_ledger_from_proposal(builder, proposal, led_seq_no);
 
     //Get binary hash of the the serialized lcl.
     const std::string lcl = crypto::get_hash(ledger_str);
@@ -185,10 +185,10 @@ const ledger_history load_ledger()
                 if (file.read(buffer.data(), size))
                 {
                     const uint8_t *ledger_buf_ptr = reinterpret_cast<const uint8_t *>(buffer.data());
-                    const fbschema::ledger::Ledger *ledger = fbschema::ledger::GetLedger(ledger_buf_ptr);
+                    const msg::fbuf::ledger::Ledger *ledger = msg::fbuf::ledger::GetLedger(ledger_buf_ptr);
                     ledger_cache_entry c;
                     c.lcl = file_name;
-                    c.state = fbschema::flatbuff_bytes_to_sv(ledger->state());
+                    c.state = msg::fbuf::flatbuff_bytes_to_sv(ledger->state());
 
                     ldg_hist.cache.emplace(seq_no, std::move(c)); //lcl_cache -> [seq_no-hash]
                 }

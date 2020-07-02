@@ -3,9 +3,10 @@
 #include "../usr/usr.hpp"
 #include "../usr/user_input.hpp"
 #include "../p2p/p2p.hpp"
-#include "../fbschema/p2pmsg_helpers.hpp"
-#include "../fbschema/common_helpers.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/fbuf/common_helpers.hpp"
+#include "../msg/usrmsg_parser.hpp"
+#include "../msg/usrmsg_common.hpp"
 #include "../p2p/peer_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../crypto.hpp"
@@ -16,8 +17,7 @@
 #include "ledger_handler.hpp"
 #include "cons.hpp"
 
-namespace p2pmsg = fbschema::p2pmsg;
-namespace jusrmsg = jsonschema::usrmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace cons
 {
@@ -126,9 +126,9 @@ namespace cons
             std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
             for (const auto &npl : p2p::ctx.collected_msgs.npl_messages)
             {
-                const fbschema::p2pmsg::Container *container = fbschema::p2pmsg::GetContainer(npl.data());
+                const msg::fbuf::p2pmsg::Container *container = msg::fbuf::p2pmsg::GetContainer(npl.data());
                 // Only the npl messages with a valid lcl will be passed down to the contract. lcl should match the previous round's lcl
-                if (fbschema::flatbuff_bytes_to_sv(container->lcl()) != ctx.lcl)
+                if (msg::fbuf::flatbuff_bytes_to_sv(container->lcl()) != ctx.lcl)
                     continue;
 
                 ctx.candidate_npl_messages.push_back(std::move(npl));
@@ -325,12 +325,12 @@ namespace cons
 
         for (auto &[sid, user] : usr::ctx.users)
         {
-            std::list<usr::user_submitted_message> usermsgs;
-            usermsgs.splice(usermsgs.end(), user.submitted_inputs);
+            std::list<usr::user_input> user_inputs;
+            user_inputs.splice(user_inputs.end(), user.submitted_inputs);
 
             // We should create an entry for each user pubkey, even if the user has no inputs. This is
             // because this data map will be used to track connected users as well in addition to inputs.
-            nup.user_messages.try_emplace(user.pubkey, std::move(usermsgs));
+            nup.user_inputs.try_emplace(user.pubkey, std::move(user_inputs));
         }
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -338,7 +338,7 @@ namespace cons
         p2p::broadcast_message(fbuf, true);
 
         LOG_DBG << "NUP sent."
-                << " users:" << nup.user_messages.size();
+                << " users:" << nup.user_inputs.size();
     }
 
     /**
@@ -354,7 +354,7 @@ namespace cons
         std::lock_guard<std::mutex> nups_lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
         for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
         {
-            for (const auto &[pubkey, umsgs] : p.user_messages)
+            for (const auto &[pubkey, umsgs] : p.user_inputs)
             {
                 // Locate this user's socket session in case we need to send any status messages regarding user inputs.
                 const comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
@@ -367,21 +367,23 @@ namespace cons
                 size_t total_input_len = 0;
                 bool appbill_balance_exceeded = false;
 
-                for (const usr::user_submitted_message &umsg : umsgs)
+                for (const usr::user_input &umsg : umsgs)
                 {
+                    msg::usrmsg::usrmsg_parser parser(umsg.protocol);
+
                     const char *reject_reason = NULL;
                     const std::string sig_hash = crypto::get_hash(umsg.sig);
 
                     // Check for duplicate messages using hash of the signature.
                     if (ctx.recent_userinput_hashes.try_emplace(sig_hash))
                     {
-                        // Verify the signature of the message content.
-                        if (crypto::verify(umsg.content, umsg.sig, pubkey) == 0)
+                        // Verify the signature of the input_container.
+                        if (crypto::verify(umsg.input_container, umsg.sig, pubkey) == 0)
                         {
                             std::string nonce;
                             std::string input;
                             uint64_t max_lcl_seqno;
-                            jusrmsg::extract_input_container(input, nonce, max_lcl_seqno, umsg.content);
+                            parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
 
                             // Ignore the input if our ledger has passed the input TTL.
                             if (max_lcl_seqno > ctx.led_seq_no)
@@ -406,37 +408,38 @@ namespace cons
                                         // Abandon processing further inputs from this user when we find out
                                         // an input cannot be processed with the account balance.
                                         appbill_balance_exceeded = true;
-                                        reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                        reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                                     }
                                 }
                                 else
                                 {
-                                    reject_reason = jusrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                                    reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                                 }
                             }
                             else
                             {
                                 LOG_DBG << "User message bad max ledger seq expired.";
-                                reject_reason = jusrmsg::REASON_MAX_LEDGER_EXPIRED;
+                                reject_reason = msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
                             }
                         }
                         else
                         {
                             LOG_DBG << "User message bad signature.";
-                            reject_reason = jusrmsg::REASON_BAD_SIG;
+                            reject_reason = msg::usrmsg::REASON_BAD_SIG;
                         }
                     }
                     else
                     {
                         LOG_DBG << "Duplicate user message.";
-                        reject_reason = jusrmsg::REASON_DUPLICATE_MSG;
+                        reject_reason = msg::usrmsg::REASON_DUPLICATE_MSG;
                     }
 
                     // Send the request status result if this user is connected to us.
                     if (session != NULL)
                     {
-                        usr::send_input_status(*session,
-                                               reject_reason == NULL ? jusrmsg::STATUS_ACCEPTED : jusrmsg::STATUS_REJECTED,
+                        usr::send_input_status(parser,
+                                               *session,
+                                               reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                                reject_reason == NULL ? "" : reject_reason,
                                                umsg.sig);
                     }
@@ -816,10 +819,12 @@ namespace cons
                         std::string outputtosend;
                         outputtosend.swap(cand_output.output);
 
-                        std::string msg;
-                        jusrmsg::create_contract_output_container(msg, outputtosend);
-
                         const usr::connected_user &user = user_itr->second;
+                        msg::usrmsg::usrmsg_parser parser(user.protocol);
+
+                        std::vector<uint8_t> msg;
+                        parser.create_contract_output_container(msg, outputtosend);
+
                         user.session.send(msg);
                     }
                 }

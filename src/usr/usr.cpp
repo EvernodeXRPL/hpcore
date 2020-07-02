@@ -1,5 +1,7 @@
 #include "../pchheader.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/json/usrmsg_json.hpp"
+#include "../msg/usrmsg_parser.hpp"
+#include "../msg/usrmsg_common.hpp"
 #include "../comm/comm_server.hpp"
 #include "../comm/comm_session.hpp"
 #include "../util.hpp"
@@ -9,8 +11,6 @@
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
-
-namespace jusrmsg = jsonschema::usrmsg;
 
 namespace usr
 {
@@ -78,8 +78,10 @@ namespace usr
         }
 
         std::string userpubkeyhex;
+        std::string protocol_code;
         std::string_view original_challenge = session.issued_challenge;
-        if (jusrmsg::verify_user_challenge_response(userpubkeyhex, message, original_challenge) == 0)
+
+        if (msg::usrmsg::json::verify_user_handshake_response(userpubkeyhex, protocol_code, message, original_challenge) == 0)
         {
             // Challenge signature verification successful.
 
@@ -98,8 +100,10 @@ namespace usr
                 // All good. Unique public key.
                 // Promote the connection from pending-challenges to authenticated users.
 
+                const util::PROTOCOL user_protocol = (protocol_code == "json" ? util::PROTOCOL::JSON : util::PROTOCOL::BSON);
+
                 session.challenge_status = comm::CHALLENGE_VERIFIED; // Set as challenge verified
-                add_user(session, userpubkey);                       // Add the user to the global authed user list
+                add_user(session, userpubkey, user_protocol);        // Add the user to the global authed user list
                 session.issued_challenge.clear();                    // Remove the stored challenge
 
                 LOG_DBG << "User connection " << session.uniqueid << " authenticated. Public key "
@@ -127,17 +131,17 @@ namespace usr
  */
     int handle_user_message(connected_user &user, std::string_view message)
     {
-        rapidjson::Document d;
-        const char *msg_type = jusrmsg::MSGTYPE_UNKNOWN;
+        msg::usrmsg::usrmsg_parser parser(user.protocol);
 
-        if (jusrmsg::parse_user_message(d, message) == 0)
+        if (parser.parse(message) == 0)
         {
-            const char *msg_type = d[jusrmsg::FLD_TYPE].GetString();
+            std::string msg_type;
+            parser.extract_type(msg_type);
 
-            if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_READ_REQUEST)
+            if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_READ_REQUEST)
             {
                 std::string content;
-                if (jusrmsg::extract_read_request(content, d) == 0)
+                if (parser.extract_read_request(content) == 0)
                 {
                     std::lock_guard<std::mutex> lock(ctx.users_mutex);
 
@@ -147,50 +151,51 @@ namespace usr
                 }
                 else
                 {
-                    send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, "");
+                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, "");
                     return -1;
                 }
             }
-            else if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_CONTRACT_INPUT)
+            else if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_INPUT)
             {
                 // Message is a contract input message.
 
-                std::string input_container_json;
+                std::string input_container;
                 std::string sig;
-                if (jusrmsg::extract_signed_input_container(input_container_json, sig, d) == 0)
+                if (parser.extract_signed_input_container(input_container, sig) == 0)
                 {
                     std::lock_guard<std::mutex> lock(ctx.users_mutex);
 
                     //Add to the submitted input list.
-                    user.submitted_inputs.push_back(user_submitted_message(
-                        std::move(input_container_json),
-                        std::move(sig)));
+                    user.submitted_inputs.push_back(user_input(
+                        std::move(input_container),
+                        std::move(sig),
+                        user.protocol));
                     return 0;
                 }
                 else
                 {
-                    send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_SIG, sig);
+                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_SIG, sig);
                     return -1;
                 }
             }
-            else if (d[jusrmsg::FLD_TYPE] == jusrmsg::MSGTYPE_STAT)
+            else if (msg_type == msg::usrmsg::MSGTYPE_STAT)
             {
-                std::string msg;
-                jusrmsg::create_status_response(msg);
+                std::vector<uint8_t> msg;
+                parser.create_status_response(msg);
                 user.session.send(msg);
                 return 0;
             }
             else
             {
                 LOG_DBG << "Invalid user message type: " << msg_type;
-                send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_INVALID_MSG_TYPE, "");
+                send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_INVALID_MSG_TYPE, "");
                 return -1;
             }
         }
         else
         {
             // Bad message.
-            send_input_status(user.session, jusrmsg::STATUS_REJECTED, jusrmsg::REASON_BAD_MSG_FORMAT, "");
+            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, "");
             return -1;
         }
     }
@@ -198,10 +203,11 @@ namespace usr
     /**
  * Send the specified contract input status result via the provided session.
  */
-    void send_input_status(const comm::comm_session &session, std::string_view status, std::string_view reason, std::string_view input_sig)
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, const comm::comm_session &session,
+                           std::string_view status, std::string_view reason, std::string_view input_sig)
     {
-        std::string msg;
-        jusrmsg::create_contract_input_status(msg, status, reason, input_sig);
+        std::vector<uint8_t> msg;
+        parser.create_contract_input_status(msg, status, reason, input_sig);
         session.send(msg);
     }
 
@@ -211,9 +217,10 @@ namespace usr
  * 
  * @param session User socket session.
  * @param pubkey User's binary public key.
+ * @param protocol Messaging protocol used by user.
  * @return 0 on successful additions. -1 on failure.
  */
-    int add_user(const comm::comm_session &session, const std::string &pubkey)
+    int add_user(const comm::comm_session &session, const std::string &pubkey, const util::PROTOCOL protocol)
     {
         const std::string &sessionid = session.uniqueid;
         if (ctx.users.count(sessionid) == 1)
@@ -224,7 +231,7 @@ namespace usr
 
         {
             std::lock_guard<std::mutex> lock(ctx.users_mutex);
-            ctx.users.emplace(sessionid, usr::connected_user(session, pubkey));
+            ctx.users.emplace(sessionid, usr::connected_user(session, pubkey, protocol));
         }
 
         // Populate sessionid map so we can lookup by user pubkey.

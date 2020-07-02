@@ -4,7 +4,7 @@
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "../p2p/p2p.hpp"
-#include "../fbschema/p2pmsg_content_generated.h"
+#include "../msg/fbuf/p2pmsg_content_generated.h"
 
 namespace state_serve
 {

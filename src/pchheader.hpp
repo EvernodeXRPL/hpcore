@@ -30,6 +30,8 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <jsoncons/json.hpp>
+#include <jsoncons_ext/bson/bson.hpp>
 #include <libgen.h>
 #include <list>
 #include <math.h>

@@ -71,6 +71,13 @@ namespace comm
             }
             else if (read_len > 0)
             {
+                if (!is_binary)
+                {
+                    read_buffer.resize(read_len);
+                    if (read(read_fd, read_buffer.data(), read_len) < read_len)
+                        return -1;
+                }
+
                 int res = on_message(std::string_view(read_buffer.data(), read_len));
                 read_buffer.clear(); // Clear the buffer after read operation.
                 read_buffer_filled_size = 0;
@@ -89,6 +96,12 @@ namespace comm
             return user_sess_handler.on_message(*this, message);
         else
             return peer_sess_handler.on_message(*this, message);
+    }
+
+    int comm_session::send(const std::vector<uint8_t> &message) const
+    {
+        std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
+        send(sv);
     }
 
     int comm_session::send(std::string_view message) const

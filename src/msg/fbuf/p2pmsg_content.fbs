@@ -1,8 +1,8 @@
 // IDL file for p2p message content schema.
-// flatc -o src/fbschema/ --gen-mutable --cpp src/fbschema/p2pmsg_content.fbs
+// flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg_content.fbs
 
 include "common_schema.fbs";
-namespace fbschema.p2pmsg;
+namespace msg.fbuf.p2pmsg;
 
 table Peer_Challenge_Message {
     challenge:[ubyte];
@@ -13,14 +13,15 @@ table Peer_Challenge_Response_Message {
     sig:[ubyte];
 }
 
-table UserSubmittedMessage {
-    content:[ubyte];
+table UserInput {
+    input_container:[ubyte];
     signature:[ubyte];
+    protocol:uint8;
 }
 
-table UserSubmittedMessageGroup {
+table UserInputGroup {
     pubkey:[ubyte];
-    messages:[UserSubmittedMessage];
+    messages:[UserInput];
 }
 
 union Message { Peer_Challenge_Response_Message, Peer_Challenge_Message, NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, State_Response_Message, History_Request_Message, History_Response_Message } //message content type
@@ -30,7 +31,7 @@ table Content {
 }
 
 table NonUnl_Proposal_Message {
-    usermessages:[UserSubmittedMessageGroup];
+    user_inputs:[UserInputGroup];
 }
 
 table Proposal_Message { //Proposal type message schema

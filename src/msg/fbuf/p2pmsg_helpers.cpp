@@ -1,17 +1,17 @@
-#include "../pchheader.hpp"
-#include "../conf.hpp"
-#include "../crypto.hpp"
-#include "../util.hpp"
-#include "../hplog.hpp"
-#include "../p2p/p2p.hpp"
-#include "../hpfs/h32.hpp"
-#include "../hpfs/hpfs.hpp"
+#include "../../pchheader.hpp"
+#include "../../conf.hpp"
+#include "../../crypto.hpp"
+#include "../../util.hpp"
+#include "../../hplog.hpp"
+#include "../../p2p/p2p.hpp"
+#include "../../hpfs/h32.hpp"
+#include "../../hpfs/hpfs.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
 #include "common_helpers.hpp"
 #include "p2pmsg_helpers.hpp"
 
-namespace fbschema::p2pmsg
+namespace msg::fbuf::p2pmsg
 {
 
     // Length of a peer connection challange.
@@ -186,8 +186,8 @@ namespace fbschema::p2pmsg
     {
         p2p::nonunl_proposal nup;
 
-        if (msg.usermessages())
-            nup.user_messages = flatbuf_usermsgsmap_to_usermsgsmap(msg.usermessages());
+        if (msg.user_inputs())
+            nup.user_inputs = flatbuf_user_input_group_to_user_input_map(msg.user_inputs());
 
         return nup;
     }
@@ -331,7 +331,7 @@ namespace fbschema::p2pmsg
         const flatbuffers::Offset<NonUnl_Proposal_Message> nupmsg =
             CreateNonUnl_Proposal_Message(
                 builder,
-                usermsgsmap_to_flatbuf_usermsgsmap(builder, nup.user_messages));
+                user_input_map_to_flatbuf_user_input_group(builder, nup.user_inputs));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_NonUnl_Proposal_Message, nupmsg.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -613,23 +613,24 @@ namespace fbschema::p2pmsg
 
     //---Conversion helpers from flatbuffers data types to std data types---//
 
-    const std::unordered_map<std::string, const std::list<usr::user_submitted_message>>
-    flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>> *fbvec)
+    const std::unordered_map<std::string, const std::list<usr::user_input>>
+    flatbuf_user_input_group_to_user_input_map(const flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>> *fbvec)
     {
-        std::unordered_map<std::string, const std::list<usr::user_submitted_message>> map;
+        std::unordered_map<std::string, const std::list<usr::user_input>> map;
         map.reserve(fbvec->size());
-        for (const UserSubmittedMessageGroup *group : *fbvec)
+        for (const UserInputGroup *group : *fbvec)
         {
-            std::list<usr::user_submitted_message> msglist;
+            std::list<usr::user_input> user_inputs_list;
 
             for (const auto msg : *group->messages())
             {
-                msglist.push_back(usr::user_submitted_message(
-                    flatbuff_bytes_to_sv(msg->content()),
-                    flatbuff_bytes_to_sv(msg->signature())));
+                user_inputs_list.push_back(usr::user_input(
+                    flatbuff_bytes_to_sv(msg->input_container()),
+                    flatbuff_bytes_to_sv(msg->signature()),
+                    static_cast<util::PROTOCOL>(msg->protocol())));
             }
 
-            map.emplace(flatbuff_bytes_to_sv(group->pubkey()), std::move(msglist));
+            map.emplace(flatbuff_bytes_to_sv(group->pubkey()), std::move(user_inputs_list));
         }
         return map;
     }
@@ -637,23 +638,24 @@ namespace fbschema::p2pmsg
     //---Conversion helpers from std data types to flatbuffers data types---//
     //---These are used in constructing Flatbuffer messages using builders---//
 
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>>>
-    usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_message>> &map)
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>
+    user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_input>> &map)
     {
-        std::vector<flatbuffers::Offset<UserSubmittedMessageGroup>> fbvec;
+        std::vector<flatbuffers::Offset<UserInputGroup>> fbvec;
         fbvec.reserve(map.size());
         for (const auto &[pubkey, msglist] : map)
         {
-            std::vector<flatbuffers::Offset<UserSubmittedMessage>> fbmsgsvec;
-            for (const usr::user_submitted_message &msg : msglist)
+            std::vector<flatbuffers::Offset<UserInput>> fbmsgsvec;
+            for (const usr::user_input &msg : msglist)
             {
-                fbmsgsvec.push_back(CreateUserSubmittedMessage(
+                fbmsgsvec.push_back(CreateUserInput(
                     builder,
-                    sv_to_flatbuff_bytes(builder, msg.content),
-                    sv_to_flatbuff_bytes(builder, msg.sig)));
+                    sv_to_flatbuff_bytes(builder, msg.input_container),
+                    sv_to_flatbuff_bytes(builder, msg.sig),
+                    static_cast<uint8_t>(msg.protocol)));
             }
 
-            fbvec.push_back(CreateUserSubmittedMessageGroup(
+            fbvec.push_back(CreateUserInputGroup(
                 builder,
                 sv_to_flatbuff_bytes(builder, pubkey),
                 builder.CreateVector(fbmsgsvec)));
@@ -668,7 +670,7 @@ namespace fbschema::p2pmsg
 
         for (const HistoryLedgerPair *pair : *fbvec)
         {
-            std::list<usr::user_submitted_message> msglist;
+            std::list<usr::user_input> msglist;
 
             p2p::history_ledger ledger;
 
@@ -735,4 +737,4 @@ namespace fbschema::p2pmsg
         return builder.CreateVector(fbvec);
     }
 
-} // namespace fbschema::p2pmsg
+} // namespace msg::fbuf::p2pmsg

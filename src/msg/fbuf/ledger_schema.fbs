@@ -1,6 +1,6 @@
 include "common_schema.fbs";
 
-namespace fbschema.ledger;
+namespace msg.fbuf.ledger;
 
 table Ledger {
     seq_no:uint64;

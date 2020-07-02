@@ -3,7 +3,7 @@
  needed api methods. Since Flatbuff only support one rrot at each IDL files, we had to seperate message schema to 2 files.
 */
 include "p2pmsg_content.fbs";
-namespace fbschema.p2pmsg;
+namespace msg.fbuf.p2pmsg;
 
 table Container { //root type for message
     version:uint16;

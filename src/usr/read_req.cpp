@@ -3,11 +3,9 @@
 #include "../util.hpp"
 #include "../sc.hpp"
 #include "../conf.hpp"
-#include "../jsonschema/usrmsg_helpers.hpp"
+#include "../msg/usrmsg_parser.hpp"
 #include "usr.hpp"
 #include "read_req.hpp"
-
-namespace jusrmsg = jsonschema::usrmsg;
 
 /**
  * Helper functions for serving read requests from users.
@@ -97,10 +95,12 @@ namespace read_req
                                     std::string outputtosend;
                                     outputtosend.swap(bufpair.output);
 
-                                    std::string msg;
-                                    jusrmsg::create_contract_read_response_container(msg, outputtosend);
-
                                     const usr::connected_user &user = user_itr->second;
+                                    msg::usrmsg::usrmsg_parser parser(user.protocol);
+
+                                    std::vector<uint8_t> msg;
+                                    parser.create_contract_read_response_container(msg, outputtosend);
+
                                     user.session.send(msg);
                                     dispatch_count++;
                                 }

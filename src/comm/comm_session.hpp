@@ -58,6 +58,7 @@ public:
         const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
     int on_connect();
     int attempt_read(const uint64_t max_msg_size);
+    int send(const std::vector<uint8_t> &message) const;
     int send(std::string_view message) const;
     void close(const bool invoke_handler = true);
 

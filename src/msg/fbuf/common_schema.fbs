@@ -1,5 +1,5 @@
 //IDL file for common types.
-namespace fbschema;
+namespace msg.fbuf;
 
 table BytesKeyValuePair { //A key, value pair of byte[].
     key:[ubyte];

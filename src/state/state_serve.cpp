@@ -3,15 +3,15 @@
 #include "../hpfs/h32.hpp"
 #include "../util.hpp"
 #include "../p2p/p2p.hpp"
-#include "../fbschema/p2pmsg_content_generated.h"
-#include "../fbschema/p2pmsg_helpers.hpp"
-#include "../fbschema/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_content_generated.h"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/fbuf/common_helpers.hpp"
 #include "../cons/cons.hpp"
 #include "../hplog.hpp"
 #include "state_serve.hpp"
 #include "state_common.hpp"
 
-namespace p2pmsg = fbschema::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 /**
  * Helper functions for serving state requests from other peers.
@@ -70,7 +70,7 @@ namespace state_serve
                 if (is_shutting_down)
                     break;
 
-                const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(request.data());
+                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
 
                 const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
                 flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -132,7 +132,7 @@ namespace state_serve
             resp.hash = sr.expected_hash;
             resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-            fbschema::p2pmsg::create_msg_from_block_response(fbuf, resp, cons::ctx.lcl);
+            msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, cons::ctx.lcl);
         }
         else
         {
@@ -147,7 +147,7 @@ namespace state_serve
                     return -1;
                 }
 
-                fbschema::p2pmsg::create_msg_from_filehashmap_response(
+                msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
                     fbuf, sr.parent_path, block_hashes,
                     file_length, sr.expected_hash, cons::ctx.lcl);
             }
@@ -162,7 +162,7 @@ namespace state_serve
                     return -1;
                 }
 
-                fbschema::p2pmsg::create_msg_from_fsentry_response(
+                msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
                     fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, cons::ctx.lcl);
             }
         }

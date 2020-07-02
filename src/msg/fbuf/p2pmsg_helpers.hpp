@@ -1,14 +1,14 @@
-#ifndef _HP_FBSCHEMA_P2PMSG_HELPERS_
-#define _HP_FBSCHEMA_P2PMSG_HELPERS_
+#ifndef _HP_MSG_FBUF_P2PMSG_HELPERS_
+#define _HP_MSG_FBUF_P2PMSG_HELPERS_
 
-#include "../pchheader.hpp"
+#include "../../pchheader.hpp"
+#include "../../p2p/p2p.hpp"
+#include "../../hpfs/h32.hpp"
+#include "../../hpfs/hpfs.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
-#include "../p2p/p2p.hpp"
-#include "../hpfs/h32.hpp"
-#include "../hpfs/hpfs.hpp"
 
-namespace fbschema::p2pmsg
+namespace msg::fbuf::p2pmsg
 {
     /**
  * This section contains Flatbuffer p2p message reading/writing helpers.
@@ -70,13 +70,13 @@ namespace fbschema::p2pmsg
 
     //---Conversion helpers from flatbuffers data types to std data types---//
 
-    const std::unordered_map<std::string, const std::list<usr::user_submitted_message>>
-    flatbuf_usermsgsmap_to_usermsgsmap(const flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>> *fbvec);
+    const std::unordered_map<std::string, const std::list<usr::user_input>>
+    flatbuf_user_input_group_to_user_input_map(const flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>> *fbvec);
 
     //---Conversion helpers from std data types to flatbuffers data types---//
 
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserSubmittedMessageGroup>>>
-    usermsgsmap_to_flatbuf_usermsgsmap(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_submitted_message>> &map);
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>
+    user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_input>> &map);
 
     const std::map<uint64_t, const p2p::history_ledger>
     flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *fbvec);
@@ -95,6 +95,6 @@ namespace fbschema::p2pmsg
         flatbuffers::FlatBufferBuilder &builder,
         std::vector<hpfs::child_hash_node> &hash_nodes);
 
-} // namespace fbschema::p2pmsg
+} // namespace msg::fbuf::p2pmsg
 
 #endif

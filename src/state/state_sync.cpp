@@ -1,6 +1,6 @@
-#include "../fbschema/p2pmsg_helpers.hpp"
-#include "../fbschema/p2pmsg_content_generated.h"
-#include "../fbschema/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_content_generated.h"
+#include "../msg/fbuf/common_helpers.hpp"
 #include "../p2p/p2p.hpp"
 #include "../pchheader.hpp"
 #include "../cons/cons.hpp"
@@ -159,12 +159,12 @@ namespace state_sync
                 if (should_stop_request_loop(current_target))
                     return;
 
-                const fbschema::p2pmsg::Content *content = fbschema::p2pmsg::GetContent(response.data());
-                const fbschema::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
+                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.data());
+                const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
                 // Check whether we are actually waiting for this response. If not, ignore it.
-                std::string_view hash = fbschema::flatbuff_bytes_to_sv(resp_msg->hash());
-                std::string_view vpath = fbschema::flatbuff_str_to_sv(resp_msg->path());
+                std::string_view hash = msg::fbuf::flatbuff_bytes_to_sv(resp_msg->hash());
+                std::string_view vpath = msg::fbuf::flatbuff_str_to_sv(resp_msg->path());
 
                 const std::string key = std::string(vpath).append(hash);
                 const auto pending_resp_itr = ctx.submitted_requests.find(key);
@@ -178,13 +178,13 @@ namespace state_sync
                 ctx.submitted_requests.erase(pending_resp_itr);
 
                 // Process the message based on response type.
-                const fbschema::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
+                const msg::fbuf::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
 
-                if (msg_type == fbschema::p2pmsg::State_Response_Fs_Entry_Response)
+                if (msg_type == msg::fbuf::p2pmsg::State_Response_Fs_Entry_Response)
                     handle_fs_entry_response(vpath, resp_msg->state_response_as_Fs_Entry_Response());
-                else if (msg_type == fbschema::p2pmsg::State_Response_File_HashMap_Response)
+                else if (msg_type == msg::fbuf::p2pmsg::State_Response_File_HashMap_Response)
                     handle_file_hashmap_response(vpath, resp_msg->state_response_as_File_HashMap_Response());
-                else if (msg_type == fbschema::p2pmsg::State_Response_Block_Response)
+                else if (msg_type == msg::fbuf::p2pmsg::State_Response_Block_Response)
                     handle_file_block_response(vpath, resp_msg->state_response_as_Block_Response());
 
                 // After handling each response, check whether we have reached target state.
@@ -262,7 +262,7 @@ namespace state_sync
         sr.expected_hash = expected_hash;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        fbschema::p2pmsg::create_msg_from_state_request(fbuf, sr, cons::ctx.lcl);
+        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, sr, cons::ctx.lcl);
         p2p::send_message_to_random_peer(fbuf); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
     }
 
@@ -286,14 +286,14 @@ namespace state_sync
     /**
  * Process dir children response.
  */
-    int handle_fs_entry_response(std::string_view parent_vpath, const fbschema::p2pmsg::Fs_Entry_Response *fs_entry_resp)
+    int handle_fs_entry_response(std::string_view parent_vpath, const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_entry_resp)
     {
         // Get the parent path of the fs entries we have received.
         LOG_DBG << "State sync: Processing fs entries response for " << parent_vpath;
 
         // Get fs entries we have received.
         std::unordered_map<std::string, p2p::state_fs_hash_entry> peer_fs_entry_map;
-        fbschema::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(peer_fs_entry_map, fs_entry_resp->entries());
+        msg::fbuf::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(peer_fs_entry_map, fs_entry_resp->entries());
 
         // Create physical directory on our side if not exist.
         std::string parent_physical_path = std::string(ctx.hpfs_mount_dir).append(parent_vpath);
@@ -362,7 +362,7 @@ namespace state_sync
     /**
  * Process file block hash map response.
  */
-    int handle_file_hashmap_response(std::string_view file_vpath, const fbschema::p2pmsg::File_HashMap_Response *file_resp)
+    int handle_file_hashmap_response(std::string_view file_vpath, const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp)
     {
         // Get the file path of the block hashes we have received.
         LOG_DBG << "State sync: Processing file block hashes response for " << file_vpath;
@@ -401,11 +401,11 @@ namespace state_sync
     /**
  * Process file block response.
  */
-    int handle_file_block_response(std::string_view file_vpath, const fbschema::p2pmsg::Block_Response *block_msg)
+    int handle_file_block_response(std::string_view file_vpath, const msg::fbuf::p2pmsg::Block_Response *block_msg)
     {
         // Get the file path of the block data we have received.
         const uint32_t block_id = block_msg->block_id();
-        std::string_view buf = fbschema::flatbuff_bytes_to_sv(block_msg->data());
+        std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_msg->data());
 
         LOG_DBG << "State sync: Writing block_id " << block_id
                 << " (len:" << buf.length()
