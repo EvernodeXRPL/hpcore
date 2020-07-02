@@ -27,7 +27,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             jusrmsg::create_contract_input_status(msg, status, reason, input_sig);
         else
-            ;
+            busrmsg::create_contract_input_status(msg, status, reason, input_sig);
     }
 
     void usrmsg_parser::create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content) const
@@ -35,7 +35,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             jusrmsg::create_contract_read_response_container(msg, content);
         else
-            ;
+            busrmsg::create_contract_read_response_container(msg, content);
     }
 
     void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content) const
@@ -43,7 +43,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             jusrmsg::create_contract_output_container(msg, content);
         else
-            ;
+            busrmsg::create_contract_output_container(msg, content);
     }
 
     int usrmsg_parser::parse(std::string_view message)
@@ -51,7 +51,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             return jusrmsg::parse_user_message(jsonDoc, message);
         else
-            return -1;
+            return busrmsg::parse_user_message(bsonDoc, message);
     }
 
     int usrmsg_parser::extract_type(std::string &extracted_type) const
@@ -59,7 +59,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             return jusrmsg::extract_type(extracted_type, jsonDoc);
         else
-            return -1;
+            return busrmsg::extract_type(extracted_type, bsonDoc);
     }
 
     int usrmsg_parser::extract_read_request(std::string &extracted_content) const
@@ -67,7 +67,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             return jusrmsg::extract_read_request(extracted_content, jsonDoc);
         else
-            return -1;
+            return busrmsg::extract_read_request(extracted_content, bsonDoc);
     }
 
     int usrmsg_parser::extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const
@@ -75,7 +75,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             return jusrmsg::extract_signed_input_container(extracted_input_container, extracted_sig, jsonDoc);
         else
-            return -1;
+            return busrmsg::extract_signed_input_container(extracted_input_container, extracted_sig, bsonDoc);
     }
 
     int usrmsg_parser::extract_input_container(std::string &input, std::string &nonce,
@@ -84,7 +84,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             return jusrmsg::extract_input_container(input, nonce, max_lcl_seqno, encoded_content);
         else
-            return -1;
+            return busrmsg::extract_input_container(input, nonce, max_lcl_seqno, encoded_content);
     }
 
 } // namespace msg::usrmsg

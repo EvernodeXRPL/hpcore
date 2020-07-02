@@ -164,7 +164,7 @@ namespace msg::usrmsg::bson
  *          }
  * @return 0 on successful extraction. -1 for failure.
  */
-   int extract_read_request(std::string &extracted_content, jsoncons::ojson &d)
+   int extract_read_request(std::string &extracted_content, const jsoncons::ojson &d)
    {
       if (!d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
       {
@@ -192,7 +192,7 @@ namespace msg::usrmsg::bson
  * @return 0 on successful extraction. -1 for failure.
  */
    int extract_signed_input_container(
-       std::string &extracted_input_container, std::string &extracted_sig, jsoncons::ojson &d)
+       std::string &extracted_input_container, std::string &extracted_sig, const jsoncons::ojson &d)
    {
       if (!d[msg::usrmsg::FLD_INPUT_CONTAINER].is_byte_string_view() || !d[msg::usrmsg::FLD_SIG].is_byte_string_view())
       {

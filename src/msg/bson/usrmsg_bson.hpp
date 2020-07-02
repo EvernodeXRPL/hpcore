@@ -22,12 +22,12 @@ namespace msg::usrmsg::bson
 
     int parse_user_message(jsoncons::ojson &d, std::string_view message);
 
-    int extract_type(std::string &extracted_type, jsoncons::ojson &d);
+    int extract_type(std::string &extracted_type, const jsoncons::ojson &d);
 
-    int extract_read_request(std::string &extracted_content, jsoncons::ojson &d);
+    int extract_read_request(std::string &extracted_content, const jsoncons::ojson &d);
 
     int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig,
-                                       jsoncons::ojson &d);
+                                       const jsoncons::ojson &d);
 
     int extract_input_container(std::string &input, std::string &nonce,
                                 uint64_t &max_lcl_seqno, std::string_view contentbson);
