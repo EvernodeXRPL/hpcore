@@ -71,6 +71,13 @@ namespace comm
             }
             else if (read_len > 0)
             {
+                if (!is_binary)
+                {
+                    read_buffer.resize(read_len);
+                    if (read(read_fd, read_buffer.data(), read_len) < read_len)
+                        return -1;
+                }
+
                 int res = on_message(std::string_view(read_buffer.data(), read_len));
                 read_buffer.clear(); // Clear the buffer after read operation.
                 read_buffer_filled_size = 0;

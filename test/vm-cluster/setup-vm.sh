@@ -8,6 +8,8 @@ hpcore=$5
 
 echo $nodeid. $vmip
 
+strip $hpcore/build/hpcore
+
 if [ $mode = "new" ]; then
 
     sshpass -f vmpass.txt scp $hpcore/build/hpcore \
