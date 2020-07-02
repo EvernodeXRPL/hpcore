@@ -180,7 +180,7 @@ namespace usr
             }
             else if (msg_type == msg::usrmsg::MSGTYPE_STAT)
             {
-                std::string msg;
+                std::vector<uint8_t> msg;
                 parser.create_status_response(msg);
                 user.session.send(msg);
                 return 0;
@@ -206,7 +206,7 @@ namespace usr
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, const comm::comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig)
     {
-        std::string msg;
+        std::vector<uint8_t> msg;
         parser.create_contract_input_status(msg, status, reason, input_sig);
         session.send(msg);
     }

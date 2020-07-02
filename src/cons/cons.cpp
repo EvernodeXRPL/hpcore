@@ -822,7 +822,7 @@ namespace cons
                         const usr::connected_user &user = user_itr->second;
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
 
-                        std::string msg;
+                        std::vector<uint8_t> msg;
                         parser.create_contract_output_container(msg, outputtosend);
 
                         user.session.send(msg);

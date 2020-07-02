@@ -14,6 +14,13 @@ namespace msg::usrmsg::json
     constexpr const char *SEP_COMMA_NOQUOTE = ",\"";
     constexpr const char *SEP_COLON_NOQUOTE = "\":";
 
+    // std::vector overload to concatonate string.
+    std::vector<uint8_t> &operator+=(std::vector<uint8_t> &vec, std::string_view sv)
+    {
+        vec.insert(vec.end(), sv.begin(), sv.end());
+        return vec;
+    }
+
     /**
  * Constructs user challenge message json and the challenge string required for
  * initial user challenge handshake. This gets called when a user establishes
@@ -27,7 +34,7 @@ namespace msg::usrmsg::json
  *            }
  * @param challengehex String reference to copy the generated hex challenge string into.
  */
-    void create_user_challenge(std::string &msg, std::string &challengehex)
+    void create_user_challenge(std::vector<uint8_t> &msg, std::string &challengehex)
     {
         // Use libsodium to generate the random challenge bytes.
         unsigned char challenge_bytes[msg::usrmsg::CHALLENGE_LEN];
@@ -45,15 +52,15 @@ namespace msg::usrmsg::json
         // Only Hot Pocket version number is variable length. Therefore message size is roughly 90 bytes
         // so allocating 128bytes for heap padding.
         msg.reserve(128);
-        msg.append("{\"")
-            .append(msg::usrmsg::FLD_TYPE)
-            .append(SEP_COLON)
-            .append(msg::usrmsg::MSGTYPE_HANDSHAKE_CHALLENGE)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_CHALLENGE)
-            .append(SEP_COLON)
-            .append(challengehex)
-            .append("\"}");
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_HANDSHAKE_CHALLENGE;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_CHALLENGE;
+        msg += SEP_COLON;
+        msg += challengehex;
+        msg += "\"}";
     }
 
     /**
@@ -66,22 +73,22 @@ namespace msg::usrmsg::json
  *              "lcl_seqno": <integer>
  *            }
  */
-    void create_status_response(std::string &msg)
+    void create_status_response(std::vector<uint8_t> &msg)
     {
         msg.reserve(128);
-        msg.append("{\"")
-            .append(msg::usrmsg::FLD_TYPE)
-            .append(SEP_COLON)
-            .append(msg::usrmsg::MSGTYPE_STAT_RESPONSE)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_LCL)
-            .append(SEP_COLON)
-            .append(cons::ctx.lcl)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_LCL_SEQ)
-            .append(SEP_COLON_NOQUOTE)
-            .append(std::to_string(cons::ctx.led_seq_no))
-            .append("}");
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_STAT_RESPONSE;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_LCL;
+        msg += SEP_COLON;
+        msg += cons::ctx.lcl;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_LCL_SEQ;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(cons::ctx.led_seq_no);
+        msg += "}";
     }
 
     /**
@@ -98,29 +105,29 @@ namespace msg::usrmsg::json
  * @param reason Rejected reason. Empty if accepted.
  * @param input_sig Binary signature of the original input message which generated this result.
  */
-    void create_contract_input_status(std::string &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
+    void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
     {
         std::string sighex;
         util::bin2hex(sighex, reinterpret_cast<const unsigned char *>(input_sig.data()), input_sig.length());
 
         msg.reserve(128);
-        msg.append("{\"")
-            .append(msg::usrmsg::FLD_TYPE)
-            .append(SEP_COLON)
-            .append(msg::usrmsg::MSGTYPE_CONTRACT_INPUT_STATUS)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_STATUS)
-            .append(SEP_COLON)
-            .append(status)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_REASON)
-            .append(SEP_COLON)
-            .append(reason)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_INPUT_SIG)
-            .append(SEP_COLON)
-            .append(sighex)
-            .append("\"}");
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_CONTRACT_INPUT_STATUS;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_STATUS;
+        msg += SEP_COLON;
+        msg += status;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_REASON;
+        msg += SEP_COLON;
+        msg += reason;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_INPUT_SIG;
+        msg += SEP_COLON;
+        msg += sighex;
+        msg += "\"}";
     }
 
     /**
@@ -133,7 +140,7 @@ namespace msg::usrmsg::json
  *            }
  * @param content The contract binary output content to be put in the message.
  */
-    void create_contract_read_response_container(std::string &msg, std::string_view content)
+    void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content)
     {
         std::string contenthex;
         util::bin2hex(
@@ -142,15 +149,15 @@ namespace msg::usrmsg::json
             content.length());
 
         msg.reserve(256);
-        msg.append("{\"")
-            .append(msg::usrmsg::FLD_TYPE)
-            .append(SEP_COLON)
-            .append(msg::usrmsg::MSGTYPE_CONTRACT_READ_RESPONSE)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_CONTENT)
-            .append(SEP_COLON)
-            .append(contenthex)
-            .append("\"}");
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_CONTRACT_READ_RESPONSE;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_CONTENT;
+        msg += SEP_COLON;
+        msg += contenthex;
+        msg += "\"}";
     }
 
     /**
@@ -165,7 +172,7 @@ namespace msg::usrmsg::json
  *            }
  * @param content The contract binary output content to be put in the message.
  */
-    void create_contract_output_container(std::string &msg, std::string_view content)
+    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content)
     {
         std::string contenthex;
         util::bin2hex(
@@ -174,23 +181,23 @@ namespace msg::usrmsg::json
             content.length());
 
         msg.reserve(256);
-        msg.append("{\"")
-            .append(msg::usrmsg::FLD_TYPE)
-            .append(SEP_COLON)
-            .append(msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_LCL)
-            .append(SEP_COLON)
-            .append(cons::ctx.lcl)
-            .append(SEP_COMMA)
-            .append(msg::usrmsg::FLD_LCL_SEQ)
-            .append(SEP_COLON_NOQUOTE)
-            .append(std::to_string(cons::ctx.led_seq_no))
-            .append(SEP_COMMA_NOQUOTE)
-            .append(msg::usrmsg::FLD_CONTENT)
-            .append(SEP_COLON)
-            .append(contenthex)
-            .append("\"}");
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_LCL;
+        msg += SEP_COLON;
+        msg += cons::ctx.lcl;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_LCL_SEQ;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(cons::ctx.led_seq_no);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_CONTENT;
+        msg += SEP_COLON;
+        msg += contenthex;
+        msg += "\"}";
     }
 
     /**

@@ -17,7 +17,7 @@ namespace msg::usrmsg::bson
  *              "lcl_seqno": <integer>
  *            }
  */
-    void create_status_response(std::string &msg)
+    void create_status_response(std::vector<uint8_t> &msg)
     {
     }
 
@@ -35,7 +35,7 @@ namespace msg::usrmsg::bson
  * @param reason Rejected reason. Empty if accepted.
  * @param input_sig Binary signature of the original input message which generated this result.
  */
-    void create_contract_input_status(std::string &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
+    void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
     {
     }
 
@@ -49,7 +49,7 @@ namespace msg::usrmsg::bson
  *            }
  * @param content The contract binary output content to be put in the message.
  */
-    void create_contract_read_response_container(std::string &msg, std::string_view content)
+    void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content)
     {
     }
 
@@ -65,7 +65,7 @@ namespace msg::usrmsg::bson
  *            }
  * @param content The contract binary output content to be put in the message.
  */
-    void create_contract_output_container(std::string &msg, std::string_view content)
+    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content)
     {
     }
 

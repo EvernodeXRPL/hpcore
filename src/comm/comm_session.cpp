@@ -91,6 +91,12 @@ namespace comm
             return peer_sess_handler.on_message(*this, message);
     }
 
+    int comm_session::send(const std::vector<uint8_t> &message) const
+    {
+        std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
+        send(sv);
+    }
+
     int comm_session::send(std::string_view message) const
     {
         if (state == SESSION_STATE::CLOSED)
