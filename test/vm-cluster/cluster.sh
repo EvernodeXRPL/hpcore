@@ -14,10 +14,11 @@ mode=$1
 hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "run" ] || [ "$mode" = "check" ] || \
-   [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssh" ]; then
+   [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssh" ] || \
+   [ "$mode" = "dns" ] || [ "$mode" = "ssl" ]; then
     echo "mode: $mode"
 else
-    echo "Invalid command. [ new | update | run <N> | check <N> | monitor <N> | kill <N> | reboot <N> | ssh <N> <custom command> ] expected."
+    echo "Invalid command. [ new | update | run <N> | check <N> | monitor <N> | kill <N> | reboot <N> | ssh <N> <custom command> | dns <N> <zerossl file> | ssl <N> ] expected."
     exit 1
 fi
 
@@ -30,6 +31,8 @@ fi
 # kill - Kill hot pocket (if running) of specified vm node.
 # reboot - Reboot specified vm node.
 # ssh - Open up an ssh terminal for the specified vm node.
+# dns - Uploads given zerossl domain verification file to vm and starts http server for DNS check.
+# ssl - Uploads matching zerossl certificate bundle from ~/Downloads/ to the contract.
 
 if [ $mode = "run" ]; then
     let nodeid=$2-1
@@ -74,6 +77,37 @@ if [ $mode = "ssh" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
     sshpass -f vmpass.txt ssh geveo@$vmip $3
+    exit 0
+fi
+
+if [ $mode = "dns" ]; then
+    if [[ $3 = "" ]]; then
+        echo "Please provide zerossl domain verification txt file path."
+        exit 1
+    fi
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+    sshpass -f vmpass.txt ssh geveo@$vmip 'mkdir -p ~/web80/.well-known/pki-validation'
+    sshpass -f vmpass.txt scp $3 geveo@$vmip:~/web80/.well-known/pki-validation/
+    sshpass -f vmpass.txt ssh geveo@$vmip -t 'cd ~/web80 && sudo python -m SimpleHTTPServer 80'
+    exit 0
+fi
+
+if [ $mode = "ssl" ]; then
+    let nodeid=$2-1
+    vmip=${vmips[$nodeid]}
+
+    unzip -d ~/Downloads/$vmip/ ~/Downloads/$vmip.zip || exit 1;
+    pushd ~/Downloads/$vmip > /dev/null 2>&1
+    mkdir certs
+    cat certificate.crt <(echo) ca_bundle.crt > certs/tlscert.pem
+    mv private.key certs/tlskey.pem
+    popd > /dev/null 2>&1
+    
+    echo "Sending tls certs to the contract..."
+    sshpass -f vmpass.txt scp ~/Downloads/$vmip/certs/* geveo@$vmip:~/contract/cfg/
+    
+    rm -r ~/Downloads/$vmip
     exit 0
 fi
 
