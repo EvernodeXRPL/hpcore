@@ -9,7 +9,9 @@ const protocols = {
 Object.freeze(protocols);
 
 const events = {
-    disconnect: "disconnect"
+    disconnect: "disconnect",
+    contractOutput: "contractOutput",
+    contractReadResponse: "contractReadResponse"
 }
 Object.freeze(events);
 
@@ -24,6 +26,7 @@ function HotPocketClient(server, protocol, keys) {
 
     let handshakeResolver = null;
     let statResponseResolver = null;
+    const contractInputResolvers = {};
 
     this.connect = function () {
         return new Promise(resolve => {
@@ -35,9 +38,18 @@ function HotPocketClient(server, protocol, keys) {
             })
 
             ws.on('close', () => {
-                // If we are still handshaking, report connection as failed.
+
+                // If there are any ongoing resolvers resolve them with error output.
+
                 handshakeResolver && handshakeResolver(false);
                 handshakeResolver = null;
+
+                statResponseResolver && statResponseResolver(null);
+                statResponseResolver = null;
+
+                Object.values(contractInputResolvers).forEach(resolver => resolver(null));
+                contractInputResolvers = {};
+
                 emitter.emit(events.disconnect);
             });
 
@@ -61,24 +73,30 @@ function HotPocketClient(server, protocol, keys) {
                         handshakeResolver = null;
                     }, 100);
                 }
-                else if (m.type == 'contract_output') {
-                    const decoded = msgHelper.decodeContent(m.content);
-                    this.onContractOutput && this.onContractOutput(decoded);
-                }
                 else if (m.type == 'contract_read_response') {
                     const decoded = msgHelper.decodeContent(m.content);
-                    this.onContractReadResponse && this.onContractReadResponse(decoded);
+                    emitter.emit(events.contractReadResponse, decoded);
                 }
                 else if (m.type == 'contract_input_status') {
-                    const inputSig = msgHelper.decodeContent(m.input_sig);
-                    if (m.status == "accepted")
-                        this.onContractInputAccepted && this.onContractInputAccepted(inputSig);
-                    else
-                        this.onContractInputRejected && this.onContractInputRejected(inputSig);
+                    const sigKey = (typeof m.input_sig === "string") ? m.input_sig : m.input_sig.toString("hex");
+                    const resolver = contractInputResolvers[sigKey];
+                    if (resolver) {
+                        if (m.status == "accepted")
+                            resolver("ok");
+                        else
+                            resolver(m.reason);
+                        delete contractInputResolvers[sigKey];
+                    }
+                }
+                else if (m.type == 'contract_output') {
+                    const decoded = msgHelper.decodeContent(m.content);
+                    emitter.emit(events.contractOutput, decoded);
                 }
                 else if (m.type == "stat_response") {
-                    delete m.type;
-                    statResponseResolver && statResponseResolver(m);
+                    statResponseResolver && statResponseResolver({
+                        lcl: m.lcl,
+                        lclSeqNo: m.lcl_seqno
+                    });
                     statResponseResolver = null;
                 }
                 else {
@@ -96,8 +114,8 @@ function HotPocketClient(server, protocol, keys) {
         Promise.resolve().then
         return new Promise(resolve => {
             try {
-                ws.removeAllListeners('close');
-                ws.on('close', resolve);
+                ws.removeAllListeners("close");
+                ws.on("close", resolve);
                 ws.close();
             } catch (error) {
                 resolve();
@@ -107,21 +125,48 @@ function HotPocketClient(server, protocol, keys) {
 
     this.getStatus = function () {
         const msg = msgHelper.createStatusRequest();
-        ws.send(msgHelper.serializeObject(msg));
-        return new Promise(resolve => {
+        const p = new Promise(resolve => {
             statResponseResolver = resolve;
         });
+
+        ws.send(msgHelper.serializeObject(msg));
+        return p;
+    }
+
+    this.sendContractInput = async function (input, maxLclSeqNo = null) {
+
+        // if maxLclSeqNo is null acquire the current lcl and add 10.
+        if (maxLclSeqNo == null) {
+            const stat = await this.getStatus();
+            if (!stat)
+                return new Promise(resolve => resolve(null));
+            maxLclSeqNo = stat.lclSeqNo + 10;
+        }
+
+        const msg = msgHelper.createContractInput(input, maxLclSeqNo);
+        const sigKey = (typeof msg.sig === "string") ? msg.sig : msg.sig.toString("hex");
+        const p = new Promise(resolve => {
+            contractInputResolvers[sigKey] = resolve;
+        });
+
+        ws.send(msgHelper.serializeObject(msg));
+        return p;
+    }
+
+    this.sendContractReadRequest = function (request) {
+        const msg = msgHelper.createReadRequest(request);
+        ws.send(msgHelper.serializeObject(msg));
     }
 }
 
 function MessageHelper(keys, protocol) {
 
     this.encodeBuffer = function (buffer) {
-        return protocol == protocols.JSON ? buffer.toString('hex') : buffer;
+        return protocol == protocols.JSON ? buffer.toString("hex") : buffer;
     }
 
     this.decodeContent = function (content) {
-        return protocol == protocols.JSON ? Buffer.from(content, 'hex') : content;
+        return protocol == protocols.JSON ? Buffer.from(content, "hex") : content;
     }
 
     this.serializeObject = function (obj) {
@@ -137,10 +182,10 @@ function MessageHelper(keys, protocol) {
         // Handshake response will specify the protocol to use for subsequent messages.
         const sigBytes = sodium.crypto_sign_detached(challenge, keys.privateKey);
         return {
-            type: 'handshake_response',
+            type: "handshake_response",
             challenge: challenge,
-            sig: Buffer.from(sigBytes).toString('hex'),
-            pubkey: 'ed' + Buffer.from(keys.publicKey).toString('hex'),
+            sig: Buffer.from(sigBytes).toString("hex"),
+            pubkey: "ed" + Buffer.from(keys.publicKey).toString("hex"),
             protocol: protocol
         }
     }
@@ -152,17 +197,17 @@ function MessageHelper(keys, protocol) {
 
         const inpContainer = {
             nonce: (new Date()).getTime().toString(),
-            input: encodeBuffer(Buffer.from(input)),
+            input: this.encodeBuffer(Buffer.from(input)),
             max_lcl_seqno: maxLclSeqNo
         }
 
-        const inpContainerBytes = serializeObject(inpContainer);
+        const inpContainerBytes = this.serializeObject(inpContainer);
         const sigBytes = Buffer.from(sodium.crypto_sign_detached(inpContainerBytes, keys.privateKey));
 
         const signedInpContainer = {
             type: "contract_input",
-            input_container: encodeBuffer(inpContainerBytes),
-            sig: encodeBuffer(sigBytes)
+            input_container: this.encodeBuffer(inpContainerBytes),
+            sig: this.encodeBuffer(sigBytes)
         }
 
         return signedInpContainer;
@@ -175,7 +220,7 @@ function MessageHelper(keys, protocol) {
 
         return {
             type: "contract_read_request",
-            content: encodeBuffer(Buffer.from(request))
+            content: this.encodeBuffer(Buffer.from(request))
         }
     }
 
@@ -185,5 +230,7 @@ function MessageHelper(keys, protocol) {
 }
 
 module.exports = {
-    HotPocketClient
+    HotPocketClient,
+    HotPocketProtocols: protocols,
+    HotPocketEvents: events
 };
