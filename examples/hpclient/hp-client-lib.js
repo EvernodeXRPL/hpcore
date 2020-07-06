@@ -48,7 +48,6 @@ function HotPocketClient(server, protocol, keys) {
                     console.log("Exception deserializing: " + received_msg);
                     return;
                 }
-                console.log(m);
 
                 if (m.type == 'handshake_challenge') {
                     // sign the challenge and send back the response
@@ -78,8 +77,7 @@ function HotPocketClient(server, protocol, keys) {
                         this.onContractInputRejected && this.onContractInputRejected(inputSig);
                 }
                 else if (m.type == "stat_response") {
-                    console.log(m);
-                    //delete m.type;
+                    delete m.type;
                     statResponseResolver && statResponseResolver(m);
                     statResponseResolver = null;
                 }
@@ -109,11 +107,9 @@ function HotPocketClient(server, protocol, keys) {
 
     this.getStatus = function () {
         const msg = msgHelper.createStatusRequest();
-        console.log(msg);
         ws.send(msgHelper.serializeObject(msg));
         return new Promise(resolve => {
-            resolve();
-            //statResponseResolver = resolve;
+            statResponseResolver = resolve;
         });
     }
 }

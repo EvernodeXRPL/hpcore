@@ -29,7 +29,7 @@ async function main() {
         console.log('server diconnected');
         exit;
     })
-//
+
     if (!await hpc.connect()) {
         console.log('Connection failed.');
         exit;
@@ -37,8 +37,8 @@ async function main() {
     console.log('connected');
 
 
-    //let stat = await hpc.getStatus();
-    //console.log(stat);
+    let stat = await hpc.getStatus();
+    console.log(stat);
 
     await hpc.close();
     console.log('hpc closed');
