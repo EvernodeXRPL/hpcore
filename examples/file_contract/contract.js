@@ -14,18 +14,25 @@ Object.keys(hpargs.usrfd).forEach(function (key) {
         const msg = bson.deserialize(fs.readFileSync(userfds[0]));
 
         if (msg.type == "upload") {
-            if (msg.content.length <= 10 * 1024 * 1024) { // 10MB
-                fs.writeFileSync(msg.fileName, msg.content);
+            if (fs.existsSync(msg.fileName)) {
                 fs.writeSync(userfds[1], bson.serialize({
                     type: "uploadResult",
-                    status: "ok",
+                    status: "already_exists",
+                    fileName: msg.fileName
+                }));
+            }
+            else if (msg.content.buffer.length > 10 * 1024 * 1024) { // 10MB
+                fs.writeSync(userfds[1], bson.serialize({
+                    type: "uploadResult",
+                    status: "too_large",
                     fileName: msg.fileName
                 }));
             }
             else {
+                fs.writeFileSync(msg.fileName, msg.content);
                 fs.writeSync(userfds[1], bson.serialize({
                     type: "uploadResult",
-                    status: "too_large",
+                    status: "ok",
                     fileName: msg.fileName
                 }));
             }

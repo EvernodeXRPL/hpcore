@@ -31,6 +31,7 @@ async function main() {
         console.log('Connection failed.');
         exit;
     }
+    console.log('HotPocket Connected.');
 
     // This will get fired if HP server disconnects unexpectedly.
     hpc.on(HotPocketEvents.disconnect, () => {
@@ -47,8 +48,6 @@ async function main() {
     hpc.on(HotPocketEvents.contractReadResponse, (response) => {
         console.log("Contract read response>> " + Buffer.from(response, "hex"));
     })
-
-    console.log('HotPocket Connected.');
 
     // On ctrl + c we should close HP connection gracefully.
     process.once('SIGINT', function () {

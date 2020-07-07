@@ -56,7 +56,8 @@ function HotPocketClient(server, protocol, keys) {
 
             ws.on('message', (msg) => {
                 try {
-                    m = msgHelper.deserializeMessage(msg);
+                    // Use JSON if we are still in handshake phase.
+                    m = handshakeResolver ? JSON.parse(msg) : msgHelper.deserializeMessage(msg);
                 } catch (e) {
                     console.log("Exception deserializing: " + received_msg);
                     return;
@@ -143,7 +144,7 @@ function HotPocketClient(server, protocol, keys) {
                 return new Promise(resolve => resolve(null));
             maxLclSeqNo = stat.lclSeqNo + 10;
         }
-
+        
         const msg = msgHelper.createContractInput(input, maxLclSeqNo);
         const sigKey = (typeof msg.sig === "string") ? msg.sig : msg.sig.toString("hex");
         const p = new Promise(resolve => {
@@ -167,7 +168,7 @@ function MessageHelper(keys, protocol) {
     }
 
     this.decodeContent = function (content) {
-        return protocol == protocols.JSON ? Buffer.from(content, "hex") : content;
+        return protocol == protocols.JSON ? Buffer.from(content, "hex") : content.buffer;
     }
 
     this.serializeObject = function (obj) {

@@ -26,13 +26,14 @@ async function main() {
     const pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
 
-    const hpc = new HotPocketClient("wss://localhost:8081", HotPocketProtocols.JSON, keys);
+    const hpc = new HotPocketClient("wss://localhost:8080", HotPocketProtocols.BSON, keys);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         console.log('Connection failed.');
         exit;
     }
+    console.log('HotPocket Connected.');
 
     // This will get fired if HP server disconnects unexpectedly.
     hpc.on(HotPocketEvents.disconnect, () => {
@@ -42,7 +43,7 @@ async function main() {
 
     // This will get fired when contract sends an output.
     hpc.on(HotPocketEvents.contractOutput, (output) => {
-        const result = bson.deserialize(resposne);
+        const result = bson.deserialize(output);
         if (result.type == "uploadResult") {
             if (result.status == "ok")
                 console.log("File " + result.fileName + " uploaded successfully.");
@@ -62,10 +63,10 @@ async function main() {
 
     // This will get fired when contract sends a read response.
     hpc.on(HotPocketEvents.contractReadResponse, (response) => {
-        const result = bson.deserialize(resposne);
+        const result = bson.deserialize(response);
         if (result.type == "downloadResult") {
             if (result.status == "ok") {
-                fs.writeFileSync(result.fileName, result.content);
+                fs.writeFileSync(result.fileName, result.content.buffer);
                 console.log("File " + result.fileName + " downloaded to current directory.");
             }
             else {
@@ -76,8 +77,6 @@ async function main() {
             console.log("Unknown read request result.");
         }
     })
-
-    console.log('HotPocket Connected.');
 
     // On ctrl + c we should close HP connection gracefully.
     process.once('SIGINT', function () {
@@ -118,6 +117,7 @@ async function main() {
                     type: "delete",
                     fileName: fileName
                 }));
+
                 if (submissionStatus && submissionStatus != "ok")
                     console.log("Delete failed. reason: " + submissionStatus);
             }
