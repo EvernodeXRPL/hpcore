@@ -1,6 +1,6 @@
-const fs = require('fs')
-const readline = require('readline')
-const sodium = require('libsodium-wrappers')
+const fs = require('fs');
+const readline = require('readline');
+const sodium = require('libsodium-wrappers');
 const { exit } = require('process');
 const { HotPocketClient, HotPocketProtocols, HotPocketEvents } = require('./hp-client-lib');
 
@@ -70,7 +70,7 @@ async function main() {
                 hpc.sendContractReadRequest(inp.substr(5))
             else {
                 const submissionStatus = await hpc.sendContractInput(inp);
-                if (submissionStatus != "ok")
+                if (submissionStatus && submissionStatus != "ok")
                     console.log("Input submission failed. reason: " + submissionStatus);
             }
 

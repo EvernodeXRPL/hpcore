@@ -4,18 +4,18 @@ process.on('uncaughtException', (err) => {
 const fs = require('fs')
 
 //console.log("===Sample contract started===");
-let hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
+const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
 //console.log(hpargs);
 
 // We just save execution args as an example state file change.
 if (!hpargs.readonly)
     fs.appendFileSync("exects.txt", "ts:" + hpargs.ts + "\n");
 
-Object.keys(hpargs.usrfd).forEach(function (key, index) {
-    let userfds = hpargs.usrfd[key];
+Object.keys(hpargs.usrfd).forEach(function (key) {
+    const userfds = hpargs.usrfd[key];
 
     if (userfds[0] != -1) {
-        let userinput = fs.readFileSync(userfds[0], 'utf8');
+        const userinput = fs.readFileSync(userfds[0], 'utf8');
 
         // Append user input to a state file if not in read only mode.
         if (!hpargs.readonly)
@@ -31,14 +31,14 @@ Object.keys(hpargs.usrfd).forEach(function (key, index) {
 if (!hpargs.readonly) {
 
     if (hpargs.nplfd[0] != -1) {
-        let nplinput = fs.readFileSync(hpargs.nplfd[0], 'utf8');
+        const nplinput = fs.readFileSync(hpargs.nplfd[0], 'utf8');
         console.log("Input received from peers:");
         console.log(nplinput);
         fs.writeSync(hpargs.nplfd[1], "Echoing: " + nplinput);
     }
 
     if (hpargs.hpfd[0] != -1) {
-        let hpinput = fs.readFileSync(hpargs.hpfd[0], 'utf8');
+        const hpinput = fs.readFileSync(hpargs.hpfd[0], 'utf8');
         console.log("Input received from hp:");
         console.log(hpinput);
         fs.writeSync(hpargs.hpfd[1], "Echoing: " + hpinput);

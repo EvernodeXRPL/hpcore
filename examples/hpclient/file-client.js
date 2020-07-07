@@ -1,141 +1,142 @@
-const fs = require('fs')
-const ws_api = require('ws');
-const sodium = require('libsodium-wrappers')
-const readline = require('readline')
+const fs = require('fs');
+const readline = require('readline');
+const sodium = require('libsodium-wrappers');
+const { exit } = require('process');
+const { HotPocketClient, HotPocketProtocols, HotPocketEvents } = require('./hp-client-lib');
+const bson = require('bson');
+var path = require("path");
 
-// sodium has a trigger when it's ready, we will wait and execute from there
-sodium.ready.then(main).catch((e) => { console.log(e) })
+async function main() {
 
-function main() {
+    await sodium.ready;
 
-    var keys = sodium.crypto_sign_keypair()
-
-
-    // check for client keys
-    if (!fs.existsSync('.hp_client_keys')) {
+    let keys = {};
+    const key_file = '.hp_client_keys';
+    if (!fs.existsSync(key_file)) {
+        keys = sodium.crypto_sign_keypair();
         keys.privateKey = sodium.to_hex(keys.privateKey)
         keys.publicKey = sodium.to_hex(keys.publicKey)
-        fs.writeFileSync('.hp_client_keys', JSON.stringify(keys))
+        fs.writeFileSync(key_file, JSON.stringify(keys))
     } else {
-        keys = JSON.parse(fs.readFileSync('.hp_client_keys'))
+        keys = JSON.parse(fs.readFileSync(key_file))
         keys.privateKey = Uint8Array.from(Buffer.from(keys.privateKey, 'hex'))
         keys.publicKey = Uint8Array.from(Buffer.from(keys.publicKey, 'hex'))
     }
 
+    const pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
+    console.log('My public key is: ' + pkhex);
 
-    var server = 'wss://localhost:8080'
+    const hpc = new HotPocketClient("wss://localhost:8081", HotPocketProtocols.JSON, keys);
 
-    if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
+    // Establish HotPocket connection.
+    if (!await hpc.connect()) {
+        console.log('Connection failed.');
+        exit;
+    }
 
-    if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-
-    var ws = new ws_api(server, {
-        rejectUnauthorized: false
+    // This will get fired if HP server disconnects unexpectedly.
+    hpc.on(HotPocketEvents.disconnect, () => {
+        console.log('Server diconnected');
+        exit;
     })
 
-    // if the console ctrl + c's us we should close ws gracefully
-    process.once('SIGINT', function (code) {
-        console.log('SIGINT received...');
-        ws.close()
-    });
-
-    function create_input_container(inp) {
-        
-        let inp_container = {
-            nonce: (new Date()).getTime().toString(),
-            input: inp.toString('hex'),
-            max_lcl_seqno: 9999999
+    // This will get fired when contract sends an output.
+    hpc.on(HotPocketEvents.contractOutput, (output) => {
+        const result = bson.deserialize(resposne);
+        if (result.type == "uploadResult") {
+            if (result.status == "ok")
+                console.log("File " + result.fileName + " uploaded successfully.");
+            else
+                console.log("File " + result.fileName + " upload failed. reason: " + result.status);
         }
-        let inp_container_bytes = JSON.stringify(inp_container);
-        let sig_bytes = sodium.crypto_sign_detached(inp_container_bytes, keys.privateKey);
-
-        let signed_inp_container = {
-            type: "contract_input",
-            input_container: inp_container_bytes.toString('hex'),
-            sig: Buffer.from(sig_bytes).toString('hex')
-        }
-
-        return JSON.stringify(signed_inp_container);
-    }
-
-    function create_status_request() {
-        let statreq = { type: 'stat' }
-        return JSON.stringify(statreq);
-    }
-
-    function handle_public_challange(m) {
-        let pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
-        console.log('My public key is: ' + pkhex);
-
-        // sign the challenge and send back the response
-        var sigbytes = sodium.crypto_sign_detached(m.challenge, keys.privateKey);
-        var response = {
-            type: 'handshake_response',
-            challenge: m.challenge,
-            sig: Buffer.from(sigbytes).toString('hex'),
-            pubkey: pkhex,
-            protocol: 'json'
-        }
-
-        ws.send(JSON.stringify(response))
-
-        // start listening for stdin
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
-
-        console.log("Ready to accept inputs.")
-
-        // Capture user input from the console.
-        var input_pump = () => {
-            rl.question('', (inp) => {
-
-                let msgtosend = "";
-
-                if (inp == "stat")
-                    msgtosend = create_status_request();
-                else {
-                    var fileContent = fs.readFileSync(inp);
-                    msgtosend = create_input_container(fileContent);
-
-                    console.log("Sending file (len: " + fileContent.length / 1024 + " KB)");
-                }
-
-                ws.send(msgtosend)
-
-                input_pump()
-            })
-        }
-        input_pump();
-    }
-
-    ws.on('message', (data) => {
-
-        try {
-            m = JSON.parse(data)
-        } catch (e) {
-            console.log("Exception: " + data);
-            return
-        }
-
-        if (m.type == 'handshake_challenge') {
-            handle_public_challange(m);
-        }
-        else if (m.type == 'contract_output') {
-            console.log("Contract says: " + Buffer.from(m.content, 'hex').toString());
-        }
-        else if (m.type == 'contract_input_status') {
-            if (m.status != "accepted")
-                console.log("Input status: " + m.status);
+        else if (result.type == "deleteResult") {
+            if (result.status == "ok")
+                console.log("File " + result.fileName + " deleted successfully.");
+            else
+                console.log("File " + result.fileName + " delete failed. reason: " + result.status);
         }
         else {
-            console.log(m);
+            console.log("Unknown contract output.");
         }
+    })
 
+    // This will get fired when contract sends a read response.
+    hpc.on(HotPocketEvents.contractReadResponse, (response) => {
+        const result = bson.deserialize(resposne);
+        if (result.type == "downloadResult") {
+            if (result.status == "ok") {
+                fs.writeFileSync(result.fileName, result.content);
+                console.log("File " + result.fileName + " downloaded to current directory.");
+            }
+            else {
+                console.log("File " + result.fileName + " download failed. reason: " + result.status);
+            }
+        }
+        else {
+            console.log("Unknown read request result.");
+        }
+    })
+
+    console.log('HotPocket Connected.');
+
+    // On ctrl + c we should close HP connection gracefully.
+    process.once('SIGINT', function () {
+        console.log('SIGINT received...');
+        hpc.close();
     });
 
-    ws.on('close', () => {
-        console.log('Server disconnected.');
+    // start listening for stdin
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
     });
+    console.log("Ready to accept inputs.");
+
+    const input_pump = () => {
+        rl.question('', async (inp) => {
+
+            if (inp.startsWith("upload ")) {
+
+                const filePath = inp.substr(7);
+                const fileName = path.basename(filePath)
+                const fileContent = fs.readFileSync(filePath);
+                const sizeKB = Math.round(fileContent.length / 1024);
+                console.log("Uploading file " + fileName + " (" + sizeKB + " KB)");
+
+                const submissionStatus = await hpc.sendContractInput(bson.serialize({
+                    type: "upload",
+                    fileName: fileName,
+                    content: fileContent
+                }));
+                if (submissionStatus && submissionStatus != "ok")
+                    console.log("Upload failed. reason: " + submissionStatus);
+            }
+            else if (inp.startsWith("delete ")) {
+
+                const fileName = inp.substr(7);
+                const submissionStatus = await hpc.sendContractInput(bson.serialize({
+                    type: "delete",
+                    fileName: fileName
+                }));
+                if (submissionStatus && submissionStatus != "ok")
+                    console.log("Delete failed. reason: " + submissionStatus);
+            }
+            else if (inp.startsWith("download ")) {
+
+                const fileName = inp.substr(9);
+                hpc.sendContractReadRequest(bson.serialize({
+                    type: "download",
+                    fileName: fileName
+                }));
+            }
+            else {
+                console.log("Invalid command. [upload <local path> | delete <filename> | download <filename>] expected.")
+            }
+
+            input_pump();
+        })
+    }
+    input_pump();
 }
+
+main();

@@ -1,6 +1,7 @@
 const ws_api = require('ws');
 const sodium = require('libsodium-wrappers');
 const EventEmitter = require('events');
+const bson = require('bson');
 
 const protocols = {
     JSON: "json",
@@ -26,7 +27,7 @@ function HotPocketClient(server, protocol, keys) {
 
     let handshakeResolver = null;
     let statResponseResolver = null;
-    const contractInputResolvers = {};
+    let contractInputResolvers = {};
 
     this.connect = function () {
         return new Promise(resolve => {
