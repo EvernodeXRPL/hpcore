@@ -76,7 +76,7 @@ function HotPocketClient(server, protocol, keys) {
                     }, 100);
                 }
                 else if (m.type == 'contract_read_response') {
-                    const decoded = msgHelper.decodeContent(m.content);
+                    const decoded = msgHelper.binaryDecode(m.content);
                     emitter.emit(events.contractReadResponse, decoded);
                 }
                 else if (m.type == 'contract_input_status') {
@@ -91,7 +91,7 @@ function HotPocketClient(server, protocol, keys) {
                     }
                 }
                 else if (m.type == 'contract_output') {
-                    const decoded = msgHelper.decodeContent(m.content);
+                    const decoded = msgHelper.binaryDecode(m.content);
                     emitter.emit(events.contractOutput, decoded);
                 }
                 else if (m.type == "stat_response") {
@@ -135,16 +135,17 @@ function HotPocketClient(server, protocol, keys) {
         return p;
     }
 
-    this.sendContractInput = async function (input, maxLclSeqNo = null) {
+    this.sendContractInput = async function (input, maxLclOffset = null) {
 
-        // if maxLclSeqNo is null acquire the current lcl and add 10.
-        if (maxLclSeqNo == null) {
-            const stat = await this.getStatus();
-            if (!stat)
-                return new Promise(resolve => resolve(null));
-            maxLclSeqNo = stat.lclSeqNo + 10;
-        }
-        
+        if (!maxLclOffset)
+            maxLclOffset = 10;
+
+        // Acquire the current lcl and add the specified offset.
+        const stat = await this.getStatus();
+        if (!stat)
+            return new Promise(resolve => resolve(null));
+        const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
+
         const msg = msgHelper.createContractInput(input, maxLclSeqNo);
         const sigKey = (typeof msg.sig === "string") ? msg.sig : msg.sig.toString("hex");
         const p = new Promise(resolve => {
@@ -163,12 +164,14 @@ function HotPocketClient(server, protocol, keys) {
 
 function MessageHelper(keys, protocol) {
 
-    this.encodeBuffer = function (buffer) {
-        return protocol == protocols.JSON ? buffer.toString("hex") : buffer;
+    this.binaryEncode = function (data) {
+        const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        return protocol == protocols.JSON ? buffer.toString("hex") : buffer.buffer;
     }
 
-    this.decodeContent = function (content) {
-        return protocol == protocols.JSON ? Buffer.from(content, "hex") : content.buffer;
+    this.binaryDecode = function (content) {
+        const decoded = (protocol == protocols.JSON) ? Buffer.from(content, "hex") : content;
+        return Buffer.isBuffer(decoded) ? decoded : Buffer.from(decoded);
     }
 
     this.serializeObject = function (obj) {
@@ -199,17 +202,17 @@ function MessageHelper(keys, protocol) {
 
         const inpContainer = {
             nonce: (new Date()).getTime().toString(),
-            input: this.encodeBuffer(Buffer.from(input)),
+            input: this.binaryEncode(input),
             max_lcl_seqno: maxLclSeqNo
         }
 
-        const inpContainerBytes = this.serializeObject(inpContainer);
-        const sigBytes = Buffer.from(sodium.crypto_sign_detached(inpContainerBytes, keys.privateKey));
+        const inpContainerBytes = this.serializeObject(inpContainer).buffer;
+        const sigBytes = sodium.crypto_sign_detached(Buffer.from(inpContainerBytes), keys.privateKey);
 
         const signedInpContainer = {
             type: "contract_input",
-            input_container: this.encodeBuffer(inpContainerBytes),
-            sig: this.encodeBuffer(sigBytes)
+            input_container: this.binaryEncode(inpContainerBytes),
+            sig: this.binaryEncode(sigBytes)
         }
 
         return signedInpContainer;
@@ -222,7 +225,7 @@ function MessageHelper(keys, protocol) {
 
         return {
             type: "contract_read_request",
-            content: this.encodeBuffer(Buffer.from(request))
+            content: this.binaryEncode(request)
         }
     }
 

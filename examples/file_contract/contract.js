@@ -21,7 +21,7 @@ Object.keys(hpargs.usrfd).forEach(function (key) {
                     fileName: msg.fileName
                 }));
             }
-            else if (msg.content.buffer.length > 10 * 1024 * 1024) { // 10MB
+            else if (msg.content.length > 10 * 1024 * 1024) { // 10MB
                 fs.writeSync(userfds[1], bson.serialize({
                     type: "uploadResult",
                     status: "too_large",

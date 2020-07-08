@@ -26,7 +26,7 @@ async function main() {
     const pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
 
-    const hpc = new HotPocketClient("wss://localhost:8080", HotPocketProtocols.BSON, keys);
+    const hpc = new HotPocketClient("wss://localhost:8080", HotPocketProtocols.JSON, keys);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
@@ -106,7 +106,8 @@ async function main() {
                     type: "upload",
                     fileName: fileName,
                     content: fileContent
-                }));
+                }), 100);
+
                 if (submissionStatus && submissionStatus != "ok")
                     console.log("Upload failed. reason: " + submissionStatus);
             }
