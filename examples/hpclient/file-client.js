@@ -26,7 +26,10 @@ async function main() {
     const pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
 
-    const hpc = new HotPocketClient("wss://localhost:8080", HotPocketProtocols.BSON, keys);
+    let server = 'wss://localhost:8080'
+    if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
+    if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
+    const hpc = new HotPocketClient(server, HotPocketProtocols.BSON, keys);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
