@@ -66,7 +66,7 @@ async function main() {
         const result = bson.deserialize(response);
         if (result.type == "downloadResult") {
             if (result.status == "ok") {
-                fs.writeFileSync(result.fileName, result.content);
+                fs.writeFileSync(result.fileName, result.content.buffer);
                 console.log("File " + result.fileName + " downloaded to current directory.");
             }
             else {

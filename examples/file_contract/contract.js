@@ -32,7 +32,7 @@ Object.keys(hpargs.usrfd).forEach(function (key) {
             else {
 
                 // Save the file.
-                fs.writeFileSync(msg.fileName, msg.content);
+                fs.writeFileSync(msg.fileName, msg.content.buffer);
                 
                 fs.writeSync(userfds[1], bson.serialize({
                     type: "uploadResult",
