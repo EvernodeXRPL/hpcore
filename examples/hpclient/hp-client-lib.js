@@ -135,10 +135,13 @@ function HotPocketClient(server, protocol, keys) {
         return p;
     }
 
-    this.sendContractInput = async function (input, maxLclOffset = null) {
+    this.sendContractInput = async function (input, nonce = null, maxLclOffset = null) {
 
         if (!maxLclOffset)
             maxLclOffset = 10;
+
+        if (!nonce)
+            nonce = (new Date()).getTime().toString();
 
         // Acquire the current lcl and add the specified offset.
         const stat = await this.getStatus();
@@ -146,7 +149,7 @@ function HotPocketClient(server, protocol, keys) {
             return new Promise(resolve => resolve(null));
         const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
 
-        const msg = msgHelper.createContractInput(input, maxLclSeqNo);
+        const msg = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
         const sigKey = (typeof msg.sig === "string") ? msg.sig : msg.sig.toString("hex");
         const p = new Promise(resolve => {
             contractInputResolvers[sigKey] = resolve;
@@ -166,12 +169,11 @@ function MessageHelper(keys, protocol) {
 
     this.binaryEncode = function (data) {
         const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
-        return protocol == protocols.JSON ? buffer.toString("hex") : buffer.buffer;
+        return protocol == protocols.JSON ? buffer.toString("hex") : buffer;
     }
 
     this.binaryDecode = function (content) {
-        const decoded = (protocol == protocols.JSON) ? Buffer.from(content, "hex") : content;
-        return Buffer.isBuffer(decoded) ? decoded : Buffer.from(decoded);
+        return (protocol == protocols.JSON) ? Buffer.from(content, "hex") : content.buffer;
     }
 
     this.serializeObject = function (obj) {
@@ -195,18 +197,18 @@ function MessageHelper(keys, protocol) {
         }
     }
 
-    this.createContractInput = function (input, maxLclSeqNo) {
+    this.createContractInput = function (input, nonce, maxLclSeqNo) {
 
         if (input.length == 0)
             return null;
 
         const inpContainer = {
-            nonce: (new Date()).getTime().toString(),
             input: this.binaryEncode(input),
+            nonce: nonce,
             max_lcl_seqno: maxLclSeqNo
         }
-
-        const inpContainerBytes = this.serializeObject(inpContainer).buffer;
+        
+        const inpContainerBytes = this.serializeObject(inpContainer);
         const sigBytes = sodium.crypto_sign_detached(Buffer.from(inpContainerBytes), keys.privateKey);
 
         const signedInpContainer = {

@@ -11,7 +11,8 @@ Object.keys(hpargs.usrfd).forEach(function (key) {
 
     if (userfds[0] != -1) {
 
-        const msg = bson.deserialize(fs.readFileSync(userfds[0]));
+        const input = fs.readFileSync(userfds[0]);
+        const msg = bson.deserialize(input);
 
         if (msg.type == "upload") {
             if (fs.existsSync(msg.fileName)) {
@@ -29,7 +30,10 @@ Object.keys(hpargs.usrfd).forEach(function (key) {
                 }));
             }
             else {
+
+                // Save the file.
                 fs.writeFileSync(msg.fileName, msg.content);
+                
                 fs.writeSync(userfds[1], bson.serialize({
                     type: "uploadResult",
                     status: "ok",

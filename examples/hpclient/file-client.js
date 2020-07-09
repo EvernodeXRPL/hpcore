@@ -26,7 +26,7 @@ async function main() {
     const pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
 
-    const hpc = new HotPocketClient("wss://localhost:8080", HotPocketProtocols.JSON, keys);
+    const hpc = new HotPocketClient("wss://localhost:8080", HotPocketProtocols.BSON, keys);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
@@ -66,7 +66,7 @@ async function main() {
         const result = bson.deserialize(response);
         if (result.type == "downloadResult") {
             if (result.status == "ok") {
-                fs.writeFileSync(result.fileName, result.content.buffer);
+                fs.writeFileSync(result.fileName, result.content);
                 console.log("File " + result.fileName + " downloaded to current directory.");
             }
             else {
@@ -106,7 +106,7 @@ async function main() {
                     type: "upload",
                     fileName: fileName,
                     content: fileContent
-                }), 100);
+                }), null, 100);
 
                 if (submissionStatus && submissionStatus != "ok")
                     console.log("Upload failed. reason: " + submissionStatus);
