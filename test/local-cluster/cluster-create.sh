@@ -65,7 +65,7 @@ do
 
     # Copy the contract executable and appbill.
     mkdir ./node$n/bin
-    cp ../../../examples/echo_contract/contract.js ./node$n/bin/contract.js
+    cp ../../../examples/nodejs_contract/echo_contract.js ./node$n/bin/contract.js
     cp ../bin/appbill ./node$n/bin/
     # cp -r ../../../examples/todo_contract/bin/Release/netcoreapp3.1/publish/* ./node$n/bin/
 done
