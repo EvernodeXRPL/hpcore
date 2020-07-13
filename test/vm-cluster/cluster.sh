@@ -37,7 +37,7 @@ fi
 if [ $mode = "run" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmip 'nohup sudo ./hpcore run contract'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'nohup sudo ~/hpfiles/bin/hpcore run ~/contract'
     sshpass -f vmpass.txt ssh geveo@$vmip 'tail -f nohup.out'
     exit 0
 fi
@@ -111,7 +111,7 @@ if [ $mode = "ssl" ]; then
     exit 0
 fi
 
-mkdir ./cfg > /dev/null 2>&1
+# Following code will only be executed in 'new' and 'update' mode.
 
 for (( i=0; i<$vmcount; i++ ))
 do
@@ -127,6 +127,8 @@ if [ $mode = "update" ]; then
 fi
 
 # Following code will only be executed in 'new' mode.
+
+mkdir ./cfg > /dev/null 2>&1
 
 for (( i=0; i<$vmcount; i++ ))
 do
@@ -172,7 +174,15 @@ do
     mypeers=$(joinarr peers $j)
     myunl=$(joinarr pubkeys $j)
 
-    node -p "JSON.stringify({...require('./cfg/node$n.json'),binary:'/usr/bin/node',binargs:'/home/geveo/contract.js',peers:${mypeers},unl:${myunl},loggers:['console', 'file']}, null, 2)" > ./cfg/node$n.cfg
+    node -p "JSON.stringify({...require('./cfg/node$n.json'), \
+        binary:'/usr/bin/node', \
+        binargs:'/home/geveo/hpfiles/nodejs_contract/echo_contract.js', \
+        peers:${mypeers}, \
+        unl:${myunl}, \
+        roundtime: 2000, \
+        loglevel: 'debug', \
+        loggers:['console', 'file'] \
+        }, null, 2)" > ./cfg/node$n.cfg
 
     # Copy local cfg file back to remote vm.
     vmip=${vmips[j]}
