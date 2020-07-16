@@ -1,5 +1,14 @@
 #!/bin/bash
 
+if [[ ! -f /swapfile ]]
+then
+   echo "Adding 5GB swap space..."
+   sudo fallocate -l 5G /swapfile
+   sudo chmod 600 /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile  
+fi
+
 if [ -x "$(command -v node)" ]; then
    echo "NodeJs already installed."
 else
