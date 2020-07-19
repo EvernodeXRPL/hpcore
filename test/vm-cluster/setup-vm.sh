@@ -24,7 +24,10 @@ sshpass -f vmpass.txt scp -rp hpfiles geveo@$vmip:~/
 echo "Upload finished."
 
 if [ $mode = "new" ]; then
+    # Run hp setup script on the VM and download the generated hp.cfg
     sshpass -f vmpass.txt ssh geveo@$vmip '~/hpfiles/setup-hp.sh && cd ~/hpfiles/nodejs_contract && npm install'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'echo sudo ~/hpfiles/bin/hpcore run ~/contract > ~/run.sh && sudo chmod +x ~/run.sh'
+    mkdir ./cfg > /dev/null 2>&1
     sshpass -f vmpass.txt scp geveo@$vmip:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
 fi
 
