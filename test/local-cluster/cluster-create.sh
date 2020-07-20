@@ -47,12 +47,12 @@ do
     # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
             binary: '/usr/local/bin/node', \
-            binargs: '/contract/bin/contract.js', \
+            binargs: '/contract/bin/echo_contract.js', \
             appbill: '', \
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 1000, \
+            roundtime: 2000, \
             loglevel: 'debug', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
@@ -65,9 +65,12 @@ do
 
     # Copy the contract executable and appbill.
     mkdir ./node$n/bin
-    cp ../../../examples/echo_contract/contract.js ./node$n/bin/contract.js
+    cp ../../../examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} ./node$n/bin/
     cp ../bin/appbill ./node$n/bin/
-    # cp -r ../../../examples/todo_contract/bin/Release/netcoreapp3.1/publish/* ./node$n/bin/
+
+    pushd ./node$n/bin > /dev/null 2>&1
+    npm install
+    popd
 done
 
 # Function to generate JSON array string while skiping a given index.

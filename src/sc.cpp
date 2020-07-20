@@ -176,7 +176,8 @@ namespace sc
  *   "hpfd": [fd0, fd1],
  *   "usrfd":{ "<pkhex>":[fd0, fd1], ... },
  *   "nplfd":[fd0, fd1],
- *   "unl":[ "pkhex", ... ]
+ *   "unl":[ "pkhex", ... ],
+ *   "readonly": <true|false>
  * }
  */
     int write_contract_args(const execution_context &ctx)

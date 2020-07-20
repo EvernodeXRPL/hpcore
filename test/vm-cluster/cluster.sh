@@ -1,10 +1,15 @@
 #!/bin/bash
+# HotPocket VM cluster setup script.
 
-# Usage example: ./cluster.sh run 1
+# Usage examples:
+# ./cluster.sh new
+# ./cluster.sh update
+# ./cluster.sh run 1
 
 # VM login password must exist in vmpass.txt
+# All VMs must use same SSH password with username 'geveo'
 vmpass=$(cat vmpass.txt)
-# List vm IP addresses of the cluster must exist in iplist.txt
+# List of vm IP addresses/domain names of the cluster must exist in iplist.txt
 # (This list will be treated as the node numbers 1,2.3... from topmost IP to the bottom)
 readarray -t vmips < iplist.txt
 
@@ -13,18 +18,19 @@ mode=$1
 
 hpcore=$(realpath ../..)
 
-if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "run" ] || [ "$mode" = "check" ] || \
-   [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssh" ] || \
-   [ "$mode" = "dns" ] || [ "$mode" = "ssl" ]; then
+if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || [ "$mode" = "run" ] || \
+   [ "$mode" = "check" ] || [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || \
+   [ "$mode" = "ssh" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ]; then
     echo "mode: $mode"
 else
-    echo "Invalid command. [ new | update | run <N> | check <N> | monitor <N> | kill <N> | reboot <N> | ssh <N> <custom command> | dns <N> <zerossl file> | ssl <N> ] expected."
+    echo "Invalid command. [ new | update | reconfig | run <N> | check <N> | monitor <N> | kill <N> | reboot <N> | ssh <N> <custom command> | dns <N> <zerossl file> | ssl <N> ] expected."
     exit 1
 fi
 
 # Command modes:
 # new - Install hot pocket dependencies and hot pocket with example contracts to each vm.
 # update - Deploy updated hot pocket and example binaries into each vm.
+# reconfig - Reconfigures the entire cluster using already uploaded HP binaries.
 # run - Run hot pocket of specified vm node.
 # check - Check hot pocket running status of specified vm node.
 # monitor - Monitor streaming hot pocket console output (if running) of specified vm node.
@@ -37,7 +43,7 @@ fi
 if [ $mode = "run" ]; then
     let nodeid=$2-1
     vmip=${vmips[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmip 'nohup sudo ./hpcore run contract'
+    sshpass -f vmpass.txt ssh geveo@$vmip 'nohup sudo ~/hpfiles/bin/hpcore run ~/contract'
     sshpass -f vmpass.txt ssh geveo@$vmip 'tail -f nohup.out'
     exit 0
 fi
@@ -108,17 +114,19 @@ if [ $mode = "ssl" ]; then
     sshpass -f vmpass.txt scp ~/Downloads/$vmip/certs/* geveo@$vmip:~/contract/cfg/
     
     rm -r ~/Downloads/$vmip
+    echo "Done"
     exit 0
 fi
 
-mkdir ./cfg > /dev/null 2>&1
-
-for (( i=0; i<$vmcount; i++ ))
-do
-    vmip=${vmips[i]}
-    let n=$i+1
-    /bin/bash ./setup-vm.sh $mode $n $vmpass $vmip $hpcore &
-done
+# Run binary file setup for entire cluster.
+if [ $mode = "new" ] || [ $mode = "update" ]; then
+    for (( i=0; i<$vmcount; i++ ))
+    do
+        vmip=${vmips[i]}
+        let n=$i+1
+        /bin/bash ./setup-vm.sh $mode $n $vmpass $vmip $hpcore &
+    done
+fi
 
 wait
 
@@ -126,7 +134,22 @@ if [ $mode = "update" ]; then
     exit 0
 fi
 
-# Following code will only be executed in 'new' mode.
+# All code below this will only execute in 'new' or 'reconfig' mode.
+# Update all nodes hp.cfg files to be part of the same UNL cluster.
+
+if [ $mode = "reconfig" ]; then
+    mkdir ./cfg > /dev/null 2>&1
+    for (( i=0; i<$vmcount; i++ ))
+    do
+        # Run hp setup script on the VM and download the generated hp.cfg
+        vmip=${vmips[i]}
+        let nodeid=$i+1
+        sshpass -f vmpass.txt ssh geveo@$vmip '~/hpfiles/setup-hp.sh'
+        sshpass -f vmpass.txt scp geveo@$vmip:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
+    done
+fi
+
+# Locally update values of download hp.cfg files.
 
 for (( i=0; i<$vmcount; i++ ))
 do
@@ -172,9 +195,17 @@ do
     mypeers=$(joinarr peers $j)
     myunl=$(joinarr pubkeys $j)
 
-    node -p "JSON.stringify({...require('./cfg/node$n.json'),binary:'/usr/bin/node',binargs:'/home/geveo/contract.js',peers:${mypeers},unl:${myunl},loggers:['console', 'file']}, null, 2)" > ./cfg/node$n.cfg
+    node -p "JSON.stringify({...require('./cfg/node$n.json'), \
+        binary:'/usr/bin/node', \
+        binargs:'/home/geveo/hpfiles/nodejs_contract/echo_contract.js', \
+        peers:${mypeers}, \
+        unl:${myunl}, \
+        roundtime: 2000, \
+        loglevel: 'debug', \
+        loggers:['console', 'file'] \
+        }, null, 2)" > ./cfg/node$n.cfg
 
-    # Copy local cfg file back to remote vm.
+    # Upload local hp.cfg file back to remote vm.
     vmip=${vmips[j]}
     sshpass -f vmpass.txt scp ./cfg/node$n.cfg geveo@$vmip:~/contract/cfg/hp.cfg
 done
