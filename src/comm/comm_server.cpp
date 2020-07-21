@@ -311,29 +311,34 @@ namespace comm
                 dup2(firewall_pipe[0], 0);
             }
 
-            std::string max_frame = std::string("--maxframe=")
-                                        .append(use_size_header
-                                                    ? "4294967296" // 4GB
-                                                    : std::to_string(max_msg_size));
+            std::vector<std::string> args_vec;
+            args_vec.reserve(16);
 
             // Fill process args.
-            char *execv_args[] = {
-                conf::ctx.websocketd_exe_path.data(),
-                (char *)"--port",
-                std::to_string(port).data(),
-                (char *)"--ssl",
-                (char *)"--sslcert",
-                conf::ctx.tls_cert_file.data(),
-                (char *)"--sslkey",
-                conf::ctx.tls_key_file.data(),
-                (char *)(is_binary ? "--binary=true" : "--binary=false"),
-                (char *)(use_size_header ? "--sizeheader=true" : "--sizeheader=false"),
-                max_frame.data(),
-                (char *)"--loglevel=error",
-                (char *)"nc", // netcat (OpenBSD) is used for domain socket redirection.
-                (char *)"-U", // Use UNIX domain socket
-                (char *)domain_socket_name,
-                NULL};
+            args_vec.push_back(conf::ctx.websocketd_exe_path);
+            args_vec.push_back("--port");
+            args_vec.push_back(std::to_string(port));
+            args_vec.push_back("--ssl");
+            args_vec.push_back("--sslcert");
+            args_vec.push_back(conf::ctx.tls_cert_file);
+            args_vec.push_back("--sslkey");
+            args_vec.push_back(conf::ctx.tls_key_file);
+            args_vec.push_back(is_binary ? "--binary=true" : "--binary=false");
+            args_vec.push_back(use_size_header ? "--sizeheader=true" : "--sizeheader=false");
+
+            if (max_msg_size > 0)
+                args_vec.push_back(std::string("--maxframe=").append(std::to_string(max_msg_size)));
+
+            args_vec.push_back("--loglevel=error");
+            args_vec.push_back("nc"); // netcat (OpenBSD) is used for domain socket redirection.
+            args_vec.push_back("-U"); // Use UNIX domain socket
+            args_vec.push_back(domain_socket_name);
+
+            char *execv_args[args_vec.size()];
+            int idx = 0;
+            for (std::string &arg : args_vec)
+                execv_args[idx++] = arg.data();
+            execv_args[idx] = NULL;
 
             const int ret = execv(execv_args[0], execv_args);
             LOG_ERR << errno << ": websocketd process execv failed.";
