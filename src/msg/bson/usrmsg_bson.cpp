@@ -134,7 +134,7 @@ namespace msg::usrmsg::bson
          return -1;
       }
 
-      if (!d[FLD_TYPE].is_string())
+      if (!d.contains(FLD_TYPE) || !d[FLD_TYPE].is_string())
       {
          LOG_DBG << "User bson message 'type' missing or invalid.";
          return -1;
@@ -166,9 +166,9 @@ namespace msg::usrmsg::bson
  */
    int extract_read_request(std::string &extracted_content, const jsoncons::ojson &d)
    {
-      if (!d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
+      if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
       {
-         LOG_DBG << "Read request 'content' fields missing or invalid.";
+         LOG_DBG << "Read request 'content' field missing or invalid.";
          return -1;
       }
 
@@ -194,7 +194,8 @@ namespace msg::usrmsg::bson
    int extract_signed_input_container(
        std::string &extracted_input_container, std::string &extracted_sig, const jsoncons::ojson &d)
    {
-      if (!d[msg::usrmsg::FLD_INPUT_CONTAINER].is_byte_string_view() || !d[msg::usrmsg::FLD_SIG].is_byte_string_view())
+      if (!d.contains(msg::usrmsg::FLD_INPUT_CONTAINER) || !d.contains(msg::usrmsg::FLD_SIG) ||
+          !d[msg::usrmsg::FLD_INPUT_CONTAINER].is_byte_string_view() || !d[msg::usrmsg::FLD_SIG].is_byte_string_view())
       {
          LOG_DBG << "User signed input required fields missing or invalid.";
          return -1;
@@ -235,7 +236,8 @@ namespace msg::usrmsg::bson
          return -1;
       }
 
-      if (!d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_string() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].is_uint64())
+      if (!d.contains(msg::usrmsg::FLD_INPUT) || !d.contains(msg::usrmsg::FLD_NONCE) || !d.contains(msg::usrmsg::FLD_MAX_LCL_SEQ) ||
+          !d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_string() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].is_uint64())
       {
          LOG_DBG << "User input container required fields missing or invalid.";
          return -1;
