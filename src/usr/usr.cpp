@@ -174,7 +174,7 @@ namespace usr
                 }
                 else
                 {
-                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_SIG, sig);
+                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, sig);
                     return -1;
                 }
             }
