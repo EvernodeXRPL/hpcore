@@ -19,7 +19,7 @@ mode=$1
 hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
-   [ "$mode" = "vmresize" ] || [ "$mode" = "vmstop" ] || [ "$mode" = "vmstart" ] || \
+   [ "$mode" = "vminfo" ] || [ "$mode" = "vmresize" ] || [ "$mode" = "vmstop" ] || [ "$mode" = "vmstart" ] || \
    [ "$mode" = "run" ] || [ "$mode" = "check" ] || [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || \
    [ "$mode" = "ssh" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ]; then
     echo "mode: $mode"
@@ -120,6 +120,23 @@ if [ $mode = "ssl" ]; then
     echo "Done"
     exit 0
 fi
+
+# Run vm cli script if any vm cluster commands have been specified.
+if [ $mode = "vminfo" ] || [ $mode = "vmresize" ] || [ $mode = "vmstop" ] || [ $mode = "vmstart" ]; then
+    for (( i=0; i<$vmcount; i++ ))
+    do
+        vmaddr=${vmaddrs[i]}
+        # vm name is the first part of the DNS address (eg: hp1.australiaeast.cloudapp.azure.com)
+        vmname=${vmaddr%%.*}
+        # Strip out "vm" prefix from the command.
+        vmcommand=${mode##*vm}
+        /bin/bash ./vmcli.sh $vmname $vmcommand $2 &
+    done
+
+    wait
+    exit 0
+fi
+
 
 # Run binary file setup for entire cluster.
 if [ $mode = "new" ] || [ $mode = "update" ]; then
