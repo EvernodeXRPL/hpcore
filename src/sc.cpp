@@ -213,8 +213,8 @@ namespace sc
             std::string pubkeyhex;
             util::bin2hex(
                 pubkeyhex,
-                reinterpret_cast<const unsigned char *>((*nodepk).data()),
-                (*nodepk).length());
+                reinterpret_cast<const unsigned char *>((*nodepk).data()) + 1,
+                (*nodepk).length() - 1);
 
             os << "\"" << pubkeyhex << "\"";
         }
@@ -357,8 +357,8 @@ namespace sc
             std::string pubkeyhex;
             util::bin2hex(
                 pubkeyhex,
-                reinterpret_cast<const unsigned char *>(pubkey.data()),
-                pubkey.length());
+                reinterpret_cast<const unsigned char *>(pubkey.data()) + 1,
+                pubkey.length() - 1);
 
             // Write  hex pubkey and fds.
             os << "\"" << pubkeyhex << "\":["
