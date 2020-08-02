@@ -1,6 +1,6 @@
 # We are going with NodeJs debian docker image because sample contracts need NodeJs to run.
 # Otherwise, hpcore itself can run on any docker image like ubuntu or debian without NodeJs.
-FROM node:10.17.0-buster-slim
+FROM node:12.18.3-buster-slim
 
 RUN apt-get update
 # Install netcat for websocketd <--> domain socket redirection.
