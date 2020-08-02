@@ -12,7 +12,7 @@ name=$1
 loc=$2
 vmsize=Standard_B1s
 vmpass=$(cat vmpass.txt)
-resgroup=HotPocket-ResGroup
+resgroup=$(cat vmresgroup.txt)
 
 set -e # exit on error
 
@@ -27,7 +27,6 @@ az vm open-port --resource-group $resgroup --name $name --port 8080 --priority 9
 # For DNS verification web server
 az vm open-port --resource-group $resgroup --name $name --port 80 --priority 902
 
-vmip=$(az vm show -d -g $resgroup -n $name --query publicIps -o tsv)
-vmdns=$name.australiaeast.cloudapp.azure.com
-echo $vmdns >> iplist.txt
-echo $vmdns "("$vmip") created and added to iplist.txt"
+vmdns=$name.$loc.cloudapp.azure.com
+echo $vmdns >> vmlist.txt
+echo $vmdns " created and added to vmlist.txt"
