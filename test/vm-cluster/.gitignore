@@ -1,4 +1,5 @@
 cfg
 vmpass.txt
-iplist.txt
+vmlist.txt
+vmresgroup.txt
 hpfiles
