@@ -73,6 +73,9 @@ namespace sc
         // Current HotPocket consensus time.
         int64_t time = 0;
 
+        // Current HotPocket lcl (seq no. and ledger hash hex)
+        std::string lcl;
+
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
     };

@@ -772,6 +772,7 @@ namespace cons
         {
             sc::contract_execution_args &args = ctx.contract_ctx.args;
             args.time = cons_prop.time;
+            args.lcl = ctx.lcl;
 
             // Populate npl bufs and user bufs.
             args.nplbufs.inputs.splice(args.nplbufs.inputs.end(), ctx.candidate_npl_messages);
