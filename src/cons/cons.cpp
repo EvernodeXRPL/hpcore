@@ -210,12 +210,16 @@ namespace cons
 
                     if (ctx.stage == 3)
                     {
-                        if (apply_ledger(stg_prop) == -1)
-                            return -1;
-
-                        // node has finished a consensus round (all 4 stages).
-                        LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
-                                 << " state:" << ctx.state << ")";
+                        if (apply_ledger(stg_prop) != -1)
+                        {
+                            // node has finished a consensus round (all 4 stages).
+                            LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
+                                     << " state:" << ctx.state << ")";
+                        }
+                        else
+                        {
+                            LOG_ERR << "Error occured in Stage 3 consensus execution.";
+                        }
                     }
                 }
             }
@@ -775,7 +779,10 @@ namespace cons
             // TODO: Do something usefull with HP<-->SC channel.
 
             if (sc::execute_contract(ctx.contract_ctx) == -1)
+            {
+                LOG_ERR << "Contract execution failed.";
                 return -1;
+            }
 
             ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);

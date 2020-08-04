@@ -99,7 +99,10 @@ namespace hpfs
 
                 // Check if process is still running.
                 if (kill(pid, 0) == -1)
+                {
+                    LOG_ERR << "hpfs process " << pid << " has stopped.";
                     break;
+                }
 
                 // If hash map is enabled we check whether stat succeeds on the root hash.
                 // If not, we check whether the inode no. of the mounted root dir is 1.
@@ -107,7 +110,7 @@ namespace hpfs
                 hpfs_initialized = (stat(check_path.c_str(), &st) == 0 &&
                                     (hash_map_enabled || st.st_ino == 1));
 
-            } while (!hpfs_initialized && ++retry_count < 100);
+            } while (!hpfs_initialized && ++retry_count < 200);
 
             // Kill the process if hpfs couldn't be initialized after the wait period.
             if (!hpfs_initialized)
