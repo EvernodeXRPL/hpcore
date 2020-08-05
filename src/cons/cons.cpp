@@ -4,7 +4,6 @@
 #include "../usr/user_input.hpp"
 #include "../p2p/p2p.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
-#include "../msg/fbuf/common_helpers.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
 #include "../p2p/peer_session_handler.hpp"
@@ -119,21 +118,24 @@ namespace cons
                 ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
             }
         }
+
         // Throughout consensus, we move over the incoming npl messages collected via the network so far into
         // the candidate npl message set (move and append). This is to have a private working set for the consensus
         // and avoid threading conflicts with network incoming npl messages.
         {
             std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
-            for (const auto &npl : p2p::ctx.collected_msgs.npl_messages)
-            {
-                const msg::fbuf::p2pmsg::Container *container = msg::fbuf::p2pmsg::GetContainer(npl.data());
-                // Only the npl messages with a valid lcl will be passed down to the contract. lcl should match the previous round's lcl
-                if (msg::fbuf::flatbuff_bytes_to_sv(container->lcl()) != ctx.lcl)
-                    continue;
+            ctx.candidate_npl_messages.splice(ctx.candidate_npl_messages.end(), p2p::ctx.collected_msgs.npl_messages);
+        }
 
-                ctx.candidate_npl_messages.push_back(std::move(npl));
-            }
-            p2p::ctx.collected_msgs.npl_messages.clear();
+        // Only the npl messages with a valid lcl will be passed down to the contract.
+        // lcl should match the previous round's lcl.
+        auto itr = ctx.candidate_npl_messages.begin();
+        while (itr != ctx.candidate_npl_messages.end())
+        {
+            if (itr->lcl == ctx.lcl)
+                ++itr;
+            else
+                ctx.candidate_npl_messages.erase(itr++);
         }
 
         LOG_DBG << "Started stage " << std::to_string(ctx.stage);
@@ -772,9 +774,12 @@ namespace cons
         {
             sc::contract_execution_args &args = ctx.contract_ctx.args;
             args.time = cons_prop.time;
+            args.lcl = ctx.lcl;
 
-            // Populate npl bufs and user bufs.
-            args.nplbufs.inputs.splice(args.nplbufs.inputs.end(), ctx.candidate_npl_messages);
+            // Feed NPL messages.
+            args.npl_messages.splice(args.npl_messages.end(), ctx.candidate_npl_messages);
+
+            // Populate user bufs.
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
             // TODO: Do something usefull with HP<-->SC channel.
 
@@ -786,7 +791,7 @@ namespace cons
 
             ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);
-            broadcast_npl_output(args.nplbufs.output);
+            broadcast_npl_output(args.npl_output);
 
             sc::clear_args(args);
         }
@@ -909,12 +914,9 @@ namespace cons
     {
         if (!output.empty())
         {
-            p2p::npl_message npl;
-            npl.data.swap(output);
-
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_msg_from_npl_output(fbuf, npl, ctx.lcl);
-            p2p::broadcast_message(fbuf, false);
+            p2pmsg::create_msg_from_npl_output(fbuf, output, ctx.lcl);
+            p2p::broadcast_message(fbuf, true);
         }
     }
 

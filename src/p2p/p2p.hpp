@@ -64,8 +64,11 @@ namespace p2p
         LEDGER_RESPONSE_ERROR error;
     };
 
+    // Represents an NPL message sent by a peer.
     struct npl_message
     {
+        std::string pubkey; // Peer binary pubkey.
+        std::string lcl;    // LCL of the peer.
         std::string data;
     };
 
@@ -103,8 +106,8 @@ namespace p2p
         std::list<nonunl_proposal> nonunl_proposals;
         std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 
-        // NPL messages are stored as string list because we are feeding the npl messages as it is (byte array) to the contract.
-        std::list<std::string> npl_messages;
+        // List of NPL messages collected from peers.
+        std::list<npl_message> npl_messages;
         std::mutex npl_messages_mutex; // Mutex for npl_messages access race conditions.
 
         // List of pairs indicating the session pubkey hex and the state requests.

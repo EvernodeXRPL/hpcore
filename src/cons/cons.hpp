@@ -53,7 +53,7 @@ struct consensus_context
     std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
     // The set of npl messages that are being collected as consensus stages are progressing.
-    std::list<std::string> candidate_npl_messages;
+    std::list<p2p::npl_message> candidate_npl_messages;
 
     // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
     std::unordered_set<std::string> candidate_users;

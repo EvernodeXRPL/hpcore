@@ -5,6 +5,7 @@
 #include "usr/usr.hpp"
 #include "hpfs/h32.hpp"
 #include "util.hpp"
+#include "p2p/p2p.hpp"
 
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
@@ -62,9 +63,11 @@ namespace sc
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
         contract_bufmap_t userbufs;
 
-        // Pair of NPL<->SC byte array message buffers.
-        // Input buffers for NPL->SC messages, Output buffers for SC->NPL messages.
-        contract_iobuf_pair nplbufs;
+        // NPL messages to be passed into contract.
+        std::list<p2p::npl_message> npl_messages;
+        
+        // Output NPL buffer.
+        std::string npl_output;
 
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
@@ -72,6 +75,9 @@ namespace sc
 
         // Current HotPocket consensus time.
         int64_t time = 0;
+
+        // Current HotPocket lcl (seq no. and ledger hash hex)
+        std::string lcl;
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
@@ -123,7 +129,9 @@ namespace sc
 
     int fetch_outputs(execution_context &ctx);
 
-    int write_contract_hp_npl_inputs(execution_context &ctx);
+    int write_contract_hp_inputs(execution_context &ctx);
+
+    int write_npl_messages(execution_context &ctx);
 
     int read_contract_hp_npl_outputs(execution_context &ctx);
 
@@ -142,8 +150,6 @@ namespace sc
     int create_iopipes(std::vector<int> &fds, const bool create_inpipe);
 
     int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
-
-    int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
 
     int read_iopipe(std::vector<int> &fds, std::string &output);
 
