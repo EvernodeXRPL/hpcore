@@ -170,12 +170,12 @@ namespace sc
  *   "version":"<hp version>",
  *   "pubkey": "<this node's hex public key>",
  *   "ts": <this node's timestamp (unix milliseconds)>,
+ *   "readonly": <true|false>,
  *   "lcl": "<this node's last closed ledger seq no. and hash in hex>", (eg: 169-a1d82eb4c9ed005ec2c4f4f82b6f0c2fd7543d66b1a0f6b8e58ae670b3e2bcfb)
  *   "hpfd": [fd0, fd1],
- *   "usrfd":{ "<pkhex>":[fd0, fd1], ... },
  *   "nplfd":[fd0, fd1],
- *   "unl":[ "pkhex", ... ],
- *   "readonly": <true|false>
+ *   "usrfd":{ "<pkhex>":[fd0, fd1], ... },
+ *   "unl":[ "pkhex", ... ]
  * }
  */
     int write_contract_args(const execution_context &ctx)
@@ -188,12 +188,12 @@ namespace sc
         os << "{\"version\":\"" << util::HP_VERSION
            << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
            << "\",\"ts\":" << ctx.args.time
-           << ",\"lcl\":\"" << ctx.args.lcl
-           << "\",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
+           << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
         if (!ctx.args.readonly)
         {
-            os << ",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
+            os << ",\"lcl\":\"" << ctx.args.lcl
+               << "\",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
                << "],\"nplfd\":[" << ctx.nplfds[FDTYPE::SCREAD] << "," << ctx.nplfds[FDTYPE::SCWRITE] << "]";
         }
 

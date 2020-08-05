@@ -5,18 +5,14 @@ function HotPocketContract() {
     this.readonly = hpargs.readonly;
     this.timestamp = hpargs.ts;
 
-    if (hpargs.lcl.length > 0) {
+    if (!this.readonly) {
         const lclParts = hpargs.lcl.split("-");
         this.lcl = {
             seqNo: parseInt(lclParts[0]),
             hash: lclParts[1]
         };
-    }
-    else { // In read-mode we will not get lcl.
-        this.lcl = {
-            seqNo: 0,
-            hash: ""
-        };
+
+        this.npl = new HotPocketNplChannel(hpargs.nplfd[0], hpargs.nplfd[1]);
     }
 
     this.users = {};
@@ -24,8 +20,6 @@ function HotPocketContract() {
         const userfds = hpargs.usrfd[userPubKey];
         this.users[userPubKey] = new HotPocketChannel(userfds[0], userfds[1]);
     });
-
-    this.npl = new HotPocketNplChannel(hpargs.nplfd[0], hpargs.nplfd[1]);
 }
 
 function HotPocketChannel(infd, outfd) {
