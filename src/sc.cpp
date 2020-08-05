@@ -531,10 +531,10 @@ namespace sc
     int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
     {
         /**
-     * npl inputs are feed into the contract in a binary protocol. It follows the following pattern
-     * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (4 bytes)**|**Npl message data**|
-     * Length of the message is calculated without including public key length
-     */
+         * npl inputs are feed into the contract in a binary protocol. It follows the following pattern
+         * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (32 bytes)**|**Npl message data**|
+         * Length of the message is calculated without including public key length
+         */
         const int writefd = fds[FDTYPE::HPWRITE];
         if (writefd == -1)
             return 0;
@@ -542,48 +542,34 @@ namespace sc
         bool write_error = false;
         if (!inputs.empty())
         {
-            int8_t total_memsegs = inputs.size() * 3;
+            const int8_t total_memsegs = inputs.size() * 4;
             iovec memsegs[total_memsegs];
             size_t i = 0;
             for (auto &input : inputs)
             {
+                // Get message container.
+                const msg::fbuf::p2pmsg::Container *container = msg::fbuf::p2pmsg::GetContainer(input.data());
+                const flatbuffers::Vector<uint8_t> *container_content = container->content();
+
+                std::string_view msg_pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
+                const uint16_t msg_length = container_content->size();
+                const uint8_t *msg_bytes = container_content->Data();
+
                 int8_t pre_header_index = i * 3;
                 int8_t pubkey_index = pre_header_index + 1;
                 int8_t msg_index = pre_header_index + 2;
 
-                // First binary representation of version, reserve and message length is constructed and feed it into
-                // memory segment. Then the public key and at last the message data
-
-                // At the moment no data is inserted as reserve
-                uint8_t reserve = 0;
-
-                //Get message container
-                const msg::fbuf::p2pmsg::Container *container = msg::fbuf::p2pmsg::GetContainer(input.data());
-                const flatbuffers::Vector<uint8_t> *container_content = container->content();
-
-                uint16_t msg_length = container_content->size();
-
-                /**
-             * Pre header is constructed using bit shifting. This will generate a bit pattern as explain in the example below 
-             * version = 00000001
-             * reserve = 00000000
-             * msg_length = 0000000010001101
-             * pre_header = 00000001000000000000000010001101
-             */
+                // Pre header is |version(1byte)|reserve(1byte)|msg length(2byte)|
                 uint32_t pre_header = util::MIN_NPL_INPUT_VERSION;
-                pre_header = pre_header << 8;
-                pre_header += reserve;
-
-                pre_header = pre_header << 16;
+                pre_header <<= 24;
                 pre_header += msg_length;
                 memsegs[pre_header_index].iov_base = &pre_header;
                 memsegs[pre_header_index].iov_len = 4;
 
-                std::string_view msg_pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
                 memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));
                 memsegs[pubkey_index].iov_len = msg_pubkey.size();
 
-                memsegs[msg_index].iov_base = reinterpret_cast<void *>(const_cast<uint8_t *>(container_content->Data()));
+                memsegs[msg_index].iov_base = reinterpret_cast<void *>(const_cast<uint8_t *>(msg_bytes));
                 memsegs[msg_index].iov_len = container_content->size();
 
                 i++;

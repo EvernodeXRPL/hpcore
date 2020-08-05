@@ -915,7 +915,7 @@ namespace cons
 
             flatbuffers::FlatBufferBuilder fbuf(1024);
             p2pmsg::create_msg_from_npl_output(fbuf, npl, ctx.lcl);
-            p2p::broadcast_message(fbuf, false);
+            p2p::broadcast_message(fbuf, true);
         }
     }
 
