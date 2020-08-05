@@ -1,9 +1,6 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "hplog.hpp"
-#include "msg/fbuf/common_helpers.hpp"
-#include "msg/fbuf/p2pmsg_container_generated.h"
-#include "msg/fbuf/p2pmsg_content_generated.h"
 #include "sc.hpp"
 #include "hpfs/hpfs.hpp"
 
@@ -24,7 +21,7 @@ namespace sc
 
         if (!ctx.args.readonly)
         {
-            create_iopipes(ctx.nplfds, !ctx.args.nplbufs.inputs.empty());
+            create_iopipes(ctx.nplfds, !ctx.args.npl_messages.empty());
             create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
         }
 
@@ -252,8 +249,12 @@ namespace sc
 
     int feed_inputs(execution_context &ctx)
     {
-        // Write any hp or npl input messages to hp->sc and npl->sc pipe.
-        if (!ctx.args.readonly && write_contract_hp_npl_inputs(ctx) != 0)
+        // Write any input messages to hp->sc pipe.
+        if (!ctx.args.readonly && write_contract_hp_inputs(ctx) != 0)
+            return -1;
+
+        // Write any NPL messages to contract.
+        if (!ctx.args.readonly && write_npl_messages(ctx) != 0)
             return -1;
 
         // Write any verified (consensus-reached) user inputs to user pipes.
@@ -300,7 +301,7 @@ namespace sc
     /**
  * Writes any hp input messages to the contract.
  */
-    int write_contract_hp_npl_inputs(execution_context &ctx)
+    int write_contract_hp_inputs(execution_context &ctx)
     {
         if (write_iopipe(ctx.hpscfds, ctx.args.hpscbufs.inputs) != 0)
         {
@@ -308,13 +309,69 @@ namespace sc
             return -1;
         }
 
-        if (write_npl_iopipe(ctx.nplfds, ctx.args.nplbufs.inputs) != 0)
+        return 0;
+    }
+
+    /**
+     * Write npl messages to the contract.
+     */
+    int write_npl_messages(execution_context &ctx)
+    {
+        /**
+         * npl inputs are feed into the contract in a binary protocol. It follows the following pattern
+         * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (32 bytes)**|**Npl message data**|
+         * Length of the message is calculated without including public key length
+         */
+        const int writefd = ctx.nplfds[FDTYPE::HPWRITE];
+        if (writefd == -1)
+            return 0;
+
+        bool write_error = false;
+        if (!ctx.args.npl_messages.empty())
         {
-            LOG_ERR << "Error writing NPL inputs to SC";
-            return -1;
+            const size_t total_memsegs = ctx.args.npl_messages.size() * 3;
+            iovec memsegs[total_memsegs];
+            size_t i = 0;
+            for (const auto &npl_msg : ctx.args.npl_messages)
+            {
+                const uint8_t pre_header_index = i * 3;
+                const uint8_t pubkey_index = pre_header_index + 1;
+                const uint8_t msg_index = pre_header_index + 2;
+
+                const uint16_t msg_len = npl_msg.data.size();
+
+                // Header is |version(1byte)|reserve(1byte)|msg length(2bytes big endian)|
+                uint8_t header[4];
+                header[0] = util::MIN_NPL_INPUT_VERSION;
+
+                // Store msg length in big endian.
+                header[2] = msg_len << 8;
+                header[3] = msg_len;
+
+                memsegs[pre_header_index].iov_base = header;
+                memsegs[pre_header_index].iov_len = sizeof(header);
+
+                // Pubkey without the key type prefix.
+                memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(npl_msg.pubkey.data() + 1));
+                memsegs[pubkey_index].iov_len = npl_msg.pubkey.size() - 1;
+
+                memsegs[msg_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(npl_msg.data.data()));
+                memsegs[msg_index].iov_len = msg_len;
+
+                i++;
+            }
+
+            if (writev(writefd, memsegs, total_memsegs) == -1)
+                write_error = true;
+
+            ctx.args.npl_messages.clear();
         }
 
-        return 0;
+        // Close the writefd since we no longer need it.
+        close(writefd);
+        ctx.nplfds[FDTYPE::HPWRITE] = -1;
+
+        return write_error ? -1 : 0;
     }
 
     /**
@@ -332,7 +389,7 @@ namespace sc
             return -1;
         }
 
-        const int npl_res = read_iopipe(ctx.nplfds, ctx.args.nplbufs.output);
+        const int npl_res = read_iopipe(ctx.nplfds, ctx.args.npl_output);
         if (npl_res == -1)
         {
             LOG_ERR << "Error reading NPL output from the contract.";
@@ -524,71 +581,6 @@ namespace sc
     }
 
     /**
- * Write the given input buffer into the write fd from the HP side.
- * @param fds Vector of fd list.
- * @param inputs Buffer to write into the HP write fd.
- */
-    int write_npl_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
-    {
-        /**
-         * npl inputs are feed into the contract in a binary protocol. It follows the following pattern
-         * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (32 bytes)**|**Npl message data**|
-         * Length of the message is calculated without including public key length
-         */
-        const int writefd = fds[FDTYPE::HPWRITE];
-        if (writefd == -1)
-            return 0;
-
-        bool write_error = false;
-        if (!inputs.empty())
-        {
-            const int8_t total_memsegs = inputs.size() * 4;
-            iovec memsegs[total_memsegs];
-            size_t i = 0;
-            for (auto &input : inputs)
-            {
-                // Get message container.
-                const msg::fbuf::p2pmsg::Container *container = msg::fbuf::p2pmsg::GetContainer(input.data());
-                const flatbuffers::Vector<uint8_t> *container_content = container->content();
-
-                std::string_view msg_pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
-                const uint16_t msg_length = container_content->size();
-                const uint8_t *msg_bytes = container_content->Data();
-
-                int8_t pre_header_index = i * 3;
-                int8_t pubkey_index = pre_header_index + 1;
-                int8_t msg_index = pre_header_index + 2;
-
-                // Pre header is |version(1byte)|reserve(1byte)|msg length(2byte)|
-                uint32_t pre_header = util::MIN_NPL_INPUT_VERSION;
-                pre_header <<= 24;
-                pre_header += msg_length;
-                memsegs[pre_header_index].iov_base = &pre_header;
-                memsegs[pre_header_index].iov_len = 4;
-
-                memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(msg_pubkey.data()));
-                memsegs[pubkey_index].iov_len = msg_pubkey.size();
-
-                memsegs[msg_index].iov_base = reinterpret_cast<void *>(const_cast<uint8_t *>(msg_bytes));
-                memsegs[msg_index].iov_len = container_content->size();
-
-                i++;
-            }
-
-            if (writev(writefd, memsegs, total_memsegs) == -1)
-                write_error = true;
-
-            inputs.clear();
-        }
-
-        // Close the writefd since we no longer need it.
-        close(writefd);
-        fds[FDTYPE::HPWRITE] = -1;
-
-        return write_error ? -1 : 0;
-    }
-
-    /**
  * Common function to read buffered output from the pipe and populate the output list.
  * @param fds Vector representing the pipes fd list.
  * @param output The buffer to place the read output.
@@ -689,8 +681,8 @@ namespace sc
         args.userbufs.clear();
         args.hpscbufs.inputs.clear();
         args.hpscbufs.output.clear();
-        args.nplbufs.inputs.clear();
-        args.nplbufs.output.clear();
+        args.npl_messages.clear();
+        args.npl_output.clear();
         args.time = 0;
         args.lcl.clear();
         args.post_execution_state_hash = hpfs::h32_empty;

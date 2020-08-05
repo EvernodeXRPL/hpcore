@@ -9,6 +9,19 @@ const hpc = new HotPocketContract();
 if (!hpc.readonly)
     fs.appendFileSync("exects.txt", "ts:" + hpc.timestamp + "\n");
 
+const nplInputs = hpc.npl.readInput();
+if (nplInputs) {
+    nplInputs.forEach(inp => {
+        console.log(inp.pubkey);
+        console.log(inp.input.toString());
+    });
+}
+else {
+    console.log("Np npl input");
+}
+
+hpc.npl.sendOutput("Hello!!");
+
 Object.keys(hpc.users).forEach(function (key) {
 
     const user = hpc.users[key];

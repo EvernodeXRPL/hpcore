@@ -372,17 +372,17 @@ namespace msg::fbuf::p2pmsg
     /**
  * Ctreat npl message from the given npl output srtuct.
  * @param container_builder Flatbuffer builder for the container message.
- * @param n The npl struct to be placed in the container message.
+ * @param msg The message to be sent as NPL message.
  * @param lcl Lcl value to be passed in the container message.
  */
-    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const p2p::npl_message &n, std::string_view lcl)
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view &msg, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
         const flatbuffers::Offset<Npl_Message> npl =
             CreateNpl_Message(
                 builder,
-                sv_to_flatbuff_bytes(builder, n.data));
+                sv_to_flatbuff_bytes(builder, msg));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Npl_Message, npl.Union());
         builder.Finish(message); // Finished building message content to get serialised content.

@@ -135,12 +135,12 @@ namespace p2p
 
             std::lock_guard<std::mutex> lock(ctx.collected_msgs.npl_messages_mutex); // Insert npl message with lock.
 
-            // Npl messages are added to the npl message array as it is without deserealizing the content. The same content will be passed down
-            // to the contract as input in a binary format
-            const uint8_t *container_buf_ptr = reinterpret_cast<const uint8_t *>(message.data());
-            const size_t container_buf_size = message.length();
-            const std::string npl_message(reinterpret_cast<const char *>(container_buf_ptr), container_buf_size);
-            ctx.collected_msgs.npl_messages.push_back(std::move(npl_message));
+            const p2pmsg::Npl_Message *npl_p2p_msg = content->message_as_Npl_Message();
+            npl_message msg;
+            msg.data = msg::fbuf::flatbuff_bytes_to_sv(npl_p2p_msg->data());
+            msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
+            msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
+            ctx.collected_msgs.npl_messages.push_back(std::move(msg));
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
