@@ -45,9 +45,10 @@ namespace comm
             close(write_pipe[0]);
             close(read_pipe[1]);
 
-            // Wait for some time and check if websocat is still running properly.
-            util::sleep(20);
-            if (kill(pid, 0) == -1)
+            // Wait for some time and check if websocat process has closed the pipe.
+            util::sleep(300);
+            pollfd fds[1] = {{read_fd}};
+            if (poll(fds, 1, 0) == -1 || (fds[0].revents & POLLHUP))
             {
                 close(read_fd);
                 close(write_fd);

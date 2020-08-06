@@ -204,6 +204,7 @@ namespace util
         sigset_t mask;
         sigemptyset(&mask);
         sigaddset(&mask, SIGINT);
+        sigaddset(&mask, SIGPIPE);
         pthread_sigmask(SIG_BLOCK, &mask, NULL);
     }
 

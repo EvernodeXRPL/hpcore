@@ -140,12 +140,26 @@ fi
 
 # Run binary file setup for entire cluster.
 if [ $mode = "new" ] || [ $mode = "update" ]; then
+
+    # Copy required files to hpfiles dir.
+    mkdir -p hpfiles/{bin,nodejs_contract}
+    strip $hpcore/build/hpcore
+    cp $hpcore/build/hpcore hpfiles/bin/
+    cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} hpfiles/nodejs_contract/
+    if [ $mode = "new" ]; then
+        cp ../bin/{libfuse3.so.3,libb2.so.1,fusermount3,websocketd,websocat,hpfs} hpfiles/bin/
+        cp ./setup-hp.sh hpfiles/
+    fi
+
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
         let n=$i+1
         /bin/bash ./setup-vm.sh $mode $n $vmpass $vmaddr $hpcore &
     done
+
+    wait
+    rm -r hpfiles
 fi
 
 wait

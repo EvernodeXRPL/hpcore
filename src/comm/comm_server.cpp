@@ -247,7 +247,7 @@ namespace comm
             comm::comm_client client;
             if (client.start(host, port, metric_thresholds, conf::cfg.peermaxsize) == -1)
             {
-                LOG_ERR << "Outbound connection attempt failed";
+                LOG_ERR << "Outbound connection attempt failed: " << host << ":" << std::to_string(port);
             }
             else
             {
