@@ -241,9 +241,10 @@ namespace cons
         while (itr != ctx.candidate_proposals.end())
         {
             const p2p::proposal &cp = itr->second;
+            const uint64_t time_diff = (ctx.time_now > cp.timestamp) ? (ctx.time_now - cp.timestamp) : 0;
 
             // only consider recent proposals and proposals from previous stage and current stage.
-            if ((ctx.time_now - cp.timestamp < conf::cfg.roundtime * 4) && cp.stage >= (ctx.stage - 1))
+            if ((time_diff < (conf::cfg.roundtime * 4)) && cp.stage >= (ctx.stage - 1))
             {
                 ++itr;
 
