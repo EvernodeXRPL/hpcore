@@ -34,8 +34,13 @@ sudo rm -r ~/contract > /dev/null 2>&1
 echo "Creating new contract directory..."
 ~/hpfiles/bin/hpcore new ~/contract
 
-pushd ~/contract/cfg > /dev/null 2>&1
-echo "Generating default ssl certs..."
-openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \
-      -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hp@example" > /dev/null 2>&1
-popd > /dev/null 2>&1
+if [ -f ~/hpfiles/ssl/tlscert.pem ]; then
+   echo "Copying ssl certs to contract directory..."
+   cp -rf ~/hpfiles/ssl/* ~/contract/cfg/
+else
+   echo "Generating default ssl certs..."
+   pushd ~/contract/cfg > /dev/null 2>&1
+   openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \
+         -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hp@example" > /dev/null 2>&1
+   popd > /dev/null 2>&1
+fi

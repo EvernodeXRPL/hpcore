@@ -114,7 +114,8 @@ if [ $mode = "ssl" ]; then
     popd > /dev/null 2>&1
     
     echo "Sending tls certs to the contract..."
-    sshpass -f vmpass.txt scp ~/Downloads/$vmaddr/certs/* geveo@$vmaddr:~/contract/cfg/
+    sshpass -f vmpass.txt scp ~/Downloads/$vmaddr/certs/* geveo@$vmaddr:~/hpfiles/ssl/
+    sshpass -f vmpass.txt ssh geveo@$vmaddr 'cp -rf ~/hpfiles/ssl/* ~/contract/cfg/'
     
     rm -r ~/Downloads/$vmaddr
     echo "Done"
@@ -142,7 +143,7 @@ fi
 if [ $mode = "new" ] || [ $mode = "update" ]; then
 
     # Copy required files to hpfiles dir.
-    mkdir -p hpfiles/{bin,nodejs_contract}
+    mkdir -p hpfiles/{bin,ssl,nodejs_contract}
     strip $hpcore/build/hpcore
     cp $hpcore/build/hpcore hpfiles/bin/
     cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} hpfiles/nodejs_contract/
@@ -234,7 +235,7 @@ do
         binargs:'/home/geveo/hpfiles/nodejs_contract/echo_contract.js', \
         peers:${mypeers}, \
         unl:${myunl}, \
-        roundtime: 2000, \
+        roundtime: 1000, \
         loglevel: 'debug', \
         loggers:['console', 'file'] \
         }, null, 2)" > ./cfg/node$n.cfg
