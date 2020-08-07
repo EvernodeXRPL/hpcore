@@ -17,7 +17,7 @@ namespace hplog
  */
 std::ostream &operator<<(std::ostream &os, LOG_SEVERITY level)
 {
-    static std::string_view loglevels[] = {"dbg", "info", "warn", "err"};
+    static std::string_view loglevels[] = {"dbg", "inf", "wrn", "err"};
     os << loglevels[level];
     return os;
 }
@@ -40,11 +40,11 @@ void init()
 
     // Log line format expression.
     const auto format_expr = (expr::stream
-                        << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S")
-                        //<< ":" << expr::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID")
-                        << " [" << expr::attr<std::string>("Channel")
-                        << "] [" << expr::attr<LOG_SEVERITY, severity_tag>("Severity")
-                        << "] " << expr::smessage);
+                        << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y%m%d %H:%M:%S ")
+                        // << ":" << expr::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID")
+                        // << "[" << expr::attr<std::string>("Channel") << "] " 
+                        << "[" << expr::attr<LOG_SEVERITY, severity_tag>("Severity") << "] " 
+                        << expr::smessage);
 
     if (conf::cfg.loggers.count("console") == 1)
     {

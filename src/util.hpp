@@ -78,6 +78,8 @@ namespace util
 
     int hex2bin(unsigned char *decoded, const size_t decoded_len, std::string_view hex_str);
 
+    std::string get_hex(std::string_view bin, const off_t skip = 0, const size_t take = 0);
+
     int64_t get_epoch_milliseconds();
 
     void sleep(const uint64_t milliseconds);

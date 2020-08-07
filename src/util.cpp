@@ -125,6 +125,14 @@ namespace util
         return 0;
     }
 
+    std::string get_hex(std::string_view bin, const off_t skip, const size_t take)
+    {
+        std::string hex;
+        const size_t len = (take ? take : (bin.size() - skip));
+        bin2hex(hex, reinterpret_cast<unsigned char *>(const_cast<char *>(bin.data() + skip)), len);
+        return hex;
+    }
+
     /**
  * Returns current time in UNIX epoch milliseconds.
  */
