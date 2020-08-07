@@ -50,7 +50,7 @@ namespace cons
         LOG_INFO << "Initial state: " << ctx.state;
 
         // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
-        // Stage 3 is allocated an extra stage_time unit becayse a node needs enough time to
+        // Stage 3 is allocated an extra stage_time unit because a node needs enough time to
         // catch up from lcl/state desync.
         ctx.stage_time = conf::cfg.roundtime / 5;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
@@ -247,7 +247,6 @@ namespace cons
             {
                 ++itr;
 
-                bool self = cp.pubkey == conf::cfg.pubkey;
                 LOG_DBG << "Proposal [stage" << std::to_string(cp.stage)
                         << "] users:" << cp.users.size()
                         << " hinp:" << cp.hash_inputs.size()
@@ -255,7 +254,7 @@ namespace cons
                         << " ts:" << std::to_string(cp.time)
                         << " lcl:" << cp.lcl.substr(0, 15)
                         << " state:" << cp.state
-                        << (self ? " [self]" : "");
+                        << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]";
             }
             else
             {
