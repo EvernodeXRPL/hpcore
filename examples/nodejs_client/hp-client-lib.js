@@ -113,7 +113,6 @@ function HotPocketClient(server, protocol, keys) {
     }
 
     this.close = function () {
-        Promise.resolve().then
         return new Promise(resolve => {
             try {
                 ws.removeAllListeners("close");
@@ -207,7 +206,7 @@ function MessageHelper(keys, protocol) {
             nonce: nonce,
             max_lcl_seqno: maxLclSeqNo
         }
-        
+
         const inpContainerBytes = this.serializeObject(inpContainer);
         const sigBytes = sodium.crypto_sign_detached(Buffer.from(inpContainerBytes), keys.privateKey);
 
