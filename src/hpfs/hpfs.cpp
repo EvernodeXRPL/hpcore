@@ -6,8 +6,9 @@
 
 namespace hpfs
 {
-    pid_t merge_pid = 0;
+    constexpr const char *HPFS_TRACE_ARG = "trace=none";
 
+    pid_t merge_pid = 0;
     bool init_success = false;
 
     int init()
@@ -55,6 +56,7 @@ namespace hpfs
                 conf::ctx.hpfs_exe_path.data(),
                 (char *)"merge",
                 conf::ctx.state_dir.data(),
+                (char *)HPFS_TRACE_ARG,
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
@@ -141,6 +143,7 @@ namespace hpfs
                 conf::ctx.state_dir.data(),
                 mount_dir.data(),
                 (char *)(hash_map_enabled ? "hmap=true" : "hmap=false"),
+                (char *)HPFS_TRACE_ARG,
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);

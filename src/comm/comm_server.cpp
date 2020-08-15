@@ -314,6 +314,8 @@ namespace comm
             std::vector<std::string> args_vec;
             args_vec.reserve(16);
 
+            const std::string max_msg_size_str = (max_msg_size > 0) ? std::to_string(max_msg_size) : "134217728"; //128MB
+
             // Fill process args.
             args_vec.push_back(conf::ctx.websocketd_exe_path);
             args_vec.push_back("--port");
@@ -325,10 +327,7 @@ namespace comm
             args_vec.push_back(conf::ctx.tls_key_file);
             args_vec.push_back(is_binary ? "--binary=true" : "--binary=false");
             args_vec.push_back(use_size_header ? "--sizeheader=true" : "--sizeheader=false");
-
-            if (max_msg_size > 0)
-                args_vec.push_back(std::string("--maxframe=").append(std::to_string(max_msg_size)));
-
+            args_vec.push_back(std::string("--maxframe=").append(max_msg_size_str));
             args_vec.push_back("--loglevel=error");
             args_vec.push_back("nc"); // netcat (OpenBSD) is used for domain socket redirection.
             args_vec.push_back("-U"); // Use UNIX domain socket
