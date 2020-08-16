@@ -17,7 +17,7 @@ namespace hpfs
     void deinit();
     int start_merge_process();
     int start_fs_session(pid_t &session_pid, std::string &mount_dir,
-                         const char *mode, const bool hash_map_enabled);
+                         const char *mode, const bool hash_map_enabled, const uint16_t timeout = 4000);
     int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath);
     int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath);
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath);
