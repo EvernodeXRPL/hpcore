@@ -7,6 +7,7 @@
 namespace hpfs
 {
     constexpr const char *HPFS_TRACE_ARG = "trace=none";
+    constexpr uint16_t INIT_CHECK_INTERVAL = 20;
 
     pid_t merge_pid = 0;
     bool init_success = false;
@@ -73,13 +74,14 @@ namespace hpfs
     }
 
     int start_fs_session(pid_t &session_pid, std::string &mount_dir,
-                         const char *mode, const bool hash_map_enabled)
+                         const char *mode, const bool hash_map_enabled, const uint16_t timeout)
     {
         const pid_t pid = fork();
 
         if (pid > 0)
         {
             // HotPocket process.
+            LOG_DBG << "Starting hpfs " << mode << " session...";
 
             // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             if (mount_dir.empty())
@@ -93,11 +95,12 @@ namespace hpfs
                                                : mount_dir;
 
             // Wait until hpfs is initialized properly.
+            const uint16_t max_retries = timeout / INIT_CHECK_INTERVAL;
             bool hpfs_initialized = false;
-            uint8_t retry_count = 0;
+            uint16_t retry_count = 0;
             do
             {
-                util::sleep(20);
+                util::sleep(INIT_CHECK_INTERVAL);
 
                 // Check if process is still running.
                 if (kill(pid, 0) == -1)
@@ -112,7 +115,15 @@ namespace hpfs
                 hpfs_initialized = (stat(check_path.c_str(), &st) == 0 &&
                                     (hash_map_enabled || st.st_ino == 1));
 
-            } while (!hpfs_initialized && ++retry_count < 200);
+                // The only error that warrants a retry is ENOENT (no entry).
+                // When hpfs is fully initialized we should receive some file from check_path.
+                if (!hpfs_initialized && errno != ENOENT)
+                {
+                    LOG_ERR << errno << ": Error in checking hpfs status.";
+                    break;
+                }
+
+            } while (!hpfs_initialized && ++retry_count <= max_retries);
 
             // Kill the process if hpfs couldn't be initialized after the wait period.
             if (!hpfs_initialized)

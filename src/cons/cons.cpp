@@ -941,7 +941,7 @@ namespace cons
     {
         pid_t pid;
         std::string mount_dir;
-        if (hpfs::start_fs_session(pid, mount_dir, "ro", true) == -1)
+        if (hpfs::start_fs_session(pid, mount_dir, "ro", true, 60000) == -1)
             return -1;
 
         int res = get_hash(hash, mount_dir, "/");

@@ -88,7 +88,6 @@ namespace state_sync
                 LOG_INFO << "State sync: Starting sync for target state: " << ctx.target_state;
             }
 
-            LOG_DBG << "State sync: Starting hpfs rw session...";
             pid_t hpfs_pid = 0;
             if (hpfs::start_fs_session(hpfs_pid, ctx.hpfs_mount_dir, "rw", true) != -1)
             {
