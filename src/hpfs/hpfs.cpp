@@ -172,14 +172,14 @@ namespace hpfs
 
     int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
     {
-        std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.hash");
-        int fd = open(path.c_str(), O_RDONLY);
+        const std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.hash");
+        const int fd = open(path.c_str(), O_RDONLY);
         if (fd == -1)
         {
             LOG_ERR << errno << ": Error opening hash file.";
             return -1;
         }
-        int res = read(fd, &hash, sizeof(h32));
+        const int res = read(fd, &hash, sizeof(h32));
         close(fd);
         if (res == -1)
         {
@@ -191,8 +191,8 @@ namespace hpfs
 
     int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath)
     {
-        std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.children");
-        int fd = open(path.c_str(), O_RDONLY);
+        const std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.children");
+        const int fd = open(path.c_str(), O_RDONLY);
         if (fd == -1)
             return -1;
 
@@ -207,7 +207,7 @@ namespace hpfs
         const int children_count = st.st_size / sizeof(h32);
         hashes.resize(children_count);
 
-        int res = read(fd, hashes.data(), st.st_size);
+        const int res = read(fd, hashes.data(), st.st_size);
         close(fd);
         if (res == -1)
         {
@@ -219,8 +219,8 @@ namespace hpfs
 
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath)
     {
-        std::string path = std::string(mount_dir).append(dir_vpath).append("::hpfs.hmap.children");
-        int fd = open(path.c_str(), O_RDONLY);
+        const std::string path = std::string(mount_dir).append(dir_vpath).append("::hpfs.hmap.children");
+        const int fd = open(path.c_str(), O_RDONLY);
         if (fd == -1)
         {
             LOG_ERR << errno << ": Error opening hash children nodes.";
@@ -238,7 +238,7 @@ namespace hpfs
         const int children_count = st.st_size / sizeof(child_hash_node);
         hash_nodes.resize(children_count);
 
-        int res = read(fd, hash_nodes.data(), st.st_size);
+        const int res = read(fd, hash_nodes.data(), st.st_size);
         close(fd);
         if (res == -1)
         {
