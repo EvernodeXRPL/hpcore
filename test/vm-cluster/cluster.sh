@@ -21,12 +21,12 @@ hpcore=$(realpath ../..)
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "vminfo" ] || [ "$mode" = "vmresize" ] || [ "$mode" = "vmstop" ] || [ "$mode" = "vmstart" ] || \
    [ "$mode" = "run" ] || [ "$mode" = "check" ] || [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || \
-   [ "$mode" = "ssh" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ]; then
+   [ "$mode" = "ssh" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
     echo "mode: $mode"
 else
     echo "Invalid command. [ new | update | reconfig | vmresize <size> | vmstop | vmstart" \
         " | run <N> | check <N> | monitor <N> | kill <N> | reboot <N> | ssh <N> <custom command>" \
-        " | dns <N> <zerossl file> | ssl <N> ] expected."
+        " | dns <N> <zerossl file> | ssl <N> | lcl ] expected."
     exit 1
 fi
 
@@ -42,6 +42,7 @@ fi
 # ssh - Open up an ssh terminal for the specified vm node.
 # dns - Uploads given zerossl domain verification file to vm and starts http server for DNS check.
 # ssl - Uploads matching zerossl certificate bundle from ~/Downloads/ to the contract.
+# lcl - Displays the lcls of all nodes.
 
 if [ $mode = "run" ]; then
     let nodeid=$2-1
@@ -138,8 +139,18 @@ if [ $mode = "vminfo" ] || [ $mode = "vmresize" ] || [ $mode = "vmstop" ] || [ $
     exit 0
 fi
 
+if [ $mode = "lcl" ]; then
+    for (( i=0; i<$vmcount; i++ ))
+    do
+        vmaddr=${vmaddrs[i]}
+        sshpass -f vmpass.txt ssh geveo@$vmaddr 'ls -v contract/hist | tail -1' &
+    done
 
-# Run binary file setup for entire cluster.
+    wait
+    exit 0
+fi
+
+# Run setup of entire cluster.
 if [ $mode = "new" ] || [ $mode = "update" ]; then
 
     # Copy required files to hpfiles dir.
