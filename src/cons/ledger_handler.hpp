@@ -19,7 +19,7 @@ struct ledger_cache_entry
 struct ledger_history
 {
     std::string lcl;
-    uint64_t led_seq_no;
+    uint64_t led_seq_no = 0;
     std::map<uint64_t, ledger_cache_entry> cache;
 };
 

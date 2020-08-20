@@ -12,6 +12,7 @@ namespace comm
 
     constexpr uint32_t INTERVALMS = 60000;
     constexpr uint8_t SIZE_HEADER_LEN = 8;
+    constexpr uint32_t READ_BUFFER_IDLE_SIZE = 64 * 1024;
 
     // Global instances of user and peer session handlers.
     usr::user_session_handler user_sess_handler;
@@ -48,8 +49,10 @@ namespace comm
 
     /**
  * Attempts to read message data from the given socket fd and passes the message on to the session.
- * @param should_disconnect Whether the client fd must be disconnected.
  * @param max_msg_size The allowed max byte length of a message to be read.
+ * @return  -1 on error and client must be disconnected. 0 if no message data bytes were read. 1 if some
+ *          bytes were read but a full message is not yet formed. 2 if a fully formed message has been
+ *          read into the read buffer.
  */
     int comm_session::attempt_read(const uint64_t max_msg_size)
     {
@@ -59,33 +62,39 @@ namespace comm
              available_bytes > (max_msg_size + (is_binary ? SIZE_HEADER_LEN : 0))))
             return -1;
 
+        int res = 0;
+
         // Try to read a complete message using available bytes.
-        // If complete message is not available silently return.
         if (available_bytes > 0)
         {
-            const uint32_t read_len = is_binary ? get_binary_msg_read_len(available_bytes) : available_bytes;
-
-            if (read_len == -1)
+            if (is_binary)
             {
-                return -1;
+                res = get_binary_msg_read_len(available_bytes);
             }
-            else if (read_len > 0)
+            else
             {
-                if (!is_binary)
+                read_buffer.resize(available_bytes);
+                res = read(read_fd, read_buffer.data(), available_bytes) < available_bytes ? -1 : 2;
+            }
+
+            if (res == 2) // Full message has been read into read buffer.
+            {
+                if (on_message(std::string_view(read_buffer.data(), read_buffer.size())) == -1)
+                    res = -1;
+
+                // Reset the read buffer.
+                if (read_buffer.size() > READ_BUFFER_IDLE_SIZE)
                 {
-                    read_buffer.resize(read_len);
-                    if (read(read_fd, read_buffer.data(), read_len) < read_len)
-                        return -1;
+                    read_buffer.resize(READ_BUFFER_IDLE_SIZE);
+                    read_buffer.shrink_to_fit(); // This is to avaoid large idle memory allocations.
                 }
 
-                int res = on_message(std::string_view(read_buffer.data(), read_len));
-                read_buffer.clear(); // Clear the buffer after read operation.
+                read_buffer.clear();
                 read_buffer_filled_size = 0;
-                return res;
             }
         }
 
-        return 0;
+        return res;
     }
 
     int comm_session::on_message(std::string_view message)
@@ -168,9 +177,11 @@ namespace comm
     /**
  * Retrieves the length of the binary message pending to be read. Only relevant for Binary mode.
  * @param available_bytes Count of bytes that is available to read from the client socket.
- * @return Length of the message if the complete message available to be read. 0 if reading must be skipped. -1 if client must be disconnected.
+ * @return  -1 on error and client must be disconnected. 0 if no message data bytes were read. 1 if some
+ *          bytes were read but a full message is not yet formed. 2 if a fully formed message has been
+ *          read into the read buffer.
  */
-    uint32_t comm_session::get_binary_msg_read_len(const size_t available_bytes)
+    int comm_session::get_binary_msg_read_len(const size_t available_bytes)
     {
         // If we have previously encountered a size header and we are waiting until all message
         // bytes are received, we must have the expected message size > 0.
@@ -210,7 +221,8 @@ namespace comm
 
                 const size_t read_len = expected_msg_size;
                 expected_msg_size = 0; // reset the expected msg size.
-                return read_len;
+
+                return 2; // Full message has been read.
             }
             else
             {
@@ -218,11 +230,12 @@ namespace comm
                 if (read(read_fd, read_buffer.data() + read_buffer_filled_size, data_bytes) == -1)
                     return -1; // Indicates that we should disconnect the client.
                 read_buffer_filled_size += data_bytes;
+
+                return 1; // Some bytes were read, but full message is not yet formed.
             }
         }
 
-        // Skip reading
-        return 0;
+        return 0; // No message data bytes was read.
     }
 
     /**

@@ -19,7 +19,7 @@ namespace state_sync
     // Represents a queued up state sync operation which needs to be performed.
     struct backlog_item
     {
-        BACKLOG_ITEM_TYPE type;
+        BACKLOG_ITEM_TYPE type = BACKLOG_ITEM_TYPE::DIR;
         std::string path;
         int32_t block_id = -1; // Only relevant if type=BLOCK
         hpfs::h32 expected_hash;

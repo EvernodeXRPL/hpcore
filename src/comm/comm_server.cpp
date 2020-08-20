@@ -79,21 +79,14 @@ namespace comm
         // Counter to track when to initiate outbound client connections.
         int16_t loop_counter = -1;
 
+        // Indicates whether at least some bytes were read from any of the clients during the previous iteration.
+        // If no bytes were read, we would force thread sleep to wait for bytes to arrive.
+        bool bytes_read = false;
+
         while (true)
         {
             if (should_stop_listening)
                 break;
-
-            // Prepare poll fd list.
-            const size_t fd_count = sessions.size() + 1; //+1 for the inclusion of accept_fd
-            pollfd pollfds[fd_count];
-            if (poll_fds(pollfds, accept_fd, sessions) == -1)
-            {
-                util::sleep(10);
-                continue;
-            }
-
-            util::sleep(10);
 
             // Accept any new incoming connection if available.
             check_for_new_connection(sessions, accept_fd, session_type, is_binary, metric_thresholds);
@@ -109,9 +102,27 @@ namespace comm
                 loop_counter++;
             }
 
-            const size_t sessions_count = sessions.size();
+            // Prepare poll fd list.
+            const size_t fd_count = sessions.size() + 1; //+1 for the inclusion of accept_fd
 
-            // Loop through all fds and read any data.
+            pollfd pollfds[fd_count];
+            memset(pollfds, 0, sizeof(pollfd) * fd_count);
+
+            if (poll_fds(pollfds, accept_fd, sessions) == -1)
+            {
+                util::sleep(10);
+                continue;
+            }
+
+            if (!bytes_read)
+                util::sleep(10);
+            bytes_read = false;
+
+            // Loop through all session fds and read any data.
+            const size_t sessions_count = sessions.size();
+            if (sessions_count == 0)
+                continue;
+
             for (size_t i = 1; i <= sessions_count; i++)
             {
                 const short result = pollfds[i].revents;
@@ -126,7 +137,18 @@ namespace comm
                     if (!should_disconnect)
                     {
                         if (result & POLLIN)
-                            should_disconnect = (session.attempt_read(max_msg_size) == -1);
+                        {
+                            const int read_result = session.attempt_read(max_msg_size);
+
+                            // read_result -1 means error and we should disconnect the client.
+                            // read_result 0 means no bytes were read.
+                            // read_result 1 means some bytes were read.
+                            // read_result 2 means full message were read and processed successfully.
+                            if (read_result > 0)
+                                bytes_read = true;
+                            else if (read_result == -1)
+                                should_disconnect = true;
+                        }
 
                         if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
                             should_disconnect = true;

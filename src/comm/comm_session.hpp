@@ -39,7 +39,7 @@ class comm_session
     std::vector<char> read_buffer;             // Local buffer to keep collecting data until a complete message can be constructed.
     uint32_t read_buffer_filled_size = 0;      // How many bytes have been buffered so far.
 
-    uint32_t get_binary_msg_read_len(const size_t available_bytes);
+    int get_binary_msg_read_len(const size_t available_bytes);
     int on_message(std::string_view message);
 
 public:

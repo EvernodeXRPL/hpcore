@@ -11,8 +11,8 @@ namespace corebill
  */
 struct violation_stat
 {
-    uint32_t counter;
-    uint64_t timestamp;
+    uint32_t counter = 0;
+    uint64_t timestamp = 0;
 };
 
 void report_violation(const std::string host);
