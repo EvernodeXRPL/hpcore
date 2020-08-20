@@ -32,14 +32,14 @@ async function main() {
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         console.log('Connection failed.');
-        exit;
+        exit();
     }
     console.log('HotPocket Connected.');
 
     // This will get fired if HP server disconnects unexpectedly.
     hpc.on(HotPocketEvents.disconnect, () => {
-        console.log('Server diconnected');
-        exit;
+        console.log('Server disconnected');
+        exit();
     })
 
     // This will get fired when contract sends an output.
