@@ -88,19 +88,6 @@ namespace comm
             if (should_stop_listening)
                 break;
 
-            // Prepare poll fd list.
-            const size_t fd_count = sessions.size() + 1; //+1 for the inclusion of accept_fd
-            pollfd pollfds[fd_count];
-            if (poll_fds(pollfds, accept_fd, sessions) == -1)
-            {
-                util::sleep(10);
-                continue;
-            }
-
-            if (!bytes_read)
-                util::sleep(10);
-            bytes_read = false;
-
             // Accept any new incoming connection if available.
             check_for_new_connection(sessions, accept_fd, session_type, is_binary, metric_thresholds);
 
@@ -115,9 +102,27 @@ namespace comm
                 loop_counter++;
             }
 
-            const size_t sessions_count = sessions.size();
+            // Prepare poll fd list.
+            const size_t fd_count = sessions.size() + 1; //+1 for the inclusion of accept_fd
 
-            // Loop through all fds and read any data.
+            pollfd pollfds[fd_count];
+            memset(pollfds, 0, sizeof(pollfd) * fd_count);
+
+            if (poll_fds(pollfds, accept_fd, sessions) == -1)
+            {
+                util::sleep(10);
+                continue;
+            }
+
+            if (!bytes_read)
+                util::sleep(10);
+            bytes_read = false;
+
+            // Loop through all session fds and read any data.
+            const size_t sessions_count = sessions.size();
+            if (sessions_count == 0)
+                continue;
+
             for (size_t i = 1; i <= sessions_count; i++)
             {
                 const short result = pollfds[i].revents;
