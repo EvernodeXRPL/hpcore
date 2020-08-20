@@ -5,7 +5,7 @@
 
 A C++ version of hotpocket designed for production envrionments, original prototype here: https://github.com/codetsunami/hotpocket
 
-[Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki)
+<!-- [Hot Pocket Wiki](https://github.com/HotPocketDev/core/wiki) -->
 
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium

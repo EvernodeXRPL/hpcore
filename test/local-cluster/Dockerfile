@@ -9,7 +9,7 @@ RUN apt-get install -y netcat-openbsd libgomp1
 # Install shared libraries.
 # Copy shared libraries and register it.
 COPY ./bin/libfuse3.so.3 /usr/local/lib/
-COPY ./bin/libb2.so.1 /usr/local/lib/
+COPY ./bin/libblake3.so /usr/local/lib/
 RUN ldconfig
 COPY ./bin/fusermount3 /usr/local/bin/
 
