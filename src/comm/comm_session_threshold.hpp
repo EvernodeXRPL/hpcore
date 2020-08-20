@@ -33,10 +33,10 @@ enum SESSION_THRESHOLDS
 */
 struct session_threshold
 {
-    uint64_t threshold_limit;
-    uint32_t intervalms;
-    uint64_t counter_value;
-    uint64_t timestamp;
+    uint64_t threshold_limit = 0;
+    uint32_t intervalms = 0;
+    uint64_t counter_value = 0;
+    uint64_t timestamp = 0;
 
     session_threshold(const uint64_t threshold_limit, const uint32_t intervalms)
         : threshold_limit(threshold_limit), intervalms(intervalms)

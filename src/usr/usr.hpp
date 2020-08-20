@@ -34,7 +34,7 @@ namespace usr
         const comm::comm_session &session;
 
         // The messaging protocol used by this user.
-        const util::PROTOCOL protocol;
+        const util::PROTOCOL protocol = util::PROTOCOL::JSON;
 
         /**
      * @param session The web socket session the user is connected to.

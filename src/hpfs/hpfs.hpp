@@ -8,9 +8,14 @@ namespace hpfs
 {
     struct child_hash_node
     {
-        bool is_file;
+        bool is_file = false;
         char name[256];
         h32 hash;
+
+        child_hash_node()
+        {
+            memset(name, 0, sizeof(name));
+        }
     };
 
     int init();

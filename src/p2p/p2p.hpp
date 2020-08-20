@@ -16,9 +16,9 @@ namespace p2p
     struct proposal
     {
         std::string pubkey;
-        uint64_t timestamp;
-        uint64_t time;
-        uint8_t stage;
+        uint64_t timestamp = 0;
+        uint64_t time = 0;
+        uint8_t stage = 0;
         std::string lcl;
         hpfs::h32 state;
         std::set<std::string> users;
@@ -76,8 +76,8 @@ namespace p2p
     struct state_request
     {
         std::string parent_path; // The requested file or dir path.
-        bool is_file;            // Whether the path is a file or dir.
-        int32_t block_id;        // Block id of the file if we are requesting for file block. Otherwise -1.
+        bool is_file = false;    // Whether the path is a file or dir.
+        int32_t block_id = 0;    // Block id of the file if we are requesting for file block. Otherwise -1.
         hpfs::h32 expected_hash; // The expected hash of the requested result.
     };
 
@@ -85,7 +85,7 @@ namespace p2p
     struct state_fs_hash_entry
     {
         std::string name; // Name of the file/dir.
-        bool is_file;     // Whether this is a file or dir.
+        bool is_file = false; // Whether this is a file or dir.
         hpfs::h32 hash;   // Hash of the file or dir.
     };
 
@@ -93,7 +93,7 @@ namespace p2p
     struct block_response
     {
         std::string path;      // Path of the file.
-        uint32_t block_id;     // Id of the block where the data belongs to.
+        uint32_t block_id = 0; // Id of the block where the data belongs to.
         std::string_view data; // The block data.
         hpfs::h32 hash;        // Hash of the bloc data.
     };

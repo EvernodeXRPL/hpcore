@@ -101,10 +101,10 @@ namespace sc
         std::vector<int> hpscfds;
 
         // Holds the contract process id (if currently executing).
-        pid_t contract_pid;
+        pid_t contract_pid = 0;
 
         // Holds the hpfs rw process id (if currently executing).
-        pid_t hpfs_pid;
+        pid_t hpfs_pid = 0;
 
         // Thread to collect contract outputs while contract is running.
         std::thread output_fetcher_thread;

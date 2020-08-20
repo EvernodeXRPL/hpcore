@@ -19,7 +19,7 @@ namespace cons
 struct candidate_user_input
 {
     const std::string userpubkey;
-    const uint64_t maxledgerseqno;
+    const uint64_t maxledgerseqno = 0;
     std::string input;
 
     candidate_user_input(const std::string userpubkey, const std::string input, const uint64_t maxledgerseqno)

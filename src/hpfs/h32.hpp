@@ -18,6 +18,11 @@ namespace hpfs
         std::string_view to_string_view() const;
         h32 &operator=(std::string_view sv);
         bool operator<(const h32 rhs) const;
+
+        h32()
+        {
+            memset(data, 0, sizeof(data));
+        }
     };
     extern h32 h32_empty;
 
