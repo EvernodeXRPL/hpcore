@@ -79,7 +79,8 @@ namespace comm
 
             if (res == 2) // Full message has been read into read buffer.
             {
-                res = on_message(std::string_view(read_buffer.data(), read_buffer.size()));
+                if (on_message(std::string_view(read_buffer.data(), read_buffer.size())) == -1)
+                    res = -1;
 
                 // Reset the read buffer.
                 if (read_buffer.size() > READ_BUFFER_IDLE_SIZE)
