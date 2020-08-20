@@ -61,7 +61,7 @@ namespace p2p
     struct history_response
     {
         std::map<uint64_t, const history_ledger> hist_ledgers;
-        LEDGER_RESPONSE_ERROR error;
+        LEDGER_RESPONSE_ERROR error = LEDGER_RESPONSE_ERROR::NONE;
     };
 
     // Represents an NPL message sent by a peer.
@@ -84,9 +84,9 @@ namespace p2p
     // Represents state file system entry.
     struct state_fs_hash_entry
     {
-        std::string name; // Name of the file/dir.
+        std::string name;     // Name of the file/dir.
         bool is_file = false; // Whether this is a file or dir.
-        hpfs::h32 hash;   // Hash of the file or dir.
+        hpfs::h32 hash;       // Hash of the file or dir.
     };
 
     // Represents a file block data resposne.
