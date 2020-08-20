@@ -159,7 +159,7 @@ if [ $mode = "new" ] || [ $mode = "update" ]; then
     cp $hpcore/build/hpcore hpfiles/bin/
     cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} hpfiles/nodejs_contract/
     if [ $mode = "new" ]; then
-        cp ../bin/{libfuse3.so.3,libb2.so.1,fusermount3,websocketd,websocat,hpfs} hpfiles/bin/
+        cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,websocketd,websocat,hpfs} hpfiles/bin/
         cp ./setup-hp.sh hpfiles/
     fi
 

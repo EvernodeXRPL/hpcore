@@ -24,7 +24,7 @@ if [ -x "$(command -v fusermount3)" ]; then
 else
    echo "Installing FUSE and other shared libraries..."
    sudo apt-get -y install libgomp1
-   sudo cp ~/hpfiles/bin/{libfuse3.so.3,libb2.so.1} /usr/local/lib/
+   sudo cp ~/hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
    sudo ldconfig
    sudo cp ~/hpfiles/bin/fusermount3 /usr/local/bin/
 fi
