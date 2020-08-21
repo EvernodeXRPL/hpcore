@@ -16,10 +16,6 @@ Object.keys(hpc.users).forEach(function (key) {
         if (inputBuf) {
             const userInput = inputBuf.toString("utf8");
 
-            // Append user input to a state file if not in read only mode.
-            if (!hpc.readonly)
-                fs.appendFileSync("userinputs.txt", userInput + "\n");
-
             if (userInput == "ts")
                 user.sendOutput(fs.readFileSync("exects.txt"));
             else
