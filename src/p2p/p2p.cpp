@@ -75,7 +75,8 @@ namespace p2p
             return -1;
         }
 
-        // Converting the binary pub key into hexa decimal string this will be used as the key in storing peer sessions
+        // Converting the binary pub key into hexadecimal string.
+        // This will be used as the lookup key in storing peer sessions.
         std::string pubkeyhex;
         util::bin2hex(pubkeyhex, reinterpret_cast<const unsigned char *>(challenge_resp.pubkey.data()), challenge_resp.pubkey.length());
 
@@ -145,7 +146,7 @@ namespace p2p
 
     /**
  * Broadcasts the given message to all currently connected outbound peers.
- * @param msg Peer outbound message to be broadcasted.
+ * @param fbuf Peer outbound message to be broadcasted.
  * @param send_to_self Whether to also send the message to self (this node).
  */
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self)
@@ -173,7 +174,7 @@ namespace p2p
 
     /**
  * Sends the given message to self (this node).
- * @param msg Peer outbound message to be sent to self.
+ * @param fbuf Peer outbound message to be sent to self.
  */
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
     {
@@ -194,7 +195,7 @@ namespace p2p
 
     /**
  * Sends the given message to a random peer (except self).
- * @param msg Peer outbound message to be sent to peer.
+ * @param fbuf Peer outbound message to be sent to peer.
  */
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
     {
