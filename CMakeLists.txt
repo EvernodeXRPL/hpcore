@@ -73,6 +73,7 @@ target_link_libraries(hpcore
     pthread
     crypto
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
+    libblake3.so
 )
 add_dependencies(hpcore
     appbill
