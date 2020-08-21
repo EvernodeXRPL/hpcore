@@ -32,6 +32,15 @@ Instructions are based on [this](https://libsodium.gitbook.io/doc/installation).
 3. Run `./configure && make && make check`
 4. Run `sudo make install`
 
+#### Install blake3
+1. Clone [blake3 library](https://github.com/BLAKE3-team/BLAKE3) repository
+2. Navigate into the directory in a terminal.
+3. `cd c` to navigate to the C implementation folder
+4. `gcc -shared -fPIC -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c \`
+    `blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S blake3_avx512_x86-64_unix.S`
+5. `sudo cp blake3.h /usr/local/include/`
+6. `sudo cp libblake3.so /usr/local/lib/`
+
 #### Install Boost
 Following Instructions are based on Boost [getting started](https://www.boost.org/doc/libs/1_71_0/more/getting_started/unix-variants.html#prepare-to-use-a-boost-library-binary)
 
