@@ -24,11 +24,43 @@ function HotPocketContract() {
 
 function HotPocketChannel(infd, outfd) {
     this.readInput = function () {
-        return infd == -1 ? null : fs.readFileSync(infd);
+        return new Promise((resolve) => {
+            if (infd == -1) {
+                resolve(null);
+            }
+            else {
+                const s = fs.createReadStream(null, { fd: infd });
+                drainStream(s).then(buf => resolve(buf));
+            }
+        });
     }
 
     this.sendOutput = function (output) {
         fs.writeFileSync(outfd, output);
+    }
+
+    const drainStream = function (stream) {
+
+        return new Promise((resolve) => {
+
+            const dataParts = [];
+
+            const resolveBuffer = function () {
+                if (dataParts.length > 0)
+                    return resolve(Buffer.concat(dataParts));
+                else
+                    return resolve(null);
+            }
+
+            stream.on("data", d => {
+                dataParts.push(d);
+            });
+            stream.on('end', resolveBuffer);
+            stream.on("close", resolveBuffer);
+            stream.on("error", () => {
+                resolve(null);
+            });
+        });
     }
 }
 

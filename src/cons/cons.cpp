@@ -321,22 +321,23 @@ namespace cons
  */
     void broadcast_nonunl_proposal()
     {
-        std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
-
         if (usr::ctx.users.empty())
             return;
 
         // Construct NUP.
         p2p::nonunl_proposal nup;
 
-        for (auto &[sid, user] : usr::ctx.users)
         {
-            std::list<usr::user_input> user_inputs;
-            user_inputs.splice(user_inputs.end(), user.submitted_inputs);
+            std::lock_guard<std::mutex>(usr::ctx.users_mutex);
+            for (auto &[sid, user] : usr::ctx.users)
+            {
+                std::list<usr::user_input> user_inputs;
+                user_inputs.splice(user_inputs.end(), user.submitted_inputs);
 
-            // We should create an entry for each user pubkey, even if the user has no inputs. This is
-            // because this data map will be used to track connected users as well in addition to inputs.
-            nup.user_inputs.try_emplace(user.pubkey, std::move(user_inputs));
+                // We should create an entry for each user pubkey, even if the user has no inputs. This is
+                // because this data map will be used to track connected users as well in addition to inputs.
+                nup.user_inputs.try_emplace(user.pubkey, std::move(user_inputs));
+            }
         }
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
