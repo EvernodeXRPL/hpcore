@@ -52,7 +52,7 @@ namespace usr
     struct connected_context
     {
         // Connected (authenticated) user list.
-        // Map key: User socket session id (<ip:port>)
+        // Map key: User socket session id.
         std::unordered_map<std::string, usr::connected_user> users;
         std::mutex users_mutex; // Mutex for users access race conditions.
 

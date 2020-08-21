@@ -22,9 +22,42 @@ function HotPocketContract() {
     });
 }
 
+// Helper function to asynchronously read a stream to the end and fill a buffer.
+const drainStream = function (stream) {
+
+    return new Promise((resolve) => {
+
+        const dataParts = [];
+
+        const resolveBuffer = function () {
+            if (dataParts.length > 0)
+                return resolve(Buffer.concat(dataParts));
+            else
+                return resolve(null);
+        }
+
+        stream.on("data", d => {
+            dataParts.push(d);
+        });
+        stream.on('end', resolveBuffer);
+        stream.on("close", resolveBuffer);
+        stream.on("error", () => {
+            resolve(null);
+        });
+    });
+}
+
 function HotPocketChannel(infd, outfd) {
     this.readInput = function () {
-        return infd == -1 ? null : fs.readFileSync(infd);
+        return new Promise((resolve) => {
+            if (infd == -1) {
+                resolve(null);
+            }
+            else {
+                const s = fs.createReadStream(null, { fd: infd });
+                drainStream(s).then(buf => resolve(buf));
+            }
+        });
     }
 
     this.sendOutput = function (output) {
@@ -33,9 +66,8 @@ function HotPocketChannel(infd, outfd) {
 }
 
 function HotPocketNplChannel(infd, outfd) {
-    this.readInput = function () {
-        if (infd == -1)
-            return null;
+
+    const parseNplInputs = function (buf) {
 
         // Input may consist of multiple messages.
         // Each message has the format:
@@ -43,7 +75,6 @@ function HotPocketNplChannel(infd, outfd) {
 
         const inputs = []; // Peer inputs will be populated to this.
 
-        const buf = fs.readFileSync(infd);
         let pos = 0;
         while (pos < buf.byteLength) {
 
@@ -74,14 +105,26 @@ function HotPocketNplChannel(infd, outfd) {
         return inputs;
     }
 
-    this.sendOutput = function (output) {
-        fs.writeFileSync(outfd, output);
-    }
-
     const readBytes = function (buf, pos, count) {
         if (pos + count > buf.byteLength)
             return null;
         return buf.slice(pos, pos + count);
+    }
+
+    this.readInput = function () {
+        return new Promise((resolve) => {
+            if (infd == -1) {
+                resolve(null);
+            }
+            else {
+                const s = fs.createReadStream(null, { fd: infd });
+                drainStream(s).then(buf => resolve(parseNplInputs(buf)));
+            }
+        });
+    }
+
+    this.sendOutput = function (output) {
+        fs.writeFileSync(outfd, output);
     }
 }
 
