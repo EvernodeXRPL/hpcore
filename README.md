@@ -10,8 +10,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
 * Websockets - Server: [Websocketd (forked)](https://github.com/codetsunami/websocketd) | Client: [Websocat](https://github.com/vi/websocat) | Pipe: [netcat (OpenBSD)](https://man.openbsd.org/nc.1)
-* RapidJSON - http://rapidjson.org
-* jsoncons (for BSON) - https://github.com/danielaparker/jsoncons
+* jsoncons (for JSON and BSON) - https://github.com/danielaparker/jsoncons
 * P2P Protocol - https://google.github.io/flatbuffers
 * Fuse filesystem - https://github.com/libfuse/libfuse
 * Boost - https://www.boost.org
@@ -48,11 +47,6 @@ Following Instructions are based on Boost [getting started](https://www.boost.or
 2. Navigate to the extracted boost directory in a terminal.
 3. Run `./bootstrap.sh`
 4. Run `sudo ./b2 install` (This will compile and install boost libraries into your `/usr/local/lib`)
-
-#### Install RapidJSON
-1. Download and extract RapidJSON 1.1 source from [here](https://github.com/Tencent/rapidjson/archive/v1.1.0.tar.gz).
-2. Navigate to the extracted directory.
-3. Run `sudo cp -r include/rapidjson /usr/local/include/`
 
 #### Install jsoncons
 1. Download and extract jsoncons v0.153.3 source from [here](https://github.com/danielaparker/jsoncons/archive/v0.153.3.zip).
