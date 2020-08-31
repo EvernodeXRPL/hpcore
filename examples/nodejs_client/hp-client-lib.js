@@ -59,7 +59,8 @@ function HotPocketClient(server, protocol, keys) {
                     // Use JSON if we are still in handshake phase.
                     m = handshakeResolver ? JSON.parse(msg) : msgHelper.deserializeMessage(msg);
                 } catch (e) {
-                    console.log("Exception deserializing: " + received_msg);
+                    console.log("Exception deserializing: ");
+                    console.log(msg)
                     return;
                 }
 

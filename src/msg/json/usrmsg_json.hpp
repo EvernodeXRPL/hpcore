@@ -20,14 +20,14 @@ namespace msg::usrmsg::json
     int verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
                                        std::string_view response, std::string_view original_challenge);
 
-    int parse_user_message(rapidjson::Document &d, std::string_view message);
+    int parse_user_message(jsoncons::json &d, std::string_view message);
 
-    int extract_type(std::string &extracted_type, const rapidjson::Document &d);
+    int extract_type(std::string &extracted_type, const jsoncons::json &d);
 
-    int extract_read_request(std::string &extracted_content, const rapidjson::Document &d);
+    int extract_read_request(std::string &extracted_content, const jsoncons::json &d);
 
     int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig,
-                                       const rapidjson::Document &d);
+                                       const jsoncons::json &d);
 
     int extract_input_container(std::string &input, std::string &nonce,
                                 uint64_t &max_lcl_seqno, std::string_view contentjson);

@@ -12,7 +12,7 @@ namespace msg::usrmsg
     class usrmsg_parser
     {
         const util::PROTOCOL protocol;
-        rapidjson::Document jsonDoc;
+        jsoncons::json jsonDoc;
         jsoncons::ojson bsonDoc;
 
     public:

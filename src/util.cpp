@@ -187,16 +187,6 @@ namespace util
         return 0;
     }
 
-    /**
- * Returns a std::string_view pointing to the rapidjson Value which is assumed
- * to be a string. We use this function because rapidjson does not have built-in string_view
- * support. Passing a non-string 'v' is not supported.
- */
-    std::string_view getsv(const rapidjson::Value &v)
-    {
-        return std::string_view(v.GetString(), v.GetStringLength());
-    }
-
     // Provide a safe std::string overload for realpath
     std::string realpath(std::string path)
     {

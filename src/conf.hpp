@@ -111,8 +111,6 @@ namespace conf
 
     int validate_contract_dir_paths();
 
-    int is_schema_valid(const rapidjson::Document &d);
-
     int binpair_to_hex();
 
     int hexpair_to_bin();

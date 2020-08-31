@@ -86,8 +86,6 @@ namespace util
 
     int version_compare(const std::string &x, const std::string &y);
 
-    std::string_view getsv(const rapidjson::Value &v);
-
     std::string realpath(std::string path);
 
     void mask_signal();
