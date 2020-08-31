@@ -46,7 +46,7 @@ namespace msg::usrmsg::json
         util::bin2hex(challengehex, challenge_bytes, msg::usrmsg::CHALLENGE_LEN);
 
         // Construct the challenge msg json.
-        // We do not use RapidJson here in favour of performance because this is a simple json message.
+        // We do not use jasoncons library here in favour of performance because this is a simple json message.
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
         // Only Hot Pocket version number is variable length. Therefore message size is roughly 90 bytes
@@ -287,7 +287,7 @@ namespace msg::usrmsg::json
 
     /**
  * Parses a json message sent by a user.
- * @param d RapidJson document to which the parsed json should be loaded.
+ * @param d Jsoncons document to which the parsed json should be loaded.
  * @param message The message to parse.
  *                Accepted message format:
  *                {

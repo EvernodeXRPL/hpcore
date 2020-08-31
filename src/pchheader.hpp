@@ -39,11 +39,6 @@
 #include <mutex>
 #include <poll.h>
 #include <queue>
-#include <rapidjson/document.h>
-#include <rapidjson/istreamwrapper.h>
-#include <rapidjson/ostreamwrapper.h>
-#include <rapidjson/prettywriter.h>
-#include <rapidjson/schema.h>
 #include <set>
 #include <sodium.h>
 #include <sstream>
