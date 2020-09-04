@@ -49,7 +49,7 @@ namespace util
  * @param key Object to insert.
  * @param ttl Time to live in milliseonds.
  */
-    void ttl_set::emplace(const std::string key, uint64_t ttl_milli)
+    void ttl_set::emplace(const std::string key, const uint64_t ttl_milli)
     {
         ttlmap[key] = util::get_epoch_milliseconds() + ttl_milli;
     }
@@ -188,7 +188,7 @@ namespace util
     }
 
     // Provide a safe std::string overload for realpath
-    std::string realpath(std::string path)
+    std::string realpath(const std::string &path)
     {
         std::array<char, PATH_MAX> buffer;
         ::realpath(path.c_str(), buffer.data());
@@ -216,7 +216,7 @@ namespace util
     }
 
     // Kill a process with a signal and wait until it stops running.
-    int kill_process(const pid_t pid, const bool wait, int signal)
+    int kill_process(const pid_t pid, const bool wait, const int signal)
     {
         if (kill(pid, signal) == -1)
         {

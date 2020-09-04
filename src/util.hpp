@@ -60,7 +60,7 @@ namespace util
         std::unordered_map<std::string, uint64_t> ttlmap;
 
     public:
-        void emplace(const std::string key, uint64_t ttl_milli);
+        void emplace(const std::string key, const uint64_t ttl_milli);
         void erase(const std::string &key);
         bool exists(const std::string &key);
     };
@@ -86,13 +86,13 @@ namespace util
 
     int version_compare(const std::string &x, const std::string &y);
 
-    std::string realpath(std::string path);
+    std::string realpath(const std::string &path);
 
     void mask_signal();
 
     void unmask_signal();
 
-    int kill_process(const pid_t pid, const bool wait, int signal = SIGINT);
+    int kill_process(const pid_t pid, const bool wait, const int signal = SIGINT);
 
     bool is_dir_exists(std::string_view path);
 
