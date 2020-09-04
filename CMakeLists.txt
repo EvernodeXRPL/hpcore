@@ -71,7 +71,6 @@ target_link_libraries(hpcore
     libboost_stacktrace_backtrace.a
     backtrace
     pthread
-    crypto
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
     libblake3.so
 )
