@@ -52,6 +52,8 @@ namespace comm
             {
                 close(read_fd);
                 close(write_fd);
+                
+                util::kill_process(pid, false);
                 return -1;
             }
 

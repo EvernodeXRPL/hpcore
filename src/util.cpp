@@ -215,7 +215,7 @@ namespace util
         pthread_sigmask(SIG_SETMASK, &mask, NULL);
     }
 
-    // Kill a process with a signal and wait until it stops running.
+    // Kill a process with a signal and if specified, wait until it stops running.
     int kill_process(const pid_t pid, const bool wait, const int signal)
     {
         if (kill(pid, signal) == -1)
@@ -224,8 +224,8 @@ namespace util
             return -1;
         }
 
-        int pid_status;
-        if (wait && waitpid(pid, &pid_status, 0) == -1)
+        const int wait_options = wait ? 0 : WNOHANG;
+        if (waitpid(pid, NULL, wait_options) == -1)
         {
             LOG_ERR << errno << ": waitpid after kill failed.";
             return -1;

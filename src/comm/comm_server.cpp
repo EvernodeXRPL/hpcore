@@ -312,8 +312,9 @@ namespace comm
                 close(firewall_pipe[0]);
 
             // Wait for some time and check if websocketd is still running properly.
+            // Sending signal 0 to test whether process exist.
             util::sleep(20);
-            if (kill(pid, 0) == -1)
+            if (util::kill_process(pid, false, 0) == -1)
                 return -1;
 
             websocketd_pid = pid;

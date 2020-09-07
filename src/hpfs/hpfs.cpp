@@ -40,9 +40,11 @@ namespace hpfs
         if (pid > 0)
         {
             // HotPocket process.
-            // Check if process is still running.
-            util::sleep(20);
-            if (kill(pid, 0) == -1)
+            util::sleep(INIT_CHECK_INTERVAL);
+
+            // Check if hpfs process is still running.
+            // Sending signal 0 to test whether process exist.
+            if (util::kill_process(pid, false, 0) == -1)
                 return -1;
 
             merge_pid = pid;
@@ -102,8 +104,9 @@ namespace hpfs
             {
                 util::sleep(INIT_CHECK_INTERVAL);
 
-                // Check if process is still running.
-                if (kill(pid, 0) == -1)
+                // Check if hpfs process is still running.
+                // Sending signal 0 to test whether process exist.
+                if (util::kill_process(pid, false, 0) == -1)
                 {
                     LOG_ERR << "hpfs process " << pid << " has stopped.";
                     break;
