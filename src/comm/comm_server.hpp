@@ -29,7 +29,8 @@ namespace comm
 
         void check_for_new_connection(
             std::unordered_map<int, comm_session> &sessions, const int accept_fd,
-            const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
+            const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4],
+            const uint64_t max_msg_size);
 
         void maintain_known_connections(
             std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients,

@@ -7,64 +7,69 @@
 
 namespace comm
 {
-    
-enum CHALLENGE_STATUS
-{
-    CHALLENGE_ISSUED,
-    CHALLENGE_VERIFIED
-};
 
-enum SESSION_STATE
-{
-    ACTIVE,
-    CLOSED
-};
+    enum CHALLENGE_STATUS
+    {
+        CHALLENGE_ISSUED,
+        CHALLENGE_VERIFIED
+    };
 
-enum SESSION_TYPE
-{
-    USER = 0,
-    PEER = 1
-};
+    enum SESSION_STATE
+    {
+        ACTIVE,
+        CLOSED
+    };
 
-/** 
+    enum SESSION_TYPE
+    {
+        USER = 0,
+        PEER = 1
+    };
+
+    /** 
  * Represents an active WebSocket connection
 */
-class comm_session
-{
-    const int read_fd = 0;
-    const int write_fd = 0; // Only valid for outgoing client connections.
-    const SESSION_TYPE session_type;
-    std::vector<session_threshold> thresholds; // track down various communication thresholds
-    uint32_t expected_msg_size = 0;            // Next expected message size based on size header.
-    std::vector<char> read_buffer;             // Local buffer to keep collecting data until a complete message can be constructed.
-    uint32_t read_buffer_filled_size = 0;      // How many bytes have been buffered so far.
+    class comm_session
+    {
+        const int read_fd = 0;
+        const int write_fd = 0;
+        const SESSION_TYPE session_type;
+        const uint64_t max_msg_size;
+        std::vector<session_threshold> thresholds; // track down various communication thresholds
+        uint32_t expected_msg_size = 0;            // Next expected message size based on size header.
+        std::vector<char> read_buffer;             // Local buffer to keep collecting data until a complete message can be constructed.
+        uint32_t read_buffer_filled_size = 0;      // How many bytes have been buffered so far.
+        bool should_stop_data_threads = false;     // Indicates whether data threads has been instructed to stop.
+        std::thread reader_thread;                 // The thread responsible for reading data from the socket.
 
-    int get_binary_msg_read_len(const size_t available_bytes);
-    int on_message(std::string_view message);
+        void reader_loop();
+        int attempt_read();
+        int get_binary_msg_read_len(const size_t available_bytes);
+        int on_message(std::string_view message);
 
-public:
-    const std::string address; // IP address of the remote party.
-    const bool is_binary;
-    const bool is_inbound;
-    bool is_self = false;
-    std::string uniqueid;
-    std::string issued_challenge;
-    conf::ip_port_pair known_ipport;
-    SESSION_STATE state;
-    CHALLENGE_STATUS challenge_status;
+    public:
+        const std::string address; // IP address of the remote party.
+        const bool is_binary;
+        const bool is_inbound;
+        bool is_self = false;
+        std::string uniqueid;
+        std::string issued_challenge;
+        conf::ip_port_pair known_ipport;
+        SESSION_STATE state;
+        CHALLENGE_STATUS challenge_status;
 
-    comm_session(
-        std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
-        const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
-    int on_connect();
-    int attempt_read(const uint64_t max_msg_size);
-    int send(const std::vector<uint8_t> &message) const;
-    int send(std::string_view message) const;
-    void close(const bool invoke_handler = true);
+        comm_session(
+            std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
+            const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
+        void start_data_threads();
+        int on_connect();
+        int send(const std::vector<uint8_t> &message) const;
+        int send(std::string_view message) const;
+        void close(const bool invoke_handler = true, const bool stop_data_threads = true);
 
-    void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
-    void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
-};
+        void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
+        void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
+    };
 
 } // namespace comm
 
