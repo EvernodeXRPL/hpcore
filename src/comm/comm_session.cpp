@@ -107,14 +107,19 @@ namespace comm
             return peer_sess_handler.on_message(*this, message);
     }
 
-    int comm_session::send(const std::vector<uint8_t> &message) const
+    int comm_session::send(const std::vector<uint8_t> &message)
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
         send(sv);
     }
 
-    int comm_session::send(std::string_view message) const
+    int comm_session::send()
     {
+        std::unique_lock<std::mutex> mlock(mutex);
+        auto message = queue.front();
+        queue.pop();
+        mlock.unlock();
+
         if (state == SESSION_STATE::CLOSED)
             return -1;
 
@@ -151,7 +156,24 @@ namespace comm
             LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
             return -1;
         }
+
         return 0;
+    }
+
+    void comm_session::add_msg_to_outbound_queue(std::string_view message)
+    {
+        //send(message);
+        std::unique_lock<std::mutex> mlock(mutex);
+        queue.push(message);
+        mlock.unlock();
+    }
+
+    void comm_session::process_outbound_msg_queue()
+    {
+        std::unique_lock<std::mutex> mlock(mutex);
+        send(queue.front());
+        queue.pop();
+        mlock.unlock();
     }
 
     void comm_session::close(const bool invoke_handler)
