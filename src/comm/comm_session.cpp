@@ -33,6 +33,7 @@ namespace comm
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
         // since enum's value is used as index in the vector to update vector values.
         thresholds.reserve(4);
+        mutex = new std::mutex();        
         for (size_t i = 0; i < 4; i++)
             thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
     }
@@ -107,18 +108,18 @@ namespace comm
             return peer_sess_handler.on_message(*this, message);
     }
 
-    int comm_session::send(const std::vector<uint8_t> &message)
+    int comm_session::send(const std::vector<uint8_t> &message) const
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
         send(sv);
     }
 
-    int comm_session::send()
+    int comm_session::send(std::string_view message) const
     {
-        std::unique_lock<std::mutex> mlock(mutex);
-        auto message = queue.front();
-        queue.pop();
-        mlock.unlock();
+        // std::unique_lock<std::mutex> mlock(mutex);
+        // auto message = queue.front();
+        // queue.pop();
+        // mlock.unlock();
 
         if (state == SESSION_STATE::CLOSED)
             return -1;
@@ -160,21 +161,21 @@ namespace comm
         return 0;
     }
 
-    void comm_session::add_msg_to_outbound_queue(std::string_view message)
-    {
-        //send(message);
-        std::unique_lock<std::mutex> mlock(mutex);
-        queue.push(message);
-        mlock.unlock();
-    }
+    // void comm_session::add_msg_to_outbound_queue(std::string_view message)
+    // {
+    //     //send(message);
+    //     std::unique_lock<std::mutex> mlock(mutex);
+    //     queue.push(message);
+    //     mlock.unlock();
+    // }
 
-    void comm_session::process_outbound_msg_queue()
-    {
-        std::unique_lock<std::mutex> mlock(mutex);
-        send(queue.front());
-        queue.pop();
-        mlock.unlock();
-    }
+    // void comm_session::process_outbound_msg_queue()
+    // {
+    //     std::unique_lock<std::mutex> mlock(mutex);
+    //     send(queue.front());
+    //     queue.pop();
+    //     mlock.unlock();
+    // }
 
     void comm_session::close(const bool invoke_handler)
     {
