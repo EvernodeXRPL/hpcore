@@ -16,8 +16,9 @@ namespace comm
 
     enum SESSION_STATE
     {
-        ACTIVE,
-        CLOSED
+        ACTIVE,         // Session is active and functioning.
+        DISCONNECTED,   // Session socket is disconnected and needs to be properly closed.
+        CLOSED          // Session is fully closed.
     };
 
     enum SESSION_TYPE
@@ -65,7 +66,7 @@ namespace comm
         int on_connect();
         int send(const std::vector<uint8_t> &message) const;
         int send(std::string_view message) const;
-        void close(const bool invoke_handler = true, const bool stop_data_threads = true);
+        void close(const bool invoke_handler = true);
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
         void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);

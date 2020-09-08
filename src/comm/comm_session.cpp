@@ -50,6 +50,8 @@ namespace comm
         while (!should_stop_data_threads)
         {
             pollfd pollfds[1] = {{read_fd, READER_POLL_EVENTS}};
+
+            // This call will be blocked until an event occurs (data available, pipe closed etc...).
             if (poll(pollfds, 1, -1) == -1)
             {
                 LOG_ERR << errno << ": Session reader poll failed.";
@@ -57,29 +59,28 @@ namespace comm
             }
 
             const short result = pollfds[0].revents;
-            bool should_disconnect = (state == SESSION_STATE::CLOSED);
+            bool should_disconnect = false;
 
-            if (!should_disconnect)
+            if (result & POLLIN)
             {
-                if (result & POLLIN)
-                {
-                    // read_result -1 means error and we should disconnect the client.
-                    // read_result 0 means no bytes were read.
-                    // read_result 1 means some bytes were read.
-                    // read_result 2 means full message were read and processed successfully.
-                    const int read_result = attempt_read();
+                // read_result -1 means error and we should disconnect the client.
+                // read_result 0 means no bytes were read.
+                // read_result 1 means some bytes were read.
+                // read_result 2 means full message were read and processed successfully.
+                const int read_result = attempt_read();
 
-                    if (read_result == -1)
-                        should_disconnect = true;
-                }
-
-                if (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL))
+                if (read_result == -1)
                     should_disconnect = true;
             }
 
+            if (!should_disconnect && (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL)))
+                should_disconnect = true;
+
             if (should_disconnect)
             {
-                close(true, false);
+                // Here we mark the session as disconnected.
+                // Disconnected sessions will be proepry "closed" and cleaned up by the global comm_server thread.
+                state = SESSION_STATE::DISCONNECTED;
                 break;
             }
         }
@@ -201,17 +202,10 @@ namespace comm
         return 0;
     }
 
-    void comm_session::close(const bool invoke_handler, const bool stop_data_threads)
+    void comm_session::close(const bool invoke_handler)
     {
         if (state == SESSION_STATE::CLOSED)
             return;
-
-        // Stop data threads.
-        if (stop_data_threads)
-        {
-            should_stop_data_threads = true;
-            reader_thread.join();
-        }
 
         if (invoke_handler)
         {
@@ -221,8 +215,10 @@ namespace comm
                 peer_sess_handler.on_close(*this);
         }
 
-        ::close(read_fd);
+        should_stop_data_threads = true; // Set the thread stop flag before closing the read_fd.
         state = SESSION_STATE::CLOSED;
+        ::close(read_fd);
+        reader_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
                 << uniqueid << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");

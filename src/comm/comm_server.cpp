@@ -101,10 +101,13 @@ namespace comm
                 loop_counter++;
             }
 
-            // Cleanup any sessions that have closed.
+            // Cleanup any sessions that have disconnected/closed.
             std::set<int> closed_session_fds;
-            for (const auto &[fd, session] : sessions)
+            for (auto &[fd, session] : sessions)
             {
+                if (session.state == SESSION_STATE::DISCONNECTED)
+                    session.close(true);
+
                 if (session.state == SESSION_STATE::CLOSED)
                     closed_session_fds.emplace(fd);
             }
@@ -160,7 +163,10 @@ namespace comm
                 {
                     comm_session session(ip, client_fd, client_fd, session_type, is_binary, true, metric_thresholds, max_msg_size);
                     if (session.on_connect() == 0)
+                    {
+                        session.start_data_threads();
                         sessions.try_emplace(client_fd, std::move(session));
+                    }
                 }
             }
             else
@@ -208,6 +214,7 @@ namespace comm
                 session.known_ipport = ipport;
                 if (session.on_connect() == 0)
                 {
+                    session.start_data_threads();
                     sessions.try_emplace(client.read_fd, std::move(session));
                     outbound_clients.emplace(client.read_fd, std::move(client));
                     known_remotes.emplace(ipport);
