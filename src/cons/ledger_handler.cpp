@@ -292,7 +292,6 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
     p2p::history_response history_response;
     size_t pos = hr.minimum_lcl.find("-");
     uint64_t min_seq_no = 0;
-    std::string min_lcl_hash;
 
     //get sequence number of minimum lcl required
     if (pos != std::string::npos)
@@ -308,14 +307,14 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         //eventhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
         if (hr.minimum_lcl != itr->second.lcl)
         {
-            LOG_DBG << "Invalid minimum ledger. Recieved min hash: " << min_lcl_hash << " Node hash: " << itr->second.lcl;
+            LOG_DBG << "Invalid minimum ledger. Recieved min hash: " << hr.minimum_lcl << " Node hash: " << itr->second.lcl;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
             return history_response;
         }
     }
     else if (min_seq_no > cons::ctx.ledger_cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
     {
-        LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. hash: " << min_lcl_hash;
+        LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Recvd hash: " << hr.minimum_lcl;
         history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
         return history_response;
     }

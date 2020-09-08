@@ -40,7 +40,11 @@ namespace sc
 
             // Write the inputs into the contract process.
             if (feed_inputs(ctx) != 0)
+            {
+                util::kill_process(pid, true);
+                ctx.contract_pid = 0;
                 goto failure;
+            }
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(ctx.contract_pid);

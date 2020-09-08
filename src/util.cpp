@@ -49,7 +49,7 @@ namespace util
  * @param key Object to insert.
  * @param ttl Time to live in milliseonds.
  */
-    void ttl_set::emplace(const std::string key, uint64_t ttl_milli)
+    void ttl_set::emplace(const std::string key, const uint64_t ttl_milli)
     {
         ttlmap[key] = util::get_epoch_milliseconds() + ttl_milli;
     }
@@ -188,7 +188,7 @@ namespace util
     }
 
     // Provide a safe std::string overload for realpath
-    std::string realpath(std::string path)
+    std::string realpath(const std::string &path)
     {
         std::array<char, PATH_MAX> buffer;
         ::realpath(path.c_str(), buffer.data());
@@ -215,8 +215,8 @@ namespace util
         pthread_sigmask(SIG_SETMASK, &mask, NULL);
     }
 
-    // Kill a process with a signal and wait until it stops running.
-    int kill_process(const pid_t pid, const bool wait, int signal)
+    // Kill a process with a signal and if specified, wait until it stops running.
+    int kill_process(const pid_t pid, const bool wait, const int signal)
     {
         if (kill(pid, signal) == -1)
         {
@@ -224,8 +224,8 @@ namespace util
             return -1;
         }
 
-        int pid_status;
-        if (wait && waitpid(pid, &pid_status, 0) == -1)
+        const int wait_options = wait ? 0 : WNOHANG;
+        if (waitpid(pid, NULL, wait_options) == -1)
         {
             LOG_ERR << errno << ": waitpid after kill failed.";
             return -1;

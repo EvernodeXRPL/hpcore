@@ -242,25 +242,24 @@ namespace cons
         {
             const p2p::proposal &cp = itr->second;
             const uint64_t time_diff = (ctx.time_now > cp.timestamp) ? (ctx.time_now - cp.timestamp) : 0;
+            const int8_t stage_diff = ctx.stage - cp.stage;
 
             // only consider recent proposals and proposals from previous stage and current stage.
-            if ((time_diff < (conf::cfg.roundtime * 4)) && cp.stage >= (ctx.stage - 1))
-            {
-                ++itr;
+            const bool keep_candidate = (time_diff < (conf::cfg.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
+            LOG_DBG << (keep_candidate ? "Prop--->" : "Erased")
+                    << " [s" << std::to_string(cp.stage)
+                    << "] u/i/o:" << cp.users.size()
+                    << "/" << cp.hash_inputs.size()
+                    << "/" << cp.hash_outputs.size()
+                    << " ts:" << std::to_string(cp.time)
+                    << " lcl:" << cp.lcl.substr(0, 15)
+                    << " state:" << cp.state
+                    << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]";
 
-                LOG_DBG << "Proposal [stage" << std::to_string(cp.stage)
-                        << "] users:" << cp.users.size()
-                        << " hinp:" << cp.hash_inputs.size()
-                        << " hout:" << cp.hash_outputs.size()
-                        << " ts:" << std::to_string(cp.time)
-                        << " lcl:" << cp.lcl.substr(0, 15)
-                        << " state:" << cp.state
-                        << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]";
-            }
+            if (keep_candidate)
+                ++itr;
             else
-            {
                 ctx.candidate_proposals.erase(itr++);
-            }
         }
     }
 
@@ -637,11 +636,12 @@ namespace cons
         else
             p2p::broadcast_message(fbuf, true);
 
-        // LOG_DBG << "Proposed [stage" << std::to_string(p.stage)
-        //         << "] users:" << p.users.size()
-        //         << " hinp:" << p.hash_inputs.size()
-        //         << " hout:" << p.hash_outputs.size()
-        //         << " ts:" << std::to_string(p.time);
+        LOG_DBG << "Proposed u/i/o:" << p.users.size()
+                << "/" << p.hash_inputs.size()
+                << "/" << p.hash_outputs.size()
+                << " ts:" << std::to_string(p.time)
+                << " lcl:" << p.lcl.substr(0, 15)
+                << " state:" << p.state;
     }
 
     /**
@@ -662,7 +662,7 @@ namespace cons
 
         if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
         {
-            LOG_DBG << "Not enough peers proposing to perform consensus. votes:" << std::to_string(total_lcl_votes) << " needed:" << std::to_string(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+            LOG_DBG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
             is_desync = true;
             return;
         }
@@ -695,7 +695,7 @@ namespace cons
         if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
         {
             // potential fork condition.
-            LOG_DBG << "No consensus on lcl. Possible fork condition. won:" << std::to_string(winning_votes) << " total:" << std::to_string(ctx.candidate_proposals.size());
+            LOG_DBG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
             is_desync = true;
             return;
         }
