@@ -64,14 +64,17 @@ namespace comm
         int send(const std::vector<uint8_t> &message);
         int send(std::string_view message);
         int process_outbound_message(std::string_view message);
+        void process_outbound_msg_queue();
+
         void close(const bool invoke_handler = true);
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
         void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
 
     private:
-        std::queue<std::string_view> queue;
+        std::queue<std::string> queue;
         std::mutex *mutex;
+        std::thread outbound_queue_thread;
     };
 
 } // namespace comm

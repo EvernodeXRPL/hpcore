@@ -33,7 +33,7 @@ namespace comm
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
         // since enum's value is used as index in the vector to update vector values.
         thresholds.reserve(4);
-        mutex = new std::mutex();        
+        mutex = new std::mutex();
         for (size_t i = 0; i < 4; i++)
             thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
     }
@@ -41,6 +41,8 @@ namespace comm
     int comm_session::on_connect()
     {
         state = SESSION_STATE::ACTIVE;
+
+        outbound_queue_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
 
         if (session_type == SESSION_TYPE::USER)
             return user_sess_handler.on_connect(*this);
@@ -116,11 +118,13 @@ namespace comm
 
     int comm_session::send(std::string_view message)
     {
+        std::string msg(message);
+
         if (state == SESSION_STATE::CLOSED)
             return -1;
-
+        
         std::unique_lock<std::mutex> mlock(*mutex);
-        queue.push(message);
+        queue.push(std::move(msg));
         mlock.unlock();
 
         return 0;
@@ -161,17 +165,43 @@ namespace comm
             LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
             return -1;
         }
+        else
+        {
+            std::cout << "Msg sent success" << std::endl;
+        }
 
         return 0;
     }
 
-    // void comm_session::process_outbound_msg_queue()
-    // {
-    //     std::unique_lock<std::mutex> mlock(mutex);
-    //     send(queue.front());
-    //     queue.pop();
-    //     mlock.unlock();
-    // }
+    void comm_session::process_outbound_msg_queue()
+    {
+        while (true)
+        {
+            std::unique_lock<std::mutex> mlock(*mutex);
+
+            if (state == SESSION_STATE::CLOSED)
+            {
+                break;
+            }
+
+            if (queue.empty())
+            {
+                util::sleep(10);
+                continue;
+            }
+            while (!queue.empty())
+            {
+                std::cout << "Sending" << std::endl;
+
+                if (process_outbound_message(queue.front()) != -1)
+                {
+                    queue.pop();
+                }
+            }
+
+            mlock.unlock();
+        }
+    }
 
     void comm_session::close(const bool invoke_handler)
     {
@@ -188,6 +218,8 @@ namespace comm
 
         ::close(read_fd);
         state = SESSION_STATE::CLOSED;
+
+        outbound_queue_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
                 << uniqueid << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
