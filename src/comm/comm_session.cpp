@@ -108,22 +108,26 @@ namespace comm
             return peer_sess_handler.on_message(*this, message);
     }
 
-    int comm_session::send(const std::vector<uint8_t> &message) const
+    int comm_session::send(const std::vector<uint8_t> &message)
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
         send(sv);
     }
 
-    int comm_session::send(std::string_view message) const
+    int comm_session::send(std::string_view message)
     {
-        // std::unique_lock<std::mutex> mlock(mutex);
-        // auto message = queue.front();
-        // queue.pop();
-        // mlock.unlock();
-
         if (state == SESSION_STATE::CLOSED)
             return -1;
 
+        std::unique_lock<std::mutex> mlock(*mutex);
+        queue.push(message);
+        mlock.unlock();
+
+        return 0;
+    }
+
+    int comm_session::process_outbound_message(std::string_view message)
+    {
         // Prepare the memory segments to map with writev().
         iovec memsegs[2];
 
@@ -160,14 +164,6 @@ namespace comm
 
         return 0;
     }
-
-    // void comm_session::add_msg_to_outbound_queue(std::string_view message)
-    // {
-    //     //send(message);
-    //     std::unique_lock<std::mutex> mlock(mutex);
-    //     queue.push(message);
-    //     mlock.unlock();
-    // }
 
     // void comm_session::process_outbound_msg_queue()
     // {

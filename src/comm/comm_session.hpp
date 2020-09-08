@@ -61,10 +61,9 @@ namespace comm
             const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
         int on_connect();
         int attempt_read(const uint64_t max_msg_size);
-        int send(const std::vector<uint8_t> &message) const;
-        int send(std::string_view message) const;
-        void add_msg_to_outbound_queue(std::string_view message);
-        //void comm_session::process_outbound_msg_queue();
+        int send(const std::vector<uint8_t> &message);
+        int send(std::string_view message);
+        int process_outbound_message(std::string_view message);
         void close(const bool invoke_handler = true);
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);

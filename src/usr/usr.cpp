@@ -203,7 +203,7 @@ namespace usr
     /**
  * Send the specified contract input status result via the provided session.
  */
-    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, const comm::comm_session &session,
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig)
     {
         std::vector<uint8_t> msg;
@@ -220,7 +220,7 @@ namespace usr
  * @param protocol Messaging protocol used by user.
  * @return 0 on successful additions. -1 on failure.
  */
-    int add_user(const comm::comm_session &session, const std::string &pubkey, const util::PROTOCOL protocol)
+    int add_user(comm::comm_session &session, const std::string &pubkey, const util::PROTOCOL protocol)
     {
         const std::string &sessionid = session.uniqueid;
         if (ctx.users.count(sessionid) == 1)
@@ -273,7 +273,7 @@ namespace usr
  * @param pubkey User binary pubkey.
  * @return Pointer to the socket session. NULL of not found.
  */
-    const comm::comm_session *get_session_by_pubkey(const std::string &pubkey)
+    comm::comm_session *get_session_by_pubkey(const std::string &pubkey)
     {
         const auto sessionid_itr = ctx.sessionids.find(pubkey);
         if (sessionid_itr != ctx.sessionids.end())

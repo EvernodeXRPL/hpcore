@@ -93,7 +93,7 @@ namespace state_serve
                         std::string_view msg = std::string_view(
                             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
-                        const comm::comm_session *session = peer_itr->second;
+                        comm::comm_session *session = peer_itr->second;
                         session->send(msg);
                     }
                 }

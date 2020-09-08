@@ -363,7 +363,7 @@ namespace cons
             for (const auto &[pubkey, umsgs] : p.user_inputs)
             {
                 // Locate this user's socket session in case we need to send any status messages regarding user inputs.
-                const comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
+                comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
 
                 // Populate user list with this user's pubkey.
                 ctx.candidate_users.emplace(pubkey);
