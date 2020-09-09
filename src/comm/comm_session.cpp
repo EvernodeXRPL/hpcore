@@ -42,8 +42,6 @@ namespace comm
     {
         state = SESSION_STATE::ACTIVE;
 
-        outbound_queue_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
-
         if (session_type == SESSION_TYPE::USER)
             return user_sess_handler.on_connect(*this);
         else
@@ -116,20 +114,25 @@ namespace comm
         send(sv);
     }
 
+    /**
+     * adds the given message to the outbound message queue
+    */
     int comm_session::send(std::string_view message)
     {
         std::string msg(message);
 
         if (state == SESSION_STATE::CLOSED)
             return -1;
-        
-        std::unique_lock<std::mutex> mlock(*mutex);
+
+        std::scoped_lock<std::mutex> mlock(*mutex);
         queue.push(std::move(msg));
-        mlock.unlock();
 
         return 0;
     }
 
+    /**
+     * This function constructs and sends the message to the node from the given message
+    */
     int comm_session::process_outbound_message(std::string_view message)
     {
         // Prepare the memory segments to map with writev().
@@ -165,41 +168,37 @@ namespace comm
             LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
             return -1;
         }
-        else
-        {
-            std::cout << "Msg sent success" << std::endl;
-        }
 
         return 0;
     }
 
+    /**
+     * Starts the outbound queue processing thread
+    */
+    void comm_session::start_processing_thread() {
+        outbound_queue_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
+    }
+
+
+    /**
+     * Process message sending in the queue in the outbound_queue_thread
+    */
     void comm_session::process_outbound_msg_queue()
     {
-        while (true)
+        util::mask_signal();
+
+        while (state != SESSION_STATE::CLOSED)
         {
-            std::unique_lock<std::mutex> mlock(*mutex);
-
-            if (state == SESSION_STATE::CLOSED)
-            {
-                break;
-            }
-
             if (queue.empty())
             {
                 util::sleep(10);
-                continue;
             }
-            while (!queue.empty())
+            else
             {
-                std::cout << "Sending" << std::endl;
-
-                if (process_outbound_message(queue.front()) != -1)
-                {
-                    queue.pop();
-                }
+                std::scoped_lock<std::mutex> mlock(*mutex);
+                process_outbound_message(queue.front());
+                queue.pop();
             }
-
-            mlock.unlock();
         }
     }
 

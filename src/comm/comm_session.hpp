@@ -19,6 +19,7 @@ namespace comm
 
     enum SESSION_STATE
     {
+        UNKNOWN,
         ACTIVE,
         CLOSED
     };
@@ -53,7 +54,7 @@ namespace comm
         std::string uniqueid;
         std::string issued_challenge;
         conf::ip_port_pair known_ipport;
-        SESSION_STATE state;
+        SESSION_STATE state = SESSION_STATE::UNKNOWN;
         CHALLENGE_STATUS challenge_status;
 
         comm_session(
@@ -65,6 +66,7 @@ namespace comm
         int send(std::string_view message);
         int process_outbound_message(std::string_view message);
         void process_outbound_msg_queue();
+        void start_processing_thread();
 
         void close(const bool invoke_handler = true);
 

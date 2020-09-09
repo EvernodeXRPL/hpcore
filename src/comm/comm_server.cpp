@@ -229,7 +229,12 @@ namespace comm
                 {
                     comm_session session(ip, client_fd, client_fd, session_type, is_binary, true, metric_thresholds);
                     if (session.on_connect() == 0)
-                        sessions.try_emplace(client_fd, std::move(session));
+                    {
+                        auto [itr, success] = sessions.try_emplace(client_fd, std::move(session));
+                        // Thread is seperately started after the moving operation to overcome the difficulty
+                        // in accessing class member variables inside the thread
+                        itr->second.start_processing_thread();
+                    }
                 }
             }
             else
@@ -277,7 +282,11 @@ namespace comm
                 session.known_ipport = ipport;
                 if (session.on_connect() == 0)
                 {
-                    sessions.try_emplace(client.read_fd, std::move(session));
+                    
+                    auto [itr, success] = sessions.try_emplace(client.read_fd, std::move(session));
+                    // Thread is seperately started after the moving operation to overcome the difficulty
+                    // in accessing class member variables inside the thread
+                    itr->second.start_processing_thread();
                     outbound_clients.emplace(client.read_fd, std::move(client));
                     known_remotes.emplace(ipport);
                 }
