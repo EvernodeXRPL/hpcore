@@ -16,9 +16,9 @@ namespace comm
 
     enum SESSION_STATE
     {
-        ACTIVE,         // Session is active and functioning.
-        DISCONNECTED,   // Session socket is disconnected and needs to be properly closed.
-        CLOSED          // Session is fully closed.
+        ACTIVE,       // Session is active and functioning.
+        DISCONNECTED, // Session socket is disconnected and needs to be properly closed.
+        CLOSED        // Session is fully closed.
     };
 
     enum SESSION_TYPE
@@ -36,16 +36,17 @@ namespace comm
         const int write_fd = 0;
         const SESSION_TYPE session_type;
         const uint64_t max_msg_size;
-        std::vector<session_threshold> thresholds; // track down various communication thresholds
-        uint32_t expected_msg_size = 0;            // Next expected message size based on size header.
-        std::vector<char> read_buffer;             // Local buffer to keep collecting data until a complete message can be constructed.
-        uint32_t read_buffer_filled_size = 0;      // How many bytes have been buffered so far.
-        bool should_stop_data_threads = false;     // Indicates whether data threads has been instructed to stop.
-        std::thread reader_thread;                 // The thread responsible for reading data from the socket.
+        std::vector<session_threshold> thresholds;           // track down various communication thresholds
+        uint32_t expected_msg_size = 0;                      // Next expected message size based on size header.
+        std::vector<char> read_buffer;                       // Local buffer to keep collecting data until a complete message can be constructed.
+        uint32_t read_buffer_filled_size = 0;                // How many bytes have been buffered so far.
+        bool should_stop_data_threads = false;               // Indicates whether data threads has been instructed to stop.
+        std::thread reader_thread;                           // The thread responsible for reading data from the socket.
+        moodycamel::ReaderWriterQueue<std::vector<char>> msg_queue; // Holds incoming messages waiting to be processed.
 
         void reader_loop();
         int attempt_read();
-        int get_binary_msg_read_len(const size_t available_bytes);
+        int attempt_binary_msg_construction(const size_t available_bytes);
         int on_message(std::string_view message);
 
     public:

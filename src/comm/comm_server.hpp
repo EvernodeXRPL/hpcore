@@ -11,8 +11,9 @@ namespace comm
     class comm_server
     {
         pid_t websocketd_pid = 0;
-        int firewall_out = -1; // at some point we may want to listen for firewall_in but at the moment unimplemented
-        std::thread watchdog_thread;
+        int firewall_out = -1;                      // at some point we may want to listen for firewall_in but at the moment unimplemented
+        std::thread watchdog_thread;                // Connection watcher thread.
+        std::thread message_processor_thread;       // Incoming message processor thread.
         bool should_stop_listening = false;
 
         int open_domain_socket(const char *domain_socket_name);
@@ -20,6 +21,8 @@ namespace comm
         void connection_watchdog(
             const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
             const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &eq_known_remotes, const uint64_t max_msg_size);
+
+        void message_processor_loop();
 
         int start_websocketd_process(
             const uint16_t port, const char *domain_socket_name,

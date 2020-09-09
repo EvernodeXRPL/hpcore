@@ -11,7 +11,6 @@ namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
     constexpr uint8_t SIZE_HEADER_LEN = 8;
-    constexpr uint32_t READ_BUFFER_IDLE_SIZE = 64 * 1024;
     constexpr short READER_POLL_EVENTS = POLLIN | POLLRDHUP;
 
     // Global instances of user and peer session handlers.
@@ -28,7 +27,8 @@ namespace comm
           uniqueid(std::to_string(read_fd).append(":").append(ip)),
           is_binary(is_binary),
           is_inbound(is_inbound),
-          max_msg_size(max_msg_size)
+          max_msg_size(max_msg_size),
+          msg_queue(32)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -115,9 +115,11 @@ namespace comm
         // Try to read a complete message using available bytes.
         if (available_bytes > 0)
         {
+            increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, available_bytes);
+
             if (is_binary)
             {
-                res = get_binary_msg_read_len(available_bytes);
+                res = attempt_binary_msg_construction(available_bytes);
             }
             else
             {
@@ -127,18 +129,11 @@ namespace comm
 
             if (res == 2) // Full message has been read into read buffer.
             {
-                if (on_message(std::string_view(read_buffer.data(), read_buffer.size())) == -1)
-                    res = -1;
-
-                // Reset the read buffer.
-                if (read_buffer.size() > READ_BUFFER_IDLE_SIZE)
-                {
-                    read_buffer.resize(READ_BUFFER_IDLE_SIZE);
-                    read_buffer.shrink_to_fit(); // This is to avaoid large idle memory allocations.
-                }
-
-                read_buffer.clear();
+                std::vector<char> msg;
+                msg.swap(read_buffer);
                 read_buffer_filled_size = 0;
+
+                msg_queue.enqueue(std::move(msg));
             }
         }
 
@@ -147,8 +142,6 @@ namespace comm
 
     int comm_session::on_message(std::string_view message)
     {
-        increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.length());
-
         if (session_type == SESSION_TYPE::USER)
             return user_sess_handler.on_message(*this, message);
         else
@@ -225,13 +218,13 @@ namespace comm
     }
 
     /**
- * Retrieves the length of the binary message pending to be read. Only relevant for Binary mode.
+ * Attempts to construct the full binary message pending to be read. Only relevant for Binary mode.
  * @param available_bytes Count of bytes that is available to read from the client socket.
  * @return  -1 on error and client must be disconnected. 0 if no message data bytes were read. 1 if some
  *          bytes were read but a full message is not yet formed. 2 if a fully formed message has been
  *          read into the read buffer.
  */
-    int comm_session::get_binary_msg_read_len(const size_t available_bytes)
+    int comm_session::attempt_binary_msg_construction(const size_t available_bytes)
     {
         // If we have previously encountered a size header and we are waiting until all message
         // bytes are received, we must have the expected message size > 0.

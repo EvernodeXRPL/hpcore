@@ -14,6 +14,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * P2P Protocol - https://google.github.io/flatbuffers
 * Fuse filesystem - https://github.com/libfuse/libfuse
 * Boost - https://www.boost.org
+* Concurrent queue - https://github.com/cameron314/readerwriterqueue
 
 ## Steps to setup Hot Pocket (For Ubuntu/Debian)
 
@@ -79,6 +80,12 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 3. `mkdir build; cd build`
 4. `meson .. && ninja`
 6. `sudo ninja install`
+
+#### Install reader-writer queue
+1. Download [readerwritequeue 1.0.3](https://github.com/cameron314/readerwriterqueue/archive/v1.0.3.zip) and extract.
+2. `mkdir build; cd build`
+3. `cmake ..`
+4. `sudo make install`
 
 #### Run ldconfig
 `sudo ldconfig`

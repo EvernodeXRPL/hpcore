@@ -22,6 +22,9 @@ namespace comm
             watchdog_thread = std::thread(
                 &comm_server::connection_watchdog, this, accept_fd, session_type, is_binary,
                 std::ref(metric_thresholds), req_known_remotes, max_msg_size);
+
+            message_processor_thread = std::thread(&comm_server::message_processor_loop, this);
+
             return start_websocketd_process(port, domain_socket_name, is_binary,
                                             use_size_header, max_msg_size);
         }
@@ -78,10 +81,6 @@ namespace comm
 
         // Counter to track when to initiate outbound client connections.
         int16_t loop_counter = -1;
-
-        // Indicates whether at least some bytes were read from any of the clients during the previous iteration.
-        // If no bytes were read, we would force thread sleep to wait for bytes to arrive.
-        bool bytes_read = false;
 
         while (!should_stop_listening)
         {
@@ -219,6 +218,25 @@ namespace comm
                     outbound_clients.emplace(client.read_fd, std::move(client));
                     known_remotes.emplace(ipport);
                 }
+            }
+        }
+    }
+
+    void comm_server::message_processor_loop()
+    {
+        util::mask_signal();
+
+        while (!should_stop_listening)
+        {
+            std::vector<char> msg;
+            if (1)
+            {
+                //if (on_message(std::string_view(read_buffer.data(), read_buffer.size())) == -1)
+            }
+            else
+            {
+                // If pop failed (queue empty), wait for some time before trying again.
+                util::sleep(10);
             }
         }
     }
