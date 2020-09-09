@@ -6,9 +6,9 @@
 # ./cluster.sh update
 # ./cluster.sh run 1
 
-# VM login password must exist in vmpass.txt
-# All VMs must use same SSH password with username 'geveo'
-vmpass=$(cat vmpass.txt)
+# VM login username and password must exist in vmpass.txt as first two lines.
+vmuser=$(head -1 vmpass.txt | tail -1)
+vmpass=$(head -2 vmpass.txt | tail -1)
 # List of vm domain names of the cluster must exist in vmlist.txt
 # (This list will be treated as the node numbers 1,2.3... from topmost address to the bottom)
 readarray -t vmaddrs < vmlist.txt
@@ -47,46 +47,46 @@ fi
 if [ $mode = "run" ]; then
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'nohup sudo ~/hpfiles/bin/hpcore run ~/contract'
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'tail -f nohup.out'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'nohup sudo ~/hpfiles/bin/hpcore run ~/contract'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'tail -f nohup.out'
     exit 0
 fi
 
 if [ $mode = "check" ]; then
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)  websocat pid:$(pidof websocat)'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)  websocat pid:$(pidof websocat)'
     exit 0
 fi
 
 if [ $mode = "monitor" ]; then
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'tail -f nohup.out'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'tail -f nohup.out'
     exit 0
 fi
 
 if [ $mode = "kill" ]; then
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'sudo kill $(pidof hpcore) > /dev/null 2>&1'
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'sudo kill $(pidof hpfs) > /dev/null 2>&1'
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'sudo kill $(pidof websocketd) > /dev/null 2>&1'
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'sudo kill $(pidof websocat) > /dev/null 2>&1'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof hpcore) > /dev/null 2>&1'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof hpfs) > /dev/null 2>&1'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof websocketd) > /dev/null 2>&1'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof websocat) > /dev/null 2>&1'
     exit 0
 fi
 
 if [ $mode = "reboot" ]; then
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'sudo reboot'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo reboot'
     exit 0
 fi
 
 if [ $mode = "ssh" ]; then
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmaddr $3
+    sshpass -p $vmpass ssh $vmuser@$vmaddr $3
     exit 0
 fi
 
@@ -97,9 +97,9 @@ if [ $mode = "dns" ]; then
     fi
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'mkdir -p ~/web80/.well-known/pki-validation'
-    sshpass -f vmpass.txt scp $3 geveo@$vmaddr:~/web80/.well-known/pki-validation/
-    sshpass -f vmpass.txt ssh geveo@$vmaddr -t 'cd ~/web80 && sudo python -m SimpleHTTPServer 80'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'mkdir -p ~/web80/.well-known/pki-validation'
+    sshpass -p $vmpass scp $3 $vmuser@$vmaddr:~/web80/.well-known/pki-validation/
+    sshpass -p $vmpass ssh $vmuser@$vmaddr -t 'cd ~/web80 && sudo python -m SimpleHTTPServer 80'
     exit 0
 fi
 
@@ -115,8 +115,8 @@ if [ $mode = "ssl" ]; then
     popd > /dev/null 2>&1
     
     echo "Sending tls certs to the contract..."
-    sshpass -f vmpass.txt scp ~/Downloads/$vmaddr/certs/* geveo@$vmaddr:~/hpfiles/ssl/
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'cp -rf ~/hpfiles/ssl/* ~/contract/cfg/'
+    sshpass -p $vmpass scp ~/Downloads/$vmaddr/certs/* $vmuser@$vmaddr:~/hpfiles/ssl/
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'cp -rf ~/hpfiles/ssl/* ~/contract/cfg/'
     
     rm -r ~/Downloads/$vmaddr
     echo "Done"
@@ -143,7 +143,7 @@ if [ $mode = "lcl" ]; then
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
-        sshpass -f vmpass.txt ssh geveo@$vmaddr 'ls -v contract/hist | tail -1' &
+        sshpass -p $vmpass ssh $vmuser@$vmaddr 'ls -v contract/hist | tail -1' &
     done
 
     wait
@@ -167,7 +167,7 @@ if [ $mode = "new" ] || [ $mode = "update" ]; then
     do
         vmaddr=${vmaddrs[i]}
         let n=$i+1
-        /bin/bash ./setup-vm.sh $mode $n $vmpass $vmaddr $hpcore &
+        /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $hpcore &
     done
 
     wait
@@ -190,8 +190,8 @@ if [ $mode = "reconfig" ]; then
         # Run hp setup script on the VM and download the generated hp.cfg
         vmaddr=${vmaddrs[i]}
         let nodeid=$i+1
-        sshpass -f vmpass.txt ssh geveo@$vmaddr '~/hpfiles/setup-hp.sh'
-        sshpass -f vmpass.txt scp geveo@$vmaddr:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
+        sshpass -p $vmpass ssh $vmuser@$vmaddr '~/hpfiles/setup-hp.sh'
+        sshpass -p $vmpass scp $vmuser@$vmaddr:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
     done
 fi
 
@@ -243,7 +243,7 @@ do
 
     node -p "JSON.stringify({...require('./cfg/node$n.json'), \
         binary:'/usr/bin/node', \
-        binargs:'/home/geveo/hpfiles/nodejs_contract/echo_contract.js', \
+        binargs:'/root/hpfiles/nodejs_contract/echo_contract.js', \
         peers:${mypeers}, \
         unl:${myunl}, \
         roundtime: 1000, \
@@ -253,6 +253,6 @@ do
 
     # Upload local hp.cfg file back to remote vm.
     vmaddr=${vmaddrs[j]}
-    sshpass -f vmpass.txt scp ./cfg/node$n.cfg geveo@$vmaddr:~/contract/cfg/hp.cfg
+    sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:~/contract/cfg/hp.cfg
 done
 rm -r ./cfg

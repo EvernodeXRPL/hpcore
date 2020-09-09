@@ -2,20 +2,22 @@
 
 mode=$1
 nodeid=$2
-vmpass=$3
-vmaddr=$4
-hpcore=$5
+vmuser=$3
+vmpass=$4
+vmaddr=$5
+hpcore=$6
 
 echo $nodeid. $vmaddr
 
 echo "Uploading hp files..."
-sshpass -f vmpass.txt scp -rp hpfiles geveo@$vmaddr:~/
+sshpass -p $vmpass scp -rp hpfiles $vmuser@$vmaddr:~/
 echo "Upload finished."
 
 if [ $mode = "new" ]; then
     # Run hp setup script on the VM and download the generated hp.cfg
-    sshpass -f vmpass.txt ssh geveo@$vmaddr '~/hpfiles/setup-hp.sh && cd ~/hpfiles/nodejs_contract && npm install'
-    sshpass -f vmpass.txt ssh geveo@$vmaddr 'echo sudo ~/hpfiles/bin/hpcore run ~/contract > ~/run.sh && sudo chmod +x ~/run.sh'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr '~/hpfiles/setup-hp.sh && cd ~/hpfiles/nodejs_contract && npm install'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'echo sudo ~/hpfiles/bin/hpcore run ~/contract > ~/run.sh && sudo chmod +x ~/run.sh'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'echo sudo kill $(pidof hpfs) $(pidof websocketd) $(pidof websocat) > ~/kill.sh && sudo chmod +x ~/kill.sh'
     mkdir ./cfg > /dev/null 2>&1
-    sshpass -f vmpass.txt scp geveo@$vmaddr:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
+    sshpass -p $vmpass scp $vmuser@$vmaddr:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
 fi
