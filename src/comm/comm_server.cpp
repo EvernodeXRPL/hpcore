@@ -99,7 +99,7 @@ namespace comm
             std::set<int> closed_session_fds;
             for (auto &[fd, session] : sessions)
             {
-                if (session.state == SESSION_STATE::DISCONNECTED)
+                if (session.state == SESSION_STATE::MUST_CLOSE)
                     session.close(true);
 
                 if (session.state == SESSION_STATE::CLOSED)

@@ -10,15 +10,17 @@ namespace comm
 
     enum CHALLENGE_STATUS
     {
+        NOT_ISSUED,
         CHALLENGE_ISSUED,
         CHALLENGE_VERIFIED
     };
 
     enum SESSION_STATE
     {
-        ACTIVE,       // Session is active and functioning.
-        DISCONNECTED, // Session socket is disconnected and needs to be properly closed.
-        CLOSED        // Session is fully closed.
+        NOT_INITIALIZED,       // Session is not yet initialized properly.
+        ACTIVE,     // Session is active and functioning.
+        MUST_CLOSE, // Session socket is in unusable state and must be closed.
+        CLOSED      // Session is fully closed.
     };
 
     enum SESSION_TYPE
@@ -35,13 +37,13 @@ namespace comm
         const int read_fd = 0;
         const int write_fd = 0;
         const SESSION_TYPE session_type;
-        const uint64_t max_msg_size;
-        std::vector<session_threshold> thresholds;           // track down various communication thresholds
-        uint32_t expected_msg_size = 0;                      // Next expected message size based on size header.
-        std::vector<char> read_buffer;                       // Local buffer to keep collecting data until a complete message can be constructed.
-        uint32_t read_buffer_filled_size = 0;                // How many bytes have been buffered so far.
-        bool should_stop_data_threads = false;               // Indicates whether data threads has been instructed to stop.
-        std::thread reader_thread;                           // The thread responsible for reading data from the socket.
+        const uint64_t max_msg_size = 0;
+        std::vector<session_threshold> thresholds;                  // track down various communication thresholds
+        uint32_t expected_msg_size = 0;                             // Next expected message size based on size header.
+        std::vector<char> read_buffer;                              // Local buffer to keep collecting data until a complete message can be constructed.
+        uint32_t read_buffer_filled_size = 0;                       // How many bytes have been buffered so far.
+        bool should_stop_data_threads = false;                      // Indicates whether data threads has been instructed to stop.
+        std::thread reader_thread;                                  // The thread responsible for reading data from the socket.
         moodycamel::ReaderWriterQueue<std::vector<char>> msg_queue; // Holds incoming messages waiting to be processed.
 
         void reader_loop();
@@ -56,8 +58,8 @@ namespace comm
         std::string uniqueid;
         std::string issued_challenge;
         conf::ip_port_pair known_ipport;
-        SESSION_STATE state;
-        CHALLENGE_STATUS challenge_status;
+        SESSION_STATE state = SESSION_STATE::NOT_INITIALIZED;
+        CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
 
         comm_session(
             std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,

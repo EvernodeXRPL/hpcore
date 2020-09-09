@@ -78,9 +78,9 @@ namespace comm
 
             if (should_disconnect)
             {
-                // Here we mark the session as disconnected.
-                // Disconnected sessions will be proepry "closed" and cleaned up by the global comm_server thread.
-                state = SESSION_STATE::DISCONNECTED;
+                // Here we mark the session as needing to close.
+                // The session will be properly "closed" and cleaned up by the global comm_server thread.
+                state = SESSION_STATE::MUST_CLOSE;
                 break;
             }
         }
@@ -146,6 +146,9 @@ namespace comm
      */
     int comm_session::process_queued_message()
     {
+        if (state != SESSION_STATE::ACTIVE)
+            return 0;
+
         std::vector<char> msg;
         if (msg_queue.try_dequeue(msg))
         {

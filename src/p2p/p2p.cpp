@@ -124,7 +124,7 @@ namespace p2p
                     session.uniqueid.swap(pubkeyhex);
                     session.challenge_status = comm::CHALLENGE_VERIFIED;
 
-                    ex_session.close(false);
+                    ex_session.state = comm::SESSION_STATE::MUST_CLOSE;
                     p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
                     p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
