@@ -23,7 +23,7 @@ namespace comm
                 &comm_server::connection_watchdog, this, accept_fd, session_type, is_binary,
                 std::ref(metric_thresholds), req_known_remotes, max_msg_size);
 
-            message_processor_thread = std::thread(&comm_server::message_processor_loop, this);
+            message_processor_thread = std::thread(&comm_server::message_processor_loop, this, session_type);
 
             return start_websocketd_process(port, domain_socket_name, is_binary,
                                             use_size_header, max_msg_size);
@@ -163,8 +163,8 @@ namespace comm
                     comm_session session(ip, client_fd, client_fd, session_type, is_binary, true, metric_thresholds, max_msg_size);
                     if (session.on_connect() == 0)
                     {
-                        session.start_data_threads();
-                        sessions.try_emplace(client_fd, std::move(session));
+                        const auto [itr, success] = sessions.try_emplace(client_fd, std::move(session));
+                        itr->second.start_data_threads();
                     }
                 }
             }
@@ -213,8 +213,9 @@ namespace comm
                 session.known_ipport = ipport;
                 if (session.on_connect() == 0)
                 {
-                    session.start_data_threads();
-                    sessions.try_emplace(client.read_fd, std::move(session));
+                    const auto [itr, success] = sessions.try_emplace(client.read_fd, std::move(session));
+                    itr->second.start_data_threads();
+
                     outbound_clients.emplace(client.read_fd, std::move(client));
                     known_remotes.emplace(ipport);
                 }
@@ -222,12 +223,14 @@ namespace comm
         }
     }
 
-    void comm_server::message_processor_loop()
+    void comm_server::message_processor_loop(const SESSION_TYPE session_type)
     {
         util::mask_signal();
 
         while (!should_stop_listening)
         {
+                util::sleep(10);
+
             std::vector<char> msg;
             if (1)
             {
@@ -239,6 +242,8 @@ namespace comm
                 util::sleep(10);
             }
         }
+
+        LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " message processor stopped.";
     }
 
     int comm_server::start_websocketd_process(
@@ -396,6 +401,7 @@ namespace comm
     {
         should_stop_listening = true;
         watchdog_thread.join();
+        message_processor_thread.join();
 
         if (websocketd_pid > 0)
             util::kill_process(websocketd_pid, false); // Kill websocketd.

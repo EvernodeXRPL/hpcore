@@ -22,7 +22,7 @@ namespace comm
             const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
             const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &eq_known_remotes, const uint64_t max_msg_size);
 
-        void message_processor_loop();
+        void message_processor_loop(const SESSION_TYPE session_type);
 
         int start_websocketd_process(
             const uint16_t port, const char *domain_socket_name,

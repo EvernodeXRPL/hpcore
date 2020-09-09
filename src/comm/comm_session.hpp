@@ -47,7 +47,6 @@ namespace comm
         void reader_loop();
         int attempt_read();
         int attempt_binary_msg_construction(const size_t available_bytes);
-        int on_message(std::string_view message);
 
     public:
         const std::string address; // IP address of the remote party.
@@ -63,8 +62,9 @@ namespace comm
         comm_session(
             std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
             const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
-        void start_data_threads();
         int on_connect();
+        void start_data_threads();
+        int process_queued_message();
         int send(const std::vector<uint8_t> &message) const;
         int send(std::string_view message) const;
         void close(const bool invoke_handler = true);

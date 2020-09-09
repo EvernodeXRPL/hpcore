@@ -140,12 +140,25 @@ namespace comm
         return res;
     }
 
-    int comm_session::on_message(std::string_view message)
+    /**
+     * Processes the next queued message (if any).
+     * @return 0 if no messages in queue. 1 if message was processed.
+     */
+    int comm_session::process_queued_message()
     {
-        if (session_type == SESSION_TYPE::USER)
-            return user_sess_handler.on_message(*this, message);
-        else
-            return peer_sess_handler.on_message(*this, message);
+        std::vector<char> msg;
+        if (msg_queue.try_dequeue(msg))
+        {
+            std::string_view sv(msg.data(), msg.size());
+            if (session_type == SESSION_TYPE::USER)
+                user_sess_handler.on_message(*this, sv);
+            else
+                peer_sess_handler.on_message(*this, sv);
+
+            return 1;
+        }
+
+        return 0;
     }
 
     int comm_session::send(const std::vector<uint8_t> &message) const
