@@ -116,6 +116,8 @@ namespace comm
 
     /**
      * adds the given message to the outbound message queue
+     * @param message - Message to be added to the outbound queue
+     * @return 0 on successful addition and -1 if the session is already closed/
     */
     int comm_session::send(std::string_view message)
     {
@@ -132,6 +134,8 @@ namespace comm
 
     /**
      * This function constructs and sends the message to the node from the given message
+     * @param message - Message to be sent via the pipe
+     * @return 0 on successful message sent and -1 on error
     */
     int comm_session::process_outbound_message(std::string_view message)
     {
