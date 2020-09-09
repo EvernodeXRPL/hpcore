@@ -74,11 +74,6 @@ namespace comm
     {
         util::mask_signal();
 
-        // Map with read fd to connected session mappings.
-        std::unordered_map<int, comm_session> sessions;
-        // Map with read fd to connected comm client mappings.
-        std::unordered_map<int, comm_client> outbound_clients;
-
         // Counter to track when to initiate outbound client connections.
         int16_t loop_counter = -1;
 
@@ -163,6 +158,7 @@ namespace comm
                     comm_session session(ip, client_fd, client_fd, session_type, is_binary, true, metric_thresholds, max_msg_size);
                     if (session.on_connect() == 0)
                     {
+                        std::scoped_lock<std::mutex> lock(sessions_mutex);
                         const auto [itr, success] = sessions.try_emplace(client_fd, std::move(session));
                         itr->second.start_data_threads();
                     }
@@ -213,8 +209,11 @@ namespace comm
                 session.known_ipport = ipport;
                 if (session.on_connect() == 0)
                 {
-                    const auto [itr, success] = sessions.try_emplace(client.read_fd, std::move(session));
-                    itr->second.start_data_threads();
+                    {
+                        std::scoped_lock<std::mutex> lock(sessions_mutex);
+                        const auto [itr, success] = sessions.try_emplace(client.read_fd, std::move(session));
+                        itr->second.start_data_threads();
+                    }
 
                     outbound_clients.emplace(client.read_fd, std::move(client));
                     known_remotes.emplace(ipport);
@@ -229,18 +228,21 @@ namespace comm
 
         while (!should_stop_listening)
         {
-                util::sleep(10);
+            bool messages_processed = false;
 
-            std::vector<char> msg;
-            if (1)
             {
-                //if (on_message(std::string_view(read_buffer.data(), read_buffer.size())) == -1)
+                // Process one message from each session in round-robin fashion.
+                std::scoped_lock<std::mutex> lock(sessions_mutex);
+                for (auto &[fd, session] : sessions)
+                {
+                    if (session.process_queued_message() == 1)
+                        messages_processed = true;
+                }
             }
-            else
-            {
-                // If pop failed (queue empty), wait for some time before trying again.
+
+            // If no messages were processed in this cycle, wait for some time.
+            if (!messages_processed)
                 util::sleep(10);
-            }
         }
 
         LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " message processor stopped.";
