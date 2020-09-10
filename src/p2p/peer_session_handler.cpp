@@ -33,7 +33,7 @@ namespace p2p
             // Limit max number of inbound connections.
             if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
             {
-                LOG_DBG << "Max peer connections reached. Dropped connection " << session.uniqueid;
+                LOG_DBG << "Max peer connections reached. Dropped connection " << session.uniqueid.substr(0, 10);
                 return -1;
             }
         }
@@ -70,7 +70,7 @@ namespace p2p
         if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-            LOG_DBG << "Duplicate peer message. " << session.uniqueid;
+            LOG_DBG << "Duplicate peer message. " << session.uniqueid.substr(0, 10);
             return 0;
         }
 
@@ -99,7 +99,7 @@ namespace p2p
 
         if (session.challenge_status != comm::CHALLENGE_VERIFIED)
         {
-            LOG_DBG << "Cannot accept messages. Peer challenge unresolved. " << session.uniqueid;
+            LOG_DBG << "Cannot accept messages. Peer challenge unresolved. " << session.uniqueid.substr(0, 10);
             return 0;
         }
 
@@ -109,7 +109,7 @@ namespace p2p
             if (p2pmsg::validate_container_trust(container) != 0)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DBG << "Proposal rejected due to trust failure. " << session.uniqueid;
+                LOG_DBG << "Proposal rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
@@ -129,7 +129,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
-                LOG_DBG << "NPL message rejected due to trust failure. " << session.uniqueid;
+                LOG_DBG << "NPL message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
@@ -146,7 +146,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
-                LOG_DBG << "State request message rejected due to trust failure. " << session.uniqueid;
+                LOG_DBG << "State request message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
@@ -159,7 +159,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
-                LOG_DBG << "State response message rejected due to trust failure. " << session.uniqueid;
+                LOG_DBG << "State response message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
@@ -175,7 +175,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
-                LOG_DBG << "History request message rejected due to trust failure. " << session.uniqueid;
+                LOG_DBG << "History request message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
@@ -196,7 +196,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
-                LOG_DBG << "History response message rejected due to trust failure. " << session.uniqueid;
+                LOG_DBG << "History response message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
@@ -206,7 +206,7 @@ namespace p2p
         else
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-            LOG_DBG << "Received invalid peer message type. " << session.uniqueid;
+            LOG_DBG << "Received invalid peer message type. " << session.uniqueid.substr(0, 10);
         }
         return 0;
     }
@@ -214,8 +214,11 @@ namespace p2p
     //peer session on message callback method
     void peer_session_handler::on_close(const comm::comm_session &session) const
     {
+        // Erase the corresponding uniqueid peer connection if it's this session.
         std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
-        ctx.peer_connections.erase(session.uniqueid);
+        const auto itr = ctx.peer_connections.find(session.uniqueid);
+        if (itr != ctx.peer_connections.end() && itr->second == &session)
+            ctx.peer_connections.erase(itr);
     }
 
 } // namespace p2p

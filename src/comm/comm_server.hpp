@@ -11,15 +11,25 @@ namespace comm
     class comm_server
     {
         pid_t websocketd_pid = 0;
-        int firewall_out = -1; // at some point we may want to listen for firewall_in but at the moment unimplemented
-        std::thread watchdog_thread;
+        int firewall_out = -1;                // at some point we may want to listen for firewall_in but at the moment unimplemented
+        std::thread watchdog_thread;          // Connection watcher thread.
+        std::thread inbound_message_processor_thread; // Incoming message processor thread.
         bool should_stop_listening = false;
+
+        // Map with read fd to connected session mappings.
+        std::unordered_map<int, comm_session> sessions;
+        std::mutex sessions_mutex;
+
+        // Map with read fd to connected comm client mappings.
+        std::unordered_map<int, comm_client> outbound_clients;
 
         int open_domain_socket(const char *domain_socket_name);
 
         void connection_watchdog(
             const int accept_fd, const SESSION_TYPE session_type, const bool is_binary,
             const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &eq_known_remotes, const uint64_t max_msg_size);
+
+        void inbound_message_processor_loop(const SESSION_TYPE session_type);
 
         int start_websocketd_process(
             const uint16_t port, const char *domain_socket_name,
@@ -29,7 +39,8 @@ namespace comm
 
         void check_for_new_connection(
             std::unordered_map<int, comm_session> &sessions, const int accept_fd,
-            const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4]);
+            const SESSION_TYPE session_type, const bool is_binary, const uint64_t (&metric_thresholds)[4],
+            const uint64_t max_msg_size);
 
         void maintain_known_connections(
             std::unordered_map<int, comm_session> &sessions, std::unordered_map<int, comm_client> &outbound_clients,

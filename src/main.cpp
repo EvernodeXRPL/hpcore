@@ -137,8 +137,16 @@ void std_terminate() noexcept
 
 int main(int argc, char **argv)
 {
-    //seed rand
+    // seed rand
     srand(util::get_epoch_milliseconds());
+
+    // Disable SIGPIPE to avoid crashing on broken pipe IO.
+    {
+        sigset_t mask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGPIPE);
+        pthread_sigmask(SIG_BLOCK, &mask, NULL);
+    }
 
     // Register exception handler for std exceptions.
     std::set_terminate(&std_terminate);

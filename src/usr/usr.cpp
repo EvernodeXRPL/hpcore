@@ -73,7 +73,7 @@ namespace usr
         // The received message must be the challenge response. We need to verify it.
         if (session.issued_challenge.empty())
         {
-            LOG_DBG << "No challenge found for the session " << session.uniqueid;
+            LOG_DBG << "No challenge found for the session " << session.uniqueid.substr(0, 10);
             return -1;
         }
 
@@ -106,18 +106,18 @@ namespace usr
                 add_user(session, userpubkey, user_protocol);        // Add the user to the global authed user list
                 session.issued_challenge.clear();                    // Remove the stored challenge
 
-                LOG_DBG << "User connection " << session.uniqueid << " authenticated. Public key "
+                LOG_DBG << "User connection " << session.uniqueid.substr(0, 10) << " authenticated. Public key "
                         << userpubkeyhex;
                 return 0;
             }
             else
             {
-                LOG_DBG << "Duplicate user public key " << session.uniqueid;
+                LOG_DBG << "Duplicate user public key " << session.uniqueid.substr(0, 10);
             }
         }
         else
         {
-            LOG_DBG << "Challenge verification failed " << session.uniqueid;
+            LOG_DBG << "Challenge verification failed " << session.uniqueid.substr(0, 10);
         }
 
         return -1;

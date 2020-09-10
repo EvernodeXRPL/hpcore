@@ -9,10 +9,9 @@
 
 namespace comm
 {
-
     constexpr uint32_t INTERVALMS = 60000;
     constexpr uint8_t SIZE_HEADER_LEN = 8;
-    constexpr uint32_t READ_BUFFER_IDLE_SIZE = 64 * 1024;
+    constexpr short READER_POLL_EVENTS = POLLIN | POLLRDHUP;
 
     // Global instances of user and peer session handlers.
     usr::user_session_handler user_sess_handler;
@@ -20,14 +19,16 @@ namespace comm
 
     comm_session::comm_session(
         std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
-        const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+        const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
 
         : read_fd(read_fd),
           write_fd(write_fd),
           session_type(session_type),
           uniqueid(std::to_string(read_fd).append(":").append(ip)),
           is_binary(is_binary),
-          is_inbound(is_inbound)
+          is_inbound(is_inbound),
+          max_msg_size(max_msg_size),
+          in_msg_queue(32)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -35,6 +36,53 @@ namespace comm
         thresholds.reserve(4);
         for (size_t i = 0; i < 4; i++)
             thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
+    }
+
+    void comm_session::start_messaging_threads()
+    {
+        reader_thread = std::thread(&comm_session::reader_loop, this);
+    }
+
+    void comm_session::reader_loop()
+    {
+        util::mask_signal();
+
+        while (!should_stop_messaging_threads)
+        {
+            pollfd pollfds[1] = {{read_fd, READER_POLL_EVENTS}};
+
+            if (poll(pollfds, 1, 20) == -1)
+            {
+                LOG_ERR << errno << ": Session reader poll failed.";
+                break;
+            }
+
+            const short result = pollfds[0].revents;
+            bool should_disconnect = false;
+
+            if (result & POLLIN)
+            {
+                // read_result -1 means error and we should disconnect the client.
+                // read_result 0 means no bytes were read.
+                // read_result 1 means some bytes were read.
+                // read_result 2 means full message were read and processed successfully.
+                const int read_result = attempt_read();
+
+                if (read_result == -1)
+                    should_disconnect = true;
+            }
+
+            if (!should_disconnect && (result & (POLLERR | POLLHUP | POLLRDHUP | POLLNVAL)))
+                should_disconnect = true;
+
+            if (should_disconnect)
+            {
+                // Here we mark the session as needing to close.
+                // The session will be properly "closed" and cleaned up by the global comm_server thread.
+                mark_for_closure();
+                break;
+            }
+        }
     }
 
     int comm_session::on_connect()
@@ -49,12 +97,11 @@ namespace comm
 
     /**
  * Attempts to read message data from the given socket fd and passes the message on to the session.
- * @param max_msg_size The allowed max byte length of a message to be read.
  * @return  -1 on error and client must be disconnected. 0 if no message data bytes were read. 1 if some
  *          bytes were read but a full message is not yet formed. 2 if a fully formed message has been
  *          read into the read buffer.
  */
-    int comm_session::attempt_read(const uint64_t max_msg_size)
+    int comm_session::attempt_read()
     {
         size_t available_bytes = 0;
         if (ioctl(read_fd, FIONREAD, &available_bytes) == -1 ||
@@ -67,9 +114,11 @@ namespace comm
         // Try to read a complete message using available bytes.
         if (available_bytes > 0)
         {
+            increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, available_bytes);
+
             if (is_binary)
             {
-                res = get_binary_msg_read_len(available_bytes);
+                res = attempt_binary_msg_construction(available_bytes);
             }
             else
             {
@@ -79,32 +128,40 @@ namespace comm
 
             if (res == 2) // Full message has been read into read buffer.
             {
-                if (on_message(std::string_view(read_buffer.data(), read_buffer.size())) == -1)
-                    res = -1;
-
-                // Reset the read buffer.
-                if (read_buffer.size() > READ_BUFFER_IDLE_SIZE)
-                {
-                    read_buffer.resize(READ_BUFFER_IDLE_SIZE);
-                    read_buffer.shrink_to_fit(); // This is to avaoid large idle memory allocations.
-                }
-
-                read_buffer.clear();
+                std::vector<char> msg;
+                msg.swap(read_buffer);
                 read_buffer_filled_size = 0;
+
+                in_msg_queue.enqueue(std::move(msg));
             }
         }
 
         return res;
     }
 
-    int comm_session::on_message(std::string_view message)
+    /**
+     * Processes the next queued message (if any).
+     * @return 0 if no messages in queue. 1 if message was processed. -1 means session must be closed.
+     */
+    int comm_session::process_next_inbound_message()
     {
-        increment_metric(SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.length());
+        if (state != SESSION_STATE::ACTIVE)
+            return 0;
 
-        if (session_type == SESSION_TYPE::USER)
-            return user_sess_handler.on_message(*this, message);
-        else
-            return peer_sess_handler.on_message(*this, message);
+        std::vector<char> msg;
+        if (in_msg_queue.try_dequeue(msg))
+        {
+            std::string_view sv(msg.data(), msg.size());
+            const int sess_handler_result = (session_type == SESSION_TYPE::USER)
+                                                ? user_sess_handler.on_message(*this, sv)
+                                                : peer_sess_handler.on_message(*this, sv);
+
+            // If session handler returns -1 then that means the session must be closed.
+            // Otherwise it's considered message processing is successful.
+            return sess_handler_result == -1 ? -1 : 1;
+        }
+
+        return 0;
     }
 
     int comm_session::send(const std::vector<uint8_t> &message) const
@@ -148,12 +205,28 @@ namespace comm
 
         if (writev(write_fd, memsegs, 2) == -1)
         {
-            LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
+            LOG_ERR << errno << ": Session " << uniqueid.substr(0, 10) << " send writev failed.";
             return -1;
         }
         return 0;
     }
 
+    /**
+     * Mark the session as needing to close. The session will be properly "closed"
+     * and cleaned up by the global comm_server thread.
+     */
+    void comm_session::mark_for_closure()
+    {
+        if (state == SESSION_STATE::CLOSED)
+            return;
+
+        state = SESSION_STATE::MUST_CLOSE;
+    }
+
+    /**
+     * Close the connection and wrap up any session processing threads.
+     * This will be only called by the global comm_server thread.
+     */
     void comm_session::close(const bool invoke_handler)
     {
         if (state == SESSION_STATE::CLOSED)
@@ -167,21 +240,25 @@ namespace comm
                 peer_sess_handler.on_close(*this);
         }
 
-        ::close(read_fd);
+        should_stop_messaging_threads = true; // Set the messaging thread stop flag before closing the fds.
         state = SESSION_STATE::CLOSED;
+        ::close(read_fd);
+        if (read_fd != write_fd)
+            ::close(write_fd);
+        reader_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
-                << uniqueid << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
+                << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
     }
 
     /**
- * Retrieves the length of the binary message pending to be read. Only relevant for Binary mode.
+ * Attempts to construct the full binary message pending to be read. Only relevant for Binary mode.
  * @param available_bytes Count of bytes that is available to read from the client socket.
  * @return  -1 on error and client must be disconnected. 0 if no message data bytes were read. 1 if some
  *          bytes were read but a full message is not yet formed. 2 if a fully formed message has been
  *          read into the read buffer.
  */
-    int comm_session::get_binary_msg_read_len(const size_t available_bytes)
+    int comm_session::attempt_binary_msg_construction(const size_t available_bytes)
     {
         // If we have previously encountered a size header and we are waiting until all message
         // bytes are received, we must have the expected message size > 0.

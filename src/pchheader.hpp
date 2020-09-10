@@ -38,7 +38,7 @@
 #include <memory>
 #include <mutex>
 #include <poll.h>
-#include <queue>
+#include <readerwriterqueue/readerwriterqueue.h>
 #include <set>
 #include <sodium.h>
 #include <sstream>

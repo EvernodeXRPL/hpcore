@@ -108,10 +108,10 @@ namespace p2p
             session.challenge_status = comm::CHALLENGE_VERIFIED;
             return 0;
         }
-        else // New connection is not self but with same pub key.
+        else // New connection is not self but peer pub key already exists in our sessions.
         {
             comm::comm_session &ex_session = *iter->second;
-            // We don't allow duplicate connections to the same peer to same direction.
+            // We don't allow duplicate sessions to the same peer to same direction.
             if (ex_session.is_inbound != session.is_inbound)
             {
                 // Decide whether we need to replace existing session with new session.
@@ -124,11 +124,11 @@ namespace p2p
                     session.uniqueid.swap(pubkeyhex);
                     session.challenge_status = comm::CHALLENGE_VERIFIED;
 
-                    ex_session.close(false);
+                    ex_session.mark_for_closure();
                     p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
                     p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
-                    LOG_DBG << "Replacing existing connection [" << session.uniqueid << "]";
+                    LOG_DBG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
                     return 0;
                 }
                 else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
@@ -139,7 +139,7 @@ namespace p2p
             }
 
             // Reaching this point means we don't need the new session.
-            LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << pubkeyhex << "]";
+            LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << pubkeyhex.substr(0, 10) << "]";
             return -1;
         }
     }

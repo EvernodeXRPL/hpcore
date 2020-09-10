@@ -17,11 +17,11 @@ int user_session_handler::on_connect(comm::comm_session &session) const
 {
     if (conf::cfg.pubmaxcons > 0 && ctx.users.size() >= conf::cfg.pubmaxcons)
     {
-        LOG_DBG << "Max user connections reached. Dropped connection " << session.uniqueid;
+        LOG_DBG << "Max user connections reached. Dropped connection " << session.uniqueid.substr(0, 10);
         return -1;
     }
 
-    LOG_DBG << "User client connected " << session.uniqueid;
+    LOG_DBG << "User client connected " << session.uniqueid.substr(0, 10);
 
     // As soon as a user connects, we issue them a challenge message. We remember the
     // challenge we issued and later verify the user's response with it.
@@ -61,13 +61,13 @@ int user_session_handler::on_message(comm::comm_session &session, std::string_vi
             if (handle_user_message(user, message) != 0)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-                LOG_DBG << "Bad message from user " << session.uniqueid;
+                LOG_DBG << "Bad message from user " << session.uniqueid.substr(0, 10);
             }
         }
         else
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-            LOG_DBG << "User session id not found: " << session.uniqueid;
+            LOG_DBG << "User session id not found: " << session.uniqueid.substr(0, 10);
         }
 
         return 0;
@@ -75,7 +75,7 @@ int user_session_handler::on_message(comm::comm_session &session, std::string_vi
 
     // If for any reason we reach this point, we should drop the connection because none of the
     // valid cases match.
-    LOG_DBG << "Dropping the user connection " << session.uniqueid;
+    LOG_DBG << "Dropping the user connection " << session.uniqueid.substr(0, 10);
     corebill::report_violation(session.address);
     return -1;
 }
