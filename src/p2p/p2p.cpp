@@ -128,7 +128,7 @@ namespace p2p
                     p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
                     p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
-                    LOG_DBG << "Replacing existing connection [" << session.uniqueid << "]";
+                    LOG_DBG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
                     return 0;
                 }
                 else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
@@ -139,7 +139,7 @@ namespace p2p
             }
 
             // Reaching this point means we don't need the new session.
-            LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << pubkeyhex << "]";
+            LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << pubkeyhex.substr(0, 10) << "]";
             return -1;
         }
     }

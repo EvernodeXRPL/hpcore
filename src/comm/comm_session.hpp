@@ -39,12 +39,14 @@ namespace comm
         const SESSION_TYPE session_type;
         const uint64_t max_msg_size = 0;
         std::vector<session_threshold> thresholds;                  // track down various communication thresholds
+        
         uint32_t expected_msg_size = 0;                             // Next expected message size based on size header.
         std::vector<char> read_buffer;                              // Local buffer to keep collecting data until a complete message can be constructed.
         uint32_t read_buffer_filled_size = 0;                       // How many bytes have been buffered so far.
-        bool should_stop_data_threads = false;                      // Indicates whether data threads has been instructed to stop.
-        std::thread reader_thread;                                  // The thread responsible for reading data from the socket.
-        moodycamel::ReaderWriterQueue<std::vector<char>> msg_queue; // Holds incoming messages waiting to be processed.
+        
+        bool should_stop_messaging_threads = false;                 // Indicates whether messaging threads has been instructed to stop.
+        std::thread reader_thread;                                  // The thread responsible for reading messages from the read fd.
+        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue; // Holds incoming messages waiting to be processed.
 
         void reader_loop();
         int attempt_read();
@@ -65,8 +67,8 @@ namespace comm
             std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
             const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
         int on_connect();
-        void start_data_threads();
-        int process_queued_message();
+        void start_messaging_threads();
+        int process_next_inbound_message();
         int send(const std::vector<uint8_t> &message) const;
         int send(std::string_view message) const;
         void mark_for_closure();

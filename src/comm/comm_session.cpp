@@ -28,7 +28,7 @@ namespace comm
           is_binary(is_binary),
           is_inbound(is_inbound),
           max_msg_size(max_msg_size),
-          msg_queue(32)
+          in_msg_queue(32)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -38,7 +38,7 @@ namespace comm
             thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
     }
 
-    void comm_session::start_data_threads()
+    void comm_session::start_messaging_threads()
     {
         reader_thread = std::thread(&comm_session::reader_loop, this);
     }
@@ -47,7 +47,7 @@ namespace comm
     {
         util::mask_signal();
 
-        while (!should_stop_data_threads)
+        while (!should_stop_messaging_threads)
         {
             pollfd pollfds[1] = {{read_fd, READER_POLL_EVENTS}};
 
@@ -132,7 +132,7 @@ namespace comm
                 msg.swap(read_buffer);
                 read_buffer_filled_size = 0;
 
-                msg_queue.enqueue(std::move(msg));
+                in_msg_queue.enqueue(std::move(msg));
             }
         }
 
@@ -143,13 +143,13 @@ namespace comm
      * Processes the next queued message (if any).
      * @return 0 if no messages in queue. 1 if message was processed. -1 means session must be closed.
      */
-    int comm_session::process_queued_message()
+    int comm_session::process_next_inbound_message()
     {
         if (state != SESSION_STATE::ACTIVE)
             return 0;
 
         std::vector<char> msg;
-        if (msg_queue.try_dequeue(msg))
+        if (in_msg_queue.try_dequeue(msg))
         {
             std::string_view sv(msg.data(), msg.size());
             const int sess_handler_result = (session_type == SESSION_TYPE::USER)
@@ -205,7 +205,7 @@ namespace comm
 
         if (writev(write_fd, memsegs, 2) == -1)
         {
-            LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
+            LOG_ERR << errno << ": Session " << uniqueid.substr(0, 10) << " send writev failed.";
             return -1;
         }
         return 0;
@@ -240,7 +240,7 @@ namespace comm
                 peer_sess_handler.on_close(*this);
         }
 
-        should_stop_data_threads = true; // Set the data thread stop flag before closing the fds.
+        should_stop_messaging_threads = true; // Set the messaging thread stop flag before closing the fds.
         state = SESSION_STATE::CLOSED;
         ::close(read_fd);
         if (read_fd != write_fd)
@@ -248,7 +248,7 @@ namespace comm
         reader_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
-                << uniqueid << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
+                << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
     }
 
     /**

@@ -160,7 +160,7 @@ namespace comm
                     {
                         std::scoped_lock<std::mutex> lock(sessions_mutex);
                         const auto [itr, success] = sessions.try_emplace(client_fd, std::move(session));
-                        itr->second.start_data_threads();
+                        itr->second.start_messaging_threads();
                     }
                 }
             }
@@ -212,7 +212,7 @@ namespace comm
                     {
                         std::scoped_lock<std::mutex> lock(sessions_mutex);
                         const auto [itr, success] = sessions.try_emplace(client.read_fd, std::move(session));
-                        itr->second.start_data_threads();
+                        itr->second.start_messaging_threads();
                     }
 
                     outbound_clients.emplace(client.read_fd, std::move(client));
@@ -235,7 +235,7 @@ namespace comm
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
                 for (auto &[fd, session] : sessions)
                 {
-                    const int result = session.process_queued_message();
+                    const int result = session.process_next_inbound_message();
 
                     if (result != 0)
                         messages_processed = true;
