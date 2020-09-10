@@ -214,8 +214,11 @@ namespace p2p
     //peer session on message callback method
     void peer_session_handler::on_close(const comm::comm_session &session) const
     {
+        // Erase the corresponding uniqueid peer connection if it's this session.
         std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
-        ctx.peer_connections.erase(session.uniqueid);
+        const auto itr = ctx.peer_connections.find(session.uniqueid);
+        if (itr != ctx.peer_connections.end() && itr->second == &session)
+            ctx.peer_connections.erase(itr);
     }
 
 } // namespace p2p

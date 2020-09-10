@@ -51,8 +51,7 @@ namespace comm
         {
             pollfd pollfds[1] = {{read_fd, READER_POLL_EVENTS}};
 
-            // This call will be blocked until an event occurs (data available, pipe closed etc...).
-            if (poll(pollfds, 1, -1) == -1)
+            if (poll(pollfds, 1, 20) == -1)
             {
                 LOG_ERR << errno << ": Session reader poll failed.";
                 break;
@@ -80,7 +79,7 @@ namespace comm
             {
                 // Here we mark the session as needing to close.
                 // The session will be properly "closed" and cleaned up by the global comm_server thread.
-                state = SESSION_STATE::MUST_CLOSE;
+                mark_for_closure();
                 break;
             }
         }
@@ -142,7 +141,7 @@ namespace comm
 
     /**
      * Processes the next queued message (if any).
-     * @return 0 if no messages in queue. 1 if message was processed.
+     * @return 0 if no messages in queue. 1 if message was processed. -1 means session must be closed.
      */
     int comm_session::process_queued_message()
     {
@@ -153,12 +152,13 @@ namespace comm
         if (msg_queue.try_dequeue(msg))
         {
             std::string_view sv(msg.data(), msg.size());
-            if (session_type == SESSION_TYPE::USER)
-                user_sess_handler.on_message(*this, sv);
-            else
-                peer_sess_handler.on_message(*this, sv);
+            const int sess_handler_result = (session_type == SESSION_TYPE::USER)
+                                                ? user_sess_handler.on_message(*this, sv)
+                                                : peer_sess_handler.on_message(*this, sv);
 
-            return 1;
+            // If session handler returns -1 then that means the session must be closed.
+            // Otherwise it's considered message processing is successful.
+            return sess_handler_result == -1 ? -1 : 1;
         }
 
         return 0;
@@ -211,6 +211,22 @@ namespace comm
         return 0;
     }
 
+    /**
+     * Mark the session as needing to close. The session will be properly "closed"
+     * and cleaned up by the global comm_server thread.
+     */
+    void comm_session::mark_for_closure()
+    {
+        if (state == SESSION_STATE::CLOSED)
+            return;
+
+        state = SESSION_STATE::MUST_CLOSE;
+    }
+
+    /**
+     * Close the connection and wrap up any session processing threads.
+     * This will be only called by the global comm_server thread.
+     */
     void comm_session::close(const bool invoke_handler)
     {
         if (state == SESSION_STATE::CLOSED)
@@ -224,9 +240,11 @@ namespace comm
                 peer_sess_handler.on_close(*this);
         }
 
-        should_stop_data_threads = true; // Set the thread stop flag before closing the read_fd.
+        should_stop_data_threads = true; // Set the data thread stop flag before closing the fds.
         state = SESSION_STATE::CLOSED;
         ::close(read_fd);
+        if (read_fd != write_fd)
+            ::close(write_fd);
         reader_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "

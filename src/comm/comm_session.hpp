@@ -69,6 +69,7 @@ namespace comm
         int process_queued_message();
         int send(const std::vector<uint8_t> &message) const;
         int send(std::string_view message) const;
+        void mark_for_closure();
         void close(const bool invoke_handler = true);
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);

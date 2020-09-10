@@ -95,7 +95,7 @@ namespace comm
                 loop_counter++;
             }
 
-            // Cleanup any sessions that have disconnected/closed.
+            // Cleanup any sessions that needs closure.
             std::set<int> closed_session_fds;
             for (auto &[fd, session] : sessions)
             {
@@ -235,8 +235,13 @@ namespace comm
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
                 for (auto &[fd, session] : sessions)
                 {
-                    if (session.process_queued_message() == 1)
+                    const int result = session.process_queued_message();
+
+                    if (result != 0)
                         messages_processed = true;
+
+                    if (result == -1)
+                        session.mark_for_closure();
                 }
             }
 
