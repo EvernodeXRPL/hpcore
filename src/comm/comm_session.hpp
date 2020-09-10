@@ -4,9 +4,6 @@
 #include "../pchheader.hpp"
 #include "comm_session_threshold.hpp"
 #include "../conf.hpp"
-#include <queue>
-#include <thread>
-#include <mutex>
 
 namespace comm
 {
@@ -31,8 +28,8 @@ namespace comm
     };
 
     /** 
- * Represents an active WebSocket connection
-*/
+     * Represents an active WebSocket connection
+    */
     class comm_session
     {
         const int read_fd = 0;
