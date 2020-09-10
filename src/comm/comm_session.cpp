@@ -121,12 +121,14 @@ namespace comm
     */
     int comm_session::send(std::string_view message)
     {
+        // making a copy of the message before it is destroyed from the parent scope
         std::string msg(message);
 
         if (state == SESSION_STATE::CLOSED)
             return -1;
 
         std::scoped_lock<std::mutex> mlock(*mutex);
+        // passing the ownership of msg to the queue using move operator for memory efficiency
         queue.push(std::move(msg));
 
         return 0;
@@ -189,10 +191,13 @@ namespace comm
     */
     void comm_session::process_outbound_msg_queue()
     {
+        // appling a signal mask to prevent receiving control signals from linux kernel
         util::mask_signal();
 
+        // keep checking untlil the session is terminated
         while (state != SESSION_STATE::CLOSED)
         {
+            // wait 10ms untill queue gets populated
             if (queue.empty())
             {
                 util::sleep(10);
@@ -200,7 +205,10 @@ namespace comm
             else
             {
                 std::scoped_lock<std::mutex> mlock(*mutex);
+                // passing the first element in the queue for processing
                 process_outbound_message(queue.front());
+                // the element is removed disregard of the output status of the process_outbound_message function
+                // if not this will keep trying to process a malformed message
                 queue.pop();
             }
         }
@@ -222,6 +230,7 @@ namespace comm
         ::close(read_fd);
         state = SESSION_STATE::CLOSED;
 
+        // wait untill the outbound processing thread gracefully stops
         outbound_queue_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
