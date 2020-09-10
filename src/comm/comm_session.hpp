@@ -69,8 +69,8 @@ namespace comm
         int on_connect();
         void start_messaging_threads();
         int process_next_inbound_message();
-        int send(const std::vector<uint8_t> &message) const;
-        int send(std::string_view message) const;
+        int send(const std::vector<uint8_t> &message);
+        int send(std::string_view message);
         void mark_for_closure();
         void close(const bool invoke_handler = true);
 

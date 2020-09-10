@@ -188,7 +188,7 @@ namespace p2p
             std::string_view msg = std::string_view(
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
-            const comm::comm_session *session = peer_itr->second;
+            comm::comm_session *session = peer_itr->second;
             session->send(msg);
         }
     }
@@ -222,7 +222,7 @@ namespace p2p
             std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 
             //send message to selected peer.
-            const comm::comm_session *session = it->second;
+            comm::comm_session *session = it->second;
             if (!session->is_self) // Exclude self peer.
             {
                 std::string_view msg = std::string_view(

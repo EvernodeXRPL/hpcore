@@ -164,13 +164,13 @@ namespace comm
         return 0;
     }
 
-    int comm_session::send(const std::vector<uint8_t> &message) const
+    int comm_session::send(const std::vector<uint8_t> &message)
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
         send(sv);
     }
 
-    int comm_session::send(std::string_view message) const
+    int comm_session::send(std::string_view message)
     {
         if (state == SESSION_STATE::CLOSED)
             return -1;
