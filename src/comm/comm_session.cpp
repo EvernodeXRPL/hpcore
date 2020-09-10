@@ -115,20 +115,20 @@ namespace comm
     }
 
     /**
-     * adds the given message to the outbound message queue
-     * @param message - Message to be added to the outbound queue
-     * @return 0 on successful addition and -1 if the session is already closed/
+     * Adds the given message to the outbound message queue.
+     * @param message Message to be added to the outbound queue.
+     * @return 0 on successful addition and -1 if the session is already closed.
     */
     int comm_session::send(std::string_view message)
     {
-        // making a copy of the message before it is destroyed from the parent scope
+        // Making a copy of the message before it is destroyed from the parent scope.
         std::string msg(message);
 
         if (state == SESSION_STATE::CLOSED)
             return -1;
 
         std::scoped_lock<std::mutex> mlock(*mutex);
-        // passing the ownership of msg to the queue using move operator for memory efficiency
+        // Passing the ownership of msg to the queue using move operator for memory efficiency.
         queue.push(std::move(msg));
 
         return 0;
@@ -136,7 +136,7 @@ namespace comm
 
     /**
      * This function constructs and sends the message to the node from the given message
-     * @param message - Message to be sent via the pipe
+     * @param message Message to be sent via the pipe
      * @return 0 on successful message sent and -1 on error
     */
     int comm_session::process_outbound_message(std::string_view message)
@@ -179,25 +179,25 @@ namespace comm
     }
 
     /**
-     * Starts the outbound queue processing thread
+     * Starts the outbound queue processing thread.
     */
-    void comm_session::start_processing_thread() {
+    void comm_session::start_processing_thread()
+    {
         outbound_queue_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
     }
 
-
     /**
-     * Process message sending in the queue in the outbound_queue_thread
+     * Process message sending in the queue in the outbound_queue_thread.
     */
     void comm_session::process_outbound_msg_queue()
     {
-        // appling a signal mask to prevent receiving control signals from linux kernel
+        // Appling a signal mask to prevent receiving control signals from linux kernel.
         util::mask_signal();
 
-        // keep checking untlil the session is terminated
+        // Keep checking untlil the session is terminated.
         while (state != SESSION_STATE::CLOSED)
         {
-            // wait 10ms untill queue gets populated
+            // Wait 10ms untill queue gets populated.
             if (queue.empty())
             {
                 util::sleep(10);
@@ -205,10 +205,10 @@ namespace comm
             else
             {
                 std::scoped_lock<std::mutex> mlock(*mutex);
-                // passing the first element in the queue for processing
+                // Passing the first element in the queue for processing.
                 process_outbound_message(queue.front());
-                // the element is removed disregard of the output status of the process_outbound_message function
-                // if not this will keep trying to process a malformed message
+                // The element is removed disregard of the output status of the process_outbound_message function.
+                // If not this will keep trying to process a malformed message.
                 queue.pop();
             }
         }
@@ -230,7 +230,7 @@ namespace comm
         ::close(read_fd);
         state = SESSION_STATE::CLOSED;
 
-        // wait untill the outbound processing thread gracefully stops
+        // Wait untill the outbound processing thread gracefully stops
         outbound_queue_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
