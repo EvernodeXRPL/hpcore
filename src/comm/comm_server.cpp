@@ -23,7 +23,7 @@ namespace comm
                 &comm_server::connection_watchdog, this, accept_fd, session_type, is_binary,
                 std::ref(metric_thresholds), req_known_remotes, max_msg_size);
 
-            message_processor_thread = std::thread(&comm_server::message_processor_loop, this, session_type);
+            inbound_message_processor_thread = std::thread(&comm_server::inbound_message_processor_loop, this, session_type);
 
             return start_websocketd_process(port, domain_socket_name, is_binary,
                                             use_size_header, max_msg_size);
@@ -222,7 +222,7 @@ namespace comm
         }
     }
 
-    void comm_server::message_processor_loop(const SESSION_TYPE session_type)
+    void comm_server::inbound_message_processor_loop(const SESSION_TYPE session_type)
     {
         util::mask_signal();
 
@@ -408,7 +408,7 @@ namespace comm
     {
         should_stop_listening = true;
         watchdog_thread.join();
-        message_processor_thread.join();
+        inbound_message_processor_thread.join();
 
         if (websocketd_pid > 0)
             util::kill_process(websocketd_pid, false); // Kill websocketd.
