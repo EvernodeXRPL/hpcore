@@ -17,10 +17,10 @@ namespace comm
 
     enum SESSION_STATE
     {
-        NOT_INITIALIZED,       // Session is not yet initialized properly.
-        ACTIVE,     // Session is active and functioning.
-        MUST_CLOSE, // Session socket is in unusable state and must be closed.
-        CLOSED      // Session is fully closed.
+        NOT_INITIALIZED, // Session is not yet initialized properly.
+        ACTIVE,          // Session is active and functioning.
+        MUST_CLOSE,      // Session socket is in unusable state and must be closed.
+        CLOSED           // Session is fully closed.
     };
 
     enum SESSION_TYPE
@@ -38,15 +38,17 @@ namespace comm
         const int write_fd = 0;
         const SESSION_TYPE session_type;
         const uint64_t max_msg_size = 0;
-        std::vector<session_threshold> thresholds;                  // track down various communication thresholds
+        std::vector<session_threshold> thresholds;                      // track down various communication thresholds
         
-        uint32_t expected_msg_size = 0;                             // Next expected message size based on size header.
-        std::vector<char> read_buffer;                              // Local buffer to keep collecting data until a complete message can be constructed.
-        uint32_t read_buffer_filled_size = 0;                       // How many bytes have been buffered so far.
+        uint32_t expected_msg_size = 0;                                 // Next expected message size based on size header.
+        std::vector<char> read_buffer;                                  // Local buffer to keep collecting data until a complete message can be constructed.
+        uint32_t read_buffer_filled_size = 0;                           // How many bytes have been buffered so far.
         
-        bool should_stop_messaging_threads = false;                 // Indicates whether messaging threads has been instructed to stop.
-        std::thread reader_thread;                                  // The thread responsible for reading messages from the read fd.
-        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue; // Holds incoming messages waiting to be processed.
+        bool should_stop_messaging_threads = false;                     // Indicates whether messaging threads has been instructed to stop.
+        std::thread reader_thread;                                      // The thread responsible for reading messages from the read fd.
+        std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
+        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue;  // Holds incoming messages waiting to be processed.
+        moodycamel::ConcurrentQueue<std::string> out_msg_queue;                 // Holds outgoing messages waiting to be processed.
 
         void reader_loop();
         int attempt_read();
@@ -71,6 +73,8 @@ namespace comm
         int process_next_inbound_message();
         int send(const std::vector<uint8_t> &message);
         int send(std::string_view message);
+        int process_outbound_message(std::string_view message);
+        void process_outbound_msg_queue();
         void mark_for_closure();
         void close(const bool invoke_handler = true);
 
