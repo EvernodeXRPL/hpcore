@@ -44,7 +44,6 @@ namespace comm
         std::vector<char> read_buffer;                                  // Local buffer to keep collecting data until a complete message can be constructed.
         uint32_t read_buffer_filled_size = 0;                           // How many bytes have been buffered so far.
         
-        bool should_stop_messaging_threads = false;                     // Indicates whether messaging threads has been instructed to stop.
         std::thread reader_thread;                                      // The thread responsible for reading messages from the read fd.
         std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
         moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue;  // Holds incoming messages waiting to be processed.
