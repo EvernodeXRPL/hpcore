@@ -87,6 +87,11 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 3. `cmake ..`
 4. `sudo make install`
 
+#### Install concurrent queue
+1. Download [readerwritequeue 1.0.3](https://github.com/cameron314/concurrentqueue/archive/1.0.2.zip) and extract.
+2. Open the terminal and copy 'concurrentqueue.h' file to the system folder.
+3. `sudo cp concurrentqueue.h /usr/local/include/`
+
 #### Run ldconfig
 `sudo ldconfig`
 

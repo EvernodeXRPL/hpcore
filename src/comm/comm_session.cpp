@@ -230,7 +230,7 @@ namespace comm
 
         if (writev(write_fd, memsegs, 2) == -1)
         {
-            LOG_ERR << errno << ": Session " << uniqueid << " send writev failed.";
+            LOG_ERR << errno << ": Session " << uniqueid.substr(0, 10) << " send writev failed.";
             return -1;
         }
         return 0;
