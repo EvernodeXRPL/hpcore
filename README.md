@@ -89,8 +89,7 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 
 #### Install concurrent queue
 1. Download [concurrentqueue 1.0.2](https://github.com/cameron314/concurrentqueue/archive/1.0.2.zip) and extract.
-2. Open the terminal and copy 'concurrentqueue.h' file to the system folder.
-3. `sudo cp concurrentqueue.h /usr/local/include/`
+2. Run `sudo cp concurrentqueue.h /usr/local/include/`
 
 #### Run ldconfig
 `sudo ldconfig`

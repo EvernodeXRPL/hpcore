@@ -51,7 +51,7 @@ namespace comm
     {
         util::mask_signal();
 
-        while (!should_stop_messaging_threads)
+        while (state != SESSION_STATE::CLOSED)
         {
             pollfd pollfds[1] = {{read_fd, READER_POLL_EVENTS}};
 
@@ -291,7 +291,6 @@ namespace comm
                 peer_sess_handler.on_close(*this);
         }
 
-        should_stop_messaging_threads = true; // Set the messaging thread stop flag before closing the fds.
         state = SESSION_STATE::CLOSED;
         ::close(read_fd);
         if (read_fd != write_fd)
