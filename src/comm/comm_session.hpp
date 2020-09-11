@@ -47,7 +47,7 @@ namespace comm
         std::thread reader_thread;                                      // The thread responsible for reading messages from the read fd.
         std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
         moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue;  // Holds incoming messages waiting to be processed.
-        moodycamel::ConcurrentQueue<std::string> out_msg_queue;                 // Holds outgoing messages waiting to be processed.
+        moodycamel::ConcurrentQueue<std::string> out_msg_queue;         // Holds outgoing messages waiting to be processed.
 
         void reader_loop();
         int attempt_read();
