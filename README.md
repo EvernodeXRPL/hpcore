@@ -37,8 +37,7 @@ Instructions are based on [this](https://libsodium.gitbook.io/doc/installation).
 1. Clone [blake3 library](https://github.com/BLAKE3-team/BLAKE3) repository
 2. Navigate into the directory in a terminal.
 3. `cd c` to navigate to the C implementation folder
-4. `gcc -shared -fPIC -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c \`
-    `blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S blake3_avx512_x86-64_unix.S`
+4. `gcc -shared -fPIC -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c blake3_sse2_x86-64_unix.S blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S blake3_avx512_x86-64_unix.S`
 5. `sudo cp blake3.h /usr/local/include/`
 6. `sudo cp libblake3.so /usr/local/lib/`
 
