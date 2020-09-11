@@ -253,7 +253,7 @@ namespace comm
             // else wait 10ms until queue gets populated.
             if (out_msg_queue.try_dequeue(msg_to_send))
             {
-                process_outbound_message(std::move(msg_to_send));
+                process_outbound_message(msg_to_send);
             }
             else
             {
