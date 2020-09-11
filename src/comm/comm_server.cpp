@@ -1,6 +1,3 @@
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <poll.h>
 #include "comm_server.hpp"
 #include "comm_client.hpp"
 #include "comm_session.hpp"

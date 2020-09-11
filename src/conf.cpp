@@ -3,8 +3,6 @@
 #include "crypto.hpp"
 #include "util.hpp"
 #include "hplog.hpp"
-#include <limits.h>
-#include <stdlib.h>
 
 namespace conf
 {

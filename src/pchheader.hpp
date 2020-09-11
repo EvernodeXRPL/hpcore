@@ -6,7 +6,6 @@
 // Enable custom handlers for boost assertion failures.
 #define BOOST_ENABLE_ASSERT_DEBUG_HANDLER
 
-#include <bitset>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/log/core.hpp>
@@ -23,7 +22,6 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/stacktrace.hpp>
 #include <chrono>
-#include <cstdarg>
 #include <cstdio>
 #include <fcntl.h>
 #include <flatbuffers/flatbuffers.h>
@@ -34,7 +32,6 @@
 #include <jsoncons_ext/bson/bson.hpp>
 #include <libgen.h>
 #include <list>
-#include <math.h>
 #include <memory>
 #include <mutex>
 #include <poll.h>
@@ -46,13 +43,12 @@
 #include <string>
 #include <string_view>
 #include <sys/ioctl.h>
-#include <sys/ptrace.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <sys/user.h>
+#include <sys/un.h>
 #include <sys/wait.h>
-#include <syscall.h>
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
