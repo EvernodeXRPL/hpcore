@@ -194,9 +194,9 @@ namespace comm
     }
 
     /**
-     * This function constructs and sends the message to the node from the given message
-     * @param message Message to be sent via the pipe
-     * @return 0 on successful message sent and -1 on error
+     * This function constructs and sends the message to the node from the given message.
+     * @param message Message to be sent via the pipe.
+     * @return 0 on successful message sent and -1 on error.
     */
     int comm_session::process_outbound_message(std::string_view message)
     {
