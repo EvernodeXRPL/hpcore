@@ -14,7 +14,8 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * P2P Protocol - https://google.github.io/flatbuffers
 * Fuse filesystem - https://github.com/libfuse/libfuse
 * Boost - https://www.boost.org
-* Concurrent queue - https://github.com/cameron314/readerwriterqueue
+* Reader Writer Queue - https://github.com/cameron314/readerwriterqueue
+* Concurrent Queue - https://github.com/cameron314/concurrentqueue
 
 ## Steps to setup Hot Pocket (For Ubuntu/Debian)
 
