@@ -157,6 +157,10 @@ namespace comm
                     {
                         std::scoped_lock<std::mutex> lock(sessions_mutex);
                         const auto [itr, success] = sessions.try_emplace(client_fd, std::move(session));
+
+                        // Thread is seperately started after the moving operation to overcome the difficulty
+                        // in accessing class member variables inside the thread.
+                        // Class member variables gives unacceptable values if the thread starts before the move operation.
                         itr->second.start_messaging_threads();
                     }
                 }
@@ -209,6 +213,9 @@ namespace comm
                     {
                         std::scoped_lock<std::mutex> lock(sessions_mutex);
                         const auto [itr, success] = sessions.try_emplace(client.read_fd, std::move(session));
+                        // Thread is seperately started after the moving operation to overcome the difficulty
+                        // in accessing class member variables inside the thread.
+                        // Class member variables gives unacceptable values if the thread starts before the move operation.
                         itr->second.start_messaging_threads();
                     }
 

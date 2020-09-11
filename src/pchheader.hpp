@@ -55,5 +55,6 @@
 #include <unordered_set>
 #include <vector>
 #include <blake3.h>
+#include <concurrentqueue.h>
 
 #endif

@@ -38,16 +38,20 @@ namespace comm
             thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
     }
 
+    /**
+     * Starts the outbound queue processing thread.
+    */
     void comm_session::start_messaging_threads()
     {
         reader_thread = std::thread(&comm_session::reader_loop, this);
+        writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
     }
 
     void comm_session::reader_loop()
     {
         util::mask_signal();
 
-        while (!should_stop_messaging_threads)
+        while (state != SESSION_STATE::CLOSED)
         {
             pollfd pollfds[1] = {{read_fd, READER_POLL_EVENTS}};
 
@@ -164,17 +168,38 @@ namespace comm
         return 0;
     }
 
-    int comm_session::send(const std::vector<uint8_t> &message) const
+    int comm_session::send(const std::vector<uint8_t> &message)
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
         send(sv);
     }
 
-    int comm_session::send(std::string_view message) const
+    /**
+     * Adds the given message to the outbound message queue.
+     * @param message Message to be added to the outbound queue.
+     * @return 0 on successful addition and -1 if the session is already closed.
+    */
+    int comm_session::send(std::string_view message)
     {
+        // Making a copy of the message before it is destroyed from the parent scope.
+        std::string msg(message);
+
         if (state == SESSION_STATE::CLOSED)
             return -1;
 
+        // Passing the ownership of msg to the queue using move operator for memory efficiency.
+        out_msg_queue.enqueue(std::move(msg));
+
+        return 0;
+    }
+
+    /**
+     * This function constructs and sends the message to the node from the given message.
+     * @param message Message to be sent via the pipe.
+     * @return 0 on successful message sent and -1 on error.
+    */
+    int comm_session::process_outbound_message(std::string_view message)
+    {
         // Prepare the memory segments to map with writev().
         iovec memsegs[2];
 
@@ -212,6 +237,32 @@ namespace comm
     }
 
     /**
+     * Process message sending in the queue in the outbound_queue_thread.
+    */
+    void comm_session::process_outbound_msg_queue()
+    {
+        // Appling a signal mask to prevent receiving control signals from linux kernel.
+        util::mask_signal();
+
+        // Keep checking until the session is terminated.
+        while (state != SESSION_STATE::CLOSED)
+        {
+            std::string msg_to_send;
+
+            // If the queue is not empty, the first element will be processed,
+            // else wait 10ms until queue gets populated.
+            if (out_msg_queue.try_dequeue(msg_to_send))
+            {
+                process_outbound_message(msg_to_send);
+            }
+            else
+            {
+                util::sleep(10);
+            }
+        }
+    }
+
+    /**
      * Mark the session as needing to close. The session will be properly "closed"
      * and cleaned up by the global comm_server thread.
      */
@@ -240,12 +291,14 @@ namespace comm
                 peer_sess_handler.on_close(*this);
         }
 
-        should_stop_messaging_threads = true; // Set the messaging thread stop flag before closing the fds.
         state = SESSION_STATE::CLOSED;
         ::close(read_fd);
         if (read_fd != write_fd)
             ::close(write_fd);
+
+        // Wait untill both reader & writer threads gracefully stop.
         reader_thread.join();
+        writer_thread.join();
 
         LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
                 << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");

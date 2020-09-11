@@ -14,7 +14,8 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * P2P Protocol - https://google.github.io/flatbuffers
 * Fuse filesystem - https://github.com/libfuse/libfuse
 * Boost - https://www.boost.org
-* Concurrent queue - https://github.com/cameron314/readerwriterqueue
+* Reader Writer Queue - https://github.com/cameron314/readerwriterqueue
+* Concurrent Queue - https://github.com/cameron314/concurrentqueue
 
 ## Steps to setup Hot Pocket (For Ubuntu/Debian)
 
@@ -36,8 +37,7 @@ Instructions are based on [this](https://libsodium.gitbook.io/doc/installation).
 1. Clone [blake3 library](https://github.com/BLAKE3-team/BLAKE3) repository
 2. Navigate into the directory in a terminal.
 3. `cd c` to navigate to the C implementation folder
-4. `gcc -shared -fPIC -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c \`
-    `blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S blake3_avx512_x86-64_unix.S`
+4. `gcc -shared -fPIC -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c blake3_sse2_x86-64_unix.S blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S blake3_avx512_x86-64_unix.S`
 5. `sudo cp blake3.h /usr/local/include/`
 6. `sudo cp libblake3.so /usr/local/lib/`
 
@@ -86,6 +86,10 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 2. `mkdir build; cd build`
 3. `cmake ..`
 4. `sudo make install`
+
+#### Install concurrent queue
+1. Download [concurrentqueue 1.0.2](https://github.com/cameron314/concurrentqueue/archive/1.0.2.zip) and extract.
+2. Run `sudo cp concurrentqueue.h /usr/local/include/`
 
 #### Run ldconfig
 `sudo ldconfig`
