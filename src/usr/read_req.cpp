@@ -1,7 +1,6 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
-#include "../sc.hpp"
 #include "../conf.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "usr.hpp"
@@ -15,15 +14,13 @@ namespace read_req
     constexpr uint16_t LOOP_WAIT = 100; // Milliseconds
     bool is_shutting_down = false;
     bool init_success = false;
-    std::thread read_req_thread;
-    sc::execution_context contract_ctx;
+    std::thread read_req_threads[5];
+    moodycamel::ConcurrentQueue<user_read_req> read_req_queue(INITIAL_QUEUE_SIZE);
 
     int init()
     {
-        contract_ctx.args.state_dir = conf::ctx.state_read_req_dir;
-        contract_ctx.args.readonly = true;
-
-        read_req_thread = std::thread(read_request_processor);
+        for (std::thread &thread: read_req_threads)
+            thread = std::thread(read_request_processor);
         init_success = true;
         return 0;
     }
@@ -34,10 +31,8 @@ namespace read_req
         {
             is_shutting_down = true;
 
-            // Stop the contract if running.
-            sc::stop(contract_ctx);
-
-            read_req_thread.join();
+            for (std::thread &thread: read_req_threads)
+                thread.join();
         }
     }
 
@@ -47,35 +42,17 @@ namespace read_req
 
         LOG_INFO << "Read request server started.";
 
-        // Lists of read requests submitted by users keyed by user pubkey.
-        std::unordered_map<std::string, std::list<std::string>> read_requests;
-
+        sc::execution_context contract_ctx;
         while (!is_shutting_down)
         {
             util::sleep(LOOP_WAIT);
 
+            if (initialize_contract(contract_ctx) != -1)
             {
-                std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
-
-                // Move collected read requests from users over to local requests list.
-                for (auto &[sid, user] : usr::ctx.users)
-                {
-                    if (!user.read_requests.empty())
-                    {
-                        std::list<std::string> user_read_requests;
-                        user_read_requests.splice(user_read_requests.end(), user.read_requests);
-
-                        read_requests.try_emplace(user.pubkey, std::move(user_read_requests));
-                    }
-                }
-            }
-
-            if (!read_requests.empty())
-            {
-                LOG_DBG << "Processing read requests... count:" << read_requests.size();
+                // LOG_DBG << "Processing read requests... count:" << read_requests.size();
 
                 // Process the read requests by executing the contract.
-                if (execute_contract(read_requests) != -1)
+                if (sc::execute_contract(contract_ctx) != -1)
                 {
                     // If contract execution was succcessful, send the outputs back to users.
                     std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
@@ -113,29 +90,48 @@ namespace read_req
                 }
                 else
                 {
+                    util::sleep(10);
                     LOG_ERR << "Contract execution for read requests failed.";
                 }
 
-                read_requests.clear();
             }
         }
+        // Stop the contract if running.
+        sc::stop(contract_ctx);
+
 
         LOG_INFO << "Read request server stopped.";
     }
 
-    int execute_contract(std::unordered_map<std::string, std::list<std::string>> &read_requests)
+    int populate_read_req_queue(const std::string &pubkey, const std::string &content)
     {
-        // Populate read requests to user buf map.
-        for (auto &[pubkey, requests] : read_requests)
+        sc::execution_context contract_ctx;
+
+        user_read_req read_request;
+        read_request.content = content;
+        read_request.pubkey = pubkey;
+
+        return read_req_queue.try_enqueue(read_request);
+    }
+
+    int initialize_contract(sc::execution_context &contract_ctx)
+    {
+        user_read_req read_request;
+        if (read_req_queue.try_dequeue(read_request))
         {
+            contract_ctx.args.state_dir = conf::ctx.state_read_req_dir;
+            contract_ctx.args.readonly = true;
             sc::contract_iobuf_pair user_bufpair;
-            user_bufpair.inputs.splice(user_bufpair.inputs.end(), requests);
-
-            contract_ctx.args.userbufs.try_emplace(pubkey, std::move(user_bufpair));
+            std::list<std::string> input_list;
+            input_list.push_back(std::move(read_request.content));
+            user_bufpair.inputs.splice(user_bufpair.inputs.end(), input_list);
+            contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufpair));
+            return 0;
         }
-
-        // Execute the contract.
-        return sc::execute_contract(contract_ctx);
+        else
+        {
+            return -1;
+        }
     }
 
 } // namespace read_req
