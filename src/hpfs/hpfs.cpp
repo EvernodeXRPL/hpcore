@@ -6,14 +6,18 @@
 
 namespace hpfs
 {
-    constexpr const char *HPFS_TRACE_ARG = "trace=none";
+    constexpr const char *HPFS_TRACE_ARG_ERROR = "trace=error";
+    constexpr const char *HPFS_TRACE_ARG_DEBUG = "trace=debug";
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
 
     pid_t merge_pid = 0;
     bool init_success = false;
+    const char *active_hpfs_trace_arg;
 
     int init()
     {
+        active_hpfs_trace_arg = (conf::cfg.loglevel == "debug" ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
+
         LOG_INFO << "Starting hpfs merge process...";
         if (start_merge_process() == -1)
             return -1;
@@ -59,7 +63,7 @@ namespace hpfs
                 conf::ctx.hpfs_exe_path.data(),
                 (char *)"merge",
                 conf::ctx.state_dir.data(),
-                (char *)HPFS_TRACE_ARG,
+                (char *)active_hpfs_trace_arg,
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
@@ -157,7 +161,7 @@ namespace hpfs
                 conf::ctx.state_dir.data(),
                 mount_dir.data(),
                 (char *)(hash_map_enabled ? "hmap=true" : "hmap=false"),
-                (char *)HPFS_TRACE_ARG,
+                (char *)active_hpfs_trace_arg,
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
