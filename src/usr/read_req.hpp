@@ -15,13 +15,18 @@ namespace read_req
 
     void deinit();
 
+    void manage_thread_pool();
+
     void read_request_processor();
 
     int execute_contract(std::unordered_map<std::string, std::list<std::string>> &read_requests);
 
     int populate_read_req_queue(const std::string &pubkey, const std::string &content);
 
-    int initialize_contract(sc::execution_context &contract_ctx);
+    bool initialize_execution_context(sc::execution_context &contract_ctx);
+
+    void remove_thread(std::thread::id id);
+
 } // namespace read_req
 
 #endif
