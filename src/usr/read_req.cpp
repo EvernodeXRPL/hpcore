@@ -14,12 +14,13 @@ namespace read_req
     constexpr uint16_t LOOP_WAIT = 100; // Milliseconds
     bool is_shutting_down = false;
     bool init_success = false;
+    const int INITIAL_QUEUE_SIZE = 100;
     std::thread read_req_threads[5];
     moodycamel::ConcurrentQueue<user_read_req> read_req_queue(INITIAL_QUEUE_SIZE);
 
     int init()
     {
-        for (std::thread &thread: read_req_threads)
+        for (std::thread &thread : read_req_threads)
             thread = std::thread(read_request_processor);
         init_success = true;
         return 0;
@@ -31,7 +32,7 @@ namespace read_req
         {
             is_shutting_down = true;
 
-            for (std::thread &thread: read_req_threads)
+            for (std::thread &thread : read_req_threads)
                 thread.join();
         }
     }
@@ -40,24 +41,18 @@ namespace read_req
     {
         util::mask_signal();
 
-        LOG_INFO << "Read request server started.";
-
         sc::execution_context contract_ctx;
         while (!is_shutting_down)
         {
-            util::sleep(LOOP_WAIT);
 
             if (initialize_contract(contract_ctx) != -1)
             {
-                // LOG_DBG << "Processing read requests... count:" << read_requests.size();
-
                 // Process the read requests by executing the contract.
                 if (sc::execute_contract(contract_ctx) != -1)
                 {
                     // If contract execution was succcessful, send the outputs back to users.
                     std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
 
-                    uint32_t dispatch_count = 0;
                     for (auto &[pubkey, bufpair] : contract_ctx.args.userbufs)
                     {
                         if (!bufpair.output.empty())
@@ -79,30 +74,34 @@ namespace read_req
                                     parser.create_contract_read_response_container(msg, outputtosend);
 
                                     user.session.send(msg);
-                                    dispatch_count++;
                                 }
                             }
                         }
                     }
 
                     sc::clear_args(contract_ctx.args);
-                    LOG_DBG << "Dispatched read request responses. count:" << dispatch_count;
                 }
                 else
                 {
-                    util::sleep(10);
-                    LOG_ERR << "Contract execution for read requests failed.";
+                    LOG_ERR << "Contract execution for read request failed.";
                 }
-
+            }
+            else
+            {
+                // Queue is empty. Sleep for 10ms.
+                util::sleep(LOOP_WAIT);
             }
         }
-        // Stop the contract if running.
-        sc::stop(contract_ctx);
-
 
         LOG_INFO << "Read request server stopped.";
     }
 
+    /**
+     * Add new read request from users to the read request queue for processing.
+     * @param pubkey Public key of the user.
+     * @param content Message content.
+     * @return 0 on successful addition and -1 on queue overflow
+    */
     int populate_read_req_queue(const std::string &pubkey, const std::string &content)
     {
         sc::execution_context contract_ctx;

@@ -3,8 +3,6 @@
 
 #include "../sc.hpp"
 
-#define INITIAL_QUEUE_SIZE 100
-
 namespace read_req
 {
     struct user_read_req
