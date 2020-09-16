@@ -156,6 +156,7 @@ if [ $mode = "new" ] || [ $mode = "update" ]; then
     # Copy required files to hpfiles dir.
     mkdir -p hpfiles/{bin,ssl,nodejs_contract}
     strip $hpcore/build/hpcore
+    strip $hpcore/build/appbill
     cp $hpcore/build/hpcore hpfiles/bin/
     cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} hpfiles/nodejs_contract/
     if [ $mode = "new" ]; then
@@ -190,9 +191,9 @@ if [ $mode = "reconfig" ]; then
         # Run hp setup script on the VM and download the generated hp.cfg
         vmaddr=${vmaddrs[i]}
         let nodeid=$i+1
-        sshpass -p $vmpass ssh $vmuser@$vmaddr '~/hpfiles/setup-hp.sh'
-        sshpass -p $vmpass scp $vmuser@$vmaddr:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json
+        { sshpass -p $vmpass ssh $vmuser@$vmaddr '~/hpfiles/setup-hp.sh' && sshpass -p $vmpass scp $vmuser@$vmaddr:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json; } &
     done
+    wait
 fi
 
 # Locally update values of download hp.cfg files.

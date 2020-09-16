@@ -202,12 +202,13 @@ namespace comm
     {
         // Prepare the memory segments to map with writev().
         iovec memsegs[2];
+        uint8_t header_buf[SIZE_HEADER_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
 
         if (is_binary)
         {
             // In binary mode, we need to prefix every message with the message size header.
-            uint8_t header_buf[SIZE_HEADER_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
             uint32_t len = message.length();
+
             // Reserve the first 4 bytes for future (TODO).
             header_buf[4] = len >> 24;
             header_buf[5] = (len >> 16) & 0xff;

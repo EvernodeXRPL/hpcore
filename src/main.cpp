@@ -77,7 +77,7 @@ void deinit()
     hplog::deinit();
 }
 
-void signal_handler(int signum)
+void sigint_handler(int signum)
 {
     LOG_WARN << "Interrupt signal (" << signum << ") received.";
     deinit();
@@ -85,22 +85,11 @@ void signal_handler(int signum)
     exit(signum);
 }
 
-namespace boost
+void segfault_handler(int signum)
 {
-
-    inline void assertion_failed_msg(char const *expr, char const *msg, char const *function, char const * /*file*/, long /*line*/)
-    {
-        LOG_ERR << "Expression '" << expr << "' is false in function '" << function << "': " << (msg ? msg : "<...>") << ".\n"
-                << "Backtrace:\n"
-                << boost::stacktrace::stacktrace() << '\n';
-        std::abort();
-    }
-
-    inline void assertion_failed(char const *expr, char const *function, char const *file, long line)
-    {
-        ::boost::assertion_failed_msg(expr, 0 /*nullptr*/, function, file, line);
-    }
-} // namespace boost
+    std::cerr << boost::stacktrace::stacktrace() << "\n";
+    exit(SIGABRT);
+}
 
 /**
  * Global exception handler for std exceptions.
@@ -116,18 +105,16 @@ void std_terminate() noexcept
         }
         catch (std::exception &ex)
         {
-            LOG_ERR << "std error: " << ex.what() << "\n";
+            LOG_ERR << "std error: " << ex.what();
         }
         catch (...)
         {
-            LOG_ERR << "std error: Terminated due to unknown exception"
-                    << "\n";
+            LOG_ERR << "std error: Terminated due to unknown exception";
         }
     }
     else
     {
-        LOG_ERR << "std error: Terminated due to unknown reason"
-                << "\n";
+        LOG_ERR << "std error: Terminated due to unknown reason";
     }
 
     LOG_ERR << boost::stacktrace::stacktrace();
@@ -137,6 +124,11 @@ void std_terminate() noexcept
 
 int main(int argc, char **argv)
 {
+    // Register exception and segfault handlers.
+    std::set_terminate(&std_terminate);
+    signal(SIGSEGV, &segfault_handler);
+    signal(SIGABRT, &segfault_handler);
+
     // seed rand
     srand(util::get_epoch_milliseconds());
 
@@ -147,9 +139,6 @@ int main(int argc, char **argv)
         sigaddset(&mask, SIGPIPE);
         pthread_sigmask(SIG_BLOCK, &mask, NULL);
     }
-
-    // Register exception handler for std exceptions.
-    std::set_terminate(&std_terminate);
 
     // Extract the CLI args
     // This call will populate conf::ctx
@@ -210,7 +199,7 @@ int main(int argc, char **argv)
                 }
 
                 // After initializing primary subsystems, register the SIGINT handler.
-                signal(SIGINT, signal_handler);
+                signal(SIGINT, &sigint_handler);
 
                 if (cons::run_consensus() == -1)
                 {
