@@ -340,7 +340,7 @@ namespace comm
         }
         else
         {
-            LOG_ERR << "fork() failed when starting websocketd process.";
+            LOG_ERR << errno << ": fork() failed when starting websocketd process.";
             return -1;
         }
 
