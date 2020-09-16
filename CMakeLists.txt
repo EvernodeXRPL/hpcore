@@ -1,25 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
-project(HPCore)
+project(hpcore)
 
-# Check for gold linker for faster linking time.
-execute_process(COMMAND ${CMAKE_CXX_COMPILER} -fuse-ld=gold -Wl -ldl,--version OUTPUT_VARIABLE stdout ERROR_QUIET)
-if("${stdout}" MATCHES "GNU gold")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=gold")
-else()
-    message(WARNING "GNU gold linker isn't available, using the default system linker.")
-endif()
+# Force build type to Release build.
+set(CMAKE_BUILD_TYPE Release)
 
-add_definitions("-std=c++17 -ldl")  #-ldl to support printing stack trace at runtime
-set(CMAKE_CXX_FLAGS_DEBUG  "-g")    # ensure debug symbols are added
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY build)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY build)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
-# Using buildtype MinSizeRel for smaller build outputs.
-#set(CMAKE_BUILD_TYPE "MinSizeRel" FORCE)
-
-link_directories(/usr/local/lib)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-result")
 
 # We have 2 executable build outputs: appbill and hpcore
 
@@ -63,6 +54,8 @@ add_executable(hpcore
 )
 target_link_libraries(hpcore
     libsodium.a
+    pthread
+    libblake3.so
     libboost_system.a
     libboost_thread.a
     libboost_log.a
@@ -70,17 +63,15 @@ target_link_libraries(hpcore
     libboost_filesystem.a
     libboost_stacktrace_backtrace.a
     backtrace
-    pthread
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
-    libblake3.so
 )
 add_dependencies(hpcore
     appbill
 )
 
 add_custom_command(TARGET hpcore POST_BUILD
-    # COMMAND strip ./build/hpcore
-    # COMMAND strip ./build/appbill
+    COMMAND strip ./build/hpcore
+    COMMAND strip ./build/appbill
     COMMAND cp ./test/bin/websocketd ./test/bin/websocat ./test/bin/hpfs ./build/
 )
     
