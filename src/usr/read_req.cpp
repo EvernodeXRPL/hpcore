@@ -17,16 +17,20 @@ namespace read_req
 
     bool is_shutting_down = false;
     bool init_success = false;
-    std::thread thread_pool_executor;
+    std::thread thread_pool_executor;   // Thread which spawns new threads for the read requests is the queue.
+    std::thread thread_pool_disposer;   // Thread which disposes execution completed threads.
     std::mutex thread_vector_mutex;
     std::vector<std::thread> read_req_threads;
     moodycamel::ConcurrentQueue<user_read_req> read_req_queue(MAX_QUEUE_SIZE);
     std::mutex execution_context_list_mutex;
     std::list<sc::execution_context> execution_context_list;
+    std::mutex completed_thread_vector_mutex;
+    std::vector<std::thread::id> completed_thread_ids;
 
     int init()
     {
         thread_pool_executor = std::thread(manage_thread_pool);
+        thread_pool_disposer = std::thread(dispose_thread_pool);
         init_success = true;
         return 0;
     }
@@ -47,6 +51,9 @@ namespace read_req
 
             // Joining thread pool executor.
             thread_pool_executor.join();
+
+            // Joining thread pool disposer.
+            thread_pool_disposer.join();
         }
     }
 
@@ -59,11 +66,37 @@ namespace read_req
 
         while (!is_shutting_down)
         {
-
             if (read_req_queue.size_approx() != 0 && read_req_threads.size() <= MAX_THREAD_CAP)
             {
                 std::scoped_lock<std::mutex> lock(thread_vector_mutex);
                 read_req_threads.push_back(std::thread(read_request_processor));
+            }
+            util::sleep(LOOP_WAIT);
+        }
+    }
+
+    /**
+     * Dispose threads if execution is completed.
+    */
+    void dispose_thread_pool()
+    {
+        util::mask_signal();
+
+        while (!is_shutting_down)
+        {
+            {
+                std::scoped_lock<std::mutex> lock(completed_thread_vector_mutex);
+                if (!completed_thread_ids.empty())
+                {
+                    // Remove all the completed threads from the read_req_threads list.
+                    for (std::thread::id thread_id : completed_thread_ids)
+                    {
+                        // Remove thread with the given completed thread id from the read_req_threads list.
+                        remove_thread(thread_id);
+                    }
+                    // Clear the completed thread id list once the completed threads are removed from the list. 
+                    completed_thread_ids.clear();
+                }
             }
             util::sleep(LOOP_WAIT);
         }
@@ -76,16 +109,18 @@ namespace read_req
     void read_request_processor()
     {
         util::mask_signal();
+
         std::list<sc::execution_context>::iterator context_itr;
 
-        {
-            // Contract context is added to the list for force kill if a SIGINT is received.
-            sc::execution_context contract_ctx;
-            std::scoped_lock<std::mutex> execution_contract_lock(execution_context_list_mutex);
-            context_itr = execution_context_list.emplace(execution_context_list.begin(), std::move(contract_ctx));
-        }
         while (!is_shutting_down)
         {
+            {
+                // Contract context is added to the list for force kill if a SIGINT is received.
+                sc::execution_context contract_ctx;
+                std::scoped_lock<std::mutex> execution_contract_lock(execution_context_list_mutex);
+                context_itr = execution_context_list.emplace(execution_context_list.begin(), std::move(contract_ctx));
+            }
+
             // Populate execution context data if any read requests are available in the queue.
             if (initialize_execution_context(*context_itr))
             {
@@ -125,20 +160,21 @@ namespace read_req
                 {
                     LOG_ERR << "Contract execution for read request failed.";
                 }
-                {
-                    // Remove successfully executed execution contexts.
-                    std::scoped_lock<std::mutex> execution_contract_lock(execution_context_list_mutex);
-                    execution_context_list.erase(context_itr);
-                }
             }
             else
             {
                 // Break while loop if no read request is precent in the queue for processing.
                 break;
             }
+
+            // Remove successfully executed execution contexts.
+            std::scoped_lock<std::mutex> execution_contract_lock(execution_context_list_mutex);
+            execution_context_list.erase(context_itr);
         }
-        // Remove current thread from the read_req_threads list if the execution is completed.
-        std::thread(remove_thread, std::this_thread::get_id()).detach();
+
+        // Add current thread id to to the list of completed threads.
+        std::scoped_lock<std::mutex> lock(completed_thread_vector_mutex);
+        completed_thread_ids.push_back(std::this_thread::get_id());
     }
 
     /**
@@ -169,6 +205,8 @@ namespace read_req
         if (read_req_queue.try_dequeue(read_request))
         {
             contract_ctx.args.state_dir = conf::ctx.state_read_req_dir;
+            // Create new folder with the thread id per each thread.
+            contract_ctx.args.state_dir.append("/").append(std::to_string(pthread_self()));
             contract_ctx.args.readonly = true;
             sc::contract_iobuf_pair user_bufpair;
             std::list<std::string> input_list;
@@ -186,7 +224,6 @@ namespace read_req
     */
     void remove_thread(std::thread::id id)
     {
-        util::mask_signal();
         std::scoped_lock<std::mutex> lock(thread_vector_mutex);
         auto iter = std::find_if(read_req_threads.begin(), read_req_threads.end(), [=](std::thread &t) { return (t.get_id() == id); });
         if (iter != read_req_threads.end())

@@ -17,6 +17,8 @@ namespace read_req
 
     void manage_thread_pool();
 
+    void dispose_thread_pool();
+
     void read_request_processor();
 
     int execute_contract(std::unordered_map<std::string, std::list<std::string>> &read_requests);
