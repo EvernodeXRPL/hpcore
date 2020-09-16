@@ -3,8 +3,6 @@
 
 // Enable boost strack trace.
 #define BOOST_STACKTRACE_USE_BACKTRACE
-// Enable custom handlers for boost assertion failures.
-#define BOOST_ENABLE_ASSERT_DEBUG_HANDLER
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
