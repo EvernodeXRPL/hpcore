@@ -63,24 +63,23 @@ namespace state_serve
                     state_requests.splice(state_requests.end(), p2p::ctx.collected_msgs.state_requests);
             }
 
-            uint64_t time_start = util::get_epoch_milliseconds();
+            const uint64_t time_start = util::get_epoch_milliseconds();
 
             for (auto &[session_id, request] : state_requests)
             {
                 if (is_shutting_down)
                     break;
 
+                // If we have spent too much time handling state requests, abandon the entire batch
+                // because the requester would have stopped waiting for us.
+                const uint64_t time_now = util::get_epoch_milliseconds();
+                if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
+                    break;
+
                 const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
 
                 const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
                 flatbuffers::FlatBufferBuilder fbuf(1024);
-
-                uint64_t time_now = util::get_epoch_milliseconds();
-
-                // If we have spent too much time handling state requests, abandon the entire batch
-                // because the requester would have stopped waiting for us.
-                if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
-                    break;
 
                 if (state_serve::create_state_response(fbuf, sr) == 1)
                 {
@@ -175,7 +174,6 @@ namespace state_serve
                     LOG_ERR << "Error in getting fs entries: " << sr.parent_path;
                     return -1;
                 }
-
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
@@ -185,7 +183,8 @@ namespace state_serve
             }
         }
 
-        return 0; // No response was generated.
+        LOG_DBG << "No state response generated.";
+        return 0;
     }
 
     /**
