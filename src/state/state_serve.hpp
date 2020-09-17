@@ -16,10 +16,10 @@ namespace state_serve
 
     int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr);
 
-    int get_file_block(std::vector<uint8_t> &vec, const std::string_view vpath,
+    int get_data_block(std::vector<uint8_t> &vec, const std::string_view vpath,
                        const uint32_t block_id, const hpfs::h32 expected_hash);
 
-    int get_file_block_hashes(std::vector<hpfs::h32> &hashes, size_t &file_length,
+    int get_data_block_hashes(std::vector<hpfs::h32> &hashes, size_t &file_length,
                               const std::string_view vpath, const hpfs::h32 expected_hash);
 
     int get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,

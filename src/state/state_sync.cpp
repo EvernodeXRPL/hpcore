@@ -14,13 +14,13 @@
 namespace state_sync
 {
     // Idle loop sleep time  (milliseconds).
-    constexpr uint16_t IDLE_WAIT = 50;
+    constexpr uint16_t IDLE_WAIT = 20;
 
     // Max number of requests that can be awaiting response at any given time.
     constexpr uint16_t MAX_AWAITING_REQUESTS = 4;
 
     // Request loop sleep time (milliseconds).
-    constexpr uint16_t REQUEST_LOOP_WAIT = 20;
+    constexpr uint16_t REQUEST_LOOP_WAIT = 10;
 
     constexpr int FILE_PERMS = 0644;
 
@@ -187,7 +187,12 @@ namespace state_sync
                     handle_file_block_response(vpath, resp_msg->state_response_as_Block_Response());
 
                 // After handling each response, check whether we have reached target state.
-                hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/");
+                if (hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/") < 1)
+                {
+                    LOG_ERR << "State sync: exiting due to hash check error.";
+                    return;
+                }
+
                 LOG_DBG << "State sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
                     return;
