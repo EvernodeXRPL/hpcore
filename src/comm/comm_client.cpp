@@ -90,7 +90,7 @@ namespace comm
         }
         else
         {
-            LOG_ERR << "fork() failed when starting websocat process.";
+            LOG_ERR << errno << ": fork() failed when starting websocat process.";
             return -1;
         }
 

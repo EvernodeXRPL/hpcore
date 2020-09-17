@@ -13,7 +13,7 @@ namespace sc
     int execute_contract(execution_context &ctx)
     {
         // Start the hpfs rw session before starting the contract process.
-        if (start_hpfs_rw_session(ctx) != 0)
+        if (start_hpfs_rw_session(ctx) == -1)
             return -1;
 
         // Setup io pipes and feed all inputs to them.
@@ -39,7 +39,7 @@ namespace sc
             ctx.output_fetcher_thread = std::thread(fetch_outputs, std::ref(ctx));
 
             // Write the inputs into the contract process.
-            if (feed_inputs(ctx) != 0)
+            if (feed_inputs(ctx) == -1)
             {
                 util::kill_process(pid, true);
                 ctx.contract_pid = 0;
@@ -102,7 +102,7 @@ namespace sc
         }
         else
         {
-            LOG_ERR << "fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
+            LOG_ERR << errno << ": fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
             goto failure;
         }
 
@@ -147,6 +147,7 @@ namespace sc
             return -1;
 
         LOG_DBG << "hpfs session started. pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
+        return 0;
     }
 
     /**
@@ -229,9 +230,9 @@ namespace sc
 
         // Establish contract input pipe.
         int stdinpipe[2];
-        if (pipe(stdinpipe) != 0)
+        if (pipe(stdinpipe) == -1)
         {
-            LOG_ERR << "Failed to create pipe to the contract process.";
+            LOG_ERR << errno << ": Failed to create pipe to the contract process.";
             return -1;
         }
 
@@ -243,7 +244,7 @@ namespace sc
         // Write the json message and close write fd.
         if (write(stdinpipe[1], json.data(), json.size()) == -1)
         {
-            LOG_ERR << "Failed to write to stdin of contract process.";
+            LOG_ERR << errno << ": Failed to write to stdin of contract process.";
             return -1;
         }
         close(stdinpipe[1]);
@@ -254,15 +255,15 @@ namespace sc
     int feed_inputs(execution_context &ctx)
     {
         // Write any input messages to hp->sc pipe.
-        if (!ctx.args.readonly && write_contract_hp_inputs(ctx) != 0)
+        if (!ctx.args.readonly && write_contract_hp_inputs(ctx) == -1)
             return -1;
 
         // Write any NPL messages to contract.
-        if (!ctx.args.readonly && write_npl_messages(ctx) != 0)
+        if (!ctx.args.readonly && write_npl_messages(ctx) == -1)
             return -1;
 
         // Write any verified (consensus-reached) user inputs to user pipes.
-        if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) != 0)
+        if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) == -1)
         {
             LOG_ERR << "Failed to write user inputs to contract.";
             return -1;
@@ -307,7 +308,7 @@ namespace sc
  */
     int write_contract_hp_inputs(execution_context &ctx)
     {
-        if (write_iopipe(ctx.hpscfds, ctx.args.hpscbufs.inputs) != 0)
+        if (write_iopipe(ctx.hpscfds, ctx.args.hpscbufs.inputs) == -1)
         {
             LOG_ERR << "Error writing HP inputs to SC";
             return -1;
@@ -441,7 +442,7 @@ namespace sc
         for (auto &[pubkey, buflist] : bufmap)
         {
             std::vector<int> fds = std::vector<int>();
-            if (create_iopipes(fds, !buflist.inputs.empty()) != 0)
+            if (create_iopipes(fds, !buflist.inputs.empty()) == -1)
                 return -1;
 
             fdmap.emplace(pubkey, std::move(fds));
@@ -464,7 +465,7 @@ namespace sc
         // Loop through input buffers for each pubkey.
         for (auto &[pubkey, buflist] : bufmap)
         {
-            if (write_iopipe(fdmap[pubkey], buflist.inputs) != 0)
+            if (write_iopipe(fdmap[pubkey], buflist.inputs) == -1)
                 return -1;
         }
 
@@ -519,11 +520,11 @@ namespace sc
     int create_iopipes(std::vector<int> &fds, const bool create_inpipe)
     {
         int inpipe[2] = {-1, -1};
-        if (create_inpipe && pipe(inpipe) != 0)
+        if (create_inpipe && pipe(inpipe) == -1)
             return -1;
 
         int outpipe[2] = {-1, -1};
-        if (pipe(outpipe) != 0)
+        if (pipe(outpipe) == -1)
         {
             if (create_inpipe)
             {
