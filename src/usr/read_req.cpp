@@ -107,7 +107,7 @@ namespace read_req
     */
     void read_request_processor()
     {
-        LOG_INFO << "A new read request processing thread started.";
+        LOG_DBG << "A new read request processing thread started.";
 
         util::mask_signal();
 
@@ -118,73 +118,72 @@ namespace read_req
 
         while (!is_shutting_down)
         {
+            user_read_req read_request;
+            if (read_req_queue.try_dequeue(read_request))
             {
-                // Contract context is added to the list for force kill if a SIGINT is received.
-                sc::execution_context contract_ctx;
-                std::scoped_lock<std::mutex> execution_contract_lock(execution_contexts_mutex);
-                context_itr = execution_contexts.emplace(execution_contexts.begin(), std::move(contract_ctx));
-            }
+                {
+                    // Contract context is added to the list for force kill if a SIGINT is received.
+                    sc::execution_context contract_ctx;
+                    std::scoped_lock<std::mutex> execution_contract_lock(execution_contexts_mutex);
+                    context_itr = execution_contexts.emplace(execution_contexts.begin(), std::move(contract_ctx));
+                }
 
-            // Populate execution context data if any read requests are available in the queue.
-            if (initialize_execution_context(*context_itr, thread_id))
-            {
-                LOG_INFO << "Read request contract execution started.";
+                // Populate execution context data if any read requests are available in the queue.
+                initialize_execution_context(std::move(read_request), thread_id, *context_itr);
+                LOG_DBG << "Read request contract execution started.";
 
                 // Process the read requests by executing the contract.
                 if (sc::execute_contract(*context_itr) != -1)
                 {
-                    // If contract execution was succcessful, send the outputs back to users.
+                    // If contract execution was succcessful, send the output back to user.
                     std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
 
-                    for (auto &[pubkey, bufpair] : context_itr->args.userbufs)
+                    const auto user_buf_itr = context_itr->args.userbufs.begin();
+                    if (!user_buf_itr->second.output.empty())
                     {
-                        if (!bufpair.output.empty())
+                        // Find the user session by user pubkey.
+                        const auto sess_itr = usr::ctx.sessionids.find(user_buf_itr->first);
+                        if (sess_itr != usr::ctx.sessionids.end()) // match found
                         {
-                            // Find the user session by user pubkey.
-                            const auto sess_itr = usr::ctx.sessionids.find(pubkey);
-                            if (sess_itr != usr::ctx.sessionids.end()) // match found
+                            const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
+                            if (user_itr != usr::ctx.users.end())                        // match found
                             {
-                                const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
-                                if (user_itr != usr::ctx.users.end())                        // match found
-                                {
-                                    std::string outputtosend;
-                                    outputtosend.swap(bufpair.output);
+                                std::string outputtosend;
+                                outputtosend.swap(user_buf_itr->second.output);
 
-                                    const usr::connected_user &user = user_itr->second;
-                                    msg::usrmsg::usrmsg_parser parser(user.protocol);
+                                const usr::connected_user &user = user_itr->second;
+                                msg::usrmsg::usrmsg_parser parser(user.protocol);
 
-                                    std::vector<uint8_t> msg;
-                                    parser.create_contract_read_response_container(msg, outputtosend);
-                                    user.session.send(msg);
-                                }
+                                std::vector<uint8_t> msg;
+                                parser.create_contract_read_response_container(msg, outputtosend);
+                                user.session.send(msg);
                             }
                         }
                     }
-                    sc::clear_args(context_itr->args);
-                    LOG_INFO << "Read request contract execution ended.";
+                    LOG_DBG << "Read request contract execution ended.";
                 }
                 else
                 {
                     LOG_ERR << "Contract execution for read request failed.";
                 }
+
+                // Remove successfully executed execution contexts.
+                std::scoped_lock<std::mutex> execution_contract_lock(execution_contexts_mutex);
+                execution_contexts.erase(context_itr);
             }
             else
             {
-                LOG_INFO << "Thread exits, due to no more read requests.";
-                // Break while loop if no read request is precent in the queue for processing.
+                LOG_DBG << "Thread exits, due to no more read requests.";
+                // Break while loop if no read request is present in the queue for processing.
                 break;
             }
-
-            // Remove successfully executed execution contexts.
-            std::scoped_lock<std::mutex> execution_contract_lock(execution_contexts_mutex);
-            execution_contexts.erase(context_itr);
         }
 
         // Add current thread id to to the list of completed threads.
         std::scoped_lock<std::mutex> lock(completed_threads_mutex);
         completed_threads.push_back(thread_id);
 
-        LOG_INFO << "Read request processing thread exited.";
+        LOG_DBG << "Read request processing thread exited.";
     }
 
     /**
@@ -198,34 +197,27 @@ namespace read_req
         sc::execution_context contract_ctx;
 
         user_read_req read_request;
-        read_request.content = content;
+        read_request.content = std::move(content);
         read_request.pubkey = pubkey;
 
         return read_req_queue.try_enqueue(read_request);
     }
 
     /**
-     * Check the queue for a available read request and populate execution context data.
-     * @param contract_ctx execution context to be populated.
-     * @return return true if a read request is available for execution and false otherwise.  
+     * Populate execution context data from the given read request.
+     * @param read_request Received read request.
+     * @param contract_ctx Execution context to be populated.
+     * @param thread_id Id of the current thread. 
     */
-    bool initialize_execution_context(sc::execution_context &contract_ctx, const pthread_t thread_id)
+    void initialize_execution_context(const user_read_req &read_request, const pthread_t thread_id, sc::execution_context &contract_ctx)
     {
-        user_read_req read_request;
-        if (read_req_queue.try_dequeue(read_request))
-        {
-            contract_ctx.args.state_dir = conf::ctx.state_read_req_dir;
-            // Create new folder with the thread id per each thread.
-            contract_ctx.args.state_dir.append("/").append(std::to_string(thread_id));
-            contract_ctx.args.readonly = true;
-            sc::contract_iobuf_pair user_bufpair;
-            std::list<std::string> input_list;
-            input_list.push_back(std::move(read_request.content));
-            user_bufpair.inputs.splice(user_bufpair.inputs.end(), input_list);
-            contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufpair));
-            return true;
-        }
-        return false;
+        // Create new folder with the thread id per each thread.
+        contract_ctx.args.state_dir = conf::ctx.state_dir;
+        contract_ctx.args.state_dir.append("/rr_").append(std::to_string(thread_id));
+        contract_ctx.args.readonly = true;
+        sc::contract_iobuf_pair user_bufpair;
+        user_bufpair.inputs.push_back(std::move(read_request.content));
+        contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufpair));
     }
 
     /**
@@ -234,7 +226,7 @@ namespace read_req
     */
     void remove_thread(const pthread_t id)
     {
-        auto iter = std::find_if(read_req_threads.begin(), read_req_threads.end(), [=](std::thread &t) { return (t.native_handle() == id); });
+        const auto iter = std::find_if(read_req_threads.begin(), read_req_threads.end(), [=](std::thread &t) { return (t.native_handle() == id); });
         if (iter != read_req_threads.end())
         {
             iter->join();

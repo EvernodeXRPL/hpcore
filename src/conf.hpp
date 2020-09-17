@@ -35,7 +35,6 @@ namespace conf
         std::string hist_dir;           // Contract ledger history dir full path
         std::string state_dir;          // Contract state maintenence path (hpfs path)
         std::string state_rw_dir;       // Contract executation read/write state path.
-        std::string state_read_req_dir; // Contract executation state path for read requests.
         std::string log_dir;            // Contract log dir full path
         std::string config_dir;         // Contract config dir full path
         std::string config_file;        // Full path to the contract config file

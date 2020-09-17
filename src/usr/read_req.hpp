@@ -19,11 +19,9 @@ namespace read_req
 
     void read_request_processor();
 
-    int execute_contract(std::unordered_map<std::string, std::list<std::string>> &read_requests);
-
     int populate_read_req_queue(const std::string &pubkey, const std::string &content);
 
-    bool initialize_execution_context(sc::execution_context &contract_ctx, const pthread_t thread_id);
+    void initialize_execution_context(const user_read_req &read_request, const pthread_t thread_id, sc::execution_context &contract_ctx);
 
     void remove_thread(const pthread_t id);
 

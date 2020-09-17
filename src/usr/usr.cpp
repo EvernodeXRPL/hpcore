@@ -144,7 +144,7 @@ namespace usr
                 std::string content;
                 if (parser.extract_read_request(content) == 0)
                 {
-                    read_req::populate_read_req_queue(user.pubkey, content);
+                    read_req::populate_read_req_queue(user.pubkey, std::move(content));
                     return 0;
                 }
                 else
