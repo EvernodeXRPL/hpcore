@@ -23,9 +23,9 @@ namespace read_req
 
     int populate_read_req_queue(const std::string &pubkey, const std::string &content);
 
-    bool initialize_execution_context(sc::execution_context &contract_ctx, const pthread_t& thread_id);
+    bool initialize_execution_context(sc::execution_context &contract_ctx, const pthread_t thread_id);
 
-    void remove_thread(const pthread_t& id);
+    void remove_thread(const pthread_t id);
 
 } // namespace read_req
 

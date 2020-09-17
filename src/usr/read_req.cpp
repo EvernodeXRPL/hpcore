@@ -38,16 +38,19 @@ namespace read_req
         {
             is_shutting_down = true;
 
-            // Force stoping all running contracts.
-            for (sc::execution_context &execution_context : execution_contexts)
-                sc::stop(execution_context);
+            // Joining thread pool executor.
+            thread_pool_executor.join();
+
+            {
+                // Force stoping all running contracts.
+                std::scoped_lock<std::mutex> lock(execution_contexts_mutex);
+                for (sc::execution_context &execution_context : execution_contexts)
+                    sc::stop(execution_context);
+            }
 
             // Joining all read request processing threads.
             for (std::thread &thread : read_req_threads)
                 thread.join();
-
-            // Joining thread pool executor.
-            thread_pool_executor.join();
         }
     }
 
@@ -56,7 +59,7 @@ namespace read_req
     */
     void manage_thread_pool()
     {
-        LOG_INFO << "Thread pool manager started.";
+        LOG_INFO << "Read request thread pool manager started.";
         util::mask_signal();
 
         while (!is_shutting_down)
@@ -67,13 +70,13 @@ namespace read_req
                 if (!completed_threads.empty())
                 {
                     // Remove all the completed threads from the read_req_threads list.
-                    for (const pthread_t &thread_id : completed_threads)
+                    for (const pthread_t thread_id : completed_threads)
                     {
                         // Remove thread with the given completed thread id from the read_req_threads list.
                         remove_thread(thread_id);
                     }
 
-                    LOG_DBG << completed_threads.size() << " threads cleaned.";
+                    LOG_DBG << completed_threads.size() << " threads cleaned from read requests thread pool.";
 
                     // Clear the completed thread id list once the completed threads are removed from the list.
                     completed_threads.clear();
@@ -85,7 +88,7 @@ namespace read_req
                 read_req_threads.push_back(std::thread(read_request_processor));
                 if (read_req_queue.size_approx() == 1)
                 {
-                    // The sleep is added to avoid creating a new thread before the newly created thread dequeue the job 
+                    // The sleep is added to avoid creating a new thread before the newly created thread dequeue the job
                     // from the queue.
                     util::sleep(10);
                 }
@@ -95,8 +98,7 @@ namespace read_req
                 util::sleep(LOOP_WAIT);
             }
         }
-
-        LOG_INFO << "Thread pool manager ended.";
+        LOG_INFO << "Read request thread pool manager ended.";
     }
 
     /**
@@ -207,7 +209,7 @@ namespace read_req
      * @param contract_ctx execution context to be populated.
      * @return return true if a read request is available for execution and false otherwise.  
     */
-    bool initialize_execution_context(sc::execution_context &contract_ctx, const pthread_t &thread_id)
+    bool initialize_execution_context(sc::execution_context &contract_ctx, const pthread_t thread_id)
     {
         user_read_req read_request;
         if (read_req_queue.try_dequeue(read_request))
@@ -230,7 +232,7 @@ namespace read_req
      * Join the thread with the given id and remove from the thread list.
      * @param id Id of the thread to be joined and removed.
     */
-    void remove_thread(const pthread_t &id)
+    void remove_thread(const pthread_t id)
     {
         auto iter = std::find_if(read_req_threads.begin(), read_req_threads.end(), [=](std::thread &t) { return (t.native_handle() == id); });
         if (iter != read_req_threads.end())
