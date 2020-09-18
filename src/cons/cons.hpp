@@ -12,10 +12,6 @@
 
 namespace cons
 {
-    // Global consensus managing thread exposed to the application.
-    // Other modeuls will access context values via this.
-    extern std::thread consensus_managing_thread;
-
     /**
      * Represents a contract input that takes part in consensus.
      */
@@ -115,6 +111,8 @@ namespace cons
     int init();
 
     void deinit();
+
+    void wait();
 
     void run_consensus();
 

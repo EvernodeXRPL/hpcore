@@ -35,8 +35,8 @@ namespace cons
 
     bool is_shutting_down = false;
 
-    // Global consensus managing thread exposed to the application.
-    std::thread consensus_managing_thread;
+    // Consensus processing thread.
+    std::thread consensus_thread;
 
     int init()
     {
@@ -64,7 +64,7 @@ namespace cons
         ctx.contract_ctx.args.readonly = false;
 
         // Starting consensus processing thread.
-        consensus_managing_thread = std::thread(cons::run_consensus);
+        consensus_thread = std::thread(cons::run_consensus);
 
         init_success = true;
         return 0;
@@ -84,10 +84,17 @@ namespace cons
             sc::stop(ctx.contract_ctx);
 
             // Joining consensus processing thread.
-            // Checked joinable status because this may be already joined from the main.cpp on normal exit.
-            if (consensus_managing_thread.joinable())
-                consensus_managing_thread.join();
+            if (consensus_thread.joinable())
+                consensus_thread.join();
         }
+    }
+
+    /**
+     * Starts the consensus processing thread.
+    */
+    void wait()
+    {
+        consensus_thread.join();
     }
 
     void run_consensus()
@@ -99,7 +106,10 @@ namespace cons
         while (!is_shutting_down)
         {
             if (consensus() == -1)
+            {
+                LOG_ERR << "Consensus thread exited due to an error.";
                 break;
+            }
         }
 
         LOG_INFO << "Consensus processor stopped.";

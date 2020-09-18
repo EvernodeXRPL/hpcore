@@ -201,9 +201,11 @@ int main(int argc, char **argv)
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, &sigint_handler);
 
-                // Wait until other threads finishes.
-                cons::consensus_managing_thread.join();
+                // Wait until consensus thread finishes.
+                cons::wait();
 
+                // deinit() here only gets called when there is an error in consensus. 
+                // If not deinit in the sigint handler is called when a SIGINT is received.
                 deinit();
             }
         }
