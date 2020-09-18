@@ -184,7 +184,7 @@ namespace hpfs
     int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
     {
         const std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.hash");
-        const int fd = open(path.c_str(), O_RDONLY);
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
             LOG_DBG << "Cannot get hash. vpath not found. " << vpath;
@@ -213,7 +213,7 @@ namespace hpfs
     int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath)
     {
         const std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.children");
-        const int fd = open(path.c_str(), O_RDONLY);
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
             LOG_DBG << "Cannot get file block hashes. vpath not found. " << vpath;
@@ -253,7 +253,7 @@ namespace hpfs
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath)
     {
         const std::string path = std::string(mount_dir).append(dir_vpath).append("::hpfs.hmap.children");
-        const int fd = open(path.c_str(), O_RDONLY);
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
             LOG_DBG << "Cannot get dir children hashes. Dir vpath not found. " << dir_vpath;

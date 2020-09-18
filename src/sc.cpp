@@ -514,7 +514,6 @@ namespace sc
     /**
      * Common function to create a pair of pipes (Hp->SC, SC->HP).
      * @param fds Vector to populate fd list.
-     * @param inputbuffer Buffer to write into the HP write fd.
      * @param create_inpipe Whether to create the input pipe from HP to SC.
      */
     int create_iopipes(std::vector<int> &fds, const bool create_inpipe)
@@ -643,23 +642,31 @@ namespace sc
 
     /**
      * Common function for closing unused fds based on which process this gets called from.
+     * This also marks active fds with O_CLOEXEC for close-on-exec behaviour.
      * @param is_hp Specify 'true' when calling from HP process. 'false' from SC process.
      * @param fds Vector of fds to close.
      */
     void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds)
     {
-        const int fdtypes_to_close[2] = {
-            is_hp ? FDTYPE::SCREAD : FDTYPE::HPREAD,
-            is_hp ? FDTYPE::SCWRITE : FDTYPE::HPWRITE,
-        };
-
-        for (const int fdtype : fdtypes_to_close)
+        for (int fd_type = 0; fd_type <= 3; fd_type++)
         {
-            const int fd = fds[fdtype];
+            const int fd = fds[fd_type];
             if (fd != -1)
             {
-                close(fd);
-                fds[fdtype] = -1;
+                if ((is_hp && (fd_type == FDTYPE::SCREAD || fd_type == FDTYPE::SCWRITE)) ||
+                    (!is_hp && (fd_type == FDTYPE::HPREAD || fd_type == FDTYPE::HPWRITE)))
+                {
+                    close(fd);
+                    fds[fd_type] = -1;
+                }
+                else if (is_hp && (fd_type == FDTYPE::HPREAD || fd_type == FDTYPE::HPWRITE))
+                {
+                    // The fd must be kept open in HP process. But we must
+                    // mark it to close on exec in a potential forked process.
+                    int flags = fcntl(fd, F_GETFD, NULL);
+                    flags |= FD_CLOEXEC;
+                    fcntl(fd, F_SETFD, flags);
+                }
             }
         }
     }

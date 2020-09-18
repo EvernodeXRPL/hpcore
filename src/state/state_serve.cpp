@@ -219,7 +219,7 @@ namespace state_serve
                 struct stat st;
                 const std::string file_path = std::string(mount_dir).append(vpath);
                 const off_t block_offset = block_id * state_common::BLOCK_SIZE;
-                const int fd = open(file_path.c_str(), O_RDONLY);
+                const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
                 if (fd == -1)
                 {
                     LOG_ERR << errno << ": Open failed. " << file_path;

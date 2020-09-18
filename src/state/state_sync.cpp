@@ -49,10 +49,10 @@ namespace state_sync
     }
 
     /**
- * Sets a new target state for the syncing process.
- * @param target_state The target state which we should sync towards.
- * @param completion_callback The callback function to call upon state sync completion.
- */
+     * Sets a new target state for the syncing process.
+     * @param target_state The target state which we should sync towards.
+     * @param completion_callback The callback function to call upon state sync completion.
+     */
     void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32))
     {
         std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
@@ -67,8 +67,8 @@ namespace state_sync
     }
 
     /**
- * Runs the state sync worker loop.
- */
+     * Runs the state sync worker loop.
+     */
     void state_syncer_loop()
     {
         util::mask_signal();
@@ -238,8 +238,8 @@ namespace state_sync
     }
 
     /**
- * Indicates whether to break out of state request processing loop.
- */
+     * Indicates whether to break out of state request processing loop.
+     */
     bool should_stop_request_loop(const hpfs::h32 current_target)
     {
         if (ctx.is_shutting_down)
@@ -251,12 +251,12 @@ namespace state_sync
     }
 
     /**
- * Sends a state request to a random peer.
- * @param path Requested file or dir path.
- * @param is_file Whether the requested path if a file or dir.
- * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
- * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
- */
+     * Sends a state request to a random peer.
+     * @param path Requested file or dir path.
+     * @param is_file Whether the requested path if a file or dir.
+     * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
+     * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
+     */
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash)
     {
         p2p::state_request sr;
@@ -271,8 +271,8 @@ namespace state_sync
     }
 
     /**
- * Submits a pending state request to the peer.
- */
+     * Submits a pending state request to the peer.
+     */
     void submit_request(const backlog_item &request)
     {
         LOG_DBG << "State sync: Submitting request. type:" << request.type
@@ -288,8 +288,8 @@ namespace state_sync
     }
 
     /**
- * Process dir children response.
- */
+     * Process dir children response.
+     */
     int handle_fs_entry_response(std::string_view parent_vpath, const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_entry_resp)
     {
         // Get the parent path of the fs entries we have received.
@@ -364,8 +364,8 @@ namespace state_sync
     }
 
     /**
- * Process file block hash map response.
- */
+     * Process file block hash map response.
+     */
     int handle_file_hashmap_response(std::string_view file_vpath, const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp)
     {
         // Get the file path of the block hashes we have received.
@@ -403,8 +403,8 @@ namespace state_sync
     }
 
     /**
- * Process file block response.
- */
+     * Process file block response.
+     */
     int handle_file_block_response(std::string_view file_vpath, const msg::fbuf::p2pmsg::Block_Response *block_msg)
     {
         // Get the file path of the block data we have received.
@@ -416,7 +416,7 @@ namespace state_sync
                 << ") of " << file_vpath;
 
         std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(file_vpath);
-        const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
+        const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);
         if (fd == -1)
         {
             LOG_ERR << errno << " Open failed " << file_physical_path;
