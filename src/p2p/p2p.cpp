@@ -153,9 +153,8 @@ namespace p2p
     {
         if (ctx.peer_connections.size() == 0)
         {
-            LOG_DBG << "No peers to broadcast (not even self). Waiting until at least one peer connects.";
-            while (ctx.peer_connections.size() == 0)
-                util::sleep(100);
+            LOG_DBG << "No peers to broadcast (not even self). Cannot broadcast.";
+            return;
         }
 
         //Broadcast while locking the peer_connections.

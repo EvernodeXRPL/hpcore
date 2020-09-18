@@ -22,8 +22,8 @@ namespace cons
 {
 
     /**
- * Voting thresholds for consensus stages.
- */
+     * Voting thresholds for consensus stages.
+     */
     constexpr float STAGE1_THRESHOLD = 0.5;
     constexpr float STAGE2_THRESHOLD = 0.65;
     constexpr float STAGE3_THRESHOLD = 0.8;
@@ -32,6 +32,11 @@ namespace cons
     consensus_context ctx;
 
     bool init_success = false;
+
+    bool is_shutting_down = false;
+
+    // Global consensus managing thread exposed to the application.
+    std::thread consensus_managing_thread;
 
     int init()
     {
@@ -58,28 +63,46 @@ namespace cons
         ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
         ctx.contract_ctx.args.readonly = false;
 
+        // Starting consensus processing thread.
+        consensus_managing_thread = std::thread(cons::run_consensus);
+
         init_success = true;
         return 0;
     }
 
     /**
- * Cleanup any resources.
- */
+     * Cleanup any resources.
+     */
     void deinit()
     {
-        // Stop the contract if running.
-        sc::stop(ctx.contract_ctx);
+        if (init_success)
+        {
+            // Making the consensus while loop stop.
+            is_shutting_down = true;
+
+            // Stop the contract if running.
+            sc::stop(ctx.contract_ctx);
+
+            // Joining consensus processing thread.
+            // Checked joinable status because this may be already joined from the main.cpp on normal exit.
+            if (consensus_managing_thread.joinable())
+                consensus_managing_thread.join();
+        }
     }
 
-    int run_consensus()
+    void run_consensus()
     {
-        while (true)
+        util::mask_signal();
+
+        LOG_INFO << "Consensus processor started.";
+
+        while (!is_shutting_down)
         {
             if (consensus() == -1)
-                return -1;
+                break;
         }
 
-        return 0;
+        LOG_INFO << "Consensus processor stopped.";
     }
 
     int consensus()

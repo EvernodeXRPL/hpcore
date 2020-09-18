@@ -201,12 +201,8 @@ int main(int argc, char **argv)
                 // After initializing primary subsystems, register the SIGINT handler.
                 signal(SIGINT, &sigint_handler);
 
-                if (cons::run_consensus() == -1)
-                {
-                    LOG_ERR << "Error occured in consensus.";
-                    deinit();
-                    return -1;
-                }
+                // Wait until other threads finishes.
+                cons::consensus_managing_thread.join();
 
                 deinit();
             }
