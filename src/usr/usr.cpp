@@ -161,7 +161,7 @@ namespace usr
                 std::string sig;
                 if (parser.extract_signed_input_container(input_container, sig) == 0)
                 {
-                    std::lock_guard<std::mutex> lock(ctx.users_mutex);
+                    std::scoped_lock<std::mutex> lock(ctx.users_mutex);
 
                     //Add to the submitted input list.
                     user.submitted_inputs.push_back(user_input(
@@ -228,7 +228,7 @@ namespace usr
         }
 
         {
-            std::lock_guard<std::mutex> lock(ctx.users_mutex);
+            std::scoped_lock<std::mutex> lock(ctx.users_mutex);
             ctx.users.emplace(sessionid, usr::connected_user(session, pubkey, protocol));
         }
 
@@ -258,7 +258,7 @@ namespace usr
         usr::connected_user &user = itr->second;
 
         {
-            std::lock_guard<std::mutex> lock(ctx.users_mutex);
+            std::scoped_lock<std::mutex> lock(ctx.users_mutex);
             ctx.sessionids.erase(user.pubkey);
         }
 

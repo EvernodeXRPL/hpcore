@@ -99,7 +99,7 @@ namespace cons
         // the candidate proposal set (move and append). This is to have a private working set for the consensus
         // and avoid threading conflicts with network incoming proposals.
         {
-            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
+            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
@@ -123,7 +123,7 @@ namespace cons
         // the candidate npl message set (move and append). This is to have a private working set for the consensus
         // and avoid threading conflicts with network incoming npl messages.
         {
-            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
+            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
             ctx.candidate_npl_messages.splice(ctx.candidate_npl_messages.end(), p2p::ctx.collected_msgs.npl_messages);
         }
 
@@ -327,7 +327,7 @@ namespace cons
         p2p::nonunl_proposal nup;
 
         {
-            std::lock_guard<std::mutex>(usr::ctx.users_mutex);
+            std::scoped_lock<std::mutex>(usr::ctx.users_mutex);
             for (auto &[sid, user] : usr::ctx.users)
             {
                 std::list<usr::user_input> user_inputs;
@@ -353,11 +353,8 @@ namespace cons
  */
     void verify_and_populate_candidate_user_inputs()
     {
-        // Lock the user sessions.
-        std::lock_guard<std::mutex> users_lock(usr::ctx.users_mutex);
-
-        // Lock the list so any network activity is blocked.
-        std::lock_guard<std::mutex> nups_lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+        // Lock the user sessions and the list so any network activity is blocked.
+        std::scoped_lock<std::mutex, std::mutex> lock(usr::ctx.users_mutex, p2p::ctx.collected_msgs.nonunl_proposals_mutex);
         for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
         {
             for (const auto &[pubkey, umsgs] : p.user_inputs)
@@ -723,7 +720,7 @@ namespace cons
         }
 
         {
-            std::lock_guard<std::mutex>(ctx.state_sync_lock);
+            std::scoped_lock<std::mutex>(ctx.state_sync_lock);
             is_desync = (ctx.state != majority_state);
         }
     }
@@ -805,7 +802,7 @@ namespace cons
  */
     void dispatch_user_outputs(const p2p::proposal &cons_prop)
     {
-        std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
+        std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
         for (const std::string &hash : cons_prop.hash_outputs)
         {
@@ -952,7 +949,7 @@ namespace cons
 
     void on_state_sync_completion(const hpfs::h32 new_state)
     {
-        std::lock_guard<std::mutex>(ctx.state_sync_lock);
+        std::scoped_lock<std::mutex>(ctx.state_sync_lock);
         ctx.state = new_state;
     }
 

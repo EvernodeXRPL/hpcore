@@ -55,7 +55,7 @@ namespace state_sync
  */
     void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32))
     {
-        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
 
         // Do not do anything if we are already syncing towards the specified target state.
         if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_state == target_state))
@@ -81,7 +81,7 @@ namespace state_sync
 
             // Keep idling if we are not doing any sync activity.
             {
-                std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+                std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
                 if (!ctx.is_syncing)
                     continue;
 
@@ -104,7 +104,7 @@ namespace state_sync
                     ctx.submitted_requests.clear();
 
                     {
-                        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+                        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
 
                         if (new_state == ctx.target_state)
                         {
@@ -146,7 +146,7 @@ namespace state_sync
             util::sleep(REQUEST_LOOP_WAIT);
 
             {
-                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
+                std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
 
                 // Move collected state responses over to local candidate responses list.
                 if (!p2p::ctx.collected_msgs.state_responses.empty())
@@ -241,7 +241,7 @@ namespace state_sync
             return true;
 
         // Stop request loop if the target has changed.
-        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
         return current_target != ctx.target_state;
     }
 
