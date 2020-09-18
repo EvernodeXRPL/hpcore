@@ -90,7 +90,7 @@ namespace cons
     }
 
     /**
-     * Starts the consensus processing thread.
+     * Joins the consensus processing thread.
     */
     void wait()
     {
