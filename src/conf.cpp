@@ -69,15 +69,16 @@ namespace conf
      */
     int create_contract()
     {
-        if (boost::filesystem::exists(ctx.contract_dir))
+        if (util::is_dir_exists(ctx.contract_dir))
         {
             std::cout << "Contract dir already exists. Cannot create contract at the same location.\n";
             return -1;
         }
 
-        boost::filesystem::create_directories(ctx.config_dir);
-        boost::filesystem::create_directories(ctx.hist_dir);
-        boost::filesystem::create_directories(ctx.state_rw_dir);
+        // Recursivly create contract directories.
+        util::create_dir_tree_recursive(ctx.config_dir);
+        util::create_dir_tree_recursive(ctx.hist_dir);
+        util::create_dir_tree_recursive(ctx.state_rw_dir);
 
         //Create config file with default settings.
 
@@ -132,7 +133,9 @@ namespace conf
         // resolving the path through realpath will remove any trailing slash if present
         basedir = util::realpath(basedir);
 
-        ctx.exe_dir = boost::filesystem::path(util::realpath(exepath)).parent_path().string();
+        // Take the parent directory path.
+        ctx.exe_dir = dirname(util::realpath(exepath).data());
+
         ctx.websocketd_exe_path = ctx.exe_dir + "/" + "websocketd";
         ctx.websocat_exe_path = ctx.exe_dir + "/" + "websocat";
         ctx.hpfs_exe_path = ctx.exe_dir + "/" + "hpfs";
@@ -503,7 +506,7 @@ namespace conf
 
         for (const std::string &path : paths)
         {
-            if (!boost::filesystem::exists(path))
+            if (!util::is_file_exists(path))
             {
                 if (path == ctx.tls_key_file || path == ctx.tls_cert_file)
                 {

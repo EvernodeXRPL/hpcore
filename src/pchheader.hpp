@@ -5,7 +5,6 @@
 #define BOOST_STACKTRACE_USE_BACKTRACE
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/expressions/keyword.hpp>
@@ -21,6 +20,7 @@
 #include <boost/stacktrace.hpp>
 #include <chrono>
 #include <cstdio>
+#include <dirent.h>
 #include <fcntl.h>
 #include <flatbuffers/flatbuffers.h>
 #include <fstream>
