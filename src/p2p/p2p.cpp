@@ -89,7 +89,7 @@ namespace p2p
         // If pub key is lower than our id (> 0), then we should give priority to any existing outbound connection
         // from the same peer and drop the inbound connection.
 
-        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         const auto iter = p2p::ctx.peer_connections.find(pubkeyhex);
         if (iter == p2p::ctx.peer_connections.end())
@@ -159,7 +159,7 @@ namespace p2p
         }
 
         //Broadcast while locking the peer_connections.
-        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         for (const auto &[k, session] : ctx.peer_connections)
         {
@@ -179,7 +179,7 @@ namespace p2p
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
     {
         //Send while locking the peer_connections.
-        std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+        std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
         // Find the peer session connected to self.
         const auto peer_itr = ctx.peer_connections.find(conf::cfg.pubkeyhex);
@@ -200,7 +200,7 @@ namespace p2p
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
     {
         //Send while locking the peer_connections.
-        std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+        std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
         const size_t connected_peers = ctx.peer_connections.size();
         if (connected_peers == 0)

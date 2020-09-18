@@ -143,7 +143,8 @@ if [ $mode = "lcl" ]; then
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr 'ls -v contract/hist | tail -1' &
+        let nodeid=$i+1
+        echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr 'ls -v contract/hist | tail -1') &
     done
 
     wait

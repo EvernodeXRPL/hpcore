@@ -78,7 +78,6 @@ namespace conf
         boost::filesystem::create_directories(ctx.config_dir);
         boost::filesystem::create_directories(ctx.hist_dir);
         boost::filesystem::create_directories(ctx.state_rw_dir);
-        boost::filesystem::create_directories(ctx.state_read_req_dir);
 
         //Create config file with default settings.
 
@@ -146,7 +145,6 @@ namespace conf
         ctx.hist_dir = basedir + "/hist";
         ctx.state_dir = basedir + "/state";
         ctx.state_rw_dir = ctx.state_dir + "/rw";
-        ctx.state_read_req_dir = ctx.state_dir + "/rr";
         ctx.log_dir = basedir + "/log";
     }
 

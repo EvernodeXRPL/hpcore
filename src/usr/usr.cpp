@@ -11,6 +11,7 @@
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
+#include "read_req.hpp"
 
 namespace usr
 {
@@ -143,10 +144,7 @@ namespace usr
                 std::string content;
                 if (parser.extract_read_request(content) == 0)
                 {
-                    std::lock_guard<std::mutex> lock(ctx.users_mutex);
-
-                    //Add to the user's pending read requests list.
-                    user.read_requests.push_back(std::move(content));
+                    read_req::populate_read_req_queue(user.pubkey, std::move(content));
                     return 0;
                 }
                 else
@@ -163,7 +161,7 @@ namespace usr
                 std::string sig;
                 if (parser.extract_signed_input_container(input_container, sig) == 0)
                 {
-                    std::lock_guard<std::mutex> lock(ctx.users_mutex);
+                    std::scoped_lock<std::mutex> lock(ctx.users_mutex);
 
                     //Add to the submitted input list.
                     user.submitted_inputs.push_back(user_input(
@@ -230,7 +228,7 @@ namespace usr
         }
 
         {
-            std::lock_guard<std::mutex> lock(ctx.users_mutex);
+            std::scoped_lock<std::mutex> lock(ctx.users_mutex);
             ctx.users.emplace(sessionid, usr::connected_user(session, pubkey, protocol));
         }
 
@@ -260,7 +258,7 @@ namespace usr
         usr::connected_user &user = itr->second;
 
         {
-            std::lock_guard<std::mutex> lock(ctx.users_mutex);
+            std::scoped_lock<std::mutex> lock(ctx.users_mutex);
             ctx.sessionids.erase(user.pubkey);
         }
 

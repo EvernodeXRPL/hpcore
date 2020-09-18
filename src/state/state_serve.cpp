@@ -56,7 +56,7 @@ namespace state_serve
             util::sleep(LOOP_WAIT);
 
             {
-                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_requests_mutex);
+                std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.state_requests_mutex);
 
                 // Move collected state requests over to local requests list.
                 if (!p2p::ctx.collected_msgs.state_requests.empty())
@@ -84,7 +84,7 @@ namespace state_serve
                 if (state_serve::create_state_response(fbuf, sr) == 1)
                 {
                     // Find the peer that we should send the state response to.
-                    std::lock_guard<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+                    std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
                     const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
 
                     if (peer_itr != p2p::ctx.peer_connections.end())
