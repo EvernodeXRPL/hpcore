@@ -2,7 +2,6 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util.hpp"
-#include "hplog.hpp"
 
 namespace conf
 {
@@ -92,9 +91,9 @@ namespace conf
         cfg.pubport = 8080;
 
 #ifndef NDEBUG
-        cfg.loglevel = conf::LOG_SEVERITY::DEBUG;
+        cfg.loglevel = get_log_severity_text(conf::LOG_SEVERITY::DEBUG);
 #else
-        cfg.loglevel = conf::LOG_SEVERITY::WARN;
+        cfg.loglevel = get_log_severity_text(conf::LOG_SEVERITY::WARN);
 #endif
         cfg.loggers.emplace("console");
 
@@ -281,7 +280,7 @@ namespace conf
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
 
-        cfg.loglevel = get_log_severity_type(d["loglevel"].as<std::string>());
+        cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loggers.clear();
         for (auto &v : d["loggers"].array_range())
             cfg.loggers.emplace(v.as<std::string>());
@@ -348,7 +347,7 @@ namespace conf
         d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
 
-        d.insert_or_assign("loglevel", get_log_severity_text(cfg.loglevel));
+        d.insert_or_assign("loglevel", cfg.loglevel);
 
         jsoncons::ojson loggers(jsoncons::json_array_arg);
         for (std::string_view logger : cfg.loggers)
@@ -447,7 +446,7 @@ namespace conf
         fields_missing |= cfg.peerport == 0 && std::cout << "Missing cfg field: peerport\n";
         fields_missing |= cfg.roundtime == 0 && std::cout << "Missing cfg field: roundtime\n";
         fields_missing |= cfg.pubport == 0 && std::cout << "Missing cfg field: pubport\n";
-        fields_missing |= cfg.loglevel == conf::LOG_SEVERITY::UNKNOWN && std::cout << "Missing cfg field: loglevel\n";
+        fields_missing |= cfg.loglevel.empty() && std::cout << "Missing cfg field: loglevel\n";
         fields_missing |= cfg.loggers.empty() && std::cout << "Missing cfg field: loggers\n";
 
         if (fields_missing)
@@ -457,9 +456,10 @@ namespace conf
         }
 
         // Log settings
-        if (cfg.loglevel == LOG_SEVERITY::UNKNOWN)
+        const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err", "fat", "ver"});
+        if (valid_loglevels.count(cfg.loglevel) != 1)
         {
-            std::cout << "Invalid loglevel configured. Valid values: debug|info|warn|error\n";
+            std::cout << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err|fat|ver\n";
             return -1;
         }
 
@@ -536,6 +536,11 @@ namespace conf
             LOG_INFO << "Switched back to PROPOSER mode.";
     }
 
+    /**
+     * Convert string to Log Severity enum type.
+     * @param severity log severity code.
+     * @return log severity type.
+    */
     LOG_SEVERITY get_log_severity_type(std::string severity)
     {
         if (severity == "dbg")
@@ -556,6 +561,11 @@ namespace conf
             return LOG_SEVERITY::UNKNOWN;
     }
 
+    /**
+     * Convert Log Severity enum type to string. 
+     * @param severity log severity type.
+     * @return log severity code.
+    */
     std::string get_log_severity_text(LOG_SEVERITY severity)
     {
         if (severity == LOG_SEVERITY::DEBUG)

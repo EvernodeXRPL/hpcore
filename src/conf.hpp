@@ -93,7 +93,7 @@ namespace conf
         uint64_t peermaxbadsigpm = 0; // Peer bad signatures per minute
         uint16_t peermaxcons = 0;     // Max inbound peer connections
 
-        LOG_SEVERITY loglevel;                    // Log severity level (debug, info, warn, error)
+        std::string loglevel;                    // Log severity level (debug, info, warn, error, fatal, verbose, none)
         std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
     };
 
@@ -130,7 +130,7 @@ namespace conf
     void change_operating_mode(const OPERATING_MODE mode);
 
     LOG_SEVERITY get_log_severity_type(std::string severity);
-    
+
     std::string get_log_severity_text(LOG_SEVERITY severity);
 
 } // namespace conf

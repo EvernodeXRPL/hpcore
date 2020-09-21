@@ -54,5 +54,8 @@
 #include <vector>
 #include <blake3.h>
 #include <concurrentqueue.h>
+#include <plog/Log.h>
+#include <plog/Appenders/ColorConsoleAppender.h>
+#include "hplog.hpp"
 
 #endif

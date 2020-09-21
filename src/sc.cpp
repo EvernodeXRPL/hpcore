@@ -299,7 +299,7 @@ namespace sc
             util::sleep(20);
         }
 
-        LOG_DEBUG << "Contract outputs collected.\n";
+        LOG_DEBUG << "Contract outputs collected.";
         return 0;
     }
 

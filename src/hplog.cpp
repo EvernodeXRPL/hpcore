@@ -1,8 +1,5 @@
-#include <plog/Log.h>
-#include <plog/Appenders/ColorConsoleAppender.h>
 #include "pchheader.hpp"
 #include "conf.hpp"
-#include "hplog.hpp"
 
 namespace logging = boost::log;
 namespace sinks = boost::log::sinks;
@@ -13,8 +10,8 @@ namespace keywords = boost::log::keywords;
 
 namespace hplog
 {
-    constexpr size_t MAX_TRACE_FILESIZE = 10 * 1024 * 1024; // 10MB
-    constexpr size_t MAX_TRACE_FILECOUNT = 50;
+    constexpr size_t MAX_TRACE_FILESIZE = 10 * 1024 * 1024; // Maximum file size (10MB)
+    constexpr size_t MAX_TRACE_FILECOUNT = 50; // Maximum files in a folder
 
     class plog_formatter;
     static plog::ConsoleAppender<plog_formatter> consoleAppender;
@@ -29,27 +26,6 @@ namespace hplog
             return plog::util::nstring();
         }
 
-        static inline const char *severityToString(plog::Severity severity)
-        {
-            switch (severity)
-            {
-            case plog::Severity::fatal:
-                return "fat";
-            case plog::Severity::error:
-                return "err";
-            case plog::Severity::warning:
-                return "wrn";
-            case plog::Severity::info:
-                return "inf";
-            case plog::Severity::debug:
-                return "dbg";
-            case plog::Severity::verbose:
-                return "ver";
-            default:
-                return "def";
-            }
-        }
-
         static plog::util::nstring format(const plog::Record &record)
         {
             tm t;
@@ -58,7 +34,7 @@ namespace hplog
             plog::util::nostringstream ss;
             ss << t.tm_year + 1900 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mon + 1 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mday << PLOG_NSTR(" ");
             ss << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_hour << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_min << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_sec << PLOG_NSTR(" ");
-            ss << PLOG_NSTR("[") << severityToString(record.getSeverity()) << PLOG_NSTR("][fs] ");
+            ss << PLOG_NSTR("[") << conf::cfg.loglevel << PLOG_NSTR("][hp] ");
             ss << record.getMessage() << PLOG_NSTR("\n");
 
             return ss.str();
@@ -67,24 +43,33 @@ namespace hplog
 
     int init()
     {
+        // Skip plog initialization if log severity is configured as none.
+        conf::LOG_SEVERITY log_severity = conf::get_log_severity_type(conf::cfg.loglevel);
+        if (log_severity == conf::LOG_SEVERITY::NONE)
+            return 0;
+
         plog::Severity level;
-        if (conf::cfg.loglevel == conf::LOG_SEVERITY::DEBUG)
+        if (log_severity == conf::LOG_SEVERITY::DEBUG)
             level = plog::Severity::debug;
-        else if (conf::cfg.loglevel == conf::LOG_SEVERITY::INFO)
+        else if (log_severity == conf::LOG_SEVERITY::INFO)
             level = plog::Severity::info;
-        else if (conf::cfg.loglevel == conf::LOG_SEVERITY::WARN)
+        else if (log_severity == conf::LOG_SEVERITY::WARN)
             level = plog::Severity::warning;
-        else if (conf::cfg.loglevel == conf::LOG_SEVERITY::ERROR)
+        else if (log_severity == conf::LOG_SEVERITY::ERROR)
             level = plog::Severity::error;
-            else
-            level = plog::Severity::none;
+        else if (log_severity == conf::LOG_SEVERITY::FATEL)
+            level = plog::Severity::fatal;
+        else if (log_severity == conf::LOG_SEVERITY::VERBOSE)
+            level = plog::Severity::verbose;
+        else
+            return -1;
 
         std::string pid_str = std::to_string(getpid());
         std::string trace_file;
         trace_file
             .append(conf::ctx.log_dir)
             .append("/hp_%N.log");
-            
+
         plog::init<plog_formatter>(level, trace_file.c_str(), MAX_TRACE_FILESIZE, MAX_TRACE_FILECOUNT)
             .addAppender(&consoleAppender);
 
