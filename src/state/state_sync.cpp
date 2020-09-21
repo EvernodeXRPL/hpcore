@@ -14,13 +14,13 @@
 namespace state_sync
 {
     // Idle loop sleep time  (milliseconds).
-    constexpr uint16_t IDLE_WAIT = 50;
+    constexpr uint16_t IDLE_WAIT = 20;
 
     // Max number of requests that can be awaiting response at any given time.
     constexpr uint16_t MAX_AWAITING_REQUESTS = 4;
 
     // Request loop sleep time (milliseconds).
-    constexpr uint16_t REQUEST_LOOP_WAIT = 20;
+    constexpr uint16_t REQUEST_LOOP_WAIT = 10;
 
     constexpr int FILE_PERMS = 0644;
 
@@ -49,13 +49,13 @@ namespace state_sync
     }
 
     /**
- * Sets a new target state for the syncing process.
- * @param target_state The target state which we should sync towards.
- * @param completion_callback The callback function to call upon state sync completion.
- */
+     * Sets a new target state for the syncing process.
+     * @param target_state The target state which we should sync towards.
+     * @param completion_callback The callback function to call upon state sync completion.
+     */
     void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32))
     {
-        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
 
         // Do not do anything if we are already syncing towards the specified target state.
         if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_state == target_state))
@@ -67,8 +67,8 @@ namespace state_sync
     }
 
     /**
- * Runs the state sync worker loop.
- */
+     * Runs the state sync worker loop.
+     */
     void state_syncer_loop()
     {
         util::mask_signal();
@@ -81,7 +81,7 @@ namespace state_sync
 
             // Keep idling if we are not doing any sync activity.
             {
-                std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+                std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
                 if (!ctx.is_syncing)
                     continue;
 
@@ -104,7 +104,7 @@ namespace state_sync
                     ctx.submitted_requests.clear();
 
                     {
-                        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+                        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
 
                         if (new_state == ctx.target_state)
                         {
@@ -146,7 +146,7 @@ namespace state_sync
             util::sleep(REQUEST_LOOP_WAIT);
 
             {
-                std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
+                std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
 
                 // Move collected state responses over to local candidate responses list.
                 if (!p2p::ctx.collected_msgs.state_responses.empty())
@@ -187,7 +187,12 @@ namespace state_sync
                     handle_file_block_response(vpath, resp_msg->state_response_as_Block_Response());
 
                 // After handling each response, check whether we have reached target state.
-                hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/");
+                if (hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/") < 1)
+                {
+                    LOG_ERROR << "State sync: exiting due to hash check error.";
+                    return;
+                }
+
                 LOG_DEBUG << "State sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
                     return;
@@ -233,25 +238,25 @@ namespace state_sync
     }
 
     /**
- * Indicates whether to break out of state request processing loop.
- */
+     * Indicates whether to break out of state request processing loop.
+     */
     bool should_stop_request_loop(const hpfs::h32 current_target)
     {
         if (ctx.is_shutting_down)
             return true;
 
         // Stop request loop if the target has changed.
-        std::lock_guard<std::mutex> lock(ctx.target_state_update_lock);
+        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
         return current_target != ctx.target_state;
     }
 
     /**
- * Sends a state request to a random peer.
- * @param path Requested file or dir path.
- * @param is_file Whether the requested path if a file or dir.
- * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
- * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
- */
+     * Sends a state request to a random peer.
+     * @param path Requested file or dir path.
+     * @param is_file Whether the requested path if a file or dir.
+     * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
+     * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
+     */
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash)
     {
         p2p::state_request sr;
@@ -266,8 +271,8 @@ namespace state_sync
     }
 
     /**
- * Submits a pending state request to the peer.
- */
+     * Submits a pending state request to the peer.
+     */
     void submit_request(const backlog_item &request)
     {
         LOG_DEBUG << "State sync: Submitting request. type:" << request.type
@@ -283,8 +288,8 @@ namespace state_sync
     }
 
     /**
- * Process dir children response.
- */
+     * Process dir children response.
+     */
     int handle_fs_entry_response(std::string_view parent_vpath, const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_entry_resp)
     {
         // Get the parent path of the fs entries we have received.
@@ -359,8 +364,8 @@ namespace state_sync
     }
 
     /**
- * Process file block hash map response.
- */
+     * Process file block hash map response.
+     */
     int handle_file_hashmap_response(std::string_view file_vpath, const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp)
     {
         // Get the file path of the block hashes we have received.
@@ -398,8 +403,8 @@ namespace state_sync
     }
 
     /**
- * Process file block response.
- */
+     * Process file block response.
+     */
     int handle_file_block_response(std::string_view file_vpath, const msg::fbuf::p2pmsg::Block_Response *block_msg)
     {
         // Get the file path of the block data we have received.
@@ -411,7 +416,7 @@ namespace state_sync
                 << ") of " << file_vpath;
 
         std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(file_vpath);
-        const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT, FILE_PERMS);
+        const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);
         if (fd == -1)
         {
             LOG_ERROR << errno << " Open failed " << file_physical_path;

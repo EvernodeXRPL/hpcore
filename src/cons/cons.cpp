@@ -22,8 +22,8 @@ namespace cons
 {
 
     /**
- * Voting thresholds for consensus stages.
- */
+     * Voting thresholds for consensus stages.
+     */
     constexpr float STAGE1_THRESHOLD = 0.5;
     constexpr float STAGE2_THRESHOLD = 0.65;
     constexpr float STAGE3_THRESHOLD = 0.8;
@@ -32,6 +32,11 @@ namespace cons
     consensus_context ctx;
 
     bool init_success = false;
+
+    bool is_shutting_down = false;
+
+    // Consensus processing thread.
+    std::thread consensus_thread;
 
     int init()
     {
@@ -58,28 +63,56 @@ namespace cons
         ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
         ctx.contract_ctx.args.readonly = false;
 
+        // Starting consensus processing thread.
+        consensus_thread = std::thread(cons::run_consensus);
+
         init_success = true;
         return 0;
     }
 
     /**
- * Cleanup any resources.
- */
+     * Cleanup any resources.
+     */
     void deinit()
     {
-        // Stop the contract if running.
-        sc::stop(ctx.contract_ctx);
+        if (init_success)
+        {
+            // Making the consensus while loop stop.
+            is_shutting_down = true;
+
+            // Stop the contract if running.
+            sc::stop(ctx.contract_ctx);
+
+            // Joining consensus processing thread.
+            if (consensus_thread.joinable())
+                consensus_thread.join();
+        }
     }
 
-    int run_consensus()
+    /**
+     * Joins the consensus processing thread.
+    */
+    void wait()
     {
-        while (true)
+        consensus_thread.join();
+    }
+
+    void run_consensus()
+    {
+        util::mask_signal();
+
+        LOG_INFO << "Consensus processor started.";
+
+        while (!is_shutting_down)
         {
             if (consensus() == -1)
-                return -1;
+            {
+                LOG_ERROR << "Consensus thread exited due to an error.";
+                break;
+            }
         }
 
-        return 0;
+        LOG_INFO << "Consensus processor stopped.";
     }
 
     int consensus()
@@ -99,7 +132,7 @@ namespace cons
         // the candidate proposal set (move and append). This is to have a private working set for the consensus
         // and avoid threading conflicts with network incoming proposals.
         {
-            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
+            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
@@ -123,7 +156,7 @@ namespace cons
         // the candidate npl message set (move and append). This is to have a private working set for the consensus
         // and avoid threading conflicts with network incoming npl messages.
         {
-            std::lock_guard<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
+            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
             ctx.candidate_npl_messages.splice(ctx.candidate_npl_messages.end(), p2p::ctx.collected_msgs.npl_messages);
         }
 
@@ -327,7 +360,7 @@ namespace cons
         p2p::nonunl_proposal nup;
 
         {
-            std::lock_guard<std::mutex>(usr::ctx.users_mutex);
+            std::scoped_lock<std::mutex>(usr::ctx.users_mutex);
             for (auto &[sid, user] : usr::ctx.users)
             {
                 std::list<usr::user_input> user_inputs;
@@ -353,11 +386,8 @@ namespace cons
  */
     void verify_and_populate_candidate_user_inputs()
     {
-        // Lock the user sessions.
-        std::lock_guard<std::mutex> users_lock(usr::ctx.users_mutex);
-
-        // Lock the list so any network activity is blocked.
-        std::lock_guard<std::mutex> nups_lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+        // Lock the user sessions and the list so any network activity is blocked.
+        std::scoped_lock<std::mutex, std::mutex> lock(usr::ctx.users_mutex, p2p::ctx.collected_msgs.nonunl_proposals_mutex);
         for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
         {
             for (const auto &[pubkey, umsgs] : p.user_inputs)
@@ -723,7 +753,7 @@ namespace cons
         }
 
         {
-            std::lock_guard<std::mutex>(ctx.state_sync_lock);
+            std::scoped_lock<std::mutex>(ctx.state_sync_lock);
             is_desync = (ctx.state != majority_state);
         }
     }
@@ -805,7 +835,7 @@ namespace cons
  */
     void dispatch_user_outputs(const p2p::proposal &cons_prop)
     {
-        std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
+        std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
         for (const std::string &hash : cons_prop.hash_outputs)
         {
@@ -952,7 +982,7 @@ namespace cons
 
     void on_state_sync_completion(const hpfs::h32 new_state)
     {
-        std::lock_guard<std::mutex>(ctx.state_sync_lock);
+        std::scoped_lock<std::mutex>(ctx.state_sync_lock);
         ctx.state = new_state;
     }
 

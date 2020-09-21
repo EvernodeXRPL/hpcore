@@ -136,7 +136,7 @@ namespace read_req
                 if (sc::execute_contract(*context_itr) != -1)
                 {
                     // If contract execution was succcessful, send the output back to user.
-                    std::lock_guard<std::mutex> lock(usr::ctx.users_mutex);
+                    std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
                     const auto user_buf_itr = context_itr->args.userbufs.begin();
                     if (!user_buf_itr->second.output.empty())

@@ -381,7 +381,7 @@ namespace comm
         ss << "/proc/" << uc.pid << "/environ";
         std::string fn = ss.str();
 
-        const int envfd = open(fn.c_str(), O_RDONLY);
+        const int envfd = open(fn.c_str(), O_RDONLY | O_CLOEXEC);
         if (!envfd)
         {
             LOG_ERROR << errno << ": Could not open environ block for process on other end of unix domain socket PID=" << uc.pid;

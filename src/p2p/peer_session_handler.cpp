@@ -113,14 +113,14 @@ namespace p2p
                 return 0;
             }
 
-            std::lock_guard<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
+            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
 
             ctx.collected_msgs.proposals.push_back(
                 p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
         }
         else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
         {
-            std::lock_guard<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
 
             ctx.collected_msgs.nonunl_proposals.push_back(
                 p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
@@ -133,7 +133,7 @@ namespace p2p
                 return 0;
             }
 
-            std::lock_guard<std::mutex> lock(ctx.collected_msgs.npl_messages_mutex); // Insert npl message with lock.
+            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.npl_messages_mutex); // Insert npl message with lock.
 
             const p2pmsg::Npl_Message *npl_p2p_msg = content->message_as_Npl_Message();
             npl_message msg;
@@ -151,7 +151,7 @@ namespace p2p
             }
 
             // Insert request with lock.
-            std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
+            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
             std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
             ctx.collected_msgs.state_requests.push_back(std::make_pair(session.uniqueid, std::move(state_request_msg)));
         }
@@ -166,7 +166,7 @@ namespace p2p
             if (state_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
             {
                 // Insert state_response with lock.
-                std::lock_guard<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
                 std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
                 ctx.collected_msgs.state_responses.push_back(std::move(response));
             }
@@ -215,7 +215,7 @@ namespace p2p
     void peer_session_handler::on_close(const comm::comm_session &session) const
     {
         // Erase the corresponding uniqueid peer connection if it's this session.
-        std::lock_guard<std::mutex> lock(ctx.peer_connections_mutex);
+        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
         const auto itr = ctx.peer_connections.find(session.uniqueid);
         if (itr != ctx.peer_connections.end() && itr->second == &session)
             ctx.peer_connections.erase(itr);
