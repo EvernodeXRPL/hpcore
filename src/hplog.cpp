@@ -1,13 +1,6 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 
-namespace logging = boost::log;
-namespace sinks = boost::log::sinks;
-namespace src = boost::log::sources;
-namespace expr = boost::log::expressions;
-namespace attrs = boost::log::attributes;
-namespace keywords = boost::log::keywords;
-
 namespace hplog
 {
     constexpr size_t MAX_TRACE_FILESIZE = 10 * 1024 * 1024; // Maximum file size (10MB)
