@@ -32,7 +32,7 @@ const std::tuple<const uint64_t, std::string> save_ledger(const p2p::proposal &p
     else
     {
         //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-        LOG_ERR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
+        LOG_ERROR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
     }
 
     //Serialize lcl using flatbuffer ledger schema.
@@ -162,11 +162,11 @@ const ledger_history load_ledger()
 
         if (boost::filesystem::is_directory(file_path))
         {
-            LOG_ERR << "Found directory " << file_name << " in " << conf::ctx.hist_dir << ". There should be no folders in this directory";
+            LOG_ERROR << "Found directory " << file_name << " in " << conf::ctx.hist_dir << ". There should be no folders in this directory";
         }
         else if (file_path.extension() != ".lcl")
         {
-            LOG_ERR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.hist_dir;
+            LOG_ERROR << "Found invalid file extension: " << file_path.extension() << " for lcl file " << file_name << " in " << conf::ctx.hist_dir;
         }
         else
         {
@@ -196,7 +196,7 @@ const ledger_history load_ledger()
             else
             {
                 //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-                LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.hist_dir;
+                LOG_ERROR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.hist_dir;
             }
         }
     }
@@ -239,7 +239,7 @@ void send_ledger_history_request(const std::string &minimum_lcl, const std::stri
 
     ctx.last_requested_lcl = required_lcl;
 
-    LOG_DBG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
+    LOG_DEBUG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
 }
 
 /**
@@ -263,14 +263,14 @@ bool check_required_lcl_availability(const p2p::history_request &hr)
         const auto itr = cons::ctx.ledger_cache.find(req_seq_no);
         if (itr == cons::ctx.ledger_cache.end())
         {
-            LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
+            LOG_DEBUG << "Required lcl peer asked for is not in our lcl cache.";
             //either this node is also not in consesnsus ledger or other node requesting a lcl that is older than node's current
             // minimum lcl sequence becuase of maximum ledger history range.
             return false;
         }
         else if (itr->second.lcl != hr.required_lcl)
         {
-            LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
+            LOG_DEBUG << "Required lcl peer asked for is not in our lcl cache.";
             //either this node or requesting node is in a fork condition.
             return false;
         }
@@ -307,24 +307,24 @@ const p2p::history_response retrieve_ledger_history(const p2p::history_request &
         //eventhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
         if (hr.minimum_lcl != itr->second.lcl)
         {
-            LOG_DBG << "Invalid minimum ledger. Recieved min hash: " << hr.minimum_lcl << " Node hash: " << itr->second.lcl;
+            LOG_DEBUG << "Invalid minimum ledger. Recieved min hash: " << hr.minimum_lcl << " Node hash: " << itr->second.lcl;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
             return history_response;
         }
     }
     else if (min_seq_no > cons::ctx.ledger_cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
     {
-        LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Recvd hash: " << hr.minimum_lcl;
+        LOG_DEBUG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Recvd hash: " << hr.minimum_lcl;
         history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
         return history_response;
     }
     else
     {
-        LOG_DBG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
+        LOG_DEBUG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
         min_seq_no = cons::ctx.ledger_cache.begin()->first;
     }
 
-    //LOG_DBG << "history request min seq: " << std::to_string(min_seq_no);
+    //LOG_DEBUG << "history request min seq: " << std::to_string(min_seq_no);
 
     //copy current history cache.
     std::map<uint64_t, ledger_cache_entry> led_cache = cons::ctx.ledger_cache;
@@ -375,7 +375,7 @@ void handle_ledger_history_response(const p2p::history_response &hr)
     //check response object contains
     if (ctx.last_requested_lcl.empty())
     {
-        LOG_DBG << "Peer sent us a history response but we never asked for one!";
+        LOG_DEBUG << "Peer sent us a history response but we never asked for one!";
         return;
     }
 
@@ -385,7 +385,7 @@ void handle_ledger_history_response(const p2p::history_response &hr)
         // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger .
         remove_ledger(ctx.lcl);
         cons::ctx.ledger_cache.erase(ctx.ledger_cache.rbegin()->first);
-        LOG_DBG << "Invalid min ledger. Removed last ledger.";
+        LOG_DEBUG << "Invalid min ledger. Removed last ledger.";
     }
     else
     {
@@ -402,7 +402,7 @@ void handle_ledger_history_response(const p2p::history_response &hr)
 
         if (!have_requested_lcl)
         {
-            LOG_DBG << "Peer sent us a history response but not containing the lcl we asked for! " << hr.hist_ledgers.size();
+            LOG_DEBUG << "Peer sent us a history response but not containing the lcl we asked for! " << hr.hist_ledgers.size();
             return;
         }
 
@@ -423,12 +423,12 @@ void handle_ledger_history_response(const p2p::history_response &hr)
                           reinterpret_cast<const unsigned char *>(lcl.data()),
                           lcl.size());
 
-            //LOG_DBG << "passed lcl: " << ledger.lcl << " gen lcl: " << lcl_hash;
+            //LOG_DEBUG << "passed lcl: " << ledger.lcl << " gen lcl: " << lcl_hash;
 
             //recieved lcl hash and hash generated from recieved lcl content doesn't match -> abandon applying it
             if (lcl_hash != rec_lcl_hash)
             {
-                LOG_WARN << "peer sent us a history response we asked for but the ledger data does not match the ledger hashes";
+                LOG_WARNING << "peer sent us a history response we asked for but the ledger data does not match the ledger hashes";
                 //todo: we should penalize peer who send this?
                 return;
             }

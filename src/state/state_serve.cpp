@@ -112,7 +112,7 @@ namespace state_serve
  */
     int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr)
     {
-        LOG_DBG << "Serving state req. path:" << sr.parent_path << " block_id:" << sr.block_id;
+        LOG_DEBUG << "Serving state req. path:" << sr.parent_path << " block_id:" << sr.block_id;
 
         // If block_id > -1 this means this is a file block data request.
         if (sr.block_id > -1)
@@ -122,7 +122,7 @@ namespace state_serve
             std::vector<uint8_t> block;
             if (get_file_block(block, sr.parent_path, sr.block_id, sr.expected_hash) == -1)
             {
-                LOG_ERR << "Error in getting file block: " << sr.parent_path;
+                LOG_ERROR << "Error in getting file block: " << sr.parent_path;
                 return -1;
             }
 
@@ -143,7 +143,7 @@ namespace state_serve
                 std::size_t file_length = 0;
                 if (get_file_block_hashes(block_hashes, file_length, sr.parent_path, sr.expected_hash) == -1)
                 {
-                    LOG_ERR << "Error in getting block hashes: " << sr.parent_path;
+                    LOG_ERROR << "Error in getting block hashes: " << sr.parent_path;
                     return -1;
                 }
 
@@ -158,7 +158,7 @@ namespace state_serve
                 std::vector<hpfs::child_hash_node> child_hash_nodes;
                 if (get_fs_entry_hashes(child_hash_nodes, sr.parent_path, sr.expected_hash) == -1)
                 {
-                    LOG_ERR << "Error in getting fs entries: " << sr.parent_path;
+                    LOG_ERROR << "Error in getting fs entries: " << sr.parent_path;
                     return -1;
                 }
 
@@ -190,13 +190,13 @@ namespace state_serve
 
         if (block_id >= block_hashes.size())
         {
-            LOG_DBG << "Requested block_id " << block_id << " does not exist.";
+            LOG_DEBUG << "Requested block_id " << block_id << " does not exist.";
             goto failure;
         }
 
         if (block_hashes[block_id] != expected_hash)
         {
-            LOG_DBG << "Expected hash mismatch.";
+            LOG_DEBUG << "Expected hash mismatch.";
             goto failure;
         }
 
@@ -207,26 +207,26 @@ namespace state_serve
             fd = open(file_path.c_str(), O_RDONLY);
             if (fd == -1)
             {
-                LOG_ERR << errno << ": Open failed. " << file_path;
+                LOG_ERROR << errno << ": Open failed. " << file_path;
                 goto failure;
             }
 
             struct stat st;
             if (fstat(fd, &st) == -1)
             {
-                LOG_ERR << errno << ": Stat failed. " << file_path;
+                LOG_ERROR << errno << ": Stat failed. " << file_path;
                 goto failure;
             }
 
             if (!S_ISREG(st.st_mode))
             {
-                LOG_ERR << "Not a file. " << file_path;
+                LOG_ERROR << "Not a file. " << file_path;
                 goto failure;
             }
 
             if (block_offset > st.st_size)
             {
-                LOG_ERR << "Block offset " << block_offset << " larger than file " << st.st_size << " - " << file_path;
+                LOG_ERROR << "Block offset " << block_offset << " larger than file " << st.st_size << " - " << file_path;
                 goto failure;
             }
 
@@ -237,7 +237,7 @@ namespace state_serve
             const int res = read(fd, block.data(), read_len);
             if (res < read_len)
             {
-                LOG_ERR << errno << ": Read failed (result:" << res
+                LOG_ERROR << errno << ": Read failed (result:" << res
                         << " off:" << block_offset << " len:" << read_len << "). " << file_path;
                 goto failure;
             }
@@ -273,7 +273,7 @@ namespace state_serve
 
         if (file_hash != expected_hash)
         {
-            LOG_DBG << "Expected hash mismatch.";
+            LOG_DEBUG << "Expected hash mismatch.";
             goto failure;
         }
 
@@ -287,7 +287,7 @@ namespace state_serve
             struct stat st;
             if (stat(file_path.c_str(), &st) == -1)
             {
-                LOG_ERR << errno << ": Stat failed. " << file_path;
+                LOG_ERROR << errno << ": Stat failed. " << file_path;
                 goto failure;
             }
             file_length = st.st_size;
@@ -319,7 +319,7 @@ namespace state_serve
 
         if (dir_hash != expected_hash)
         {
-            LOG_DBG << "Expected hash mismatch.";
+            LOG_DEBUG << "Expected hash mismatch.";
             goto failure;
         }
 

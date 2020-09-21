@@ -76,7 +76,7 @@ namespace read_req
                         remove_thread(thread_id);
                     }
 
-                    LOG_DBG << completed_threads.size() << " threads cleaned from read requests thread pool.";
+                    LOG_DEBUG << completed_threads.size() << " threads cleaned from read requests thread pool.";
 
                     // Clear the completed thread id list once the completed threads are removed from the list.
                     completed_threads.clear();
@@ -107,7 +107,7 @@ namespace read_req
     */
     void read_request_processor()
     {
-        LOG_DBG << "A new read request processing thread started.";
+        LOG_DEBUG << "A new read request processing thread started.";
 
         util::mask_signal();
 
@@ -130,7 +130,7 @@ namespace read_req
 
                 // Populate execution context data if any read requests are available in the queue.
                 initialize_execution_context(std::move(read_request), thread_id, *context_itr);
-                LOG_DBG << "Read request contract execution started.";
+                LOG_DEBUG << "Read request contract execution started.";
 
                 // Process the read requests by executing the contract.
                 if (sc::execute_contract(*context_itr) != -1)
@@ -160,11 +160,11 @@ namespace read_req
                             }
                         }
                     }
-                    LOG_DBG << "Read request contract execution ended.";
+                    LOG_DEBUG << "Read request contract execution ended.";
                 }
                 else
                 {
-                    LOG_ERR << "Contract execution for read request failed.";
+                    LOG_ERROR << "Contract execution for read request failed.";
                 }
 
                 // Remove successfully executed execution contexts.
@@ -173,7 +173,7 @@ namespace read_req
             }
             else
             {
-                LOG_DBG << "Thread exits, due to no more read requests.";
+                LOG_DEBUG << "Thread exits, due to no more read requests.";
                 // Break while loop if no read request is present in the queue for processing.
                 break;
             }
@@ -183,7 +183,7 @@ namespace read_req
         std::scoped_lock<std::mutex> lock(completed_threads_mutex);
         completed_threads.push_back(thread_id);
 
-        LOG_DBG << "Read request processing thread exited.";
+        LOG_DEBUG << "Read request processing thread exited.";
     }
 
     /**

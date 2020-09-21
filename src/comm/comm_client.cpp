@@ -28,7 +28,7 @@ namespace comm
         // setup pipe I/O
         if (pipe(read_pipe) < 0 || pipe(write_pipe) < 0)
         {
-            LOG_ERR << errno << ": websocat pipe creation failed.";
+            LOG_ERROR << errno << ": websocat pipe creation failed.";
             return -1;
         }
 
@@ -85,12 +85,12 @@ namespace comm
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << errno << ": websocat process execv failed.";
+            LOG_ERROR << errno << ": websocat process execv failed.";
             exit(1);
         }
         else
         {
-            LOG_ERR << errno << ": fork() failed when starting websocat process.";
+            LOG_ERROR << errno << ": fork() failed when starting websocat process.";
             return -1;
         }
 

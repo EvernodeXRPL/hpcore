@@ -1,3 +1,5 @@
+#include <plog/Log.h>
+#include <plog/Appenders/ColorConsoleAppender.h>
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "hplog.hpp"
@@ -11,80 +13,81 @@ namespace keywords = boost::log::keywords;
 
 namespace hplog
 {
+    constexpr size_t MAX_TRACE_FILESIZE = 10 * 1024 * 1024; // 10MB
+    constexpr size_t MAX_TRACE_FILECOUNT = 50;
 
-    /**
- * Stream operator overload for converting integer severity value to text.
- */
-    std::ostream &operator<<(std::ostream &os, LOG_SEVERITY level)
+    class plog_formatter;
+    static plog::ConsoleAppender<plog_formatter> consoleAppender;
+
+    // Custom formatter adopted from:
+    // https://github.com/SergiusTheBest/plog/blob/master/include/plog/Formatters/TxtFormatter.h
+    class plog_formatter
     {
-        static std::string_view loglevels[] = {"dbg", "inf", "wrn", "err"};
-        os << loglevels[level];
-        return os;
-    }
-
-    // Severity attribute value tag type
-    struct severity_tag;
-
-    void init()
-    {
-        // Set log severity level based on contract config.
-        LOG_SEVERITY severity = LOG_SEVERITY::WARN;
-        if (conf::cfg.loglevel == "debug")
-            severity = LOG_SEVERITY::DEBUG;
-        else if (conf::cfg.loglevel == "info")
-            severity = LOG_SEVERITY::INFO;
-        else if (conf::cfg.loglevel == "warn")
-            severity = LOG_SEVERITY::WARN;
-        else if (conf::cfg.loglevel == "error")
-            severity = LOG_SEVERITY::ERROR;
-
-        // Log line format expression.
-        const auto format_expr = (expr::stream
-                                  << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y%m%d %H:%M:%S ")
-                                  // << ":" << expr::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID")
-                                  // << "[" << expr::attr<std::string>("Channel") << "] "
-                                  << "[" << expr::attr<LOG_SEVERITY, severity_tag>("Severity") << "][hp] "
-                                  << expr::smessage);
-
-        if (conf::cfg.loggers.count("console") == 1)
+    public:
+        static plog::util::nstring header()
         {
-            logging::add_console_log(
-                std::clog,
-                keywords::filter = (a_severity >= severity),
-                keywords::format = format_expr);
+            return plog::util::nstring();
         }
 
-        if (conf::cfg.loggers.count("file") == 1)
+        static inline const char *severityToString(plog::Severity severity)
         {
-            logging::add_file_log(
-                keywords::target = conf::ctx.log_dir,                   // Log file directory.
-                keywords::file_name = conf::ctx.log_dir + "/hp_%N.log", // File name pattern "hp_1.log".
-                keywords::rotation_size = 10 * 1024 * 1024,             // Rotate files every 10 MB.
-                keywords::max_size = 500 * 1024 * 1024,                 // Do not exceed 500 MB total logs.
-                keywords::filter = (a_severity >= severity),
-                keywords::format = format_expr,
-
-                // This will make every new launch of Hot Pocket to start a new log file number.
-                // It will scan existing log files matching the pattern and find the next number.
-                keywords::scan_method = sinks::file::scan_matching
-
-#ifndef NDEBUG
-                // We enable auto_flush to immediately get the logs onto the file. Otherwise it takes time
-                // for buffered logs to reach the file. This impacts performance. So enabled only in debug build.
-                ,
-                keywords::auto_flush = true
-#endif
-            );
+            switch (severity)
+            {
+            case plog::Severity::fatal:
+                return "fat";
+            case plog::Severity::error:
+                return "err";
+            case plog::Severity::warning:
+                return "wrn";
+            case plog::Severity::info:
+                return "inf";
+            case plog::Severity::debug:
+                return "dbg";
+            case plog::Severity::verbose:
+                return "ver";
+            default:
+                return "def";
+            }
         }
 
-        // Add Boost Log built-in fields for log entries.
-        logging::add_common_attributes();
-    }
+        static plog::util::nstring format(const plog::Record &record)
+        {
+            tm t;
+            plog::util::localtime_s(&t, &record.getTime().time); // local time
 
-    void deinit()
+            plog::util::nostringstream ss;
+            ss << t.tm_year + 1900 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mon + 1 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mday << PLOG_NSTR(" ");
+            ss << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_hour << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_min << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_sec << PLOG_NSTR(" ");
+            ss << PLOG_NSTR("[") << severityToString(record.getSeverity()) << PLOG_NSTR("][fs] ");
+            ss << record.getMessage() << PLOG_NSTR("\n");
+
+            return ss.str();
+        }
+    };
+
+    int init()
     {
-        // This will make all buffered logs to be flushed to the sink.
-        logging::core::get()->remove_all_sinks();
-    }
+        plog::Severity level;
+        if (conf::cfg.loglevel == conf::LOG_SEVERITY::DEBUG)
+            level = plog::Severity::debug;
+        else if (conf::cfg.loglevel == conf::LOG_SEVERITY::INFO)
+            level = plog::Severity::info;
+        else if (conf::cfg.loglevel == conf::LOG_SEVERITY::WARN)
+            level = plog::Severity::warning;
+        else if (conf::cfg.loglevel == conf::LOG_SEVERITY::ERROR)
+            level = plog::Severity::error;
+            else
+            level = plog::Severity::none;
 
+        std::string pid_str = std::to_string(getpid());
+        std::string trace_file;
+        trace_file
+            .append(conf::ctx.log_dir)
+            .append("/hp_%N.log");
+            
+        plog::init<plog_formatter>(level, trace_file.c_str(), MAX_TRACE_FILESIZE, MAX_TRACE_FILECOUNT)
+            .addAppender(&consoleAppender);
+
+        return 0;
+    }
 } // namespace hplog

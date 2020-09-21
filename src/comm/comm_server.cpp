@@ -34,7 +34,7 @@ namespace comm
         int fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd == -1)
         {
-            LOG_ERR << errno << ": Domain socket open error";
+            LOG_ERROR << errno << ": Domain socket open error";
             return -1;
         }
 
@@ -47,13 +47,13 @@ namespace comm
 
         if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
         {
-            LOG_ERR << errno << ": Domain socket bind error";
+            LOG_ERROR << errno << ": Domain socket bind error";
             return -1;
         }
 
         if (listen(fd, 5) == -1)
         {
-            LOG_ERR << errno << ": Domain socket listen error";
+            LOG_ERROR << errno << ": Domain socket listen error";
             return -1;
         }
 
@@ -137,7 +137,7 @@ namespace comm
         int client_fd = accept(accept_fd, NULL, NULL);
         if (client_fd == -1 && errno != EAGAIN)
         {
-            LOG_ERR << errno << ": Domain socket accept error";
+            LOG_ERROR << errno << ": Domain socket accept error";
         }
         else if (client_fd > 0)
         {
@@ -147,7 +147,7 @@ namespace comm
             {
                 if (corebill::is_banned(ip))
                 {
-                    LOG_DBG << "Dropping connection for banned host " << ip;
+                    LOG_DEBUG << "Dropping connection for banned host " << ip;
                     close(client_fd);
                 }
                 else
@@ -168,7 +168,7 @@ namespace comm
             else
             {
                 close(client_fd);
-                LOG_ERR << "Closed bad client socket: " << client_fd;
+                LOG_ERROR << "Closed bad client socket: " << client_fd;
             }
         }
     }
@@ -197,12 +197,12 @@ namespace comm
 
             std::string_view host = ipport.first;
             const uint16_t port = ipport.second;
-            LOG_DBG << "Trying to connect " << host << ":" << std::to_string(port);
+            LOG_DEBUG << "Trying to connect " << host << ":" << std::to_string(port);
 
             comm::comm_client client;
             if (client.start(host, port, metric_thresholds, conf::cfg.peermaxsize) == -1)
             {
-                LOG_ERR << "Outbound connection attempt failed: " << host << ":" << std::to_string(port);
+                LOG_ERROR << "Outbound connection attempt failed: " << host << ":" << std::to_string(port);
             }
             else
             {
@@ -266,7 +266,7 @@ namespace comm
 
         if (pipe(firewall_pipe))
         {
-            LOG_ERR << errno << ": pipe() call failed for firewall";
+            LOG_ERROR << errno << ": pipe() call failed for firewall";
         }
         else
         {
@@ -335,12 +335,12 @@ namespace comm
             execv_args[idx] = NULL;
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << errno << ": websocketd process execv failed.";
+            LOG_ERROR << errno << ": websocketd process execv failed.";
             exit(1);
         }
         else
         {
-            LOG_ERR << errno << ": fork() failed when starting websocketd process.";
+            LOG_ERROR << errno << ": fork() failed when starting websocketd process.";
             return -1;
         }
 
@@ -372,7 +372,7 @@ namespace comm
         // Ask the operating system for information about the other process
         if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &length) == -1)
         {
-            LOG_ERR << errno << ": Could not retrieve PID from unix domain socket";
+            LOG_ERROR << errno << ": Could not retrieve PID from unix domain socket";
             return "";
         }
 
@@ -384,7 +384,7 @@ namespace comm
         const int envfd = open(fn.c_str(), O_RDONLY);
         if (!envfd)
         {
-            LOG_ERR << errno << ": Could not open environ block for process on other end of unix domain socket PID=" << uc.pid;
+            LOG_ERROR << errno << ": Could not open environ block for process on other end of unix domain socket PID=" << uc.pid;
             return "";
         }
 
@@ -404,7 +404,7 @@ namespace comm
             }
         }
 
-        LOG_ERR << "Could not find REMOTE_ADDR variable in /proc/" << uc.pid << "/environ";
+        LOG_ERROR << "Could not find REMOTE_ADDR variable in /proc/" << uc.pid << "/environ";
         return "";
     }
 

@@ -50,14 +50,14 @@ namespace sc
             const int presult = await_process_execution(ctx.contract_pid);
             ctx.contract_pid = 0;
 
-            LOG_DBG << "Contract process ended." << (ctx.args.readonly ? " (rdonly)" : "");
+            LOG_DEBUG << "Contract process ended." << (ctx.args.readonly ? " (rdonly)" : "");
 
             // Wait for the output collection thread to gracefully stop.
             ctx.output_fetcher_thread.join();
 
             if (presult != 0)
             {
-                LOG_ERR << "Contract process exited with non-normal status code: " << presult;
+                LOG_ERROR << "Contract process exited with non-normal status code: " << presult;
                 goto failure;
             }
         }
@@ -74,7 +74,7 @@ namespace sc
             // Write the contract input message from HotPocket to the stdin (0) of the contract process.
             write_contract_args(ctx);
 
-            LOG_DBG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
+            LOG_DEBUG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
 
             const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
             int len = conf::cfg.runtime_binexec_args.size() + 1;
@@ -97,12 +97,12 @@ namespace sc
             chdir(ctx.args.state_dir.c_str());
 
             int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "");
+            LOG_ERROR << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "");
             exit(1);
         }
         else
         {
-            LOG_ERR << errno << ": fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
+            LOG_ERROR << errno << ": fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
             goto failure;
         }
 
@@ -146,7 +146,7 @@ namespace sc
         if (hpfs::start_fs_session(ctx.hpfs_pid, ctx.args.state_dir, ctx.args.readonly ? "ro" : "rw", true) == -1)
             return -1;
 
-        LOG_DBG << "hpfs session started. pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
+        LOG_DEBUG << "hpfs session started. pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
         return 0;
     }
 
@@ -159,7 +159,7 @@ namespace sc
         if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.state_dir, "/") == -1)
             return -1;
 
-        LOG_DBG << "Stopping hpfs session... pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
+        LOG_DEBUG << "Stopping hpfs session... pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
         ;
         if (util::kill_process(ctx.hpfs_pid, true) == -1)
             return -1;
@@ -232,7 +232,7 @@ namespace sc
         int stdinpipe[2];
         if (pipe(stdinpipe) == -1)
         {
-            LOG_ERR << errno << ": Failed to create pipe to the contract process.";
+            LOG_ERROR << errno << ": Failed to create pipe to the contract process.";
             return -1;
         }
 
@@ -244,7 +244,7 @@ namespace sc
         // Write the json message and close write fd.
         if (write(stdinpipe[1], json.data(), json.size()) == -1)
         {
-            LOG_ERR << errno << ": Failed to write to stdin of contract process.";
+            LOG_ERROR << errno << ": Failed to write to stdin of contract process.";
             return -1;
         }
         close(stdinpipe[1]);
@@ -265,7 +265,7 @@ namespace sc
         // Write any verified (consensus-reached) user inputs to user pipes.
         if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) == -1)
         {
-            LOG_ERR << "Failed to write user inputs to contract.";
+            LOG_ERROR << "Failed to write user inputs to contract.";
             return -1;
         }
 
@@ -288,7 +288,7 @@ namespace sc
             const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
             if (user_res == -1)
             {
-                LOG_ERR << "Error reading user outputs from the contract.";
+                LOG_ERROR << "Error reading user outputs from the contract.";
                 return -1;
             }
 
@@ -299,7 +299,7 @@ namespace sc
             util::sleep(20);
         }
 
-        LOG_DBG << "Contract outputs collected.\n";
+        LOG_DEBUG << "Contract outputs collected.\n";
         return 0;
     }
 
@@ -310,7 +310,7 @@ namespace sc
     {
         if (write_iopipe(ctx.hpscfds, ctx.args.hpscbufs.inputs) == -1)
         {
-            LOG_ERR << "Error writing HP inputs to SC";
+            LOG_ERROR << "Error writing HP inputs to SC";
             return -1;
         }
 
@@ -390,14 +390,14 @@ namespace sc
         const int hpsc_res = read_iopipe(ctx.hpscfds, ctx.args.hpscbufs.output);
         if (hpsc_res == -1)
         {
-            LOG_ERR << "Error reading HP output from the contract.";
+            LOG_ERROR << "Error reading HP output from the contract.";
             return -1;
         }
 
         const int npl_res = read_iopipe(ctx.nplfds, ctx.args.npl_output);
         if (npl_res == -1)
         {
-            LOG_ERR << "Error reading NPL output from the contract.";
+            LOG_ERROR << "Error reading NPL output from the contract.";
             return -1;
         }
 

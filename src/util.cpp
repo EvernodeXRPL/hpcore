@@ -220,14 +220,14 @@ namespace util
     {
         if (kill(pid, signal) == -1)
         {
-            LOG_ERR << errno << ": Error issuing signal to pid " << pid;
+            LOG_ERROR << errno << ": Error issuing signal to pid " << pid;
             return -1;
         }
 
         const int wait_options = wait ? 0 : WNOHANG;
         if (waitpid(pid, NULL, wait_options) == -1)
         {
-            LOG_ERR << errno << ": waitpid after kill failed.";
+            LOG_ERROR << errno << ": waitpid after kill failed.";
             return -1;
         }
 

@@ -92,9 +92,9 @@ namespace conf
         cfg.pubport = 8080;
 
 #ifndef NDEBUG
-        cfg.loglevel = "debug";
+        cfg.loglevel = conf::LOG_SEVERITY::DEBUG;
 #else
-        cfg.loglevel = "warn";
+        cfg.loglevel = conf::LOG_SEVERITY::WARN;
 #endif
         cfg.loggers.emplace("console");
 
@@ -281,7 +281,7 @@ namespace conf
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
 
-        cfg.loglevel = d["loglevel"].as<std::string>();
+        cfg.loglevel = get_log_severity_type(d["loglevel"].as<std::string>());
         cfg.loggers.clear();
         for (auto &v : d["loggers"].array_range())
             cfg.loggers.emplace(v.as<std::string>());
@@ -348,7 +348,7 @@ namespace conf
         d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
 
-        d.insert_or_assign("loglevel", cfg.loglevel.data());
+        d.insert_or_assign("loglevel", get_log_severity_text(cfg.loglevel));
 
         jsoncons::ojson loggers(jsoncons::json_array_arg);
         for (std::string_view logger : cfg.loggers)
@@ -447,7 +447,7 @@ namespace conf
         fields_missing |= cfg.peerport == 0 && std::cout << "Missing cfg field: peerport\n";
         fields_missing |= cfg.roundtime == 0 && std::cout << "Missing cfg field: roundtime\n";
         fields_missing |= cfg.pubport == 0 && std::cout << "Missing cfg field: pubport\n";
-        fields_missing |= cfg.loglevel.empty() && std::cout << "Missing cfg field: loglevel\n";
+        fields_missing |= cfg.loglevel == conf::LOG_SEVERITY::UNKNOWN && std::cout << "Missing cfg field: loglevel\n";
         fields_missing |= cfg.loggers.empty() && std::cout << "Missing cfg field: loggers\n";
 
         if (fields_missing)
@@ -457,8 +457,7 @@ namespace conf
         }
 
         // Log settings
-        const std::unordered_set<std::string> valid_loglevels({"debug", "info", "warn", "error"});
-        if (valid_loglevels.count(cfg.loglevel) != 1)
+        if (cfg.loglevel == LOG_SEVERITY::UNKNOWN)
         {
             std::cout << "Invalid loglevel configured. Valid values: debug|info|warn|error\n";
             return -1;
@@ -537,4 +536,43 @@ namespace conf
             LOG_INFO << "Switched back to PROPOSER mode.";
     }
 
+    LOG_SEVERITY get_log_severity_type(std::string severity)
+    {
+        if (severity == "dbg")
+            return LOG_SEVERITY::DEBUG;
+        else if (severity == "err")
+            return LOG_SEVERITY::ERROR;
+        else if (severity == "wrn")
+            return LOG_SEVERITY::WARN;
+        else if (severity == "inf")
+            return LOG_SEVERITY::INFO;
+        else if (severity == "fat")
+            return LOG_SEVERITY::FATEL;
+        else if (severity == "ver")
+            return LOG_SEVERITY::VERBOSE;
+        else if (severity == "non")
+            return LOG_SEVERITY::NONE;
+        else
+            return LOG_SEVERITY::UNKNOWN;
+    }
+
+    std::string get_log_severity_text(LOG_SEVERITY severity)
+    {
+        if (severity == LOG_SEVERITY::DEBUG)
+            return "dbg";
+        else if (severity == LOG_SEVERITY::ERROR)
+            return "err";
+        else if (severity == LOG_SEVERITY::WARN)
+            return "wrn";
+        else if (severity == LOG_SEVERITY::INFO)
+            return "inf";
+        else if (severity == LOG_SEVERITY::FATEL)
+            return "fat";
+        else if (severity == LOG_SEVERITY::VERBOSE)
+            return "ver";
+        else if (severity == LOG_SEVERITY::NONE)
+            return "non";
+        else
+            return "ukw";
+    }
 } // namespace conf

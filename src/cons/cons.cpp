@@ -43,7 +43,7 @@ namespace cons
 
         if (get_initial_state_hash(ctx.state) == -1)
         {
-            LOG_ERR << "Failed to get initial state hash.";
+            LOG_ERROR << "Failed to get initial state hash.";
             return -1;
         }
 
@@ -138,7 +138,7 @@ namespace cons
                 ctx.candidate_npl_messages.erase(itr++);
         }
 
-        LOG_DBG << "Started stage " << std::to_string(ctx.stage);
+        LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
 
         if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
         {
@@ -220,7 +220,7 @@ namespace cons
                         }
                         else
                         {
-                            LOG_ERR << "Error occured in Stage 3 consensus execution.";
+                            LOG_ERROR << "Error occured in Stage 3 consensus execution.";
                         }
                     }
                 }
@@ -246,7 +246,7 @@ namespace cons
 
             // only consider recent proposals and proposals from previous stage and current stage.
             const bool keep_candidate = (time_diff < (conf::cfg.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
-            LOG_DBG << (keep_candidate ? "Prop--->" : "Erased")
+            LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                     << " [s" << std::to_string(cp.stage)
                     << "] u/i/o:" << cp.users.size()
                     << "/" << cp.hash_inputs.size()
@@ -285,7 +285,7 @@ namespace cons
             stage_start = current_round_start + conf::cfg.roundtime;
             const int64_t to_wait = stage_start - now;
 
-            LOG_DBG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 0";
+            LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 0";
             util::sleep(to_wait);
             return true;
         }
@@ -301,13 +301,13 @@ namespace cons
             // it will continue particapating in this round, otherwise will join in next round.
             if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
             {
-                LOG_DBG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";
+                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";
                 ctx.stage = 0;
                 return false;
             }
             else
             {
-                LOG_DBG << "Waiting " << std::to_string(to_wait) << "ms for stage " << std::to_string(ctx.stage);
+                LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for stage " << std::to_string(ctx.stage);
                 util::sleep(to_wait);
                 return true;
             }
@@ -343,7 +343,7 @@ namespace cons
         p2pmsg::create_msg_from_nonunl_proposal(fbuf, nup);
         p2p::broadcast_message(fbuf, true);
 
-        LOG_DBG << "NUP sent."
+        LOG_DEBUG << "NUP sent."
                 << " users:" << nup.user_inputs.size();
     }
 
@@ -424,19 +424,19 @@ namespace cons
                             }
                             else
                             {
-                                LOG_DBG << "User message bad max ledger seq expired.";
+                                LOG_DEBUG << "User message bad max ledger seq expired.";
                                 reject_reason = msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
                             }
                         }
                         else
                         {
-                            LOG_DBG << "User message bad signature.";
+                            LOG_DEBUG << "User message bad signature.";
                             reject_reason = msg::usrmsg::REASON_BAD_SIG;
                         }
                     }
                     else
                     {
-                        LOG_DBG << "Duplicate user message.";
+                        LOG_DEBUG << "Duplicate user message.";
                         reject_reason = msg::usrmsg::REASON_DUPLICATE_MSG;
                     }
 
@@ -494,7 +494,7 @@ namespace cons
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
             chdir(conf::ctx.state_rw_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << "Appbill process execv failed: " << ret;
+            LOG_ERROR << "Appbill process execv failed: " << ret;
             return false;
         }
         else
@@ -512,7 +512,7 @@ namespace cons
             else
             {
                 // user's key did not pass, do not add to user input candidates
-                LOG_DBG << "Appbill validation failed " << hexpubkey << " return code was " << status;
+                LOG_DEBUG << "Appbill validation failed " << hexpubkey << " return code was " << status;
                 return false;
             }
         }
@@ -636,7 +636,7 @@ namespace cons
         else
             p2p::broadcast_message(fbuf, true);
 
-        LOG_DBG << "Proposed u/i/o:" << p.users.size()
+        LOG_DEBUG << "Proposed u/i/o:" << p.users.size()
                 << "/" << p.hash_inputs.size()
                 << "/" << p.hash_outputs.size()
                 << " ts:" << std::to_string(p.time)
@@ -662,7 +662,7 @@ namespace cons
 
         if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
         {
-            LOG_DBG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+            LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
             is_desync = true;
             return;
         }
@@ -682,7 +682,7 @@ namespace cons
         //Should request history from a peer.
         if (ctx.lcl != majority_lcl)
         {
-            LOG_DBG << "We are not on the consensus ledger, requesting history from a random peer";
+            LOG_DEBUG << "We are not on the consensus ledger, requesting history from a random peer";
             is_desync = true;
 
             //Node is not in sync with current lcl ->switch to observer mode.
@@ -695,7 +695,7 @@ namespace cons
         if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
         {
             // potential fork condition.
-            LOG_DBG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
+            LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
             is_desync = true;
             return;
         }
@@ -786,7 +786,7 @@ namespace cons
 
             if (sc::execute_contract(ctx.contract_ctx) == -1)
             {
-                LOG_ERR << "Contract execution failed.";
+                LOG_ERROR << "Contract execution failed.";
                 return -1;
             }
 
@@ -813,7 +813,7 @@ namespace cons
             const bool hashfound = (cu_itr != ctx.candidate_user_outputs.end());
             if (!hashfound)
             {
-                LOG_ERR << "Output required but wasn't in our candidate outputs map, this will potentially cause desync.";
+                LOG_ERROR << "Output required but wasn't in our candidate outputs map, this will potentially cause desync.";
                 // todo: consider fatal
             }
             else
@@ -867,7 +867,7 @@ namespace cons
             const bool hashfound = (itr != ctx.candidate_user_inputs.end());
             if (!hashfound)
             {
-                LOG_ERR << "input required but wasn't in our candidate inputs map, this will potentially cause desync.";
+                LOG_ERROR << "input required but wasn't in our candidate inputs map, this will potentially cause desync.";
                 // TODO: consider fatal
             }
             else
@@ -883,7 +883,7 @@ namespace cons
                 bufpair.inputs.push_back(std::move(inputtofeed));
 
                 // Remove the input from the candidate set because we no longer need it.
-                //LOG_DBG << "candidate input deleted.";
+                //LOG_DEBUG << "candidate input deleted.";
                 ctx.candidate_user_inputs.erase(itr);
             }
         }

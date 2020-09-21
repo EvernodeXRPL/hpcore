@@ -22,6 +22,19 @@ namespace conf
         PROPOSER = 1  // Consensus participant mode.
     };
 
+    // Log severity levels used in Hot Pocket.
+    enum LOG_SEVERITY
+    {
+        NONE,
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR,
+        FATEL,
+        VERBOSE,
+        UNKNOWN
+    };
+
     // Holds contextual information about the currently loaded contract.
     struct contract_ctx
     {
@@ -80,7 +93,7 @@ namespace conf
         uint64_t peermaxbadsigpm = 0; // Peer bad signatures per minute
         uint16_t peermaxcons = 0;     // Max inbound peer connections
 
-        std::string loglevel;                    // Log severity level (debug, info, warn, error)
+        LOG_SEVERITY loglevel;                    // Log severity level (debug, info, warn, error)
         std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
     };
 
@@ -115,6 +128,10 @@ namespace conf
     int hexpair_to_bin();
 
     void change_operating_mode(const OPERATING_MODE mode);
+
+    LOG_SEVERITY get_log_severity_type(std::string severity);
+    
+    std::string get_log_severity_text(LOG_SEVERITY severity);
 
 } // namespace conf
 
