@@ -8,7 +8,6 @@ namespace hplog
     constexpr size_t MAX_TRACE_FILECOUNT = 50;              // Maximum files in a folder
 
     class plog_formatter;
-    static plog::ConsoleAppender<plog_formatter> consoleAppender;
 
     // Custom formatter adopted from:
     // https://github.com/SergiusTheBest/plog/blob/master/include/plog/Formatters/TxtFormatter.h
@@ -50,6 +49,7 @@ namespace hplog
 
         const std::string trace_file = conf::ctx.log_dir + "/hp.log";
         static plog::RollingFileAppender<plog_formatter> fileAppender(trace_file.c_str(), MAX_TRACE_FILESIZE, MAX_TRACE_FILECOUNT);
+        static plog::ConsoleAppender<plog_formatter> consoleAppender;
 
         // Take decision to append logger for file / console or both.
         if (conf::cfg.loggers.size() == 2)
@@ -60,7 +60,7 @@ namespace hplog
         {
             plog::init(level, &consoleAppender);
         }
-        else
+        else if (conf::cfg.loggers.count("file") == 1)
         {
             plog::init(level, &fileAppender);
         }
