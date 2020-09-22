@@ -4,7 +4,7 @@
 
 namespace hplog
 {
-    constexpr size_t MAX_TRACE_FILESIZE = 10;// * 1024 * 1024; // Maximum file size (10MB)
+    constexpr size_t MAX_TRACE_FILESIZE = 10 * 1024 * 1024; // Maximum file size (10MB)
     constexpr size_t MAX_TRACE_FILECOUNT = 50;              // Maximum files in a folder
 
     class plog_formatter;
