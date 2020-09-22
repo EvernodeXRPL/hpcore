@@ -51,18 +51,17 @@ namespace hplog
         static plog::RollingFileAppender<plog_formatter> fileAppender(trace_file.c_str(), MAX_TRACE_FILESIZE, MAX_TRACE_FILECOUNT);
         static plog::ConsoleAppender<plog_formatter> consoleAppender;
 
+        plog::Logger<0> &logger = plog::init(level);
+
         // Take decision to append logger for file / console or both.
-        if (conf::cfg.loggers.size() == 2)
+        if (conf::cfg.loggers.count("console") == 1)
         {
-            plog::init(level, &fileAppender).addAppender(&consoleAppender);
+            logger.addAppender(&consoleAppender);
         }
-        else if (conf::cfg.loggers.count("console") == 1)
+
+        if (conf::cfg.loggers.count("file") == 1)
         {
-            plog::init(level, &consoleAppender);
-        }
-        else if (conf::cfg.loggers.count("file") == 1)
-        {
-            plog::init(level, &fileAppender);
+            logger.addAppender(&fileAppender);
         }
     }
 } // namespace hplog
