@@ -177,37 +177,59 @@ namespace hpfs
         return 0;
     }
 
+    /**
+     * Populates the hash of the specified vpath.
+     * @return 1 on success. 0 if vpath not found. -1 on error.
+     */
     int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
     {
         const std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.hash");
-        const int fd = open(path.c_str(), O_RDONLY);
-        if (fd == -1)
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+        if (fd == -1 && errno == ENOENT)
         {
-            LOG_ERR << errno << ": Error opening hash file.";
+            LOG_DBG << "Cannot get hash. vpath not found. " << vpath;
+            return 0;
+        }
+        else if (fd == -1)
+        {
+            LOG_ERR << errno << ": Error opening hash file. " << vpath;
             return -1;
         }
+
         const int res = read(fd, &hash, sizeof(h32));
         close(fd);
         if (res == -1)
         {
-            LOG_ERR << errno << ": Error reading hash file.";
+            LOG_ERR << errno << ": Error reading hash file. " << vpath;
             return -1;
         }
-        return 0;
+        return 1;
     }
 
+    /**
+     * Populates the list of file block hashes for the specified vpath.
+     * @return 1 on success. 0 if vpath not found. -1 on error.
+     */
     int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath)
     {
         const std::string path = std::string(mount_dir).append(vpath).append("::hpfs.hmap.children");
-        const int fd = open(path.c_str(), O_RDONLY);
-        if (fd == -1)
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+        if (fd == -1 && errno == ENOENT)
+        {
+            LOG_DBG << "Cannot get file block hashes. vpath not found. " << vpath;
+            return 0;
+        }
+        else if (fd == -1)
+        {
+            LOG_DBG << errno << ": Error opening hashmap children. " << vpath;
             return -1;
+        }
 
         struct stat st;
         if (fstat(fd, &st) == -1)
         {
             close(fd);
-            LOG_ERR << errno << ": Error reading block hashes length.";
+            LOG_ERR << errno << ": Error reading block hashes length. " << vpath;
             return -1;
         }
 
@@ -218,19 +240,28 @@ namespace hpfs
         close(fd);
         if (res == -1)
         {
-            LOG_ERR << errno << ": Error reading hash block hashes.";
+            LOG_ERR << errno << ": Error reading block hashes. " << vpath;
             return -1;
         }
-        return 0;
+        return 1;
     }
 
+    /**
+     * Populates the list of dir entry hashes for the specified vpath.
+     * @return 1 on success. 0 if vpath not found. -1 on error.
+     */
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath)
     {
         const std::string path = std::string(mount_dir).append(dir_vpath).append("::hpfs.hmap.children");
-        const int fd = open(path.c_str(), O_RDONLY);
-        if (fd == -1)
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+        if (fd == -1 && errno == ENOENT)
         {
-            LOG_ERR << errno << ": Error opening hash children nodes.";
+            LOG_DBG << "Cannot get dir children hashes. Dir vpath not found. " << dir_vpath;
+            return 0;
+        }
+        else if (fd == -1)
+        {
+            LOG_ERR << errno << ": Error opening dir hash children nodes. " << dir_vpath;
             return -1;
         }
 
@@ -238,7 +269,7 @@ namespace hpfs
         if (fstat(fd, &st) == -1)
         {
             close(fd);
-            LOG_ERR << errno << ": Error reading hash children nodes length.";
+            LOG_ERR << errno << ": Error reading hash children nodes length. " << dir_vpath;
             return -1;
         }
 
@@ -249,10 +280,10 @@ namespace hpfs
         close(fd);
         if (res == -1)
         {
-            LOG_ERR << errno << ": Error reading hash children nodes.";
+            LOG_ERR << errno << ": Error reading hash children nodes. " << dir_vpath;
             return -1;
         }
-        return 0;
+        return 1;
     }
 
 } // namespace hpfs
