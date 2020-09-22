@@ -3,7 +3,7 @@
 
 namespace hplog
 {
-    int init();
+    void init();
 } // namespace hplog
 
 #endif

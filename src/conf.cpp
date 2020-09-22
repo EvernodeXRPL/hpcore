@@ -77,6 +77,7 @@ namespace conf
         boost::filesystem::create_directories(ctx.config_dir);
         boost::filesystem::create_directories(ctx.hist_dir);
         boost::filesystem::create_directories(ctx.state_rw_dir);
+        boost::filesystem::create_directories(ctx.log_dir);
 
         //Create config file with default settings.
 
@@ -91,12 +92,15 @@ namespace conf
         cfg.pubport = 8080;
 
 #ifndef NDEBUG
-        cfg.loglevel = get_log_severity_text(conf::LOG_SEVERITY::DEBUG);
+        cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
+        cfg.loglevel = "dbg";
 #else
-        cfg.loglevel = get_log_severity_text(conf::LOG_SEVERITY::WARN);
+        cfg.loglevel_type = conf::LOG_SEVERITY::WARN;
+        cfg.loglevel = "wrn";
 #endif
-        cfg.loggers.emplace("console");
 
+        cfg.loggers.emplace("console");
+        cfg.loggers.emplace("file");
         cfg.binary = "<your contract binary here>";
 
         //Save the default settings into the config file.
@@ -281,6 +285,7 @@ namespace conf
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
+        cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
         cfg.loggers.clear();
         for (auto &v : d["loggers"].array_range())
             cfg.loggers.emplace(v.as<std::string>());
@@ -456,10 +461,10 @@ namespace conf
         }
 
         // Log settings
-        const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err", "fat", "ver"});
+        const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err"});
         if (valid_loglevels.count(cfg.loglevel) != 1)
         {
-            std::cout << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err|fat|ver\n";
+            std::cout << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err\n";
             return -1;
         }
 
@@ -541,48 +546,15 @@ namespace conf
      * @param severity log severity code.
      * @return log severity type.
     */
-    LOG_SEVERITY get_log_severity_type(std::string severity)
+    LOG_SEVERITY get_loglevel_type(std::string_view severity)
     {
         if (severity == "dbg")
             return LOG_SEVERITY::DEBUG;
-        else if (severity == "err")
-            return LOG_SEVERITY::ERROR;
         else if (severity == "wrn")
             return LOG_SEVERITY::WARN;
         else if (severity == "inf")
             return LOG_SEVERITY::INFO;
-        else if (severity == "fat")
-            return LOG_SEVERITY::FATEL;
-        else if (severity == "ver")
-            return LOG_SEVERITY::VERBOSE;
-        else if (severity == "non")
-            return LOG_SEVERITY::NONE;
         else
-            return LOG_SEVERITY::UNKNOWN;
-    }
-
-    /**
-     * Convert Log Severity enum type to string. 
-     * @param severity log severity type.
-     * @return log severity code.
-    */
-    std::string get_log_severity_text(LOG_SEVERITY severity)
-    {
-        if (severity == LOG_SEVERITY::DEBUG)
-            return "dbg";
-        else if (severity == LOG_SEVERITY::ERROR)
-            return "err";
-        else if (severity == LOG_SEVERITY::WARN)
-            return "wrn";
-        else if (severity == LOG_SEVERITY::INFO)
-            return "inf";
-        else if (severity == LOG_SEVERITY::FATEL)
-            return "fat";
-        else if (severity == LOG_SEVERITY::VERBOSE)
-            return "ver";
-        else if (severity == LOG_SEVERITY::NONE)
-            return "non";
-        else
-            return "ukw";
+            return LOG_SEVERITY::ERROR;
     }
 } // namespace conf

@@ -1,10 +1,11 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
+#include "hplog.hpp"
 
 namespace hplog
 {
-    constexpr size_t MAX_TRACE_FILESIZE = 10 * 1024 * 1024; // Maximum file size (10MB)
-    constexpr size_t MAX_TRACE_FILECOUNT = 50; // Maximum files in a folder
+    constexpr size_t MAX_TRACE_FILESIZE = 10;// * 1024 * 1024; // Maximum file size (10MB)
+    constexpr size_t MAX_TRACE_FILECOUNT = 50;              // Maximum files in a folder
 
     class plog_formatter;
     static plog::ConsoleAppender<plog_formatter> consoleAppender;
@@ -34,38 +35,34 @@ namespace hplog
         }
     };
 
-    int init()
+    void init()
     {
-        // Skip plog initialization if log severity is configured as none.
-        conf::LOG_SEVERITY log_severity = conf::get_log_severity_type(conf::cfg.loglevel);
-        if (log_severity == conf::LOG_SEVERITY::NONE)
-            return 0;
-
         plog::Severity level;
-        if (log_severity == conf::LOG_SEVERITY::DEBUG)
+
+        if (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG)
             level = plog::Severity::debug;
-        else if (log_severity == conf::LOG_SEVERITY::INFO)
+        else if (conf::cfg.loglevel_type == conf::LOG_SEVERITY::INFO)
             level = plog::Severity::info;
-        else if (log_severity == conf::LOG_SEVERITY::WARN)
+        else if (conf::cfg.loglevel_type == conf::LOG_SEVERITY::WARN)
             level = plog::Severity::warning;
-        else if (log_severity == conf::LOG_SEVERITY::ERROR)
-            level = plog::Severity::error;
-        else if (log_severity == conf::LOG_SEVERITY::FATEL)
-            level = plog::Severity::fatal;
-        else if (log_severity == conf::LOG_SEVERITY::VERBOSE)
-            level = plog::Severity::verbose;
         else
-            return -1;
+            level = plog::Severity::error;
 
-        std::string pid_str = std::to_string(getpid());
-        std::string trace_file;
-        trace_file
-            .append(conf::ctx.log_dir)
-            .append("/hp_%N.log");
+        const std::string trace_file = conf::ctx.log_dir + "/hp.log";
+        static plog::RollingFileAppender<plog_formatter> fileAppender(trace_file.c_str(), MAX_TRACE_FILESIZE, MAX_TRACE_FILECOUNT);
 
-        plog::init<plog_formatter>(level, trace_file.c_str(), MAX_TRACE_FILESIZE, MAX_TRACE_FILECOUNT)
-            .addAppender(&consoleAppender);
-
-        return 0;
+        // Take decision to append logger for file / console or both.
+        if (conf::cfg.loggers.size() == 2)
+        {
+            plog::init(level, &fileAppender).addAppender(&consoleAppender);
+        }
+        else if (conf::cfg.loggers.count("console") == 1)
+        {
+            plog::init(level, &consoleAppender);
+        }
+        else
+        {
+            plog::init(level, &fileAppender);
+        }
     }
 } // namespace hplog

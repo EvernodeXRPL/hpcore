@@ -16,8 +16,7 @@ namespace hpfs
 
     int init()
     {
-        conf::LOG_SEVERITY log_severity = conf::get_log_severity_type(conf::cfg.loglevel);
-        active_hpfs_trace_arg = (log_severity == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
+        active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
 
         LOG_INFO << "Starting hpfs merge process...";
         if (start_merge_process() == -1)

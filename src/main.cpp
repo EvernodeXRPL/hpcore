@@ -184,12 +184,14 @@ int main(int argc, char **argv)
                 // both have the same cwd.
                 chdir(conf::ctx.contract_dir.c_str());
 
+                hplog::init();
+
                 LOG_INFO << "Operating mode: "
                          << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
                 LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
 
                 if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 || read_req::init() != 0 ||
-                    state_serve::init() != 0 || state_sync::init() != 0 || cons::init() != 0 ||  hplog::init() != 0)
+                    state_serve::init() != 0 || state_sync::init() != 0 || cons::init() != 0)
                 {
                     deinit();
                     return -1;
