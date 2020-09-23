@@ -249,7 +249,7 @@ do
         peers:${mypeers}, \
         unl:${myunl}, \
         roundtime: 1000, \
-        loglevel: 'debug', \
+        loglevel: 'dbg', \
         loggers:['console', 'file'] \
         }, null, 2)" > ./cfg/node$n.cfg
 
