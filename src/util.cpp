@@ -318,11 +318,11 @@ namespace util
     /**
      * Fetch file extension from the file path. 
      * @param path File path.
-     * @return Returns the file extension as a string.
+     * @return Returns the file extension as a string_view.
      */
     std::string_view fetch_file_extension(std::string_view path)
     {
-        // Get the position of "." in the file path to get the extension.
+        // Get the position of right most "." in the file path.
         const std::size_t pos = path.rfind('.');
 
         if (pos != std::string::npos)
@@ -332,6 +332,25 @@ namespace util
         }
 
         return "";
+    }
+
+    /**
+     * Remove file extension from file name. 
+     * @param file_name File name.
+     * @return Returns the file name without extension.
+     */
+    std::string_view remove_file_extension(std::string_view file_name)
+    {
+        // Get the position of right most "." in the file name.
+        const std::size_t pos = file_name.rfind('.');
+
+        if (pos != std::string::npos)
+        {
+            // Take the sub string till the "." from the beginning.
+            return file_name.substr(0, pos);
+        }
+
+        return file_name;
     }
 
     /**

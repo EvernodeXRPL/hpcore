@@ -167,8 +167,7 @@ namespace cons
             else
             {
                 const std::string_view extension = util::fetch_file_extension(file_path);
-
-                std::string file_name(entry.d_name);
+                const std::string file_name(util::remove_file_extension(entry.d_name));
 
                 if (extension != ".lcl")
                 {

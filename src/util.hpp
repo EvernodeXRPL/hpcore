@@ -104,6 +104,8 @@ namespace util
 
     std::string_view fetch_file_extension(std::string_view path);
 
+    std::string_view remove_file_extension(std::string_view file_name);
+
     int remove_file(std::string_view path);
 
 } // namespace util
