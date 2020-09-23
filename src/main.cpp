@@ -74,12 +74,11 @@ void deinit()
     usr::deinit();
     p2p::deinit();
     hpfs::deinit();
-    hplog::deinit();
 }
 
 void sigint_handler(int signum)
 {
-    LOG_WARN << "Interrupt signal (" << signum << ") received.";
+    LOG_WARNING << "Interrupt signal (" << signum << ") received.";
     deinit();
     std::cout << "hpcore exiting\n";
     exit(signum);
@@ -105,19 +104,19 @@ void std_terminate() noexcept
         }
         catch (std::exception &ex)
         {
-            LOG_ERR << "std error: " << ex.what();
+            LOG_ERROR << "std error: " << ex.what();
         }
         catch (...)
         {
-            LOG_ERR << "std error: Terminated due to unknown exception";
+            LOG_ERROR << "std error: Terminated due to unknown exception";
         }
     }
     else
     {
-        LOG_ERR << "std error: Terminated due to unknown reason";
+        LOG_ERROR << "std error: Terminated due to unknown reason";
     }
 
-    LOG_ERR << boost::stacktrace::stacktrace();
+    LOG_ERROR << boost::stacktrace::stacktrace();
 
     exit(1);
 }

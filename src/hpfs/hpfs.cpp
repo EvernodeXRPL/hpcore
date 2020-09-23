@@ -16,7 +16,7 @@ namespace hpfs
 
     int init()
     {
-        active_hpfs_trace_arg = (conf::cfg.loglevel == "debug" ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
+        active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
 
         LOG_INFO << "Starting hpfs merge process...";
         if (start_merge_process() == -1)
@@ -67,12 +67,12 @@ namespace hpfs
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << errno << ": hpfs merge process execv failed.";
+            LOG_ERROR << errno << ": hpfs merge process execv failed.";
             exit(1);
         }
         else
         {
-            LOG_ERR << errno << ": fork() failed when starting hpfs merge process.";
+            LOG_ERROR << errno << ": fork() failed when starting hpfs merge process.";
             return -1;
         }
 
@@ -87,7 +87,7 @@ namespace hpfs
         if (pid > 0)
         {
             // HotPocket process.
-            LOG_DBG << "Starting hpfs " << mode << " session...";
+            LOG_DEBUG << "Starting hpfs " << mode << " session...";
 
             // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             if (mount_dir.empty())
@@ -112,7 +112,7 @@ namespace hpfs
                 // Sending signal 0 to test whether process exist.
                 if (util::kill_process(pid, false, 0) == -1)
                 {
-                    LOG_ERR << "hpfs process " << pid << " has stopped.";
+                    LOG_ERROR << "hpfs process " << pid << " has stopped.";
                     break;
                 }
 
@@ -126,7 +126,7 @@ namespace hpfs
                 // When hpfs is fully initialized we should receive some file from check_path.
                 if (!hpfs_initialized && errno != ENOENT)
                 {
-                    LOG_ERR << errno << ": Error in checking hpfs status.";
+                    LOG_ERROR << errno << ": Error in checking hpfs status.";
                     break;
                 }
 
@@ -135,7 +135,7 @@ namespace hpfs
             // Kill the process if hpfs couldn't be initialized after the wait period.
             if (!hpfs_initialized)
             {
-                LOG_ERR << "Couldn't initialize hpfs session.";
+                LOG_ERROR << "Couldn't initialize hpfs session.";
                 util::kill_process(pid, true);
                 return -1;
             }
@@ -165,12 +165,12 @@ namespace hpfs
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERR << errno << ": hpfs session process execv failed.";
+            LOG_ERROR << errno << ": hpfs session process execv failed.";
             exit(1);
         }
         else
         {
-            LOG_ERR << errno << ": fork() failed when starting hpfs session process.";
+            LOG_ERROR << errno << ": fork() failed when starting hpfs session process.";
             return -1;
         }
 
@@ -187,12 +187,12 @@ namespace hpfs
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
-            LOG_DBG << "Cannot get hash. vpath not found. " << vpath;
+            LOG_DEBUG << "Cannot get hash. vpath not found. " << vpath;
             return 0;
         }
         else if (fd == -1)
         {
-            LOG_ERR << errno << ": Error opening hash file. " << vpath;
+            LOG_ERROR << errno << ": Error opening hash file. " << vpath;
             return -1;
         }
 
@@ -200,7 +200,7 @@ namespace hpfs
         close(fd);
         if (res == -1)
         {
-            LOG_ERR << errno << ": Error reading hash file. " << vpath;
+            LOG_ERROR << errno << ": Error reading hash file. " << vpath;
             return -1;
         }
         return 1;
@@ -216,12 +216,12 @@ namespace hpfs
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
-            LOG_DBG << "Cannot get file block hashes. vpath not found. " << vpath;
+            LOG_DEBUG << "Cannot get file block hashes. vpath not found. " << vpath;
             return 0;
         }
         else if (fd == -1)
         {
-            LOG_DBG << errno << ": Error opening hashmap children. " << vpath;
+            LOG_DEBUG << errno << ": Error opening hashmap children. " << vpath;
             return -1;
         }
 
@@ -229,7 +229,7 @@ namespace hpfs
         if (fstat(fd, &st) == -1)
         {
             close(fd);
-            LOG_ERR << errno << ": Error reading block hashes length. " << vpath;
+            LOG_ERROR << errno << ": Error reading block hashes length. " << vpath;
             return -1;
         }
 
@@ -240,7 +240,7 @@ namespace hpfs
         close(fd);
         if (res == -1)
         {
-            LOG_ERR << errno << ": Error reading block hashes. " << vpath;
+            LOG_ERROR << errno << ": Error reading block hashes. " << vpath;
             return -1;
         }
         return 1;
@@ -256,12 +256,12 @@ namespace hpfs
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
-            LOG_DBG << "Cannot get dir children hashes. Dir vpath not found. " << dir_vpath;
+            LOG_DEBUG << "Cannot get dir children hashes. Dir vpath not found. " << dir_vpath;
             return 0;
         }
         else if (fd == -1)
         {
-            LOG_ERR << errno << ": Error opening dir hash children nodes. " << dir_vpath;
+            LOG_ERROR << errno << ": Error opening dir hash children nodes. " << dir_vpath;
             return -1;
         }
 
@@ -269,7 +269,7 @@ namespace hpfs
         if (fstat(fd, &st) == -1)
         {
             close(fd);
-            LOG_ERR << errno << ": Error reading hash children nodes length. " << dir_vpath;
+            LOG_ERROR << errno << ": Error reading hash children nodes length. " << dir_vpath;
             return -1;
         }
 
@@ -280,7 +280,7 @@ namespace hpfs
         close(fd);
         if (res == -1)
         {
-            LOG_ERR << errno << ": Error reading hash children nodes. " << dir_vpath;
+            LOG_ERROR << errno << ": Error reading hash children nodes. " << dir_vpath;
             return -1;
         }
         return 1;

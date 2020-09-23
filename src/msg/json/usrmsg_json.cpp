@@ -228,28 +228,28 @@ namespace msg::usrmsg::json
         // Validate msg type.
         if (d[msg::usrmsg::FLD_TYPE] != msg::usrmsg::MSGTYPE_HANDSHAKE_RESPONSE)
         {
-            LOG_DBG << "User handshake response type invalid. 'handshake_response' expected.";
+            LOG_DEBUG << "User handshake response type invalid. 'handshake_response' expected.";
             return -1;
         }
 
         // Compare the response handshake string with the original issued challenge.
         if (!d.contains(msg::usrmsg::FLD_CHALLENGE) || d[msg::usrmsg::FLD_CHALLENGE] != original_challenge.data())
         {
-            LOG_DBG << "User handshake response 'challenge' invalid.";
+            LOG_DEBUG << "User handshake response 'challenge' invalid.";
             return -1;
         }
 
         // Check for the 'sig' field existence.
         if (!d.contains(msg::usrmsg::FLD_SIG) || !d[msg::usrmsg::FLD_SIG].is<std::string>())
         {
-            LOG_DBG << "User handshake response 'challenge signature' invalid.";
+            LOG_DEBUG << "User handshake response 'challenge signature' invalid.";
             return -1;
         }
 
         // Check for the 'pubkey' field existence.
         if (!d.contains(msg::usrmsg::FLD_PUBKEY) || !d[msg::usrmsg::FLD_PUBKEY].is<std::string>())
         {
-            LOG_DBG << "User handshake response 'public key' invalid.";
+            LOG_DEBUG << "User handshake response 'public key' invalid.";
             return -1;
         }
 
@@ -257,14 +257,14 @@ namespace msg::usrmsg::json
         if (!d.contains(msg::usrmsg::FLD_PROTOCOL) || !d[msg::usrmsg::FLD_PROTOCOL].is<std::string>())
         {
 
-            LOG_DBG << "User handshake response 'protocol' invalid.";
+            LOG_DEBUG << "User handshake response 'protocol' invalid.";
             return -1;
         }
 
         std::string_view protocolsv = d[msg::usrmsg::FLD_PROTOCOL].as<std::string_view>();
         if (protocolsv != "json" && protocolsv != "bson")
         {
-            LOG_DBG << "User handshake response 'protocol' type invalid.";
+            LOG_DEBUG << "User handshake response 'protocol' type invalid.";
             return -1;
         }
 
@@ -275,7 +275,7 @@ namespace msg::usrmsg::json
                 d[msg::usrmsg::FLD_SIG].as<std::string_view>(),
                 pubkeysv) != 0)
         {
-            LOG_DBG << "User challenge response signature verification failed.";
+            LOG_DEBUG << "User challenge response signature verification failed.";
             return -1;
         }
 
@@ -304,14 +304,14 @@ namespace msg::usrmsg::json
         }
         catch(const std::exception& e)
         {
-            LOG_DBG << "User json message parsing failed.";
+            LOG_DEBUG << "User json message parsing failed.";
             return -1;
         }
 
         // Check existence of msg type field.
         if (!d.contains(msg::usrmsg::FLD_TYPE) || !d[msg::usrmsg::FLD_TYPE].is<std::string>())
         {
-            LOG_DBG << "User json message 'type' missing or invalid.";
+            LOG_DEBUG << "User json message 'type' missing or invalid.";
             return -1;
         }
 
@@ -343,13 +343,13 @@ namespace msg::usrmsg::json
     {
         if (!d.contains(msg::usrmsg::FLD_CONTENT))
         {
-            LOG_DBG << "Read request required fields missing.";
+            LOG_DEBUG << "Read request required fields missing.";
             return -1;
         }
 
         if (!d[msg::usrmsg::FLD_CONTENT].is<std::string>())
         {
-            LOG_DBG << "Read request invalid field values.";
+            LOG_DEBUG << "Read request invalid field values.";
             return -1;
         }
 
@@ -362,7 +362,7 @@ namespace msg::usrmsg::json
                 content.length(),
                 contenthex) != 0)
         {
-            LOG_DBG << "Read request format invalid.";
+            LOG_DEBUG << "Read request format invalid.";
             return -1;
         }
 
@@ -389,13 +389,13 @@ namespace msg::usrmsg::json
     {
         if (!d.contains(msg::usrmsg::FLD_INPUT_CONTAINER) || !d.contains(msg::usrmsg::FLD_SIG))
         {
-            LOG_DBG << "User signed input required fields missing.";
+            LOG_DEBUG << "User signed input required fields missing.";
             return -1;
         }
 
         if (!d[msg::usrmsg::FLD_INPUT_CONTAINER].is<std::string>() || !d[msg::usrmsg::FLD_SIG].is<std::string>())
         {
-            LOG_DBG << "User signed input invalid field values.";
+            LOG_DEBUG << "User signed input invalid field values.";
             return -1;
         }
 
@@ -439,19 +439,19 @@ namespace msg::usrmsg::json
         }
         catch(const std::exception& e)
         {
-            LOG_DBG << "User input container json parsing failed.";
+            LOG_DEBUG << "User input container json parsing failed.";
             return -1;
         }
 
         if (!d.contains(msg::usrmsg::FLD_INPUT) || !d.contains(msg::usrmsg::FLD_NONCE) || !d.contains(msg::usrmsg::FLD_MAX_LCL_SEQ))
         {
-            LOG_DBG << "User input container required fields missing.";
+            LOG_DEBUG << "User input container required fields missing.";
             return -1;
         }
 
         if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<std::string>() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].is<uint64_t>())
         {
-            LOG_DBG << "User input container invalid field values.";
+            LOG_DEBUG << "User input container invalid field values.";
             return -1;
         }
 
@@ -464,7 +464,7 @@ namespace msg::usrmsg::json
                 input.length(),
                 inputhex) != 0)
         {
-            LOG_DBG << "Contract input format invalid.";
+            LOG_DEBUG << "Contract input format invalid.";
             return -1;
         }
 

@@ -91,6 +91,11 @@ Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you nee
 1. Download [concurrentqueue 1.0.2](https://github.com/cameron314/concurrentqueue/archive/1.0.2.zip) and extract.
 2. Run `sudo cp concurrentqueue.h /usr/local/include/`
 
+#### Install plog
+1. Download and extract [plog1.1.5](https://github.com/SergiusTheBest/plog/archive/1.1.5.zip)
+2. Navigate into the extracted directory in a terminal.
+3. Run `sudo cp -r include/plog /usr/local/include/`
+
 #### Run ldconfig
 `sudo ldconfig`
 

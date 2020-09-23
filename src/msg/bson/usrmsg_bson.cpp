@@ -130,13 +130,13 @@ namespace msg::usrmsg::bson
       }
       catch (const std::exception &e)
       {
-         LOG_DBG << "User bson message parsing failed.";
+         LOG_DEBUG << "User bson message parsing failed.";
          return -1;
       }
 
       if (!d.contains(FLD_TYPE) || !d[FLD_TYPE].is_string())
       {
-         LOG_DBG << "User bson message 'type' missing or invalid.";
+         LOG_DEBUG << "User bson message 'type' missing or invalid.";
          return -1;
       }
 
@@ -168,7 +168,7 @@ namespace msg::usrmsg::bson
    {
       if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
       {
-         LOG_DBG << "Read request 'content' field missing or invalid.";
+         LOG_DEBUG << "Read request 'content' field missing or invalid.";
          return -1;
       }
 
@@ -197,7 +197,7 @@ namespace msg::usrmsg::bson
       if (!d.contains(msg::usrmsg::FLD_INPUT_CONTAINER) || !d.contains(msg::usrmsg::FLD_SIG) ||
           !d[msg::usrmsg::FLD_INPUT_CONTAINER].is_byte_string_view() || !d[msg::usrmsg::FLD_SIG].is_byte_string_view())
       {
-         LOG_DBG << "User signed input required fields missing or invalid.";
+         LOG_DEBUG << "User signed input required fields missing or invalid.";
          return -1;
       }
 
@@ -232,14 +232,14 @@ namespace msg::usrmsg::bson
       }
       catch (const std::exception &e)
       {
-         LOG_DBG << "User input container bson parsing failed.";
+         LOG_DEBUG << "User input container bson parsing failed.";
          return -1;
       }
 
       if (!d.contains(msg::usrmsg::FLD_INPUT) || !d.contains(msg::usrmsg::FLD_NONCE) || !d.contains(msg::usrmsg::FLD_MAX_LCL_SEQ) ||
           !d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_string() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].is_uint64())
       {
-         LOG_DBG << "User input container required fields missing or invalid.";
+         LOG_DEBUG << "User input container required fields missing or invalid.";
          return -1;
       }
 

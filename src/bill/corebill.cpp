@@ -28,7 +28,7 @@ void report_violation(const std::string host)
 {
     if (whitelist.find(host) != whitelist.end()) // Is in whitelist
     {
-        LOG_DBG << host << " is whitelisted. Ignoring the violation.";
+        LOG_DEBUG << host << " is whitelisted. Ignoring the violation.";
         return;
     }
 
@@ -55,7 +55,7 @@ void report_violation(const std::string host)
             stat.counter = 0;
 
             graylist.emplace(host, VIOLATION_REFRESH_INTERVAL);
-            LOG_WARN << host << " placed on graylist.";
+            LOG_WARNING << host << " placed on graylist.";
         }
         else if (elapsed_time > VIOLATION_REFRESH_INTERVAL)
         {

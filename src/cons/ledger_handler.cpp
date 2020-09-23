@@ -32,7 +32,7 @@ namespace cons
         else
         {
             //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-            LOG_ERR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
+            LOG_ERROR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
         }
 
         //Serialize lcl using flatbuffer ledger schema.
@@ -162,7 +162,7 @@ namespace cons
 
             if (util::is_dir_exists(file_path))
             {
-                LOG_ERR << "Found directory " << entry.d_name << " in " << conf::ctx.hist_dir << ". There should be no folders in this directory";
+                LOG_ERROR << "Found directory " << entry.d_name << " in " << conf::ctx.hist_dir << ". There should be no folders in this directory";
             }
             else
             {
@@ -172,7 +172,7 @@ namespace cons
 
                 if (extension != ".lcl")
                 {
-                    LOG_ERR << "Found invalid file extension: " << extension << " for lcl file " << entry.d_name << " in " << conf::ctx.hist_dir;
+                    LOG_ERROR << "Found invalid file extension: " << extension << " for lcl file " << entry.d_name << " in " << conf::ctx.hist_dir;
                 }
 
                 const size_t pos = file_name.find("-");
@@ -201,7 +201,7 @@ namespace cons
                 else
                 {
                     //lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-                    LOG_ERR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.hist_dir;
+                    LOG_ERROR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.hist_dir;
                 }
             }
         }
@@ -244,7 +244,7 @@ namespace cons
 
         ctx.last_requested_lcl = required_lcl;
 
-        LOG_DBG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
+        LOG_DEBUG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
     }
 
     /**
@@ -268,14 +268,14 @@ namespace cons
             const auto itr = cons::ctx.ledger_cache.find(req_seq_no);
             if (itr == cons::ctx.ledger_cache.end())
             {
-                LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
+                LOG_DEBUG << "Required lcl peer asked for is not in our lcl cache.";
                 //either this node is also not in consesnsus ledger or other node requesting a lcl that is older than node's current
                 // minimum lcl sequence becuase of maximum ledger history range.
                 return false;
             }
             else if (itr->second.lcl != hr.required_lcl)
             {
-                LOG_DBG << "Required lcl peer asked for is not in our lcl cache.";
+                LOG_DEBUG << "Required lcl peer asked for is not in our lcl cache.";
                 //either this node or requesting node is in a fork condition.
                 return false;
             }
@@ -312,20 +312,20 @@ namespace cons
             //eventhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
             if (hr.minimum_lcl != itr->second.lcl)
             {
-                LOG_DBG << "Invalid minimum ledger. Recieved min hash: " << hr.minimum_lcl << " Node hash: " << itr->second.lcl;
+                LOG_DEBUG << "Invalid minimum ledger. Recieved min hash: " << hr.minimum_lcl << " Node hash: " << itr->second.lcl;
                 history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
                 return history_response;
             }
         }
         else if (min_seq_no > cons::ctx.ledger_cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
         {
-            LOG_DBG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Recvd hash: " << hr.minimum_lcl;
+            LOG_DEBUG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Recvd hash: " << hr.minimum_lcl;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
             return history_response;
         }
         else
         {
-            LOG_DBG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
+            LOG_DEBUG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
             min_seq_no = cons::ctx.ledger_cache.begin()->first;
         }
 
@@ -380,7 +380,7 @@ namespace cons
         //check response object contains
         if (ctx.last_requested_lcl.empty())
         {
-            LOG_DBG << "Peer sent us a history response but we never asked for one!";
+            LOG_DEBUG << "Peer sent us a history response but we never asked for one!";
             return;
         }
 
@@ -390,7 +390,7 @@ namespace cons
             // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger .
             remove_ledger(ctx.lcl);
             cons::ctx.ledger_cache.erase(ctx.ledger_cache.rbegin()->first);
-            LOG_DBG << "Invalid min ledger. Removed last ledger.";
+            LOG_DEBUG << "Invalid min ledger. Removed last ledger.";
         }
         else
         {
@@ -407,7 +407,7 @@ namespace cons
 
             if (!have_requested_lcl)
             {
-                LOG_DBG << "Peer sent us a history response but not containing the lcl we asked for! " << hr.hist_ledgers.size();
+                LOG_DEBUG << "Peer sent us a history response but not containing the lcl we asked for! " << hr.hist_ledgers.size();
                 return;
             }
 
@@ -433,7 +433,7 @@ namespace cons
                 //recieved lcl hash and hash generated from recieved lcl content doesn't match -> abandon applying it
                 if (lcl_hash != rec_lcl_hash)
                 {
-                    LOG_WARN << "peer sent us a history response we asked for but the ledger data does not match the ledger hashes";
+                    LOG_WARNING << "peer sent us a history response we asked for but the ledger data does not match the ledger hashes";
                     //todo: we should penalize peer who send this?
                     return;
                 }

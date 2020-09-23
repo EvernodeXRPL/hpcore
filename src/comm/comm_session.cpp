@@ -57,7 +57,7 @@ namespace comm
 
             if (poll(pollfds, 1, 20) == -1)
             {
-                LOG_ERR << errno << ": Session reader poll failed.";
+                LOG_ERROR << errno << ": Session reader poll failed.";
                 break;
             }
 
@@ -231,7 +231,7 @@ namespace comm
 
         if (writev(write_fd, memsegs, 2) == -1)
         {
-            LOG_ERR << errno << ": Session " << uniqueid.substr(0, 10) << " send writev failed.";
+            LOG_ERROR << errno << ": Session " << uniqueid.substr(0, 10) << " send writev failed.";
             return -1;
         }
         return 0;
@@ -301,7 +301,7 @@ namespace comm
         reader_thread.join();
         writer_thread.join();
 
-        LOG_DBG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
+        LOG_DEBUG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
                 << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
     }
 

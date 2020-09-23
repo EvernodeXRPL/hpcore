@@ -61,7 +61,7 @@ namespace p2p
         // Compare the response challenge string with the original issued challenge.
         if (session.issued_challenge != challenge_resp.challenge)
         {
-            LOG_DBG << "Peer challenge response, challenge invalid.";
+            LOG_DEBUG << "Peer challenge response, challenge invalid.";
             return -1;
         }
 
@@ -71,7 +71,7 @@ namespace p2p
                 challenge_resp.signature,
                 challenge_resp.pubkey) != 0)
         {
-            LOG_DBG << "Peer challenge response signature verification failed.";
+            LOG_DEBUG << "Peer challenge response signature verification failed.";
             return -1;
         }
 
@@ -128,7 +128,7 @@ namespace p2p
                     p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
                     p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
-                    LOG_DBG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
+                    LOG_DEBUG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
                     return 0;
                 }
                 else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
@@ -139,7 +139,7 @@ namespace p2p
             }
 
             // Reaching this point means we don't need the new session.
-            LOG_DBG << "Rejecting new peer connection because existing connection takes priority [" << pubkeyhex.substr(0, 10) << "]";
+            LOG_DEBUG << "Rejecting new peer connection because existing connection takes priority [" << pubkeyhex.substr(0, 10) << "]";
             return -1;
         }
     }
@@ -153,7 +153,7 @@ namespace p2p
     {
         if (ctx.peer_connections.size() == 0)
         {
-            LOG_DBG << "No peers to broadcast (not even self). Cannot broadcast.";
+            LOG_DEBUG << "No peers to broadcast (not even self). Cannot broadcast.";
             return;
         }
 
@@ -204,12 +204,12 @@ namespace p2p
         const size_t connected_peers = ctx.peer_connections.size();
         if (connected_peers == 0)
         {
-            LOG_DBG << "No peers to random send.";
+            LOG_DEBUG << "No peers to random send.";
             return;
         }
         else if (connected_peers == 1 && ctx.peer_connections.begin()->second->is_self)
         {
-            LOG_DBG << "Only self is connected. Cannot random send.";
+            LOG_DEBUG << "Only self is connected. Cannot random send.";
             return;
         }
 
