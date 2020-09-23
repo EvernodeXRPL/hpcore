@@ -26,6 +26,9 @@ namespace sc
         }
 
         int ret = 0;
+
+        LOG_DEBUG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
+
         const pid_t pid = fork();
         if (pid > 0)
         {
@@ -74,8 +77,6 @@ namespace sc
             // Write the contract input message from HotPocket to the stdin (0) of the contract process.
             write_contract_args(ctx);
 
-            LOG_DEBUG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
-
             const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
             int len = conf::cfg.runtime_binexec_args.size() + 1;
             if (using_appbill)
@@ -97,7 +98,7 @@ namespace sc
             chdir(ctx.args.state_dir.c_str());
 
             int ret = execv(execv_args[0], execv_args);
-            LOG_ERROR << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "");
+            std::cerr << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
             exit(1);
         }
         else
@@ -160,7 +161,7 @@ namespace sc
             return -1;
 
         LOG_DEBUG << "Stopping hpfs session... pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
-       
+
         if (util::kill_process(ctx.hpfs_pid, true) == -1)
             return -1;
 

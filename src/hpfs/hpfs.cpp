@@ -67,7 +67,7 @@ namespace hpfs
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERROR << errno << ": hpfs merge process execv failed.";
+            std::cerr << errno << ": hpfs merge process execv failed.\n";
             exit(1);
         }
         else
@@ -165,7 +165,7 @@ namespace hpfs
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERROR << errno << ": hpfs session process execv failed.";
+            std::cerr << errno << ": hpfs session process execv failed.\n";
             exit(1);
         }
         else

@@ -280,14 +280,14 @@ namespace cons
             // only consider recent proposals and proposals from previous stage and current stage.
             const bool keep_candidate = (time_diff < (conf::cfg.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
             LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
-                    << " [s" << std::to_string(cp.stage)
-                    << "] u/i/o:" << cp.users.size()
-                    << "/" << cp.hash_inputs.size()
-                    << "/" << cp.hash_outputs.size()
-                    << " ts:" << std::to_string(cp.time)
-                    << " lcl:" << cp.lcl.substr(0, 15)
-                    << " state:" << cp.state
-                    << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]";
+                      << " [s" << std::to_string(cp.stage)
+                      << "] u/i/o:" << cp.users.size()
+                      << "/" << cp.hash_inputs.size()
+                      << "/" << cp.hash_outputs.size()
+                      << " ts:" << std::to_string(cp.time)
+                      << " lcl:" << cp.lcl.substr(0, 15)
+                      << " state:" << cp.state
+                      << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]";
 
             if (keep_candidate)
                 ++itr;
@@ -377,7 +377,7 @@ namespace cons
         p2p::broadcast_message(fbuf, true);
 
         LOG_DEBUG << "NUP sent."
-                << " users:" << nup.user_inputs.size();
+                  << " users:" << nup.user_inputs.size();
     }
 
     /**
@@ -524,7 +524,7 @@ namespace cons
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
             chdir(conf::ctx.state_rw_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
-            LOG_ERROR << "Appbill process execv failed: " << ret;
+            std::cerr << errno << ": Appbill process execv failed.\n";
             return false;
         }
         else
@@ -667,11 +667,11 @@ namespace cons
             p2p::broadcast_message(fbuf, true);
 
         LOG_DEBUG << "Proposed u/i/o:" << p.users.size()
-                << "/" << p.hash_inputs.size()
-                << "/" << p.hash_outputs.size()
-                << " ts:" << std::to_string(p.time)
-                << " lcl:" << p.lcl.substr(0, 15)
-                << " state:" << p.state;
+                  << "/" << p.hash_inputs.size()
+                  << "/" << p.hash_outputs.size()
+                  << " ts:" << std::to_string(p.time)
+                  << " lcl:" << p.lcl.substr(0, 15)
+                  << " state:" << p.state;
     }
 
     /**
