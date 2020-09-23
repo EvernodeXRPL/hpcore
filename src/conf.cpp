@@ -136,7 +136,8 @@ namespace conf
         basedir = util::realpath(basedir);
 
         // Take the parent directory path.
-        ctx.exe_dir = dirname(util::realpath(exepath).data());
+        std::string exepath1 = util::realpath(exepath);
+        ctx.exe_dir = dirname(exepath1.data());
 
         ctx.websocketd_exe_path = ctx.exe_dir + "/" + "websocketd";
         ctx.websocat_exe_path = ctx.exe_dir + "/" + "websocat";
@@ -509,7 +510,7 @@ namespace conf
 
         for (const std::string &path : paths)
         {
-            if (!util::is_file_exists(path))
+            if (!util::is_file_exists(path) && !util::is_dir_exists(path))
             {
                 if (path == ctx.tls_key_file || path == ctx.tls_cert_file)
                 {

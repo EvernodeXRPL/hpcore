@@ -246,14 +246,14 @@ namespace util
     }
 
     /**
-     * Check whether given file or directory exists. 
-     * @param path File or directory path.
+     * Check whether given file exists. 
+     * @param path File path.
      * @return Returns true if give file or directory exists otherwise false.
      */
     bool is_file_exists(std::string_view path)
     {
         struct stat st;
-        return stat(path.data(), &st) == 0;
+        return (stat(path.data(), &st) == 0 && S_ISREG(st.st_mode));
     }
 
     /**
@@ -305,7 +305,7 @@ namespace util
                 // or previous directory entry.
                 if (std::strcmp(en->d_name, ".") != 0 && std::strcmp(en->d_name, "..") != 0)
                 {
-                    entries.push_back(std::move(*en));
+                    entries.push_back(*en);
                 }
             }
             // Close directory stream.
@@ -320,21 +320,18 @@ namespace util
      * @param path File path.
      * @return Returns the file extension as a string.
      */
-    std::string fetch_file_extension(std::string_view path)
+    std::string_view fetch_file_extension(std::string_view path)
     {
-        // Get the string from the string_view.
-        const std::string path_str(path);
-
         // Get the position of "." in the file path to get the extension.
-        std::size_t pos = path_str.rfind('.');
+        const std::size_t pos = path.rfind('.');
 
         if (pos != std::string::npos)
         {
             // Take the sub string after the ".".
-            return path_str.substr(pos);
+            return path.substr(pos);
         }
 
-        return NULL;
+        return "";
     }
 
     /**

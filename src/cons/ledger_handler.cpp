@@ -166,7 +166,7 @@ namespace cons
             }
             else
             {
-                const std::string extension = util::fetch_file_extension(file_path);
+                const std::string_view extension = util::fetch_file_extension(file_path);
 
                 std::string file_name(entry.d_name);
 

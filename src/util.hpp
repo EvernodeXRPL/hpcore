@@ -102,7 +102,7 @@ namespace util
 
     std::list<dirent> fetch_dir_entries(std::string_view path);
 
-    std::string fetch_file_extension(std::string_view path);
+    std::string_view fetch_file_extension(std::string_view path);
 
     int remove_file(std::string_view path);
 
