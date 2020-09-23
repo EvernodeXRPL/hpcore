@@ -57,7 +57,7 @@ namespace msg::fbuf::p2pmsg
         //Verify container message using flatbuffer verifier
         if (!VerifyContainerBuffer(container_verifier))
         {
-            LOG_DBG << "Flatbuffer verify: Bad peer message container.";
+            LOG_DEBUG << "Flatbuffer verify: Bad peer message container.";
             return -1;
         }
 
@@ -68,7 +68,7 @@ namespace msg::fbuf::p2pmsg
         const uint16_t version = container->version();
         if (version < util::MIN_PEERMSG_VERSION)
         {
-            LOG_DBG << "Peer message is from unsupported protocol version (" << version << ").";
+            LOG_DEBUG << "Peer message is from unsupported protocol version (" << version << ").";
             return -1;
         }
 
@@ -78,7 +78,7 @@ namespace msg::fbuf::p2pmsg
             const int64_t time_now = util::get_epoch_milliseconds();
             if (container->timestamp() < (time_now - conf::cfg.roundtime * 4))
             {
-                LOG_DBG << "Peer message is too old.";
+                LOG_DEBUG << "Peer message is too old.";
                 return -1;
             }
         }
@@ -99,14 +99,14 @@ namespace msg::fbuf::p2pmsg
 
         if (msg_pubkey.empty() || msg_sig.empty())
         {
-            LOG_DBG << "Peer message key pair incomplete. Trust verification failed.";
+            LOG_DEBUG << "Peer message key pair incomplete. Trust verification failed.";
             return -1;
         }
 
         //validate if the message is not from a node of current node's unl list.
         if (!conf::cfg.unl.count(std::string(msg_pubkey)))
         {
-            LOG_DBG << "Peer message pubkey verification failed. Not in UNL.";
+            LOG_DEBUG << "Peer message pubkey verification failed. Not in UNL.";
             return -1;
         }
 
@@ -116,7 +116,7 @@ namespace msg::fbuf::p2pmsg
 
         if (crypto::verify(msg_content, msg_sig, msg_pubkey) != 0)
         {
-            LOG_DBG << "Peer message signature verification failed.";
+            LOG_DEBUG << "Peer message signature verification failed.";
             return -1;
         }
 
@@ -141,7 +141,7 @@ namespace msg::fbuf::p2pmsg
         //verify content message using flatbuffer verifier.
         if (!VerifyContainerBuffer(content_verifier))
         {
-            LOG_DBG << "Flatbuffer verify: Bad content.";
+            LOG_DEBUG << "Flatbuffer verify: Bad content.";
             return -1;
         }
 

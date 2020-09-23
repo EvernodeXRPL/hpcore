@@ -58,8 +58,6 @@ target_link_libraries(hpcore
     libblake3.so
     libboost_system.a
     libboost_thread.a
-    libboost_log.a
-    libboost_log_setup.a
     libboost_filesystem.a
     libboost_stacktrace_backtrace.a
     backtrace

@@ -2,7 +2,6 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util.hpp"
-#include "hplog.hpp"
 
 namespace conf
 {
@@ -78,6 +77,7 @@ namespace conf
         boost::filesystem::create_directories(ctx.config_dir);
         boost::filesystem::create_directories(ctx.hist_dir);
         boost::filesystem::create_directories(ctx.state_rw_dir);
+        boost::filesystem::create_directories(ctx.log_dir);
 
         //Create config file with default settings.
 
@@ -92,12 +92,15 @@ namespace conf
         cfg.pubport = 8080;
 
 #ifndef NDEBUG
-        cfg.loglevel = "debug";
+        cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
+        cfg.loglevel = "dbg";
 #else
-        cfg.loglevel = "warn";
+        cfg.loglevel_type = conf::LOG_SEVERITY::WARN;
+        cfg.loglevel = "wrn";
 #endif
-        cfg.loggers.emplace("console");
 
+        cfg.loggers.emplace("console");
+        cfg.loggers.emplace("file");
         cfg.binary = "<your contract binary here>";
 
         //Save the default settings into the config file.
@@ -282,6 +285,7 @@ namespace conf
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
+        cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
         cfg.loggers.clear();
         for (auto &v : d["loggers"].array_range())
             cfg.loggers.emplace(v.as<std::string>());
@@ -348,7 +352,7 @@ namespace conf
         d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
 
-        d.insert_or_assign("loglevel", cfg.loglevel.data());
+        d.insert_or_assign("loglevel", cfg.loglevel);
 
         jsoncons::ojson loggers(jsoncons::json_array_arg);
         for (std::string_view logger : cfg.loggers)
@@ -457,10 +461,10 @@ namespace conf
         }
 
         // Log settings
-        const std::unordered_set<std::string> valid_loglevels({"debug", "info", "warn", "error"});
+        const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err"});
         if (valid_loglevels.count(cfg.loglevel) != 1)
         {
-            std::cout << "Invalid loglevel configured. Valid values: debug|info|warn|error\n";
+            std::cout << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err\n";
             return -1;
         }
 
@@ -537,4 +541,20 @@ namespace conf
             LOG_INFO << "Switched back to PROPOSER mode.";
     }
 
+    /**
+     * Convert string to Log Severity enum type.
+     * @param severity log severity code.
+     * @return log severity type.
+    */
+    LOG_SEVERITY get_loglevel_type(std::string_view severity)
+    {
+        if (severity == "dbg")
+            return LOG_SEVERITY::DEBUG;
+        else if (severity == "wrn")
+            return LOG_SEVERITY::WARN;
+        else if (severity == "inf")
+            return LOG_SEVERITY::INFO;
+        else
+            return LOG_SEVERITY::ERROR;
+    }
 } // namespace conf

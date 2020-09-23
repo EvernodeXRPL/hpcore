@@ -121,12 +121,12 @@ namespace state_sync
                 }
 
                 // Stop hpfs rw session.
-                LOG_DBG << "State sync: Stopping hpfs session... pid:" << hpfs_pid;
+                LOG_DEBUG << "State sync: Stopping hpfs session... pid:" << hpfs_pid;
                 util::kill_process(hpfs_pid, true);
             }
             else
             {
-                LOG_ERR << "State sync: Failed to start hpfs rw session";
+                LOG_ERROR << "State sync: Failed to start hpfs rw session";
             }
 
             ctx.target_state = hpfs::h32_empty;
@@ -169,7 +169,7 @@ namespace state_sync
                 const auto pending_resp_itr = ctx.submitted_requests.find(key);
                 if (pending_resp_itr == ctx.submitted_requests.end())
                 {
-                    LOG_DBG << "Skipping state response due to hash mismatch.";
+                    LOG_DEBUG << "Skipping state response due to hash mismatch.";
                     continue;
                 }
 
@@ -189,11 +189,11 @@ namespace state_sync
                 // After handling each response, check whether we have reached target state.
                 if (hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/") < 1)
                 {
-                    LOG_ERR << "State sync: exiting due to hash check error.";
+                    LOG_ERROR << "State sync: exiting due to hash check error.";
                     return;
                 }
 
-                LOG_DBG << "State sync: current:" << updated_state << " | target:" << current_target;
+                LOG_DEBUG << "State sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
                     return;
             }
@@ -215,7 +215,7 @@ namespace state_sync
                 {
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
-                    LOG_DBG << "State sync: Resubmitting request...";
+                    LOG_DEBUG << "State sync: Resubmitting request...";
                     submit_request(request);
                 }
             }
@@ -275,7 +275,7 @@ namespace state_sync
      */
     void submit_request(const backlog_item &request)
     {
-        LOG_DBG << "State sync: Submitting request. type:" << request.type
+        LOG_DEBUG << "State sync: Submitting request. type:" << request.type
                 << " path:" << request.path << " block_id:" << request.block_id
                 << " hash:" << request.expected_hash;
 
@@ -293,7 +293,7 @@ namespace state_sync
     int handle_fs_entry_response(std::string_view parent_vpath, const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_entry_resp)
     {
         // Get the parent path of the fs entries we have received.
-        LOG_DBG << "State sync: Processing fs entries response for " << parent_vpath;
+        LOG_DEBUG << "State sync: Processing fs entries response for " << parent_vpath;
 
         // Get fs entries we have received.
         std::unordered_map<std::string, p2p::state_fs_hash_entry> peer_fs_entry_map;
@@ -341,7 +341,7 @@ namespace state_sync
                     !ex_entry.is_file && rmdir(child_physical_path.c_str()) == -1)
                     return -1;
 
-                LOG_DBG << "State sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
+                LOG_DEBUG << "State sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
             }
         }
 
@@ -369,7 +369,7 @@ namespace state_sync
     int handle_file_hashmap_response(std::string_view file_vpath, const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp)
     {
         // Get the file path of the block hashes we have received.
-        LOG_DBG << "State sync: Processing file block hashes response for " << file_vpath;
+        LOG_DEBUG << "State sync: Processing file block hashes response for " << file_vpath;
 
         // File block hashes on our side (file might not exist on our side).
         std::vector<hpfs::h32> existing_hashes;
@@ -411,7 +411,7 @@ namespace state_sync
         const uint32_t block_id = block_msg->block_id();
         std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_msg->data());
 
-        LOG_DBG << "State sync: Writing block_id " << block_id
+        LOG_DEBUG << "State sync: Writing block_id " << block_id
                 << " (len:" << buf.length()
                 << ") of " << file_vpath;
 
@@ -419,7 +419,7 @@ namespace state_sync
         const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);
         if (fd == -1)
         {
-            LOG_ERR << errno << " Open failed " << file_physical_path;
+            LOG_ERROR << errno << " Open failed " << file_physical_path;
             return -1;
         }
 
@@ -428,7 +428,7 @@ namespace state_sync
         close(fd);
         if (res < buf.length())
         {
-            LOG_ERR << errno << " Write failed " << file_physical_path;
+            LOG_ERROR << errno << " Write failed " << file_physical_path;
             return -1;
         }
 
