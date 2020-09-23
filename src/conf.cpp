@@ -134,10 +134,10 @@ namespace conf
 
         // resolving the path through realpath will remove any trailing slash if present
         basedir = util::realpath(basedir);
+        exepath = util::realpath(exepath);
 
         // Take the parent directory path.
-        std::string exepath1 = util::realpath(exepath);
-        ctx.exe_dir = dirname(exepath1.data());
+        ctx.exe_dir = dirname(exepath.data());
 
         ctx.websocketd_exe_path = ctx.exe_dir + "/" + "websocketd";
         ctx.websocat_exe_path = ctx.exe_dir + "/" + "websocat";
