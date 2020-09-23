@@ -248,7 +248,7 @@ namespace util
     /**
      * Check whether given file exists. 
      * @param path File path.
-     * @return Returns true if give file or directory exists otherwise false.
+     * @return Returns true if give file exists otherwise false.
      */
     bool is_file_exists(std::string_view path)
     {
