@@ -90,6 +90,7 @@ namespace conf
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
         cfg.pubport = 8080;
+        cfg.pubtls = true;
 
 #ifndef NDEBUG
         cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -275,6 +276,9 @@ namespace conf
         cfg.pubport = d["pubport"].as<int>();
         cfg.roundtime = d["roundtime"].as<int>();
 
+        if (d.contains("pubtls")) // For backwards compatibility.
+            cfg.pubtls = d["pubtls"].as<bool>();
+
         cfg.pubmaxsize = d["pubmaxsize"].as<uint64_t>();
         cfg.pubmaxcpm = d["pubmaxcpm"].as<uint64_t>();
         cfg.pubmaxbadmpm = d["pubmaxbadmpm"].as<uint64_t>();
@@ -343,6 +347,7 @@ namespace conf
         d.insert_or_assign("pubport", cfg.pubport);
         d.insert_or_assign("roundtime", cfg.roundtime);
 
+        d.insert_or_assign("pubtls", cfg.pubtls);
         d.insert_or_assign("pubmaxsize", cfg.pubmaxsize);
         d.insert_or_assign("pubmaxcpm", cfg.pubmaxcpm);
         d.insert_or_assign("pubmaxbadmpm", cfg.pubmaxbadmpm);

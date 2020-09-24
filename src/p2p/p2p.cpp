@@ -48,7 +48,8 @@ namespace p2p
     int start_peer_connections()
     {
         if (ctx.listener.start(
-                conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER, true, false, metric_thresholds, conf::cfg.peers, conf::cfg.peermaxsize) == -1)
+                conf::cfg.peerport, ".sock-peer", comm::SESSION_TYPE::PEER,
+                true, false, true, metric_thresholds, conf::cfg.peers, conf::cfg.peermaxsize) == -1)
             return -1;
 
         LOG_INFO << "Started listening for peer connections on " << std::to_string(conf::cfg.peerport);

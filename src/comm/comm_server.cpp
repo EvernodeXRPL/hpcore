@@ -10,7 +10,8 @@ namespace comm
 {
 
     int comm_server::start(
-        const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type, const bool is_binary, const bool use_size_header,
+        const uint16_t port, const char *domain_socket_name, const SESSION_TYPE session_type,
+        const bool is_binary, const bool use_size_header, const bool require_tls,
         const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
     {
         int accept_fd = open_domain_socket(domain_socket_name);
@@ -23,7 +24,7 @@ namespace comm
             inbound_message_processor_thread = std::thread(&comm_server::inbound_message_processor_loop, this, session_type);
 
             return start_websocketd_process(port, domain_socket_name, is_binary,
-                                            use_size_header, max_msg_size);
+                                            use_size_header, require_tls, max_msg_size);
         }
 
         return -1;
@@ -258,8 +259,8 @@ namespace comm
     }
 
     int comm_server::start_websocketd_process(
-        const uint16_t port, const char *domain_socket_name,
-        const bool is_binary, const bool use_size_header, const uint64_t max_msg_size)
+        const uint16_t port, const char *domain_socket_name, const bool is_binary,
+        const bool use_size_header, const bool require_tls, const uint64_t max_msg_size)
     {
         // setup pipe for firewall
         int firewall_pipe[2]; // parent to child pipe
@@ -313,13 +314,18 @@ namespace comm
 
             // Fill process args.
             args_vec.push_back(conf::ctx.websocketd_exe_path);
+
+            if (require_tls)
+            {
+                args_vec.push_back("--ssl");
+                args_vec.push_back("--sslcert");
+                args_vec.push_back(conf::ctx.tls_cert_file);
+                args_vec.push_back("--sslkey");
+                args_vec.push_back(conf::ctx.tls_key_file);
+            }
+
             args_vec.push_back("--port");
             args_vec.push_back(std::to_string(port));
-            args_vec.push_back("--ssl");
-            args_vec.push_back("--sslcert");
-            args_vec.push_back(conf::ctx.tls_cert_file);
-            args_vec.push_back("--sslkey");
-            args_vec.push_back(conf::ctx.tls_key_file);
             args_vec.push_back(is_binary ? "--binary=true" : "--binary=false");
             args_vec.push_back(use_size_header ? "--sizeheader=true" : "--sizeheader=false");
             args_vec.push_back(std::string("--maxframe=").append(max_msg_size_str));
