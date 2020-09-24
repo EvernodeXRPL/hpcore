@@ -52,7 +52,7 @@ namespace comm
             {
                 close(read_fd);
                 close(write_fd);
-                
+
                 util::kill_process(pid, false);
                 return -1;
             }
@@ -63,7 +63,7 @@ namespace comm
         {
             // Websocat process.
             util::unmask_signal();
-            
+
             close(write_pipe[1]); //parent write
             close(read_pipe[0]);  //parent read
 
@@ -85,7 +85,7 @@ namespace comm
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERROR << errno << ": websocat process execv failed.";
+            std::cerr << errno << ": websocat process execv failed.\n";
             exit(1);
         }
         else

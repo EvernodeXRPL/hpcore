@@ -335,7 +335,7 @@ namespace comm
             execv_args[idx] = NULL;
 
             const int ret = execv(execv_args[0], execv_args);
-            LOG_ERROR << errno << ": websocketd process execv failed.";
+            std::cerr << errno << ": websocketd process execv failed.\n";
             exit(1);
         }
         else
