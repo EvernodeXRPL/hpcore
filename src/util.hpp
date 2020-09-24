@@ -96,7 +96,17 @@ namespace util
 
     bool is_dir_exists(std::string_view path);
 
+    bool is_file_exists(std::string_view path);
+
     int create_dir_tree_recursive(std::string_view path);
+
+    std::list<dirent> fetch_dir_entries(std::string_view path);
+
+    std::string_view fetch_file_extension(std::string_view path);
+
+    std::string_view remove_file_extension(std::string_view file_name);
+
+    int remove_file(std::string_view path);
 
 } // namespace util
 

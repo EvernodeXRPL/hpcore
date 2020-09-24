@@ -234,12 +234,33 @@ namespace util
         return 0;
     }
 
+    /**
+     * Check whether given directory exists. 
+     * @param path Directory path.
+     * @return Returns true if given directory exists otherwise false.
+     */
     bool is_dir_exists(std::string_view path)
     {
         struct stat st;
         return (stat(path.data(), &st) == 0 && S_ISDIR(st.st_mode));
     }
 
+    /**
+     * Check whether given file exists. 
+     * @param path File path.
+     * @return Returns true if give file exists otherwise false.
+     */
+    bool is_file_exists(std::string_view path)
+    {
+        struct stat st;
+        return (stat(path.data(), &st) == 0 && S_ISREG(st.st_mode));
+    }
+
+    /**
+     * Recursively creates directories and sub-directories if not exist. 
+     * @param path Directory path.
+     * @return Returns 0 operations succeeded otherwise -1.
+     */
     int create_dir_tree_recursive(std::string_view path)
     {
         if (strcmp(path.data(), "/") == 0) // No need of checking if we are at root.
@@ -261,6 +282,85 @@ namespace util
         }
 
         return 0;
+    }
+
+    /**
+     * Fetch all the files and directiries inside the given directory. 
+     * @param path Directory path.
+     * @return Returns the list of entries inside the directory.
+     */
+    std::list<dirent> fetch_dir_entries(std::string_view path)
+    {
+        std::list<dirent> entries;
+        DIR *dr;
+
+        // Open the directory stream.
+        if (dr = opendir(path.data()))
+        {
+            // Take next directory entry from the directory stream.
+            struct dirent *en;
+            while (en = readdir(dr))
+            {
+                // Push into the entries list if reading directory entry is not current directory entry
+                // or previous directory entry.
+                if (std::strcmp(en->d_name, ".") != 0 && std::strcmp(en->d_name, "..") != 0)
+                {
+                    entries.push_back(*en);
+                }
+            }
+            // Close directory stream.
+            closedir(dr);
+        }
+
+        return entries;
+    }
+
+    /**
+     * Fetch file extension from the file path. 
+     * @param path File path.
+     * @return Returns the file extension as a string_view.
+     */
+    std::string_view fetch_file_extension(std::string_view path)
+    {
+        // Get the position of right most "." in the file path.
+        const std::size_t pos = path.rfind('.');
+
+        if (pos != std::string::npos)
+        {
+            // Take the sub string after the ".".
+            return path.substr(pos);
+        }
+
+        return "";
+    }
+
+    /**
+     * Remove file extension from file name. 
+     * @param file_name File name.
+     * @return Returns the file name without extension.
+     */
+    std::string_view remove_file_extension(std::string_view file_name)
+    {
+        // Get the position of right most "." in the file name.
+        const std::size_t pos = file_name.rfind('.');
+
+        if (pos != std::string::npos)
+        {
+            // Take the sub string till the "." from the beginning.
+            return file_name.substr(0, pos);
+        }
+
+        return file_name;
+    }
+
+    /**
+     * Deletes a file. 
+     * @param path File path.
+     * @return Returs 0 if succeed else -1.
+     */
+    int remove_file(std::string_view path)
+    {
+        return remove(path.data());
     }
 
 } // namespace util

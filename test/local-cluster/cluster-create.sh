@@ -53,7 +53,7 @@ do
             peerport: ${peerport}, \
             pubport: ${pubport}, \
             roundtime: 2000, \
-            loglevel: 'debug', \
+            loglevel: 'dbg', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
     rm tmp.json
