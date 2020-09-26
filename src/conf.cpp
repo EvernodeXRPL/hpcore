@@ -247,12 +247,16 @@ namespace conf
             const char *ipport_concat = v.as<const char *>();
             // Split the address:port text into two
             util::split_string(splitted_peers, ipport_concat, ":");
-            if (splitted_peers.size() == 2)
+
+            // Push the peer address and the port to peers set
+            if (splitted_peers.size() != 2)
             {
-                // Push the peer address and the port to peers set
-                cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
-                splitted_peers.clear();
+                std::cout << "Invalid peer: " << ipport_concat << "\n";
+                return -1;
             }
+
+            cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
+            splitted_peers.clear();
         }
 
         cfg.unl.clear();
@@ -379,6 +383,7 @@ namespace conf
         catch (const std::exception &e)
         {
             std::cout << "Writing to config file failed. " << ctx.config_file << std::endl;
+            ofs.close();
             return -1;
         }
         ofs.close();

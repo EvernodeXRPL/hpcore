@@ -380,18 +380,21 @@ namespace util
         if (str.empty())
             return;
 
-        size_t start = 0U;
+        size_t start = 0;
         size_t end = str.find(delimeter);
 
         while (end != std::string::npos)
         {
-            collection.push_back(std::string(str.substr(start, end - start)));
+            // Do not add empty strings.
+            if (start != end)
+                collection.push_back(std::string(str.substr(start, end - start)));
             start = end + delimeter.length();
             end = str.find(delimeter, start);
         }
 
-        if (collection.empty())
-            collection.push_back(std::string(str));
+        // If there are any leftover from the source string add the remaining.
+        if (start < str.size())
+            collection.push_back(std::string(str.substr(start)));
     }
 
 } // namespace util
