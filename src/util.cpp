@@ -222,6 +222,9 @@ namespace util
         sigset_t mask;
         sigemptyset(&mask);
         pthread_sigmask(SIG_SETMASK, &mask, NULL);
+
+        // Set process group id (so the terminal doesn't send kill signals to forked children).
+        setpgrp();
     }
 
     // Kill a process with a signal and if specified, wait until it stops running.
