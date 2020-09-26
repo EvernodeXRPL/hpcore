@@ -90,7 +90,7 @@ namespace util
 
     void mask_signal();
 
-    void unmask_signal();
+    void fork_detach();
 
     int kill_process(const pid_t pid, const bool wait, const int signal = SIGINT);
 

@@ -206,10 +206,19 @@ namespace util
         pthread_sigmask(SIG_BLOCK, &mask, NULL);
     }
 
-    // Clears signal mask from the calling thread.
-    // Used for other processes forked from hpcore threads.
-    void unmask_signal()
+    /**
+     * Clears signal mask and signal handlers from the caller.
+     * Called by other processes forked from hpcore threads so they get detatched from
+     * the hpcore signal setup.
+     */
+    void fork_detach()
     {
+        // Restore signal handlers to defaults.
+        signal(SIGINT, SIG_DFL);
+        signal(SIGSEGV, SIG_DFL);
+        signal(SIGABRT, SIG_DFL);
+
+        // Remove any signal masks applied by hpcore.
         sigset_t mask;
         sigemptyset(&mask);
         pthread_sigmask(SIG_SETMASK, &mask, NULL);
