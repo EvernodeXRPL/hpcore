@@ -108,6 +108,8 @@ namespace util
 
     int remove_file(std::string_view path);
 
+    void split_string(std::vector<std::string> &collection, std::string_view str, std::string_view delimeter);
+
 } // namespace util
 
 #endif
