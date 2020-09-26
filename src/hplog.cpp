@@ -19,6 +19,27 @@ namespace hplog
             return plog::util::nstring();
         }
 
+        static inline const char *severity_to_string(plog::Severity severity)
+        {
+            switch (severity)
+            {
+            case plog::Severity::fatal:
+                return "fat";
+            case plog::Severity::error:
+                return "err";
+            case plog::Severity::warning:
+                return "wrn";
+            case plog::Severity::info:
+                return "inf";
+            case plog::Severity::debug:
+                return "dbg";
+            case plog::Severity::verbose:
+                return "ver";
+            default:
+                return "def";
+            }
+        }
+
         static plog::util::nstring format(const plog::Record &record)
         {
             tm t;
@@ -27,7 +48,7 @@ namespace hplog
             plog::util::nostringstream ss;
             ss << t.tm_year + 1900 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mon + 1 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mday << PLOG_NSTR(" ");
             ss << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_hour << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_min << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_sec << PLOG_NSTR(" ");
-            ss << PLOG_NSTR("[") << conf::cfg.loglevel << PLOG_NSTR("][hpc] ");
+            ss << PLOG_NSTR("[") << severity_to_string(record.getSeverity()) << PLOG_NSTR("][hpc] ");
             ss << record.getMessage() << PLOG_NSTR("\n");
 
             return ss.str();

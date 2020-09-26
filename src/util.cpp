@@ -377,14 +377,21 @@ namespace util
 
     void split_string(std::vector<std::string> &collection, std::string_view str, std::string_view delimeter)
     {
+        if (str.empty())
+            return;
+
         size_t start = 0U;
         size_t end = str.find(delimeter);
+
         while (end != std::string::npos)
         {
             collection.push_back(std::string(str.substr(start, end - start)));
             start = end + delimeter.length();
             end = str.find(delimeter, start);
         }
+
+        if (collection.empty())
+            collection.push_back(std::string(str));
     }
 
 } // namespace util
