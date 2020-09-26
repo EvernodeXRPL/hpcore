@@ -67,7 +67,7 @@ namespace sc
         else if (pid == 0)
         {
             // Contract process.
-            util::unmask_signal();
+            util::fork_detach();
 
             // Set up the process environment and overlay the contract binary program with execv().
 
@@ -112,7 +112,9 @@ namespace sc
         ret = -1;
 
     success:
-        stop_hpfs_rw_session(ctx);
+        if (stop_hpfs_rw_session(ctx) == -1)
+            ret = -1;
+
         cleanup_fdmap(ctx.userfds);
         if (!ctx.args.readonly)
         {
@@ -131,7 +133,7 @@ namespace sc
     {
         if (pid > 0)
         {
-            int scstatus;
+            int scstatus = 0;
             waitpid(pid, &scstatus, 0);
             if (!WIFEXITED(scstatus))
                 return WEXITSTATUS(scstatus);
@@ -156,17 +158,18 @@ namespace sc
      */
     int stop_hpfs_rw_session(execution_context &ctx)
     {
+        int result = 0;
         // Read the root hash if not in readonly mode.
         if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.state_dir, "/") < 1)
-            return -1;
+            result = -1;
 
         LOG_DEBUG << "Stopping hpfs session... pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
 
         if (util::kill_process(ctx.hpfs_pid, true) == -1)
-            return -1;
+            result = -1;
 
         ctx.hpfs_pid = 0;
-        return 0;
+        return result;
     }
 
     /**
@@ -710,9 +713,6 @@ namespace sc
 
         if (ctx.contract_pid > 0)
             util::kill_process(ctx.contract_pid, true);
-
-        if (ctx.hpfs_pid > 0)
-            util::kill_process(ctx.hpfs_pid, true);
 
         if (ctx.output_fetcher_thread.joinable())
             ctx.output_fetcher_thread.join();
