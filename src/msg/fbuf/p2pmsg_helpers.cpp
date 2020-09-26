@@ -298,7 +298,7 @@ namespace msg::fbuf::p2pmsg
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message
-        create_containermsg_from_content(container_builder, builder, nullptr, false);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -321,7 +321,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, nullptr, true);
+        create_containermsg_from_content(container_builder, builder, {}, true);
     }
 
     void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)
@@ -338,7 +338,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, nullptr, false);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -412,7 +412,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, nullptr, true);
+        create_containermsg_from_content(container_builder, builder, {}, true);
     }
 
     /**
@@ -435,7 +435,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, nullptr, true);
+        create_containermsg_from_content(container_builder, builder, {}, true);
     }
 
     /**

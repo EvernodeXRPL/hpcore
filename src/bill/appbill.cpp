@@ -459,7 +459,7 @@ int pass_through_mode(int argc, char** argv) {
     fclose(f);
  
     execv(argv[1], argv+1);
-    
+    return 128;
 }
 
 

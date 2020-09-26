@@ -172,6 +172,7 @@ namespace comm
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
         send(sv);
+        return 0;
     }
 
     /**
@@ -302,7 +303,7 @@ namespace comm
         writer_thread.join();
 
         LOG_DEBUG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
-                << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
+                  << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
     }
 
     /**
