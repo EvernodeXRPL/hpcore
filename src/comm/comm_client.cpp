@@ -62,7 +62,7 @@ namespace comm
         else if (pid == 0)
         {
             // Websocat process.
-            util::unmask_signal();
+            util::fork_detach();
 
             close(write_pipe[1]); //parent write
             close(read_pipe[0]);  //parent read

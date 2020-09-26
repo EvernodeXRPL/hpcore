@@ -67,12 +67,12 @@ int parse_cmd(int argc, char **argv)
  */
 void deinit()
 {
+    usr::deinit();
+    p2p::deinit();
     cons::deinit();
     state_sync::deinit();
     state_serve::deinit();
     read_req::deinit();
-    usr::deinit();
-    p2p::deinit();
     hpfs::deinit();
 }
 
@@ -190,8 +190,9 @@ int main(int argc, char **argv)
                          << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
                 LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
 
-                if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 || read_req::init() != 0 ||
-                    state_serve::init() != 0 || state_sync::init() != 0 || cons::init() != 0)
+                if (hpfs::init() != 0 || read_req::init() != 0 ||
+                    state_serve::init() != 0 || state_sync::init() != 0 || cons::init() != 0 ||
+                    p2p::init() != 0 || usr::init() != 0)
                 {
                     deinit();
                     return -1;
@@ -203,7 +204,7 @@ int main(int argc, char **argv)
                 // Wait until consensus thread finishes.
                 cons::wait();
 
-                // deinit() here only gets called when there is an error in consensus. 
+                // deinit() here only gets called when there is an error in consensus.
                 // If not deinit in the sigint handler is called when a SIGINT is received.
                 deinit();
             }

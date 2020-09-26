@@ -56,7 +56,7 @@ namespace hpfs
         else if (pid == 0)
         {
             // hpfs process.
-            util::unmask_signal();
+            util::fork_detach();
 
             // Fill process args.
             char *execv_args[] = {
@@ -145,7 +145,7 @@ namespace hpfs
         else if (pid == 0)
         {
             // hpfs process.
-            util::unmask_signal();
+            util::fork_detach();
 
             // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             const pid_t self_pid = getpid();
