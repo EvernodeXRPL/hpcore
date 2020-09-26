@@ -19,13 +19,12 @@ mode=$1
 hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
-   [ "$mode" = "vminfo" ] || [ "$mode" = "vmresize" ] || [ "$mode" = "vmstop" ] || [ "$mode" = "vmstart" ] || \
-   [ "$mode" = "run" ] || [ "$mode" = "check" ] || [ "$mode" = "monitor" ] || [ "$mode" = "kill" ] || [ "$mode" = "reboot" ] || \
-   [ "$mode" = "ssh" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
+   [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
+   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
     echo "mode: $mode"
 else
-    echo "Invalid command. [ new | update | reconfig | vmresize <size> | vmstop | vmstart" \
-        " | run <N> | check <N> | monitor <N> | kill <N> | reboot <N> | ssh <N> <custom command>" \
+    echo "Invalid command. [ new | update | reconfig" \
+        " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N> <custom command>" \
         " | dns <N> <zerossl file> | ssl <N> | lcl ] expected."
     exit 1
 fi
@@ -34,45 +33,93 @@ fi
 # new - Install hot pocket dependencies and hot pocket with example contracts to each vm.
 # update - Deploy updated hot pocket and example binaries into each vm.
 # reconfig - Reconfigures the entire cluster using already uploaded HP binaries.
-# run - Run hot pocket of specified vm node.
-# check - Check hot pocket running status of specified vm node.
-# monitor - Monitor streaming hot pocket console output (if running) of specified vm node.
-# kill - Kill hot pocket (if running) of specified vm node.
+# start - Run hot pocket on specified vm node or entire cluster.
+# stop - Gracefully stop hot pocket (if running) on specified vm node or entire cluster.
+# check - Get hot pocket running process ids on specified vm node or entire cluster.
+# log - Stream hot pocket console output log (if running) on specified vm node.
+# kill - Force kill hot pocket (if running) on specified vm node or entire cluster.
 # reboot - Reboot specified vm node.
 # ssh - Open up an ssh terminal for the specified vm node.
 # dns - Uploads given zerossl domain verification file to vm and starts http server for DNS check.
 # ssl - Uploads matching zerossl certificate bundle from ~/Downloads/ to the contract.
 # lcl - Displays the lcls of all nodes.
 
-if [ $mode = "run" ]; then
+if [ $mode = "start" ]; then
     let nodeid=$2-1
-    vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'nohup sudo ~/hpfiles/bin/hpcore run ~/contract'
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'tail -f nohup.out'
+    command='screen -m -d -L bash ./run.sh'
+    if [ $nodeid = -1 ]; then
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            vmaddr=${vmaddrs[i]}
+            let nodeid=$i+1
+            sshpass -p $vmpass ssh $vmuser@$vmaddr $command &
+        done
+        wait
+    else
+        vmaddr=${vmaddrs[$nodeid]}
+        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+    fi
+    exit 0
+fi
+
+if [ $mode = "stop" ]; then
+    let nodeid=$2-1
+    command='kill -2 $(pidof hpcore)'
+    if [ $nodeid = -1 ]; then
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            vmaddr=${vmaddrs[i]}
+            let nodeid=$i+1
+            sshpass -p $vmpass ssh $vmuser@$vmaddr $command &
+        done
+        wait
+    else
+        vmaddr=${vmaddrs[$nodeid]}
+        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+    fi
     exit 0
 fi
 
 if [ $mode = "check" ]; then
     let nodeid=$2-1
-    vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)  websocat pid:$(pidof websocat)'
+    command='echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)  websocat pid:$(pidof websocat)'
+    if [ $nodeid = -1 ]; then
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            vmaddr=${vmaddrs[i]}
+            let nodeid=$i+1
+            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+        done
+        wait
+    else
+        vmaddr=${vmaddrs[$nodeid]}
+        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+    fi
     exit 0
 fi
 
-if [ $mode = "monitor" ]; then
+if [ $mode = "log" ]; then
     let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'tail -f nohup.out'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'tail -f screenlog.0'
     exit 0
 fi
 
 if [ $mode = "kill" ]; then
     let nodeid=$2-1
-    vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof hpcore) > /dev/null 2>&1'
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof hpfs) > /dev/null 2>&1'
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof websocketd) > /dev/null 2>&1'
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo kill $(pidof websocat) > /dev/null 2>&1'
+    command='sudo kill $(pidof hpcore hpfs websocketd websocat) > /dev/null 2>&1'
+    if [ $nodeid = -1 ]; then
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            vmaddr=${vmaddrs[i]}
+            let nodeid=$i+1
+            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+        done
+        wait
+    else
+        vmaddr=${vmaddrs[$nodeid]}
+        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+    fi
     exit 0
 fi
 
@@ -120,22 +167,6 @@ if [ $mode = "ssl" ]; then
     
     rm -r ~/Downloads/$vmaddr
     echo "Done"
-    exit 0
-fi
-
-# Run vm cli script if any vm cluster commands have been specified.
-if [ $mode = "vminfo" ] || [ $mode = "vmresize" ] || [ $mode = "vmstop" ] || [ $mode = "vmstart" ]; then
-    for (( i=0; i<$vmcount; i++ ))
-    do
-        vmaddr=${vmaddrs[i]}
-        # vm name is the first part of the DNS address (eg: hp1.australiaeast.cloudapp.azure.com)
-        vmname=${vmaddr%%.*}
-        # Strip out "vm" prefix from the command.
-        vmcommand=${mode##*vm}
-        /bin/bash ./vmcli.sh $vmname $vmcommand $2 &
-    done
-
-    wait
     exit 0
 fi
 
@@ -252,9 +283,18 @@ do
         loglevel: 'dbg', \
         loggers:['console', 'file'] \
         }, null, 2)" > ./cfg/node$n.cfg
-
-    # Upload local hp.cfg file back to remote vm.
-    vmaddr=${vmaddrs[j]}
-    sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:~/contract/cfg/hp.cfg
 done
+
+for (( j=0; j<$vmcount; j++ ))
+do
+    # Upload local hp.cfg file back to remote vm.
+    let n=$j+1
+    vmaddr=${vmaddrs[j]}
+    sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:~/contract/cfg/hp.cfg &
+
+    # Clear any screen log
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'rm -f screenlog.0' &
+done
+wait
+
 rm -r ./cfg
