@@ -1,6 +1,8 @@
 #!/bin/bash
 # Usage ./dev-setup.sh
-# Ubuntu 18.04 hpcore build environment setup script.
+# Hot Pocket build environment setup script.
+
+set -e # exit on error
 
 sudo apt-get update
 sudo apt-get install -y build-essential
@@ -107,6 +109,7 @@ sudo ldconfig
 
 # Pop workdir
 popd > /dev/null 2>&1
+rm -r $workdir
 
 # Build Hot Pocket
 cmake .
