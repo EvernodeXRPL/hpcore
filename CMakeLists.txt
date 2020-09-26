@@ -56,8 +56,6 @@ target_link_libraries(hpcore
     libsodium.a
     pthread
     libblake3.so
-    libboost_system.a
-    libboost_thread.a
     libboost_stacktrace_backtrace.a
     backtrace
     ${CMAKE_DL_LIBS} # Needed for stacktrace support

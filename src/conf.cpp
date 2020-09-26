@@ -223,12 +223,12 @@ namespace conf
 
         // Populate runtime contract execution args.
         if (!cfg.binargs.empty())
-            boost::split(cfg.runtime_binexec_args, cfg.binargs, boost::is_any_of(" "));
+            util::split_string(cfg.runtime_binexec_args, cfg.binargs, " ");
         cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.binary[0] == '/' ? cfg.binary : util::realpath(ctx.contract_dir + "/bin/" + cfg.binary)));
 
         // Populate runtime app bill args.
         if (!cfg.appbillargs.empty())
-            boost::split(cfg.runtime_appbill_args, cfg.appbillargs, boost::is_any_of(" "));
+            util::split_string(cfg.runtime_appbill_args, cfg.appbillargs, " ");
 
         cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.appbill[0] == '/' ? cfg.appbill : util::realpath(ctx.contract_dir + "/bin/" + cfg.appbill)));
 
@@ -246,7 +246,7 @@ namespace conf
         {
             const char *ipport_concat = v.as<const char *>();
             // Split the address:port text into two
-            boost::split(splitted_peers, ipport_concat, boost::is_any_of(":"));
+            util::split_string(splitted_peers, ipport_concat, ":");
             if (splitted_peers.size() == 2)
             {
                 // Push the peer address and the port to peers set

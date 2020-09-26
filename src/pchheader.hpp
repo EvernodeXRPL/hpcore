@@ -4,7 +4,6 @@
 // Enable boost strack trace.
 #define BOOST_STACKTRACE_USE_BACKTRACE
 
-#include <boost/algorithm/string.hpp>
 #include <boost/stacktrace.hpp>
 #include <chrono>
 #include <cstdio>
