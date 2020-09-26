@@ -363,4 +363,16 @@ namespace util
         return remove(path.data());
     }
 
+    void split_string(std::vector<std::string> &collection, std::string_view str, std::string_view delimeter)
+    {
+        size_t start = 0U;
+        size_t end = str.find(delimeter);
+        while (end != std::string::npos)
+        {
+            collection.push_back(std::string(str.substr(start, end - start)));
+            start = end + delimeter.length();
+            end = str.find(delimeter, start);
+        }
+    }
+
 } // namespace util
