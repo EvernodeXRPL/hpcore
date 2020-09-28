@@ -40,7 +40,7 @@ hpcore=$(realpath ../..)
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
    [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
-    echo "mode: $mode, contract dir: $contdir"
+    echo "mode: $mode ($contdir)"
 else
     echo "Invalid command. [ new | update | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N> <custom command>" \
@@ -64,7 +64,8 @@ fi
 # lcl - Displays the lcls of all nodes.
 
 if [ $mode = "start" ]; then
-    command="screen -m -d -L bash $basedir/run.sh"
+    # Use the screen command so that the execution does not stop when ssh session ends.
+    command="mkdir -p $contdir/screen && screen -c $contdir/hp.screenrc -m -d -L bash $contdir/run.sh"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -115,8 +116,12 @@ if [ $mode = "check" ]; then
 fi
 
 if [ $mode = "log" ]; then
+    if [ $nodeid = -1 ]; then
+        echo "Please specify node no. to view log stream."
+        exit 1
+    fi
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'tail -f screenlog.0'
+    sshpass -p $vmpass ssh -t $vmuser@$vmaddr screen -r -S hp_$(basename $contdir)
     exit 0
 fi
 
@@ -299,9 +304,6 @@ do
 
     echo "Uploading configured hp.cfg..."
     sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
-
-    # Clear any screen log
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'rm -f screenlog.0' &
 done
 wait
 

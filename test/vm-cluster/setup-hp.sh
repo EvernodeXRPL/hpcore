@@ -33,6 +33,7 @@ else
    sudo cp $basedir/hpfiles/bin/fusermount3 /usr/local/bin/
 fi
 
+# Remove existing contract dir.
 sudo rm -r $contdir > /dev/null 2>&1
 
 echo "Creating new contract directory..."
@@ -56,10 +57,17 @@ if [ $mode = "new" ]; then
    popd > /dev/null 2>&1
 
    # Create run.sh script
-   echo sudo $basedir/hpfiles/bin/hpcore run $contdir > $basedir/run.sh
-   sudo chmod +x $basedir/run.sh
+   echo "sudo $basedir/hpfiles/bin/hpcore run $contdir" > $contdir/run.sh
+   sudo chmod +x $contdir/run.sh
 
    # Create kill.sh script
-   echo sudo kill '$(pidof hpcore hpfs websocketd websocat)' > $basedir/kill.sh
-   sudo chmod +x $basedir/kill.sh
+   # echo "sudo kill '$(pidof hpcore hpfs websocketd websocat)'" > $basedir/kill.sh
+   # sudo chmod +x $basedir/kill.sh
+
+   # Configure .screenrc
+   pushd $contdir > /dev/null 2>&1
+   echo "chdir $contdir" >> hp.screenrc
+   echo "sessionname hp_$(basename $contdir)" >> hp.screenrc
+   echo "bindkey \"^C\" echo 'Blocked. Ctrl+A,D to detach.'" >> hp.screenrc
+   popd > /dev/null 2>&1
 fi
