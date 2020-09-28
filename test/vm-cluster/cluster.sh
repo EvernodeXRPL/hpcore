@@ -1,14 +1,25 @@
 #!/bin/bash
-# HotPocket VM cluster setup script.
+# Hot Pocket VM cluster management script.
 
 # Usage examples:
 # ./cluster.sh new
 # ./cluster.sh update
-# ./cluster.sh run 1
+# ./cluster.sh start 1
+# ./cluster.sh start
 
-# VM login username and password must exist in vmpass.txt as first two lines.
-vmuser=$(head -1 vmpass.txt | tail -1)
-vmpass=$(head -2 vmpass.txt | tail -1)
+conf=vmconfig.txt
+
+# VM cluster parameters are in vmconfig.txt
+source $conf
+
+if [ -z "$vmuser" ] || [ -z "$vmpass" ] || [ -z "$contractpath" ]; then
+    echo "vmuser=root" >> $conf
+    echo "vmpass=<vm password>" >> $conf
+    echo "contractpath=contract" >> $conf
+    echo "Cluster configuration required in vmconfig.txt"
+    exit 1
+fi
+
 # List of vm domain names of the cluster must exist in vmlist.txt
 # (This list will be treated as the node numbers 1,2.3... from topmost address to the bottom)
 readarray -t vmaddrs < vmlist.txt
@@ -22,14 +33,14 @@ if [ "$vmuser" = "root" ]; then
 else
     basedir=/home/$vmuser
 fi
-contdir=$basedir/contract
+contdir=$basedir/$contractpath
 
 hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
    [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
-    echo "mode: $mode"
+    echo "mode: $mode, contract dir: $contdir"
 else
     echo "Invalid command. [ new | update | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N> <custom command>" \
@@ -174,7 +185,7 @@ if [ $mode = "lcl" ]; then
     do
         vmaddr=${vmaddrs[i]}
         let nodeid=$i+1
-        echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr 'ls -v contract/hist | tail -1') &
+        echo "node$nodeid:" $(sshpass -p $vmpass ssh $vmuser@$vmaddr ls -v $contdir/hist | tail -1) &
     done
 
     wait
