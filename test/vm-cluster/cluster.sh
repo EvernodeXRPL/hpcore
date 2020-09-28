@@ -181,56 +181,50 @@ if [ $mode = "lcl" ]; then
     exit 0
 fi
 
-# Run setup of entire cluster.
-if [ $mode = "new" ] || [ $mode = "update" ]; then
+# All code below this will only execute in 'new', 'update' or 'reconfig' mode.
+# Run setup/configuration of entire cluster.
 
-    # Copy required files to hpfiles dir.
+# Copy required files to remote node hpfiles dir.
+
+if [ $mode = "new" ] || [ $mode = "update" ]; then
     mkdir -p hpfiles/{bin,ssl,nodejs_contract}
     strip $hpcore/build/hpcore
     strip $hpcore/build/appbill
     cp $hpcore/build/hpcore hpfiles/bin/
     cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} \
         hpfiles/nodejs_contract/
-    if [ $mode = "new" ]; then
-        cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,websocketd,websocat,hpfs} hpfiles/bin/
-        cp ./setup-hp.sh hpfiles/
-    fi
-
-    for (( i=0; i<$vmcount; i++ ))
-    do
-        vmaddr=${vmaddrs[i]}
-        let n=$i+1
-        /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir &
-    done
-
-    wait
-    rm -r hpfiles
 fi
 
+if [ $mode = "new" ]; then
+    cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,websocketd,websocat,hpfs} hpfiles/bin/
+    cp ./setup-hp.sh hpfiles/
+fi
+
+if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
+    mkdir ./cfg > /dev/null 2>&1
+fi
+
+# Run vm setup for all nodes.
+for (( i=0; i<$vmcount; i++ ))
+do
+    vmaddr=${vmaddrs[i]}
+    let n=$i+1
+
+    # Setup vm. (This will download hp.cfg in 'new' or 'reconfig' modes)
+    /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir &
+done
+
 wait
+rm -r hpfiles > /dev/null 2>&1
 
 if [ $mode = "update" ]; then
     exit 0
 fi
 
 # All code below this will only execute in 'new' or 'reconfig' mode.
-# Update all nodes hp.cfg files to be part of the same UNL cluster.
-
-if [ $mode = "reconfig" ]; then
-    mkdir ./cfg > /dev/null 2>&1
-    for (( i=0; i<$vmcount; i++ ))
-    do
-        # Run hp setup script on the VM and download the generated hp.cfg
-        vmaddr=${vmaddrs[i]}
-        let nodeid=$i+1
-        { sshpass -p $vmpass ssh $vmuser@$vmaddr $basedir/hpfiles/setup-hp.sh $mode $basedir $contdir && \
-            sshpass -p $vmpass scp $vmuser@$vmaddr:$contdir/cfg/hp.cfg ./cfg/node$nodeid.json; } &
-    done
-    wait
-fi
+# Update downloaded hp.cfg files from all nodes to be part of the same UNL cluster.
 
 # Locally update values of download hp.cfg files.
-
 for (( i=0; i<$vmcount; i++ ))
 do
     vmaddr=${vmaddrs[i]}
@@ -291,6 +285,8 @@ do
     # Upload local hp.cfg file back to remote vm.
     let n=$j+1
     vmaddr=${vmaddrs[j]}
+
+    echo "Uploading configured hp.cfg..."
     sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
 
     # Clear any screen log
@@ -299,3 +295,4 @@ done
 wait
 
 rm -r ./cfg
+echo "Done."
