@@ -15,6 +15,14 @@ readarray -t vmaddrs < vmlist.txt
 
 vmcount=${#vmaddrs[@]}
 mode=$1
+let nodeid=$2-1
+
+if [ "$vmuser" = "root" ]; then
+    basedir=/$vmuser
+else
+    basedir=/home/$vmuser
+fi
+contdir=$basedir/contract
 
 hpcore=$(realpath ../..)
 
@@ -45,8 +53,7 @@ fi
 # lcl - Displays the lcls of all nodes.
 
 if [ $mode = "start" ]; then
-    let nodeid=$2-1
-    command='screen -m -d -L bash ./run.sh'
+    command="screen -m -d -L bash $basedir/run.sh"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -63,7 +70,6 @@ if [ $mode = "start" ]; then
 fi
 
 if [ $mode = "stop" ]; then
-    let nodeid=$2-1
     command='kill -2 $(pidof hpcore)'
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
@@ -81,7 +87,6 @@ if [ $mode = "stop" ]; then
 fi
 
 if [ $mode = "check" ]; then
-    let nodeid=$2-1
     command='echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)  websocat pid:$(pidof websocat)'
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
@@ -99,15 +104,13 @@ if [ $mode = "check" ]; then
 fi
 
 if [ $mode = "log" ]; then
-    let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
     sshpass -p $vmpass ssh $vmuser@$vmaddr 'tail -f screenlog.0'
     exit 0
 fi
 
 if [ $mode = "kill" ]; then
-    let nodeid=$2-1
-    command='sudo kill $(pidof hpcore hpfs websocketd websocat) > /dev/null 2>&1'
+    command='$basedir/kill.sh'
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -124,14 +127,12 @@ if [ $mode = "kill" ]; then
 fi
 
 if [ $mode = "reboot" ]; then
-    let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
     sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo reboot'
     exit 0
 fi
 
 if [ $mode = "ssh" ]; then
-    let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
     sshpass -p $vmpass ssh $vmuser@$vmaddr $3
     exit 0
@@ -142,16 +143,14 @@ if [ $mode = "dns" ]; then
         echo "Please provide zerossl domain verification txt file path."
         exit 1
     fi
-    let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'mkdir -p ~/web80/.well-known/pki-validation'
-    sshpass -p $vmpass scp $3 $vmuser@$vmaddr:~/web80/.well-known/pki-validation/
-    sshpass -p $vmpass ssh $vmuser@$vmaddr -t 'cd ~/web80 && sudo python -m SimpleHTTPServer 80'
+    sshpass -p $vmpass ssh $vmuser@$vmaddr 'mkdir -p $basedir/web80/.well-known/pki-validation'
+    sshpass -p $vmpass scp $3 $vmuser@$vmaddr:$basedir/web80/.well-known/pki-validation/
+    sshpass -p $vmpass ssh $vmuser@$vmaddr -t 'cd $basedir/web80 && sudo python -m SimpleHTTPServer 80'
     exit 0
 fi
 
 if [ $mode = "ssl" ]; then
-    let nodeid=$2-1
     vmaddr=${vmaddrs[$nodeid]}
 
     unzip -d ~/Downloads/$vmaddr/ ~/Downloads/$vmaddr.zip || exit 1;
@@ -162,8 +161,8 @@ if [ $mode = "ssl" ]; then
     popd > /dev/null 2>&1
     
     echo "Sending tls certs to the contract..."
-    sshpass -p $vmpass scp ~/Downloads/$vmaddr/certs/* $vmuser@$vmaddr:~/hpfiles/ssl/
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'cp -rf ~/hpfiles/ssl/* ~/contract/cfg/'
+    sshpass -p $vmpass scp ~/Downloads/$vmaddr/certs/* $vmuser@$vmaddr:$basedir/hpfiles/ssl/
+    sshpass -p $vmpass ssh $vmuser@$vmaddr cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/
     
     rm -r ~/Downloads/$vmaddr
     echo "Done"
@@ -190,7 +189,8 @@ if [ $mode = "new" ] || [ $mode = "update" ]; then
     strip $hpcore/build/hpcore
     strip $hpcore/build/appbill
     cp $hpcore/build/hpcore hpfiles/bin/
-    cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} hpfiles/nodejs_contract/
+    cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} \
+        hpfiles/nodejs_contract/
     if [ $mode = "new" ]; then
         cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,websocketd,websocat,hpfs} hpfiles/bin/
         cp ./setup-hp.sh hpfiles/
@@ -200,7 +200,7 @@ if [ $mode = "new" ] || [ $mode = "update" ]; then
     do
         vmaddr=${vmaddrs[i]}
         let n=$i+1
-        /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $hpcore &
+        /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir &
     done
 
     wait
@@ -223,7 +223,8 @@ if [ $mode = "reconfig" ]; then
         # Run hp setup script on the VM and download the generated hp.cfg
         vmaddr=${vmaddrs[i]}
         let nodeid=$i+1
-        { sshpass -p $vmpass ssh $vmuser@$vmaddr '~/hpfiles/setup-hp.sh' && sshpass -p $vmpass scp $vmuser@$vmaddr:~/contract/cfg/hp.cfg ./cfg/node$nodeid.json; } &
+        { sshpass -p $vmpass ssh $vmuser@$vmaddr $basedir/hpfiles/setup-hp.sh $mode $basedir $contdir && \
+            sshpass -p $vmpass scp $vmuser@$vmaddr:$contdir/cfg/hp.cfg ./cfg/node$nodeid.json; } &
     done
     wait
 fi
@@ -276,12 +277,12 @@ do
 
     node -p "JSON.stringify({...require('./cfg/node$n.json'), \
         binary:'/usr/bin/node', \
-        binargs:'/root/hpfiles/nodejs_contract/echo_contract.js', \
+        binargs:'$basedir/hpfiles/nodejs_contract/echo_contract.js', \
         peers:${mypeers}, \
         unl:${myunl}, \
-        roundtime: 1000, \
+        roundtime: 2000, \
         loglevel: 'dbg', \
-        loggers:['console', 'file'] \
+        loggers:['console'] \
         }, null, 2)" > ./cfg/node$n.cfg
 done
 
@@ -290,7 +291,7 @@ do
     # Upload local hp.cfg file back to remote vm.
     let n=$j+1
     vmaddr=${vmaddrs[j]}
-    sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:~/contract/cfg/hp.cfg &
+    sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
 
     # Clear any screen log
     sshpass -p $vmpass ssh $vmuser@$vmaddr 'rm -f screenlog.0' &

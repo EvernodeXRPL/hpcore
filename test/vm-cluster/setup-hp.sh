@@ -1,5 +1,9 @@
 #!/bin/bash
 
+mode=$1
+basedir=$2
+contdir=$3 # Contract directory
+
 if [[ ! -f /swapfile ]]
 then
    echo "Adding 5GB swap space..."
@@ -24,23 +28,38 @@ if [ -x "$(command -v fusermount3)" ]; then
 else
    echo "Installing FUSE and other shared libraries..."
    sudo apt-get -y install libgomp1
-   sudo cp ~/hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
+   sudo cp $basedir/hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
    sudo ldconfig
-   sudo cp ~/hpfiles/bin/fusermount3 /usr/local/bin/
+   sudo cp $basedir/hpfiles/bin/fusermount3 /usr/local/bin/
 fi
 
-sudo rm -r ~/contract > /dev/null 2>&1
+sudo rm -r $contdir > /dev/null 2>&1
 
 echo "Creating new contract directory..."
-~/hpfiles/bin/hpcore new ~/contract
+$basedir/hpfiles/bin/hpcore new $contdir
 
-if [ -f ~/hpfiles/ssl/tlscert.pem ]; then
+if [ -f $basedir/hpfiles/ssl/tlscert.pem ]; then
    echo "Copying ssl certs to contract directory..."
-   cp -rf ~/hpfiles/ssl/* ~/contract/cfg/
+   cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/
 else
    echo "Generating default ssl certs..."
-   pushd ~/contract/cfg > /dev/null 2>&1
+   pushd $contdir/cfg > /dev/null 2>&1
    openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \
          -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hp@example" > /dev/null 2>&1
    popd > /dev/null 2>&1
+fi
+
+if [ $mode = "new" ]; then
+   # npm install to support nodejs contract
+   pushd $basedir/hpfiles/nodejs_contract > /dev/null 2>&1
+   npm install
+   popd > /dev/null 2>&1
+
+   # Create run.sh script
+   echo sudo $basedir/hpfiles/bin/hpcore run $contdir > $basedir/run.sh
+   sudo chmod +x $basedir/run.sh
+
+   # Create kill.sh script
+   echo sudo kill '$(pidof hpcore hpfs websocketd websocat)' > $basedir/kill.sh
+   sudo chmod +x $basedir/kill.sh
 fi
