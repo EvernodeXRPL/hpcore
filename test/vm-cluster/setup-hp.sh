@@ -57,8 +57,8 @@ if [ $mode = "new" ]; then
    popd > /dev/null 2>&1
 
    # Create run.sh script
-   echo "sudo $basedir/hpfiles/bin/hpcore run $contdir" > $contdir/run.sh
-   sudo chmod +x $contdir/run.sh
+   echo "sudo $basedir/hpfiles/bin/hpcore run $contdir" > $contdir/start.sh
+   sudo chmod +x $contdir/start.sh
 
    # Create kill.sh script
    # echo "sudo kill '$(pidof hpcore hpfs websocketd websocat)'" > $basedir/kill.sh

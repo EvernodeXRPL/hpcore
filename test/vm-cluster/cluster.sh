@@ -65,7 +65,7 @@ fi
 
 if [ $mode = "start" ]; then
     # Use the screen command so that the execution does not stop when ssh session ends.
-    command="mkdir -p $contdir/screen && screen -c $contdir/hp.screenrc -m -d -L bash $contdir/run.sh"
+    command="mkdir -p $contdir/screen && screen -c $contdir/hp.screenrc -m -d -L bash $contdir/start.sh"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -150,7 +150,7 @@ fi
 
 if [ $mode = "ssh" ]; then
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr $3
+    sshpass -p $vmpass ssh -t $vmuser@$vmaddr "cd $contdir ; bash"
     exit 0
 fi
 
