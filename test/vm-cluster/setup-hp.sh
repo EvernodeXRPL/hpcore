@@ -65,15 +65,15 @@ if [ $mode = "new" ]; then
    sudo chmod +x $contdir/start.sh
    
    # Create stop.sh script (sending SIGINT to hpcore)
-   echo "kill -2 \$(./getpid.sh hpcore)" > $contdir/stop.sh
+   echo "kill -2 \$($contdir/getpid.sh hpcore)" > $contdir/stop.sh
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "hpcore pid:\$($contdir\getpid.sh hpcore)  hpfs pid:\$($contdir\getpid.sh hpfs)  websocketd pid:\$($contdir\getpid.sh websocketd)  websocat pid:\$($contdir\getpid.sh websocat)" > $contdir/check.sh
+   echo "hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  websocketd pid:\$($contdir/getpid.sh websocketd)  websocat pid:\$($contdir/getpid.sh websocat)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
-   echo "sudo kill \$(./getpid.sh hpcore hpfs websocketd websocat)" > $contdir/kill.sh
+   echo "sudo kill \$($contdir/getpid.sh hpcore hpfs websocketd websocat)" > $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
 
    # Configure .screenrc

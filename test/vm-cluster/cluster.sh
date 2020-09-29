@@ -12,12 +12,14 @@ conf=vmconfig.txt
 # VM cluster parameters are in vmconfig.txt
 source $conf
 
-if [ -z "$vmuser" ] || [ -z "$vmpass" ] || [ -z "$contractpath" ]; then
+if [ -z "$vmuser" ] || [ -z "$vmpass" ]; then
     echo "vmuser=root" >> $conf
     echo "vmpass=<vm password>" >> $conf
-    echo "contractpath=contract" >> $conf
     echo "Cluster configuration required in vmconfig.txt"
     exit 1
+fi
+if [ -z "$contractpath" ]; then
+    contractpath=contract
 fi
 
 # List of vm domain names of the cluster must exist in vmlist.txt
@@ -39,12 +41,13 @@ hpcore=$(realpath ../..)
 
 if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
-   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
+   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || \
+   [ "$mode" = "path" ]; then
     echo "mode: $mode ($contdir)"
 else
     echo "Invalid command. [ new | update | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N> <custom command>" \
-        " | dns <N> <zerossl file> | ssl <N> | lcl ] expected."
+        " | dns <N> <zerossl file> | ssl <N> | lcl | path] expected."
     exit 1
 fi
 
@@ -62,6 +65,7 @@ fi
 # dns - Uploads given zerossl domain verification file to vm and starts http server for DNS check.
 # ssl - Uploads matching zerossl certificate bundle from ~/Downloads/ to the contract.
 # lcl - Displays the lcls of all nodes.
+# path - Display the current contract path.
 
 if [ $mode = "start" ]; then
     # Use the screen command so that the execution does not stop when ssh session ends.
@@ -208,8 +212,12 @@ if [ $mode = "lcl" ]; then
         let nodeid=$i+1
         echo "node$nodeid:" $(sshpass -p $vmpass ssh $vmuser@$vmaddr ls -v $contdir/hist | tail -1) &
     done
-
     wait
+    exit 0
+fi
+
+if [ $mode = "path" ]; then
+    echo "$contractpath (Full path: $contdir)"
     exit 0
 fi
 
