@@ -56,13 +56,25 @@ if [ $mode = "new" ]; then
    npm install
    popd > /dev/null 2>&1
 
-   # Create run.sh script
-   echo "sudo $basedir/hpfiles/bin/hpcore run $contdir" > $contdir/start.sh
+   # Create getpid script (gets process ids belonging to this contract dir)
+   echo "ps -fp \$(pidof \$*) | grep $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
+   sudo chmod +x $contdir/getpid.sh
+
+   # Create start.sh script
+   echo "$basedir/hpfiles/bin/hpcore run $contdir" > $contdir/start.sh
    sudo chmod +x $contdir/start.sh
+   
+   # Create stop.sh script (sending SIGINT to hpcore)
+   echo "kill -2 \$(./getpid.sh hpcore)" > $contdir/stop.sh
+   sudo chmod +x $contdir/stop.sh
+
+   # Create check.sh script (print pids belonging to this contract dir)
+   echo "hpcore pid:\$($contdir\getpid.sh hpcore)  hpfs pid:\$($contdir\getpid.sh hpfs)  websocketd pid:\$($contdir\getpid.sh websocketd)  websocat pid:\$($contdir\getpid.sh websocat)" > $contdir/check.sh
+   sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
-   # echo "sudo kill '$(pidof hpcore hpfs websocketd websocat)'" > $basedir/kill.sh
-   # sudo chmod +x $basedir/kill.sh
+   echo "sudo kill \$(./getpid.sh hpcore hpfs websocketd websocat)" > $contdir/kill.sh
+   sudo chmod +x $contdir/kill.sh
 
    # Configure .screenrc
    pushd $contdir > /dev/null 2>&1

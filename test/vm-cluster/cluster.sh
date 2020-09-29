@@ -65,7 +65,7 @@ fi
 
 if [ $mode = "start" ]; then
     # Use the screen command so that the execution does not stop when ssh session ends.
-    command="mkdir -p $contdir/screen && screen -c $contdir/hp.screenrc -m -d -L bash $contdir/start.sh"
+    command="mkdir -p $contdir/screen && screen -c $contdir/hp.screenrc -m -d bash $contdir/start.sh"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -82,7 +82,7 @@ if [ $mode = "start" ]; then
 fi
 
 if [ $mode = "stop" ]; then
-    command='kill -2 $(pidof hpcore)'
+    command='$contdir/stop.sh'
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -99,7 +99,7 @@ if [ $mode = "stop" ]; then
 fi
 
 if [ $mode = "check" ]; then
-    command='echo hpcore pid:$(pidof hpcore)  hpfs pid:$(pidof hpfs)  websocketd pid:$(pidof websocketd)  websocat pid:$(pidof websocat)'
+    command="$contdir/check.sh"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -117,7 +117,7 @@ fi
 
 if [ $mode = "log" ]; then
     if [ $nodeid = -1 ]; then
-        echo "Please specify node no. to view log stream."
+        echo "Please specify node no.."
         exit 1
     fi
     vmaddr=${vmaddrs[$nodeid]}
@@ -126,7 +126,7 @@ if [ $mode = "log" ]; then
 fi
 
 if [ $mode = "kill" ]; then
-    command='$basedir/kill.sh'
+    command='$contdir/kill.sh'
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -143,18 +143,30 @@ if [ $mode = "kill" ]; then
 fi
 
 if [ $mode = "reboot" ]; then
+    if [ $nodeid = -1 ]; then
+        echo "Please specify node no."
+        exit 1
+    fi
     vmaddr=${vmaddrs[$nodeid]}
     sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo reboot'
     exit 0
 fi
 
 if [ $mode = "ssh" ]; then
+    if [ $nodeid = -1 ]; then
+        echo "Please specify node no."
+        exit 1
+    fi
     vmaddr=${vmaddrs[$nodeid]}
     sshpass -p $vmpass ssh -t $vmuser@$vmaddr "cd $contdir ; bash"
     exit 0
 fi
 
 if [ $mode = "dns" ]; then
+    if [ $nodeid = -1 ]; then
+        echo "Please specify node no."
+        exit 1
+    fi
     if [[ $3 = "" ]]; then
         echo "Please provide zerossl domain verification txt file path."
         exit 1
@@ -167,6 +179,10 @@ if [ $mode = "dns" ]; then
 fi
 
 if [ $mode = "ssl" ]; then
+    if [ $nodeid = -1 ]; then
+        echo "Please specify node no."
+        exit 1
+    fi
     vmaddr=${vmaddrs[$nodeid]}
 
     unzip -d ~/Downloads/$vmaddr/ ~/Downloads/$vmaddr.zip || exit 1;
