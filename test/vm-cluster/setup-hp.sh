@@ -69,7 +69,7 @@ if [ $mode = "new" ]; then
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  websocketd pid:\$($contdir/getpid.sh websocketd)  websocat pid:\$($contdir/getpid.sh websocat)" > $contdir/check.sh
+   echo "echo hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  websocketd pid:\$($contdir/getpid.sh websocketd)  websocat pid:\$($contdir/getpid.sh websocat)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script

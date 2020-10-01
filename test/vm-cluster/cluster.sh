@@ -86,7 +86,7 @@ if [ $mode = "start" ]; then
 fi
 
 if [ $mode = "stop" ]; then
-    command='$contdir/stop.sh'
+    command="$contdir/stop.sh"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -130,7 +130,7 @@ if [ $mode = "log" ]; then
 fi
 
 if [ $mode = "kill" ]; then
-    command='$contdir/kill.sh'
+    command="$contdir/kill.sh"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
