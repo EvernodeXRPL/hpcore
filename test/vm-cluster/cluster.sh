@@ -7,6 +7,13 @@
 # ./cluster.sh start 1
 # ./cluster.sh start
 
+# jq command is used for json manipulation.
+if ! command -v jq &> /dev/null
+then
+    echo "jq command not found. Install with 'sudo apt-get install -y jq'"
+    exit 1
+fi
+
 conf=vmconfig.json
 if [ ! -f $conf ]; then
     # Create default config file.
