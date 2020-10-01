@@ -7,51 +7,54 @@
 # ./cluster.sh start 1
 # ./cluster.sh start
 
-conf=vmconfig.txt
+conf=vmconfig.json
+if [ ! -f $conf ]; then
+    # Create default config file.
+    echo '{"vmuser":"root","vmpass":"","vms":[],"contracts":[{"name":"contract","config":{}}]}' | jq . > $conf
+fi
 
-# VM cluster parameters are in vmconfig.txt
-source $conf
+vmuser=$(jq -r '.vmuser' $conf)
 
-if [ -z "$vmuser" ] || [ -z "$vmpass" ]; then
-    echo "vmuser=root" >> $conf
-    echo "vmpass=<vm password>" >> $conf
-    echo "Cluster configuration required in vmconfig.txt"
+if [ "$vmuser" = "" ]; then
+    echo "vmuser not specified."
     exit 1
+elif [ "$CONTRACT" = "" ]; then
+    CONTRACT=contract # Default contract name (can be set with 'export CONTRACT=<name>'').
 fi
-if [ -z "$contractpath" ]; then
-    contractpath=contract
-fi
-
-# List of vm domain names of the cluster must exist in vmlist.txt
-# (This list will be treated as the node numbers 1,2.3... from topmost address to the bottom)
-readarray -t vmaddrs < vmlist.txt
-
-vmcount=${#vmaddrs[@]}
-mode=$1
-let nodeid=$2-1
 
 if [ "$vmuser" = "root" ]; then
     basedir=/$vmuser
 else
     basedir=/home/$vmuser
 fi
-contdir=$basedir/$contractpath
 
+contconfig=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\") | .config" $conf)
+if [ "$contconfig" = "" ]; then
+    # Apply default config.
+    contconfig="{'pubport': 8080, peerport: 22860, 'roundtime': 2000, 'loglevel': 'dbg', loggers:['console','file']}"
+fi
+
+vmpass=$(jq -r '.vmpass' $conf)
+readarray -t vmaddrs <<< $(jq -r '.vms[]' $conf)
+contdir=$basedir/$CONTRACT
+vmcount=${#vmaddrs[@]}
+mode=$1
 hpcore=$(realpath ../..)
+let nodeid=$2-1
 
-if [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
+if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
-   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || \
-   [ "$mode" = "path" ]; then
+   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
     echo "mode: $mode ($contdir)"
 else
-    echo "Invalid command. [ new | update | reconfig" \
+    echo "Invalid command. [ info | new | update | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N> <custom command>" \
-        " | dns <N> <zerossl file> | ssl <N> | lcl | path] expected."
+        " | dns <N> <zerossl file> | ssl <N> | lcl ] expected."
     exit 1
 fi
 
 # Command modes:
+# info - Displays information about current cluster configuration status.
 # new - Install hot pocket dependencies and hot pocket with example contracts to each vm.
 # update - Deploy updated hot pocket and example binaries into each vm.
 # reconfig - Reconfigures the entire cluster using already uploaded HP binaries.
@@ -65,7 +68,12 @@ fi
 # dns - Uploads given zerossl domain verification file to vm and starts http server for DNS check.
 # ssl - Uploads matching zerossl certificate bundle from ~/Downloads/ to the contract.
 # lcl - Displays the lcls of all nodes.
-# path - Display the current contract path.
+
+if [ $mode = "info" ]; then
+    echo "${vmaddrs[*]}" | tr ' ' '\n'
+    echo $contconfig
+    exit 0
+fi
 
 if [ $mode = "start" ]; then
     # Use the screen command so that the execution does not stop when ssh session ends.
@@ -216,11 +224,6 @@ if [ $mode = "lcl" ]; then
     exit 0
 fi
 
-if [ $mode = "path" ]; then
-    echo "$contractpath (Full path: $contdir)"
-    exit 0
-fi
-
 # All code below this will only execute in 'new', 'update' or 'reconfig' mode.
 # Run setup/configuration of entire cluster.
 
@@ -302,22 +305,23 @@ function joinarr {
     echo $str
 }
 
-# Loop through all nodes hp.cfg and inject peer and unl lists (skip self node).
+# Loop through all nodes hp.cfg.
 for (( j=0; j<$vmcount; j++ ))
 do
     let n=$j+1
+
+    # Prepare peer and unl lists (skip self node).
     mypeers=$(joinarr peers $j)
     myunl=$(joinarr pubkeys $j)
 
-    node -p "JSON.stringify({...require('./cfg/node$n.json'), \
-        binary:'/usr/bin/node', \
-        binargs:'$basedir/hpfiles/nodejs_contract/echo_contract.js', \
-        peers:${mypeers}, \
-        unl:${myunl}, \
-        roundtime: 2000, \
-        loglevel: 'dbg', \
-        loggers:['console'] \
-        }, null, 2)" > ./cfg/node$n.cfg
+    # Merge json contents to produce final contract config.
+    echo $(cat ./cfg/node$n.json) \
+        '{"binary":"/usr/bin/node"}' \
+        '{"binargs":"'$basedir'/hpfiles/nodejs_contract/echo_contract.js"}' \
+        '{"peers":'${mypeers}'}' \
+        '{"unl":'${myunl}'}' \
+        $contconfig \
+        | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n.cfg
 done
 
 for (( j=0; j<$vmcount; j++ ))

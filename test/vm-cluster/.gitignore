@@ -1,4 +1,3 @@
 cfg
-vmconfig.txt
-vmlist*.txt
+vmconfig*
 hpfiles
