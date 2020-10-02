@@ -337,7 +337,7 @@ do
     myunl=$(joinarr pubkeys $j)
 
     # Merge json contents to produce final contract config.
-    echo $(cat ./cfg/node$n.cfg) \
+    echo "$(cat ./cfg/node$n.cfg)" \
         '{"binary":"/usr/bin/node"}' \
         '{"binargs":"'$basedir'/hpfiles/nodejs_contract/echo_contract.js"}' \
         '{"peers":'${mypeers}'}' \
