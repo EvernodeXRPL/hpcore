@@ -55,7 +55,7 @@ if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$
     echo "mode: $mode ($contdir)"
 else
     echo "Invalid command. [ info | new | update | reconfig" \
-        " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N> <custom command>" \
+        " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
         " | dns <N> <zerossl file> | ssl <N> | lcl ] expected."
     exit 1
 fi
@@ -173,12 +173,27 @@ fi
 
 if [ $mode = "ssh" ]; then
     if [ $nodeid = -1 ]; then
-        echo "Please specify node no."
-        exit 1
+        if [ -n "$2" ]; then
+            # Interprit second arg as a command to execute on all nodes.
+            command=${*:2}
+            echo "Executing '$command' on all nodes..."
+            for (( i=0; i<$vmcount; i++ ))
+            do
+                vmaddr=${vmaddrs[i]}
+                let nodeid=$i+1
+                echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            done
+            wait
+            exit 0
+        else
+            echo "Please specify node no. or command to execute on all nodes."
+            exit 1
+        fi
+    else
+        vmaddr=${vmaddrs[$nodeid]}
+        sshpass -p $vmpass ssh -t $vmuser@$vmaddr "cd $contdir ; bash"
+        exit 0
     fi
-    vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh -t $vmuser@$vmaddr "cd $contdir ; bash"
-    exit 0
 fi
 
 if [ $mode = "dns" ]; then
