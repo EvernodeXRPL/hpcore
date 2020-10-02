@@ -313,7 +313,7 @@ function joinarr {
         let prevlast=$vmcount-2
         if [ "$i" != "$skip" ]
         then
-            str="$str'${arr[i]}'"
+            str="$str\"${arr[i]}\""
             
             if [ $j -lt $prevlast ]
             then
