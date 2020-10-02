@@ -296,7 +296,7 @@ do
     let n=$i+1
 
     # Collect each node's pub key and peer address.
-    pubkeys[i]=$(node -p "require('./cfg/node$n.json').pubkeyhex")
+    pubkeys[i]=$(jq -r ".pubkeyhex" ./cfg/node$n.cfg)
     peers[i]="$vmaddr:22860"
 done
 
