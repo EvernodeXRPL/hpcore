@@ -50,7 +50,7 @@ else
    popd > /dev/null 2>&1
 fi
 
-if [ $mode = "new" ]; then
+if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    # npm install to support nodejs contract
    pushd $basedir/hpfiles/nodejs_contract > /dev/null 2>&1
    npm install

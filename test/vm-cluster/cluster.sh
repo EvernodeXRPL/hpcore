@@ -343,7 +343,7 @@ do
         '{"peers":'${mypeers}'}' \
         '{"unl":'${myunl}'}' \
         $contconfig \
-        | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n.cfg
+        | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
 done
 
 for (( j=0; j<$vmcount; j++ ))
@@ -353,7 +353,7 @@ do
     vmaddr=${vmaddrs[j]}
 
     echo "Uploading configured hp.cfg..."
-    sshpass -p $vmpass scp ./cfg/node$n.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
+    sshpass -p $vmpass scp ./cfg/node$n-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
 done
 wait
 
