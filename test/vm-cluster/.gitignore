@@ -1,5 +1,3 @@
 cfg
-vmpass.txt
-vmlist*.txt
-vmresgroup.txt
+vmconfig*
 hpfiles
