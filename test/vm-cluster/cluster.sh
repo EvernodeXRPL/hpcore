@@ -290,6 +290,7 @@ fi
 # Update downloaded hp.cfg files from all nodes to be part of the same UNL cluster.
 
 # Locally update values of download hp.cfg files.
+peerport=$(echo $contconfig | jq -r ".peerport")
 for (( i=0; i<$vmcount; i++ ))
 do
     vmaddr=${vmaddrs[i]}
@@ -297,7 +298,7 @@ do
 
     # Collect each node's pub key and peer address.
     pubkeys[i]=$(jq -r ".pubkeyhex" ./cfg/node$n.cfg)
-    peers[i]="$vmaddr:22860"
+    peers[i]="$vmaddr:$peerport"
 done
 
 # Function to generate JSON array string while skiping a given index.
