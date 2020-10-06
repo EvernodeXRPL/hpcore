@@ -21,7 +21,7 @@ namespace sc
 
         if (!ctx.args.readonly)
         {
-            create_iopipes(ctx.nplfds, !ctx.args.npl_messages.empty());
+            create_iosockets(ctx.nplfds);
             create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
         }
 
@@ -203,7 +203,7 @@ namespace sc
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
                << "\",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
-               << "],\"nplfd\":[" << ctx.nplfds[FDTYPE::SCREAD] << "," << ctx.nplfds[FDTYPE::SCWRITE] << "]";
+               << "],\"nplfd\":[" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE] << "]";
         }
 
         os << ",\"usrfd\":{";
@@ -331,7 +331,7 @@ namespace sc
          * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (32 bytes)**|**Npl message data**|
          * Length of the message is calculated without including public key length
          */
-        const int writefd = ctx.nplfds[FDTYPE::HPWRITE];
+        const int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
         if (writefd == -1)
             return 0;
 
@@ -378,7 +378,7 @@ namespace sc
 
         // Close the writefd since we no longer need it.
         close(writefd);
-        ctx.nplfds[FDTYPE::HPWRITE] = -1;
+        ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
 
         return write_error ? -1 : 0;
     }
@@ -398,7 +398,7 @@ namespace sc
             return -1;
         }
 
-        const int npl_res = read_iopipe(ctx.nplfds, ctx.args.npl_output);
+        const int npl_res = read_iosocket(ctx.nplfds, ctx.args.npl_output);
         if (npl_res == -1)
         {
             LOG_ERROR << "Error reading NPL output from the contract.";
@@ -410,7 +410,7 @@ namespace sc
 
     /**
      * Common helper function to write json output of fdmap to given ostream.
-     * @param fdmap Any pubkey->fdlist map. (eg. ctx.userfds, ctx.nplfds)
+     * @param fdmap Any pubkey->fdlist map. (eg. ctx.userfds)
      * @param os An output stream.
      */
     void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os)
@@ -549,6 +549,26 @@ namespace sc
     }
 
     /**
+     * Common function to create a socket (Hp->SC, SC->HP).
+     * @param fds Vector to populate fd list.
+     */
+    int create_iosockets(std::vector<int> &fds)
+    {
+        int socket[2] = {-1, -1};
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, socket) == -1)
+        {
+            return -1;
+        }
+
+        // If both pipes got created, assign them to the fd vector.
+        fds.clear();
+        fds.push_back(socket[0]);  //SCREADWRITE
+        fds.push_back(socket[1]);  //HPREADWRITE
+
+        return 0;
+    }
+
+    /**
      * Common function to write the given input buffer into the write fd from the HP side.
      * @param fds Vector of fd list.
      * @param inputs Buffer to write into the HP write fd.
@@ -631,12 +651,55 @@ namespace sc
         return -1;
     }
 
+    /**
+     * Common function to read buffered output from the socket and populate the output list.
+     * @param fds Vector representing the socket fd list.
+     * @param output The buffer to place the read output.
+     * @return -1 on error. Otherwise no. of bytes read.
+     */
+    int read_iosocket(std::vector<int> &fds, std::string &output)
+    {
+        // Read any available data that have been written by the contract process
+        // from the output socket and store in the output buffer.
+        // Outputs will be read by the consensus process later when it wishes so.
+
+        const int readfd = fds[SOCKETFDTYPE::HPREADWRITE];
+        if (readfd == -1)
+            return 0;
+
+        bool read_error = false;
+        size_t available_bytes = 0;
+        if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
+        {
+            if (available_bytes == 0)
+                return 0;
+
+            const size_t current_size = output.size();
+            output.resize(current_size + available_bytes);
+            const int res = read(readfd, output.data() + current_size, available_bytes);
+
+            if (res >= 0)
+            {
+                if (res == 0) // EOF
+                {
+                    close(readfd);
+                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                }
+                return res;
+            }
+        }
+
+        close(readfd);
+        fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        return -1;
+    }
+
     void close_unused_fds(execution_context &ctx, const bool is_hp)
     {
         if (!ctx.args.readonly)
         {
             close_unused_vectorfds(is_hp, ctx.hpscfds);
-            close_unused_vectorfds(is_hp, ctx.nplfds);
+            close_unused_socket_vectorfds(is_hp, ctx.nplfds);
         }
 
         // Loop through user fds.
@@ -664,6 +727,37 @@ namespace sc
                     fds[fd_type] = -1;
                 }
                 else if (is_hp && (fd_type == FDTYPE::HPREAD || fd_type == FDTYPE::HPWRITE))
+                {
+                    // The fd must be kept open in HP process. But we must
+                    // mark it to close on exec in a potential forked process.
+                    int flags = fcntl(fd, F_GETFD, NULL);
+                    flags |= FD_CLOEXEC;
+                    fcntl(fd, F_SETFD, flags);
+                }
+            }
+        }
+    }
+
+    /**
+     * Common function for closing unused fds based on which process this gets called from.
+     * This also marks active fds with O_CLOEXEC for close-on-exec behaviour.
+     * @param is_hp Specify 'true' when calling from HP process. 'false' from SC process.
+     * @param fds Vector of fds to close.
+     */
+    void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds)
+    {
+        for (int fd_type = 0; fd_type <= 1; fd_type++)
+        {
+            const int fd = fds[fd_type];
+            if (fd != -1)
+            {
+                if ((is_hp && fd_type == SOCKETFDTYPE::SCREADWRITE) ||
+                    (!is_hp && fd_type == SOCKETFDTYPE::HPREADWRITE))
+                {
+                    close(fd);
+                    fds[fd_type] = -1;
+                }
+                else if (is_hp && (fd_type == SOCKETFDTYPE::HPREADWRITE))
                 {
                     // The fd must be kept open in HP process. But we must
                     // mark it to close on exec in a potential forked process.

@@ -12,7 +12,7 @@ function HotPocketContract() {
             hash: lclParts[1]
         };
 
-        this.npl = new HotPocketNplChannel(hpargs.nplfd[0], hpargs.nplfd[1]);
+        this.npl = new HotPocketNplChannel(hpargs.nplfd[0]);
     }
 
     this.users = {};
@@ -47,6 +47,22 @@ const drainStream = function (stream) {
     });
 }
 
+// Helper function to asynchronously read a packet.
+const drainPacket = function (stream) {
+
+    return new Promise((resolve) => {
+        stream.on("data", d => {
+            if (d.length > 0)
+                return resolve(d);
+            else
+                return resolve(null);
+        });
+        stream.on("error", () => {
+            resolve(null);
+        });
+    });
+}
+
 function HotPocketChannel(infd, outfd) {
     this.readInput = function () {
         return new Promise((resolve) => {
@@ -65,7 +81,7 @@ function HotPocketChannel(infd, outfd) {
     }
 }
 
-function HotPocketNplChannel(infd, outfd) {
+function HotPocketNplChannel(fd) {
 
     const parseNplInputs = function (buf) {
 
@@ -113,18 +129,18 @@ function HotPocketNplChannel(infd, outfd) {
 
     this.readInput = function () {
         return new Promise((resolve) => {
-            if (infd == -1) {
+            if (fd == -1) {
                 resolve(null);
             }
             else {
-                const s = fs.createReadStream(null, { fd: infd });
-                drainStream(s).then(buf => resolve(parseNplInputs(buf)));
+                const s = fs.createReadStream(null, { fd: fd, highWaterMark: 128 * 1024 });
+                drainPacket(s).then(buf => resolve(parseNplInputs(buf)));
             }
         });
     }
 
     this.sendOutput = function (output) {
-        fs.writeFileSync(outfd, output);
+        fs.writeSync(fd, output);
     }
 }
 
