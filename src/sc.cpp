@@ -52,11 +52,16 @@ namespace sc
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(ctx.contract_pid);
             ctx.contract_pid = 0;
-
             LOG_DEBUG << "Contract process ended." << (ctx.args.readonly ? " (rdonly)" : "");
 
-            // Wait for the output collection thread to gracefully stop.
-            ctx.output_fetcher_thread.join();
+            // There could be 2 reasons for the contract to end; the contract voluntary finished execution or
+            // it was killed due to Hot Pocket shutting down.
+
+            // Wait for the output collection thread to gracefully stop if this is voluntary contract termination.
+            // 'ctx.should_stop' indicates Hot Pocket is shutting down. If that's the case ouput collection thread
+            // is joined by the deinit logic.
+            if (!ctx.should_stop && ctx.output_fetcher_thread.joinable())
+                ctx.output_fetcher_thread.join();
 
             if (presult != 0)
             {

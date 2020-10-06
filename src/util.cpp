@@ -239,7 +239,7 @@ namespace util
         const int wait_options = wait ? 0 : WNOHANG;
         if (waitpid(pid, NULL, wait_options) == -1)
         {
-            LOG_ERROR << errno << ": waitpid after kill failed.";
+            LOG_ERROR << errno << ": waitpid after kill (pid:" << pid << ") failed.";
             return -1;
         }
 
