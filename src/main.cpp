@@ -12,6 +12,7 @@
 #include "usr/read_req.hpp"
 #include "p2p/p2p.hpp"
 #include "cons/cons.hpp"
+#include "ledger.hpp"
 #include "hpfs/hpfs.hpp"
 #include "state/state_sync.hpp"
 #include "state/state_serve.hpp"
@@ -191,7 +192,7 @@ int main(int argc, char **argv)
                 LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
 
                 if (hpfs::init() != 0 || p2p::init() != 0 || usr::init() != 0 || read_req::init() != 0 ||
-                    state_serve::init() != 0 || state_sync::init() != 0 || cons::init() != 0)
+                    state_serve::init() != 0 || state_sync::init() != 0 || ledger::init() || cons::init() != 0)
                 {
                     deinit();
                     return -1;

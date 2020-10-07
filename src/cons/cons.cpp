@@ -202,6 +202,9 @@ namespace cons
             {
                 if (should_request_history)
                 {
+                    //Node is not in sync with current lcl ->switch to observer mode.
+                    conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+
                     LOG_INFO << "Syncing lcl. Curr lcl:" << cons::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
 
                     // TODO: If we are in a lcl fork condition try to rollback state with the help of
@@ -714,10 +717,6 @@ namespace cons
         {
             LOG_DEBUG << "We are not on the consensus ledger, requesting history from a random peer";
             is_desync = true;
-
-            //Node is not in sync with current lcl ->switch to observer mode.
-            conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-
             should_request_history = true;
             return;
         }
