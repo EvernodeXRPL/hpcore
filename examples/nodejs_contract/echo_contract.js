@@ -22,6 +22,11 @@ Object.keys(hpc.users).forEach(function (key) {
                 user.sendOutput("Echoing: " + userInput);
         }
     })
+    const npl = hpc.npl;
+    npl.sendOutput("npl from contract");
+    npl.readInput().then(msg => {
+        user.sendOutput('aaaa');
+    })
 });
 
 //console.log("===Echo contract ended===");

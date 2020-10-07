@@ -117,6 +117,7 @@ namespace cons
 
     int consensus()
     {
+        LOG_INFO << "Running Consensus..";
         // A consensus round consists of 4 stages (0,1,2,3).
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 

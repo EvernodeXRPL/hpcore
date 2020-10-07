@@ -6,6 +6,8 @@
 
 namespace sc
 {
+    int readhp = 0;
+    int writehp = 0;
     /**
      * Executes the contract process and passes the specified context arguments.
      * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -22,6 +24,8 @@ namespace sc
         if (!ctx.args.readonly)
         {
             create_iosockets(ctx.nplfds);
+            readhp = 0;
+            writehp = 0;
             create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
         }
 
@@ -332,7 +336,7 @@ namespace sc
          * Length of the message is calculated without including public key length
          */
         const int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
-        if (writefd == -1)
+        if (writehp == -1)
             return 0;
 
         bool write_error = false;
@@ -377,8 +381,10 @@ namespace sc
         }
 
         // Close the writefd since we no longer need it.
-        close(writefd);
-        ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        // close(writefd);
+        // ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
+
+        writehp = -1;
 
         return write_error ? -1 : 0;
     }
@@ -562,8 +568,8 @@ namespace sc
 
         // If both pipes got created, assign them to the fd vector.
         fds.clear();
-        fds.push_back(socket[0]);  //SCREADWRITE
-        fds.push_back(socket[1]);  //HPREADWRITE
+        fds.push_back(socket[0]); //SCREADWRITE
+        fds.push_back(socket[1]); //HPREADWRITE
 
         return 0;
     }
@@ -664,8 +670,10 @@ namespace sc
         // Outputs will be read by the consensus process later when it wishes so.
 
         const int readfd = fds[SOCKETFDTYPE::HPREADWRITE];
-        if (readfd == -1)
+        if (readhp == -1)
             return 0;
+
+        LOG_INFO << "Start reading the fd.....\n";
 
         bool read_error = false;
         size_t available_bytes = 0;
@@ -676,21 +684,31 @@ namespace sc
 
             const size_t current_size = output.size();
             output.resize(current_size + available_bytes);
+
+            LOG_INFO << "Reading the fd.....\n";
+
             const int res = read(readfd, output.data() + current_size, available_bytes);
+
+            LOG_INFO << "Read the fd\n";
 
             if (res >= 0)
             {
                 if (res == 0) // EOF
                 {
-                    close(readfd);
-                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                    // close(readfd);
+                    // fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                    readhp = -1;
                 }
                 return res;
             }
         }
 
-        close(readfd);
-        fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        LOG_INFO << errno << " fd=" << readfd << " Error reading the fd.....";
+        LOG_INFO << errno << " fd=" << fds[SOCKETFDTYPE::HPREADWRITE] << " Error reading the fd.....";
+
+        // close(readfd);
+        // fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        readhp = -1;
         return -1;
     }
 
@@ -746,6 +764,12 @@ namespace sc
      */
     void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds)
     {
+        if (!is_hp)
+        {
+            readhp = -1;
+            writehp = -1;
+        }
+
         for (int fd_type = 0; fd_type <= 1; fd_type++)
         {
             const int fd = fds[fd_type];
