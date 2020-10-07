@@ -6,7 +6,7 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../cons/cons.hpp"
+#include "../ledger.hpp"
 #include "../hplog.hpp"
 #include "state_serve.hpp"
 #include "state_common.hpp"
@@ -136,7 +136,7 @@ namespace state_serve
                 resp.hash = sr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, cons::ctx.lcl);
+                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, ledger::ctx.lcl);
                 return 1; // Success.
             }
         }
@@ -158,7 +158,7 @@ namespace state_serve
                 {
                     msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
                         fbuf, sr.parent_path, block_hashes,
-                        file_length, sr.expected_hash, cons::ctx.lcl);
+                        file_length, sr.expected_hash, ledger::ctx.lcl);
                     return 1; // Success.
                 }
             }
@@ -177,7 +177,7 @@ namespace state_serve
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, cons::ctx.lcl);
+                        fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, ledger::ctx.lcl);
                     return 1; // Success.
                 }
             }

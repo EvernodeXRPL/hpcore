@@ -3,7 +3,7 @@
 #include "../msg/fbuf/common_helpers.hpp"
 #include "../p2p/p2p.hpp"
 #include "../pchheader.hpp"
-#include "../cons/cons.hpp"
+#include "../ledger.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
 #include "../hpfs/hpfs.hpp"
@@ -266,7 +266,7 @@ namespace state_sync
         sr.expected_hash = expected_hash;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, sr, cons::ctx.lcl);
+        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, sr, ledger::ctx.lcl);
         p2p::send_message_to_random_peer(fbuf); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
     }
 

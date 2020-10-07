@@ -8,7 +8,6 @@
 #include "../usr/user_input.hpp"
 #include "../hpfs/h32.hpp"
 #include "../sc.hpp"
-#include "ledger_handler.hpp"
 
 namespace cons
 {
@@ -71,16 +70,7 @@ namespace cons
 
         uint8_t stage = 0;
         uint64_t time_now = 0;
-        std::string lcl;
-        uint64_t led_seq_no = 0;
         hpfs::h32 state = hpfs::h32_empty;
-
-        //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
-        //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.
-        //this is loaded when node started and updated throughout consensus - delete ledgers that falls behind MAX_LEDGER_SEQUENCE range.
-        //We will use this to track lcls related logic.- track state, lcl request, response.
-        std::map<uint64_t, ledger_cache_entry> ledger_cache;
-        std::string last_requested_lcl;
 
         //ledger close time of previous hash
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.

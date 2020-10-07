@@ -1,7 +1,7 @@
 #include "../../pchheader.hpp"
 #include "../../util.hpp"
 #include "../../crypto.hpp"
-#include "../../cons/cons.hpp"
+#include "../../ledger.hpp"
 #include "../../hplog.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
@@ -83,11 +83,11 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL;
         msg += SEP_COLON;
-        msg += cons::ctx.lcl;
+        msg += ledger::ctx.lcl;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(cons::ctx.led_seq_no);
+        msg += std::to_string(ledger::ctx.led_seq_no);
         msg += "}";
     }
 
@@ -188,11 +188,11 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL;
         msg += SEP_COLON;
-        msg += cons::ctx.lcl;
+        msg += ledger::ctx.lcl;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(cons::ctx.led_seq_no);
+        msg += std::to_string(ledger::ctx.led_seq_no);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTENT;
         msg += SEP_COLON;

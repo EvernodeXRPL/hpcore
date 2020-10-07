@@ -15,7 +15,6 @@ namespace ledger
 {
     constexpr int FILE_PERMS = 0644;
     constexpr uint64_t MAX_LEDGER_SEQUENCE = 200; // Max ledger count.
-    constexpr const char *GENESIS_LEDGER = "0-genesis";
 
     ledger_context ctx;
 

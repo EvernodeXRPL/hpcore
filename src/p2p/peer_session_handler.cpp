@@ -11,9 +11,8 @@
 #include "../comm/comm_client.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
-#include "../cons/ledger_handler.hpp"
 #include "../state/state_sync.hpp"
-#include "../cons/cons.hpp"
+#include "../ledger.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -181,11 +180,11 @@ namespace p2p
 
             const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
             //first check node has the required lcl available. -> if so send lcl history accordingly.
-            const bool req_lcl_avail = cons::check_required_lcl_availability(hr);
+            const bool req_lcl_avail = ledger::check_required_lcl_availability(hr);
             if (req_lcl_avail)
             {
                 flatbuffers::FlatBufferBuilder fbuf(1024);
-                p2pmsg::create_msg_from_history_response(fbuf, cons::retrieve_ledger_history(hr));
+                p2pmsg::create_msg_from_history_response(fbuf, ledger::retrieve_ledger_history(hr));
                 std::string_view msg = std::string_view(
                     reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
@@ -200,7 +199,7 @@ namespace p2p
                 return 0;
             }
 
-            cons::handle_ledger_history_response(
+            ledger::handle_ledger_history_response(
                 p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message()));
         }
         else

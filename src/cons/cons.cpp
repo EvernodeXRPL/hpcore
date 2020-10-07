@@ -13,7 +13,7 @@
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "../state/state_sync.hpp"
-#include "ledger_handler.hpp"
+#include "../ledger.hpp"
 #include "cons.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
@@ -40,12 +40,6 @@ namespace cons
 
     int init()
     {
-        //load lcl details from lcl history.
-        ledger_history ldr_hist = load_ledger();
-        ctx.led_seq_no = ldr_hist.led_seq_no;
-        ctx.lcl = ldr_hist.lcl;
-        ctx.ledger_cache.swap(ldr_hist.cache);
-
         if (get_initial_state_hash(ctx.state) == -1)
         {
             LOG_ERROR << "Failed to get initial state hash.";
@@ -165,7 +159,7 @@ namespace cons
         auto itr = ctx.candidate_npl_messages.begin();
         while (itr != ctx.candidate_npl_messages.end())
         {
-            if (itr->lcl == ctx.lcl)
+            if (itr->lcl == ledger::ctx.lcl)
                 ++itr;
             else
                 ctx.candidate_npl_messages.erase(itr++);
@@ -205,24 +199,24 @@ namespace cons
                     //Node is not in sync with current lcl ->switch to observer mode.
                     conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
-                    LOG_INFO << "Syncing lcl. Curr lcl:" << cons::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
+                    LOG_INFO << "Syncing lcl. Curr lcl:" << ledger::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
 
                     // TODO: If we are in a lcl fork condition try to rollback state with the help of
                     // state_restore to rollback state checkpoints before requesting new state.
 
                     // Handle minority going forward when boostrapping cluster.
                     // Here we are mimicking invalid min ledger scenario.
-                    if (majority_lcl == GENESIS_LEDGER)
+                    if (majority_lcl == ledger::GENESIS_LEDGER)
                     {
-                        ctx.last_requested_lcl = majority_lcl;
+                        ledger::ctx.last_requested_lcl = majority_lcl;
                         p2p::history_response res;
                         res.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
-                        handle_ledger_history_response(std::move(res));
+                        ledger::handle_ledger_history_response(std::move(res));
                     }
                     else
                     {
                         //create history request message and request history from a random peer.
-                        send_ledger_history_request(ctx.lcl, majority_lcl);
+                        ledger::send_ledger_history_request(ledger::ctx.lcl, majority_lcl);
                     }
                 }
             }
@@ -251,7 +245,7 @@ namespace cons
                         if (apply_ledger(stg_prop) != -1)
                         {
                             // node has finished a consensus round (all 4 stages).
-                            LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ctx.lcl.substr(0, 15)
+                            LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ledger::ctx.lcl.substr(0, 15)
                                      << " state:" << ctx.state << ")";
                         }
                         else
@@ -425,7 +419,7 @@ namespace cons
                             parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
 
                             // Ignore the input if our ledger has passed the input TTL.
-                            if (max_lcl_seqno > ctx.led_seq_no)
+                            if (max_lcl_seqno > ledger::ctx.led_seq_no)
                             {
                                 if (!appbill_balance_exceeded)
                                 {
@@ -557,7 +551,7 @@ namespace cons
         p2p::proposal stg_prop;
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
-        stg_prop.lcl = ctx.lcl;
+        stg_prop.lcl = ledger::ctx.lcl;
         stg_prop.state = ctx.state;
 
         // Populate the proposal with set of candidate user pubkeys.
@@ -589,7 +583,7 @@ namespace cons
         // we always vote for our current lcl and state regardless of what other peers are saying
         // if there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork
-        stg_prop.lcl = ctx.lcl;
+        stg_prop.lcl = ledger::ctx.lcl;
         stg_prop.state = ctx.state;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
@@ -713,7 +707,7 @@ namespace cons
         //if winning lcl is not matched node lcl,
         //that means vote is not on the consensus ledger.
         //Should request history from a peer.
-        if (ctx.lcl != majority_lcl)
+        if (ledger::ctx.lcl != majority_lcl)
         {
             LOG_DEBUG << "We are not on the consensus ledger, requesting history from a random peer";
             is_desync = true;
@@ -781,16 +775,15 @@ namespace cons
  */
     int apply_ledger(const p2p::proposal &cons_prop)
     {
-        const std::tuple<const uint64_t, std::string> new_lcl = save_ledger(cons_prop);
-        ctx.led_seq_no = std::get<0>(new_lcl);
-        ctx.lcl = std::get<1>(new_lcl);
+        if (ledger::save_ledger(cons_prop) == -1)
+            return -1;
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
-                if (itr->second.maxledgerseqno <= ctx.led_seq_no)
+                if (itr->second.maxledgerseqno <= ledger::ctx.led_seq_no)
                     ctx.candidate_user_inputs.erase(itr++);
                 else
                     ++itr;
@@ -804,7 +797,7 @@ namespace cons
         {
             sc::contract_execution_args &args = ctx.contract_ctx.args;
             args.time = cons_prop.time;
-            args.lcl = ctx.lcl;
+            args.lcl = ledger::ctx.lcl;
 
             // Feed NPL messages.
             args.npl_messages.splice(args.npl_messages.end(), ctx.candidate_npl_messages);
@@ -945,7 +938,7 @@ namespace cons
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_msg_from_npl_output(fbuf, output, ctx.lcl);
+            p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.lcl);
             p2p::broadcast_message(fbuf, true);
         }
     }

@@ -6,6 +6,8 @@
 
 namespace ledger
 {
+    constexpr const char *GENESIS_LEDGER = "0-genesis";
+
     struct ledger_cache_entry
     {
         std::string lcl;
@@ -16,8 +18,12 @@ namespace ledger
     {
         std::string lcl;
         uint64_t led_seq_no = 0;
-        std::map<uint64_t, ledger_cache_entry> cache;
         std::string last_requested_lcl;
+
+        // Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
+        // Contains closed ledgers from oldest to latest - MAX_LEDGER_SEQUENCE.
+        // This is loaded when node started and updated throughout consensus - delete ledgers that falls behind MAX_LEDGER_SEQUENCE range.
+        std::map<uint64_t, ledger_cache_entry> cache;
     };
 
     extern ledger_context ctx;

@@ -1,6 +1,6 @@
 #include "../../pchheader.hpp"
 #include "../../util.hpp"
-#include "../../cons/cons.hpp"
+#include "../../ledger.hpp"
 #include "../../hplog.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_bson.hpp"
@@ -24,9 +24,9 @@ namespace msg::usrmsg::bson
       encoder.key(msg::usrmsg::FLD_TYPE);
       encoder.string_value(msg::usrmsg::MSGTYPE_STAT_RESPONSE);
       encoder.key(msg::usrmsg::FLD_LCL);
-      encoder.string_value(cons::ctx.lcl);
+      encoder.string_value(ledger::ctx.lcl);
       encoder.key(msg::usrmsg::FLD_LCL_SEQ);
-      encoder.int64_value(cons::ctx.led_seq_no);
+      encoder.int64_value(ledger::ctx.led_seq_no);
       encoder.end_object();
       encoder.flush();
    }
@@ -102,9 +102,9 @@ namespace msg::usrmsg::bson
       encoder.key(msg::usrmsg::FLD_TYPE);
       encoder.string_value(msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT);
       encoder.key(msg::usrmsg::FLD_LCL);
-      encoder.string_value(cons::ctx.lcl);
+      encoder.string_value(ledger::ctx.lcl);
       encoder.key(msg::usrmsg::FLD_LCL_SEQ);
-      encoder.int64_value(cons::ctx.led_seq_no);
+      encoder.int64_value(ledger::ctx.led_seq_no);
       encoder.key(msg::usrmsg::FLD_CONTENT);
       encoder.byte_string_value(content);
       encoder.end_object();
