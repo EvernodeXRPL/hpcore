@@ -37,6 +37,8 @@ namespace ledger
         // Deletes ledgers that falls behind MAX_LEDGER_SEQUENCE range.
         std::map<uint64_t, const std::string> cache;
 
+        std::mutex ledger_mutex;
+
         const std::string get_lcl()
         {
             std::shared_lock lock(lcl_mutex);

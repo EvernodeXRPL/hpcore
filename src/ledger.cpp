@@ -179,32 +179,37 @@ namespace ledger
             }
 
             // Serve any history requests from other nodes.
-            for (const auto &[session_id, hr] : history_requests)
             {
-                // First check whether we have the required lcl available.
-                if (!check_required_lcl_availability(hr.required_lcl))
-                    continue;
+                // Acquire lock so consensus does not update the ledger while we are reading the ledger.
+                std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
 
-                p2p::history_response resp;
-                if (ledger::retrieve_ledger_history(hr, resp) != -1)
+                for (const auto &[session_id, hr] : history_requests)
                 {
-                    flatbuffers::FlatBufferBuilder fbuf(1024);
-                    p2pmsg::create_msg_from_history_response(fbuf, resp);
-                    std::string_view msg = msg::fbuf::flatbuff_bytes_to_sv(fbuf.GetBufferPointer(), fbuf.GetSize());
+                    // First check whether we have the required lcl available.
+                    if (!check_required_lcl_availability(hr.required_lcl))
+                        continue;
 
-                    // Find the peer that we should send the state response to.
-                    std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-                    const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
-
-                    if (peer_itr != p2p::ctx.peer_connections.end())
+                    p2p::history_response resp;
+                    if (ledger::retrieve_ledger_history(hr, resp) != -1)
                     {
-                        comm::comm_session *session = peer_itr->second;
-                        session->send(msg);
+                        flatbuffers::FlatBufferBuilder fbuf(1024);
+                        p2pmsg::create_msg_from_history_response(fbuf, resp);
+                        std::string_view msg = msg::fbuf::flatbuff_bytes_to_sv(fbuf.GetBufferPointer(), fbuf.GetSize());
+
+                        // Find the peer that we should send the state response to.
+                        std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+                        const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
+
+                        if (peer_itr != p2p::ctx.peer_connections.end())
+                        {
+                            comm::comm_session *session = peer_itr->second;
+                            session->send(msg);
+                        }
                     }
                 }
-            }
 
-            history_requests.clear();
+                history_requests.clear();
+            }
         }
 
         LOG_INFO << "lcl sync: Worker stopped.";
@@ -224,8 +229,8 @@ namespace ledger
     }
 
     /**
-     * Create and save ledger from the given proposal message.
-     * @param proposal Consensus-reached Satge 3 proposal.
+     * Create and save ledger from the given proposal message. Called by consensus.
+     * @param proposal Consensus-reached Stage 3 proposal.
      */
     int save_ledger(const p2p::proposal &proposal)
     {
@@ -257,6 +262,9 @@ namespace ledger
         util::bin2hex(lcl_hash,
                       reinterpret_cast<const unsigned char *>(lcl.data()),
                       lcl.size());
+
+        // Acquire lock so history request serving does not access the ledger while consensus is updating the ledger.
+        std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
 
         // Construct lcl file name.
         // lcl file name should follow [ledger sequnce numer]-lcl[lcl hex] format.
