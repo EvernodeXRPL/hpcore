@@ -1,15 +1,15 @@
 #ifndef _HP_CONS_
 #define _HP_CONS_
 
-#include "../pchheader.hpp"
-#include "../util.hpp"
-#include "../sc.hpp"
-#include "../p2p/p2p.hpp"
-#include "../usr/user_input.hpp"
-#include "../hpfs/h32.hpp"
-#include "../sc.hpp"
+#include "pchheader.hpp"
+#include "util.hpp"
+#include "sc.hpp"
+#include "p2p/p2p.hpp"
+#include "usr/user_input.hpp"
+#include "hpfs/h32.hpp"
+#include "sc.hpp"
 
-namespace cons
+namespace consensus
 {
     /**
      * Represents a contract input that takes part in consensus.
@@ -72,13 +72,14 @@ namespace cons
         uint64_t time_now = 0;
         hpfs::h32 state = hpfs::h32_empty;
 
-        //ledger close time of previous hash
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
         std::mutex state_sync_lock;
         sc::execution_context contract_ctx;
         bool is_shutting_down = false;
+
+        std::thread consensus_thread;
 
         consensus_context()
             : recent_userinput_hashes(200)
@@ -95,8 +96,6 @@ namespace cons
         std::map<std::string, int32_t> outputs;
         std::map<hpfs::h32, int32_t> state;
     };
-
-    extern consensus_context ctx;
 
     int init();
 
@@ -153,6 +152,6 @@ namespace cons
 
     void on_state_sync_completion(const hpfs::h32 new_state);
 
-} // namespace cons
+} // namespace consensus
 
 #endif

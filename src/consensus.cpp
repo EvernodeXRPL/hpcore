@@ -1,24 +1,24 @@
-#include "../pchheader.hpp"
-#include "../conf.hpp"
-#include "../usr/usr.hpp"
-#include "../usr/user_input.hpp"
-#include "../p2p/p2p.hpp"
-#include "../msg/fbuf/p2pmsg_helpers.hpp"
-#include "../msg/usrmsg_parser.hpp"
-#include "../msg/usrmsg_common.hpp"
-#include "../p2p/peer_session_handler.hpp"
-#include "../hplog.hpp"
-#include "../crypto.hpp"
-#include "../sc.hpp"
-#include "../hpfs/h32.hpp"
-#include "../hpfs/hpfs.hpp"
-#include "../state/state_sync.hpp"
-#include "../ledger.hpp"
-#include "cons.hpp"
+#include "pchheader.hpp"
+#include "conf.hpp"
+#include "usr/usr.hpp"
+#include "usr/user_input.hpp"
+#include "p2p/p2p.hpp"
+#include "msg/fbuf/p2pmsg_helpers.hpp"
+#include "msg/usrmsg_parser.hpp"
+#include "msg/usrmsg_common.hpp"
+#include "p2p/peer_session_handler.hpp"
+#include "hplog.hpp"
+#include "crypto.hpp"
+#include "sc.hpp"
+#include "hpfs/h32.hpp"
+#include "hpfs/hpfs.hpp"
+#include "state/state_sync.hpp"
+#include "ledger.hpp"
+#include "consensus.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
-namespace cons
+namespace consensus
 {
 
     /**
@@ -31,10 +31,6 @@ namespace cons
 
     consensus_context ctx;
     bool init_success = false;
-    bool is_shutting_down = false;
-
-    // Consensus processing thread.
-    std::thread consensus_thread;
 
     int init()
     {
@@ -56,7 +52,7 @@ namespace cons
         ctx.contract_ctx.args.readonly = false;
 
         // Starting consensus processing thread.
-        consensus_thread = std::thread(cons::run_consensus);
+        ctx.consensus_thread = std::thread(run_consensus);
 
         init_success = true;
         return 0;
@@ -70,14 +66,14 @@ namespace cons
         if (init_success)
         {
             // Making the consensus while loop stop.
-            is_shutting_down = true;
+            ctx.is_shutting_down = true;
 
             // Stop the contract if running.
             sc::stop(ctx.contract_ctx);
 
             // Joining consensus processing thread.
-            if (consensus_thread.joinable())
-                consensus_thread.join();
+            if (ctx.consensus_thread.joinable())
+                ctx.consensus_thread.join();
         }
     }
 
@@ -86,7 +82,7 @@ namespace cons
     */
     void wait()
     {
-        consensus_thread.join();
+        ctx.consensus_thread.join();
     }
 
     void run_consensus()
@@ -95,7 +91,7 @@ namespace cons
 
         LOG_INFO << "Consensus processor started.";
 
-        while (!is_shutting_down)
+        while (!ctx.is_shutting_down)
         {
             if (consensus() == -1)
             {
@@ -742,11 +738,11 @@ namespace cons
         switch (stage)
         {
         case 1:
-            return cons::STAGE1_THRESHOLD * conf::cfg.unl.size();
+            return STAGE1_THRESHOLD * conf::cfg.unl.size();
         case 2:
-            return cons::STAGE2_THRESHOLD * conf::cfg.unl.size();
+            return STAGE2_THRESHOLD * conf::cfg.unl.size();
         case 3:
-            return cons::STAGE3_THRESHOLD * conf::cfg.unl.size();
+            return STAGE3_THRESHOLD * conf::cfg.unl.size();
         }
         return -1;
     }
@@ -960,4 +956,4 @@ namespace cons
         ctx.state = new_state;
     }
 
-} // namespace cons
+} // namespace consensus
