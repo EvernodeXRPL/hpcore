@@ -77,9 +77,6 @@ namespace sc
         // NPL messages to be passed into contract.
         std::list<p2p::npl_message> npl_messages;
         
-        // Output NPL buffer.
-        std::string npl_output;
-
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
         contract_iobuf_pair hpscbufs;
@@ -144,7 +141,11 @@ namespace sc
 
     int write_npl_messages(execution_context &ctx);
 
-    int read_contract_hp_npl_outputs(execution_context &ctx);
+    int read_contract_hp_outputs(execution_context &ctx);
+
+    int read_contract_npl_outputs(execution_context &ctx);
+
+    void broadcast_npl_output(std::string &output);
 
     // Common helper functions
 

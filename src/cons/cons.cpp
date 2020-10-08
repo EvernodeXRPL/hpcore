@@ -117,7 +117,6 @@ namespace cons
 
     int consensus()
     {
-        LOG_INFO << "Running Consensus..";
         // A consensus round consists of 4 stages (0,1,2,3).
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
@@ -151,25 +150,6 @@ namespace cons
             {
                 ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
             }
-        }
-
-        // Throughout consensus, we move over the incoming npl messages collected via the network so far into
-        // the candidate npl message set (move and append). This is to have a private working set for the consensus
-        // and avoid threading conflicts with network incoming npl messages.
-        {
-            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
-            ctx.candidate_npl_messages.splice(ctx.candidate_npl_messages.end(), p2p::ctx.collected_msgs.npl_messages);
-        }
-
-        // Only the npl messages with a valid lcl will be passed down to the contract.
-        // lcl should match the previous round's lcl.
-        auto itr = ctx.candidate_npl_messages.begin();
-        while (itr != ctx.candidate_npl_messages.end())
-        {
-            if (itr->lcl == ctx.lcl)
-                ++itr;
-            else
-                ctx.candidate_npl_messages.erase(itr++);
         }
 
         LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
@@ -808,9 +788,6 @@ namespace cons
             args.time = cons_prop.time;
             args.lcl = ctx.lcl;
 
-            // Feed NPL messages.
-            args.npl_messages.splice(args.npl_messages.end(), ctx.candidate_npl_messages);
-
             // Populate user bufs.
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
             // TODO: Do something usefull with HP<-->SC channel.
@@ -823,8 +800,7 @@ namespace cons
 
             ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);
-            broadcast_npl_output(args.npl_output);
-
+            
             sc::clear_args(args);
         }
         return 0;
@@ -939,16 +915,6 @@ namespace cons
                     std::move(hash),
                     candidate_user_output(pubkey, std::move(output)));
             }
-        }
-    }
-
-    void broadcast_npl_output(std::string &output)
-    {
-        if (!output.empty())
-        {
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_msg_from_npl_output(fbuf, output, ctx.lcl);
-            p2p::broadcast_message(fbuf, true);
         }
     }
 

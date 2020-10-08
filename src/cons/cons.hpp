@@ -51,9 +51,6 @@ namespace cons
         // todo: having a queue of proposals against peer pubkey.
         std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
-        // The set of npl messages that are being collected as consensus stages are progressing.
-        std::list<p2p::npl_message> candidate_npl_messages;
-
         // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
         std::unordered_set<std::string> candidate_users;
 
@@ -153,8 +150,6 @@ namespace cons
     void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
-
-    void broadcast_npl_output(std::string &output);
 
     template <typename T>
     void increment(std::map<T, int32_t> &counter, const T &candidate);

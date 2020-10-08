@@ -101,6 +101,8 @@ function HotPocketNplChannel(fd) {
             if (!msgLenBuf) break;
             const msgLen = msgLenBuf.readUInt16BE();
 
+            console.log("Len - " + msgLen)
+
             pos += 2;
             const pubKeyBuf = readBytes(buf, pos, 32);
             if (!pubKeyBuf) break;
@@ -134,7 +136,7 @@ function HotPocketNplChannel(fd) {
             }
             else {
                 const s = fs.createReadStream(null, { fd: fd, highWaterMark: 128 * 1024 });
-                drainPacket(s).then(buf => resolve(parseNplInputs(buf)));
+                drainPacket(s).then(buf => resolve(buf));
             }
         });
     }

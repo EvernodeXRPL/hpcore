@@ -1,13 +1,13 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
+#include "cons/cons.hpp"
 #include "hplog.hpp"
 #include "sc.hpp"
 #include "hpfs/hpfs.hpp"
+#include "msg/fbuf/p2pmsg_helpers.hpp"
 
 namespace sc
 {
-    int readhp = 0;
-    int writehp = 0;
     /**
      * Executes the contract process and passes the specified context arguments.
      * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -24,8 +24,6 @@ namespace sc
         if (!ctx.args.readonly)
         {
             create_iosockets(ctx.nplfds);
-            readhp = 0;
-            writehp = 0;
             create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
         }
 
@@ -271,10 +269,6 @@ namespace sc
         if (!ctx.args.readonly && write_contract_hp_inputs(ctx) == -1)
             return -1;
 
-        // Write any NPL messages to contract.
-        if (!ctx.args.readonly && write_npl_messages(ctx) == -1)
-            return -1;
-
         // Write any verified (consensus-reached) user inputs to user pipes.
         if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) == -1)
         {
@@ -294,8 +288,12 @@ namespace sc
             if (ctx.should_stop)
                 break;
 
-            const int hpsc_npl_res = ctx.args.readonly ? 0 : read_contract_hp_npl_outputs(ctx);
-            if (hpsc_npl_res == -1)
+            const int hpsc_res = ctx.args.readonly ? 0 : read_contract_hp_outputs(ctx);
+            if (hpsc_res == -1)
+                return -1;
+
+            const int npl_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
+            if (npl_res == -1)
                 return -1;
 
             const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
@@ -306,7 +304,7 @@ namespace sc
             }
 
             // If no bytes were read after contract finished execution, exit the read loop.
-            if (hpsc_npl_res == 0 && user_res == 0 && ctx.contract_pid == 0)
+            if (hpsc_res == 0 && npl_res == 0 && user_res == 0 && ctx.contract_pid == 0)
                 break;
 
             util::sleep(20);
@@ -340,57 +338,35 @@ namespace sc
          * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (32 bytes)**|**Npl message data**|
          * Length of the message is calculated without including public key length
          */
-        const int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
-        if (writehp == -1)
+        int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
+
+        LOG_INFO << "Message len " << ctx.args.npl_messages.size();
+
+        if (writefd == -1)
+        {
+            LOG_INFO << "Closed";
             return 0;
+        }
 
         bool write_error = false;
         if (!ctx.args.npl_messages.empty())
         {
-            const size_t total_memsegs = ctx.args.npl_messages.size() * 3;
-            iovec memsegs[total_memsegs];
-            size_t i = 0;
-            for (const auto &npl_msg : ctx.args.npl_messages)
-            {
-                const uint8_t pre_header_index = i * 3;
-                const uint8_t pubkey_index = pre_header_index + 1;
-                const uint8_t msg_index = pre_header_index + 2;
+            const auto npl_msg = ctx.args.npl_messages.front();
 
-                const uint16_t msg_len = npl_msg.data.size();
-
-                // Header is |version(1byte)|reserve(1byte)|msg length(2bytes big endian)|
-                uint8_t header[4];
-                header[0] = util::MIN_NPL_INPUT_VERSION;
-
-                // Store msg length in big endian.
-                header[2] = msg_len << 8;
-                header[3] = msg_len;
-
-                memsegs[pre_header_index].iov_base = header;
-                memsegs[pre_header_index].iov_len = sizeof(header);
-
-                // Pubkey without the key type prefix.
-                memsegs[pubkey_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(npl_msg.pubkey.data() + 1));
-                memsegs[pubkey_index].iov_len = npl_msg.pubkey.size() - 1;
-
-                memsegs[msg_index].iov_base = reinterpret_cast<void *>(const_cast<char *>(npl_msg.data.data()));
-                memsegs[msg_index].iov_len = msg_len;
-
-                i++;
-            }
-
-            if (writev(writefd, memsegs, total_memsegs) == -1)
+            LOG_INFO << "Message " << npl_msg.data;
+            if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
+                write_error = true;
+            if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
                 write_error = true;
 
             ctx.args.npl_messages.clear();
         }
 
-        // Close the writefd since we no longer need it.
         // close(writefd);
         // ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
 
-        writehp = -1;
-
+        if (write_error)
+            LOG_INFO << "Erro " << errno;
         return write_error ? -1 : 0;
     }
 
@@ -400,7 +376,7 @@ namespace sc
      * 
      * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
      */
-    int read_contract_hp_npl_outputs(execution_context &ctx)
+    int read_contract_hp_outputs(execution_context &ctx)
     {
         const int hpsc_res = read_iopipe(ctx.hpscfds, ctx.args.hpscbufs.output);
         if (hpsc_res == -1)
@@ -409,14 +385,39 @@ namespace sc
             return -1;
         }
 
-        const int npl_res = read_iosocket(ctx.nplfds, ctx.args.npl_output);
+        return (hpsc_res == 0) ? 0 : 1;
+    }
+
+    /**
+     * Read all NPL output messages produced by the contract process and store them in
+     * the buffer for later processing.
+     * 
+     * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
+     */
+    int read_contract_npl_outputs(execution_context &ctx)
+    {
+        std::string npl_outputs;
+        const int npl_res = read_iosocket(ctx.nplfds, npl_outputs);
+
         if (npl_res == -1)
         {
             LOG_ERROR << "Error reading NPL output from the contract.";
             return -1;
         }
 
-        return (hpsc_res == 0 && npl_res == 0) ? 0 : 1;
+        broadcast_npl_output(npl_outputs);
+
+        return (npl_res == 0) ? 0 : 1;
+    }
+
+    void broadcast_npl_output(std::string &output)
+    {
+        if (!output.empty())
+        {
+            flatbuffers::FlatBufferBuilder fbuf(1024);
+            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, cons::ctx.lcl);
+            p2p::broadcast_message(fbuf, true);
+        }
     }
 
     /**
@@ -571,6 +572,11 @@ namespace sc
             return -1;
         }
 
+        // int flags = fcntl(socket[0], F_GETFL, 0);
+        // fcntl(socket[0], F_SETFL, flags | O_NONBLOCK);
+        // flags = fcntl(socket[1], F_GETFL, 0);
+        // fcntl(socket[1], F_SETFL, flags | O_NONBLOCK);
+
         // If both pipes got created, assign them to the fd vector.
         fds.clear();
         fds.push_back(socket[0]); //SCREADWRITE
@@ -675,45 +681,28 @@ namespace sc
         // Outputs will be read by the consensus process later when it wishes so.
 
         const int readfd = fds[SOCKETFDTYPE::HPREADWRITE];
-        if (readhp == -1)
+
+        if (readfd == -1)
             return 0;
-
-        LOG_INFO << "Start reading the fd.....\n";
-
-        bool read_error = false;
+        
         size_t available_bytes = 0;
         if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
         {
             if (available_bytes == 0)
                 return 0;
+            
+            output.resize(available_bytes);
 
-            const size_t current_size = output.size();
-            output.resize(current_size + available_bytes);
+            const int res = read(readfd, output.data(), sizeof(output));
 
-            LOG_INFO << "Reading the fd.....\n";
-
-            const int res = read(readfd, output.data() + current_size, available_bytes);
-
-            LOG_INFO << "Read the fd\n";
-
-            if (res >= 0)
+            if (res > 0)
             {
-                if (res == 0) // EOF
-                {
-                    // close(readfd);
-                    // fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-                    readhp = -1;
-                }
-                return res;
+                // close(readfd);
+                // fds[SOCKETFDTYPE::HPREADWRITE] = -1;
             }
+
+            return res;
         }
-
-        LOG_INFO << errno << " fd=" << readfd << " Error reading the fd.....";
-        LOG_INFO << errno << " fd=" << fds[SOCKETFDTYPE::HPREADWRITE] << " Error reading the fd.....";
-
-        // close(readfd);
-        // fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-        readhp = -1;
         return -1;
     }
 
@@ -769,33 +758,27 @@ namespace sc
      */
     void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds)
     {
-        if (!is_hp)
-        {
-            readhp = -1;
-            writehp = -1;
-        }
-
-        for (int fd_type = 0; fd_type <= 1; fd_type++)
-        {
-            const int fd = fds[fd_type];
-            if (fd != -1)
-            {
-                if ((is_hp && fd_type == SOCKETFDTYPE::SCREADWRITE) ||
-                    (!is_hp && fd_type == SOCKETFDTYPE::HPREADWRITE))
-                {
-                    close(fd);
-                    fds[fd_type] = -1;
-                }
-                else if (is_hp && (fd_type == SOCKETFDTYPE::HPREADWRITE))
-                {
-                    // The fd must be kept open in HP process. But we must
-                    // mark it to close on exec in a potential forked process.
-                    int flags = fcntl(fd, F_GETFD, NULL);
-                    flags |= FD_CLOEXEC;
-                    fcntl(fd, F_SETFD, flags);
-                }
-            }
-        }
+        // for (int fd_type = 0; fd_type <= 1; fd_type++)
+        // {
+        //     const int fd = fds[fd_type];
+        //     if (fd != -1)
+        //     {
+        //         if ((is_hp && fd_type == SOCKETFDTYPE::SCREADWRITE) ||
+        //             (!is_hp && fd_type == SOCKETFDTYPE::HPREADWRITE))
+        //         {
+        //             close(fd);
+        //             fds[fd_type] = -1;
+        //         }
+        //         else if (is_hp && (fd_type == SOCKETFDTYPE::HPREADWRITE))
+        //         {
+        //             // The fd must be kept open in HP process. But we must
+        //             // mark it to close on exec in a potential forked process.
+        //             int flags = fcntl(fd, F_GETFD, NULL);
+        //             flags |= FD_CLOEXEC;
+        //             fcntl(fd, F_SETFD, flags);
+        //         }
+        //     }
+        // }
     }
 
     /**
@@ -821,7 +804,6 @@ namespace sc
         args.hpscbufs.inputs.clear();
         args.hpscbufs.output.clear();
         args.npl_messages.clear();
-        args.npl_output.clear();
         args.time = 0;
         args.lcl.clear();
         args.post_execution_state_hash = hpfs::h32_empty;
