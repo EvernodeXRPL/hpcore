@@ -184,7 +184,14 @@ namespace p2p
             if (req_lcl_avail)
             {
                 flatbuffers::FlatBufferBuilder fbuf(1024);
-                p2pmsg::create_msg_from_history_response(fbuf, ledger::retrieve_ledger_history(hr));
+                p2p::history_response resp;
+                if (ledger::retrieve_ledger_history(hr, resp) == -1)
+                {
+                    LOG_DEBUG << "Error serving ledger history request.";
+                    return 0;
+                }
+
+                p2pmsg::create_msg_from_history_response(fbuf, resp);
                 std::string_view msg = std::string_view(
                     reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 

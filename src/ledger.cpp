@@ -7,7 +7,6 @@
 #include "msg/fbuf/p2pmsg_helpers.hpp"
 #include "hplog.hpp"
 #include "ledger.hpp"
-#include "cons/cons.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -46,32 +45,26 @@ namespace ledger
                 }
 
                 const size_t pos = file_name.find("-");
-                uint64_t seq_no = 0;
 
                 if (pos != std::string::npos)
                 {
-                    seq_no = std::stoull(file_name.substr(0, pos));
+                    std::vector<uint8_t> buffer;
+                    if (read_ledger(file_path, buffer) == -1)
+                        return -1;
 
-                    std::ifstream file(file_path, std::ios::binary | std::ios::ate);
-                    std::streamsize size = file.tellg();
-                    file.seekg(0, std::ios::beg);
-
-                    std::vector<char> buffer(size);
-                    if (file.read(buffer.data(), size))
+                    if (!msg::fbuf::ledger::verify_ledger_buffer(buffer.data(), buffer.size()))
                     {
-                        const uint8_t *ledger_buf_ptr = reinterpret_cast<const uint8_t *>(buffer.data());
-                        const msg::fbuf::ledger::Ledger *ledger = msg::fbuf::ledger::GetLedger(ledger_buf_ptr);
-                        ledger_cache_entry c;
-                        c.lcl = file_name;
-                        c.state = msg::fbuf::flatbuff_bytes_to_sv(ledger->state());
-
-                        ctx.cache.emplace(seq_no, std::move(c)); //lcl_cache -> [seq_no-hash]
+                        LOG_ERROR << "Ledger data verification failed. " << file_name;
+                        return -1;
                     }
+
+                    const uint64_t seq_no = std::stoull(file_name.substr(0, pos));
+                    ctx.cache.emplace(seq_no, std::move(file_name)); // cache -> [seq_no - hash]
                 }
                 else
                 {
                     // lcl records should follow [ledger sequnce numer]-lcl[lcl hex] format.
-                    LOG_ERROR << "Invalid lcl file name: " << file_name << " in " << conf::ctx.hist_dir;
+                    LOG_ERROR << "Invalid lcl file name: " << file_name;
                     return -1;
                 }
             }
@@ -87,7 +80,7 @@ namespace ledger
         {
             const auto last_ledger = ctx.cache.rbegin();
             ctx.led_seq_no = last_ledger->first;
-            ctx.lcl = last_ledger->second.lcl;
+            ctx.lcl = last_ledger->second;
 
             // Remove old ledgers that exceeds max sequence range.
             if (ctx.led_seq_no > MAX_LEDGER_SEQUENCE)
@@ -120,10 +113,11 @@ namespace ledger
 
         // Serialize lcl using flatbuffer ledger schema.
         flatbuffers::FlatBufferBuilder builder(1024);
-        const std::string_view ledger_str = msg::fbuf::ledger::create_ledger_from_proposal(builder, proposal, led_seq_no);
+        msg::fbuf::ledger::create_ledger_from_proposal(builder, proposal, led_seq_no);
 
         // Get binary hash of the the serialized lcl.
-        const std::string lcl = crypto::get_hash(ledger_str);
+        std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
+        const std::string lcl = crypto::get_hash(ledger_str_buf);
 
         // Get hex from binary hash.
         std::string lcl_hash;
@@ -134,13 +128,10 @@ namespace ledger
         // Construct lcl file name.
         // lcl file name should follow [ledger sequnce numer]-lcl[lcl hex] format.
         const std::string file_name = std::to_string(led_seq_no) + "-" + lcl_hash;
-        if (write_ledger_contents(file_name, ledger_str.data(), ledger_str.size()) == -1)
+        if (write_ledger(file_name, builder.GetBufferPointer(), builder.GetSize()) == -1)
             return -1;
 
-        ledger_cache_entry c;
-        c.lcl = file_name;
-        c.state = proposal.state.to_string_view();
-        ctx.cache.emplace(led_seq_no, std::move(c));
+        ctx.cache.emplace(led_seq_no, std::move(file_name));
 
         //Remove old ledgers that exceeds max sequence range.
         if (led_seq_no > MAX_LEDGER_SEQUENCE)
@@ -155,13 +146,13 @@ namespace ledger
      */
     void remove_old_ledgers(const uint64_t led_seq_no)
     {
-        std::map<uint64_t, ledger_cache_entry>::iterator itr;
+        std::map<uint64_t, const std::string>::iterator itr;
 
         for (itr = ctx.cache.begin();
              itr != ctx.cache.lower_bound(led_seq_no + 1);
              itr++)
         {
-            const std::string file_path = conf::ctx.hist_dir + "/" + itr->second.lcl + ".lcl";
+            const std::string file_path = conf::ctx.hist_dir + "/" + itr->second + ".lcl";
 
             if (util::is_file_exists(file_path))
                 util::remove_file(file_path);
@@ -172,12 +163,44 @@ namespace ledger
     }
 
     /**
+     * Reads the specified ledger entry.
+     * @param file_path File path to read.
+     * @param buffer Buffer to populate with file contents.
+     * @return 0 on success. -1 on failure.
+     */
+    int read_ledger(std::string_view file_path, std::vector<uint8_t> &buffer)
+    {
+        const int fd = open(file_path.data(), O_RDONLY);
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error opening ledger file for read. " << file_path;
+            return -1;
+        }
+
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+        {
+            LOG_ERROR << errno << ": Error in ledger file stat. " << file_path;
+            return -1;
+        }
+
+        buffer.resize(st.st_size);
+        if (read(fd, buffer.data(), buffer.size()) == -1)
+        {
+            LOG_ERROR << errno << ": Error reading ledger file. " << file_path;
+            return -1;
+        }
+
+        return 0;
+    }
+
+    /**
      * Write ledger to file system.
      * @param file_name current ledger sequence number.
      * @param ledger_raw raw lcl data.
      * @param ledger_size size of the raw lcl data.
      */
-    int write_ledger_contents(const std::string &file_name, const char *ledger_raw, const size_t ledger_size)
+    int write_ledger(const std::string &file_name, const uint8_t *ledger_raw, const size_t ledger_size)
     {
         // Create file path to save ledger.
         // file name -> [ledger sequnce numer]-[lcl hex]
@@ -264,7 +287,7 @@ namespace ledger
                 // minimum lcl sequence becuase of maximum ledger history range.
                 return false;
             }
-            else if (itr->second.lcl != hr.required_lcl)
+            else if (itr->second != hr.required_lcl)
             {
                 LOG_DEBUG << "Required lcl peer asked for is not in our lcl cache.";
                 // Either this node or requesting node is in a fork condition.
@@ -281,38 +304,40 @@ namespace ledger
     /**
      * Retrieve lcl(last closed ledger) information from ledger history.
      * @param hr lcl history request information.
-     * @return A ledger history response containing requested ledger details.
+     * @param history_response Ledger history response to populate requested ledger details
+     * @return 0 on success. -1 on failure.
      */
-    const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr)
+    int retrieve_ledger_history(const p2p::history_request &hr, p2p::history_response &history_response)
     {
-        p2p::history_response history_response;
-        size_t pos = hr.minimum_lcl.find("-");
-        uint64_t min_seq_no = 0;
-
-        //get sequence number of minimum lcl required
+        // Get sequence number of minimum lcl required
+        const size_t pos = hr.minimum_lcl.find("-");
         if (pos != std::string::npos)
         {
-            min_seq_no = std::stoull(hr.minimum_lcl.substr(0, pos)); //get required lcl sequence number
+            LOG_DEBUG << "Invalid lcl history request. Requested:" << hr.minimum_lcl;
+            return -1;
         }
 
+        uint64_t min_seq_no = std::stoull(hr.minimum_lcl.substr(0, pos)); // Get required lcl sequence number
+
         const auto itr = ctx.cache.find(min_seq_no);
-        if (itr != ctx.cache.end()) //requested minimum lcl is not in our lcl history cache
+        if (itr != ctx.cache.end()) // Requested minimum lcl is not in our lcl history cache
         {
             min_seq_no = itr->first;
-            //check whether minimum lcl node ask for is same as this node's.
-            //eventhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
-            if (hr.minimum_lcl != itr->second.lcl)
+
+            // Check whether minimum lcl requested is same as this node's.
+            // Evenhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
+            if (hr.minimum_lcl != itr->second)
             {
-                LOG_DEBUG << "Invalid minimum ledger. Recieved min hash: " << hr.minimum_lcl << " Node hash: " << itr->second.lcl;
+                LOG_DEBUG << "Invalid minimum ledger. Requested min lcl:" << hr.minimum_lcl << " Node lcl:" << itr->second;
                 history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
-                return history_response;
+                return 0;
             }
         }
         else if (min_seq_no > ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
         {
-            LOG_DEBUG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Recvd hash: " << hr.minimum_lcl;
+            LOG_DEBUG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Requested lcl: " << hr.minimum_lcl;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
-            return history_response;
+            return 0;
         }
         else
         {
@@ -323,7 +348,7 @@ namespace ledger
         //LOG_DBG << "history request min seq: " << std::to_string(min_seq_no);
 
         //copy current history cache.
-        std::map<uint64_t, ledger_cache_entry> led_cache = ctx.cache;
+        std::map<uint64_t, const std::string> led_cache = ctx.cache;
 
         //filter out cache and get raw files here.
         led_cache.erase(
@@ -331,34 +356,20 @@ namespace ledger
             led_cache.lower_bound(min_seq_no));
 
         //Get raw content of lcls that going to be send.
-        for (auto &[seq_no, cache] : led_cache)
+        for (const auto &[seq_no, lcl] : led_cache)
         {
             p2p::history_ledger ledger;
-            ledger.lcl = cache.lcl;
-            ledger.state = cache.state;
+            ledger.lcl = lcl;
 
-            std::string path;
+            // Read lcl file.
+            const std::string file_path = conf::ctx.hist_dir + "/" + lcl + ".lcl";
+            if (read_ledger(file_path, ledger.raw_ledger) == -1)
+                return -1;
 
-            path.reserve(conf::ctx.hist_dir.size() + cache.lcl.size() + 5);
-            path.append(conf::ctx.hist_dir)
-                .append("/")
-                .append(cache.lcl)
-                .append(".lcl");
-
-            //read lcl file
-            std::ifstream file(path, std::ios::binary | std::ios::ate);
-            std::streamsize size = file.tellg();
-            file.seekg(0, std::ios::beg);
-
-            std::vector<char> buffer(size);
-            if (file.read(buffer.data(), size))
-            {
-                ledger.raw_ledger = reinterpret_cast<std::vector<uint8_t> &>(buffer);
-                history_response.hist_ledgers.emplace(seq_no, ledger);
-            }
+            history_response.hist_ledgers.emplace(seq_no, std::move(ledger));
         }
 
-        return history_response;
+        return 0;
     }
 
     /**
@@ -438,16 +449,12 @@ namespace ledger
             auto prev_dup_itr = ctx.cache.find(seq_no);
             if (prev_dup_itr != ctx.cache.end())
             {
-                remove_ledger(prev_dup_itr->second.lcl);
+                remove_ledger(prev_dup_itr->second);
                 ctx.cache.erase(prev_dup_itr);
             }
 
-            write_ledger_contents(ledger.lcl, reinterpret_cast<const char *>(&ledger.raw_ledger[0]), ledger.raw_ledger.size());
-
-            ledger_cache_entry l;
-            l.lcl = ledger.lcl;
-            l.state = ledger.state;
-            ctx.cache.emplace(seq_no, std::move(l));
+            write_ledger(ledger.lcl, ledger.raw_ledger.data(), ledger.raw_ledger.size());
+            ctx.cache.emplace(seq_no, ledger.lcl);
         }
 
         ctx.last_requested_lcl = "";
@@ -460,7 +467,7 @@ namespace ledger
         else
         {
             const auto latest_lcl_itr = ctx.cache.rbegin();
-            ctx.lcl = latest_lcl_itr->second.lcl;
+            ctx.lcl = latest_lcl_itr->second;
             ctx.led_seq_no = latest_lcl_itr->first;
         }
 

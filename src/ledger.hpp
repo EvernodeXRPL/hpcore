@@ -8,22 +8,17 @@ namespace ledger
 {
     constexpr const char *GENESIS_LEDGER = "0-genesis";
 
-    struct ledger_cache_entry
-    {
-        std::string lcl;
-        std::string state;
-    };
-
     struct ledger_context
     {
         std::string lcl;
         uint64_t led_seq_no = 0;
         std::string last_requested_lcl;
 
-        // Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
+        // Map of closed ledgers (lcl string) with sequence number as map key.
         // Contains closed ledgers from oldest to latest - MAX_LEDGER_SEQUENCE.
-        // This is loaded when node started and updated throughout consensus - delete ledgers that falls behind MAX_LEDGER_SEQUENCE range.
-        std::map<uint64_t, ledger_cache_entry> cache;
+        // This is loaded when node started and updated throughout consensus.
+        // Deletes ledgers that falls behind MAX_LEDGER_SEQUENCE range.
+        std::map<uint64_t, const std::string> cache;
     };
 
     extern ledger_context ctx;
@@ -34,7 +29,9 @@ namespace ledger
 
     void remove_old_ledgers(const uint64_t led_seq_no);
 
-    int write_ledger_contents(const std::string &file_name, const char *ledger_raw, const size_t ledger_size);
+    int read_ledger(std::string_view file_path, std::vector<uint8_t> &buffer);
+
+    int write_ledger(const std::string &file_name, const uint8_t *ledger_raw, const size_t ledger_size);
 
     void remove_ledger(const std::string &file_name);
 
@@ -42,7 +39,7 @@ namespace ledger
 
     bool check_required_lcl_availability(const p2p::history_request &hr);
 
-    const p2p::history_response retrieve_ledger_history(const p2p::history_request &hr);
+    int retrieve_ledger_history(const p2p::history_request &hr, p2p::history_response &history_response);
 
     void handle_ledger_history_response(const p2p::history_response &hr);
 
