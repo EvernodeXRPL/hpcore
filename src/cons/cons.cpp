@@ -122,6 +122,10 @@ namespace cons
         ctx.time_now = stage_start;
         std::list<p2p::proposal> collected_proposals;
 
+        // Get current lcl and sequence no.
+        const std::string lcl = ledger::ctx.get_lcl();
+        const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
+
         // Throughout consensus, we move over the incoming proposals collected via the network so far into
         // the candidate proposal set (move and append). This is to have a private working set for the consensus
         // and avoid threading conflicts with network incoming proposals.
@@ -159,7 +163,7 @@ namespace cons
         auto itr = ctx.candidate_npl_messages.begin();
         while (itr != ctx.candidate_npl_messages.end())
         {
-            if (itr->lcl == ledger::ctx.lcl)
+            if (itr->lcl == lcl)
                 ++itr;
             else
                 ctx.candidate_npl_messages.erase(itr++);
@@ -171,13 +175,12 @@ namespace cons
         {
             // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
             broadcast_nonunl_proposal();
-            //util::sleep(conf::cfg.roundtime / 10);
 
             // Verify and transfer user inputs from incoming NUPs onto consensus candidate data.
-            verify_and_populate_candidate_user_inputs();
+            verify_and_populate_candidate_user_inputs(lcl_seq_no);
 
             // In stage 0 we create a novel proposal and broadcast it.
-            const p2p::proposal stg_prop = create_stage0_proposal();
+            const p2p::proposal stg_prop = create_stage0_proposal(lcl);
             broadcast_proposal(stg_prop);
         }
         else // Stage 1, 2, 3
@@ -190,7 +193,7 @@ namespace cons
             // check if we're ahead/behind of consensus lcl
             bool is_lcl_desync = false, should_request_history = false;
             std::string majority_lcl;
-            check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes);
+            check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes, lcl);
 
             if (is_lcl_desync)
             {
@@ -199,7 +202,7 @@ namespace cons
                     //Node is not in sync with current lcl ->switch to observer mode.
                     conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
 
-                    LOG_INFO << "Syncing lcl. Curr lcl:" << ledger::ctx.lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
+                    LOG_INFO << "Syncing lcl. Curr lcl:" << lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
 
                     // TODO: If we are in a lcl fork condition try to rollback state with the help of
                     // state_restore to rollback state checkpoints before requesting new state.
@@ -216,7 +219,7 @@ namespace cons
                     else
                     {
                         //create history request message and request history from a random peer.
-                        ledger::send_ledger_history_request(ledger::ctx.lcl, majority_lcl);
+                        ledger::send_ledger_history_request(lcl, majority_lcl);
                     }
                 }
             }
@@ -236,16 +239,16 @@ namespace cons
                     conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
 
                     // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
-                    const p2p::proposal stg_prop = create_stage123_proposal(votes);
+                    const p2p::proposal stg_prop = create_stage123_proposal(votes, lcl);
 
                     broadcast_proposal(stg_prop);
 
                     if (ctx.stage == 3)
                     {
-                        if (apply_ledger(stg_prop) != -1)
+                        if (apply_ledger(stg_prop, lcl_seq_no, lcl) != -1)
                         {
                             // node has finished a consensus round (all 4 stages).
-                            LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << ledger::ctx.lcl.substr(0, 15)
+                            LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << lcl.substr(0, 15)
                                      << " state:" << ctx.state << ")";
                         }
                         else
@@ -381,7 +384,7 @@ namespace cons
  * Verifies the user signatures and populate non-expired user inputs from collected
  * non-unl proposals (if any) into consensus candidate data.
  */
-    void verify_and_populate_candidate_user_inputs()
+    void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
         // Lock the user sessions and the list so any network activity is blocked.
         std::scoped_lock<std::mutex, std::mutex> lock(usr::ctx.users_mutex, p2p::ctx.collected_msgs.nonunl_proposals_mutex);
@@ -419,7 +422,7 @@ namespace cons
                             parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
 
                             // Ignore the input if our ledger has passed the input TTL.
-                            if (max_lcl_seqno > ledger::ctx.seq_no)
+                            if (max_lcl_seqno > lcl_seq_no)
                             {
                                 if (!appbill_balance_exceeded)
                                 {
@@ -545,13 +548,13 @@ namespace cons
         }
     }
 
-    p2p::proposal create_stage0_proposal()
+    p2p::proposal create_stage0_proposal(std::string_view lcl)
     {
         // The proposal we are going to emit in stage 0.
         p2p::proposal stg_prop;
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
-        stg_prop.lcl = ledger::ctx.lcl;
+        stg_prop.lcl = lcl;
         stg_prop.state = ctx.state;
 
         // Populate the proposal with set of candidate user pubkeys.
@@ -574,7 +577,7 @@ namespace cons
         return stg_prop;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal stg_prop;
@@ -583,7 +586,7 @@ namespace cons
         // we always vote for our current lcl and state regardless of what other peers are saying
         // if there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork
-        stg_prop.lcl = ledger::ctx.lcl;
+        stg_prop.lcl = lcl;
         stg_prop.state = ctx.state;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
@@ -674,7 +677,7 @@ namespace cons
     /**
  * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
  */
-    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes)
+    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes, std::string_view lcl)
     {
         int32_t total_lcl_votes = 0;
 
@@ -707,7 +710,7 @@ namespace cons
         //if winning lcl is not matched node lcl,
         //that means vote is not on the consensus ledger.
         //Should request history from a peer.
-        if (ledger::ctx.lcl != majority_lcl)
+        if (lcl != majority_lcl)
         {
             LOG_DEBUG << "We are not on the consensus ledger, requesting history from a random peer";
             is_desync = true;
@@ -773,7 +776,7 @@ namespace cons
  * Finalize the ledger after consensus.
  * @param cons_prop The proposal that reached consensus.
  */
-    int apply_ledger(const p2p::proposal &cons_prop)
+    int apply_ledger(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         if (ledger::save_ledger(cons_prop) == -1)
             return -1;
@@ -783,7 +786,7 @@ namespace cons
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
-                if (itr->second.maxledgerseqno <= ledger::ctx.seq_no)
+                if (itr->second.maxledgerseqno <= lcl_seq_no)
                     ctx.candidate_user_inputs.erase(itr++);
                 else
                     ++itr;
@@ -791,13 +794,13 @@ namespace cons
         }
 
         // Send any output from the previous consensus round to locally connected users.
-        dispatch_user_outputs(cons_prop);
+        dispatch_user_outputs(cons_prop, lcl_seq_no, lcl);
 
         // Execute the contract
         {
             sc::contract_execution_args &args = ctx.contract_ctx.args;
             args.time = cons_prop.time;
-            args.lcl = ledger::ctx.lcl;
+            args.lcl = lcl;
 
             // Feed NPL messages.
             args.npl_messages.splice(args.npl_messages.end(), ctx.candidate_npl_messages);
@@ -814,7 +817,7 @@ namespace cons
 
             ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);
-            broadcast_npl_output(args.npl_output);
+            broadcast_npl_output(args.npl_output, lcl);
 
             sc::clear_args(args);
         }
@@ -825,7 +828,7 @@ namespace cons
  * Dispatch any consensus-reached outputs to matching users if they are connected to us locally.
  * @param cons_prop The proposal that achieved consensus.
  */
-    void dispatch_user_outputs(const p2p::proposal &cons_prop)
+    void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
@@ -858,7 +861,7 @@ namespace cons
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
 
                         std::vector<uint8_t> msg;
-                        parser.create_contract_output_container(msg, outputtosend);
+                        parser.create_contract_output_container(msg, outputtosend, lcl_seq_no, lcl);
 
                         user.session.send(msg);
                     }
@@ -933,12 +936,12 @@ namespace cons
         }
     }
 
-    void broadcast_npl_output(std::string &output)
+    void broadcast_npl_output(std::string &output, std::string_view lcl)
     {
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.lcl);
+            p2pmsg::create_msg_from_npl_output(fbuf, output, lcl);
             p2p::broadcast_message(fbuf, true);
         }
     }

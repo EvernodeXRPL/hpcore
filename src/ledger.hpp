@@ -10,8 +10,12 @@ namespace ledger
 
     struct ledger_context
     {
+    private:
         std::string lcl;
         uint64_t seq_no = 0;
+        std::shared_mutex lcl_mutex;
+
+    public:
         std::string last_requested_lcl;
 
         // Map of closed ledgers (lcl string) with sequence number as map key.
@@ -19,6 +23,25 @@ namespace ledger
         // This is loaded when node started and updated throughout consensus.
         // Deletes ledgers that falls behind MAX_LEDGER_SEQUENCE range.
         std::map<uint64_t, const std::string> cache;
+
+        const std::string get_lcl()
+        {
+            std::shared_lock lock(lcl_mutex);
+            return lcl;
+        }
+
+        uint64_t get_seq_no()
+        {
+            std::shared_lock lock(lcl_mutex);
+            return seq_no;
+        }
+
+        void set_lcl(const uint64_t new_seq_no, std::string_view new_lcl)
+        {
+            std::unique_lock lock(lcl_mutex);
+            lcl = new_lcl;
+            seq_no = new_seq_no;
+        }
     };
 
     extern ledger_context ctx;

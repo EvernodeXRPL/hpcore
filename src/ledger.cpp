@@ -72,18 +72,18 @@ namespace ledger
         // Check if there is a saved lcl file -> if no send genesis lcl.
         if (ctx.cache.empty())
         {
-            ctx.seq_no = 0;
-            ctx.lcl = GENESIS_LEDGER;
+            ctx.set_lcl(0, GENESIS_LEDGER);
         }
         else
         {
             const auto last_ledger = ctx.cache.rbegin();
-            ctx.seq_no = last_ledger->first;
-            ctx.lcl = last_ledger->second;
+            ctx.set_lcl(last_ledger->first, last_ledger->second);
+
+            const uint64_t seq_no = ctx.get_seq_no();
 
             // Remove old ledgers that exceeds max sequence range.
-            if (ctx.seq_no > MAX_LEDGER_SEQUENCE)
-                remove_old_ledgers(ctx.seq_no - MAX_LEDGER_SEQUENCE);
+            if (seq_no > MAX_LEDGER_SEQUENCE)
+                remove_old_ledgers(seq_no - MAX_LEDGER_SEQUENCE);
         }
 
         return 0;
@@ -130,8 +130,7 @@ namespace ledger
         if (write_ledger(file_name, builder.GetBufferPointer(), builder.GetSize()) == -1)
             return -1;
 
-        ctx.lcl = file_name;
-        ctx.seq_no = seq_no;
+        ctx.set_lcl(seq_no, file_name);
 
         ctx.cache.emplace(seq_no, std::move(file_name));
 
@@ -390,7 +389,7 @@ namespace ledger
         {
             // This means we are in a fork ledger.Remove/rollback current ledger.
             // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger .
-            remove_ledger(ctx.lcl);
+            remove_ledger(ctx.get_lcl());
             ctx.cache.erase(ctx.cache.rbegin()->first);
             LOG_DEBUG << "Invalid min ledger. Removed last ledger.";
         }
@@ -457,19 +456,12 @@ namespace ledger
 
         ctx.last_requested_lcl = "";
 
-        if (ctx.cache.empty())
-        {
-            ctx.seq_no = 0;
-            ctx.lcl = GENESIS_LEDGER;
-        }
-        else
-        {
-            const auto latest_lcl_itr = ctx.cache.rbegin();
-            ctx.lcl = latest_lcl_itr->second;
-            ctx.seq_no = latest_lcl_itr->first;
-        }
+        const auto latest_lcl_itr = ctx.cache.rbegin();
+        const uint64_t seq_no = latest_lcl_itr == ctx.cache.rend() ? 0 : latest_lcl_itr->first;
+        const std::string &lcl = latest_lcl_itr == ctx.cache.rend() ? GENESIS_LEDGER : latest_lcl_itr->second;
+        ctx.set_lcl(seq_no, lcl);
 
-        LOG_INFO << "lcl sync complete. New lcl:" << ctx.lcl.substr(0, 15);
+        LOG_INFO << "lcl sync complete. New lcl:" << lcl.substr(0, 15);
     }
 
 } // namespace ledger

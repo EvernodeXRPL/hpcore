@@ -114,17 +114,17 @@ namespace cons
 
     void broadcast_nonunl_proposal();
 
-    void verify_and_populate_candidate_user_inputs();
+    void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
-    p2p::proposal create_stage0_proposal();
+    p2p::proposal create_stage0_proposal(std::string_view lcl);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl);
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
+    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes, std::string_view lcl);
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 
@@ -136,15 +136,15 @@ namespace cons
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int apply_ledger(const p2p::proposal &proposal);
+    int apply_ledger(const p2p::proposal &proposal, const uint64_t lcl_seq_no, std::string_view lcl);
 
-    void dispatch_user_outputs(const p2p::proposal &cons_prop);
+    void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 
     void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 
-    void broadcast_npl_output(std::string &output);
+    void broadcast_npl_output(std::string &output, std::string_view lcl);
 
     template <typename T>
     void increment(std::map<T, int32_t> &counter, const T &candidate);

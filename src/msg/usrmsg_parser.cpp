@@ -13,12 +13,12 @@ namespace msg::usrmsg
     {
     }
 
-    void usrmsg_parser::create_status_response(std::vector<uint8_t> &msg) const
+    void usrmsg_parser::create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_status_response(msg);
+            jusrmsg::create_status_response(msg, lcl_seq_no, lcl);
         else
-            busrmsg::create_status_response(msg);
+            busrmsg::create_status_response(msg, lcl_seq_no, lcl);
     }
 
     void usrmsg_parser::create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status,
@@ -38,12 +38,12 @@ namespace msg::usrmsg
             busrmsg::create_contract_read_response_container(msg, content);
     }
 
-    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content) const
+    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_contract_output_container(msg, content);
+            jusrmsg::create_contract_output_container(msg, content, lcl_seq_no, lcl);
         else
-            busrmsg::create_contract_output_container(msg, content);
+            busrmsg::create_contract_output_container(msg, content, lcl_seq_no, lcl);
     }
 
     int usrmsg_parser::parse(std::string_view message)

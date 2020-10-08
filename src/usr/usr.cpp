@@ -8,6 +8,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
+#include "../ledger.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
@@ -180,7 +181,7 @@ namespace usr
             else if (msg_type == msg::usrmsg::MSGTYPE_STAT)
             {
                 std::vector<uint8_t> msg;
-                parser.create_status_response(msg);
+                parser.create_status_response(msg, ledger::ctx.get_seq_no(), ledger::ctx.get_lcl());
                 user.session.send(msg);
                 return 0;
             }
