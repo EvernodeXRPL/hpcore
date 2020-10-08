@@ -22,6 +22,7 @@
 #include <poll.h>
 #include <readerwriterqueue/readerwriterqueue.h>
 #include <set>
+#include <shared_mutex>
 #include <sodium.h>
 #include <sstream>
 #include <stdlib.h>

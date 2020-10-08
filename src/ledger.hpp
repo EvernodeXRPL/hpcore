@@ -11,7 +11,7 @@ namespace ledger
     struct ledger_context
     {
         std::string lcl;
-        uint64_t led_seq_no = 0;
+        uint64_t seq_no = 0;
         std::string last_requested_lcl;
 
         // Map of closed ledgers (lcl string) with sequence number as map key.

@@ -26,7 +26,7 @@ namespace msg::usrmsg::bson
       encoder.key(msg::usrmsg::FLD_LCL);
       encoder.string_value(ledger::ctx.lcl);
       encoder.key(msg::usrmsg::FLD_LCL_SEQ);
-      encoder.int64_value(ledger::ctx.led_seq_no);
+      encoder.int64_value(ledger::ctx.seq_no);
       encoder.end_object();
       encoder.flush();
    }
@@ -104,7 +104,7 @@ namespace msg::usrmsg::bson
       encoder.key(msg::usrmsg::FLD_LCL);
       encoder.string_value(ledger::ctx.lcl);
       encoder.key(msg::usrmsg::FLD_LCL_SEQ);
-      encoder.int64_value(ledger::ctx.led_seq_no);
+      encoder.int64_value(ledger::ctx.seq_no);
       encoder.key(msg::usrmsg::FLD_CONTENT);
       encoder.byte_string_value(content);
       encoder.end_object();

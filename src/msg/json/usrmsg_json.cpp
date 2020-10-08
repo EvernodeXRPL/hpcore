@@ -87,7 +87,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ledger::ctx.led_seq_no);
+        msg += std::to_string(ledger::ctx.seq_no);
         msg += "}";
     }
 
@@ -192,7 +192,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ledger::ctx.led_seq_no);
+        msg += std::to_string(ledger::ctx.seq_no);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTENT;
         msg += SEP_COLON;

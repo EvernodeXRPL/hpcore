@@ -419,7 +419,7 @@ namespace cons
                             parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
 
                             // Ignore the input if our ledger has passed the input TTL.
-                            if (max_lcl_seqno > ledger::ctx.led_seq_no)
+                            if (max_lcl_seqno > ledger::ctx.seq_no)
                             {
                                 if (!appbill_balance_exceeded)
                                 {
@@ -783,7 +783,7 @@ namespace cons
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
-                if (itr->second.maxledgerseqno <= ledger::ctx.led_seq_no)
+                if (itr->second.maxledgerseqno <= ledger::ctx.seq_no)
                     ctx.candidate_user_inputs.erase(itr++);
                 else
                     ++itr;

@@ -23,7 +23,6 @@ namespace ledger
     int init()
     {
         // Get all records at lcl history direcory and find the last closed ledger.
-        size_t latest_pos = 0;
         for (const auto &entry : util::fetch_dir_entries(conf::ctx.hist_dir))
         {
             const std::string file_path = conf::ctx.hist_dir + "/" + entry.d_name;
@@ -73,18 +72,18 @@ namespace ledger
         // Check if there is a saved lcl file -> if no send genesis lcl.
         if (ctx.cache.empty())
         {
-            ctx.led_seq_no = 0;
+            ctx.seq_no = 0;
             ctx.lcl = GENESIS_LEDGER;
         }
         else
         {
             const auto last_ledger = ctx.cache.rbegin();
-            ctx.led_seq_no = last_ledger->first;
+            ctx.seq_no = last_ledger->first;
             ctx.lcl = last_ledger->second;
 
             // Remove old ledgers that exceeds max sequence range.
-            if (ctx.led_seq_no > MAX_LEDGER_SEQUENCE)
-                remove_old_ledgers(ctx.led_seq_no - MAX_LEDGER_SEQUENCE);
+            if (ctx.seq_no > MAX_LEDGER_SEQUENCE)
+                remove_old_ledgers(ctx.seq_no - MAX_LEDGER_SEQUENCE);
         }
 
         return 0;
@@ -97,12 +96,12 @@ namespace ledger
     int save_ledger(const p2p::proposal &proposal)
     {
         const size_t pos = proposal.lcl.find("-");
-        uint64_t led_seq_no = 0;
+        uint64_t seq_no = 0;
 
         if (pos != std::string::npos)
         {
-            led_seq_no = std::stoull(proposal.lcl.substr(0, pos)); //get lcl sequence number.
-            led_seq_no++;                                          //current lcl sequence number.
+            seq_no = std::stoull(proposal.lcl.substr(0, pos)); // Get lcl sequence number.
+            seq_no++;                                          // New lcl sequence number.
         }
         else
         {
@@ -113,7 +112,7 @@ namespace ledger
 
         // Serialize lcl using flatbuffer ledger schema.
         flatbuffers::FlatBufferBuilder builder(1024);
-        msg::fbuf::ledger::create_ledger_from_proposal(builder, proposal, led_seq_no);
+        msg::fbuf::ledger::create_ledger_from_proposal(builder, proposal, seq_no);
 
         // Get binary hash of the the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
@@ -127,15 +126,18 @@ namespace ledger
 
         // Construct lcl file name.
         // lcl file name should follow [ledger sequnce numer]-lcl[lcl hex] format.
-        const std::string file_name = std::to_string(led_seq_no) + "-" + lcl_hash;
+        const std::string file_name = std::to_string(seq_no) + "-" + lcl_hash;
         if (write_ledger(file_name, builder.GetBufferPointer(), builder.GetSize()) == -1)
             return -1;
 
-        ctx.cache.emplace(led_seq_no, std::move(file_name));
+        ctx.lcl = file_name;
+        ctx.seq_no = seq_no;
+
+        ctx.cache.emplace(seq_no, std::move(file_name));
 
         //Remove old ledgers that exceeds max sequence range.
-        if (led_seq_no > MAX_LEDGER_SEQUENCE)
-            remove_old_ledgers(led_seq_no - MAX_LEDGER_SEQUENCE);
+        if (seq_no > MAX_LEDGER_SEQUENCE)
+            remove_old_ledgers(seq_no - MAX_LEDGER_SEQUENCE);
 
         return 0;
     }
@@ -311,7 +313,7 @@ namespace ledger
     {
         // Get sequence number of minimum lcl required
         const size_t pos = hr.minimum_lcl.find("-");
-        if (pos != std::string::npos)
+        if (pos == std::string::npos)
         {
             LOG_DEBUG << "Invalid lcl history request. Requested:" << hr.minimum_lcl;
             return -1;
@@ -344,8 +346,6 @@ namespace ledger
             LOG_DEBUG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
             min_seq_no = ctx.cache.begin()->first;
         }
-
-        //LOG_DBG << "history request min seq: " << std::to_string(min_seq_no);
 
         //copy current history cache.
         std::map<uint64_t, const std::string> led_cache = ctx.cache;
@@ -418,10 +418,10 @@ namespace ledger
             for (auto &[seq_no, ledger] : hr.hist_ledgers)
             {
                 const size_t pos = ledger.lcl.find("-");
-                std::string rec_lcl_hash = ledger.lcl.substr((pos + 1), (ledger.lcl.size() - 1));
+                const std::string rec_lcl_hash = ledger.lcl.substr((pos + 1), (ledger.lcl.size() - 1));
 
                 // Get binary hash of the the serialized lcl.
-                const std::string lcl = crypto::get_hash(&ledger.raw_ledger[0], ledger.raw_ledger.size());
+                const std::string lcl = crypto::get_hash(ledger.raw_ledger.data(), ledger.raw_ledger.size());
 
                 // Get hex from binary hash
                 std::string lcl_hash;
@@ -430,20 +430,18 @@ namespace ledger
                               reinterpret_cast<const unsigned char *>(lcl.data()),
                               lcl.size());
 
-                // LOG_DBG << "passed lcl: " << ledger.lcl << " gen lcl: " << lcl_hash;
-
                 // recieved lcl hash and hash generated from recieved lcl content doesn't match -> abandon applying it
                 if (lcl_hash != rec_lcl_hash)
                 {
                     LOG_WARNING << "peer sent us a history response we asked for but the ledger data does not match the ledger hashes";
-                    // todo: we should penalize peer who send this?
+                    // todo: we should penalize peer who sent this?
                     return;
                 }
             }
         }
 
-        // Execution to here means the history data sent checks out
-        // Save recieved lcl in file system and update lcl history cache
+        // Execution to here means the history data sent checks out.
+        // Save recieved lcl in file system and update lcl history cache.
         for (auto &[seq_no, ledger] : hr.hist_ledgers)
         {
             auto prev_dup_itr = ctx.cache.find(seq_no);
@@ -461,14 +459,14 @@ namespace ledger
 
         if (ctx.cache.empty())
         {
-            ctx.led_seq_no = 0;
+            ctx.seq_no = 0;
             ctx.lcl = GENESIS_LEDGER;
         }
         else
         {
             const auto latest_lcl_itr = ctx.cache.rbegin();
             ctx.lcl = latest_lcl_itr->second;
-            ctx.led_seq_no = latest_lcl_itr->first;
+            ctx.seq_no = latest_lcl_itr->first;
         }
 
         LOG_INFO << "lcl sync complete. New lcl:" << ctx.lcl.substr(0, 15);
