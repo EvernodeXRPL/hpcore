@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <flatbuffers/flatbuffers.h>
 #include <fstream>
+#include <ftw.h>
 #include <iomanip>
 #include <iostream>
 #include <jsoncons/json.hpp>
@@ -22,6 +23,7 @@
 #include <poll.h>
 #include <readerwriterqueue/readerwriterqueue.h>
 #include <set>
+#include <shared_mutex>
 #include <sodium.h>
 #include <sstream>
 #include <stdlib.h>
@@ -38,6 +40,7 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 #include <blake3.h>
 #include <concurrentqueue.h>

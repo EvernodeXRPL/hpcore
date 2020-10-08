@@ -201,6 +201,9 @@ namespace msg::fbuf::p2pmsg
     {
         p2p::history_response hr;
 
+        if (msg.requester_lcl())
+            hr.requester_lcl = flatbuff_bytes_to_sv(msg.requester_lcl());
+
         if (msg.hist_ledgers())
             hr.hist_ledgers = flatbuf_historyledgermap_to_historyledgermap(msg.hist_ledgers());
 
@@ -427,6 +430,7 @@ namespace msg::fbuf::p2pmsg
         flatbuffers::Offset<History_Response_Message> hrmsg =
             CreateHistory_Response_Message(
                 builder,
+                sv_to_flatbuff_bytes(builder, hr.requester_lcl),
                 historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledgers),
                 (Ledger_Response_Error)hr.error);
 
@@ -692,7 +696,6 @@ namespace msg::fbuf::p2pmsg
         {
             flatbuffers::Offset<HistoryLedger> history_ledger = CreateHistoryLedger(
                 builder,
-                sv_to_flatbuff_bytes(builder, ledger.state),
                 sv_to_flatbuff_bytes(builder, ledger.lcl),
                 builder.CreateVector(ledger.raw_ledger));
 

@@ -14,7 +14,7 @@ namespace state_serve
     
     void state_serve_loop();
 
-    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr);
+    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr, std::string_view lcl);
 
     int get_data_block(std::vector<uint8_t> &vec, const std::string_view vpath,
                        const uint32_t block_id, const hpfs::h32 expected_hash);

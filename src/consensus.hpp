@@ -1,16 +1,15 @@
 #ifndef _HP_CONS_
 #define _HP_CONS_
 
-#include "../pchheader.hpp"
-#include "../util.hpp"
-#include "../sc.hpp"
-#include "../p2p/p2p.hpp"
-#include "../usr/user_input.hpp"
-#include "../hpfs/h32.hpp"
-#include "../sc.hpp"
-#include "ledger_handler.hpp"
+#include "pchheader.hpp"
+#include "util.hpp"
+#include "sc.hpp"
+#include "p2p/p2p.hpp"
+#include "usr/user_input.hpp"
+#include "hpfs/h32.hpp"
+#include "sc.hpp"
 
-namespace cons
+namespace consensus
 {
     /**
      * Represents a contract input that takes part in consensus.
@@ -71,24 +70,16 @@ namespace cons
 
         uint8_t stage = 0;
         uint64_t time_now = 0;
-        std::string lcl;
-        uint64_t led_seq_no = 0;
         hpfs::h32 state = hpfs::h32_empty;
 
-        //Map of closed ledgers(only lrdgername[sequnece_number-hash], state hash) with sequence number as map key.
-        //contains closed ledgers from latest to latest - MAX_LEDGER_SEQUENCE.
-        //this is loaded when node started and updated throughout consensus - delete ledgers that falls behind MAX_LEDGER_SEQUENCE range.
-        //We will use this to track lcls related logic.- track state, lcl request, response.
-        std::map<uint64_t, ledger_cache_entry> ledger_cache;
-        std::string last_requested_lcl;
-
-        //ledger close time of previous hash
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
         std::mutex state_sync_lock;
         sc::execution_context contract_ctx;
         bool is_shutting_down = false;
+
+        std::thread consensus_thread;
 
         consensus_context()
             : recent_userinput_hashes(200)
@@ -106,8 +97,6 @@ namespace cons
         std::map<hpfs::h32, int32_t> state;
     };
 
-    extern consensus_context ctx;
-
     int init();
 
     void deinit();
@@ -124,17 +113,17 @@ namespace cons
 
     void broadcast_nonunl_proposal();
 
-    void verify_and_populate_candidate_user_inputs();
+    void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
-    p2p::proposal create_stage0_proposal();
+    p2p::proposal create_stage0_proposal(std::string_view lcl);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl);
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes);
+    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes, std::string_view lcl);
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 
@@ -146,15 +135,15 @@ namespace cons
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int apply_ledger(const p2p::proposal &proposal);
+    int apply_ledger(const p2p::proposal &proposal, const uint64_t lcl_seq_no, std::string_view lcl);
 
-    void dispatch_user_outputs(const p2p::proposal &cons_prop);
+    void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 
     void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 
-    void broadcast_npl_output(std::string &output);
+    void broadcast_npl_output(std::string &output, std::string_view lcl);
 
     template <typename T>
     void increment(std::map<T, int32_t> &counter, const T &candidate);
@@ -163,6 +152,6 @@ namespace cons
 
     void on_state_sync_completion(const hpfs::h32 new_state);
 
-} // namespace cons
+} // namespace consensus
 
 #endif
