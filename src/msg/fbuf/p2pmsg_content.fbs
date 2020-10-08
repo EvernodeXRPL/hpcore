@@ -70,7 +70,6 @@ table HistoryLedgerPair { //A key, value pair of byte[].
 }
 
 table HistoryLedger {
-   state:[ubyte];
    lcl:[ubyte];
    raw_ledger:[ubyte];
 }

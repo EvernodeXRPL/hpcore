@@ -692,7 +692,6 @@ namespace msg::fbuf::p2pmsg
         {
             flatbuffers::Offset<HistoryLedger> history_ledger = CreateHistoryLedger(
                 builder,
-                sv_to_flatbuff_bytes(builder, ledger.state),
                 sv_to_flatbuff_bytes(builder, ledger.lcl),
                 builder.CreateVector(ledger.raw_ledger));
 

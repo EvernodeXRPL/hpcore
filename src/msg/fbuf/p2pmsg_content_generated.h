@@ -1102,16 +1102,9 @@ inline flatbuffers::Offset<HistoryLedgerPair> CreateHistoryLedgerPair(
 struct HistoryLedger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef HistoryLedgerBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_STATE = 4,
-    VT_LCL = 6,
-    VT_RAW_LEDGER = 8
+    VT_LCL = 4,
+    VT_RAW_LEDGER = 6
   };
-  const flatbuffers::Vector<uint8_t> *state() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_state() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE);
-  }
   const flatbuffers::Vector<uint8_t> *lcl() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
@@ -1126,8 +1119,6 @@ struct HistoryLedger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_STATE) &&
-           verifier.VerifyVector(state()) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
            VerifyOffset(verifier, VT_RAW_LEDGER) &&
@@ -1140,9 +1131,6 @@ struct HistoryLedgerBuilder {
   typedef HistoryLedger Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
-    fbb_.AddOffset(HistoryLedger::VT_STATE, state);
-  }
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
     fbb_.AddOffset(HistoryLedger::VT_LCL, lcl);
   }
@@ -1162,27 +1150,22 @@ struct HistoryLedgerBuilder {
 
 inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedger(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> raw_ledger = 0) {
   HistoryLedgerBuilder builder_(_fbb);
   builder_.add_raw_ledger(raw_ledger);
   builder_.add_lcl(lcl);
-  builder_.add_state(state);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedgerDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *state = nullptr,
     const std::vector<uint8_t> *lcl = nullptr,
     const std::vector<uint8_t> *raw_ledger = nullptr) {
-  auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto raw_ledger__ = raw_ledger ? _fbb.CreateVector<uint8_t>(*raw_ledger) : 0;
   return msg::fbuf::p2pmsg::CreateHistoryLedger(
       _fbb,
-      state__,
       lcl__,
       raw_ledger__);
 }

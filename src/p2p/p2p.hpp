@@ -39,7 +39,6 @@ namespace p2p
 
     struct history_ledger
     {
-        std::string state;
         std::string lcl;
         std::vector<uint8_t> raw_ledger;
     };
