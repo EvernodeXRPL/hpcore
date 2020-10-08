@@ -30,9 +30,7 @@ namespace cons
     constexpr float MAJORITY_THRESHOLD = 0.8;
 
     consensus_context ctx;
-
     bool init_success = false;
-
     bool is_shutting_down = false;
 
     // Consensus processing thread.
@@ -199,28 +197,9 @@ namespace cons
             {
                 if (should_request_history)
                 {
-                    //Node is not in sync with current lcl ->switch to observer mode.
+                    //Node is not in sync with majority lcl. Switch to observer mode.
                     conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-
-                    LOG_INFO << "Syncing lcl. Curr lcl:" << lcl.substr(0, 15) << " majority:" << majority_lcl.substr(0, 15);
-
-                    // TODO: If we are in a lcl fork condition try to rollback state with the help of
-                    // state_restore to rollback state checkpoints before requesting new state.
-
-                    // Handle minority going forward when boostrapping cluster.
-                    // Here we are mimicking invalid min ledger scenario.
-                    if (majority_lcl == ledger::GENESIS_LEDGER)
-                    {
-                        ledger::ctx.last_requested_lcl = majority_lcl;
-                        p2p::history_response res;
-                        res.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
-                        ledger::handle_ledger_history_response(std::move(res));
-                    }
-                    else
-                    {
-                        //create history request message and request history from a random peer.
-                        ledger::send_ledger_history_request(lcl, majority_lcl);
-                    }
+                    ledger::set_sync_target(majority_lcl);
                 }
             }
             else

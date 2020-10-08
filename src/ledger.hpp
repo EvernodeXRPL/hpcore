@@ -8,6 +8,21 @@ namespace ledger
 {
     constexpr const char *GENESIS_LEDGER = "0-genesis";
 
+    struct sync_context
+    {
+        // The current target lcl that we are syncing towards.
+        std::string target_lcl;
+        std::mutex target_lcl_mutex;
+
+        // Lists holding history requests and responses collected from incoming p2p messages.
+        std::list<std::pair<std::string, p2p::history_request>> collected_history_requests;
+        std::list<p2p::history_response> collected_history_responses;
+        std::mutex list_mutex;
+
+        std::thread lcl_sync_thread;
+        bool is_shutting_down = false;
+    };
+
     struct ledger_context
     {
     private:
@@ -16,8 +31,6 @@ namespace ledger
         std::shared_mutex lcl_mutex;
 
     public:
-        std::string last_requested_lcl;
-
         // Map of closed ledgers (lcl string) with sequence number as map key.
         // Contains closed ledgers from oldest to latest - MAX_LEDGER_SEQUENCE.
         // This is loaded when node started and updated throughout consensus.
@@ -44,13 +57,24 @@ namespace ledger
         }
     };
 
+    extern sync_context sync_ctx;
     extern ledger_context ctx;
 
     int init();
 
+    void deinit();
+
+    void lcl_syncer_loop();
+    
+    void set_sync_target(std::string_view target_lcl);
+
+    const std::pair<uint64_t, std::string> get_ledger_cache_top();
+
     int save_ledger(const p2p::proposal &proposal);
 
     void remove_old_ledgers(const uint64_t led_seq_no);
+
+    void clear_ledger();
 
     int read_ledger(std::string_view file_path, std::vector<uint8_t> &buffer);
 
@@ -58,13 +82,13 @@ namespace ledger
 
     void remove_ledger(const std::string &file_name);
 
-    void send_ledger_history_request(const std::string &minimum_lcl, const std::string &required_lcl);
+    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl);
 
-    bool check_required_lcl_availability(const p2p::history_request &hr);
+    bool check_required_lcl_availability(const std::string &required_lcl);
 
     int retrieve_ledger_history(const p2p::history_request &hr, p2p::history_response &history_response);
 
-    void handle_ledger_history_response(const p2p::history_response &hr);
+    int handle_ledger_history_response(const p2p::history_response &hr);
 
 } // namespace ledger
 

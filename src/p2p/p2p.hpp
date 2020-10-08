@@ -59,6 +59,7 @@ namespace p2p
 
     struct history_response
     {
+        std::string requester_lcl;
         std::map<uint64_t, const history_ledger> hist_ledgers;
         LEDGER_RESPONSE_ERROR error = LEDGER_RESPONSE_ERROR::NONE;
     };

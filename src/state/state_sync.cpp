@@ -129,6 +129,7 @@ namespace state_sync
                 LOG_ERROR << "State sync: Failed to start hpfs rw session";
             }
 
+            std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
             ctx.target_state = hpfs::h32_empty;
             ctx.is_syncing = false;
         }

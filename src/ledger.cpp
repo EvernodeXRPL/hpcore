@@ -14,8 +14,11 @@ namespace ledger
 {
     constexpr int FILE_PERMS = 0644;
     constexpr uint64_t MAX_LEDGER_SEQUENCE = 200; // Max ledger count.
+    constexpr uint16_t SYNCER_IDLE_WAIT = 20;     // lcl syncer loop sleep time  (milliseconds).
 
     ledger_context ctx;
+    sync_context sync_ctx;
+    bool init_success = false;
 
     /**
      * Retrieve ledger history information from persisted ledgers.
@@ -86,7 +89,138 @@ namespace ledger
                 remove_old_ledgers(seq_no - MAX_LEDGER_SEQUENCE);
         }
 
+        sync_ctx.lcl_sync_thread = std::thread(lcl_syncer_loop);
+
+        init_success = true;
         return 0;
+    }
+
+    void deinit()
+    {
+        if (init_success)
+        {
+            sync_ctx.is_shutting_down = true;
+            sync_ctx.lcl_sync_thread.join();
+        }
+    }
+
+    void set_sync_target(std::string_view target_lcl)
+    {
+        if (sync_ctx.is_shutting_down)
+            return;
+
+        {
+            std::scoped_lock<std::mutex> lock(sync_ctx.target_lcl_mutex);
+            sync_ctx.target_lcl = target_lcl;
+        }
+
+        const std::string lcl = ctx.get_lcl();
+
+        LOG_INFO << "lcl sync: Syncing for target:" << sync_ctx.target_lcl.substr(0, 15) << " (current:" << lcl.substr(0, 15) << ")";
+
+        // Request history from a random peer if needed.
+        // If target is genesis ledger, we simply clear our ledger history without sending a
+        // history request.
+        if (target_lcl != GENESIS_LEDGER)
+            send_ledger_history_request(lcl, target_lcl);
+    }
+
+    /**
+     * Runs the lcl sync worker loop.
+     */
+    void lcl_syncer_loop()
+    {
+        util::mask_signal();
+
+        LOG_INFO << "lcl sync: Worker started.";
+
+        std::list<std::pair<std::string, p2p::history_request>> history_requests;
+        std::list<p2p::history_response> history_responses;
+
+        while (!sync_ctx.is_shutting_down)
+        {
+            util::sleep(SYNCER_IDLE_WAIT);
+
+            const std::string lcl = ctx.get_lcl();
+
+            // Move over the collected sync items to the local lists.
+            {
+                std::scoped_lock<std::mutex>(sync_ctx.list_mutex);
+                history_requests.splice(history_requests.end(), sync_ctx.collected_history_requests);
+                history_responses.splice(history_responses.end(), sync_ctx.collected_history_responses);
+            }
+
+            // Process any target lcl sync activities.
+            {
+                std::scoped_lock<std::mutex> lock(sync_ctx.target_lcl_mutex);
+
+                if (!sync_ctx.target_lcl.empty())
+                {
+                    if (sync_ctx.target_lcl == GENESIS_LEDGER)
+                    {
+                        clear_ledger();
+                        sync_ctx.target_lcl.clear();
+                    }
+                    else
+                    {
+                        // Only process the first successful item which matches with our current lcl.
+                        for (const p2p::history_response &hr : history_responses)
+                        {
+                            if (hr.requester_lcl == lcl && handle_ledger_history_response(hr) != -1)
+                            {
+                                sync_ctx.target_lcl.clear();
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                history_responses.clear();
+            }
+
+            // Serve any history requests from other nodes.
+            for (const auto &[session_id, hr] : history_requests)
+            {
+                // First check whether we have the required lcl available.
+                if (!check_required_lcl_availability(hr.required_lcl))
+                    continue;
+
+                p2p::history_response resp;
+                if (ledger::retrieve_ledger_history(hr, resp) != -1)
+                {
+                    flatbuffers::FlatBufferBuilder fbuf(1024);
+                    p2pmsg::create_msg_from_history_response(fbuf, resp);
+                    std::string_view msg = msg::fbuf::flatbuff_bytes_to_sv(fbuf.GetBufferPointer(), fbuf.GetSize());
+
+                    // Find the peer that we should send the state response to.
+                    std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+                    const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
+
+                    if (peer_itr != p2p::ctx.peer_connections.end())
+                    {
+                        comm::comm_session *session = peer_itr->second;
+                        session->send(msg);
+                    }
+                }
+            }
+
+            history_requests.clear();
+        }
+
+        LOG_INFO << "lcl sync: Worker stopped.";
+    }
+
+    /**
+     * Returns the current top ledger seq no and lcl.
+     */
+    const std::pair<uint64_t, std::string> get_ledger_cache_top()
+    {
+        const auto latest_lcl_itr = ctx.cache.rbegin();
+
+        if (latest_lcl_itr == ctx.cache.rend())
+            return std::make_pair(0, GENESIS_LEDGER);
+        else
+            return std::make_pair(latest_lcl_itr->first, latest_lcl_itr->second);
     }
 
     /**
@@ -161,6 +295,16 @@ namespace ledger
 
         if (!ctx.cache.empty())
             ctx.cache.erase(ctx.cache.begin(), ctx.cache.lower_bound(led_seq_no + 1));
+    }
+
+    /**
+     * Clears out entire ledger history.
+     */
+    void clear_ledger()
+    {
+        util::clear_directory(conf::ctx.hist_dir);
+        ctx.cache.clear();
+        ctx.set_lcl(0, GENESIS_LEDGER);
     }
 
     /**
@@ -247,7 +391,7 @@ namespace ledger
      * @param minimum_lcl hash of the minimum lcl from which node need lcl history.
      * @param required_lcl hash of the required lcl.
      */
-    void send_ledger_history_request(const std::string &minimum_lcl, const std::string &required_lcl)
+    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl)
     {
         p2p::history_request hr;
         hr.required_lcl = required_lcl;
@@ -257,8 +401,6 @@ namespace ledger
         p2pmsg::create_msg_from_history_request(fbuf, hr);
         p2p::send_message_to_random_peer(fbuf);
 
-        ctx.last_requested_lcl = required_lcl;
-
         LOG_DEBUG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
     }
 
@@ -267,15 +409,15 @@ namespace ledger
      * @param hr lcl history request information.
      * @return true if requested lcl is in lcl history cache.
      */
-    bool check_required_lcl_availability(const p2p::history_request &hr)
+    bool check_required_lcl_availability(const std::string &required_lcl)
     {
-        size_t pos = hr.required_lcl.find("-");
+        size_t pos = required_lcl.find("-");
         uint64_t req_seq_no = 0;
 
         // Get sequence number of required lcl
         if (pos != std::string::npos)
         {
-            req_seq_no = std::stoull(hr.required_lcl.substr(0, pos)); // Get required lcl sequence number
+            req_seq_no = std::stoull(required_lcl.substr(0, pos)); // Get required lcl sequence number
         }
 
         if (req_seq_no > 0)
@@ -288,7 +430,7 @@ namespace ledger
                 // minimum lcl sequence becuase of maximum ledger history range.
                 return false;
             }
-            else if (itr->second != hr.required_lcl)
+            else if (itr->second != required_lcl)
             {
                 LOG_DEBUG << "Required lcl peer asked for is not in our lcl cache.";
                 // Either this node or requesting node is in a fork condition.
@@ -297,8 +439,9 @@ namespace ledger
         }
         else
         {
-            return false; //Very rare case: node asking for the genisis lcl.
+            return false; // Very rare case: Peer asking for the genisis lcl.
         }
+
         return true;
     }
 
@@ -314,9 +457,12 @@ namespace ledger
         const size_t pos = hr.minimum_lcl.find("-");
         if (pos == std::string::npos)
         {
-            LOG_DEBUG << "Invalid lcl history request. Requested:" << hr.minimum_lcl;
+            LOG_DEBUG << "lcl serve: Invalid lcl history request. Requested:" << hr.minimum_lcl;
             return -1;
         }
+
+        // We put the requester's own lcl back in the response so they can validate the liveliness of the response.
+        history_response.requester_lcl = hr.minimum_lcl;
 
         uint64_t min_seq_no = std::stoull(hr.minimum_lcl.substr(0, pos)); // Get required lcl sequence number
 
@@ -329,20 +475,20 @@ namespace ledger
             // Evenhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
             if (hr.minimum_lcl != itr->second)
             {
-                LOG_DEBUG << "Invalid minimum ledger. Requested min lcl:" << hr.minimum_lcl << " Node lcl:" << itr->second;
+                LOG_DEBUG << "lcl serve: Invalid minimum ledger. Requested min lcl:" << hr.minimum_lcl << " Node lcl:" << itr->second;
                 history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
                 return 0;
             }
         }
         else if (min_seq_no > ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
         {
-            LOG_DEBUG << "Invalid minimum ledger. Recieved minimum sequence number is ahead of node current lcl sequence. Requested lcl: " << hr.minimum_lcl;
+            LOG_DEBUG << "lcl serve: Invalid minimum ledger. Recieved minimum seq no is ahead of node current seq no. Requested lcl:" << hr.minimum_lcl;
             history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
             return 0;
         }
         else
         {
-            LOG_DEBUG << "Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl";
+            LOG_DEBUG << "lcl serve: Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl.";
             min_seq_no = ctx.cache.begin()->first;
         }
 
@@ -363,7 +509,10 @@ namespace ledger
             // Read lcl file.
             const std::string file_path = conf::ctx.hist_dir + "/" + lcl + ".lcl";
             if (read_ledger(file_path, ledger.raw_ledger) == -1)
+            {
+                LOG_DEBUG << "lcl serve: Error when reading ledger file.";
                 return -1;
+            }
 
             history_response.hist_ledgers.emplace(seq_no, std::move(ledger));
         }
@@ -374,42 +523,40 @@ namespace ledger
     /**
      * Handle recieved ledger history response.
      * @param hr lcl history request information.
-     * @return peer outbound message object with ledger history response.
+     * @return 0 on successful lcl update. -1 on failure.
      */
-    void handle_ledger_history_response(const p2p::history_response &hr)
+    int handle_ledger_history_response(const p2p::history_response &hr)
     {
-        // Check response object contains
-        if (ctx.last_requested_lcl.empty())
-        {
-            LOG_DEBUG << "Peer sent us a history response but we never asked for one!";
-            return;
-        }
-
         if (hr.error == p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER)
         {
-            // This means we are in a fork ledger.Remove/rollback current ledger.
-            // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger .
+            // This means we are in a fork ledger. Remove/rollback current top ledger.
+            // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger.
             remove_ledger(ctx.get_lcl());
             ctx.cache.erase(ctx.cache.rbegin()->first);
-            LOG_DEBUG << "Invalid min ledger. Removed last ledger.";
+
+            const auto [seq_no, lcl] = get_ledger_cache_top();
+            ctx.set_lcl(seq_no, lcl);
+
+            LOG_INFO << "lcl sync: Fork detected. Removed last ledger. New lcl:" << lcl.substr(0, 15);
+            return 0;
         }
         else
         {
             // Check whether recieved lcl history contains the current lcl node required.
-            bool have_requested_lcl = false;
+            bool contains_requested_lcl = false;
             for (auto &[seq_no, ledger] : hr.hist_ledgers)
             {
-                if (ctx.last_requested_lcl == ledger.lcl)
+                if (sync_ctx.target_lcl == ledger.lcl)
                 {
-                    have_requested_lcl = true;
+                    contains_requested_lcl = true;
                     break;
                 }
             }
 
-            if (!have_requested_lcl)
+            if (!contains_requested_lcl)
             {
-                LOG_DEBUG << "Peer sent us a history response but not containing the lcl we asked for! " << hr.hist_ledgers.size();
-                return;
+                LOG_DEBUG << "lcl sync: Peer sent us a history response but not containing the lcl we asked for.";
+                return -1;
             }
 
             // Check integrity of recieved lcl list.
@@ -432,9 +579,9 @@ namespace ledger
                 // recieved lcl hash and hash generated from recieved lcl content doesn't match -> abandon applying it
                 if (lcl_hash != rec_lcl_hash)
                 {
-                    LOG_WARNING << "peer sent us a history response we asked for but the ledger data does not match the ledger hashes";
-                    // todo: we should penalize peer who sent this?
-                    return;
+                    LOG_DEBUG << "lcl sync: Peer sent us a history response but the ledger data does not match the hashes.";
+                    // todo: we should penalize peer who sent this.
+                    return -1;
                 }
             }
         }
@@ -454,14 +601,11 @@ namespace ledger
             ctx.cache.emplace(seq_no, ledger.lcl);
         }
 
-        ctx.last_requested_lcl = "";
-
-        const auto latest_lcl_itr = ctx.cache.rbegin();
-        const uint64_t seq_no = latest_lcl_itr == ctx.cache.rend() ? 0 : latest_lcl_itr->first;
-        const std::string &lcl = latest_lcl_itr == ctx.cache.rend() ? GENESIS_LEDGER : latest_lcl_itr->second;
+        const auto [seq_no, lcl] = get_ledger_cache_top();
         ctx.set_lcl(seq_no, lcl);
 
-        LOG_INFO << "lcl sync complete. New lcl:" << lcl.substr(0, 15);
+        LOG_INFO << "lcl sync: Sync complete. New lcl:" << lcl.substr(0, 15);
+        return 0;
     }
 
 } // namespace ledger

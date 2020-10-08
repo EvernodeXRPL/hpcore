@@ -60,6 +60,7 @@ enum Ledger_Response_Error : ubyte
 }
 
 table History_Response_Message { //Ledger History request type message schema
+    requester_lcl:[ubyte];
     hist_ledgers:[HistoryLedgerPair];
     error: Ledger_Response_Error;
 }

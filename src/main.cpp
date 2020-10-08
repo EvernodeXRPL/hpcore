@@ -69,6 +69,7 @@ int parse_cmd(int argc, char **argv)
 void deinit()
 {
     cons::deinit();
+    ledger::deinit();
     state_sync::deinit();
     state_serve::deinit();
     read_req::deinit();
