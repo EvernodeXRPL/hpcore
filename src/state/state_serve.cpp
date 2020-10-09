@@ -6,7 +6,7 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../cons/cons.hpp"
+#include "../ledger.hpp"
 #include "../hplog.hpp"
 #include "state_serve.hpp"
 #include "state_common.hpp"
@@ -64,6 +64,7 @@ namespace state_serve
             }
 
             const uint64_t time_start = util::get_epoch_milliseconds();
+            const std::string lcl = ledger::ctx.get_lcl();
 
             for (auto &[session_id, request] : state_requests)
             {
@@ -81,7 +82,7 @@ namespace state_serve
                 const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
                 flatbuffers::FlatBufferBuilder fbuf(1024);
 
-                if (state_serve::create_state_response(fbuf, sr) == 1)
+                if (state_serve::create_state_response(fbuf, sr, lcl) == 1)
                 {
                     // Find the peer that we should send the state response to.
                     std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -111,7 +112,7 @@ namespace state_serve
      * @return 1 if successful state response was generated. 0 if request is invalid
      *         and no response was generated. -1 on error.
      */
-    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr)
+    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr, std::string_view lcl)
     {
         LOG_DEBUG << "Serving state req. path:" << sr.parent_path << " block_id:" << sr.block_id;
 
@@ -136,7 +137,7 @@ namespace state_serve
                 resp.hash = sr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, cons::ctx.lcl);
+                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, lcl);
                 return 1; // Success.
             }
         }
@@ -158,7 +159,7 @@ namespace state_serve
                 {
                     msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
                         fbuf, sr.parent_path, block_hashes,
-                        file_length, sr.expected_hash, cons::ctx.lcl);
+                        file_length, sr.expected_hash, lcl);
                     return 1; // Success.
                 }
             }
@@ -177,7 +178,7 @@ namespace state_serve
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, cons::ctx.lcl);
+                        fbuf, sr.parent_path, child_hash_nodes, sr.expected_hash, lcl);
                     return 1; // Success.
                 }
             }

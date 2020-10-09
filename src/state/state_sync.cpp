@@ -3,7 +3,7 @@
 #include "../msg/fbuf/common_helpers.hpp"
 #include "../p2p/p2p.hpp"
 #include "../pchheader.hpp"
-#include "../cons/cons.hpp"
+#include "../ledger.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
 #include "../hpfs/hpfs.hpp"
@@ -129,6 +129,7 @@ namespace state_sync
                 LOG_ERROR << "State sync: Failed to start hpfs rw session";
             }
 
+            std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
             ctx.target_state = hpfs::h32_empty;
             ctx.is_syncing = false;
         }
@@ -138,12 +139,17 @@ namespace state_sync
 
     void request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state)
     {
+        std::string lcl = ledger::ctx.get_lcl();
+
         // Send the initial root state request.
-        submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, current_target});
+        submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, current_target}, lcl);
 
         while (!should_stop_request_loop(current_target))
         {
             util::sleep(REQUEST_LOOP_WAIT);
+
+            // Get current lcl.
+            std::string lcl = ledger::ctx.get_lcl();
 
             {
                 std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
@@ -216,7 +222,7 @@ namespace state_sync
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
                     LOG_DEBUG << "State sync: Resubmitting request...";
-                    submit_request(request);
+                    submit_request(request, lcl);
                 }
             }
 
@@ -230,7 +236,7 @@ namespace state_sync
                         return;
 
                     const backlog_item &request = ctx.pending_requests.front();
-                    submit_request(request);
+                    submit_request(request, lcl);
                     ctx.pending_requests.pop_front();
                 }
             }
@@ -257,7 +263,8 @@ namespace state_sync
      * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
      * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
      */
-    void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id, const hpfs::h32 expected_hash)
+    void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
+                                 const hpfs::h32 expected_hash, std::string_view lcl)
     {
         p2p::state_request sr;
         sr.parent_path = path;
@@ -266,25 +273,25 @@ namespace state_sync
         sr.expected_hash = expected_hash;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, sr, cons::ctx.lcl);
+        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, sr, lcl);
         p2p::send_message_to_random_peer(fbuf); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
     }
 
     /**
      * Submits a pending state request to the peer.
      */
-    void submit_request(const backlog_item &request)
+    void submit_request(const backlog_item &request, std::string_view lcl)
     {
         LOG_DEBUG << "State sync: Submitting request. type:" << request.type
-                << " path:" << request.path << " block_id:" << request.block_id
-                << " hash:" << request.expected_hash;
+                  << " path:" << request.path << " block_id:" << request.block_id
+                  << " hash:" << request.expected_hash;
 
         const std::string key = std::string(request.path)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(hpfs::h32));
         ctx.submitted_requests.try_emplace(key, request);
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
-        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash);
+        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl);
     }
 
     /**
@@ -412,8 +419,8 @@ namespace state_sync
         std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_msg->data());
 
         LOG_DEBUG << "State sync: Writing block_id " << block_id
-                << " (len:" << buf.length()
-                << ") of " << file_vpath;
+                  << " (len:" << buf.length()
+                  << ") of " << file_vpath;
 
         std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(file_vpath);
         const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);

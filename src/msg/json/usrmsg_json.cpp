@@ -1,7 +1,6 @@
 #include "../../pchheader.hpp"
 #include "../../util.hpp"
 #include "../../crypto.hpp"
-#include "../../cons/cons.hpp"
 #include "../../hplog.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
@@ -73,7 +72,7 @@ namespace msg::usrmsg::json
  *              "lcl_seqno": <integer>
  *            }
  */
-    void create_status_response(std::vector<uint8_t> &msg)
+    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         msg.reserve(128);
         msg += "{\"";
@@ -83,11 +82,11 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL;
         msg += SEP_COLON;
-        msg += cons::ctx.lcl;
+        msg += lcl;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(cons::ctx.led_seq_no);
+        msg += std::to_string(lcl_seq_no);
         msg += "}";
     }
 
@@ -172,7 +171,7 @@ namespace msg::usrmsg::json
  *            }
  * @param content The contract binary output content to be put in the message.
  */
-    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content)
+    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         std::string contenthex;
         util::bin2hex(
@@ -188,11 +187,11 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL;
         msg += SEP_COLON;
-        msg += cons::ctx.lcl;
+        msg += lcl;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(cons::ctx.led_seq_no);
+        msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTENT;
         msg += SEP_COLON;

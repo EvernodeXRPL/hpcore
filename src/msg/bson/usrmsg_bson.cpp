@@ -1,6 +1,5 @@
 #include "../../pchheader.hpp"
 #include "../../util.hpp"
-#include "../../cons/cons.hpp"
 #include "../../hplog.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_bson.hpp"
@@ -17,16 +16,16 @@ namespace msg::usrmsg::bson
  *              "lcl_seqno": <integer>
  *            }
  */
-   void create_status_response(std::vector<uint8_t> &msg)
+   void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl)
    {
       jsoncons::bson::bson_bytes_encoder encoder(msg);
       encoder.begin_object();
       encoder.key(msg::usrmsg::FLD_TYPE);
       encoder.string_value(msg::usrmsg::MSGTYPE_STAT_RESPONSE);
       encoder.key(msg::usrmsg::FLD_LCL);
-      encoder.string_value(cons::ctx.lcl);
+      encoder.string_value(lcl);
       encoder.key(msg::usrmsg::FLD_LCL_SEQ);
-      encoder.int64_value(cons::ctx.led_seq_no);
+      encoder.int64_value(lcl_seq_no);
       encoder.end_object();
       encoder.flush();
    }
@@ -95,16 +94,16 @@ namespace msg::usrmsg::bson
  *            }
  * @param content The contract binary output content to be put in the message.
  */
-   void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content)
+   void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
    {
       jsoncons::bson::bson_bytes_encoder encoder(msg);
       encoder.begin_object();
       encoder.key(msg::usrmsg::FLD_TYPE);
       encoder.string_value(msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT);
       encoder.key(msg::usrmsg::FLD_LCL);
-      encoder.string_value(cons::ctx.lcl);
+      encoder.string_value(lcl);
       encoder.key(msg::usrmsg::FLD_LCL_SEQ);
-      encoder.int64_value(cons::ctx.led_seq_no);
+      encoder.int64_value(lcl_seq_no);
       encoder.key(msg::usrmsg::FLD_CONTENT);
       encoder.byte_string_value(content);
       encoder.end_object();

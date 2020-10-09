@@ -375,6 +375,20 @@ namespace util
         return remove(path.data());
     }
 
+    /**
+     * Clears all files from a directory (not recursive).
+     */
+    int clear_directory(std::string_view dir_path)
+    {
+        return nftw(
+            dir_path.data(), [](const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+                if (typeflag == FTW_F) // Is file.
+                    return remove(fpath);
+                return 0;
+            },
+            1, FTW_PHYS);
+    }
+
     void split_string(std::vector<std::string> &collection, std::string_view str, std::string_view delimeter)
     {
         if (str.empty())

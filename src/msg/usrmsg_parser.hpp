@@ -18,14 +18,14 @@ namespace msg::usrmsg
     public:
         usrmsg_parser(const util::PROTOCOL protocol);
 
-        void create_status_response(std::vector<uint8_t> &msg) const;
+        void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl) const;
 
         void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status,
                                           std::string_view reason, std::string_view input_sig) const;
 
         void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content) const;
 
-        void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content) const;
+        void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl) const;
 
         int parse(std::string_view message);
 

@@ -11,9 +11,8 @@
 #include "../comm/comm_client.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
-#include "../cons/ledger_handler.hpp"
 #include "../state/state_sync.hpp"
-#include "../cons/cons.hpp"
+#include "../ledger.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -129,6 +128,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
+                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "NPL message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
@@ -145,6 +145,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
+                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "State request message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
@@ -158,6 +159,7 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
+                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "State response message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
@@ -174,33 +176,27 @@ namespace p2p
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
+                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "History request message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
             const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
-            //first check node has the required lcl available. -> if so send lcl history accordingly.
-            const bool req_lcl_avail = cons::check_required_lcl_availability(hr);
-            if (req_lcl_avail)
-            {
-                flatbuffers::FlatBufferBuilder fbuf(1024);
-                p2pmsg::create_msg_from_history_response(fbuf, cons::retrieve_ledger_history(hr));
-                std::string_view msg = std::string_view(
-                    reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-
-                session.send(msg);
-            }
+            std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
+            ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.uniqueid, std::move(hr)));
         }
         else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
+                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "History response message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
                 return 0;
             }
 
-            cons::handle_ledger_history_response(
-                p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message()));
+            const p2p::history_response hr = p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
+            std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
+            ledger::sync_ctx.collected_history_responses.push_back(std::move(hr));
         }
         else
         {
