@@ -71,7 +71,6 @@ function HotPocketNplChannel(fd) {
     this.readInput = function () {
         const dataEmitter = new events.EventEmitter();
 
-        console.log(fd);
         if (fd == -1) {
             dataEmitter.emit("packet", null);
         }

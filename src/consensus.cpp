@@ -337,6 +337,14 @@ namespace consensus
     }
 
     /**
+     * Write npl messages to the contract.
+     */
+    bool push_npl_message(p2p::npl_message &npl_msg)
+    {
+        return ctx.contract_ctx.args.npl_messages.try_enqueue(npl_msg);
+    }
+
+    /**
  * Verifies the user signatures and populate non-expired user inputs from collected
  * non-unl proposals (if any) into consensus candidate data.
  */
@@ -762,15 +770,19 @@ namespace consensus
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
             // TODO: Do something usefull with HP<-->SC channel.
 
+            LOG_INFO << "Executing the contract";
+
             if (sc::execute_contract(ctx.contract_ctx) == -1)
             {
                 LOG_ERROR << "Contract execution failed.";
                 return -1;
             }
 
+            LOG_INFO << "Executed the contract";
+
             ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);
-            
+
             sc::clear_args(args);
         }
         return 0;

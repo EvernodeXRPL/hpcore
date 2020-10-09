@@ -1,7 +1,8 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
-#include "cons/cons.hpp"
+#include "consensus.hpp"
 #include "hplog.hpp"
+#include "ledger.hpp"
 #include "sc.hpp"
 #include "hpfs/hpfs.hpp"
 #include "msg/fbuf/p2pmsg_helpers.hpp"
@@ -51,10 +52,14 @@ namespace sc
                 goto failure;
             }
 
+            LOG_INFO << "Waiting for contract";
+
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(ctx.contract_pid);
             ctx.contract_pid = 0;
             LOG_DEBUG << "Contract process ended." << (ctx.args.readonly ? " (rdonly)" : "");
+
+            LOG_INFO << "Contract exited";
 
             // There could be 2 reasons for the contract to end; the contract voluntary finished execution or
             // it was killed due to Hot Pocket shutting down.
@@ -346,29 +351,20 @@ namespace sc
 
         if (writefd == -1)
         {
-            LOG_INFO << "Closed";
             return 0;
         }
 
         bool write_error = false;
 
         p2p::npl_message npl_msg;
-        if (ctx.args.npl_messages.try_dequeue(npl_msg) && (npl_msg.lcl == cons::ctx.lcl))
+        if (ctx.args.npl_messages.try_dequeue(npl_msg) && (npl_msg.lcl == ledger::ctx.get_lcl()))
         {
-            LOG_INFO << "Message - " << npl_msg.data;
             if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
                 write_error = true;
-            LOG_INFO << "Wrote pubkey";
             if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
-                write_error = true;
-            LOG_INFO << "Wrote data";    
+                write_error = true;  
         }     
 
-        // close(writefd);
-        // ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
-
-        if (write_error)
-            LOG_INFO << "Erro " << errno;
         return write_error ? -1 : 0;
     }
 
@@ -417,7 +413,7 @@ namespace sc
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, cons::ctx.lcl);
+            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl());
             p2p::broadcast_message(fbuf, true);
         }
     }
@@ -576,7 +572,7 @@ namespace sc
 
         // int flags = fcntl(socket[0], F_GETFL, 0);
         // fcntl(socket[0], F_SETFL, flags | O_NONBLOCK);
-        // int flags = fcntl(socket[1], F_GETFL, 0);
+        // flags = fcntl(socket[1], F_GETFL, 0);
         // fcntl(socket[1], F_SETFL, flags | O_NONBLOCK);
 
         // If both pipes got created, assign them to the fd vector.
@@ -689,23 +685,13 @@ namespace sc
         
         size_t available_bytes = 0;
         if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
-        {
+        {            
             if (available_bytes == 0)
                 return 0;
             
             output.resize(available_bytes);
 
-            LOG_INFO << "Available bytes - " << available_bytes;
-
             const int res = read(readfd, output.data(), sizeof(output));
-
-            LOG_INFO << "Read bytes - " << res;
-
-            if (res > 0)
-            {
-                // close(readfd);
-                // fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-            }
 
             return res;
         }

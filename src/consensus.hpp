@@ -110,6 +110,8 @@ namespace consensus
 
     void broadcast_nonunl_proposal();
 
+    bool push_npl_message(p2p::npl_message &npl_message);
+
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);

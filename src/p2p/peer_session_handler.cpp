@@ -1,5 +1,6 @@
 #include "../pchheader.hpp"
 #include "../conf.hpp"
+#include "../consensus.hpp"
 #include "../crypto.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
@@ -139,7 +140,10 @@ namespace p2p
             msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
             msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
 
-            cons::ctx.contract_ctx.args.npl_messages.try_enqueue(msg);
+            if (!consensus::push_npl_message(msg))
+            {
+                LOG_DEBUG << "NPL message enqueue failure. " << session.uniqueid.substr(0, 10);
+            }
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
