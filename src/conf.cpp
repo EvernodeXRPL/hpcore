@@ -140,8 +140,7 @@ namespace conf
         // Take the parent directory path.
         ctx.exe_dir = dirname(exepath.data());
 
-        ctx.websocketd_exe_path = ctx.exe_dir + "/" + "websocketd";
-        ctx.websocat_exe_path = ctx.exe_dir + "/" + "websocat";
+        ctx.hpws_exe_path = ctx.exe_dir + "/" + "hpws";
         ctx.hpfs_exe_path = ctx.exe_dir + "/" + "hpfs";
 
         ctx.contract_dir = basedir;

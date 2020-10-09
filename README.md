@@ -7,7 +7,6 @@ A C++ version of hotpocket designed for production envrionments, original protot
 
 ## Libraries
 * Crypto - Libsodium https://github.com/jedisct1/libsodium
-* Websockets - Server: [Websocketd (forked)](https://github.com/codetsunami/websocketd) | Client: [Websocat](https://github.com/vi/websocat) | Pipe: [netcat (OpenBSD)](https://man.openbsd.org/nc.1)
 * jsoncons (for JSON and BSON) - https://github.com/danielaparker/jsoncons
 * P2P Protocol - https://google.github.io/flatbuffers
 * Fuse filesystem - https://github.com/libfuse/libfuse
@@ -52,7 +51,7 @@ Code is divided into subsystems via namespaces.
 
 **ledger::** Maintains the ledger and handles ledger syncing activites.
 
-**comm::** Handles generic web sockets communication functionality. Mainly acts as a wrapper for websocketd/websocat.
+**comm::** Handles generic web sockets communication functionality. Mainly acts as a wrapper for [hpws](https://github.com/RichardAH/hpws).
 
 **util::** Contains shared data structures/helper functions used by multiple subsystems.
 

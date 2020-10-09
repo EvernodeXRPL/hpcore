@@ -39,7 +39,6 @@ namespace comm
         hpws::client hpws_client;
         const SESSION_TYPE session_type;
         std::vector<session_threshold> thresholds;                      // track down various communication thresholds
-        const std::string address;                                      // IP address of the remote party.
         
         std::thread reader_thread;                                      // The thread responsible for reading messages from the read fd.
         std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
@@ -51,6 +50,7 @@ namespace comm
     public:
         const bool is_inbound;
         bool is_self = false;
+        const std::string address; // IP address of the remote party.
         std::string uniqueid;
         std::string issued_challenge;
         conf::ip_port_pair known_ipport;

@@ -36,8 +36,7 @@ namespace conf
     {
         std::string command;             // The CLI command issued to launch HotPocket
         std::string exe_dir;             // Hot Pocket executable dir.
-        std::string websocketd_exe_path; // Websocketd executable file path.
-        std::string websocat_exe_path;   // Websocketd executable file path.
+        std::string hpws_exe_path;       // hpws executable file path.
         std::string hpfs_exe_path;       // hpfs executable file path.
 
         std::string contract_dir;  // Contract base directory full path

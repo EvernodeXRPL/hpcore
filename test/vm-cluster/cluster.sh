@@ -261,7 +261,7 @@ if [ $mode = "new" ] || [ $mode = "update" ]; then
 fi
 
 if [ $mode = "new" ]; then
-    cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,websocketd,websocat,hpfs} hpfiles/bin/
+    cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,hpws,hpfs} hpfiles/bin/
     cp ./setup-hp.sh hpfiles/
 fi
 

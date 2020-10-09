@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(hpcore)
 
 # Force build type to Release build.
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,7 +10,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY build)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY build)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-result -Wreturn-type")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-result -Wno-narrowing -Wno-format -Wreturn-type")
 
 # We have 2 executable build outputs: appbill and hpcore
 
@@ -34,7 +34,6 @@ add_executable(hpcore
     src/hpfs/hpfs.cpp
     src/comm/comm_session.cpp
     src/comm/comm_server.cpp
-    src/comm/comm_client.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/p2pmsg_helpers.cpp
     src/msg/fbuf/ledger_helpers.cpp
@@ -67,7 +66,7 @@ add_dependencies(hpcore
 add_custom_command(TARGET hpcore POST_BUILD
     # COMMAND strip ./build/hpcore
     # COMMAND strip ./build/appbill
-    COMMAND cp ./test/bin/websocketd ./test/bin/websocat ./test/bin/hpfs ./build/
+    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./build/
 )
     
 target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
@@ -77,7 +76,7 @@ target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
   COMMAND cp ./build/hpcore ./build/appbill ./test/local-cluster/bin/
-  COMMAND cp ./test/bin/fusermount3 ./test/bin/libfuse3.so.3 ./test/bin/libblake3.so ./test/bin/websocketd ./test/bin/websocat ./test/bin/hpfs ./test/local-cluster/bin/
+  COMMAND cp ./test/bin/fusermount3 ./test/bin/libfuse3.so.3 ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
   COMMAND docker build -t hpcore:latest ./test/local-cluster
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)

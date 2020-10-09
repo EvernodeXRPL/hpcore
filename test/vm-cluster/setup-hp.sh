@@ -69,11 +69,11 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "echo hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  websocketd pid:\$($contdir/getpid.sh websocketd)  websocat pid:\$($contdir/getpid.sh websocat)" > $contdir/check.sh
+   echo "echo hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  hpws pid:\$($contdir/getpid.sh hpws)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
-   echo "sudo kill \$($contdir/getpid.sh hpcore hpfs websocketd websocat)" > $contdir/kill.sh
+   echo "sudo kill \$($contdir/getpid.sh hpcore hpfs hpws)" > $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
 
    # Configure .screenrc

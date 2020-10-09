@@ -57,8 +57,7 @@ namespace usr
     int start_listening()
     {
         if (ctx.listener.start(
-                conf::cfg.pubport, ".sock-user", comm::SESSION_TYPE::USER,
-                true, true, conf::cfg.pubtls, metric_thresholds, std::set<conf::ip_port_pair>(), conf::cfg.pubmaxsize) == -1)
+                conf::cfg.pubport, comm::SESSION_TYPE::USER, conf::cfg.pubtls, metric_thresholds, std::set<conf::ip_port_pair>(), conf::cfg.pubmaxsize) == -1)
             return -1;
 
         LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.pubport);

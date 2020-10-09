@@ -3,7 +3,6 @@
 
 #include "../pchheader.hpp"
 #include "../comm/comm_server.hpp"
-#include "../comm/comm_client.hpp"
 #include "../comm/comm_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
