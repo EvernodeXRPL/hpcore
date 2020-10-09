@@ -139,13 +139,7 @@ namespace p2p
             msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
             msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
 
-            // Feeding the collected message to the contract
-            if (msg.lcl == cons::ctx.lcl)
-            {
-                cons::ctx.contract_ctx.args.npl_messages.push_back(std::move(msg));
-                if (!cons::ctx.contract_ctx.args.readonly && sc::write_npl_messages(cons::ctx.contract_ctx) == -1)
-                    return 0;
-            }
+            cons::ctx.contract_ctx.args.npl_messages.try_enqueue(msg);
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {

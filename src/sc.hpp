@@ -75,7 +75,7 @@ namespace sc
         contract_bufmap_t userbufs;
 
         // NPL messages to be passed into contract.
-        std::list<p2p::npl_message> npl_messages;
+        moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
         
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
@@ -135,7 +135,7 @@ namespace sc
 
     int feed_inputs(execution_context &ctx);
 
-    int fetch_outputs(execution_context &ctx);
+    int handle_contract_io(execution_context &ctx);
 
     int write_contract_hp_inputs(execution_context &ctx);
 

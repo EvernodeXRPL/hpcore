@@ -1,4 +1,5 @@
 const fs = require('fs');
+const events = require('events');
 
 function HotPocketContract() {
     const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
@@ -47,22 +48,6 @@ const drainStream = function (stream) {
     });
 }
 
-// Helper function to asynchronously read a packet.
-const drainPacket = function (stream) {
-
-    return new Promise((resolve) => {
-        stream.on("data", d => {
-            if (d.length > 0)
-                return resolve(d);
-            else
-                return resolve(null);
-        });
-        stream.on("error", () => {
-            resolve(null);
-        });
-    });
-}
-
 function HotPocketChannel(infd, outfd) {
     this.readInput = function () {
         return new Promise((resolve) => {
@@ -83,62 +68,25 @@ function HotPocketChannel(infd, outfd) {
 
 function HotPocketNplChannel(fd) {
 
-    const parseNplInputs = function (buf) {
+    this.readInput = function () {
+        const dataEmitter = new events.EventEmitter();
 
-        // Input may consist of multiple messages.
-        // Each message has the format:
-        // | NPL version (1 byte) | reserve (1 byte) | msg length (2 bytes BE) | peer pubkey (32 bytes) | msg |
+        console.log(fd);
+        if (fd == -1) {
+            dataEmitter.emit("packet", null);
+        }
+        else {
+            const socket = fs.createReadStream(null, { fd: fd });
 
-        const inputs = []; // Peer inputs will be populated to this.
-
-        let pos = 0;
-        while (pos < buf.byteLength) {
-
-            pos += 2; // Skip version and reserve.
-
-            // Read message len.
-            const msgLenBuf = readBytes(buf, pos, 2);
-            if (!msgLenBuf) break;
-            const msgLen = msgLenBuf.readUInt16BE();
-
-            console.log("Len - " + msgLen)
-
-            pos += 2;
-            const pubKeyBuf = readBytes(buf, pos, 32);
-            if (!pubKeyBuf) break;
-
-            pos += 32;
-
-            const msgBuf = readBytes(buf, pos, msgLen)
-            if (!msgBuf) break;
-
-            inputs.push({
-                pubkey: pubKeyBuf.toString("hex"),
-                input: msgBuf
+            socket.on("data", d => {
+                dataEmitter.emit("packet", d);
             });
-
-            pos += msgLen;
+            socket.on("error", (e) => {
+                dataEmitter.emit("packet", null);
+            });
         }
 
-        return inputs;
-    }
-
-    const readBytes = function (buf, pos, count) {
-        if (pos + count > buf.byteLength)
-            return null;
-        return buf.slice(pos, pos + count);
-    }
-
-    this.readInput = function () {
-        return new Promise((resolve) => {
-            if (fd == -1) {
-                resolve(null);
-            }
-            else {
-                const s = fs.createReadStream(null, { fd: fd, highWaterMark: 128 * 1024 });
-                drainPacket(s).then(buf => resolve(buf));
-            }
-        });
+        return dataEmitter;
     }
 
     this.sendOutput = function (output) {

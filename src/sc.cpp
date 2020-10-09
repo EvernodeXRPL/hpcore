@@ -41,7 +41,7 @@ namespace sc
             close_unused_fds(ctx, true);
 
             // Start the contract output collection thread.
-            ctx.output_fetcher_thread = std::thread(fetch_outputs, std::ref(ctx));
+            ctx.output_fetcher_thread = std::thread(handle_contract_io, std::ref(ctx));
 
             // Write the inputs into the contract process.
             if (feed_inputs(ctx) == -1)
@@ -279,7 +279,7 @@ namespace sc
         return 0;
     }
 
-    int fetch_outputs(execution_context &ctx)
+    int handle_contract_io(execution_context &ctx)
     {
         util::mask_signal();
 
@@ -292,8 +292,12 @@ namespace sc
             if (hpsc_res == -1)
                 return -1;
 
-            const int npl_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
-            if (npl_res == -1)
+            const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
+            if (npl_read_res == -1)
+                return -1;
+
+            const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
+            if (npl_write_res == -1)
                 return -1;
 
             const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
@@ -304,7 +308,7 @@ namespace sc
             }
 
             // If no bytes were read after contract finished execution, exit the read loop.
-            if (hpsc_res == 0 && npl_res == 0 && user_res == 0 && ctx.contract_pid == 0)
+            if (hpsc_res == 0 && npl_read_res == 0 && user_res == 0 && ctx.contract_pid == 0)// && npl_write_res == -1)
                 break;
 
             util::sleep(20);
@@ -340,8 +344,6 @@ namespace sc
          */
         int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
 
-        LOG_INFO << "Message len " << ctx.args.npl_messages.size();
-
         if (writefd == -1)
         {
             LOG_INFO << "Closed";
@@ -349,18 +351,18 @@ namespace sc
         }
 
         bool write_error = false;
-        if (!ctx.args.npl_messages.empty())
-        {
-            const auto npl_msg = ctx.args.npl_messages.front();
 
-            LOG_INFO << "Message " << npl_msg.data;
-            if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
-                write_error = true;
+        p2p::npl_message npl_msg;
+        if (ctx.args.npl_messages.try_dequeue(npl_msg) && (npl_msg.lcl == cons::ctx.lcl))
+        {
+            LOG_INFO << "Message - " << npl_msg.data;
             if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
                 write_error = true;
-
-            ctx.args.npl_messages.clear();
-        }
+            LOG_INFO << "Wrote pubkey";
+            if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
+                write_error = true;
+            LOG_INFO << "Wrote data";    
+        }     
 
         // close(writefd);
         // ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
@@ -574,7 +576,7 @@ namespace sc
 
         // int flags = fcntl(socket[0], F_GETFL, 0);
         // fcntl(socket[0], F_SETFL, flags | O_NONBLOCK);
-        // flags = fcntl(socket[1], F_GETFL, 0);
+        // int flags = fcntl(socket[1], F_GETFL, 0);
         // fcntl(socket[1], F_SETFL, flags | O_NONBLOCK);
 
         // If both pipes got created, assign them to the fd vector.
@@ -693,7 +695,11 @@ namespace sc
             
             output.resize(available_bytes);
 
+            LOG_INFO << "Available bytes - " << available_bytes;
+
             const int res = read(readfd, output.data(), sizeof(output));
+
+            LOG_INFO << "Read bytes - " << res;
 
             if (res > 0)
             {
@@ -703,6 +709,7 @@ namespace sc
 
             return res;
         }
+
         return -1;
     }
 
@@ -803,7 +810,9 @@ namespace sc
         args.userbufs.clear();
         args.hpscbufs.inputs.clear();
         args.hpscbufs.output.clear();
-        args.npl_messages.clear();
+        while (args.npl_messages.pop())
+        {
+        }
         args.time = 0;
         args.lcl.clear();
         args.post_execution_state_hash = hpfs::h32_empty;

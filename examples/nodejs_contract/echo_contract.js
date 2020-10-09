@@ -25,7 +25,7 @@ Object.keys(hpc.users).forEach(function (key) {
     const npl = hpc.npl
     npl.sendOutput("npl1 from contract");
     npl.sendOutput("npl2 from contract");
-    npl.readInput().then(msg => {
+    npl.readInput().on("packet", msg => {
         if (msg) {
             console.log(msg.toString());
             user.sendOutput("aa");
