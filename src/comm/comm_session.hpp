@@ -36,7 +36,7 @@ namespace comm
     class comm_session
     {
     private:
-        hpws::client hpws_client;
+        std::optional<hpws::client> hpws_client;
         const SESSION_TYPE session_type;
         std::vector<session_threshold> thresholds;                      // track down various communication thresholds
         

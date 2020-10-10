@@ -87,7 +87,7 @@ namespace comm
             if (error.first == 199) // No client connected.
                 return;
 
-            LOG_ERROR << "Error in hpws accept(). code:" << error.first << " msg:" << error.second;
+            LOG_ERROR << "Error in hpws accept():" << error.first << " " << error.second;
             return;
         }
 
@@ -146,7 +146,7 @@ namespace comm
             if (std::holds_alternative<hpws::error>(client_result))
             {
                 const hpws::error error = std::get<hpws::error>(client_result);
-                LOG_ERROR << "Outbound connection hpws error. code:" << error.first << " msg:" << error.second;
+                LOG_ERROR << "Outbound connection hpws error:" << error.first << " " << error.second;
             }
             else
             {
@@ -217,11 +217,11 @@ namespace comm
         if (std::holds_alternative<hpws::error>(result))
         {
             const hpws::error e = std::get<hpws::error>(result);
-            LOG_ERROR << "Error creating hpws server. code:" << e.first << " msg:" << e.second;
+            LOG_ERROR << "Error creating hpws server:" << e.first << " " << e.second;
             return -1;
         }
 
-        hpws_server = std::move(std::get<hpws::server>(result));
+        hpws_server.emplace(std::move(std::get<hpws::server>(result)));
 
         return 0;
     }
@@ -230,6 +230,8 @@ namespace comm
     {
         should_stop_listening = true;
         watchdog_thread.join();
+        hpws_server.reset();
+
         inbound_message_processor_thread.join();
     }
 

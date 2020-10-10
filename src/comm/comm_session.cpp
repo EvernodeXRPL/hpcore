@@ -51,27 +51,31 @@ namespace comm
         while (state != SESSION_STATE::CLOSED)
         {
             bool should_disconnect = false;
+            hpws::client &client = hpws_client.value();
 
-            std::variant<std::string_view, hpws::error> read_result = hpws_client.read();
+            std::variant<std::string_view, hpws::error> read_result = client.read();
             if (std::holds_alternative<hpws::error>(read_result))
             {
+                should_disconnect = true;
                 const hpws::error error = std::get<hpws::error>(read_result);
-                LOG_DEBUG << "hpws client read failed. code:" << error.first << " msg:" << error.second;
-                should_disconnect = true;
+                if (error.first != 1)
+                    LOG_DEBUG << "hpws client read failed:" << error.first << " " << error.second;
             }
-
-            // Enqueue the message for processing.
-            std::string_view data = std::get<std::string_view>(read_result);
-            std::vector<char> msg(data.size());
-            memcpy(msg.data(), data.data(), data.size());
-            in_msg_queue.enqueue(std::move(msg));
-
-            // Signal the hpws client that we are ready for next message.
-            std::optional<hpws::error> error = hpws_client.ack(data);
-            if (error.has_value())
+            else
             {
-                LOG_DEBUG << "hpws client ack failed. code:" << error.value().first << " msg:" << error.value().second;
-                should_disconnect = true;
+                // Enqueue the message for processing.
+                std::string_view data = std::get<std::string_view>(read_result);
+                std::vector<char> msg(data.size());
+                memcpy(msg.data(), data.data(), data.size());
+                in_msg_queue.enqueue(std::move(msg));
+
+                // Signal the hpws client that we are ready for next message.
+                std::optional<hpws::error> error = client.ack(data);
+                if (error.has_value())
+                {
+                    LOG_DEBUG << "hpws client ack failed:" << error.value().first << " " << error.value().second;
+                    should_disconnect = true;
+                }
             }
 
             if (should_disconnect)
@@ -152,10 +156,10 @@ namespace comm
     */
     int comm_session::process_outbound_message(std::string_view message)
     {
-        std::optional<hpws::error> error = hpws_client.write(message);
+        std::optional<hpws::error> error = hpws_client.value().write(message);
         if (error.has_value())
         {
-            LOG_DEBUG << "hpws client write failed. code:" << error.value().first << " msg:" << error.value().second;
+            LOG_DEBUG << "hpws client write failed:" << error.value().first << " " << error.value().second;
             return -1;
         }
         return 0;
@@ -218,9 +222,12 @@ namespace comm
 
         state = SESSION_STATE::CLOSED;
 
-        // Wait untill both reader & writer threads gracefully stop.
-        reader_thread.join();
+        // Destruct the hpws client instance so it will close the sockets and related processes.
+        hpws_client.reset();
+
+        // Wait untill reader/writer threads gracefully stop.
         writer_thread.join();
+        reader_thread.join();
 
         LOG_DEBUG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
                   << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
