@@ -93,25 +93,34 @@ namespace comm
 
         // New client connected.
         hpws::client client = std::move(std::get<hpws::client>(accept_result));
-        const std::string ip = client.host_address();
-
-        if (corebill::is_banned(ip))
+        const std::variant<std::string, hpws::error> host_result = client.host_address();
+        if (std::holds_alternative<hpws::error>(host_result))
         {
-            // We just let the client object gets destructed without adding it to a session.
-            LOG_DEBUG << "Dropping connection for banned host " << ip;
+            const hpws::error error = std::get<hpws::error>(host_result);
+            LOG_ERROR << "Error getting ip from hpws:" << error.first << " " << error.second;
         }
         else
         {
-            comm_session session(ip, std::move(client), session_type, true, metric_thresholds);
-            if (session.on_connect() == 0)
-            {
-                std::scoped_lock<std::mutex> lock(sessions_mutex);
-                comm_session &inserted_session = sessions.emplace_back(std::move(session));
+            const std::string &host_address = std::get<std::string>(host_result);
 
-                // Thread is seperately started after the moving operation to overcome the difficulty
-                // in accessing class member variables inside the thread.
-                // Class member variables gives unacceptable values if the thread starts before the move operation.
-                inserted_session.start_messaging_threads();
+            if (corebill::is_banned(host_address))
+            {
+                // We just let the client object gets destructed without adding it to a session.
+                LOG_DEBUG << "Dropping connection for banned host " << host_address;
+            }
+            else
+            {
+                comm_session session(host_address, std::move(client), session_type, true, metric_thresholds);
+                if (session.on_connect() == 0)
+                {
+                    std::scoped_lock<std::mutex> lock(sessions_mutex);
+                    comm_session &inserted_session = sessions.emplace_back(std::move(session));
+
+                    // Thread is seperately started after the moving operation to overcome the difficulty
+                    // in accessing class member variables inside the thread.
+                    // Class member variables gives unacceptable values if the thread starts before the move operation.
+                    inserted_session.start_messaging_threads();
+                }
             }
         }
     }
@@ -151,21 +160,29 @@ namespace comm
             else
             {
                 hpws::client client = std::move(std::get<hpws::client>(client_result));
-                const std::string ip = client.host_address();
-
-                comm::comm_session session(ip, std::move(client), session_type, false, metric_thresholds);
-                session.known_ipport = ipport;
-                if (session.on_connect() == 0)
+                const std::variant<std::string, hpws::error> host_result = client.host_address();
+                if (std::holds_alternative<hpws::error>(host_result))
                 {
-                    std::scoped_lock<std::mutex> lock(sessions_mutex);
-                    comm_session &inserted_session = sessions.emplace_back(std::move(session));
+                    const hpws::error error = std::get<hpws::error>(host_result);
+                    LOG_ERROR << "Error getting ip from hpws:" << error.first << " " << error.second;
+                }
+                else
+                {
+                    const std::string &host_address = std::get<std::string>(host_result);
+                    comm::comm_session session(host_address, std::move(client), session_type, false, metric_thresholds);
+                    session.known_ipport = ipport;
+                    if (session.on_connect() == 0)
+                    {
+                        std::scoped_lock<std::mutex> lock(sessions_mutex);
+                        comm_session &inserted_session = sessions.emplace_back(std::move(session));
 
-                    // Thread is seperately started after the moving operation to overcome the difficulty
-                    // in accessing class member variables inside the thread.
-                    // Class member variables gives unacceptable values if the thread starts before the move operation.
-                    inserted_session.start_messaging_threads();
+                        // Thread is seperately started after the moving operation to overcome the difficulty
+                        // in accessing class member variables inside the thread.
+                        // Class member variables gives unacceptable values if the thread starts before the move operation.
+                        inserted_session.start_messaging_threads();
 
-                    known_remotes.emplace(ipport);
+                        known_remotes.emplace(ipport);
+                    }
                 }
             }
         }
