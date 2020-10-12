@@ -9,29 +9,38 @@ const hpc = new HotPocketContract();
 if (!hpc.readonly)
     fs.appendFileSync("exects.txt", "ts:" + hpc.timestamp + "\n");
 
-Object.keys(hpc.users).forEach(function (key) {
+Object.keys(hpc.users).forEach(async (key) => {
 
     const user = hpc.users[key];
-    user.readInput().then(inputBuf => {
-        if (inputBuf) {
-            const userInput = inputBuf.toString("utf8");
-
-            if (userInput == "ts")
-                user.sendOutput(fs.readFileSync("exects.txt"));
-            else
-                user.sendOutput("Echoing: " + userInput);
-        }
-    })
-    const npl = hpc.npl
-    npl.sendOutput("npl1 from contract");
-    //npl.sendOutput("npl2 from contract");
-    npl.readInput().on("packet", msg => {
-        if (msg) {
-            console.log(msg.toString("hex"));
-            user.sendOutput("aa");
-        }
-        process.exit(0);
-    })
+    const inputBuf = await user.readInput();
+    if (inputBuf) {
+        const userInput = inputBuf.toString("utf8");
+        console.log(userInput)
+        if (userInput == "ts")
+            user.sendOutput(fs.readFileSync("exects.txt"));
+        else
+            user.sendOutput("Echoing: " + userInput);
+    }
 });
+
+const npl = hpc.npl;
+
+if (npl) {
+    let i = 0;
+    let interval = setInterval(() => {
+        npl.sendOutput(`npl${i} from contract`);
+        if (i == 5) {
+            clearInterval(interval);
+            npl.closeNplChannel();
+        }
+        i++;
+    }, 500);
+
+    npl.events.on("message", msg => {
+        if (msg) {
+            console.log(msg);
+        }
+    });
+}
 
 //console.log("===Echo contract ended===");

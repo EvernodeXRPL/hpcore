@@ -134,6 +134,8 @@ namespace sc
             cleanup_vectorfds(ctx.nplfds);
         }
 
+        LOG_INFO << "Closed fds";
+
         return ret;
     }
 
@@ -313,7 +315,7 @@ namespace sc
             }
 
             // If no bytes were read after contract finished execution, exit the read loop.
-            if (hpsc_res == 0 && npl_read_res == 0 && user_res == 0 && ctx.contract_pid == 0)// && npl_write_res == -1)
+            if (hpsc_res == 0 && npl_read_res == 0 && user_res == 0 && ctx.contract_pid == 0)
                 break;
 
             util::sleep(20);
@@ -362,8 +364,8 @@ namespace sc
             if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
                 write_error = true;
             if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
-                write_error = true;  
-        }     
+                write_error = true;
+        }
 
         return write_error ? -1 : 0;
     }
@@ -682,16 +684,17 @@ namespace sc
 
         if (readfd == -1)
             return 0;
-        
+
         size_t available_bytes = 0;
         if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
-        {            
+        {
             if (available_bytes == 0)
                 return 0;
-            
-            output.resize(available_bytes);
 
-            const int res = read(readfd, output.data(), sizeof(output));
+            char buf[128 * 1024];
+            const int res = read(readfd, buf, sizeof(buf));
+
+            output = buf;
 
             return res;
         }
