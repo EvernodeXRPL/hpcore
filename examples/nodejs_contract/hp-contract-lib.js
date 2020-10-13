@@ -15,7 +15,7 @@ function HotPocketContract() {
             hash: lclParts[1]
         };
 
-        this.npl = new HotPocketNplChannel(hpargs.nplfd[0]);
+        this.npl = new HotPocketNplChannel(hpargs.nplfd);
     }
 
     this.users = {};
@@ -75,6 +75,9 @@ function HotPocketNplChannel(fd) {
     let isPubKeyReceived = false;
     let pubKey;
     if (fd > 0) {
+        // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
+        // and then the message, First data buffer is taken as pubkey and the second one as message,
+        // then npl message object is constructed and the event is emmited.
         socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_NPL_BUF_SIZE});
         socket.on("data", d => {
             if (!isPubKeyReceived) {
@@ -91,7 +94,7 @@ function HotPocketNplChannel(fd) {
             }
         });
         socket.on("error", (e) => {
-            this.events.emit("err", null);
+            this.events.emit("error", e);
         });
     }
 

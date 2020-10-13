@@ -9,7 +9,7 @@
 
 namespace sc
 {
-    const int MAX_NPL_BUF_SIZE = 128*1024;
+    const int MAX_NPL_BUF_SIZE = 128 * 1024;
 
     /**
      * Executes the contract process and passes the specified context arguments.
@@ -62,7 +62,7 @@ namespace sc
             // There could be 2 reasons for the contract to end; the contract voluntary finished execution or
             // it was killed due to Hot Pocket shutting down.
 
-            // Wait for the output collection thread to gracefully stop if this is voluntary contract termination.
+            // Wait for the i/o thread to gracefully stop if this is voluntary contract termination.
             // 'ctx.should_stop' indicates Hot Pocket is shutting down. If that's the case ouput collection thread
             // is joined by the deinit logic.
             if (!ctx.should_stop && ctx.contract_io_thread.joinable())
@@ -124,7 +124,7 @@ namespace sc
     success:
         if (stop_hpfs_rw_session(ctx) == -1)
             ret = -1;
-            
+
         cleanup_fdmap(ctx.userfds);
         if (!ctx.args.readonly)
         {
@@ -213,7 +213,7 @@ namespace sc
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
                << "\",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
-               << "],\"nplfd\":[" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE] << "]";
+               << "],\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE] << "";
         }
 
         os << ",\"usrfd\":{";
@@ -283,7 +283,7 @@ namespace sc
     }
 
     /**
-     * Collect contract inputs and outputs and feed npl messages while contract is running.
+     * Collect contract outputs and feed npl messages while contract is running.
      * @param ctx Contract execution context.
      * @return Returns -1 if the operation fails otherwise 0.
     */
@@ -348,31 +348,35 @@ namespace sc
     int write_npl_messages(execution_context &ctx)
     {
         /**
-         * npl inputs are feed into the contract in a binary protocol. It follows the following pattern
-         * |**NPL version (1 byte)**|**Reserved (1 byte)**|**Length of the message (2 bytes)**|**Public key (32 bytes)**|**Npl message data**|
-         * Length of the message is calculated without including public key length
+         * npl inputs are feed into the contract as sequence packets. It first sends the pubkey and then
+         * the data.
          */
-        int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
+        const int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
 
         if (writefd == -1)
             return 0;
 
-        bool write_error = false;
-
         // Dequeue the next npl message from the queue.
         // Check the lcl against the latest lcl.
         p2p::npl_message npl_msg;
-        if (ctx.args.npl_messages.try_dequeue(npl_msg) && (npl_msg.lcl == ledger::ctx.get_lcl()))
+        if (ctx.args.npl_messages.try_dequeue(npl_msg))
         {
-            // Writing the public key to the contract's fd.
-            if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
-                write_error = true;
-            // Writing the message to the contract's fd.
-            if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
-                write_error = true;
+            if (npl_msg.lcl == ledger::ctx.get_lcl())
+            {
+                // Writing the public key to the contract's fd.
+                if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
+                    return -1;
+                // Writing the message to the contract's fd.
+                if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
+                    return -1;
+            }
+            else
+            {
+                LOG_DEBUG << "NPL message dropped due to lcl mismatch.";
+            }
         }
 
-        return write_error ? -1 : 0;
+        return 0;
     }
 
     /**
@@ -394,24 +398,26 @@ namespace sc
     }
 
     /**
-     * Read all NPL output messages produced by the contract process and store them in
-     * the buffer for later processing.
-     * 
+     * Read all NPL output messages produced by the contract process and broadcast them.
+     * @param ctx contract execution context.
      * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
      */
     int read_contract_npl_outputs(execution_context &ctx)
     {
-        std::string npl_output;
-        const int npl_res = read_iosocket(ctx.nplfds, npl_output);
+        char output[MAX_NPL_BUF_SIZE];
+        const int npl_res = read_iosocket(ctx.nplfds, output);
 
         if (npl_res == -1)
         {
             LOG_ERROR << "Error reading NPL output from the contract.";
             return -1;
         }
-
-        // Broadcast npl messages once contract npl output is collected.
-        broadcast_npl_output(npl_output);
+        else if (npl_res > 0)
+        {
+            std::string_view npl_output(output, npl_res);
+            // Broadcast npl messages once contract npl output is collected.
+            broadcast_npl_output(npl_output);
+        }
 
         return (npl_res == 0) ? 0 : 1;
     }
@@ -420,7 +426,7 @@ namespace sc
      * Broadcast npl messages to peers.
      * @param output Npl message to be broadcasted.
     */
-    void broadcast_npl_output(std::string &output)
+    void broadcast_npl_output(std::string_view &output)
     {
         if (!output.empty())
         {
@@ -681,7 +687,7 @@ namespace sc
      * @param output The buffer to place the read output.
      * @return -1 on error. Otherwise no. of bytes read.
      */
-    int read_iosocket(std::vector<int> &fds, std::string &output)
+    int read_iosocket(std::vector<int> &fds, char *output)
     {
         // Read any available data that have been written by the contract process
         // from the output socket and store in the output buffer.
@@ -692,16 +698,14 @@ namespace sc
         if (readfd == -1)
             return 0;
 
+        // Available bytes returns the total number of bytes to read of multiple messages.
         size_t available_bytes = 0;
         if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
         {
             if (available_bytes == 0)
                 return 0;
 
-            char buf[MAX_NPL_BUF_SIZE];
-            const int res = read(readfd, buf, MAX_NPL_BUF_SIZE);
-
-            output = buf;
+            const int res = read(readfd, output, MAX_NPL_BUF_SIZE);
 
             return res;
         }

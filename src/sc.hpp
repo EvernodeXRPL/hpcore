@@ -145,7 +145,7 @@ namespace sc
 
     int read_contract_npl_outputs(execution_context &ctx);
 
-    void broadcast_npl_output(std::string &output);
+    void broadcast_npl_output(std::string_view &output);
 
     // Common helper functions
 
@@ -167,7 +167,7 @@ namespace sc
 
     int read_iopipe(std::vector<int> &fds, std::string &output);
 
-    int read_iosocket(std::vector<int> &fds, std::string &output);
+    int read_iosocket(std::vector<int> &fds, char *output);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
 
