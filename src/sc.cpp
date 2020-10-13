@@ -213,7 +213,7 @@ namespace sc
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
                << "\",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
-               << "],\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE] << "";
+               << "],\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE];
         }
 
         os << ",\"usrfd\":{";
@@ -426,7 +426,7 @@ namespace sc
      * Broadcast npl messages to peers.
      * @param output Npl message to be broadcasted.
     */
-    void broadcast_npl_output(std::string_view &output)
+    void broadcast_npl_output(std::string_view output)
     {
         if (!output.empty())
         {

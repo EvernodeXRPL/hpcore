@@ -15,7 +15,6 @@ Object.keys(hpc.users).forEach(async (key) => {
     const inputBuf = await user.readInput();
     if (inputBuf) {
         const userInput = inputBuf.toString("utf8");
-        console.log(userInput)
         if (userInput == "ts")
             user.sendOutput(fs.readFileSync("exects.txt"));
         else

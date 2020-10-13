@@ -145,7 +145,7 @@ namespace sc
 
     int read_contract_npl_outputs(execution_context &ctx);
 
-    void broadcast_npl_output(std::string_view &output);
+    void broadcast_npl_output(std::string_view output);
 
     // Common helper functions
 
