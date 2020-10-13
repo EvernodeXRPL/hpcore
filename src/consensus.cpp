@@ -337,7 +337,9 @@ namespace consensus
     }
 
     /**
-     * Write npl messages to the contract.
+     * Equeue npl messages to the npl messages queue.
+     * @param npl_msg Constructed npl message.
+     * @return Returns true if enqueue is success otherwise false.
      */
     bool push_npl_message(p2p::npl_message &npl_msg)
     {
@@ -770,15 +772,11 @@ namespace consensus
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
             // TODO: Do something usefull with HP<-->SC channel.
 
-            LOG_INFO << "Executing the contract";
-
             if (sc::execute_contract(ctx.contract_ctx) == -1)
             {
                 LOG_ERROR << "Contract execution failed.";
                 return -1;
             }
-
-            LOG_INFO << "Executed the contract";
 
             ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);

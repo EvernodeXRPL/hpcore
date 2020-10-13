@@ -84,7 +84,7 @@ function HotPocketNplChannel(fd) {
             else {
                 this.events.emit("message", {
                     pubkey: pubKey,
-                    input: d.toString()
+                    input: d
                 });
                 pubKey = null;
                 isPubKeyReceived = false;

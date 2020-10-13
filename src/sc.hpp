@@ -26,7 +26,7 @@ namespace sc
         SCWRITE = 3
     };
 
-    // Enum used to differenciate socket fds maintained for SC sockets.
+    // Enum used to differenciate socket fds maintained for SC socket.
     enum SOCKETFDTYPE
     {
         // Used by Smart Contract to read input sent by Hot Pocket.
@@ -114,8 +114,8 @@ namespace sc
         // Holds the hpfs rw process id (if currently executing).
         pid_t hpfs_pid = 0;
 
-        // Thread to collect contract outputs while contract is running.
-        std::thread output_fetcher_thread;
+        // Thread to collect contract inputs and outputs and feed npl messages while contract is running.
+        std::thread contract_io_thread;
 
         // Indicates that the deinit procedure has begun.
         bool should_stop = false;
