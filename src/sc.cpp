@@ -425,7 +425,7 @@ namespace sc
      * Broadcast npl messages to peers.
      * @param output Npl message to be broadcasted.
     */
-    void broadcast_npl_output(std::string &output)
+    void broadcast_npl_output(std::string_view output)
     {
         if (!output.empty())
         {
