@@ -144,25 +144,6 @@ namespace consensus
             }
         }
 
-        // Throughout consensus, we move over the incoming npl messages collected via the network so far into
-        // the candidate npl message set (move and append). This is to have a private working set for the consensus
-        // and avoid threading conflicts with network incoming npl messages.
-        {
-            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.npl_messages_mutex);
-            ctx.candidate_npl_messages.splice(ctx.candidate_npl_messages.end(), p2p::ctx.collected_msgs.npl_messages);
-        }
-
-        // Only the npl messages with a valid lcl will be passed down to the contract.
-        // lcl should match the previous round's lcl.
-        auto itr = ctx.candidate_npl_messages.begin();
-        while (itr != ctx.candidate_npl_messages.end())
-        {
-            if (itr->lcl == lcl)
-                ++itr;
-            else
-                ctx.candidate_npl_messages.erase(itr++);
-        }
-
         LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
 
         if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
@@ -353,6 +334,16 @@ namespace consensus
 
         LOG_DEBUG << "NUP sent."
                   << " users:" << nup.user_inputs.size();
+    }
+
+    /**
+     * Equeue npl messages to the npl messages queue.
+     * @param npl_msg Constructed npl message.
+     * @return Returns true if enqueue is success otherwise false.
+     */
+    bool push_npl_message(p2p::npl_message &npl_msg)
+    {
+        return ctx.contract_ctx.args.npl_messages.try_enqueue(npl_msg);
     }
 
     /**
@@ -777,9 +768,6 @@ namespace consensus
             args.time = cons_prop.time;
             args.lcl = lcl;
 
-            // Feed NPL messages.
-            args.npl_messages.splice(args.npl_messages.end(), ctx.candidate_npl_messages);
-
             // Populate user bufs.
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
             // TODO: Do something usefull with HP<-->SC channel.
@@ -792,7 +780,6 @@ namespace consensus
 
             ctx.state = args.post_execution_state_hash;
             extract_user_outputs_from_contract_bufmap(args.userbufs);
-            broadcast_npl_output(args.npl_output, lcl);
 
             sc::clear_args(args);
         }
@@ -908,16 +895,6 @@ namespace consensus
                     std::move(hash),
                     candidate_user_output(pubkey, std::move(output)));
             }
-        }
-    }
-
-    void broadcast_npl_output(std::string &output, std::string_view lcl)
-    {
-        if (!output.empty())
-        {
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_msg_from_npl_output(fbuf, output, lcl);
-            p2p::broadcast_message(fbuf, true);
         }
     }
 

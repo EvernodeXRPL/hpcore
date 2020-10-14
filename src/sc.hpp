@@ -16,7 +16,7 @@ namespace sc
     // Enum used to differenciate pipe fds maintained for SC I/O pipes.
     enum FDTYPE
     {
-        // Used by Smart Contract to read input sent by Hot Pocket
+        // Used by Smart Contract to read input sent by Hot Pocket.
         SCREAD = 0,
         // Used by Hot Pocket to write input to the smart contract.
         HPWRITE = 1,
@@ -24,6 +24,17 @@ namespace sc
         HPREAD = 2,
         // Used by Smart Contract to write output back to Hot Pocket.
         SCWRITE = 3
+    };
+
+    // Enum used to differenciate socket fds maintained for SC socket.
+    enum SOCKETFDTYPE
+    {
+        // Used by Smart Contract to read input sent by Hot Pocket.
+        // Used by Smart Contract to write output back to Hot Pocket.
+        SCREADWRITE = 0,
+        // Used by Hot Pocket to write input to the smart contract.
+        // Used by Hot Pocket to read output from the smart contract.
+        HPREADWRITE = 1
     };
 
     /**
@@ -64,11 +75,8 @@ namespace sc
         contract_bufmap_t userbufs;
 
         // NPL messages to be passed into contract.
-        std::list<p2p::npl_message> npl_messages;
+        moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
         
-        // Output NPL buffer.
-        std::string npl_output;
-
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
         contract_iobuf_pair hpscbufs;
@@ -106,8 +114,8 @@ namespace sc
         // Holds the hpfs rw process id (if currently executing).
         pid_t hpfs_pid = 0;
 
-        // Thread to collect contract outputs while contract is running.
-        std::thread output_fetcher_thread;
+        // Thread to collect contract inputs and outputs and feed npl messages while contract is running.
+        std::thread contract_io_thread;
 
         // Indicates that the deinit procedure has begun.
         bool should_stop = false;
@@ -127,13 +135,17 @@ namespace sc
 
     int feed_inputs(execution_context &ctx);
 
-    int fetch_outputs(execution_context &ctx);
+    int handle_contract_io(execution_context &ctx);
 
     int write_contract_hp_inputs(execution_context &ctx);
 
     int write_npl_messages(execution_context &ctx);
 
-    int read_contract_hp_npl_outputs(execution_context &ctx);
+    int read_contract_hp_outputs(execution_context &ctx);
+
+    int read_contract_npl_outputs(execution_context &ctx);
+
+    void broadcast_npl_output(std::string_view output);
 
     // Common helper functions
 
@@ -149,13 +161,19 @@ namespace sc
 
     int create_iopipes(std::vector<int> &fds, const bool create_inpipe);
 
+    int create_iosockets(std::vector<int> &fds);
+
     int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
 
     int read_iopipe(std::vector<int> &fds, std::string &output);
 
+    int read_iosocket(std::vector<int> &fds, std::string &output);
+
     void close_unused_fds(execution_context &ctx, const bool is_hp);
 
     void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds);
+
+    void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds);
 
     void cleanup_vectorfds(std::vector<int> &fds);
 

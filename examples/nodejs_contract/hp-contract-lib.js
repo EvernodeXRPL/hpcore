@@ -1,4 +1,7 @@
 const fs = require('fs');
+const events = require('events');
+
+MAX_NPL_BUF_SIZE = 128*1024;
 
 function HotPocketContract() {
     const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
@@ -12,7 +15,7 @@ function HotPocketContract() {
             hash: lclParts[1]
         };
 
-        this.npl = new HotPocketNplChannel(hpargs.nplfd[0], hpargs.nplfd[1]);
+        this.npl = new HotPocketNplChannel(hpargs.nplfd);
     }
 
     this.users = {};
@@ -65,66 +68,46 @@ function HotPocketChannel(infd, outfd) {
     }
 }
 
-function HotPocketNplChannel(infd, outfd) {
+function HotPocketNplChannel(fd) {
 
-    const parseNplInputs = function (buf) {
-
-        // Input may consist of multiple messages.
-        // Each message has the format:
-        // | NPL version (1 byte) | reserve (1 byte) | msg length (2 bytes BE) | peer pubkey (32 bytes) | msg |
-
-        const inputs = []; // Peer inputs will be populated to this.
-
-        let pos = 0;
-        while (pos < buf.byteLength) {
-
-            pos += 2; // Skip version and reserve.
-
-            // Read message len.
-            const msgLenBuf = readBytes(buf, pos, 2);
-            if (!msgLenBuf) break;
-            const msgLen = msgLenBuf.readUInt16BE();
-
-            pos += 2;
-            const pubKeyBuf = readBytes(buf, pos, 32);
-            if (!pubKeyBuf) break;
-
-            pos += 32;
-
-            const msgBuf = readBytes(buf, pos, msgLen)
-            if (!msgBuf) break;
-
-            inputs.push({
-                pubkey: pubKeyBuf.toString("hex"),
-                input: msgBuf
-            });
-
-            pos += msgLen;
-        }
-
-        return inputs;
-    }
-
-    const readBytes = function (buf, pos, count) {
-        if (pos + count > buf.byteLength)
-            return null;
-        return buf.slice(pos, pos + count);
-    }
-
-    this.readInput = function () {
-        return new Promise((resolve) => {
-            if (infd == -1) {
-                resolve(null);
+    this.events = new events.EventEmitter();
+    let socket = null;
+    let isPubKeyReceived = false;
+    let pubKey;
+    if (fd > 0) {
+        // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
+        // and then the message, First data buffer is taken as pubkey and the second one as message,
+        // then npl message object is constructed and the event is emmited.
+        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_NPL_BUF_SIZE});
+        socket.on("data", d => {
+            if (!isPubKeyReceived) {
+                pubKey = d.toString('hex');
+                isPubKeyReceived = true;
             }
             else {
-                const s = fs.createReadStream(null, { fd: infd });
-                drainStream(s).then(buf => resolve(parseNplInputs(buf)));
+                this.events.emit("message", {
+                    pubkey: pubKey,
+                    input: d
+                });
+                pubKey = null;
+                isPubKeyReceived = false;
             }
+        });
+        socket.on("error", (e) => {
+            this.events.emit("error", e);
         });
     }
 
-    this.sendOutput = function (output) {
-        fs.writeFileSync(outfd, output);
+    this.sendOutput = (output) => {
+        if (fd > 0) {
+            fs.writeSync(fd, output);
+        }
+    }
+
+    this.closeNplChannel = () => {
+        if (fd > 0) {
+            socket.destroy();
+        }
     }
 }
 
