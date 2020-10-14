@@ -404,7 +404,7 @@ namespace sc
      */
     int read_contract_npl_outputs(execution_context &ctx)
     {
-        char output[MAX_NPL_BUF_SIZE];
+        std::string output;
         const int npl_res = read_iosocket(ctx.nplfds, output);
 
         if (npl_res == -1)
@@ -414,9 +414,8 @@ namespace sc
         }
         else if (npl_res > 0)
         {
-            std::string_view npl_output(output, npl_res);
             // Broadcast npl messages once contract npl output is collected.
-            broadcast_npl_output(npl_output);
+            broadcast_npl_output(output);
         }
 
         return (npl_res == 0) ? 0 : 1;
@@ -426,7 +425,7 @@ namespace sc
      * Broadcast npl messages to peers.
      * @param output Npl message to be broadcasted.
     */
-    void broadcast_npl_output(std::string_view output)
+    void broadcast_npl_output(std::string &output)
     {
         if (!output.empty())
         {
@@ -687,7 +686,7 @@ namespace sc
      * @param output The buffer to place the read output.
      * @return -1 on error. Otherwise no. of bytes read.
      */
-    int read_iosocket(std::vector<int> &fds, char *output)
+    int read_iosocket(std::vector<int> &fds, std::string &output)
     {
         // Read any available data that have been written by the contract process
         // from the output socket and store in the output buffer.
@@ -705,7 +704,9 @@ namespace sc
             if (available_bytes == 0)
                 return 0;
 
-            const int res = read(readfd, output, MAX_NPL_BUF_SIZE);
+            output.resize(MAX_NPL_BUF_SIZE);
+            const int res = read(readfd, output.data(), MAX_NPL_BUF_SIZE);
+            output.resize(res);
 
             return res;
         }
