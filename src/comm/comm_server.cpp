@@ -16,13 +16,16 @@ namespace comm
     {
         const uint64_t final_max_msg_size = max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE;
 
+        if (start_hpws_server(port, require_tls, final_max_msg_size) == -1)
+            return -1;
+
         watchdog_thread = std::thread(
             &comm_server::connection_watchdog, this, session_type,
             std::ref(metric_thresholds), req_known_remotes, final_max_msg_size);
 
         inbound_message_processor_thread = std::thread(&comm_server::inbound_message_processor_loop, this, session_type);
 
-        return start_hpws_server(port, require_tls, final_max_msg_size);
+        return 0;
     }
 
     void comm_server::connection_watchdog(
