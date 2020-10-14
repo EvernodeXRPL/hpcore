@@ -76,7 +76,6 @@ namespace conf
         uint16_t roundtime = 0;                                 // Consensus round time in ms
         uint16_t pubport = 0;                                   // Listening port for public user connections
 
-        bool pubtls = true;        // Whether user connections are secured with TLS.
         uint64_t pubmaxsize = 0;   // User message max size in bytes
         uint64_t pubmaxcpm = 0;    // User message rate (characters(bytes) per minute)
         uint64_t pubmaxbadmpm = 0; // User bad messages per minute

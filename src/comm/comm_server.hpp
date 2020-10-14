@@ -24,7 +24,7 @@ namespace comm
 
         void inbound_message_processor_loop(const SESSION_TYPE session_type);
 
-        int start_hpws_server(const uint16_t port, const bool require_tls, const uint64_t max_msg_size);
+        int start_hpws_server(const uint16_t port, const uint64_t max_msg_size);
 
         int poll_fds(pollfd *pollfds, const int accept_fd, const std::list<comm_session> &sessions);
 
@@ -40,8 +40,8 @@ namespace comm
     public:
         // Start accepting incoming connections
         int start(
-            const uint16_t port, const SESSION_TYPE session_type, const bool require_tls,
-            const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size);
+            const uint16_t port, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4],
+            const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size);
         void stop();
         void firewall_ban(std::string_view ip, const bool unban);
     };

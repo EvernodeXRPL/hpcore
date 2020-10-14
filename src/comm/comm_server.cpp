@@ -11,12 +11,12 @@ namespace comm
     constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 16 * 1024 * 1024;
 
     int comm_server::start(
-        const uint16_t port, const SESSION_TYPE session_type, const bool require_tls,
-        const uint64_t (&metric_thresholds)[4], const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
+        const uint16_t port, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4],
+        const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
     {
         const uint64_t final_max_msg_size = max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE;
 
-        if (start_hpws_server(port, require_tls, final_max_msg_size) == -1)
+        if (start_hpws_server(port, final_max_msg_size) == -1)
             return -1;
 
         watchdog_thread = std::thread(
@@ -222,7 +222,7 @@ namespace comm
         LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " message processor stopped.";
     }
 
-    int comm_server::start_hpws_server(const uint16_t port, const bool require_tls, const uint64_t max_msg_size)
+    int comm_server::start_hpws_server(const uint16_t port, const uint64_t max_msg_size)
     {
         std::variant<hpws::server, hpws::error> result = hpws::server::create(
             conf::ctx.hpws_exe_path,
