@@ -58,7 +58,7 @@ namespace comm
             {
                 should_disconnect = true;
                 const hpws::error error = std::get<hpws::error>(read_result);
-                if (error.first != 1)
+                if (error.first != 1) // 1 indicates channel has closed.
                     LOG_DEBUG << "hpws client read failed:" << error.first << " " << error.second;
             }
             else
@@ -137,15 +137,11 @@ namespace comm
     */
     int comm_session::send(std::string_view message)
     {
-        // Making a copy of the message before it is destroyed from the parent scope.
-        std::string msg(message);
-
         if (state == SESSION_STATE::CLOSED)
             return -1;
 
-        // Passing the ownership of msg to the queue using move operator for memory efficiency.
-        out_msg_queue.enqueue(std::move(msg));
-
+        // Passing the ownership of message to the queue.
+        out_msg_queue.enqueue(std::string(message));
         return 0;
     }
 

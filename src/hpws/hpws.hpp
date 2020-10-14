@@ -194,8 +194,11 @@ namespace hpws
                 bytes_read = recv(control_line_fd, buf, sizeof(buf), 0);
                 if (bytes_read < 1)
                 {
-                    perror("recv");
-                    fprintf(stderr, "[HPWS.HPP] bytes received %d\n", bytes_read);
+                    if (HPWS_DEBUG)
+                    {
+                        perror("recv");
+                        fprintf(stderr, "[HPWS.HPP] bytes received %d\n", bytes_read);
+                    }
                     return error{1, "[read] control line could not be read"}; // todo clean up somehow?
                 }
             }
@@ -304,6 +307,10 @@ namespace hpws
 
             // execution to here ensures at least one buffer is free
             int bufno = (buffer_lock[0] == 0 ? 2 : 3);
+
+            // update the selected buffer lock
+            buffer_lock[bufno - 2] = 1;
+
             // write into the buffer
             memcpy(buffer[bufno], to_write.data(), to_write.size());
 
