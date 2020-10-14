@@ -78,6 +78,7 @@ namespace conf
         util::create_dir_tree_recursive(ctx.config_dir);
         util::create_dir_tree_recursive(ctx.hist_dir);
         util::create_dir_tree_recursive(ctx.state_rw_dir);
+        util::create_dir_tree_recursive(ctx.log_dir);
 
         //Create config file with default settings.
 

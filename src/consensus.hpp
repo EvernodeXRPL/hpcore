@@ -50,9 +50,6 @@ namespace consensus
         // todo: having a queue of proposals against peer pubkey.
         std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
-        // The set of npl messages that are being collected as consensus stages are progressing.
-        std::list<p2p::npl_message> candidate_npl_messages;
-
         // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
         std::unordered_set<std::string> candidate_users;
 
@@ -113,6 +110,8 @@ namespace consensus
 
     void broadcast_nonunl_proposal();
 
+    bool push_npl_message(p2p::npl_message &npl_message);
+
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
@@ -142,8 +141,6 @@ namespace consensus
     void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
-
-    void broadcast_npl_output(std::string &output, std::string_view lcl);
 
     template <typename T>
     void increment(std::map<T, int32_t> &counter, const T &candidate);

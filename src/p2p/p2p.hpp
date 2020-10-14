@@ -105,10 +105,6 @@ namespace p2p
         std::list<nonunl_proposal> nonunl_proposals;
         std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 
-        // List of NPL messages collected from peers.
-        std::list<npl_message> npl_messages;
-        std::mutex npl_messages_mutex; // Mutex for npl_messages access race conditions.
-
         // List of pairs indicating the session pubkey hex and the state requests.
         std::list<std::pair<std::string, std::string>> state_requests;
         std::mutex state_requests_mutex; // Mutex for state requests access race conditions.
