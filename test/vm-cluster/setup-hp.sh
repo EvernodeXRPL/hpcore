@@ -27,7 +27,7 @@ if [ -x "$(command -v fusermount3)" ]; then
    echo "FUSE already installed."
 else
    echo "Installing FUSE and other shared libraries..."
-   sudo apt-get -y install libgomp1
+   sudo apt-get -y install libgomp1 libssl-dev
    sudo cp $basedir/hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
    sudo ldconfig
    sudo cp $basedir/hpfiles/bin/fusermount3 /usr/local/bin/
