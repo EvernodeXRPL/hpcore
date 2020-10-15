@@ -6,7 +6,6 @@
 #include "../util.hpp"
 #include "../hplog.hpp"
 #include "p2p.hpp"
-#include "peer_session_handler.hpp"
 
 namespace p2p
 {
@@ -146,11 +145,23 @@ namespace p2p
     }
 
     /**
- * Broadcasts the given message to all currently connected outbound peers.
- * @param fbuf Peer outbound message to be broadcasted.
- * @param send_to_self Whether to also send the message to self (this node).
- */
+     * Broadcasts the given message to all currently connected outbound peers.
+     * @param fbuf Peer outbound message to be broadcasted.
+     * @param send_to_self Whether to also send the message to self (this node).
+     */
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self)
+    {
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+        broadcast_message(msg, send_to_self);
+    }
+
+    /**
+     * Broadcast the given message to all connected outbound peers.
+     * @param message Message to be forwarded.
+     * @param skipping_session Session to be skipped in message forwarding(optional).
+     */
+    void broadcast_message(std::string_view message, const bool send_to_self, const comm::comm_session *skipping_session)
     {
         if (ctx.peer_connections.size() == 0)
         {
@@ -163,13 +174,42 @@ namespace p2p
 
         for (const auto &[k, session] : ctx.peer_connections)
         {
-            if (!send_to_self && session->is_self)
+            // Exclude given session and self if provided.
+            if ((!send_to_self && session->is_self) || (skipping_session && skipping_session == session))
                 continue;
 
-            std::string_view msg = std::string_view(
-                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-            session->send(msg);
+            session->send(message);
         }
+    }
+    /**
+     * Check whether the given message is qualified to be forwarded to peers.
+     * @param container The message container.
+     * @param content_message_type The message type.
+     * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
+    */
+    bool validate_for_peer_msg_forwarding(const comm::comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
+    {
+        // Checking whether the message forwarding is enabled and skip if the message is sent from self.
+        if (!conf::cfg.msgforwarding || session.is_self)
+        {
+            return false;
+        }
+
+        const int64_t time_now = util::get_epoch_milliseconds();
+        // Checking the time to live of the container.
+        if (container->timestamp() < (time_now - conf::cfg.timetolive))
+        {
+            LOG_DEBUG << "Peer message is too old for forwarding.";
+            return false;
+        }
+        // Only the selected types of messages are forwarded.
+        if (content_message_type == msg::fbuf::p2pmsg::Message_Proposal_Message ||
+            content_message_type == msg::fbuf::p2pmsg::Message_NonUnl_Proposal_Message ||
+            content_message_type == msg::fbuf::p2pmsg::Message_Npl_Message)
+        {
+            return true;
+        }
+        return false;
     }
 
     /**
