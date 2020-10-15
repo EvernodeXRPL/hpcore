@@ -36,8 +36,7 @@ namespace conf
     {
         std::string command;             // The CLI command issued to launch HotPocket
         std::string exe_dir;             // Hot Pocket executable dir.
-        std::string websocketd_exe_path; // Websocketd executable file path.
-        std::string websocat_exe_path;   // Websocketd executable file path.
+        std::string hpws_exe_path;       // hpws executable file path.
         std::string hpfs_exe_path;       // hpfs executable file path.
 
         std::string contract_dir;  // Contract base directory full path
@@ -77,7 +76,6 @@ namespace conf
         uint16_t roundtime = 0;                                 // Consensus round time in ms
         uint16_t pubport = 0;                                   // Listening port for public user connections
 
-        bool pubtls = true;        // Whether user connections are secured with TLS.
         uint64_t pubmaxsize = 0;   // User message max size in bytes
         uint64_t pubmaxcpm = 0;    // User message rate (characters(bytes) per minute)
         uint64_t pubmaxbadmpm = 0; // User bad messages per minute

@@ -9,7 +9,6 @@
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
 #include "../comm/comm_session.hpp"
-#include "../comm/comm_client.hpp"
 #include "p2p.hpp"
 #include "peer_session_handler.hpp"
 #include "../state/state_sync.hpp"
