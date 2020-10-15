@@ -12,7 +12,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * Fuse filesystem - https://github.com/libfuse/libfuse
 * Reader Writer Queue - https://github.com/cameron314/readerwriterqueue
 * Concurrent Queue - https://github.com/cameron314/concurrentqueue
-* Boost Stacktrace) - https://www.boost.org
+* Boost Stacktrace - https://www.boost.org
 
 ## Setting up Hot Pocket development environment
 Run the setup script located at the repo root (tested on Ubuntu 18.04).
@@ -30,7 +30,7 @@ If you update flatbuffers message definitions, you need to run the flatbuffers c
 
 `sudo snap install flatbuffers --edge`
 
-Example: When you make a change to `p2pmsg_content_.fbc` defnition file, you need to run this:
+Example: When you make a change to `p2pmsg_content.fbc` defnition file, you need to run this:
 
 `flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg_content.fbs`
 
