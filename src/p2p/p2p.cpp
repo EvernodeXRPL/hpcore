@@ -195,7 +195,7 @@ namespace p2p
 
         const int64_t time_now = util::get_epoch_milliseconds();
         // Checking the time to live of the container.
-        if (container->timestamp() < (time_now - conf::cfg.timetolive))
+        if (container->timestamp() < (time_now - conf::cfg.msgforwardingttl))
         {
             LOG_DEBUG << "Peer message is too old for forwarding.";
             return false;

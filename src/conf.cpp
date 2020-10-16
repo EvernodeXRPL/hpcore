@@ -93,7 +93,7 @@ namespace conf
         cfg.pubport = 8080;
 
         cfg.msgforwarding = false;
-        cfg.timetolive = 4000;
+        cfg.msgforwardingttl = 4000;
 
 #ifndef NDEBUG
         cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -295,7 +295,7 @@ namespace conf
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
-        cfg.timetolive = d["timetolive"].as<uint16_t>();
+        cfg.msgforwardingttl = d["msgforwardingttl"].as<uint16_t>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
@@ -366,7 +366,7 @@ namespace conf
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
-        d.insert_or_assign("timetolive", cfg.timetolive);
+        d.insert_or_assign("msgforwardingttl", cfg.msgforwardingttl);
 
         d.insert_or_assign("loglevel", cfg.loglevel);
 
