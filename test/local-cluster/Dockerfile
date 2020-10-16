@@ -3,8 +3,7 @@
 FROM node:12.18.3-buster-slim
 
 RUN apt-get update
-# Install netcat for websocketd <--> domain socket redirection.
-RUN apt-get install -y netcat-openbsd libgomp1
+RUN apt-get install -y libgomp1 libssl-dev
 
 # Install shared libraries.
 # Copy shared libraries and register it.
@@ -17,7 +16,6 @@ COPY ./bin/fusermount3 /usr/local/bin/
 WORKDIR /hp
 COPY ./bin/hpcore .
 COPY ./bin/hpfs .
-COPY ./bin/websocketd .
-COPY ./bin/websocat .
+COPY ./bin/hpws .
 
 ENTRYPOINT ["/hp/hpcore"]

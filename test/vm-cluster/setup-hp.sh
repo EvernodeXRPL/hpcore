@@ -27,7 +27,7 @@ if [ -x "$(command -v fusermount3)" ]; then
    echo "FUSE already installed."
 else
    echo "Installing FUSE and other shared libraries..."
-   sudo apt-get -y install libgomp1
+   sudo apt-get -y install libgomp1 libssl-dev
    sudo cp $basedir/hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
    sudo ldconfig
    sudo cp $basedir/hpfiles/bin/fusermount3 /usr/local/bin/
@@ -69,11 +69,11 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "echo hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  websocketd pid:\$($contdir/getpid.sh websocketd)  websocat pid:\$($contdir/getpid.sh websocat)" > $contdir/check.sh
+   echo "echo hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  hpws pid:\$($contdir/getpid.sh hpws)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
-   echo "sudo kill \$($contdir/getpid.sh hpcore hpfs websocketd websocat)" > $contdir/kill.sh
+   echo "sudo kill \$($contdir/getpid.sh hpcore hpfs hpws)" > $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
 
    # Configure .screenrc

@@ -5,7 +5,7 @@
 set -e # exit on error
 
 sudo apt-get update
-sudo apt-get install -y build-essential
+sudo apt-get install -y build-essential libssl-dev
 
 workdir=~/hpcore-setup
 

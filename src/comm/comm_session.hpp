@@ -4,6 +4,7 @@
 #include "../pchheader.hpp"
 #include "comm_session_threshold.hpp"
 #include "../conf.hpp"
+#include "../hpws/hpws.hpp"
 
 namespace comm
 {
@@ -34,15 +35,10 @@ namespace comm
 */
     class comm_session
     {
-        const int read_fd = 0;
-        const int write_fd = 0;
+    private:
+        std::optional<hpws::client> hpws_client;
         const SESSION_TYPE session_type;
-        const uint64_t max_msg_size = 0;
         std::vector<session_threshold> thresholds;                      // track down various communication thresholds
-        
-        uint32_t expected_msg_size = 0;                                 // Next expected message size based on size header.
-        std::vector<char> read_buffer;                                  // Local buffer to keep collecting data until a complete message can be constructed.
-        uint32_t read_buffer_filled_size = 0;                           // How many bytes have been buffered so far.
         
         std::thread reader_thread;                                      // The thread responsible for reading messages from the read fd.
         std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
@@ -50,14 +46,11 @@ namespace comm
         moodycamel::ConcurrentQueue<std::string> out_msg_queue;         // Holds outgoing messages waiting to be processed.
 
         void reader_loop();
-        int attempt_read();
-        int attempt_binary_msg_construction(const size_t available_bytes);
 
     public:
-        const std::string address; // IP address of the remote party.
-        const bool is_binary;
         const bool is_inbound;
         bool is_self = false;
+        const std::string address; // IP address of the remote party.
         std::string uniqueid;
         std::string issued_challenge;
         conf::ip_port_pair known_ipport;
@@ -65,8 +58,8 @@ namespace comm
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
 
         comm_session(
-            std::string_view ip, const int read_fd, const int write_fd, const SESSION_TYPE session_type,
-            const bool is_binary, const bool is_inbound, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);
+            std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,
+            const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
         int on_connect();
         void start_messaging_threads();
         int process_next_inbound_message();
