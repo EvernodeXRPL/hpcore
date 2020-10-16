@@ -74,7 +74,7 @@ namespace p2p
         }
 
         const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
-        // Check whether the peer message forwarding is enabled.
+        // Check whether the message is qualified for forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
             // Forward message to peers.
