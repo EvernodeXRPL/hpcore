@@ -89,7 +89,6 @@ namespace conf
         uint16_t peermaxcons = 0;     // Max inbound peer connections
 
         bool msgforwarding = false;   // Whether peer message forwarding is on/off.
-        uint16_t msgforwardingttl = 0;      // Time to live for message forwarding in ms.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)

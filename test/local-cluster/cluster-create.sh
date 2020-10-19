@@ -53,7 +53,6 @@ do
             peerport: ${peerport}, \
             pubport: ${pubport}, \
             roundtime: 2000, \
-            msgforwardingttl: 8000, \
             loglevel: 'dbg', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
