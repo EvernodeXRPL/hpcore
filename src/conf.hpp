@@ -88,6 +88,8 @@ namespace conf
         uint64_t peermaxbadsigpm = 0; // Peer bad signatures per minute
         uint16_t peermaxcons = 0;     // Max inbound peer connections
 
+        bool msgforwarding = false;   // Whether peer message forwarding is on/off.
+
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
         std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)

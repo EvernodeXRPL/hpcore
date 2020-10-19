@@ -92,6 +92,8 @@ namespace conf
         cfg.roundtime = 1000;
         cfg.pubport = 8080;
 
+        cfg.msgforwarding = false;
+
 #ifndef NDEBUG
         cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
         cfg.loglevel = "dbg";
@@ -291,6 +293,8 @@ namespace conf
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
 
+        cfg.msgforwarding = d["msgforwarding"].as<bool>();
+
         cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
         cfg.loggers.clear();
@@ -358,6 +362,8 @@ namespace conf
         d.insert_or_assign("peermaxbadmpm", cfg.peermaxbadmpm);
         d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
+
+        d.insert_or_assign("msgforwarding", cfg.msgforwarding);
 
         d.insert_or_assign("loglevel", cfg.loglevel);
 

@@ -8,6 +8,7 @@
 #include "peer_session_handler.hpp"
 #include "../hpfs/h32.hpp"
 #include "../conf.hpp"
+#include "../msg/fbuf/p2pmsg_container_generated.h"
 
 namespace p2p
 {
@@ -138,10 +139,13 @@ namespace p2p
 
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self);
 
+    void broadcast_message(std::string_view message, const bool send_to_self, const comm::comm_session *skipping_session = NULL);
+
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf);
 
+    bool validate_for_peer_msg_forwarding(const comm::comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 } // namespace p2p
 
 #endif
