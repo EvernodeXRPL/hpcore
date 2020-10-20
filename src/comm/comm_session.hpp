@@ -38,12 +38,12 @@ namespace comm
     private:
         std::optional<hpws::client> hpws_client;
         const SESSION_TYPE session_type;
-        std::vector<session_threshold> thresholds;                      // track down various communication thresholds
-        
-        std::thread reader_thread;                                      // The thread responsible for reading messages from the read fd.
-        std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
-        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue;  // Holds incoming messages waiting to be processed.
-        moodycamel::ConcurrentQueue<std::string> out_msg_queue;         // Holds outgoing messages waiting to be processed.
+        std::vector<session_threshold> thresholds; // track down various communication thresholds
+
+        std::thread reader_thread;                                     // The thread responsible for reading messages from the read fd.
+        std::thread writer_thread;                                     // The thread responsible for writing messages to the write fd.
+        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue; // Holds incoming messages waiting to be processed.
+        moodycamel::ConcurrentQueue<std::string> out_msg_queue;        // Holds outgoing messages waiting to be processed.
 
         void reader_loop();
 
@@ -56,6 +56,7 @@ namespace comm
         conf::ip_port_pair known_ipport;
         SESSION_STATE state = SESSION_STATE::NOT_INITIALIZED;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
+        bool need_p2p_msg_forwarding = false; // Holds whether this node needs to hear forwarded messages from the other nodes.
 
         comm_session(
             std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,

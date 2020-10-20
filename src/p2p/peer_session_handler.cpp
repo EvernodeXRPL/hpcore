@@ -78,7 +78,7 @@ namespace p2p
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
             // Forward message to peers.
-            p2p::broadcast_message(message, false, &session);
+            p2p::broadcast_message(message, false, true, &session);
         }
 
         if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
@@ -148,6 +148,17 @@ namespace p2p
             if (!consensus::push_npl_message(msg))
             {
                 LOG_DEBUG << "NPL message enqueue failure. " << session.uniqueid.substr(0, 10);
+            }
+        }
+        else if (content_message_type == p2pmsg::Message_P2P_Forwarding_Announcement_Message) // This message is a message forwarding requirement announcement message.
+        {
+            const p2pmsg::P2P_Forwarding_Announcement_Message *announcement_msg = content->message_as_P2P_Forwarding_Announcement_Message();
+            session.need_p2p_msg_forwarding = announcement_msg->is_required();
+            if (announcement_msg->is_required())
+            {
+                LOG_ERROR << "Message forwarding is requested by " << session.uniqueid;
+            } else {
+                LOG_ERROR << "Message forwarding is end request by " << session.uniqueid;
             }
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)

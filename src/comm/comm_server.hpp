@@ -14,6 +14,7 @@ namespace comm
         std::thread watchdog_thread;                  // Connection watcher thread.
         std::thread inbound_message_processor_thread; // Incoming message processor thread.
         bool should_stop_listening = false;
+        bool p2p_forwarding_requirement_announcencment_sent = false; // keep track whether the message forwarding requirement announcement is sent or not.
 
         std::list<comm_session> sessions;
         std::mutex sessions_mutex;
@@ -36,6 +37,8 @@ namespace comm
             const SESSION_TYPE session_type, const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4]);
 
         std::string get_cgi_ip(const int fd);
+
+        bool is_p2p_forwarding_required();
 
     public:
         // Start accepting incoming connections
