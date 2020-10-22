@@ -118,11 +118,9 @@ namespace state_sync
                             continue;
                         }
                     }
-
-                    // Stop hpfs rw session.
-                    LOG_DEBUG << "State sync: Stopping hpfs rw session...";
-                    hpfs::stop_fs_session(ctx.hpfs_mount_dir);
                 }
+                
+                hpfs::stop_fs_session(ctx.hpfs_mount_dir);
             }
             else
             {

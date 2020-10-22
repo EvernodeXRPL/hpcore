@@ -81,11 +81,7 @@ namespace state_serve
             if (state_requests.empty())
                 continue;
 
-            if (hpfs::start_fs_session(conf::ctx.state_serve_dir) == -1)
-            {
-                LOG_ERROR << "Error starting fs session for state server.";
-            }
-            else
+            if (hpfs::start_fs_session(conf::ctx.state_serve_dir) != -1)
             {
                 for (auto &[session_id, request] : state_requests)
                 {
@@ -119,6 +115,8 @@ namespace state_serve
                         }
                     }
                 }
+
+                hpfs::stop_fs_session(conf::ctx.state_serve_dir);
             }
 
             state_requests.clear();

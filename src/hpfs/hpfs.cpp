@@ -182,6 +182,8 @@ namespace hpfs
      */
     int stop_fs_session(std::string_view mount_dir)
     {
+        LOG_DEBUG << "Stopping hpfs fs session at " << mount_dir;
+
         const std::string session_file = std::string(mount_dir).append("/").append(HPFS_SESSION);
         if (unlink(session_file.c_str()) == -1)
         {
