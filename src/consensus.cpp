@@ -79,7 +79,7 @@ namespace consensus
 
     /**
      * Joins the consensus processing thread.
-    */
+     */
     void wait()
     {
         ctx.consensus_thread.join();
@@ -222,8 +222,8 @@ namespace consensus
     }
 
     /**
- * Cleanup any outdated proposals from the candidate set.
- */
+     * Cleanup any outdated proposals from the candidate set.
+     */
     void purify_candidate_proposals()
     {
         auto itr = ctx.candidate_proposals.begin();
@@ -253,9 +253,9 @@ namespace consensus
     }
 
     /**
- * Syncrhonise the stage/round time for fixed intervals and reset the stage.
- * @return True if consensus can proceed in the current round. False if stage is reset.
- */
+     * Syncrhonise the stage/round time for fixed intervals and reset the stage.
+     * @return True if consensus can proceed in the current round. False if stage is reset.
+     */
     bool wait_and_proceed_stage(uint64_t &stage_start)
     {
         // Here, nodes try to synchronise nodes stages using network clock.
@@ -304,9 +304,9 @@ namespace consensus
     }
 
     /**
- * Broadcasts any inputs from locally connected users via an NUP.
- * @return 0 for successful broadcast. -1 for failure.
- */
+     * Broadcasts any inputs from locally connected users via an NUP.
+     * @return 0 for successful broadcast. -1 for failure.
+     */
     void broadcast_nonunl_proposal()
     {
         if (usr::ctx.users.empty())
@@ -347,9 +347,9 @@ namespace consensus
     }
 
     /**
- * Verifies the user signatures and populate non-expired user inputs from collected
- * non-unl proposals (if any) into consensus candidate data.
- */
+     * Verifies the user signatures and populate non-expired user inputs from collected
+     * non-unl proposals (if any) into consensus candidate data.
+     */
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
         // Lock the user sessions and the list so any network activity is blocked.
@@ -452,11 +452,11 @@ namespace consensus
     }
 
     /**
- * Executes the appbill and verifies whether the user has enough account balance to process the provided input.
- * @param pubkey User binary pubkey.
- * @param input_len Total bytes length of user input.
- * @return Whether the user is allowed to process the input or not.
- */
+     * Executes the appbill and verifies whether the user has enough account balance to process the provided input.
+     * @param pubkey User binary pubkey.
+     * @param input_len Total bytes length of user input.
+     * @return Whether the user is allowed to process the input or not.
+     */
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
     {
         // If appbill not enabled always green light the input.
@@ -618,9 +618,9 @@ namespace consensus
     }
 
     /**
- * Broadcasts the given proposal to all connected peers.
- * @return 0 on success. -1 if no peers to broadcast.
- */
+     * Broadcasts the given proposal to all connected peers.
+     * @return 0 on success. -1 if no peers to broadcast.
+     */
     void broadcast_proposal(const p2p::proposal &p)
     {
         flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -641,8 +641,8 @@ namespace consensus
     }
 
     /**
- * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
- */
+     * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
+     */
     void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes, std::string_view lcl)
     {
         int32_t total_lcl_votes = 0;
@@ -694,9 +694,9 @@ namespace consensus
     }
 
     /**
- * Check state against the winning and canonical state
- * @param votes The voting table.
- */
+     * Check state against the winning and canonical state
+     * @param votes The voting table.
+     */
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes)
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -721,9 +721,9 @@ namespace consensus
     }
 
     /**
- * Returns the consensus percentage threshold for the specified stage.
- * @param stage The consensus stage [1, 2, 3]
- */
+     * Returns the consensus percentage threshold for the specified stage.
+     * @param stage The consensus stage [1, 2, 3]
+     */
     float_t get_stage_threshold(const uint8_t stage)
     {
         switch (stage)
@@ -739,9 +739,9 @@ namespace consensus
     }
 
     /**
- * Finalize the ledger after consensus.
- * @param cons_prop The proposal that reached consensus.
- */
+     * Finalize the ledger after consensus.
+     * @param cons_prop The proposal that reached consensus.
+     */
     int apply_ledger(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         if (ledger::save_ledger(cons_prop) == -1)
@@ -787,9 +787,9 @@ namespace consensus
     }
 
     /**
- * Dispatch any consensus-reached outputs to matching users if they are connected to us locally.
- * @param cons_prop The proposal that achieved consensus.
- */
+     * Dispatch any consensus-reached outputs to matching users if they are connected to us locally.
+     * @param cons_prop The proposal that achieved consensus.
+     */
     void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
@@ -836,10 +836,10 @@ namespace consensus
     }
 
     /**
- * Transfers consensus-reached inputs into the provided contract buf map so it can be fed into the contract process.
- * @param bufmap The contract bufmap which needs to be populated with inputs.
- * @param cons_prop The proposal that achieved consensus.
- */
+     * Transfers consensus-reached inputs into the provided contract buf map so it can be fed into the contract process.
+     * @param bufmap The contract bufmap which needs to be populated with inputs.
+     * @param cons_prop The proposal that achieved consensus.
+     */
     void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
     {
         // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
@@ -877,10 +877,10 @@ namespace consensus
     }
 
     /**
- * Reads any outputs the contract has produced on the provided buf map and transfers them to candidate outputs
- * for the next consensus round.
- * @param bufmap The contract bufmap containing the outputs produced by the contract.
- */
+     * Reads any outputs the contract has produced on the provided buf map and transfers them to candidate outputs
+     * for the next consensus round.
+     * @param bufmap The contract bufmap containing the outputs produced by the contract.
+     */
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap)
     {
         for (auto &[pubkey, bufpair] : bufmap)
@@ -899,10 +899,10 @@ namespace consensus
     }
 
     /**
- * Increment voting table counter.
- * @param counter The counter map in which a vote should be incremented.
- * @param candidate The candidate whose vote should be increased by 1.
- */
+     * Increment voting table counter.
+     * @param counter The counter map in which a vote should be incremented.
+     * @param candidate The candidate whose vote should be increased by 1.
+     */
     template <typename T>
     void increment(std::map<T, int32_t> &counter, const T &candidate)
     {
@@ -913,18 +913,15 @@ namespace consensus
     }
 
     /**
- * Get the contract state hash.
- */
+     * Get the contract state hash.
+     */
     int get_initial_state_hash(hpfs::h32 &hash)
     {
-        pid_t pid;
-        std::string mount_dir;
-        if (hpfs::start_ro_rw_process(pid, mount_dir, "ro", true, true, 60000) == -1)
+        if (hpfs::start_fs_session(conf::ctx.state_rw_dir) == -1 ||
+            hpfs::get_hash(ctx.state, conf::ctx.state_rw_dir, "/") == -1 ||
+            hpfs::stop_fs_session(conf::ctx.state_rw_dir) == -1)
             return -1;
-
-        int res = get_hash(hash, mount_dir, "/");
-        util::kill_process(pid, true);
-        return res;
+        return 0;
     }
 
     void on_state_sync_completion(const hpfs::h32 new_state)

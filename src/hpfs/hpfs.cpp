@@ -14,18 +14,6 @@ namespace hpfs
     constexpr ino_t HPFS_ROOT_INO = 2;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
 
-    const char *active_hpfs_trace_arg;
-
-    int init()
-    {
-        active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
-        return 0;
-    }
-
-    void deinit()
-    {
-    }
-
     /**
      * Starts hpfs merge process.
      */
@@ -49,6 +37,8 @@ namespace hpfs
         {
             // hpfs process.
             util::fork_detach();
+
+            const char *active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
 
             // Fill process args.
             char *execv_args[] = {
@@ -146,6 +136,8 @@ namespace hpfs
                 mount_dir = std::string(conf::ctx.state_dir)
                                 .append("/")
                                 .append(std::to_string(self_pid));
+
+            const char *active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
 
             // Fill process args.
             char *execv_args[] = {

@@ -34,6 +34,7 @@ namespace state_sync
         REQUEST_RESUBMIT_TIMEOUT = state_common::get_request_resubmit_timeout();
         ctx.target_state = hpfs::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
+        ctx.hpfs_mount_dir = conf::ctx.state_rw_dir;
         init_success = true;
         return 0;
     }
@@ -88,8 +89,7 @@ namespace state_sync
                 LOG_INFO << "State sync: Starting sync for target state: " << ctx.target_state;
             }
 
-            pid_t hpfs_pid = 0;
-            if (hpfs::start_ro_rw_process(hpfs_pid, ctx.hpfs_mount_dir, "rw", true, true) != -1)
+            if (hpfs::start_fs_session(ctx.hpfs_mount_dir) != -1)
             {
                 while (!ctx.is_shutting_down)
                 {
@@ -118,11 +118,11 @@ namespace state_sync
                             continue;
                         }
                     }
-                }
 
-                // Stop hpfs rw session.
-                LOG_DEBUG << "State sync: Stopping hpfs session... pid:" << hpfs_pid;
-                util::kill_process(hpfs_pid, true);
+                    // Stop hpfs rw session.
+                    LOG_DEBUG << "State sync: Stopping hpfs rw session...";
+                    hpfs::stop_fs_session(ctx.hpfs_mount_dir);
+                }
             }
             else
             {

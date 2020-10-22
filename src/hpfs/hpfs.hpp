@@ -18,8 +18,6 @@ namespace hpfs
         }
     };
 
-    int init();
-    void deinit();
     int start_merge_process(pid_t &hpfs_pid);
     int start_ro_rw_process(pid_t &hpfs_pid, std::string &mount_dir, const char *mode,
                             const bool hash_map_enabled, const bool auto_start_session, const uint16_t timeout = 4000);

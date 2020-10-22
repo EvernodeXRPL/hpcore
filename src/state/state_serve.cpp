@@ -24,11 +24,21 @@ namespace state_serve
 
     bool is_shutting_down = false;
     bool init_success = false;
+    std::string hpfs_mount_dir;
+    pid_t hpfs_pid;
     std::thread state_serve_thread;
 
     int init()
     {
         REQUEST_BATCH_TIMEOUT = state_common::get_request_resubmit_timeout() * 0.9;
+        hpfs_mount_dir = conf::ctx.state_dir + "/stateserve";
+
+        if (hpfs::start_ro_rw_process(hpfs_pid, hpfs_mount_dir, "ro", true, false) == -1)
+        {
+            LOG_ERROR << "Error starting hpfs process for state server.";
+            return -1;
+        }
+
         state_serve_thread = std::thread(state_serve_loop);
         init_success = true;
         return 0;
@@ -40,6 +50,10 @@ namespace state_serve
         {
             is_shutting_down = true;
             state_serve_thread.join();
+
+            LOG_DEBUG << "Stopping hpfs state serve process... pid:" << hpfs_pid;
+            if (hpfs_pid > 0 && util::kill_process(hpfs_pid, true) == 0)
+                LOG_INFO << "Stopped hpfs state serve process.";
         }
     }
 
@@ -66,35 +80,45 @@ namespace state_serve
             const uint64_t time_start = util::get_epoch_milliseconds();
             const std::string lcl = ledger::ctx.get_lcl();
 
-            for (auto &[session_id, request] : state_requests)
+            if (state_requests.empty())
+                continue;
+
+            if (hpfs::start_fs_session(hpfs_mount_dir) == -1)
             {
-                if (is_shutting_down)
-                    break;
-
-                // If we have spent too much time handling state requests, abandon the entire batch
-                // because the requester would have stopped waiting for us.
-                const uint64_t time_now = util::get_epoch_milliseconds();
-                if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
-                    break;
-
-                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
-
-                const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
-                flatbuffers::FlatBufferBuilder fbuf(1024);
-
-                if (state_serve::create_state_response(fbuf, sr, lcl) == 1)
+                LOG_ERROR << "Error starting fs session for state server.";
+            }
+            else
+            {
+                for (auto &[session_id, request] : state_requests)
                 {
-                    // Find the peer that we should send the state response to.
-                    std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-                    const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
+                    if (is_shutting_down)
+                        break;
 
-                    if (peer_itr != p2p::ctx.peer_connections.end())
+                    // If we have spent too much time handling state requests, abandon the entire batch
+                    // because the requester would have stopped waiting for us.
+                    const uint64_t time_now = util::get_epoch_milliseconds();
+                    if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
+                        break;
+
+                    const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
+
+                    const p2p::state_request sr = p2pmsg::create_state_request_from_msg(*content->message_as_State_Request_Message());
+                    flatbuffers::FlatBufferBuilder fbuf(1024);
+
+                    if (state_serve::create_state_response(fbuf, sr, lcl) == 1)
                     {
-                        std::string_view msg = std::string_view(
-                            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+                        // Find the peer that we should send the state response to.
+                        std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+                        const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
 
-                        comm::comm_session *session = peer_itr->second;
-                        session->send(msg);
+                        if (peer_itr != p2p::ctx.peer_connections.end())
+                        {
+                            std::string_view msg = std::string_view(
+                                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+
+                            comm::comm_session *session = peer_itr->second;
+                            session->send(msg);
+                        }
                     }
                 }
             }
@@ -195,14 +219,9 @@ namespace state_serve
     int get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
                        const uint32_t block_id, const hpfs::h32 expected_hash)
     {
-        pid_t hpfs_pid = 0;
-        std::string mount_dir;
-        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true, true) == -1)
-            return -1;
-
         // Check whether the existing block hash matches expected hash.
         std::vector<hpfs::h32> block_hashes;
-        int result = hpfs::get_file_block_hashes(block_hashes, mount_dir, vpath);
+        int result = hpfs::get_file_block_hashes(block_hashes, hpfs_mount_dir, vpath);
         if (result == 1)
         {
             if (block_id >= block_hashes.size())
@@ -218,7 +237,7 @@ namespace state_serve
             else // Get actual block data.
             {
                 struct stat st;
-                const std::string file_path = std::string(mount_dir).append(vpath);
+                const std::string file_path = std::string(hpfs_mount_dir).append(vpath);
                 const off_t block_offset = block_id * state_common::BLOCK_SIZE;
                 const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
                 if (fd == -1)
@@ -253,7 +272,7 @@ namespace state_serve
                         if (res < read_len)
                         {
                             LOG_ERROR << errno << ": Read failed (result:" << res
-                                    << " off:" << block_offset << " len:" << read_len << "). " << file_path;
+                                      << " off:" << block_offset << " len:" << read_len << "). " << file_path;
                             result = -1;
                         }
                         else
@@ -279,14 +298,9 @@ namespace state_serve
     int get_data_block_hashes(std::vector<hpfs::h32> &hashes, size_t &file_length,
                               const std::string_view vpath, const hpfs::h32 expected_hash)
     {
-        pid_t hpfs_pid = 0;
-        std::string mount_dir;
-        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true, true) == -1)
-            return -1;
-
         // Check whether the existing file hash matches expected hash.
         hpfs::h32 file_hash = hpfs::h32_empty;
-        int result = hpfs::get_hash(file_hash, mount_dir, vpath);
+        int result = hpfs::get_hash(file_hash, hpfs_mount_dir, vpath);
         if (result == 1)
         {
             if (file_hash != expected_hash)
@@ -295,14 +309,14 @@ namespace state_serve
                 result = 0;
             }
             // Get the block hashes.
-            else if (hpfs::get_file_block_hashes(hashes, mount_dir, vpath) < 0)
+            else if (hpfs::get_file_block_hashes(hashes, hpfs_mount_dir, vpath) < 0)
             {
                 result = -1;
             }
             else
             {
                 // Get actual file length.
-                const std::string file_path = std::string(mount_dir).append(vpath);
+                const std::string file_path = std::string(hpfs_mount_dir).append(vpath);
                 struct stat st;
                 if (stat(file_path.c_str(), &st) == -1)
                 {
@@ -326,14 +340,9 @@ namespace state_serve
     int get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
                             const std::string_view vpath, const hpfs::h32 expected_hash)
     {
-        pid_t hpfs_pid = 0;
-        std::string mount_dir;
-        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true, true) == -1)
-            return -1;
-
         // Check whether the existing dir hash matches expected hash.
         hpfs::h32 dir_hash = hpfs::h32_empty;
-        int result = hpfs::get_hash(dir_hash, mount_dir, vpath);
+        int result = hpfs::get_hash(dir_hash, hpfs_mount_dir, vpath);
         if (result == 1)
         {
             if (dir_hash != expected_hash)
@@ -342,7 +351,7 @@ namespace state_serve
                 result = 0;
             }
             // Get the children hash nodes.
-            else if (hpfs::get_dir_children_hashes(hash_nodes, mount_dir, vpath) < 0)
+            else if (hpfs::get_dir_children_hashes(hash_nodes, hpfs_mount_dir, vpath) < 0)
             {
                 result = -1;
             }
