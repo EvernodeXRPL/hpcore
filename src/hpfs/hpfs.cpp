@@ -74,8 +74,8 @@ namespace hpfs
     /**
      * Starts hpfs readonly/readwrite process and also starts a virtual fs session.
      */
-    int start_ro_rw_process(pid_t &hpfs_pid, std::string &mount_dir,
-                            const char *mode, const bool hash_map_enabled, const uint16_t timeout)
+    int start_ro_rw_process(pid_t &hpfs_pid, std::string &mount_dir, const char *mode,
+                            const bool hash_map_enabled, const bool auto_start_session, const uint16_t timeout)
     {
         const pid_t pid = fork();
 
@@ -121,16 +121,8 @@ namespace hpfs
 
             // If hpfs FUSE interface initialized within the timeout period, we then attempt to start up a virtual fs session.
             // hpfs achieves this by having a 'session' file created.
-            if (hpfs_initialized)
-            {
-                // Start a new fs session.
-                const std::string session_file = std::string(mount_dir).append("/").append(HPFS_SESSION);
-                if (mknod(session_file.c_str(), 0, 0) == -1)
-                {
-                    LOG_ERROR << errno << ": Error starting initial hpfs fs session.";
-                    hpfs_initialized = false;
-                }
-            }
+            if (hpfs_initialized && auto_start_session)
+                start_fs_session(mount_dir);
 
             // Kill the process if hpfs couldn't be initialized properly.
             if (!hpfs_initialized)
@@ -185,7 +177,7 @@ namespace hpfs
         const std::string session_file = std::string(mount_dir).append("/").append(HPFS_SESSION);
         if (mknod(session_file.c_str(), 0, 0) == -1)
         {
-            LOG_ERROR << errno << ": Error starting initial hpfs fs session at " << mount_dir;
+            LOG_ERROR << errno << ": Error starting hpfs fs session at " << mount_dir;
             return -1;
         }
         return 0;

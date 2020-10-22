@@ -197,7 +197,7 @@ namespace state_serve
     {
         pid_t hpfs_pid = 0;
         std::string mount_dir;
-        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true) == -1)
+        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true, true) == -1)
             return -1;
 
         // Check whether the existing block hash matches expected hash.
@@ -281,7 +281,7 @@ namespace state_serve
     {
         pid_t hpfs_pid = 0;
         std::string mount_dir;
-        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true) == -1)
+        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true, true) == -1)
             return -1;
 
         // Check whether the existing file hash matches expected hash.
@@ -328,7 +328,7 @@ namespace state_serve
     {
         pid_t hpfs_pid = 0;
         std::string mount_dir;
-        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true) == -1)
+        if (hpfs::start_ro_rw_process(hpfs_pid, mount_dir, "ro", true, true) == -1)
             return -1;
 
         // Check whether the existing dir hash matches expected hash.

@@ -919,7 +919,7 @@ namespace consensus
     {
         pid_t pid;
         std::string mount_dir;
-        if (hpfs::start_ro_rw_process(pid, mount_dir, "ro", true, 60000) == -1)
+        if (hpfs::start_ro_rw_process(pid, mount_dir, "ro", true, true, 60000) == -1)
             return -1;
 
         int res = get_hash(hash, mount_dir, "/");
