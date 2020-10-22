@@ -10,6 +10,34 @@
 namespace sc
 {
     const int MAX_NPL_BUF_SIZE = 128 * 1024;
+    bool init_success = false;
+    pid_t hpfs_merge_pid = 0;
+
+    /**
+     * Performs system startup activitites related to smart contract execution.
+     */
+    int init()
+    {
+        LOG_INFO << "Starting hpfs merge process...";
+        if (hpfs::start_merge_process(hpfs_merge_pid) == -1)
+            return -1;
+
+        LOG_INFO << "Started hpfs merge process. pid:" << hpfs_merge_pid;
+        return 0;
+    }
+
+    /**
+     * Performs global cleanup related to smart contract execution.
+     */
+    void deinit()
+    {
+        if (init_success)
+        {
+            LOG_INFO << "Stopping hpfs merge process... pid:" << hpfs_merge_pid;
+            if (hpfs_merge_pid > 0 && util::kill_process(hpfs_merge_pid, true) == 0)
+                LOG_INFO << "Stopped hpfs merge process.";
+        }
+    }
 
     /**
      * Executes the contract process and passes the specified context arguments.
@@ -18,7 +46,7 @@ namespace sc
     int execute_contract(execution_context &ctx)
     {
         // Start the hpfs rw session before starting the contract process.
-        if (start_hpfs_rw_session(ctx) == -1)
+        if (start_hpfs_session(ctx) == -1)
             return -1;
 
         // Setup io pipes and feed all inputs to them.
@@ -122,7 +150,7 @@ namespace sc
         ret = -1;
 
     success:
-        if (stop_hpfs_rw_session(ctx) == -1)
+        if (stop_hpfs_session(ctx) == -1)
             ret = -1;
 
         cleanup_fdmap(ctx.userfds);
@@ -154,7 +182,7 @@ namespace sc
     /**
      * Starts the hpfs read/write state filesystem.
      */
-    int start_hpfs_rw_session(execution_context &ctx)
+    int start_hpfs_session(execution_context &ctx)
     {
         if (hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.state_dir, ctx.args.readonly ? "ro" : "rw", true) == -1)
             return -1;
@@ -166,7 +194,7 @@ namespace sc
     /**
      * Stops the hpfs state filesystem.
      */
-    int stop_hpfs_rw_session(execution_context &ctx)
+    int stop_hpfs_session(execution_context &ctx)
     {
         int result = 0;
         // Read the root hash if not in readonly mode.

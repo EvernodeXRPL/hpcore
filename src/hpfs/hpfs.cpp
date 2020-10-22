@@ -14,37 +14,22 @@ namespace hpfs
     constexpr ino_t HPFS_ROOT_INO = 2;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
 
-    pid_t merge_pid = 0;
-    bool init_success = false;
     const char *active_hpfs_trace_arg;
 
     int init()
     {
         active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
-
-        LOG_INFO << "Starting hpfs merge process...";
-        if (start_merge_process() == -1)
-            return -1;
-
-        LOG_INFO << "Started hpfs merge process. pid:" << merge_pid;
-        init_success = true;
         return 0;
     }
 
     void deinit()
     {
-        if (init_success)
-        {
-            LOG_INFO << "Stopping hpfs merge process... pid:" << merge_pid;
-            if (merge_pid > 0 && util::kill_process(merge_pid, true) == 0)
-                LOG_INFO << "Stopped hpfs merge process.";
-        }
     }
 
     /**
      * Starts hpfs merge process.
      */
-    int start_merge_process()
+    int start_merge_process(pid_t &hpfs_pid)
     {
         const pid_t pid = fork();
 
@@ -58,7 +43,7 @@ namespace hpfs
             if (util::kill_process(pid, false, 0) == -1)
                 return -1;
 
-            merge_pid = pid;
+            hpfs_pid = pid;
         }
         else if (pid == 0)
         {
@@ -89,7 +74,7 @@ namespace hpfs
     /**
      * Starts hpfs readonly/readwrite process and also starts a virtual fs session.
      */
-    int start_ro_rw_process(pid_t &session_pid, std::string &mount_dir,
+    int start_ro_rw_process(pid_t &hpfs_pid, std::string &mount_dir,
                             const char *mode, const bool hash_map_enabled, const uint16_t timeout)
     {
         const pid_t pid = fork();
@@ -155,7 +140,7 @@ namespace hpfs
                 return -1;
             }
 
-            session_pid = pid;
+            hpfs_pid = pid;
         }
         else if (pid == 0)
         {
