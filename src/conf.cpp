@@ -77,7 +77,6 @@ namespace conf
         // Recursivly create contract directories.
         util::create_dir_tree_recursive(ctx.config_dir);
         util::create_dir_tree_recursive(ctx.hist_dir);
-        util::create_dir_tree_recursive(ctx.state_rw_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
 
         //Create config file with default settings.
@@ -153,6 +152,7 @@ namespace conf
         ctx.hist_dir = basedir + "/hist";
         ctx.state_dir = basedir + "/state";
         ctx.state_rw_dir = ctx.state_dir + "/rw";
+        ctx.state_serve_dir = ctx.state_dir + "/ss";
         ctx.log_dir = basedir + "/log";
     }
 

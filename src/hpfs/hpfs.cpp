@@ -64,10 +64,11 @@ namespace hpfs
     /**
      * Starts hpfs readonly/readwrite process and also starts a virtual fs session.
      */
-    int start_ro_rw_process(pid_t &hpfs_pid, std::string &mount_dir, const char *mode,
+    int start_ro_rw_process(pid_t &hpfs_pid, std::string &mount_dir, const bool readonly,
                             const bool hash_map_enabled, const bool auto_start_session, const uint16_t timeout)
     {
         const pid_t pid = fork();
+        const char *mode = readonly ? "ro" : "rw";
 
         if (pid > 0)
         {

@@ -27,7 +27,7 @@ namespace sc
         LOG_INFO << "Started hpfs merge process. pid:" << hpfs_merge_pid;
 
         LOG_DEBUG << "Starting hpfs rw process...";
-        if (hpfs::start_ro_rw_process(hpfs_rw_pid, conf::ctx.state_rw_dir, "rw", true, false) == -1)
+        if (hpfs::start_ro_rw_process(hpfs_rw_pid, conf::ctx.state_rw_dir, false, true, false) == -1)
         {
             // Stop the merge process in case of failure.
             util::kill_process(hpfs_merge_pid, true);
@@ -203,7 +203,7 @@ namespace sc
     {
         // In readonly mode, we must start the hpfs process first.
         // In RW mode, there is a global hpfs RW process so we only need to create an fs session.
-        if (ctx.args.readonly && hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.state_dir, "ro", false, false) == -1)
+        if (ctx.args.readonly && hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.state_dir, true, false, false) == -1)
             return -1;
         else
             ctx.hpfs_pid = hpfs_rw_pid;

@@ -24,16 +24,14 @@ namespace state_serve
 
     bool is_shutting_down = false;
     bool init_success = false;
-    std::string hpfs_mount_dir;
     pid_t hpfs_pid;
     std::thread state_serve_thread;
 
     int init()
     {
         REQUEST_BATCH_TIMEOUT = state_common::get_request_resubmit_timeout() * 0.9;
-        hpfs_mount_dir = conf::ctx.state_dir + "/stateserve";
 
-        if (hpfs::start_ro_rw_process(hpfs_pid, hpfs_mount_dir, "ro", true, false) == -1)
+        if (hpfs::start_ro_rw_process(hpfs_pid, conf::ctx.state_serve_dir, true, true, false) == -1)
         {
             LOG_ERROR << "Error starting hpfs process for state server.";
             return -1;
@@ -83,7 +81,7 @@ namespace state_serve
             if (state_requests.empty())
                 continue;
 
-            if (hpfs::start_fs_session(hpfs_mount_dir) == -1)
+            if (hpfs::start_fs_session(conf::ctx.state_serve_dir) == -1)
             {
                 LOG_ERROR << "Error starting fs session for state server.";
             }
@@ -221,7 +219,7 @@ namespace state_serve
     {
         // Check whether the existing block hash matches expected hash.
         std::vector<hpfs::h32> block_hashes;
-        int result = hpfs::get_file_block_hashes(block_hashes, hpfs_mount_dir, vpath);
+        int result = hpfs::get_file_block_hashes(block_hashes, conf::ctx.state_serve_dir, vpath);
         if (result == 1)
         {
             if (block_id >= block_hashes.size())
@@ -237,7 +235,7 @@ namespace state_serve
             else // Get actual block data.
             {
                 struct stat st;
-                const std::string file_path = std::string(hpfs_mount_dir).append(vpath);
+                const std::string file_path = std::string(conf::ctx.state_serve_dir).append(vpath);
                 const off_t block_offset = block_id * state_common::BLOCK_SIZE;
                 const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
                 if (fd == -1)
@@ -300,7 +298,7 @@ namespace state_serve
     {
         // Check whether the existing file hash matches expected hash.
         hpfs::h32 file_hash = hpfs::h32_empty;
-        int result = hpfs::get_hash(file_hash, hpfs_mount_dir, vpath);
+        int result = hpfs::get_hash(file_hash, conf::ctx.state_serve_dir, vpath);
         if (result == 1)
         {
             if (file_hash != expected_hash)
@@ -309,14 +307,14 @@ namespace state_serve
                 result = 0;
             }
             // Get the block hashes.
-            else if (hpfs::get_file_block_hashes(hashes, hpfs_mount_dir, vpath) < 0)
+            else if (hpfs::get_file_block_hashes(hashes, conf::ctx.state_serve_dir, vpath) < 0)
             {
                 result = -1;
             }
             else
             {
                 // Get actual file length.
-                const std::string file_path = std::string(hpfs_mount_dir).append(vpath);
+                const std::string file_path = std::string(conf::ctx.state_serve_dir).append(vpath);
                 struct stat st;
                 if (stat(file_path.c_str(), &st) == -1)
                 {
@@ -342,7 +340,7 @@ namespace state_serve
     {
         // Check whether the existing dir hash matches expected hash.
         hpfs::h32 dir_hash = hpfs::h32_empty;
-        int result = hpfs::get_hash(dir_hash, hpfs_mount_dir, vpath);
+        int result = hpfs::get_hash(dir_hash, conf::ctx.state_serve_dir, vpath);
         if (result == 1)
         {
             if (dir_hash != expected_hash)
@@ -351,7 +349,7 @@ namespace state_serve
                 result = 0;
             }
             // Get the children hash nodes.
-            else if (hpfs::get_dir_children_hashes(hash_nodes, hpfs_mount_dir, vpath) < 0)
+            else if (hpfs::get_dir_children_hashes(hash_nodes, conf::ctx.state_serve_dir, vpath) < 0)
             {
                 result = -1;
             }
