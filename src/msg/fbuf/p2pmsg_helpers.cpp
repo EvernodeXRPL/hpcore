@@ -414,7 +414,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, true);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -438,7 +438,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, true);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -463,7 +463,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, lcl, true);
+        create_containermsg_from_content(container_builder, builder, lcl, false);
     }
 
     /**
@@ -566,6 +566,28 @@ namespace msg::fbuf::p2pmsg
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
         create_containermsg_from_content(container_builder, builder, lcl, true);
+    }
+
+    /**
+     * Create p2p message forwarding requirement announcement message.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param is_required True if message forwarding is required and false otherwise.
+     * @param lcl Lcl value to be passed in the container message.
+     */
+    void create_msg_for_p2p_forwarding_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_required, std::string_view lcl)
+    {
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        const flatbuffers::Offset<P2P_Forwarding_Announcement_Message> announcement =
+            CreateP2P_Forwarding_Announcement_Message(
+                builder,
+                is_required);
+
+        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_P2P_Forwarding_Announcement_Message, announcement.Union());
+        builder.Finish(message); // Finished building message content to get serialised content.
+
+        // Now that we have built the content message,
+        create_containermsg_from_content(container_builder, builder, lcl, false);
     }
 
     /**
@@ -738,27 +760,4 @@ namespace msg::fbuf::p2pmsg
         }
         return builder.CreateVector(fbvec);
     }
-
-    /**
-     * Create p2p message forwarding requirement announcement message.
-     * @param container_builder Flatbuffer builder for the container message.
-     * @param is_required True if message forwarding is required and false otherwise.
-     * @param lcl Lcl value to be passed in the container message.
-     */
-    void create_msg_for_p2p_forwarding_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_required, std::string_view lcl)
-    {
-        flatbuffers::FlatBufferBuilder builder(1024);
-
-        const flatbuffers::Offset<P2P_Forwarding_Announcement_Message> announcement =
-            CreateP2P_Forwarding_Announcement_Message(
-                builder,
-                is_required);
-
-        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_P2P_Forwarding_Announcement_Message, announcement.Union());
-        builder.Finish(message); // Finished building message content to get serialised content.
-
-        // Now that we have built the content message,
-        create_containermsg_from_content(container_builder, builder, lcl, false);
-    }
-
 } // namespace msg::fbuf::p2pmsg
