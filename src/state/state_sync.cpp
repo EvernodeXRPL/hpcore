@@ -89,7 +89,7 @@ namespace state_sync
             }
 
             pid_t hpfs_pid = 0;
-            if (hpfs::start_fs_session(hpfs_pid, ctx.hpfs_mount_dir, "rw", true) != -1)
+            if (hpfs::start_ro_rw_process(hpfs_pid, ctx.hpfs_mount_dir, "rw", true) != -1)
             {
                 while (!ctx.is_shutting_down)
                 {
