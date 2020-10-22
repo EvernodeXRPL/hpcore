@@ -133,6 +133,7 @@ namespace hpfs
             }
 
             hpfs_pid = pid;
+            LOG_DEBUG << "hpfs " << mode << " process started. pid:" << hpfs_pid;
         }
         else if (pid == 0)
         {

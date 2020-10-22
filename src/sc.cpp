@@ -205,11 +205,12 @@ namespace sc
         // In RW mode, there is a global hpfs RW process so we only need to create an fs session.
         if (ctx.args.readonly && hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.state_dir, "ro", false, false) == -1)
             return -1;
+        else
+            ctx.hpfs_pid = hpfs_rw_pid;
 
         if (hpfs::start_fs_session(ctx.args.state_dir) == -1)
             return -1;
 
-        LOG_DEBUG << "hpfs session started. pid:" << ctx.hpfs_pid << (ctx.args.readonly ? " (rdonly)" : "");
         return 0;
     }
 
