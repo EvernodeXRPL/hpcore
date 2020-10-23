@@ -147,7 +147,7 @@ namespace p2p
 
     bool validate_for_peer_msg_forwarding(const comm::comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 
-    void send_message_forwarding_requirement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_required);
+    void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected);
 } // namespace p2p
 
 #endif

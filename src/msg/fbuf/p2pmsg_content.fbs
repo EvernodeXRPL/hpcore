@@ -34,7 +34,7 @@ union Message {
     State_Response_Message,
     History_Request_Message,
     History_Response_Message,
-    P2P_Forwarding_Announcement_Message
+    Connected_Status_Announcement_Message
 } //message content type
 
 table Content {
@@ -121,8 +121,8 @@ table State_FS_Hash_Entry{
     hash: [ubyte];
 }
 
-table P2P_Forwarding_Announcement_Message{
-    is_required: bool;
+table Connected_Status_Announcement_Message{
+    is_weakly_connected: bool;
 }
 
 root_type Content; //root type for message content

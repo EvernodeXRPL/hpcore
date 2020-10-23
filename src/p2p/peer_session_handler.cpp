@@ -77,8 +77,16 @@ namespace p2p
         // Check whether the message is qualified for forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
-            // Forward message to peers.
-            p2p::broadcast_message(message, false, true, &session);
+            if (session.is_weakly_connected)
+            {
+                // Forward messages received by weakly connected nodes to other peers.
+                p2p::broadcast_message(message, false, false, &session);
+            }
+            else
+            {
+                // Forward message received from other nodes to weakly connected peers.
+                p2p::broadcast_message(message, false, true, &session);
+            }
         }
 
         if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
@@ -150,17 +158,17 @@ namespace p2p
                 LOG_DEBUG << "NPL message enqueue failure. " << session.uniqueid.substr(0, 10);
             }
         }
-        else if (content_message_type == p2pmsg::Message_P2P_Forwarding_Announcement_Message) // This message is a message forwarding requirement announcement message.
+        else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
         {
-            const p2pmsg::P2P_Forwarding_Announcement_Message *announcement_msg = content->message_as_P2P_Forwarding_Announcement_Message();
-            session.need_p2p_msg_forwarding = announcement_msg->is_required();
-            if (announcement_msg->is_required())
+            const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
+            session.is_weakly_connected = announcement_msg->is_weakly_connected();
+            if (session.is_weakly_connected)
             {
-                LOG_ERROR << "Message forwarding is requested by " << session.uniqueid;
+                LOG_INFO << "Weakly connected announcement received from " << session.uniqueid.substr(0, 10);
             }
             else
             {
-                LOG_ERROR << "Message forwarding is end request by " << session.uniqueid;
+                LOG_INFO << "Strongly connected announcement received from " << session.uniqueid.substr(0, 10);
             }
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)

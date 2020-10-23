@@ -56,7 +56,7 @@ namespace comm
         conf::ip_port_pair known_ipport;
         SESSION_STATE state = SESSION_STATE::NOT_INITIALIZED;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
-        bool need_p2p_msg_forwarding = false; // Holds whether this node needs to hear forwarded messages from the other nodes.
+        bool is_weakly_connected = false; // Holds whether this node is weakly connected to the other nodes.
 
         comm_session(
             std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,

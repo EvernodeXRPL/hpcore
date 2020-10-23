@@ -126,7 +126,10 @@ namespace p2p
 
                     ex_session.mark_for_closure();
                     p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
-                    p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
+                    // We have to keep the weekly connected status of the removed session object.
+                    // If not, connected status received prior to connection dropping will be lost.
+                    auto [new_session, success] =  p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
+                    new_session->second->is_weakly_connected = ex_session.is_weakly_connected;
 
                     LOG_DEBUG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
                     return 0;
@@ -178,10 +181,10 @@ namespace p2p
         for (const auto &[k, session] : ctx.peer_connections)
         {
             // Exclude given session and self if provided.
-            // Messages are forwarded only to the requested nodes in message forwarding mode.
+            // Messages are forwarded only to the weakly connected nodes only in the message forwarding mode.
             if ((!send_to_self && session->is_self) ||
                 (skipping_session && skipping_session == session) ||
-                (is_msg_forwarding && !session->need_p2p_msg_forwarding))
+                (is_msg_forwarding && !session->is_weakly_connected))
                 continue;
 
             session->send(message);
@@ -281,14 +284,13 @@ namespace p2p
     }
 
     /**
-     * Sends the message forwarding requirement broadcast announcement to all the connected peers.
+     * Sends the connected status broadcast announcement to all the connected peers.
      * @param fbuf Peer outbound message to be sent to peer.
-     * @param is_required Whether this is a forward request or stop forwarding request.
+     * @param is_weakly_connected True if the number of connections are below the threshold value.
      */
-    void send_message_forwarding_requirement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_required)
+    void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected)
     {
-        // msg::fbuf::p2pmsg::CreateP2P_Forwarding_Announcement_Message(fbuf, is_required);
-        msg::fbuf::p2pmsg::create_msg_for_p2p_forwarding_announcement(fbuf, is_required, ledger::ctx.get_lcl());
+        msg::fbuf::p2pmsg::create_msg_for_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
         p2p::broadcast_message(fbuf, false);
     }
 

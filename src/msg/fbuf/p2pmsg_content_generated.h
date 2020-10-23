@@ -66,8 +66,8 @@ struct Block_ResponseBuilder;
 struct State_FS_Hash_Entry;
 struct State_FS_Hash_EntryBuilder;
 
-struct P2P_Forwarding_Announcement_Message;
-struct P2P_Forwarding_Announcement_MessageBuilder;
+struct Connected_Status_Announcement_Message;
+struct Connected_Status_Announcement_MessageBuilder;
 
 enum Message {
   Message_NONE = 0,
@@ -80,9 +80,9 @@ enum Message {
   Message_State_Response_Message = 7,
   Message_History_Request_Message = 8,
   Message_History_Response_Message = 9,
-  Message_P2P_Forwarding_Announcement_Message = 10,
+  Message_Connected_Status_Announcement_Message = 10,
   Message_MIN = Message_NONE,
-  Message_MAX = Message_P2P_Forwarding_Announcement_Message
+  Message_MAX = Message_Connected_Status_Announcement_Message
 };
 
 inline const Message (&EnumValuesMessage())[11] {
@@ -97,7 +97,7 @@ inline const Message (&EnumValuesMessage())[11] {
     Message_State_Response_Message,
     Message_History_Request_Message,
     Message_History_Response_Message,
-    Message_P2P_Forwarding_Announcement_Message
+    Message_Connected_Status_Announcement_Message
   };
   return values;
 }
@@ -114,14 +114,14 @@ inline const char * const *EnumNamesMessage() {
     "State_Response_Message",
     "History_Request_Message",
     "History_Response_Message",
-    "P2P_Forwarding_Announcement_Message",
+    "Connected_Status_Announcement_Message",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMessage(Message e) {
-  if (flatbuffers::IsOutRange(e, Message_NONE, Message_P2P_Forwarding_Announcement_Message)) return "";
+  if (flatbuffers::IsOutRange(e, Message_NONE, Message_Connected_Status_Announcement_Message)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessage()[index];
 }
@@ -166,8 +166,8 @@ template<> struct MessageTraits<msg::fbuf::p2pmsg::History_Response_Message> {
   static const Message enum_value = Message_History_Response_Message;
 };
 
-template<> struct MessageTraits<msg::fbuf::p2pmsg::P2P_Forwarding_Announcement_Message> {
-  static const Message enum_value = Message_P2P_Forwarding_Announcement_Message;
+template<> struct MessageTraits<msg::fbuf::p2pmsg::Connected_Status_Announcement_Message> {
+  static const Message enum_value = Message_Connected_Status_Announcement_Message;
 };
 
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
@@ -584,8 +584,8 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf::p2pmsg::History_Response_Message *message_as_History_Response_Message() const {
     return message_type() == msg::fbuf::p2pmsg::Message_History_Response_Message ? static_cast<const msg::fbuf::p2pmsg::History_Response_Message *>(message()) : nullptr;
   }
-  const msg::fbuf::p2pmsg::P2P_Forwarding_Announcement_Message *message_as_P2P_Forwarding_Announcement_Message() const {
-    return message_type() == msg::fbuf::p2pmsg::Message_P2P_Forwarding_Announcement_Message ? static_cast<const msg::fbuf::p2pmsg::P2P_Forwarding_Announcement_Message *>(message()) : nullptr;
+  const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *message_as_Connected_Status_Announcement_Message() const {
+    return message_type() == msg::fbuf::p2pmsg::Message_Connected_Status_Announcement_Message ? static_cast<const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *>(message()) : nullptr;
   }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
@@ -635,8 +635,8 @@ template<> inline const msg::fbuf::p2pmsg::History_Response_Message *Content::me
   return message_as_History_Response_Message();
 }
 
-template<> inline const msg::fbuf::p2pmsg::P2P_Forwarding_Announcement_Message *Content::message_as<msg::fbuf::p2pmsg::P2P_Forwarding_Announcement_Message>() const {
-  return message_as_P2P_Forwarding_Announcement_Message();
+template<> inline const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *Content::message_as<msg::fbuf::p2pmsg::Connected_Status_Announcement_Message>() const {
+  return message_as_Connected_Status_Announcement_Message();
 }
 
 struct ContentBuilder {
@@ -1705,47 +1705,47 @@ inline flatbuffers::Offset<State_FS_Hash_Entry> CreateState_FS_Hash_EntryDirect(
       hash__);
 }
 
-struct P2P_Forwarding_Announcement_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef P2P_Forwarding_Announcement_MessageBuilder Builder;
+struct Connected_Status_Announcement_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Connected_Status_Announcement_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_IS_REQUIRED = 4
+    VT_IS_WEAKLY_CONNECTED = 4
   };
-  bool is_required() const {
-    return GetField<uint8_t>(VT_IS_REQUIRED, 0) != 0;
+  bool is_weakly_connected() const {
+    return GetField<uint8_t>(VT_IS_WEAKLY_CONNECTED, 0) != 0;
   }
-  bool mutate_is_required(bool _is_required) {
-    return SetField<uint8_t>(VT_IS_REQUIRED, static_cast<uint8_t>(_is_required), 0);
+  bool mutate_is_weakly_connected(bool _is_weakly_connected) {
+    return SetField<uint8_t>(VT_IS_WEAKLY_CONNECTED, static_cast<uint8_t>(_is_weakly_connected), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_IS_REQUIRED) &&
+           VerifyField<uint8_t>(verifier, VT_IS_WEAKLY_CONNECTED) &&
            verifier.EndTable();
   }
 };
 
-struct P2P_Forwarding_Announcement_MessageBuilder {
-  typedef P2P_Forwarding_Announcement_Message Table;
+struct Connected_Status_Announcement_MessageBuilder {
+  typedef Connected_Status_Announcement_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_is_required(bool is_required) {
-    fbb_.AddElement<uint8_t>(P2P_Forwarding_Announcement_Message::VT_IS_REQUIRED, static_cast<uint8_t>(is_required), 0);
+  void add_is_weakly_connected(bool is_weakly_connected) {
+    fbb_.AddElement<uint8_t>(Connected_Status_Announcement_Message::VT_IS_WEAKLY_CONNECTED, static_cast<uint8_t>(is_weakly_connected), 0);
   }
-  explicit P2P_Forwarding_Announcement_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit Connected_Status_Announcement_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<P2P_Forwarding_Announcement_Message> Finish() {
+  flatbuffers::Offset<Connected_Status_Announcement_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<P2P_Forwarding_Announcement_Message>(end);
+    auto o = flatbuffers::Offset<Connected_Status_Announcement_Message>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<P2P_Forwarding_Announcement_Message> CreateP2P_Forwarding_Announcement_Message(
+inline flatbuffers::Offset<Connected_Status_Announcement_Message> CreateConnected_Status_Announcement_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    bool is_required = false) {
-  P2P_Forwarding_Announcement_MessageBuilder builder_(_fbb);
-  builder_.add_is_required(is_required);
+    bool is_weakly_connected = false) {
+  Connected_Status_Announcement_MessageBuilder builder_(_fbb);
+  builder_.add_is_weakly_connected(is_weakly_connected);
   return builder_.Finish();
 }
 
@@ -1790,8 +1790,8 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::History_Response_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Message_P2P_Forwarding_Announcement_Message: {
-      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::P2P_Forwarding_Announcement_Message *>(obj);
+    case Message_Connected_Status_Announcement_Message: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
