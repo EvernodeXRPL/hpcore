@@ -21,19 +21,15 @@ namespace sc
      */
     int init()
     {
-        LOG_DEBUG << "Starting hpfs merge process...";
         if (hpfs::start_merge_process(hpfs_merge_pid) == -1)
             return -1;
-        LOG_INFO << "Started hpfs merge process. pid:" << hpfs_merge_pid;
 
-        LOG_DEBUG << "Starting hpfs rw process...";
         if (hpfs::start_ro_rw_process(hpfs_rw_pid, conf::ctx.state_rw_dir, false, true, false) == -1)
         {
             // Stop the merge process in case of failure.
             util::kill_process(hpfs_merge_pid, true);
             return -1;
         }
-        LOG_INFO << "Started hpfs rw process. pid:" << hpfs_merge_pid;
 
         init_success = true;
         return 0;
@@ -224,7 +220,7 @@ namespace sc
         if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.state_dir, "/") < 1)
             result = -1;
 
-        LOG_DEBUG << "Stopping hpfs session..." << (ctx.args.readonly ? " (rdonly)" : "");
+        LOG_DEBUG << "Stopping hpfs contract session..." << (ctx.args.readonly ? " (rdonly)" : "");
 
         // In readonly mode, we must also stop the hpfs process itself.
         // In RW mode, we only need to stop the fs session and let the RW process keep running.

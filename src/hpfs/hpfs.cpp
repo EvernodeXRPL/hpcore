@@ -23,6 +23,8 @@ namespace hpfs
 
         if (pid > 0)
         {
+            LOG_DEBUG << "Starting hpfs merge process...";
+
             // HotPocket process.
             util::sleep(INIT_CHECK_INTERVAL);
 
@@ -32,6 +34,7 @@ namespace hpfs
                 return -1;
 
             hpfs_pid = pid;
+            LOG_DEBUG << "hpfs merge process started. pid:" << hpfs_pid;
         }
         else if (pid == 0)
         {
@@ -73,7 +76,7 @@ namespace hpfs
         if (pid > 0)
         {
             // HotPocket process.
-            LOG_DEBUG << "Starting hpfs " << mode << " session...";
+            LOG_DEBUG << "Starting hpfs " << mode << " process at " << mount_dir;
 
             // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             if (mount_dir.empty())
@@ -93,7 +96,7 @@ namespace hpfs
                 // Sending signal 0 to test whether process exist.
                 if (util::kill_process(pid, false, 0) == -1)
                 {
-                    LOG_ERROR << "hpfs process " << pid << " has stopped.";
+                    LOG_ERROR << "hpfs process " << pid << " has stopped at " << mount_dir;
                     break;
                 }
 
@@ -101,7 +104,7 @@ namespace hpfs
                 struct stat st;
                 if (stat(mount_dir.c_str(), &st) == -1)
                 {
-                    LOG_ERROR << errno << ": Error in checking hpfs status.";
+                    LOG_ERROR << errno << ": Error in checking hpfs status at " << mount_dir;
                     break;
                 }
 
@@ -118,13 +121,13 @@ namespace hpfs
             // Kill the process if hpfs couldn't be initialized properly.
             if (!hpfs_initialized)
             {
-                LOG_ERROR << "Couldn't initialize hpfs session.";
+                LOG_ERROR << "Couldn't initialize hpfs session at " << mount_dir;
                 util::kill_process(pid, true);
                 return -1;
             }
 
             hpfs_pid = pid;
-            LOG_DEBUG << "hpfs " << mode << " process started. pid:" << hpfs_pid;
+            LOG_DEBUG << "hpfs " << mode << " process started at " << mount_dir << " pid:" << hpfs_pid;
         }
         else if (pid == 0)
         {
@@ -156,7 +159,7 @@ namespace hpfs
         }
         else
         {
-            LOG_ERROR << errno << ": fork() failed when starting hpfs session process.";
+            LOG_ERROR << errno << ": fork() failed when starting hpfs process.";
             return -1;
         }
 
@@ -168,6 +171,8 @@ namespace hpfs
      */
     int start_fs_session(std::string_view mount_dir)
     {
+        LOG_DEBUG << "Starting hpfs fs session at " << mount_dir;
+
         const std::string session_file = std::string(mount_dir).append("/").append(HPFS_SESSION);
         if (mknod(session_file.c_str(), 0, 0) == -1)
         {

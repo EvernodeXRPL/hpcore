@@ -32,10 +32,7 @@ namespace state_serve
         REQUEST_BATCH_TIMEOUT = state_common::get_request_resubmit_timeout() * 0.9;
 
         if (hpfs::start_ro_rw_process(hpfs_pid, conf::ctx.state_serve_dir, true, true, false) == -1)
-        {
-            LOG_ERROR << "Error starting hpfs process for state server.";
             return -1;
-        }
 
         state_serve_thread = std::thread(state_serve_loop);
         init_success = true;
