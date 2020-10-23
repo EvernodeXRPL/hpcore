@@ -121,15 +121,19 @@ namespace sc
         bool should_stop = false;
     };
 
+    int init();
+
+    void deinit();
+
     int execute_contract(execution_context &ctx);
 
     //------Internal-use functions for this namespace.
 
     int await_process_execution(pid_t pid);
 
-    int start_hpfs_rw_session(execution_context &ctx);
+    int start_hpfs_session(execution_context &ctx);
 
-    int stop_hpfs_rw_session(execution_context &ctx);
+    int stop_hpfs_session(execution_context &ctx);
 
     int write_contract_args(const execution_context &ctx);
 

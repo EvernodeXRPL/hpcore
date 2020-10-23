@@ -195,7 +195,8 @@ namespace comm
             if (std::holds_alternative<hpws::error>(client_result))
             {
                 const hpws::error error = std::get<hpws::error>(client_result);
-                LOG_ERROR << "Outbound connection hpws error:" << error.first << " " << error.second;
+                if (error.first != 202)
+                    LOG_ERROR << "Outbound connection hpws error:" << error.first << " " << error.second;
             }
             else
             {
