@@ -5,10 +5,12 @@
 #include "../util.hpp"
 #include "../bill/corebill.h"
 #include "../hpws/hpws.hpp"
+#include "../p2p/p2p.hpp"
 
 namespace comm
 {
     constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 16 * 1024 * 1024;
+    constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
 
     int comm_server::start(
         const uint16_t port, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4],
@@ -66,6 +68,30 @@ namespace comm
                 else
                     ++itr;
             }
+
+            flatbuffers::FlatBufferBuilder fbuf(1024);
+            if (sessions.size() > 1)
+            {
+                if (is_weakly_connected())
+                {
+                    if (!weakly_connected_status_sent)
+                    {
+                        LOG_DEBUG << "Weakly connected status announcement sent";
+                        p2p::send_connected_status_announcement(fbuf, true);
+                        // Mark that the p2p message forwarding is requested.
+                        weakly_connected_status_sent = true;
+                    }
+                }
+                else
+                {
+                    if (weakly_connected_status_sent)
+                    {
+                        LOG_DEBUG << "Strongly connected status announcement sent";
+                        p2p::send_connected_status_announcement(fbuf, false);
+                        weakly_connected_status_sent = false;
+                    }
+                }
+            }
         }
 
         // If we reach this point that means we are shutting down.
@@ -77,6 +103,11 @@ namespace comm
         sessions.clear();
 
         LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " listener stopped.";
+    }
+
+    bool comm_server::is_weakly_connected()
+    {
+        return (sessions.size() - 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
     }
 
     void comm_server::check_for_new_connection(
@@ -123,6 +154,12 @@ namespace comm
                     // in accessing class member variables inside the thread.
                     // Class member variables gives unacceptable values if the thread starts before the move operation.
                     inserted_session.start_messaging_threads();
+                    // Making sure the newly connected node get the weakly connected announcement if the number of
+                    // connected peers are under the threshold.
+                    if ((sessions.size() > 1) && is_weakly_connected())
+                    {
+                        weakly_connected_status_sent = false;
+                    }
                 }
             }
         }

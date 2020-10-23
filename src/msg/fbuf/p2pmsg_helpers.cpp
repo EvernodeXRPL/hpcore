@@ -3,7 +3,6 @@
 #include "../../crypto.hpp"
 #include "../../util.hpp"
 #include "../../hplog.hpp"
-#include "../../p2p/p2p.hpp"
 #include "../../hpfs/h32.hpp"
 #include "../../hpfs/hpfs.hpp"
 #include "p2pmsg_container_generated.h"
@@ -415,7 +414,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, true);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -439,7 +438,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, true);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -464,7 +463,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, lcl, true);
+        create_containermsg_from_content(container_builder, builder, lcl, false);
     }
 
     /**
@@ -567,6 +566,28 @@ namespace msg::fbuf::p2pmsg
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
         create_containermsg_from_content(container_builder, builder, lcl, true);
+    }
+
+    /**
+     * Create connected status announcement message.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param is_weakly_connected True if number of connections are below threshold and false otherwise.
+     * @param lcl Lcl value to be passed in the container message.
+     */
+    void create_msg_for_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl)
+    {
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        const flatbuffers::Offset<Connected_Status_Announcement_Message> announcement =
+            CreateConnected_Status_Announcement_Message(
+                builder,
+                is_weakly_connected);
+
+        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Connected_Status_Announcement_Message, announcement.Union());
+        builder.Finish(message); // Finished building message content to get serialised content.
+
+        // Now that we have built the content message,
+        create_containermsg_from_content(container_builder, builder, lcl, false);
     }
 
     /**
@@ -739,5 +760,4 @@ namespace msg::fbuf::p2pmsg
         }
         return builder.CreateVector(fbvec);
     }
-
 } // namespace msg::fbuf::p2pmsg

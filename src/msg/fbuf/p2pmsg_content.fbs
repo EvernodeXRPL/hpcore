@@ -24,7 +24,18 @@ table UserInputGroup {
     messages:[UserInput];
 }
 
-union Message { Peer_Challenge_Response_Message, Peer_Challenge_Message, NonUnl_Proposal_Message, Proposal_Message, Npl_Message, State_Request_Message, State_Response_Message, History_Request_Message, History_Response_Message } //message content type
+union Message {
+    Peer_Challenge_Response_Message,
+    Peer_Challenge_Message,
+    NonUnl_Proposal_Message,
+    Proposal_Message,
+    Npl_Message,
+    State_Request_Message,
+    State_Response_Message,
+    History_Request_Message,
+    History_Response_Message,
+    Connected_Status_Announcement_Message
+} //message content type
 
 table Content {
     message:Message;
@@ -108,6 +119,10 @@ table State_FS_Hash_Entry{
     name: string;
     is_file: bool;
     hash: [ubyte];
+}
+
+table Connected_Status_Announcement_Message{
+    is_weakly_connected: bool;
 }
 
 root_type Content; //root type for message content

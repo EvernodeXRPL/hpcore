@@ -5,6 +5,8 @@
 #include "../util.hpp"
 #include "../hplog.hpp"
 #include "p2p.hpp"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../ledger.hpp"
 
 namespace p2p
 {
@@ -124,6 +126,9 @@ namespace p2p
 
                     ex_session.mark_for_closure();
                     p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
+                    // We have to keep the weekly connected status of the removed session object.
+                    // If not, connected status received prior to connection dropping will be lost.
+                    session.is_weakly_connected = ex_session.is_weakly_connected;
                     p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
@@ -146,20 +151,23 @@ namespace p2p
      * Broadcasts the given message to all currently connected outbound peers.
      * @param fbuf Peer outbound message to be broadcasted.
      * @param send_to_self Whether to also send the message to self (this node).
+     * @param is_msg_forwarding Whether this broadcast is for message forwarding.
      */
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self)
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding)
     {
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-        broadcast_message(msg, send_to_self);
+
+        broadcast_message(msg, send_to_self, is_msg_forwarding);
     }
 
     /**
      * Broadcast the given message to all connected outbound peers.
      * @param message Message to be forwarded.
+     * @param is_msg_forwarding Whether this broadcast is for message forwarding.
      * @param skipping_session Session to be skipped in message forwarding(optional).
      */
-    void broadcast_message(std::string_view message, const bool send_to_self, const comm::comm_session *skipping_session)
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const comm::comm_session *skipping_session)
     {
         if (ctx.peer_connections.size() == 0)
         {
@@ -173,7 +181,10 @@ namespace p2p
         for (const auto &[k, session] : ctx.peer_connections)
         {
             // Exclude given session and self if provided.
-            if ((!send_to_self && session->is_self) || (skipping_session && skipping_session == session))
+            // Messages are forwarded only to the weakly connected nodes only in the message forwarding mode.
+            if ((!send_to_self && session->is_self) ||
+                (skipping_session && skipping_session == session) ||
+                (is_msg_forwarding && !session->is_weakly_connected))
                 continue;
 
             session->send(message);
@@ -270,6 +281,17 @@ namespace p2p
                 break;
             }
         }
+    }
+
+    /**
+     * Sends the connected status broadcast announcement to all the connected peers.
+     * @param fbuf Peer outbound message to be sent to peer.
+     * @param is_weakly_connected True if the number of connections are below the threshold value.
+     */
+    void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected)
+    {
+        msg::fbuf::p2pmsg::create_msg_for_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
+        p2p::broadcast_message(fbuf, false);
     }
 
 } // namespace p2p

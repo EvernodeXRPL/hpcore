@@ -14,6 +14,7 @@ namespace comm
         std::thread watchdog_thread;                  // Connection watcher thread.
         std::thread inbound_message_processor_thread; // Incoming message processor thread.
         bool should_stop_listening = false;
+        bool weakly_connected_status_sent = false; // keep track whether the weakly connected status announcement is sent or not.
 
         std::list<comm_session> sessions;
         std::mutex sessions_mutex;
@@ -36,6 +37,8 @@ namespace comm
             const SESSION_TYPE session_type, const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4]);
 
         std::string get_cgi_ip(const int fd);
+
+        bool is_weakly_connected();
 
     public:
         // Start accepting incoming connections

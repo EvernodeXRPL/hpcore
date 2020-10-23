@@ -95,6 +95,8 @@ namespace msg::fbuf::p2pmsg
         flatbuffers::FlatBufferBuilder &builder,
         std::vector<hpfs::child_hash_node> &hash_nodes);
 
+    void create_msg_for_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl);
+
 } // namespace msg::fbuf::p2pmsg
 
 #endif

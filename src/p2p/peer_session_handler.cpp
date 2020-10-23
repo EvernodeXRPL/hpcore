@@ -77,8 +77,16 @@ namespace p2p
         // Check whether the message is qualified for forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
-            // Forward message to peers.
-            p2p::broadcast_message(message, false, &session);
+            if (session.is_weakly_connected)
+            {
+                // Forward messages received by weakly connected nodes to other peers.
+                p2p::broadcast_message(message, false, false, &session);
+            }
+            else
+            {
+                // Forward message received from other nodes to weakly connected peers.
+                p2p::broadcast_message(message, false, true, &session);
+            }
         }
 
         if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
@@ -150,14 +158,21 @@ namespace p2p
                 LOG_DEBUG << "NPL message enqueue failure. " << session.uniqueid.substr(0, 10);
             }
         }
+        else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
+        {
+            const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
+            session.is_weakly_connected = announcement_msg->is_weakly_connected();
+            if (session.is_weakly_connected)
+            {
+                LOG_DEBUG << "Weakly connected announcement received from " << session.uniqueid.substr(0, 10);
+            }
+            else
+            {
+                LOG_DEBUG << "Strongly connected announcement received from " << session.uniqueid.substr(0, 10);
+            }
+        }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
-            if (p2pmsg::validate_container_trust(container) != 0)
-            {
-                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "State request message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
-                return 0;
-            }
 
             // Insert request with lock.
             std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
@@ -166,13 +181,6 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_State_Response_Message)
         {
-            if (p2pmsg::validate_container_trust(container) != 0)
-            {
-                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "State response message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
-                return 0;
-            }
-
             if (state_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
             {
                 // Insert state_response with lock.
@@ -183,26 +191,12 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
         {
-            if (p2pmsg::validate_container_trust(container) != 0)
-            {
-                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "History request message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
-                return 0;
-            }
-
             const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
             std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
             ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.uniqueid, std::move(hr)));
         }
         else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
         {
-            if (p2pmsg::validate_container_trust(container) != 0)
-            {
-                session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "History response message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
-                return 0;
-            }
-
             const p2p::history_response hr = p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
             std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
             ledger::sync_ctx.collected_history_responses.push_back(std::move(hr));
