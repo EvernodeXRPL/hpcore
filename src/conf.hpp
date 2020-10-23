@@ -34,20 +34,21 @@ namespace conf
     // Holds contextual information about the currently loaded contract.
     struct contract_ctx
     {
-        std::string command;             // The CLI command issued to launch HotPocket
-        std::string exe_dir;             // Hot Pocket executable dir.
-        std::string hpws_exe_path;       // hpws executable file path.
-        std::string hpfs_exe_path;       // hpfs executable file path.
+        std::string command;       // The CLI command issued to launch HotPocket
+        std::string exe_dir;       // Hot Pocket executable dir.
+        std::string hpws_exe_path; // hpws executable file path.
+        std::string hpfs_exe_path; // hpfs executable file path.
 
-        std::string contract_dir;  // Contract base directory full path
-        std::string hist_dir;      // Contract ledger history dir full path
-        std::string state_dir;     // Contract state maintenence path (hpfs path)
-        std::string state_rw_dir;  // Contract executation read/write state path.
-        std::string log_dir;       // Contract log dir full path
-        std::string config_dir;    // Contract config dir full path
-        std::string config_file;   // Full path to the contract config file
-        std::string tls_key_file;  // Full path to the tls secret key file
-        std::string tls_cert_file; // Full path to the tls certificate
+        std::string contract_dir;    // Contract base directory full path
+        std::string hist_dir;        // Contract ledger history dir full path
+        std::string state_dir;       // Contract state maintenence path (hpfs path)
+        std::string state_rw_dir;    // Contract executation read/write state path.
+        std::string state_serve_dir; // State server hpfs mount path.
+        std::string log_dir;         // Contract log dir full path
+        std::string config_dir;      // Contract config dir full path
+        std::string config_file;     // Full path to the contract config file
+        std::string tls_key_file;    // Full path to the tls secret key file
+        std::string tls_cert_file;   // Full path to the tls certificate
     };
 
     // Holds all the contract config values.
@@ -88,7 +89,7 @@ namespace conf
         uint64_t peermaxbadsigpm = 0; // Peer bad signatures per minute
         uint16_t peermaxcons = 0;     // Max inbound peer connections
 
-        bool msgforwarding = false;   // Whether peer message forwarding is on/off.
+        bool msgforwarding = false; // Whether peer message forwarding is on/off.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
