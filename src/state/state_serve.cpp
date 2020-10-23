@@ -279,8 +279,6 @@ namespace state_serve
             }
         }
 
-        if (util::kill_process(hpfs_pid, true) == -1)
-            return -1;
         return result;
     }
 
@@ -321,8 +319,6 @@ namespace state_serve
             }
         }
 
-        if (util::kill_process(hpfs_pid, true) == -1)
-            return -1;
         return result;
     }
 
@@ -354,8 +350,6 @@ namespace state_serve
             }
         }
 
-        if (util::kill_process(hpfs_pid, true) == -1)
-            return -1;
         return result;
     }
 } // namespace state_serve
