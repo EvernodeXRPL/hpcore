@@ -128,8 +128,8 @@ namespace p2p
                     p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
                     // We have to keep the weekly connected status of the removed session object.
                     // If not, connected status received prior to connection dropping will be lost.
-                    auto [new_session, success] =  p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
-                    new_session->second->is_weakly_connected = ex_session.is_weakly_connected;
+                    session.is_weakly_connected = ex_session.is_weakly_connected;
+                    p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
                     return 0;

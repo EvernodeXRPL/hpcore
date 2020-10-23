@@ -164,11 +164,11 @@ namespace p2p
             session.is_weakly_connected = announcement_msg->is_weakly_connected();
             if (session.is_weakly_connected)
             {
-                LOG_INFO << "Weakly connected announcement received from " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "Weakly connected announcement received from " << session.uniqueid.substr(0, 10);
             }
             else
             {
-                LOG_INFO << "Strongly connected announcement received from " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "Strongly connected announcement received from " << session.uniqueid.substr(0, 10);
             }
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
