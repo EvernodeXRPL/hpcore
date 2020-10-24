@@ -78,7 +78,7 @@ while true; do
                 LASTROUND=$TS
             fi
             
-            SUCCESS="`echo $line | grep '****Stage 3 consensus reached****' | wc -l`"
+            SUCCESS="`echo $line | grep '****Ledger created****' | wc -l`"
             SUCCESSFULCLOSES="`echo $SUCCESSFULCLOSES + $SUCCESS | bc`"
 
             SHOULDPRINT=`echo "$TS - $LASTROUND > $WINDOWSIZE" | bc`

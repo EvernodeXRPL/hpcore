@@ -32,7 +32,7 @@ while true; do
     kill -s 0 $PID 2> /dev/null 1> /dev/null
     while [ "$?" -eq "0" ]; 
     do
-        if [ "`cat contest.out | grep '****Stage 3 consensus reached****' | wc -l`" -gt "0" ];
+        if [ "`cat contest.out | grep '****Ledger created****' | wc -l`" -gt "0" ];
         then
             break
         fi

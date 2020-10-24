@@ -126,7 +126,7 @@ namespace msg::fbuf::p2pmsg
  * Verifies the Content message structure and outputs faltbuffer Content pointer to access the given buffer.
  * 
  * @param content_ref A pointer reference to assign the pointer to the Content object.
- * @param content_ptr Pointer to the the buffer containing the data that should validated and interpreted
+ * @param content_ptr Pointer to the buffer containing the data that should validated and interpreted
  *                      via the container pointer.
  * @param content_size Data buffer size.
  * @return 0 on successful verification. -1 for failure.
