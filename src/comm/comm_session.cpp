@@ -179,7 +179,6 @@ namespace comm
             if (out_msg_queue.try_dequeue(msg_to_send))
             {
                 process_outbound_message(msg_to_send);
-                util::sleep(1);
             }
             else
             {
