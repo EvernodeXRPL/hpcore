@@ -134,7 +134,7 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int apply_ledger(const p2p::proposal &proposal, const uint64_t lcl_seq_no, std::string_view lcl);
+    int apply_ledger(const p2p::proposal &proposal);
 
     void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 

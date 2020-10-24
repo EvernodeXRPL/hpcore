@@ -199,19 +199,9 @@ namespace consensus
 
                     broadcast_proposal(stg_prop);
 
-                    if (ctx.stage == 3)
-                    {
-                        if (apply_ledger(stg_prop, lcl_seq_no, lcl) != -1)
-                        {
-                            // node has finished a consensus round (all 4 stages).
-                            LOG_INFO << "****Stage 3 consensus reached**** (lcl:" << lcl.substr(0, 15)
-                                     << " state:" << ctx.state << ")";
-                        }
-                        else
-                        {
-                            LOG_ERROR << "Error occured in Stage 3 consensus execution.";
-                        }
-                    }
+                    // The node has finished a consensus round (all 4 stages)
+                    if (ctx.stage == 3 && apply_ledger(stg_prop) == -1)
+                        LOG_ERROR << "Error occured in Stage 3 consensus execution.";
                 }
             }
         }
@@ -742,17 +732,22 @@ namespace consensus
      * Finalize the ledger after consensus.
      * @param cons_prop The proposal that reached consensus.
      */
-    int apply_ledger(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
+    int apply_ledger(const p2p::proposal &cons_prop)
     {
         if (ledger::save_ledger(cons_prop) == -1)
             return -1;
+
+        std::string new_lcl = ledger::ctx.get_lcl();
+        const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
+
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << ctx.state << ")";
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
-                if (itr->second.maxledgerseqno <= lcl_seq_no)
+                if (itr->second.maxledgerseqno <= new_lcl_seq_no)
                     ctx.candidate_user_inputs.erase(itr++);
                 else
                     ++itr;
@@ -760,13 +755,13 @@ namespace consensus
         }
 
         // Send any output from the previous consensus round to locally connected users.
-        dispatch_user_outputs(cons_prop, lcl_seq_no, lcl);
+        dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl);
 
         // Execute the contract
         {
             sc::contract_execution_args &args = ctx.contract_ctx.args;
             args.time = cons_prop.time;
-            args.lcl = lcl;
+            args.lcl = new_lcl;
 
             // Populate user bufs.
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
@@ -783,6 +778,7 @@ namespace consensus
 
             sc::clear_args(args);
         }
+
         return 0;
     }
 

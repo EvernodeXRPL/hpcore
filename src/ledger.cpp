@@ -253,7 +253,7 @@ namespace ledger
         flatbuffers::FlatBufferBuilder builder(1024);
         msg::fbuf::ledger::create_ledger_from_proposal(builder, proposal, seq_no);
 
-        // Get binary hash of the the serialized lcl.
+        // Get binary hash of the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
         const std::string lcl = crypto::get_hash(ledger_str_buf);
 
@@ -574,7 +574,7 @@ namespace ledger
                 const size_t pos = ledger.lcl.find("-");
                 const std::string rec_lcl_hash = ledger.lcl.substr((pos + 1), (ledger.lcl.size() - 1));
 
-                // Get binary hash of the the serialized lcl.
+                // Get binary hash of the serialized lcl.
                 const std::string lcl = crypto::get_hash(ledger.raw_ledger.data(), ledger.raw_ledger.size());
 
                 // Get hex from binary hash
