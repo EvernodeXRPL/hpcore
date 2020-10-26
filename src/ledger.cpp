@@ -407,9 +407,11 @@ namespace ledger
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_history_request(fbuf, hr);
-        p2p::send_message_to_random_peer(fbuf);
 
-        LOG_DEBUG << "Ledger history request sent. Required lcl:" << required_lcl.substr(0, 15);
+        std::string target_pubkey;
+        p2p::send_message_to_random_peer(fbuf, target_pubkey);
+
+        LOG_DEBUG << "Ledger history requested from [" << target_pubkey.substr(0, 10) << "]. Required lcl:" << required_lcl.substr(0, 15);
     }
 
     /**

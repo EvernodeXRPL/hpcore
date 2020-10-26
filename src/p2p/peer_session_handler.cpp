@@ -181,13 +181,10 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_State_Response_Message)
         {
-            if (state_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
-            {
-                // Insert state_response with lock.
-                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
-                std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.state_responses.push_back(std::move(response));
-            }
+            // Insert state_response with lock.
+            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
+            std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
+            ctx.collected_msgs.state_responses.push_back(std::move(response));
         }
         else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
         {

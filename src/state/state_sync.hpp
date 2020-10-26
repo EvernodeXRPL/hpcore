@@ -69,7 +69,7 @@ namespace state_sync
     bool should_stop_request_loop(const hpfs::h32 current_target);
 
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                 const hpfs::h32 expected_hash, std::string_view lcl);
+                                 const hpfs::h32 expected_hash, std::string_view lcl, std::string &target_pubkey);
 
     void submit_request(const backlog_item &request, std::string_view lcl);
 
