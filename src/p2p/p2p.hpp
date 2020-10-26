@@ -110,7 +110,8 @@ namespace p2p
         std::list<std::pair<std::string, std::string>> state_requests;
         std::mutex state_requests_mutex; // Mutex for state requests access race conditions.
 
-        std::list<std::string> state_responses;
+        // List of pairs indicating the session pubkey hex and the state responses.
+        std::list<std::pair<std::string, std::string>> state_responses;
         std::mutex state_responses_mutex; // Mutex for state responses access race conditions.
     };
 

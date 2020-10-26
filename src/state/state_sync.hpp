@@ -34,8 +34,8 @@ namespace state_sync
         // The current target state we are syncing towards.
         hpfs::h32 target_state;
 
-        // List of state responses flatbuffer messages to be processed.
-        std::list<std::string> candidate_state_responses;
+        // List of sender pubkeys and state responses(flatbuffer messages) to be processed.
+        std::list<std::pair<std::string, std::string>> candidate_state_responses;
 
         // List of pending sync requests to be sent out.
         std::list<backlog_item> pending_requests;

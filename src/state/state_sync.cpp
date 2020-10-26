@@ -162,7 +162,9 @@ namespace state_sync
                 if (should_stop_request_loop(current_target))
                     return;
 
-                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.data());
+                LOG_DEBUG << "Processing state resposne from [" << response.first.substr(0, 10) << "]";
+
+                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
                 const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
                 // Check whether we are actually waiting for this response. If not, ignore it.
@@ -173,7 +175,7 @@ namespace state_sync
                 const auto pending_resp_itr = ctx.submitted_requests.find(key);
                 if (pending_resp_itr == ctx.submitted_requests.end())
                 {
-                    LOG_DEBUG << "Skipping state response due to hash mismatch.";
+                    LOG_DEBUG << "State sync: Skipping state response due to hash mismatch.";
                     continue;
                 }
 
@@ -289,7 +291,7 @@ namespace state_sync
         std::string target_pubkey;
         request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, target_pubkey);
 
-        LOG_DEBUG << "State sync: Submitted request to [" << target_pubkey.substr(0, 10) << "]. type:" << request.type
+        LOG_DEBUG << "State sync: Requesting from [" << target_pubkey.substr(0, 10) << "]. type:" << request.type
                   << " path:" << request.path << " block_id:" << request.block_id
                   << " hash:" << request.expected_hash;
     }
