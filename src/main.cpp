@@ -68,14 +68,14 @@ int parse_cmd(int argc, char **argv)
  */
 void deinit()
 {
-    consensus::deinit();
-    ledger::deinit();
-    state_sync::deinit();
-    state_serve::deinit();
-    read_req::deinit();
-    sc::deinit();
     usr::deinit();
     p2p::deinit();
+    read_req::deinit();
+    consensus::deinit();
+    state_sync::deinit();
+    state_serve::deinit();
+    sc::deinit();
+    ledger::deinit();
 }
 
 void sigint_handler(int signum)
@@ -192,14 +192,14 @@ int main(int argc, char **argv)
                          << (conf::cfg.startup_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
                 LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
 
-                if (p2p::init() != 0 ||
-                    usr::init() != 0 ||
+                if (ledger::init() ||
                     sc::init() ||
-                    read_req::init() != 0 ||
                     state_serve::init() != 0 ||
                     state_sync::init() != 0 ||
-                    ledger::init() ||
-                    consensus::init() != 0)
+                    consensus::init() != 0 ||
+                    read_req::init() != 0 ||
+                    p2p::init() != 0 ||
+                    usr::init() != 0)
                 {
                     deinit();
                     return -1;
