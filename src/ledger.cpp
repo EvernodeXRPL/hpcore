@@ -333,6 +333,7 @@ namespace ledger
         struct stat st;
         if (fstat(fd, &st) == -1)
         {
+            close(fd);
             LOG_ERROR << errno << ": Error in ledger file stat. " << file_path;
             return -1;
         }
@@ -340,10 +341,12 @@ namespace ledger
         buffer.resize(st.st_size);
         if (read(fd, buffer.data(), buffer.size()) == -1)
         {
+            close(fd);
             LOG_ERROR << errno << ": Error reading ledger file. " << file_path;
             return -1;
         }
 
+        close(fd);
         return 0;
     }
 

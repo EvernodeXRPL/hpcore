@@ -199,10 +199,15 @@ namespace sc
     {
         // In readonly mode, we must start the hpfs process first.
         // In RW mode, there is a global hpfs RW process so we only need to create an fs session.
-        if (ctx.args.readonly && hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.state_dir, true, false, false) == -1)
-            return -1;
+        if (ctx.args.readonly)
+        {
+            if (hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.state_dir, true, false, false) == -1)
+                return -1;
+        }
         else
+        {
             ctx.hpfs_pid = hpfs_rw_pid;
+        }
 
         if (hpfs::start_fs_session(ctx.args.state_dir) == -1)
             return -1;
@@ -222,13 +227,13 @@ namespace sc
 
         LOG_DEBUG << "Stopping hpfs contract session..." << (ctx.args.readonly ? " (rdonly)" : "");
 
-        // In readonly mode, we must also stop the hpfs process itself.
-        // In RW mode, we only need to stop the fs session and let the RW process keep running.
-        if (ctx.args.readonly && util::kill_process(ctx.hpfs_pid, true) == -1)
-            result = -1;
-
         if (hpfs::stop_fs_session(ctx.args.state_dir) == -1)
             return -1;
+
+        // In readonly mode, we must also stop the hpfs process itself after sopping the session.
+        // In RW mode, we only need to stop the fs session and let the process keep running.
+        if (ctx.args.readonly && util::kill_process(ctx.hpfs_pid, true) == -1)
+            result = -1;
 
         ctx.hpfs_pid = 0;
         return result;
@@ -310,6 +315,7 @@ namespace sc
         // Write the json message and close write fd.
         if (write(stdinpipe[1], json.data(), json.size()) == -1)
         {
+            close(stdinpipe[1]);
             LOG_ERROR << errno << ": Failed to write to stdin of contract process.";
             return -1;
         }
