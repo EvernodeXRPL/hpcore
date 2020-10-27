@@ -125,7 +125,7 @@ namespace p2p
                     session.challenge_status = comm::CHALLENGE_VERIFIED;
 
                     ex_session.mark_for_closure();
-                    p2p::ctx.peer_connections.erase(iter);                             // remove existing session.
+                    p2p::ctx.peer_connections.erase(iter); // remove existing session.
                     // We have to keep the weekly connected status of the removed session object.
                     // If not, connected status received prior to connection dropping will be lost.
                     session.is_weakly_connected = ex_session.is_weakly_connected;
@@ -245,8 +245,9 @@ namespace p2p
     /**
  * Sends the given message to a random peer (except self).
  * @param fbuf Peer outbound message to be sent to peer.
+ * @param target_pubkey Randomly selected target peer pubkey.
  */
-    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf)
+    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey)
     {
         //Send while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -278,6 +279,7 @@ namespace p2p
                     reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
                 session->send(msg);
+                target_pubkey = session->uniqueid;
                 break;
             }
         }

@@ -173,7 +173,6 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
-
             // Insert request with lock.
             std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
             std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
@@ -186,7 +185,7 @@ namespace p2p
                 // Insert state_response with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
                 std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.state_responses.push_back(std::move(response));
+                ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
             }
         }
         else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message

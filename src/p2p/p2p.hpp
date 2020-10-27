@@ -110,7 +110,8 @@ namespace p2p
         std::list<std::pair<std::string, std::string>> state_requests;
         std::mutex state_requests_mutex; // Mutex for state requests access race conditions.
 
-        std::list<std::string> state_responses;
+        // List of pairs indicating the session pubkey hex and the state responses.
+        std::list<std::pair<std::string, std::string>> state_responses;
         std::mutex state_responses_mutex; // Mutex for state responses access race conditions.
     };
 
@@ -143,7 +144,7 @@ namespace p2p
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
-    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf);
+    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey);
 
     bool validate_for_peer_msg_forwarding(const comm::comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 

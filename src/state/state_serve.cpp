@@ -89,7 +89,12 @@ namespace state_serve
                     // because the requester would have stopped waiting for us.
                     const uint64_t time_now = util::get_epoch_milliseconds();
                     if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
+                    {
+                        LOG_DEBUG << "State serve batch timeout. Abandonding state requests.";
                         break;
+                    }
+
+                    LOG_DEBUG << "Serving state request from [" << session_id.substr(0, 10) << "]";
 
                     const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
 

@@ -119,7 +119,7 @@ namespace state_sync
                         }
                     }
                 }
-                
+
                 hpfs::stop_fs_session(ctx.hpfs_mount_dir);
             }
             else
@@ -162,7 +162,9 @@ namespace state_sync
                 if (should_stop_request_loop(current_target))
                     return;
 
-                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.data());
+                LOG_DEBUG << "Processing state resposne from [" << response.first.substr(0, 10) << "]";
+
+                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
                 const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
 
                 // Check whether we are actually waiting for this response. If not, ignore it.
@@ -173,7 +175,7 @@ namespace state_sync
                 const auto pending_resp_itr = ctx.submitted_requests.find(key);
                 if (pending_resp_itr == ctx.submitted_requests.end())
                 {
-                    LOG_DEBUG << "Skipping state response due to hash mismatch.";
+                    LOG_DEBUG << "State sync: Skipping state response due to hash mismatch.";
                     continue;
                 }
 
@@ -260,9 +262,10 @@ namespace state_sync
      * @param is_file Whether the requested path if a file or dir.
      * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
      * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
+     * @param target_pubkey The peer pubkey the request was submitted to.
      */
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                 const hpfs::h32 expected_hash, std::string_view lcl)
+                                 const hpfs::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
     {
         p2p::state_request sr;
         sr.parent_path = path;
@@ -272,7 +275,7 @@ namespace state_sync
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
         msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, sr, lcl);
-        p2p::send_message_to_random_peer(fbuf); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
+        p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
     }
 
     /**
@@ -280,16 +283,17 @@ namespace state_sync
      */
     void submit_request(const backlog_item &request, std::string_view lcl)
     {
-        LOG_DEBUG << "State sync: Submitting request. type:" << request.type
-                  << " path:" << request.path << " block_id:" << request.block_id
-                  << " hash:" << request.expected_hash;
-
         const std::string key = std::string(request.path)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(hpfs::h32));
         ctx.submitted_requests.try_emplace(key, request);
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
-        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl);
+        std::string target_pubkey;
+        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, target_pubkey);
+
+        LOG_DEBUG << "State sync: Requesting from [" << target_pubkey.substr(0, 10) << "]. type:" << request.type
+                  << " path:" << request.path << " block_id:" << request.block_id
+                  << " hash:" << request.expected_hash;
     }
 
     /**
