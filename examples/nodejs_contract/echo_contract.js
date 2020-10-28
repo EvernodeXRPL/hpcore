@@ -20,6 +20,8 @@ Object.keys(hpc.users).forEach(async (key) => {
         else
             user.sendOutput("Echoing: " + userInput);
     }
+    // Close channel after reading.
+    user.closeChannel();
 });
 
 const npl = hpc.npl;
@@ -29,6 +31,19 @@ const npl = hpc.npl;
 if (npl) {
     npl.closeNplChannel();
 }
+
+// HP <--> SC
+const hp = hpc.control;
+hp.closeControlChannel();
+
+// let i = 0;
+// hp.events.on('message', (msg) => {
+//     console.log('control msg - ' + msg);
+//     hp.sendOutput(msg);
+//     i++;
+//     if (i == 2)
+//         hp.closeControlChannel();
+// })
 
 // Npl message sending and receiving template.
 // if (npl) {

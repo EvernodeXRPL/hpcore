@@ -1,7 +1,7 @@
 const fs = require('fs');
 const events = require('events');
 
-MAX_NPL_BUF_SIZE = 128*1024;
+MAX_NPL_BUF_SIZE = 128 * 1024;
 
 function HotPocketContract() {
     const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
@@ -18,53 +18,73 @@ function HotPocketContract() {
         this.npl = new HotPocketNplChannel(hpargs.nplfd);
     }
 
+    this.control = new HotPocketControlChannel(hpargs.hpfd);
+
     this.users = {};
     Object.keys(hpargs.usrfd).forEach((userPubKey) => {
-        const userfds = hpargs.usrfd[userPubKey];
-        this.users[userPubKey] = new HotPocketChannel(userfds[0], userfds[1]);
+        this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey]);
     });
 }
 
-// Helper function to asynchronously read a stream to the end and fill a buffer.
-const drainStream = function (stream) {
-
-    return new Promise((resolve) => {
-
-        const dataParts = [];
-
-        const resolveBuffer = function () {
-            if (dataParts.length > 0)
-                return resolve(Buffer.concat(dataParts));
-            else
-                return resolve(null);
-        }
-
-        stream.on("data", d => {
-            dataParts.push(d);
-        });
-        stream.on('end', resolveBuffer);
-        stream.on("close", resolveBuffer);
-        stream.on("error", () => {
-            resolve(null);
-        });
-    });
-}
-
-function HotPocketChannel(infd, outfd) {
+function HotPocketChannel(fd) {
+    let socket = null;
     this.readInput = function () {
         return new Promise((resolve) => {
-            if (infd == -1) {
+            if (fd == -1) {
                 resolve(null);
             }
             else {
-                const s = fs.createReadStream(null, { fd: infd });
-                drainStream(s).then(buf => resolve(buf));
+                socket = fs.createReadStream(null, { fd: fd, highWaterMark: 5 });
+                const dataParts = [];
+                let msgLen = -1;
+                let bytesRead = 0;
+                socket.on("data", (buf) => {
+                    if (msgLen == -1) {
+                        // First two bytes indicate the message len.
+                        const msgLenBuf = readBytes(buf, 0, 2);
+                        if (!msgLenBuf) {
+                            resolve(null);
+                        }
+                        msgLen = msgLenBuf.readUInt16BE();
+                        const msgBuf = readBytes(buf, 2, buf.byteLength - 2);
+                        dataParts.push(msgBuf)
+                        bytesRead = msgBuf.byteLength;
+                    } else {
+                        dataParts.push(buf);
+                        bytesRead += buf.length;
+                    }
+                    if (bytesRead == msgLen) {
+                        msgLen == -1;
+                        resolve(Buffer.concat(dataParts));
+                    }
+                });
+
+                socket.on("close", () => {
+                    this.closeChannel()
+                    resolve(null);
+                });
+                socket.on("error", () => {
+                    resolve(null);
+                })
             }
         });
     }
 
+    // Read bytes from the given buffer.
+    const readBytes = function (buf, pos, count) {	
+        if (pos + count > buf.byteLength)	
+            return null;	
+        return buf.slice(pos, pos + count);	
+    }
+
     this.sendOutput = function (output) {
-        fs.writeFileSync(outfd, output);
+        fs.writeFileSync(fd, output);
+    }
+
+    this.closeChannel = function () {
+        if (fd > 0) {
+            socket.destroy();
+        }
     }
 }
 
@@ -78,7 +98,7 @@ function HotPocketNplChannel(fd) {
         // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
         // and then the message, First data buffer is taken as pubkey and the second one as message,
         // then npl message object is constructed and the event is emmited.
-        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_NPL_BUF_SIZE});
+        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_NPL_BUF_SIZE });
         socket.on("data", d => {
             if (!isPubKeyReceived) {
                 pubKey = d.toString('hex');
@@ -105,6 +125,34 @@ function HotPocketNplChannel(fd) {
     }
 
     this.closeNplChannel = () => {
+        if (fd > 0) {
+            socket.destroy();
+        }
+    }
+}
+
+function HotPocketControlChannel(fd) {
+
+    this.events = new events.EventEmitter();
+    let socket = null;
+    if (fd > 0) {
+        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_NPL_BUF_SIZE });
+        socket.on("data", d => {
+            this.events.emit("message", d);
+        });
+         
+        socket.on("error", (e) => {
+            this.events.emit("error", e);
+        });
+    }
+
+    this.sendOutput = (output) => {
+        if (fd > 0) {
+            fs.writeSync(fd, output);
+        }
+    }
+
+    this.closeControlChannel = () => {
         if (fd > 0) {
             socket.destroy();
         }

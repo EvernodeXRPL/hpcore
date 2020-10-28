@@ -9,7 +9,7 @@
 
 namespace sc
 {
-    const int MAX_NPL_BUF_SIZE = 128 * 1024;
+    const int MAX_SEQ_PACKET_BUF_SIZE = 128 * 1024;
     bool init_success = false;
 
     // We maintain two hpfs global processes for merging and rw sessions.
@@ -62,13 +62,14 @@ namespace sc
         if (start_hpfs_session(ctx) == -1)
             return -1;
 
-        // Setup io pipes and feed all inputs to them.
-        create_iopipes_for_fdmap(ctx.userfds, ctx.args.userbufs);
+        // Setup io sockets and feed all inputs to them.
+        create_iosockets_for_fdmap(ctx.userfds, ctx.args.userbufs);
 
         if (!ctx.args.readonly)
         {
-            create_iosockets(ctx.nplfds);
-            create_iopipes(ctx.hpscfds, !ctx.args.hpscbufs.inputs.empty());
+            // create sequential packet sockets for npl and hp messages.
+            create_iosockets(ctx.nplfds, SOCK_SEQPACKET);
+            create_iosockets(ctx.hpscfds, SOCK_SEQPACKET);
         }
 
         int ret = 0;
@@ -269,8 +270,8 @@ namespace sc
         if (!ctx.args.readonly)
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
-               << "\",\"hpfd\":[" << ctx.hpscfds[FDTYPE::SCREAD] << "," << ctx.hpscfds[FDTYPE::SCWRITE]
-               << "],\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE];
+               << "\",\"hpfd\":" << ctx.hpscfds[SOCKETFDTYPE::SCREADWRITE]
+               << ",\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE];
         }
 
         os << ",\"usrfd\":{";
@@ -389,7 +390,7 @@ namespace sc
      */
     int write_contract_hp_inputs(execution_context &ctx)
     {
-        if (write_iopipe(ctx.hpscfds, ctx.args.hpscbufs.inputs) == -1)
+        if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
         {
             LOG_ERROR << "Error writing HP inputs to SC";
             return -1;
@@ -445,7 +446,7 @@ namespace sc
      */
     int read_contract_hp_outputs(execution_context &ctx)
     {
-        const int hpsc_res = read_iopipe(ctx.hpscfds, ctx.args.hpscbufs.output);
+        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.output);
         if (hpsc_res == -1)
         {
             LOG_ERROR << "Error reading HP output from the contract.";
@@ -463,7 +464,7 @@ namespace sc
     int read_contract_npl_outputs(execution_context &ctx)
     {
         std::string output;
-        const int npl_res = read_iosocket(ctx.nplfds, output);
+        const int npl_res = read_iosocket_seq_packet(ctx.nplfds, output);
 
         if (npl_res == -1)
         {
@@ -514,24 +515,23 @@ namespace sc
                 pubkey.length() - 1);
 
             // Write  hex pubkey and fds.
-            os << "\"" << pubkeyhex << "\":["
-               << itr->second[FDTYPE::SCREAD] << ","
-               << itr->second[FDTYPE::SCWRITE] << "]";
+            os << "\"" << pubkeyhex << "\":"
+               << itr->second[SOCKETFDTYPE::SCREADWRITE];
         }
     }
 
     /**
-     * Creates io pipes for all pubkeys specified in bufmap.
+     * Creates io sockets for all pubkeys specified in bufmap.
      * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
      * @param bufmap A map which has a public key and input/output buffer lists for that public key.
      * @return 0 on success. -1 on failure.
      */
-    int create_iopipes_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
+    int create_iosockets_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
     {
         for (auto &[pubkey, buflist] : bufmap)
         {
             std::vector<int> fds = std::vector<int>();
-            if (create_iopipes(fds, !buflist.inputs.empty()) == -1)
+            if (create_iosockets(fds, SOCK_STREAM) == -1)
                 return -1;
 
             fdmap.emplace(pubkey, std::move(fds));
@@ -541,7 +541,7 @@ namespace sc
     }
 
     /**
-     * Common function to create the pipes and write buffer inputs to the fdmap.
+     * Common function to create the sockets and write buffer inputs to the fdmap.
      * We take mutable parameters since the internal entries in the maps will be
      * modified (eg. fd close, buffer clear).
      * 
@@ -554,7 +554,7 @@ namespace sc
         // Loop through input buffers for each pubkey.
         for (auto &[pubkey, buflist] : bufmap)
         {
-            if (write_iopipe(fdmap[pubkey], buflist.inputs) == -1)
+            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
                 return -1;
         }
 
@@ -577,7 +577,7 @@ namespace sc
             // Get fds for the pubkey.
             std::vector<int> &fds = fdmap[pubkey];
 
-            const int res = read_iopipe(fds, bufpair.output);
+            const int res = read_iosocket_stream(fds, bufpair.output);
             if (res == -1)
                 return -1;
 
@@ -636,13 +636,14 @@ namespace sc
     /**
      * Common function to create a socket (Hp->SC, SC->HP).
      * @param fds Vector to populate fd list.
+     * @param socket_type Type of the socket. (SOCK_STREAM, SOCK_DGRAM, SOCK_SEQPACKET)
      * @return Returns -1 if socket creation fails otherwise 0.
      */
-    int create_iosockets(std::vector<int> &fds)
+    int create_iosockets(std::vector<int> &fds, int socket_type)
     {
         int socket[2] = {-1, -1};
-        // Create a sequence packet socket.
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, socket) == -1)
+        // Create the socket of given type.
+        if (socketpair(AF_UNIX, socket_type, 0, socket) == -1)
         {
             return -1;
         }
@@ -696,6 +697,87 @@ namespace sc
     }
 
     /**
+     * Common function to write the given input buffer into the write fd from the HP side socket.
+     * @param fds Vector of fd list.
+     * @param inputs Buffer to write into the HP write fd.
+     * @param close_if_empty Close the socket after writing if this is true.
+     */
+    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, bool close_if_empty)
+    {
+        // Write the inputs (if any) into the contract and close the writefd.
+
+        const int writefd = fds[SOCKETFDTYPE::HPREADWRITE];
+        if (writefd == -1)
+            return 0;
+
+        bool write_error = false;
+
+        if (!inputs.empty())
+        {
+            // Prepare the input memory segments to write with wrtiev.
+            iovec memsegs[2];
+            std::string msg_buf;
+            for (std::string &input : inputs)
+            {
+                // Concat messages into one message segment.
+                msg_buf += input;
+            }
+            // Storing message len in big endian.
+            uint8_t header[2];
+            header[0] = msg_buf.length() >> 8;
+            header[1] = msg_buf.length();
+            memsegs[0].iov_base = header;
+            memsegs[0].iov_len = sizeof(header);
+            memsegs[1].iov_base = msg_buf.data();
+            memsegs[1].iov_len = msg_buf.length();
+
+            if (writev(writefd, memsegs, 2) == -1)
+                write_error = true;
+
+            inputs.clear();
+        }
+        else if (close_if_empty)
+        {
+            close(writefd);
+            fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        }
+
+        return write_error ? -1 : 0;
+    }
+
+    /**
+     * Common function to write the given input buffer into the write fd from the HP side socket.
+     * @param fds Vector of fd list.
+     * @param inputs Buffer to write into the HP write fd.
+     * @param close_if_empty Close the socket after writing if this is true.
+     */
+    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs, bool close_if_empty)
+    {
+        // Write the inputs (if any) into the contract.
+        const int writefd = fds[SOCKETFDTYPE::HPREADWRITE];
+        if (writefd == -1)
+            return 0;
+
+        bool write_error = false;
+
+        if (!inputs.empty())
+        {
+            for (std::string &input : inputs)
+            {
+                if (write(writefd, input.data(), input.length()) == -1)
+                    write_error = true;
+            }
+        }
+        else if (close_if_empty)
+        {
+            close(writefd);
+            fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        }
+
+        return write_error ? -1 : 0;
+    }
+
+    /**
      * Common function to read buffered output from the pipe and populate the output list.
      * @param fds Vector representing the pipes fd list.
      * @param output The buffer to place the read output.
@@ -739,12 +821,12 @@ namespace sc
     }
 
     /**
-     * Common function to read buffered output from the socket and populate the output.
+     * Common function to read buffered output from the sequence packet socket and populate the output.
      * @param fds Vector representing the socket fd list.
      * @param output The buffer to place the read output.
      * @return -1 on error. Otherwise no. of bytes read.
      */
-    int read_iosocket(std::vector<int> &fds, std::string &output)
+    int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output)
     {
         // Read any available data that have been written by the contract process
         // from the output socket and store in the output buffer.
@@ -762,11 +844,56 @@ namespace sc
             if (available_bytes == 0)
                 return 0;
 
-            output.resize(MAX_NPL_BUF_SIZE);
-            const int res = read(readfd, output.data(), MAX_NPL_BUF_SIZE);
+            output.resize(MAX_SEQ_PACKET_BUF_SIZE);
+            const int res = read(readfd, output.data(), MAX_SEQ_PACKET_BUF_SIZE);
             output.resize(res);
 
             return res;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Common function to read buffered output from the stream socket and populate the output list.
+     * @param fds Vector representing the pipes fd list.
+     * @param output The buffer to place the read output.
+     * @return -1 on error. Otherwise no. of bytes read.
+     */
+    int read_iosocket_stream(std::vector<int> &fds, std::string &output)
+    {
+        // Read any available data that have been written by the contract process
+        // from the output socket and store in the output buffer.
+        // Outputs will be read by the consensus process later when it wishes so.
+
+        const int readfd = fds[SOCKETFDTYPE::HPREADWRITE];
+        if (readfd == -1)
+            return 0;
+
+        bool read_error = false;
+        size_t available_bytes = 0;
+        if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
+        {
+            if (available_bytes == 0)
+            {
+                return 0;
+            }
+
+            const size_t current_size = output.size();
+            output.resize(current_size + available_bytes);
+            const int res = read(readfd, output.data() + current_size, available_bytes);
+
+            if (res >= 0)
+            {
+                // Close the socket connection if all the availabe bytes are finished reading.
+                // This is safe since writing happens prior to reading.
+                if (res == available_bytes)
+                {
+                    close(readfd);
+                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                }
+                return res;
+            }
         }
 
         return -1;
@@ -776,13 +903,13 @@ namespace sc
     {
         if (!ctx.args.readonly)
         {
-            close_unused_vectorfds(is_hp, ctx.hpscfds);
+            close_unused_socket_vectorfds(is_hp, ctx.hpscfds);
             close_unused_socket_vectorfds(is_hp, ctx.nplfds);
         }
 
         // Loop through user fds.
         for (auto &[pubkey, fds] : ctx.userfds)
-            close_unused_vectorfds(is_hp, fds);
+            close_unused_socket_vectorfds(is_hp, fds);
     }
 
     /**
