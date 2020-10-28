@@ -327,11 +327,11 @@ namespace sc
 
     int feed_inputs(execution_context &ctx)
     {
-        // Write any input messages to hp->sc pipe.
+        // Write any input messages to hp->sc socket.
         if (!ctx.args.readonly && write_contract_hp_inputs(ctx) == -1)
             return -1;
 
-        // Write any verified (consensus-reached) user inputs to user pipes.
+        // Write any verified (consensus-reached) user inputs to user sockets.
         if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) == -1)
         {
             LOG_ERROR << "Failed to write user inputs to contract.";
@@ -601,39 +601,6 @@ namespace sc
     }
 
     /**
-     * Common function to create a pair of pipes (Hp->SC, SC->HP).
-     * @param fds Vector to populate fd list.
-     * @param create_inpipe Whether to create the input pipe from HP to SC.
-     */
-    int create_iopipes(std::vector<int> &fds, const bool create_inpipe)
-    {
-        int inpipe[2] = {-1, -1};
-        if (create_inpipe && pipe(inpipe) == -1)
-            return -1;
-
-        int outpipe[2] = {-1, -1};
-        if (pipe(outpipe) == -1)
-        {
-            if (create_inpipe)
-            {
-                // Close the earlier created pipe.
-                close(inpipe[0]);
-                close(inpipe[1]);
-            }
-            return -1;
-        }
-
-        // If both pipes got created, assign them to the fd vector.
-        fds.clear();
-        fds.push_back(inpipe[0]);  //SCREAD
-        fds.push_back(inpipe[1]);  //HPWRITE
-        fds.push_back(outpipe[0]); //HPREAD
-        fds.push_back(outpipe[1]); //SCWRITE
-
-        return 0;
-    }
-
-    /**
      * Common function to create a socket (Hp->SC, SC->HP).
      * @param fds Vector to populate fd list.
      * @param socket_type Type of the socket. (SOCK_STREAM, SOCK_DGRAM, SOCK_SEQPACKET)
@@ -654,46 +621,6 @@ namespace sc
         fds.push_back(socket[1]); //HPREADWRITE
 
         return 0;
-    }
-
-    /**
-     * Common function to write the given input buffer into the write fd from the HP side.
-     * @param fds Vector of fd list.
-     * @param inputs Buffer to write into the HP write fd.
-     */
-    int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs)
-    {
-        // Write the inputs (if any) into the contract and close the writefd.
-
-        const int writefd = fds[FDTYPE::HPWRITE];
-        if (writefd == -1)
-            return 0;
-
-        bool write_error = false;
-
-        if (!inputs.empty())
-        {
-            // Prepare the input memory segments to write with wrtiev.
-            size_t i = 0;
-            iovec memsegs[inputs.size()];
-            for (std::string &input : inputs)
-            {
-                memsegs[i].iov_base = input.data();
-                memsegs[i].iov_len = input.length();
-                i++;
-            }
-
-            if (writev(writefd, memsegs, inputs.size()) == -1)
-                write_error = true;
-
-            inputs.clear();
-        }
-
-        // Close the writefd since we no longer need it.
-        close(writefd);
-        fds[FDTYPE::HPWRITE] = -1;
-
-        return write_error ? -1 : 0;
     }
 
     /**
@@ -778,49 +705,6 @@ namespace sc
     }
 
     /**
-     * Common function to read buffered output from the pipe and populate the output list.
-     * @param fds Vector representing the pipes fd list.
-     * @param output The buffer to place the read output.
-     * @return -1 on error. Otherwise no. of bytes read.
-     */
-    int read_iopipe(std::vector<int> &fds, std::string &output)
-    {
-        // Read any available data that have been written by the contract process
-        // from the output pipe and store in the output buffer.
-        // Outputs will be read by the consensus process later when it wishes so.
-
-        const int readfd = fds[FDTYPE::HPREAD];
-        if (readfd == -1)
-            return 0;
-
-        bool read_error = false;
-        size_t available_bytes = 0;
-        if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
-        {
-            if (available_bytes == 0)
-                return 0;
-
-            const size_t current_size = output.size();
-            output.resize(current_size + available_bytes);
-            const int res = read(readfd, output.data() + current_size, available_bytes);
-
-            if (res >= 0)
-            {
-                if (res == 0) // EOF
-                {
-                    close(readfd);
-                    fds[FDTYPE::HPREAD] = -1;
-                }
-                return res;
-            }
-        }
-
-        close(readfd);
-        fds[FDTYPE::HPREAD] = -1;
-        return -1;
-    }
-
-    /**
      * Common function to read buffered output from the sequence packet socket and populate the output.
      * @param fds Vector representing the socket fd list.
      * @param output The buffer to place the read output.
@@ -856,7 +740,7 @@ namespace sc
 
     /**
      * Common function to read buffered output from the stream socket and populate the output list.
-     * @param fds Vector representing the pipes fd list.
+     * @param fds Vector representing the sockets fd list.
      * @param output The buffer to place the read output.
      * @return -1 on error. Otherwise no. of bytes read.
      */
@@ -910,37 +794,6 @@ namespace sc
         // Loop through user fds.
         for (auto &[pubkey, fds] : ctx.userfds)
             close_unused_socket_vectorfds(is_hp, fds);
-    }
-
-    /**
-     * Common function for closing unused fds based on which process this gets called from.
-     * This also marks active fds with O_CLOEXEC for close-on-exec behaviour.
-     * @param is_hp Specify 'true' when calling from HP process. 'false' from SC process.
-     * @param fds Vector of fds to close.
-     */
-    void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds)
-    {
-        for (int fd_type = 0; fd_type <= 3; fd_type++)
-        {
-            const int fd = fds[fd_type];
-            if (fd != -1)
-            {
-                if ((is_hp && (fd_type == FDTYPE::SCREAD || fd_type == FDTYPE::SCWRITE)) ||
-                    (!is_hp && (fd_type == FDTYPE::HPREAD || fd_type == FDTYPE::HPWRITE)))
-                {
-                    close(fd);
-                    fds[fd_type] = -1;
-                }
-                else if (is_hp && (fd_type == FDTYPE::HPREAD || fd_type == FDTYPE::HPWRITE))
-                {
-                    // The fd must be kept open in HP process. But we must
-                    // mark it to close on exec in a potential forked process.
-                    int flags = fcntl(fd, F_GETFD, NULL);
-                    flags |= FD_CLOEXEC;
-                    fcntl(fd, F_SETFD, flags);
-                }
-            }
-        }
     }
 
     /**

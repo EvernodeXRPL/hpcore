@@ -13,19 +13,6 @@
 namespace sc
 {
 
-    // Enum used to differenciate pipe fds maintained for SC I/O pipes.
-    enum FDTYPE
-    {
-        // Used by Smart Contract to read input sent by Hot Pocket.
-        SCREAD = 0,
-        // Used by Hot Pocket to write input to the smart contract.
-        HPWRITE = 1,
-        // Used by Hot Pocket to read output from the smart contract.
-        HPREAD = 2,
-        // Used by Smart Contract to write output back to Hot Pocket.
-        SCWRITE = 3
-    };
-
     // Enum used to differenciate socket fds maintained for SC socket.
     enum SOCKETFDTYPE
     {
@@ -163,25 +150,17 @@ namespace sc
 
     void cleanup_fdmap(contract_fdmap_t &fdmap);
 
-    int create_iopipes(std::vector<int> &fds, const bool create_inpipe);
-
     int create_iosockets(std::vector<int> &fds, int socket_type);
-
-    int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
 
     int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs,  bool close_if_empty);
 
     int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, bool close_if_empty);
-
-    int read_iopipe(std::vector<int> &fds, std::string &output);
 
     int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output);
 
     int read_iosocket_stream(std::vector<int> &fds, std::string &output);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
-
-    void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds);
 
     void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds);
 
