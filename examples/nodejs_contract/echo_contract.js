@@ -12,16 +12,18 @@ if (!hpc.readonly)
 Object.keys(hpc.users).forEach(async (key) => {
 
     const user = hpc.users[key];
+    // user.closeChannel();
     const inputBuf = await user.readInput();
-    if (inputBuf) {
-        const userInput = inputBuf.toString("utf8");
-        if (userInput == "ts")
-            user.sendOutput(fs.readFileSync("exects.txt"));
-        else
-            user.sendOutput("Echoing: " + userInput);
-    }
+    // if (inputBuf) {
+    //     const userInput = inputBuf.toString("utf8");
+    //     if (userInput == "ts")
+    //         user.sendOutput(fs.readFileSync("exects.txt"));
+    //     else {
+    //         user.sendOutput("Echoing: " + userInput);
+    //         console.log('received data len -> ' + userInput.length)
+    //     }
+    // }
     // Close channel after reading.
-    user.closeChannel();
 });
 
 const npl = hpc.npl;
@@ -63,5 +65,8 @@ hp.closeControlChannel();
 //         }
 //     });
 // }
+// setTimeout(() => {
+//     hpc.control.sendOutput("Close all channels");
+// }, 3000);
 
 //console.log("===Echo contract ended===");

@@ -22,11 +22,12 @@ function HotPocketContract() {
 
     this.users = {};
     Object.keys(hpargs.usrfd).forEach((userPubKey) => {
-        this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey]);
+        // this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey], this.control);
+        fs.closeSync(hpargs.usrfd[userPubKey])
     });
 }
 
-function HotPocketChannel(fd) {
+function HotPocketChannel(fd, control) {
     let socket = null;
     this.readInput = function () {
         return new Promise((resolve) => {
@@ -34,19 +35,20 @@ function HotPocketChannel(fd) {
                 resolve(null);
             }
             else {
-                socket = fs.createReadStream(null, { fd: fd });
+                socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
                 const dataParts = [];
                 let msgLen = -1;
                 let bytesRead = 0;
                 socket.on("data", (buf) => {
                     if (msgLen == -1) {
                         // First two bytes indicate the message len.
-                        const msgLenBuf = readBytes(buf, 0, 2);
+                        const msgLenBuf = readBytes(buf, 0, 4);
                         if (!msgLenBuf) {
                             resolve(null);
                         }
-                        msgLen = msgLenBuf.readUInt16BE();
-                        const msgBuf = readBytes(buf, 2, buf.byteLength - 2);
+                        msgLen = msgLenBuf.readUInt32BE();
+                        console.log("message len sc -> " + msgLen);
+                        const msgBuf = readBytes(buf, 4, buf.byteLength - 4);
                         dataParts.push(msgBuf)
                         bytesRead = msgBuf.byteLength;
                     } else {
@@ -60,7 +62,7 @@ function HotPocketChannel(fd) {
                 });
 
                 socket.on("close", () => {
-                    this.closeChannel()
+                    // this.closeChannel()
                     resolve(null);
                 });
                 socket.on("error", () => {
@@ -71,19 +73,27 @@ function HotPocketChannel(fd) {
     }
 
     // Read bytes from the given buffer.
-    const readBytes = function (buf, pos, count) {	
-        if (pos + count > buf.byteLength)	
-            return null;	
-        return buf.slice(pos, pos + count);	
+    const readBytes = function (buf, pos, count) {
+        if (pos + count > buf.byteLength)
+            return null;
+        return buf.slice(pos, pos + count);
     }
 
     this.sendOutput = function (output) {
-        fs.writeFileSync(fd, output);
+        // fs.write(fd, output, (err, num, buf) => {
+        //     this.closeChannel()
+        // });
+        fs.writeSync(fd, output);
+        this.closeChannel();
     }
 
     this.closeChannel = function () {
         if (fd > 0) {
+            // console.log("socket closed")
             socket.destroy();
+            // control.closeControlChannel();
+            // console.log("Finish data writing")
+            // control.sendOutput("Close user");
         }
     }
 }
@@ -140,7 +150,7 @@ function HotPocketControlChannel(fd) {
         socket.on("data", d => {
             this.events.emit("message", d);
         });
-         
+
         socket.on("error", (e) => {
             this.events.emit("error", e);
         });

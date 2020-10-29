@@ -446,12 +446,31 @@ namespace sc
      */
     int read_contract_hp_outputs(execution_context &ctx)
     {
-        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.output);
+        std::string output;
+        // const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.output);
+        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, output);
+        if (output == "Close all channels")
+        {
+            cleanup_vectorfds(ctx.hpscfds);
+        }
+        if (output == "Close user")
+        {
+            // cleanup_fdmap(ctx.userfds);
+            // cleanup_fdmap(ctx.userfds);
+            // sleep(3);
+            for (auto &[pubkey, fds] : ctx.userfds)
+            {
+                close(fds[SOCKETFDTYPE::HPREADWRITE]);
+                fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+            }
+        }
         if (hpsc_res == -1)
         {
             LOG_ERROR << "Error reading HP output from the contract.";
             return -1;
         }
+        if (hpsc_res > 0)
+            LOG_INFO << "control len " << hpsc_res << " msg : " << output;
 
         return (hpsc_res == 0) ? 0 : 1;
     }
@@ -554,7 +573,16 @@ namespace sc
         // Loop through input buffers for each pubkey.
         for (auto &[pubkey, buflist] : bufmap)
         {
-            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
+            char buf[1024 * 1024];
+            memset(buf, 'a', sizeof(buf));
+            std::string s(buf);
+            // s.at((64*1024) - 1);
+            std::list<std::string> list;
+            list.push_back(s);
+            list.push_back(s);
+            list.push_back(s);
+            if (write_iosocket_stream(fdmap[pubkey], list, true) == -1)
+            // if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
                 return -1;
         }
 
@@ -650,13 +678,17 @@ namespace sc
                 msg_buf += input;
             }
             // Storing message len in big endian.
-            uint8_t header[2];
-            header[0] = msg_buf.length() >> 8;
-            header[1] = msg_buf.length();
+            uint8_t header[4];
+            header[0] = msg_buf.length() >> 24;
+            header[1] = msg_buf.length() >> 16;
+            header[2] = msg_buf.length() >> 8;
+            header[3] = msg_buf.length();
             memsegs[0].iov_base = header;
             memsegs[0].iov_len = sizeof(header);
             memsegs[1].iov_base = msg_buf.data();
             memsegs[1].iov_len = msg_buf.length();
+
+            LOG_INFO << "message len hp -> " << msg_buf.length();
 
             if (writev(writefd, memsegs, 2) == -1)
                 write_error = true;
@@ -758,6 +790,25 @@ namespace sc
         size_t available_bytes = 0;
         if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
         {
+            struct pollfd pfd = {
+                .fd = readfd,
+                .events = 0,
+            };
+
+            if (poll(&pfd, 1, 1) < 0)
+            {
+                return -1;
+            }
+
+            std::cout << "Close status : " << pfd.revents << ", " << POLLHUP << ", " << errno << std::endl;
+
+            if (pfd.revents & POLLHUP)
+            {
+                close(readfd);
+                fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                return 0;
+            }
+            LOG_INFO << "available bytes " << available_bytes;
             if (available_bytes == 0)
             {
                 return 0;
@@ -765,20 +816,25 @@ namespace sc
 
             const size_t current_size = output.size();
             output.resize(current_size + available_bytes);
+            LOG_INFO << "reading..";
             const int res = read(readfd, output.data() + current_size, available_bytes);
+            LOG_INFO << "res read = " << res;
 
             if (res >= 0)
             {
-                // Close the socket connection if all the availabe bytes are finished reading.
-                // This is safe since writing happens prior to reading.
-                if (res == available_bytes)
+                if (res == 0)
                 {
                     close(readfd);
                     fds[SOCKETFDTYPE::HPREADWRITE] = -1;
                 }
+                // Close the socket connection if all the availabe bytes are finished reading.
+                // This is safe since writing happens prior to reading.
                 return res;
             }
         }
+
+        close(readfd);
+        fds[SOCKETFDTYPE::HPREADWRITE] = -1;
 
         return -1;
     }
