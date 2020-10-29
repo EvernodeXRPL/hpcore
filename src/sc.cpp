@@ -573,16 +573,16 @@ namespace sc
         // Loop through input buffers for each pubkey.
         for (auto &[pubkey, buflist] : bufmap)
         {
-            char buf[1024 * 1024];
-            memset(buf, 'a', sizeof(buf));
-            std::string s(buf);
-            // s.at((64*1024) - 1);
-            std::list<std::string> list;
-            list.push_back(s);
-            list.push_back(s);
-            list.push_back(s);
-            if (write_iosocket_stream(fdmap[pubkey], list, true) == -1)
-            // if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
+            // char buf[1024 * 1024];
+            // memset(buf, 'a', sizeof(buf));
+            // std::string s(buf);
+            // // s.at((64*1024) - 1);
+            // std::list<std::string> list;
+            // list.push_back(s);
+            // list.push_back(s);
+            // list.push_back(s);
+            // if (write_iosocket_stream(fdmap[pubkey], list, true) == -1)
+            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
                 return -1;
         }
 
@@ -790,24 +790,25 @@ namespace sc
         size_t available_bytes = 0;
         if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
         {
-            struct pollfd pfd = {
-                .fd = readfd,
-                .events = 0,
-            };
+            // struct pollfd pfd = {
+            //     .fd = readfd,
+            //     .events = 0,
+            // };
 
-            if (poll(&pfd, 1, 1) < 0)
-            {
-                return -1;
-            }
+            // if (poll(&pfd, 1, 1) < 0)
+            // {
+            //     return -1;
+            // }
 
-            std::cout << "Close status : " << pfd.revents << ", " << POLLHUP << ", " << errno << std::endl;
+            // std::cout << "Close status : " << pfd.revents << ", " << POLLHUP << ", " << errno << std::endl;
 
-            if (pfd.revents & POLLHUP)
-            {
-                close(readfd);
-                fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-                return 0;
-            }
+            // if (pfd.revents & POLLHUP)
+            // {
+            //     close(readfd);
+            //     fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+            //     return 0;
+            // }
+
             LOG_INFO << "available bytes " << available_bytes;
             if (available_bytes == 0)
             {
@@ -837,7 +838,7 @@ namespace sc
         fds[SOCKETFDTYPE::HPREADWRITE] = -1;
 
         return -1;
-    }
+    } // namespace sc
 
     void close_unused_fds(execution_context &ctx, const bool is_hp)
     {

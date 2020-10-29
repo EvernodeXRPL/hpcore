@@ -9,21 +9,22 @@ const hpc = new HotPocketContract();
 if (!hpc.readonly)
     fs.appendFileSync("exects.txt", "ts:" + hpc.timestamp + "\n");
 
-Object.keys(hpc.users).forEach(async (key) => {
-
+Object.keys(hpc.users).forEach((key) => {
     const user = hpc.users[key];
-    // user.closeChannel();
-    const inputBuf = await user.readInput();
-    // if (inputBuf) {
-    //     const userInput = inputBuf.toString("utf8");
-    //     if (userInput == "ts")
-    //         user.sendOutput(fs.readFileSync("exects.txt"));
-    //     else {
-    //         user.sendOutput("Echoing: " + userInput);
-    //         console.log('received data len -> ' + userInput.length)
-    //     }
-    // }
-    // Close channel after reading.
+    user.events.on('message', (msg) => {
+        if (msg) {
+            const userInput = msg.toString("utf8");
+            if (userInput == "ts") {
+                user.sendOutput(fs.readFileSync("exects.txt"));
+                user.closeChannel();
+            }
+            else {
+                user.sendOutput("Echoing: " + userInput);
+                user.closeChannel();
+                console.log('received data len -> ' + userInput.length)
+            }
+        }
+    });
 });
 
 const npl = hpc.npl;
