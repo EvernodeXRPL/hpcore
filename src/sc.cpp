@@ -9,7 +9,7 @@
 
 namespace sc
 {
-    const int MAX_SEQ_PACKET_BUF_SIZE = 128 * 1024;
+    const int MAX_SEQ_PACKET_SIZE = 128 * 1024;
     bool init_success = false;
 
     // We maintain two hpfs global processes for merging and rw sessions.
@@ -606,7 +606,7 @@ namespace sc
      * @param socket_type Type of the socket. (SOCK_STREAM, SOCK_DGRAM, SOCK_SEQPACKET)
      * @return Returns -1 if socket creation fails otherwise 0.
      */
-    int create_iosockets(std::vector<int> &fds, int socket_type)
+    int create_iosockets(std::vector<int> &fds, const int socket_type)
     {
         int socket[2] = {-1, -1};
         // Create the socket of given type.
@@ -629,7 +629,7 @@ namespace sc
      * @param inputs Buffer to write into the HP write fd.
      * @param close_if_empty Close the socket after writing if this is true.
      */
-    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, bool close_if_empty)
+    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, const bool close_if_empty)
     {
         // Write the inputs (if any) into the contract and close the writefd.
 
@@ -678,7 +678,7 @@ namespace sc
      * @param inputs Buffer to write into the HP write fd.
      * @param close_if_empty Close the socket after writing if this is true.
      */
-    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs, bool close_if_empty)
+    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs, const bool close_if_empty)
     {
         // Write the inputs (if any) into the contract.
         const int writefd = fds[SOCKETFDTYPE::HPREADWRITE];
@@ -728,8 +728,8 @@ namespace sc
             if (available_bytes == 0)
                 return 0;
 
-            output.resize(MAX_SEQ_PACKET_BUF_SIZE);
-            const int res = read(readfd, output.data(), MAX_SEQ_PACKET_BUF_SIZE);
+            output.resize(MIN(MAX_SEQ_PACKET_SIZE, available_bytes));
+            const int res = read(readfd, output.data(), MAX_SEQ_PACKET_SIZE);
             output.resize(res);
 
             return res;

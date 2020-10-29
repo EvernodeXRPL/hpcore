@@ -150,11 +150,11 @@ namespace sc
 
     void cleanup_fdmap(contract_fdmap_t &fdmap);
 
-    int create_iosockets(std::vector<int> &fds, int socket_type);
+    int create_iosockets(std::vector<int> &fds, const int socket_type);
 
-    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs,  bool close_if_empty);
+    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs,  const bool close_if_empty);
 
-    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, bool close_if_empty);
+    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, const bool close_if_empty);
 
     int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output);
 

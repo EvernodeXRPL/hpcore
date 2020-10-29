@@ -1,7 +1,7 @@
 const fs = require('fs');
 const events = require('events');
 
-MAX_NPL_BUF_SIZE = 128 * 1024;
+const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 
 function HotPocketContract() {
     const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
@@ -34,7 +34,7 @@ function HotPocketChannel(fd) {
                 resolve(null);
             }
             else {
-                socket = fs.createReadStream(null, { fd: fd, highWaterMark: 5 });
+                socket = fs.createReadStream(null, { fd: fd });
                 const dataParts = [];
                 let msgLen = -1;
                 let bytesRead = 0;
@@ -98,7 +98,7 @@ function HotPocketNplChannel(fd) {
         // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
         // and then the message, First data buffer is taken as pubkey and the second one as message,
         // then npl message object is constructed and the event is emmited.
-        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_NPL_BUF_SIZE });
+        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
         socket.on("data", d => {
             if (!isPubKeyReceived) {
                 pubKey = d.toString('hex');
@@ -136,7 +136,7 @@ function HotPocketControlChannel(fd) {
     this.events = new events.EventEmitter();
     let socket = null;
     if (fd > 0) {
-        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_NPL_BUF_SIZE });
+        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
         socket.on("data", d => {
             this.events.emit("message", d);
         });
