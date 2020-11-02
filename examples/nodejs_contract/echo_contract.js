@@ -21,7 +21,6 @@ Object.keys(hpc.users).forEach((key) => {
             else {
                 user.sendOutput("Echoing: " + userInput);
                 user.closeChannel();
-                console.log('received data len -> ' + userInput.length)
             }
         }
     });
@@ -66,8 +65,5 @@ hp.closeControlChannel();
 //         }
 //     });
 // }
-// setTimeout(() => {
-//     hpc.control.sendOutput("Close all channels");
-// }, 3000);
 
 //console.log("===Echo contract ended===");

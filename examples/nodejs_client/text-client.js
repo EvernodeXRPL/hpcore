@@ -44,8 +44,7 @@ async function main() {
 
     // This will get fired when contract sends an output.
     hpc.on(HotPocketEvents.contractOutput, (output) => {
-        // console.log("Contract output>> " + Buffer.from(output, "hex"));
-        console.log("Contract output>> " + output.length);
+        console.log("Contract output>> " + Buffer.from(output, "hex"));
     })
 
     // This will get fired when contract sends a read response.

@@ -22,8 +22,7 @@ function HotPocketContract() {
 
     this.users = {};
     Object.keys(hpargs.usrfd).forEach((userPubKey) => {
-        this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey], this.control);
-        //fs.closeSync(hpargs.usrfd[userPubKey])
+        this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey]);
     });
 }
 
@@ -39,14 +38,12 @@ function HotPocketChannel(fd) {
             if (msgLen == -1) {
                 // First two bytes indicate the message len.
                 const msgLenBuf = readBytes(buf, 0, 4);
-                if (!msgLenBuf) {
-                    this.events.emit("message", null)
+                if (msgLenBuf) {
+                    msgLen = msgLenBuf.readUInt32BE();
+                    const msgBuf = readBytes(buf, 4, buf.byteLength - 4);
+                    dataParts.push(msgBuf)
+                    bytesRead = msgBuf.byteLength;
                 }
-                msgLen = msgLenBuf.readUInt32BE();
-                console.log("message len sc -> " + msgLen);
-                const msgBuf = readBytes(buf, 4, buf.byteLength - 4);
-                dataParts.push(msgBuf)
-                bytesRead = msgBuf.byteLength;
             } else {
                 dataParts.push(buf);
                 bytesRead += buf.length;
