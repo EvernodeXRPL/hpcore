@@ -558,7 +558,12 @@ namespace sc
         // Loop through input buffers for each pubkey.
         for (auto &[pubkey, buflist] : bufmap)
         {
-            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
+            std::list<std::string> list;
+            list.push_back("one");
+            list.push_back("two");
+            list.push_back("three");
+            if (write_iosocket_stream(fdmap[pubkey], list, true) == -1)
+            // if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
                 return -1;
         }
 
@@ -649,25 +654,29 @@ namespace sc
         if (!inputs.empty())
         {
             // Prepare the input memory segments to write with wrtiev.
-            iovec memsegs[2];
-            std::string msg_buf;
+            // Extra one element for the header.
+            iovec memsegs[inputs.size() * 2 + 1];
+            uint8_t header[inputs.size() * 2 + 2];
+            header[0] = inputs.size() >> 8;
+            header[1] = inputs.size();
+            // Message count header.
+            memsegs[0].iov_base = header;
+            memsegs[0].iov_len = 2;
+            size_t i = 1;
             for (std::string &input : inputs)
             {
-                // Concat messages into one message segment.
-                msg_buf += input;
+                // 2 bytes for message len header.
+                header[i+1] = input.length() >> 8;
+                header[i+2] = input.length();
+                memsegs[i].iov_base = &header[i+1];
+                memsegs[i].iov_len = 2;
+                memsegs[i + 1].iov_base = input.data();
+                memsegs[i + 1].iov_len = input.length();
+                i += 2;
+                // j += 2;
             }
-            // Storing message len in big endian.
-            uint8_t header[4];
-            header[0] = msg_buf.length() >> 24;
-            header[1] = msg_buf.length() >> 16;
-            header[2] = msg_buf.length() >> 8;
-            header[3] = msg_buf.length();
-            memsegs[0].iov_base = header;
-            memsegs[0].iov_len = sizeof(header);
-            memsegs[1].iov_base = msg_buf.data();
-            memsegs[1].iov_len = msg_buf.length();
 
-            if (writev(writefd, memsegs, 2) == -1)
+            if (writev(writefd, memsegs, (inputs.size() * 2 + 1)) == -1)
                 write_error = true;
 
             inputs.clear();
@@ -755,10 +764,9 @@ namespace sc
                 }
                 return res;
             }
-
         }
 
-        close(readfd);          
+        close(readfd);
         fds[SOCKETFDTYPE::HPREADWRITE] = -1;
         LOG_ERROR << errno << ": Error reading sequence packet socket.";
 

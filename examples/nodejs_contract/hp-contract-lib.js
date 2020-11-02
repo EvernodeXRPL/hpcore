@@ -30,27 +30,47 @@ function HotPocketContract() {
 function HotPocketChannel(fd, userPubKey, events) {
     let socket = null;
     if (fd > 0) {
-        socket = fs.createReadStream(null, { fd: fd });
-        const dataParts = [];
+        socket = fs.createReadStream(null, { fd: fd, highWaterMark: 100 });
+        let dataParts = [];
+        let msgCount = -1;
         let msgLen = -1;
-        let bytesRead = 0;
+        let pos = 0;
         socket.on("data", (buf) => {
-            if (msgLen == -1) {
-                // First two bytes indicate the message len.
-                const msgLenBuf = readBytes(buf, 0, 4);
-                if (msgLenBuf) {
-                    msgLen = msgLenBuf.readUInt32BE();
-                    const msgBuf = readBytes(buf, 4, buf.byteLength - 4);
-                    dataParts.push(msgBuf)
-                    bytesRead = msgBuf.byteLength;
-                }
-            } else {
-                dataParts.push(buf);
-                bytesRead += buf.length;
+            pos = 0;
+            if (msgCount == -1) {
+                const msgCountBuf = readBytes(buf, 0, 2)
+                msgCount = msgCountBuf.readUInt16BE();
+                pos += 2;
             }
-            if (bytesRead == msgLen) {
-                msgLen == -1;
-                events.emit("user_message", userPubKey, Buffer.concat(dataParts));
+            while (pos < buf.byteLength) {
+                if (msgLen == -1) {
+                    const msgLenBuf = readBytes(buf, pos, 2);
+                    pos += 2;
+                    msgLen = msgLenBuf.readUInt16BE();
+                }
+                let possible_read_len;
+                if (((buf.byteLength - pos) - msgLen) >= 0) {
+                    // Can finish reading a full msg
+                    possible_read_len = msgLen;
+                    msgLen = -1;
+                } else {
+                    // Only parcial message is recieved.
+                    possible_read_len = buf.byteLength - pos
+                    msgLen -= possible_read_len;
+                }
+                const msgBuf = readBytes(buf, pos, possible_read_len);
+                pos += possible_read_len;
+                dataParts.push(msgBuf)
+                
+                if (msgLen == -1) {
+                    events.emit("user_message", userPubKey, Buffer.concat(dataParts));
+                    dataParts = [];
+                    msgCount--
+                }
+                if (msgCount == 0) {
+                    msgCount = -1
+                    events.emit("user_finished", userPubKey);
+                }
             }
         });
 
