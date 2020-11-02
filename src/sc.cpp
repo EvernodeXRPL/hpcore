@@ -330,7 +330,7 @@ namespace sc
         // Write any input messages to hp->sc socket.
         if (!ctx.args.readonly && write_contract_hp_inputs(ctx) == -1)
         {
-            LOG_ERROR << errno << ": Error when writing contract hp inputs.";
+            LOG_ERROR << "Error when writing contract hp inputs.";
             return -1;
         }
 
@@ -584,7 +584,6 @@ namespace sc
             const int res = read_iosocket_stream(fds, bufpair.output);
             if (res == -1)
             {
-                LOG_ERROR << errno << ": Error reading fdmap outputs.";
                 return -1;
             }
 
@@ -679,6 +678,9 @@ namespace sc
             fds[SOCKETFDTYPE::HPREADWRITE] = -1;
         }
 
+        if (write_error)
+            LOG_ERROR << errno << ": Error writing to stream socket.";
+
         return write_error ? -1 : 0;
     }
 
@@ -710,6 +712,8 @@ namespace sc
             close(writefd);
             fds[SOCKETFDTYPE::HPREADWRITE] = -1;
         }
+        if (write_error)
+            LOG_ERROR << errno << ": Error writing to sequece packet socket.";
 
         return write_error ? -1 : 0;
     }
@@ -742,7 +746,7 @@ namespace sc
             const int res = read(readfd, output.data(), MAX_SEQ_PACKET_SIZE);
             output.resize(res);
 
-            if (res > 0)
+            if (res >= 0)
             {
                 if (res == 0) // EOF
                 {
@@ -756,6 +760,7 @@ namespace sc
 
         close(readfd);          
         fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        LOG_ERROR << errno << ": Error reading sequence packet socket.";
 
         return -1;
     }
@@ -802,6 +807,7 @@ namespace sc
 
         close(readfd);
         fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+        LOG_ERROR << errno << ": Error reading stream socket.";
 
         return -1;
     }
