@@ -329,9 +329,12 @@ namespace sc
     {
         // Write any input messages to hp->sc socket.
         if (!ctx.args.readonly && write_contract_hp_inputs(ctx) == -1)
+        {
+            LOG_ERROR << errno << ": Error when writing contract hp inputs.";
             return -1;
+        }
 
-        // Write any verified (consensus-reached) user inputs to user sockets.
+        // Write any user inputs to user sockets.
         if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) == -1)
         {
             LOG_ERROR << "Failed to write user inputs to contract.";
@@ -580,7 +583,10 @@ namespace sc
 
             const int res = read_iosocket_stream(fds, bufpair.output);
             if (res == -1)
+            {
+                LOG_ERROR << errno << ": Error reading fdmap outputs.";
                 return -1;
+            }
 
             if (res > 0)
                 bytes_read = true;
@@ -613,6 +619,7 @@ namespace sc
         // Create the socket of given type.
         if (socketpair(AF_UNIX, socket_type, 0, socket) == -1)
         {
+            LOG_ERROR << errno << ": Error when creating domain socket.";
             return -1;
         }
 
@@ -735,8 +742,20 @@ namespace sc
             const int res = read(readfd, output.data(), MAX_SEQ_PACKET_SIZE);
             output.resize(res);
 
-            return res;
+            if (res > 0)
+            {
+                if (res == 0) // EOF
+                {
+                    close(readfd);
+                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                }
+                return res;
+            }
+
         }
+
+        close(readfd);          
+        fds[SOCKETFDTYPE::HPREADWRITE] = -1;
 
         return -1;
     }

@@ -19,18 +19,18 @@ function HotPocketContract() {
     }
 
     this.control = new HotPocketControlChannel(hpargs.hpfd);
+    this.events = new events.EventEmitter();
 
     this.users = {};
     Object.keys(hpargs.usrfd).forEach((userPubKey) => {
-        this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey]);
+        this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey], userPubKey, this.events);
     });
 }
 
-function HotPocketChannel(fd) {
-    this.events = new events.EventEmitter();
+function HotPocketChannel(fd, userPubKey, events) {
     let socket = null;
     if (fd > 0) {
-        socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
+        socket = fs.createReadStream(null, { fd: fd });
         const dataParts = [];
         let msgLen = -1;
         let bytesRead = 0;
@@ -50,12 +50,12 @@ function HotPocketChannel(fd) {
             }
             if (bytesRead == msgLen) {
                 msgLen == -1;
-                this.events.emit("message", Buffer.concat(dataParts));
+                events.emit("user_message", userPubKey, Buffer.concat(dataParts));
             }
         });
 
         socket.on("error", (e) => {
-            this.events.emit("error", e);
+            events.emit("user_error", userPubKey, e);
         })
     }
 
