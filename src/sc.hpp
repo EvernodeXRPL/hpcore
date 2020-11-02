@@ -13,19 +13,6 @@
 namespace sc
 {
 
-    // Enum used to differenciate pipe fds maintained for SC I/O pipes.
-    enum FDTYPE
-    {
-        // Used by Smart Contract to read input sent by Hot Pocket.
-        SCREAD = 0,
-        // Used by Hot Pocket to write input to the smart contract.
-        HPWRITE = 1,
-        // Used by Hot Pocket to read output from the smart contract.
-        HPREAD = 2,
-        // Used by Smart Contract to write output back to Hot Pocket.
-        SCWRITE = 3
-    };
-
     // Enum used to differenciate socket fds maintained for SC socket.
     enum SOCKETFDTYPE
     {
@@ -99,13 +86,13 @@ namespace sc
         // The arguments that was used to initiate this execution.
         contract_execution_args args;
 
-        // Map of user pipe fds (map key: user public key)
+        // Map of user socket fds (map key: user public key)
         contract_fdmap_t userfds;
 
-        // Pipe fds for NPL <--> messages.
+        // Socket fds for NPL <--> messages.
         std::vector<int> nplfds;
 
-        // Pipe fds for HP <--> messages.
+        // Socket fds for HP <--> messages.
         std::vector<int> hpscfds;
 
         // Holds the contract process id (if currently executing).
@@ -155,7 +142,7 @@ namespace sc
 
     void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os);
 
-    int create_iopipes_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
+    int create_iosockets_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
     int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
@@ -163,19 +150,17 @@ namespace sc
 
     void cleanup_fdmap(contract_fdmap_t &fdmap);
 
-    int create_iopipes(std::vector<int> &fds, const bool create_inpipe);
+    int create_iosockets(std::vector<int> &fds, const int socket_type);
 
-    int create_iosockets(std::vector<int> &fds);
+    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs,  const bool close_if_empty);
 
-    int write_iopipe(std::vector<int> &fds, std::list<std::string> &inputs);
+    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, const bool close_if_empty);
 
-    int read_iopipe(std::vector<int> &fds, std::string &output);
+    int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output);
 
-    int read_iosocket(std::vector<int> &fds, std::string &output);
+    int read_iosocket_stream(std::vector<int> &fds, std::string &output);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
-
-    void close_unused_vectorfds(const bool is_hp, std::vector<int> &fds);
 
     void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds);
 

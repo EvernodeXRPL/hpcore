@@ -9,16 +9,16 @@ const hpc = new HotPocketContract();
 if (!hpc.readonly)
     fs.appendFileSync("exects.txt", "ts:" + hpc.timestamp + "\n");
 
-Object.keys(hpc.users).forEach(async (key) => {
-
-    const user = hpc.users[key];
-    const inputBuf = await user.readInput();
-    if (inputBuf) {
-        const userInput = inputBuf.toString("utf8");
-        if (userInput == "ts")
-            user.sendOutput(fs.readFileSync("exects.txt"));
-        else
-            user.sendOutput("Echoing: " + userInput);
+hpc.events.on("user_message", (pubKey, message) => {
+    const userInput = message.toString("utf8");
+    const user = hpc.users[pubKey];
+    if (userInput == "ts") {
+        user.sendOutput(fs.readFileSync("exects.txt"));
+        user.closeChannel();
+    }
+    else {
+        user.sendOutput("Echoing: " + userInput);
+        user.closeChannel();
     }
 });
 
@@ -29,6 +29,19 @@ const npl = hpc.npl;
 if (npl) {
     npl.closeNplChannel();
 }
+
+// HP <--> SC
+const hp = hpc.control;
+hp.closeControlChannel();
+
+// let i = 0;
+// hp.events.on('message', (msg) => {
+//     console.log('control msg - ' + msg);
+//     hp.sendOutput(msg);
+//     i++;
+//     if (i == 2)
+//         hp.closeControlChannel();
+// })
 
 // Npl message sending and receiving template.
 // if (npl) {
