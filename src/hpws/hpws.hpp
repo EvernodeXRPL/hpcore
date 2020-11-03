@@ -10,7 +10,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <signal.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <vector>
@@ -144,6 +143,9 @@ namespace hpws
 
                 close(control_line_fd[0]);
                 close(control_line_fd[1]);
+
+                if (HPWS_DEBUG)
+                    fprintf(stderr, "[HPWS.HPP] child destructed pid = %d\n", child_pid);
             }
         }
 
@@ -311,6 +313,8 @@ namespace hpws
             int error_code = -1;
             const char *error_msg = NULL;
             int fd[4] = {-1, -1, -1, -1}; // 0,1 are hpws->hpcore, 2,3 are hpcore->hpws
+            int buffer_fd[4] = {-1, -1, -1, -1};
+            void *mapping[4] = {NULL, NULL, NULL, NULL};
             int pid = -1;
             int count_args = 14 + argv.size();
             char const **argv_pass = NULL;
@@ -411,8 +415,6 @@ namespace hpws
                     fprintf(stderr, "[HPWS.HPP] waiting for buffer fds\n");
 
                 // second thing we will receive is the four fds for the buffers
-                int buffer_fd[4] = {-1, -1, -1, -1};
-                void *mapping[4];
                 {
                     struct msghdr child_msg = {0};
                     memset(&child_msg, 0, sizeof(child_msg));
@@ -511,8 +513,14 @@ namespace hpws
                 waitpid(pid, &status, 0 /* should we use WNOHANG? */);
             }
             for (int i = 0; i < 4; ++i)
+            {
                 if (fd[i] > 0)
                     close(fd[i]);
+                if (mapping[i] != MAP_FAILED && mapping[i] != NULL)
+                    munmap(mapping[i], max_buffer_size);
+                if (buffer_fd[i] > -1)
+                    close(buffer_fd[i]);
+            }
 
             return error{error_code, std::string{error_msg}};
         }
@@ -531,6 +539,26 @@ namespace hpws
         //  private constructor
         server(pid_t server_pid, int master_control_fd, uint32_t max_buffer_size)
             : server_pid_(server_pid), master_control_fd_(master_control_fd), max_buffer_size_(max_buffer_size) {}
+
+        void accept_cleanup(void *mapping[4], int child_fd[2], int buffer_fd[4], uint32_t pid_child)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                if (mapping[i] != MAP_FAILED && mapping[i] != NULL)
+                    munmap(mapping[i], max_buffer_size_);
+                if (i < 2 && child_fd[i] > -1)
+                    close(child_fd[i]);
+                if (buffer_fd[i] > -1)
+                    close(buffer_fd[i]);
+            }
+
+            if (pid_child > 0)
+            {
+                int ret1 = kill(pid_child, SIGTERM);
+                int wstat;
+                int ret2 = waitpid(pid_child, &wstat, 0);
+            }
+        }
 
     public:
         // No copy constructor
@@ -561,12 +589,18 @@ namespace hpws
 
         std::variant<client, error> accept(const bool no_block = false)
         {
-#define HPWS_ACCEPT_ERROR(code, msg) \
-    {                                \
-        return error{code, msg};     \
+#define HPWS_ACCEPT_ERROR(code, msg)                      \
+    {                                                     \
+        accept_cleanup(mapping, child_fd, buffer_fd, pid); \
+        return error{code, msg};                          \
     }
-
+    
             int child_fd[2] = {-1, -1};
+            int buffer_fd[4] = {-1, -1, -1, -1};
+            void *mapping[4] = {NULL, NULL, NULL, NULL};
+            // must not use pid_t here since we transfer across IPC channel as a uint32.
+            uint32_t pid = 0;
+
             {
                 struct msghdr child_msg = {0};
                 memset(&child_msg, 0, sizeof(child_msg));
@@ -613,11 +647,9 @@ namespace hpws
 
             // timeout or error
             if (ret < 1)
-                return error{202, "timeout waiting for hpws accept child message"};
+                HPWS_ACCEPT_ERROR(202, "timeout waiting for hpws accept child message");
 
             // first thing we'll receive is the pid of the client
-            // must not use pid_t here since we transfer across IPC channel as a uint32.
-            uint32_t pid = 0;
             if (recv(child_fd[0], (unsigned char *)(&pid), sizeof(pid), 0) < sizeof(pid))
                 HPWS_ACCEPT_ERROR(212, "did not receive expected 4 byte pid of child process on accept");
 
@@ -627,11 +659,9 @@ namespace hpws
                 recv(child_fd[0], (unsigned char *)(&buf), sizeof(buf), 0);
 
             if (bytes_read < sizeof(buf))
-                return error{202, "received message on master control line was not sizeof(sockaddr_in6)"};
+                HPWS_ACCEPT_ERROR(202, "received message on master control line was not sizeof(sockaddr_in6)");
 
             // third thing we will receive is the four fds for the buffers
-            int buffer_fd[4] = {-1, -1, -1, -1};
-            void *mapping[4];
             {
                 struct msghdr child_msg = {0};
                 memset(&child_msg, 0, sizeof(child_msg));
@@ -643,17 +673,17 @@ namespace hpws
                     recvmsg(child_fd[0], &child_msg, 0);
                 struct cmsghdr *cmsg = CMSG_FIRSTHDR(&child_msg);
                 if (cmsg == NULL || cmsg->cmsg_type != SCM_RIGHTS)
-                    return error{203, "non-scm_rights message sent on accept child control line"};
+                    HPWS_ACCEPT_ERROR(203, "non-scm_rights message sent on accept child control line");
                 memcpy(&buffer_fd, CMSG_DATA(cmsg), sizeof(buffer_fd));
                 for (int i = 0; i < 4; ++i)
                 {
                     //fprintf(stderr, "scm passed buffer_fd[%d] = %d\n", i, buffer_fd[i]);
                     if (buffer_fd[i] < 0)
-                        return error{203, "child accept scm_rights a passed buffer fd was negative"};
+                        HPWS_ACCEPT_ERROR(203, "child accept scm_rights a passed buffer fd was negative");
                     mapping[i] =
                         mmap(0, max_buffer_size_, PROT_READ | PROT_WRITE, MAP_SHARED, buffer_fd[i], 0);
-                    if (mapping[i] == (void *)(-1))
-                        return error{204, "could not mmap scm_rights passed buffer fd"};
+                    if (mapping[i] == MAP_FAILED)
+                        HPWS_ACCEPT_ERROR(204, "could not mmap scm_rights passed buffer fd");
                 }
             }
             {
@@ -685,7 +715,6 @@ namespace hpws
                 }
             }
 
-            // RH TODO: accept needs a proper child cleanup on failure
             return client{
                 "",
                 buf,

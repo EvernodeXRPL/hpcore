@@ -123,6 +123,28 @@ void std_terminate() noexcept
     exit(1);
 }
 
+int get_open_fd_count()
+{
+    int file_count = 0;
+    DIR *dirp;
+    struct dirent *entry;
+
+    std::string path = "/proc/self/fd";
+
+    dirp = opendir(path.c_str());
+    if (dirp == NULL)
+    {
+        LOG_ERROR << errno << ": error in get fd count.";
+        return 0;
+    }
+    while ((entry = readdir(dirp)) != NULL)
+    {
+        file_count++;
+    }
+    closedir(dirp);
+    return file_count;
+}
+
 int main(int argc, char **argv)
 {
     // Register exception and segfault handlers.
@@ -209,7 +231,11 @@ int main(int argc, char **argv)
                 signal(SIGINT, &sigint_handler);
 
                 // Wait until consensus thread finishes.
-                consensus::wait();
+                while(1)
+                {
+                    sleep(2);
+                    LOG_ERROR << " --------------OPEN FD COUNT: " << get_open_fd_count(); 
+                }
 
                 // deinit() here only gets called when there is an error in consensus.
                 // If not deinit in the sigint handler is called when a SIGINT is received.
