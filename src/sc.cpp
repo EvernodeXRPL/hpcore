@@ -370,7 +370,7 @@ namespace sc
             if (npl_write_res == -1)
                 return -1;
 
-            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
+            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs, ctx.args.user_stream_utils);
             if (user_res == -1)
             {
                 LOG_ERROR << "Error reading user outputs from the contract.";
@@ -450,11 +450,15 @@ namespace sc
     int read_contract_hp_outputs(execution_context &ctx)
     {
         std::string output;
-        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.output);
+        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, output);
         if (hpsc_res == -1)
         {
             LOG_ERROR << "Error reading HP output from the contract.";
             return -1;
+        }
+        else if (hpsc_res > 0)
+        {
+            ctx.args.hpscbufs.outputs.push_back(output);
         }
 
         return (hpsc_res == 0) ? 0 : 1;
@@ -558,12 +562,7 @@ namespace sc
         // Loop through input buffers for each pubkey.
         for (auto &[pubkey, buflist] : bufmap)
         {
-            std::list<std::string> list;
-            list.push_back("one");
-            list.push_back("two");
-            list.push_back("three");
-            if (write_iosocket_stream(fdmap[pubkey], list, true) == -1)
-            // if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
+            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
                 return -1;
         }
 
@@ -578,15 +577,58 @@ namespace sc
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
      * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
      */
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, contract_utilmap_t &user_stream_utils)
     {
         bool bytes_read = false;
         for (auto &[pubkey, bufpair] : bufmap)
         {
             // Get fds for the pubkey.
+            std::string output;
             std::vector<int> &fds = fdmap[pubkey];
+            contract_user_stream_utils &stream_util = user_stream_utils[pubkey];
+            const int res = read_iosocket_stream(fds, output);
 
-            const int res = read_iosocket_stream(fds, bufpair.output);
+            if (res > 0)
+            {
+                int pos = 0;
+                while (pos < res)
+                {
+                    if (stream_util.stream_msg_length == -1)
+                    {
+                        stream_util.stream_msg_length = output.at(pos + 1) | (output.at(pos) << 8);
+                        pos += 2;
+                    }
+                    int possible_read_len;
+                    if (((res - pos) - stream_util.stream_msg_length) >= 0)
+                    {
+                        // Can finish reading a full msg
+                        possible_read_len = stream_util.stream_msg_length;
+                        stream_util.stream_msg_length = -1;
+                    }
+                    else
+                    {
+                        // Only parcial message is recieved.
+                        possible_read_len = res - pos;
+                        stream_util.stream_msg_length -= possible_read_len;
+                    }
+                    std::string msgBuf = output.substr(pos, possible_read_len);
+                    pos += possible_read_len;
+                    stream_util.temp_stream_read_buf += msgBuf;
+
+                    if (stream_util.stream_msg_length == -1)
+                    {
+                        bufpair.outputs.push_back(stream_util.temp_stream_read_buf);
+                        stream_util.temp_stream_read_buf.clear();
+                    }
+                }
+            }
+
+            if (res > 0)
+            {
+                LOG_INFO << "contract outputs";
+                for (std::string str : bufpair.outputs)
+                    LOG_INFO << str;
+            }
             if (res == -1)
             {
                 return -1;
@@ -666,14 +708,13 @@ namespace sc
             for (std::string &input : inputs)
             {
                 // 2 bytes for message len header.
-                header[i+1] = input.length() >> 8;
-                header[i+2] = input.length();
-                memsegs[i].iov_base = &header[i+1];
+                header[i + 1] = input.length() >> 8;
+                header[i + 2] = input.length();
+                memsegs[i].iov_base = &header[i + 1];
                 memsegs[i].iov_len = 2;
                 memsegs[i + 1].iov_base = input.data();
                 memsegs[i + 1].iov_len = input.length();
                 i += 2;
-                // j += 2;
             }
 
             if (writev(writefd, memsegs, (inputs.size() * 2 + 1)) == -1)
@@ -798,9 +839,8 @@ namespace sc
                 return 0;
             }
 
-            const size_t current_size = output.size();
-            output.resize(current_size + available_bytes);
-            const int res = read(readfd, output.data() + current_size, available_bytes);
+            output.resize(available_bytes);
+            const int res = read(readfd, output.data(), available_bytes);
 
             if (res >= 0)
             {
@@ -885,7 +925,7 @@ namespace sc
     {
         args.userbufs.clear();
         args.hpscbufs.inputs.clear();
-        args.hpscbufs.output.clear();
+        args.hpscbufs.outputs.clear();
         // Empty npl message queue.
         while (args.npl_messages.pop())
         {

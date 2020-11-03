@@ -196,4 +196,27 @@ namespace crypto
         return hash;
     }
 
+    /**
+     * Generates blake3 hash for the given string view and the string list using stream hashing.
+     */
+    std::string get_hash(std::string_view s1, std::list<std::string> &list)
+    {
+        std::string hash;
+        hash.resize(BLAKE3_OUT_LEN);
+
+        // Init stream hashing.
+        blake3_hasher hasher;
+        blake3_hasher_init(&hasher);
+
+        // updating hash with given data
+        blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(s1.data()), s1.length());
+        for (std::string_view str : list)
+            blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(str.data()), str.length());
+            
+        // Get the final hash.
+        blake3_hasher_finalize(&hasher, reinterpret_cast<unsigned char *>(hash.data()), hash.length());
+
+        return hash;
+    }
+
 } // namespace crypto

@@ -32,10 +32,10 @@ namespace consensus
     struct candidate_user_output
     {
         const std::string userpubkey;
-        std::string output;
+        std::list<std::string> outputs;
 
-        candidate_user_output(const std::string userpubkey, const std::string output)
-            : userpubkey(std::move(userpubkey)), output(std::move(output))
+        candidate_user_output(const std::string userpubkey, const std::list<std::string> outputs)
+            : userpubkey(std::move(userpubkey)), outputs(std::move(outputs))
         {
         }
     };
@@ -138,7 +138,7 @@ namespace consensus
 
     void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 
-    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
+    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, sc::contract_utilmap_t &user_stream_util_map, const p2p::proposal &cons_prop);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 

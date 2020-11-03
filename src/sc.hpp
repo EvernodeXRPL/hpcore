@@ -32,11 +32,20 @@ namespace sc
         // List of inputs to be fed into the contract.
         std::list<std::string> inputs;
 
-        // Output emitted by contract after execution.
-        // (Because we are reading output at the end, there's no way to
-        // get a "list" of outputs. So it's always a one contiguous output.)
-        std::string output;
+        // List of outputs from the contract.
+        std::list<std::string> outputs;
     };
+
+    // Reprents the variables used in user output separation when reading stream sockets.
+    struct contract_user_stream_utils
+    {
+        // Current message length.
+        int16_t stream_msg_length = -1;
+        // Current message buffer.
+        std::string temp_stream_read_buf;
+    };
+
+    typedef std::unordered_map<std::string, contract_user_stream_utils> contract_utilmap_t;
 
     // Common typedef for a map of pubkey->fdlist.
     // This is used to keep track of fdlist quadruplet with a public key (eg. user, npl).
@@ -60,6 +69,10 @@ namespace sc
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
         contract_bufmap_t userbufs;
+
+        // Stores pub key vs variables for each user. Used in message seperation in output read from SC.
+        // Map (key: user binary public key)
+        contract_utilmap_t user_stream_utils;
 
         // NPL messages to be passed into contract.
         moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
@@ -146,7 +159,7 @@ namespace sc
 
     int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, contract_utilmap_t &user_stream_utils);
 
     void cleanup_fdmap(contract_fdmap_t &fdmap);
 

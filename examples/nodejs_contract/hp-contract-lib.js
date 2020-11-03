@@ -87,7 +87,13 @@ function HotPocketChannel(fd, userPubKey, events) {
     }
 
     this.sendOutput = function (output) {
-        fs.writeSync(fd, output);
+        const outputStringBuf = Buffer.from(output);
+        let outputBuf = Buffer.alloc(2);
+        // Writing message length in big endian format.
+        outputBuf[0] = outputStringBuf.byteLength >>> 8;
+        outputBuf[1] = outputStringBuf.byteLength;
+        console.log(outputBuf.readUInt16BE())
+        fs.writeSync(fd, Buffer.concat([outputBuf, outputStringBuf]));
     }
 
     this.closeChannel = function () {

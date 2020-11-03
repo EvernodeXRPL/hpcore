@@ -35,6 +35,8 @@ std::string get_hash(const unsigned char * data, size_t data_length);
 
 std::string get_hash(std::string_view s1, std::string_view s2);
 
+std::string get_hash(std::string_view s1, std::list<std::string> &list);
+
 } // namespace crypto
 
 #endif
