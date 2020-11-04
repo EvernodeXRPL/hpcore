@@ -120,9 +120,6 @@ namespace consensus
 
         if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
         {
-            // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
-            broadcast_nonunl_proposal();
-
             // Verify and transfer user inputs from incoming NUPs onto consensus candidate data.
             verify_and_populate_candidate_user_inputs(lcl_seq_no);
 
@@ -132,6 +129,13 @@ namespace consensus
         }
         else // Stage 1, 2, 3
         {
+            if (ctx.stage == 3)
+            {
+                // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
+                // They will be captured and processed during next round stage 0.
+                broadcast_nonunl_proposal();
+            }
+
             purify_candidate_proposals();
 
             // Initialize vote counters.
@@ -297,14 +301,16 @@ namespace consensus
      */
     void broadcast_nonunl_proposal()
     {
-        if (usr::ctx.users.empty())
-            return;
-
-        // Construct NUP.
         p2p::nonunl_proposal nup;
 
         {
+            // Populate users and inputs to the NUP within user lock.
             std::scoped_lock lock(usr::ctx.users_mutex);
+
+            if (usr::ctx.users.empty())
+                return;
+
+            // Construct NUP.
             for (auto &[sid, user] : usr::ctx.users)
             {
                 std::list<usr::user_input> user_inputs;
@@ -341,65 +347,76 @@ namespace consensus
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
         // Move over NUPs collected from the network into a local list.
-        std::list<p2p::nonunl_proposal> nups;
+        std::list<p2p::nonunl_proposal> collected_nups;
         {
             std::scoped_lock lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
-            nups.splice(nups.end(), p2p::ctx.collected_msgs.nonunl_proposals);
+            collected_nups.splice(collected_nups.end(), p2p::ctx.collected_msgs.nonunl_proposals);
         }
+
+        // Prepare merged list of users with each user's inputs grouped under the user.
+        // Key: user pubkey, Value: List of inputs from the user.
+        std::unordered_map<std::string, std::list<usr::user_input>> input_groups;
+        for (p2p::nonunl_proposal &p : collected_nups)
+        {
+            for (auto &[pubkey, umsgs] : p.user_inputs)
+            {
+                // Move any user inputs from each NUP over to the grouped inputs under the user pubkey.
+                std::list<usr::user_input> &input_list = input_groups[pubkey];
+                input_list.splice(input_list.end(), umsgs);
+            }
+        }
+        collected_nups.clear();
 
         // Maintains users and any input-acceptance responses we should send to them.
         // Key: user pubkey. Value: List of [user-protocol, msg-sig, reject-reason] tuples.
         std::unordered_map<std::string, std::list<std::tuple<const util::PROTOCOL, const std::string, const char *>>> responses;
 
-        for (const p2p::nonunl_proposal &p : nups)
+        for (const auto &[pubkey, umsgs] : input_groups)
         {
-            for (const auto &[pubkey, umsgs] : p.user_inputs)
+            // Populate user list with this user's pubkey.
+            ctx.candidate_users.emplace(pubkey);
+
+            // Keep track of total input length to verify against remaining balance.
+            // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
+            size_t total_input_len = 0;
+            bool appbill_balance_exceeded = false;
+            util::rollover_hashset recent_user_input_hashes(200);
+
+            for (const usr::user_input &umsg : umsgs)
             {
-                // Populate user list with this user's pubkey.
-                ctx.candidate_users.emplace(pubkey);
+                const char *reject_reason = NULL;
 
-                // Keep track of total input length to verify against remaining balance.
-                // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
-                size_t total_input_len = 0;
-                bool appbill_balance_exceeded = false;
-                util::rollover_hashset recent_user_input_hashes(200);
-
-                for (const usr::user_input &umsg : umsgs)
+                if (appbill_balance_exceeded)
                 {
-                    const char *reject_reason = NULL;
-
-                    if (appbill_balance_exceeded)
-                    {
-                        reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
-                    }
-                    else
-                    {
-                        std::string hash, input;
-                        uint64_t max_lcl_seqno;
-                        reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, recent_user_input_hashes,
-                                                                            hash, input, max_lcl_seqno);
-
-                        if (reject_reason == NULL)
-                        {
-                            // No reject reason means we should go ahead and subject the input to consensus.
-                            ctx.candidate_user_inputs.try_emplace(
-                                hash,
-                                candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
-                        }
-                        else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
-                        {
-                            // Abandon processing further inputs from this user when we find out
-                            // an input cannot be processed with the account balance.
-                            appbill_balance_exceeded = true;
-                        }
-                    }
-
-                    responses[pubkey].push_back(std::tuple<const util::PROTOCOL, const std::string, const char *>(umsg.protocol, umsg.sig, reject_reason));
+                    reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                 }
+                else
+                {
+                    std::string hash, input;
+                    uint64_t max_lcl_seqno;
+                    reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, recent_user_input_hashes,
+                                                                        hash, input, max_lcl_seqno);
+
+                    if (reject_reason == NULL)
+                    {
+                        // No reject reason means we should go ahead and subject the input to consensus.
+                        ctx.candidate_user_inputs.try_emplace(
+                            hash,
+                            candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
+                    }
+                    else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
+                    {
+                        // Abandon processing further inputs from this user when we find out
+                        // an input cannot be processed with the account balance.
+                        appbill_balance_exceeded = true;
+                    }
+                }
+
+                responses[pubkey].push_back(std::tuple<const util::PROTOCOL, const std::string, const char *>(umsg.protocol, umsg.sig, reject_reason));
             }
         }
 
-        nups.clear();
+        input_groups.clear();
 
         {
             // Lock the user sessions.

@@ -32,7 +32,7 @@ namespace p2p
 
     struct nonunl_proposal
     {
-        std::unordered_map<std::string, const std::list<usr::user_input>> user_inputs;
+        std::unordered_map<std::string, std::list<usr::user_input>> user_inputs;
     };
 
     struct history_request

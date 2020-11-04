@@ -638,10 +638,10 @@ namespace msg::fbuf::p2pmsg
 
     //---Conversion helpers from flatbuffers data types to std data types---//
 
-    const std::unordered_map<std::string, const std::list<usr::user_input>>
+    const std::unordered_map<std::string, std::list<usr::user_input>>
     flatbuf_user_input_group_to_user_input_map(const flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>> *fbvec)
     {
-        std::unordered_map<std::string, const std::list<usr::user_input>> map;
+        std::unordered_map<std::string, std::list<usr::user_input>> map;
         map.reserve(fbvec->size());
         for (const UserInputGroup *group : *fbvec)
         {
@@ -664,7 +664,7 @@ namespace msg::fbuf::p2pmsg
     //---These are used in constructing Flatbuffer messages using builders---//
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>
-    user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, const std::list<usr::user_input>> &map)
+    user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::list<usr::user_input>> &map)
     {
         std::vector<flatbuffers::Offset<UserInputGroup>> fbvec;
         fbvec.reserve(map.size());
