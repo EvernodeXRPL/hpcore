@@ -79,7 +79,7 @@ namespace sc
         
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
-        contract_iobuf_pair hpscbufs;
+        // contract_iobuf_pair hpscbufs;
 
         // Current HotPocket consensus time.
         int64_t time = 0;

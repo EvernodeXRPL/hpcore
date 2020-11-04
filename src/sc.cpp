@@ -393,11 +393,11 @@ namespace sc
      */
     int write_contract_hp_inputs(execution_context &ctx)
     {
-        if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
-        {
-            LOG_ERROR << "Error writing HP inputs to SC";
-            return -1;
-        }
+        // if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
+        // {
+        //     LOG_ERROR << "Error writing HP inputs to SC";
+        //     return -1;
+        // }
 
         return 0;
     }
@@ -458,7 +458,7 @@ namespace sc
         }
         else if (hpsc_res > 0)
         {
-            ctx.args.hpscbufs.outputs.push_back(output);
+            // ctx.args.hpscbufs.outputs.push_back(output);
         }
 
         return (hpsc_res == 0) ? 0 : 1;
@@ -921,8 +921,8 @@ namespace sc
     void clear_args(contract_execution_args &args)
     {
         args.userbufs.clear();
-        args.hpscbufs.inputs.clear();
-        args.hpscbufs.outputs.clear();
+        // args.hpscbufs.inputs.clear();
+        // args.hpscbufs.outputs.clear();
         // Empty npl message queue.
         while (args.npl_messages.pop())
         {
