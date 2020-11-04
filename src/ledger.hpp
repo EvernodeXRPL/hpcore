@@ -20,7 +20,8 @@ namespace ledger
         std::mutex list_mutex;
 
         std::thread lcl_sync_thread;
-        bool is_shutting_down = false;
+        std::atomic<bool> is_syncing = false;
+        std::atomic<bool> is_shutting_down = false;
     };
 
     struct ledger_context

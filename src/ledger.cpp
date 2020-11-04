@@ -109,16 +109,17 @@ namespace ledger
         if (sync_ctx.is_shutting_down)
             return;
 
+        const std::string lcl = ctx.get_lcl();
+
         {
             std::scoped_lock<std::mutex> lock(sync_ctx.target_lcl_mutex);
             if (sync_ctx.target_lcl == target_lcl)
                 return;
             sync_ctx.target_lcl = target_lcl;
+            sync_ctx.is_syncing = true;
+
+            LOG_INFO << "lcl sync: Syncing for target:" << sync_ctx.target_lcl.substr(0, 15) << " (current:" << lcl.substr(0, 15) << ")";
         }
-
-        const std::string lcl = ctx.get_lcl();
-
-        LOG_INFO << "lcl sync: Syncing for target:" << sync_ctx.target_lcl.substr(0, 15) << " (current:" << lcl.substr(0, 15) << ")";
 
         // Request history from a random peer if needed.
         // If target is genesis ledger, we simply clear our ledger history without sending a
@@ -169,6 +170,7 @@ namespace ledger
                     {
                         clear_ledger();
                         sync_ctx.target_lcl.clear();
+                        sync_ctx.is_syncing = false;
                     }
                     else
                     {
@@ -182,6 +184,7 @@ namespace ledger
                                 {
                                     LOG_INFO << "lcl sync: Sync complete. New lcl:" << new_lcl.substr(0, 15);
                                     sync_ctx.target_lcl.clear();
+                                    sync_ctx.is_syncing = false;
                                     break;
                                 }
                             }
