@@ -168,10 +168,15 @@ namespace ledger
                         // Only process the first successful item which matches with our current lcl.
                         for (const p2p::history_response &hr : history_responses)
                         {
-                            if (hr.requester_lcl == lcl && handle_ledger_history_response(hr) != -1)
+                            if (hr.requester_lcl == lcl)
                             {
-                                sync_ctx.target_lcl.clear();
-                                break;
+                                std::string new_lcl;
+                                if (handle_ledger_history_response(hr, new_lcl) != -1)
+                                {
+                                    LOG_INFO << "lcl sync: Sync complete. New lcl:" << new_lcl.substr(0, 15);
+                                    sync_ctx.target_lcl.clear();
+                                    break;
+                                }
                             }
                         }
                     }
@@ -257,20 +262,20 @@ namespace ledger
 
         // Get binary hash of the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
-        const std::string lcl = crypto::get_hash(ledger_str_buf);
+        const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
 
         // Get hex from binary hash.
-        std::string lcl_hash;
-        util::bin2hex(lcl_hash,
-                      reinterpret_cast<const unsigned char *>(lcl.data()),
-                      lcl.size());
+        std::string lcl_hash_hex;
+        util::bin2hex(lcl_hash_hex,
+                      reinterpret_cast<const unsigned char *>(lcl_hash.data()),
+                      lcl_hash.size());
 
         // Acquire lock so history request serving does not access the ledger while consensus is updating the ledger.
         std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
 
         // Construct lcl file name.
         // lcl file name should follow [ledger sequnce numer]-lcl[lcl hex] format.
-        const std::string file_name = std::to_string(seq_no) + "-" + lcl_hash;
+        const std::string file_name = std::to_string(seq_no) + "-" + lcl_hash_hex;
         if (write_ledger(file_name, builder.GetBufferPointer(), builder.GetSize()) == -1)
             return -1;
 
@@ -540,7 +545,7 @@ namespace ledger
      * @param hr lcl history request information.
      * @return 0 on successful lcl update. -1 on failure.
      */
-    int handle_ledger_history_response(const p2p::history_response &hr)
+    int handle_ledger_history_response(const p2p::history_response &hr, std::string &new_lcl)
     {
         if (hr.error == p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER)
         {
@@ -576,6 +581,7 @@ namespace ledger
 
             // Check integrity of recieved lcl list.
             // By checking recieved lcl hashes matches lcl content by applying hashing for each raw content.
+            // TODO: Also verify chain hashes.
             for (auto &[seq_no, ledger] : hr.hist_ledgers)
             {
                 const size_t pos = ledger.lcl.find("-");
@@ -603,6 +609,7 @@ namespace ledger
 
         // Execution to here means the history data sent checks out.
         // Save recieved lcl in file system and update lcl history cache.
+        // TODO: Verify chain hashes at the point of joining with our existing history.
         for (auto &[seq_no, ledger] : hr.hist_ledgers)
         {
             auto prev_dup_itr = ctx.cache.find(seq_no);
@@ -619,7 +626,7 @@ namespace ledger
         const auto [seq_no, lcl] = get_ledger_cache_top();
         ctx.set_lcl(seq_no, lcl);
 
-        LOG_INFO << "lcl sync: Sync complete. New lcl:" << lcl.substr(0, 15);
+        new_lcl = lcl;
         return 0;
     }
 

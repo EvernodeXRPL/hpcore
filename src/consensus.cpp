@@ -154,35 +154,37 @@ namespace consensus
         {
             purify_candidate_proposals();
 
-            // Initialize vote counters
+            // Initialize vote counters.
             vote_counter votes;
 
-            // check if we're ahead/behind of consensus lcl
-            bool is_lcl_desync = false, should_request_history = false;
+            // Check if we're ahead/behind of consensus lcl.
+            bool is_lcl_desync = false;
             std::string majority_lcl;
-            check_lcl_votes(is_lcl_desync, should_request_history, majority_lcl, votes, lcl);
-
-            if (is_lcl_desync)
+            if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl))
             {
-                if (should_request_history)
+                // We proceed further only if lcl check was success (meaning lcl check could be reliably performed).
+
+                // State lcl sync if we are out-of-sync with majority lcl.
+                if (is_lcl_desync)
                 {
-                    //Node is not in sync with majority lcl. Switch to observer mode.
                     conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
                     ledger::set_sync_target(majority_lcl);
                 }
-            }
-            else
-            {
+
+                // Check our state with majority state.
                 bool is_state_desync = false;
                 hpfs::h32 majority_state = hpfs::h32_empty;
                 check_state_votes(is_state_desync, majority_state, votes);
 
+                // State state sync if we are out-of-sync with majority state.
                 if (is_state_desync)
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
                     state_sync::set_target(majority_state);
                 }
-                else
+
+                // Proceed further only if both lcl and state are in sync with majority.
+                if (!is_lcl_desync && !is_state_desync)
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
 
@@ -623,9 +625,14 @@ namespace consensus
     }
 
     /**
-     * Check our LCL is consistent with the proposals being made by our UNL peers lcl_votes.
+     * Check whether our lcl is consistent with the proposals being made by our UNL peers lcl votes.
+     * @param is_desync Indicates whether our lcl is out-of-sync with majority lcl. Only valid if this method returns True.
+     * @param majority_lcl The majority lcl based on the votes received. Only valid if this method returns True.
+     * @param votes Vote counter for this stage.
+     * @param lcl Our lcl.
+     * @return True if majority lcl could be calculated reliably. False if lcl check failed due to unreliable votes.
      */
-    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes, std::string_view lcl)
+    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl)
     {
         int32_t total_lcl_votes = 0;
 
@@ -635,14 +642,10 @@ namespace consensus
             total_lcl_votes++;
         }
 
-        is_desync = false;
-        should_request_history = false;
-
         if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
         {
             LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
-            is_desync = true;
-            return;
+            return false;
         }
 
         int32_t winning_votes = 0;
@@ -655,24 +658,25 @@ namespace consensus
             }
         }
 
-        //if winning lcl is not matched node lcl,
-        //that means vote is not on the consensus ledger.
-        //Should request history from a peer.
-        if (lcl != majority_lcl)
-        {
-            LOG_DEBUG << "We are not on the consensus ledger, requesting history from a random peer";
-            is_desync = true;
-            should_request_history = true;
-            return;
-        }
-
+        // Check wheher there are good enough winning votes.
         if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
         {
             // potential fork condition.
             LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
-            is_desync = true;
-            return;
+            return false;
         }
+
+        // Iif winning lcl is not matched with our lcl, that means we are not on the consensus ledger.
+        if (lcl != majority_lcl)
+        {
+            LOG_DEBUG << "We are not on the consensus ledger,  we must request history from a peer.";
+            is_desync = true;
+            return true;
+        }
+
+        // Reaching here means we have reliable amount of lcl votes and our lcl match with majority lcl.
+        is_desync = false;
+        return true;
     }
 
     /**

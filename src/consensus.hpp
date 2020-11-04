@@ -119,7 +119,7 @@ namespace consensus
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes, std::string_view lcl);
+    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl);
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 
