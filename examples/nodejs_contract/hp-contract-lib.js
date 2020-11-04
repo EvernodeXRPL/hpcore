@@ -54,7 +54,7 @@ function HotPocketChannel(fd, userPubKey, events) {
                     possible_read_len = msgLen;
                     msgLen = -1;
                 } else {
-                    // Only parcial message is recieved.
+                    // Only partial message is recieved.
                     possible_read_len = buf.byteLength - pos
                     msgLen -= possible_read_len;
                 }
@@ -88,13 +88,11 @@ function HotPocketChannel(fd, userPubKey, events) {
 
     this.sendOutput = function (output) {
         const outputStringBuf = Buffer.from(output);
-        let outputBuf = Buffer.alloc(4);
+        let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
-        outputBuf[0] = outputStringBuf.byteLength >>> 24;
-        outputBuf[1] = outputStringBuf.byteLength >>> 16;
-        outputBuf[2] = outputStringBuf.byteLength >>> 8;
-        outputBuf[3] = outputStringBuf.byteLength;
-        fs.writeSync(fd, Buffer.concat([outputBuf, outputStringBuf]));
+        headerBuf.writeUInt32BE(outputStringBuf.byteLength)
+        fs.writeSync(fd, headerBuf);
+        fs.writeSync(fd, outputStringBuf);
     }
 
     this.closeChannel = function () {

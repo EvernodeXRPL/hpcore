@@ -814,11 +814,12 @@ namespace consensus
                         const usr::connected_user &user = user_itr->second;
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
                         // Sending all the outputs to the user.
-                        for (const std::string message : cand_output.outputs)
+                        for (std::string &message : cand_output.outputs)
                         {
                             std::vector<uint8_t> msg;
                             parser.create_contract_output_container(msg, message, lcl_seq_no, lcl);
                             user.session.send(msg);
+                            message.clear();
                         }
                     }
                 }

@@ -150,11 +150,12 @@ namespace read_req
                             {
                                 const usr::connected_user &user = user_itr->second;
                                 msg::usrmsg::usrmsg_parser parser(user.protocol);
-                                for (const std::string outputtosend : user_buf_itr->second.outputs)
+                                for (std::string &outputtosend : user_buf_itr->second.outputs)
                                 {
                                     std::vector<uint8_t> msg;
                                     parser.create_contract_read_response_container(msg, outputtosend);
                                     user.session.send(msg);
+                                    outputtosend.clear();
                                 }
                                 user_buf_itr->second.outputs.clear();
                             }
