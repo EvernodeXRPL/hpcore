@@ -42,10 +42,8 @@ namespace consensus
 
         LOG_INFO << "Initial state: " << ctx.state;
 
-        // We allocate 1/5 of the round time to each stage expect stage 3. For stage 3 we allocate 2/5.
-        // Stage 3 is allocated an extra stage_time unit because a node needs enough time to
-        // catch up from lcl/state desync.
-        ctx.stage_time = conf::cfg.roundtime / 5;
+        // We allocate 1/4 of roundtime for each stage (there are 4 stages: 0,1,2,3)
+        ctx.stage_time = conf::cfg.roundtime / 4;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
         ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
@@ -254,7 +252,7 @@ namespace consensus
 
         const uint64_t now = util::get_epoch_milliseconds();
 
-        // Rrounds are divided into windows of roundtime.
+        // Rrounds are discreet windows of roundtime.
         // This gets the start time of current round window. Stage 0 must start in the next window.
         const uint64_t current_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
 
@@ -277,7 +275,7 @@ namespace consensus
             const int64_t to_wait = stage_start - now;
 
             // If a node doesn't have enough time (eg. due to network delay) to recieve/send reliable stage proposals for next stage,
-            // it will continue particapating in this round, otherwise will join in next round.
+            // it will join in next round. Otherwise it will continue particapating in this round.
             if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
             {
                 LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";

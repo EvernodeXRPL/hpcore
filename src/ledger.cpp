@@ -111,6 +111,8 @@ namespace ledger
 
         {
             std::scoped_lock<std::mutex> lock(sync_ctx.target_lcl_mutex);
+            if (sync_ctx.target_lcl == target_lcl)
+                return;
             sync_ctx.target_lcl = target_lcl;
         }
 
