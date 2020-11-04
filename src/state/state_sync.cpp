@@ -56,7 +56,7 @@ namespace state_sync
      */
     void set_target(const hpfs::h32 target_state)
     {
-        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+        std::unique_lock lock(ctx.target_state_mutex);
 
         // Do not do anything if we are already syncing towards the specified target state.
         if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_state == target_state))
@@ -81,7 +81,7 @@ namespace state_sync
 
             // Keep idling if we are not doing any sync activity.
             {
-                std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+                std::shared_lock lock(ctx.target_state_mutex);
                 if (!ctx.is_syncing)
                     continue;
 
@@ -103,7 +103,7 @@ namespace state_sync
                     ctx.submitted_requests.clear();
 
                     {
-                        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+                        std::shared_lock lock(ctx.target_state_mutex);
 
                         if (new_state == ctx.target_state)
                         {
@@ -125,7 +125,7 @@ namespace state_sync
                 LOG_ERROR << "State sync: Failed to start hpfs rw session";
             }
 
-            std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+            std::unique_lock lock(ctx.target_state_mutex);
             ctx.target_state = hpfs::h32_empty;
             ctx.is_syncing = false;
         }
@@ -148,7 +148,7 @@ namespace state_sync
             std::string lcl = ledger::ctx.get_lcl();
 
             {
-                std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
+                std::scoped_lock lock(p2p::ctx.collected_msgs.state_responses_mutex);
 
                 // Move collected state responses over to local candidate responses list.
                 if (!p2p::ctx.collected_msgs.state_responses.empty())
@@ -253,7 +253,7 @@ namespace state_sync
             return true;
 
         // Stop request loop if the target has changed.
-        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+        std::shared_lock lock(ctx.target_state_mutex);
         return current_target != ctx.target_state;
     }
 

@@ -44,7 +44,7 @@ namespace state_sync
         std::unordered_map<std::string, backlog_item> submitted_requests;
 
         std::thread state_sync_thread;
-        std::mutex target_state_update_lock;
+        std::shared_mutex target_state_mutex;
         std::atomic<bool> is_syncing = false;
         std::atomic<bool> is_shutting_down = false;
         std::string hpfs_mount_dir;
