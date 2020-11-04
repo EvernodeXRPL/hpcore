@@ -130,6 +130,10 @@ int main(int argc, char **argv)
     signal(SIGSEGV, &segfault_handler);
     signal(SIGABRT, &segfault_handler);
 
+    // Become a sub-reaper so we can gracefully reap hpws child processes via hpws.hpp.
+    // (Otherwise they will get reaped by OS init process and we'll end up with race conditions with gracefull kills)
+    prctl(PR_SET_CHILD_SUBREAPER, 1);
+
     // seed rand
     srand(util::get_epoch_milliseconds());
 
