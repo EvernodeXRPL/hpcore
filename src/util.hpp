@@ -2,7 +2,6 @@
 #define _HP_UTIL_
 
 #include "pchheader.hpp"
-#include "crypto.hpp"
 
 /**
  * Contains helper functions and data structures used by multiple other subsystems.

@@ -35,8 +35,8 @@ namespace crypto
         seckey[0] = KEYPFX_ed25519;
 
         crypto_sign_ed25519_keypair(
-            reinterpret_cast<unsigned char *>(pubkey.data() + 1),   // +1 to skip the prefix byte.
-            reinterpret_cast<unsigned char *>(seckey.data() + 1));  // +1 to skip the prefix byte.
+            reinterpret_cast<unsigned char *>(pubkey.data() + 1),  // +1 to skip the prefix byte.
+            reinterpret_cast<unsigned char *>(seckey.data() + 1)); // +1 to skip the prefix byte.
     }
 
     /**
@@ -197,9 +197,9 @@ namespace crypto
     }
 
     /**
-     * Generates blake3 hash for the given string view and the string list using stream hashing.
+     * Generates blake3 hash for the given string view and the contract output list using stream hashing.
      */
-    std::string get_hash(std::string_view s1, std::list<std::string> &list)
+    std::string get_hash(std::string_view s1, std::list<sc::contract_output> &list)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
@@ -210,9 +210,10 @@ namespace crypto
 
         // updating hash with given data
         blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(s1.data()), s1.length());
-        for (std::string_view str : list)
-            blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(str.data()), str.length());
-            
+        // Hash is generated only using message in contract output struct.
+        for (sc::contract_output output : list)
+            blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(output.message.data()), output.message.length());
+
         // Get the final hash.
         blake3_hasher_finalize(&hasher, reinterpret_cast<unsigned char *>(hash.data()), hash.length());
 

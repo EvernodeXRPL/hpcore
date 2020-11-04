@@ -25,27 +25,30 @@ namespace sc
     };
 
     /**
+     * Stores message length along with the message. Length is used to construct the message from the stream buffer.
+    */
+    struct contract_output
+    {
+        int32_t message_len = -1;
+        std::string message;
+
+        bool is_filled()
+        {
+            return message_len == message.length();
+        }
+    };
+    /**
  * Represents list of inputs to the contract and the accumulated contract output for those inputs.
  */
-    struct contract_iobuf_pair
+
+    struct contract_iobufs
     {
         // List of inputs to be fed into the contract.
         std::list<std::string> inputs;
 
         // List of outputs from the contract.
-        std::list<std::string> outputs;
+        std::list<contract_output> outputs;
     };
-
-    // Reprents the variables used in user output separation when reading stream sockets.
-    struct contract_user_stream_utils
-    {
-        // Current message length.
-        int16_t stream_msg_length = -1;
-        // Current message buffer.
-        std::string temp_stream_read_buf;
-    };
-
-    typedef std::unordered_map<std::string, contract_user_stream_utils> contract_utilmap_t;
 
     // Common typedef for a map of pubkey->fdlist.
     // This is used to keep track of fdlist quadruplet with a public key (eg. user, npl).
@@ -53,7 +56,7 @@ namespace sc
 
     // Common typedef for a map of pubkey->I/O list pair (input list and output list).
     // This is used to keep track of input/output buffers for a given public key (eg. user, npl)
-    typedef std::unordered_map<std::string, contract_iobuf_pair> contract_bufmap_t;
+    typedef std::unordered_map<std::string, contract_iobufs> contract_bufmap_t;
 
     /**
  * Holds information that should be passed into the contract process.
@@ -69,10 +72,6 @@ namespace sc
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
         contract_bufmap_t userbufs;
-
-        // Stores pub key vs variables for each user. Used in message seperation in output read from SC.
-        // Map (key: user binary public key)
-        contract_utilmap_t user_stream_utils;
 
         // NPL messages to be passed into contract.
         moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
@@ -159,7 +158,7 @@ namespace sc
 
     int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, contract_utilmap_t &user_stream_utils);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
     void cleanup_fdmap(contract_fdmap_t &fdmap);
 

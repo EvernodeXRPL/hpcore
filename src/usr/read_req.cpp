@@ -150,12 +150,12 @@ namespace read_req
                             {
                                 const usr::connected_user &user = user_itr->second;
                                 msg::usrmsg::usrmsg_parser parser(user.protocol);
-                                for (std::string &outputtosend : user_buf_itr->second.outputs)
+                                for (sc::contract_output &output : user_buf_itr->second.outputs)
                                 {
                                     std::vector<uint8_t> msg;
-                                    parser.create_contract_read_response_container(msg, outputtosend);
+                                    parser.create_contract_read_response_container(msg, output.message);
                                     user.session.send(msg);
-                                    outputtosend.clear();
+                                    output.message.clear();
                                 }
                                 user_buf_itr->second.outputs.clear();
                             }
@@ -216,9 +216,9 @@ namespace read_req
         contract_ctx.args.state_dir = conf::ctx.state_dir;
         contract_ctx.args.state_dir.append("/rr_").append(std::to_string(thread_id));
         contract_ctx.args.readonly = true;
-        sc::contract_iobuf_pair user_bufpair;
-        user_bufpair.inputs.push_back(std::move(read_request.content));
-        contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufpair));
+        sc::contract_iobufs user_bufs;
+        user_bufs.inputs.push_back(std::move(read_request.content));
+        contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufs));
     }
 
     /**

@@ -763,8 +763,8 @@ namespace consensus
             args.time = cons_prop.time;
             args.lcl = new_lcl;
 
-            // Populate user bufs and user stream util map.
-            feed_user_inputs_to_contract_bufmap(args.userbufs, args.user_stream_utils, cons_prop);
+            // Populate user bufs.
+            feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
             // TODO: Do something usefull with HP<-->SC channel.
 
             if (sc::execute_contract(ctx.contract_ctx) == -1)
@@ -814,12 +814,12 @@ namespace consensus
                         const usr::connected_user &user = user_itr->second;
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
                         // Sending all the outputs to the user.
-                        for (std::string &message : cand_output.outputs)
+                        for (sc::contract_output &output : cand_output.outputs)
                         {
                             std::vector<uint8_t> msg;
-                            parser.create_contract_output_container(msg, message, lcl_seq_no, lcl);
+                            parser.create_contract_output_container(msg, output.message, lcl_seq_no, lcl);
                             user.session.send(msg);
-                            message.clear();
+                            output.message.clear();
                         }
                     }
                 }
@@ -833,17 +833,15 @@ namespace consensus
     /**
      * Transfers consensus-reached inputs into the provided contract buf map so it can be fed into the contract process.
      * @param bufmap The contract bufmap which needs to be populated with inputs.
-     * @param user_stream_util_map The contract stream util map which keeps the stream util variables per user.
      * @param cons_prop The proposal that achieved consensus.
      */
-    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, sc::contract_utilmap_t &user_stream_util_map, const p2p::proposal &cons_prop)
+    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
     {
         // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
         // This is in case the contract wanted to emit some data to a user without needing any input.
         for (const std::string &pubkey : cons_prop.users)
         {
-            bufmap.try_emplace(pubkey, sc::contract_iobuf_pair());
-            user_stream_util_map.try_emplace(pubkey, sc::contract_user_stream_utils());
+            bufmap.try_emplace(pubkey, sc::contract_iobufs());
         }
 
         for (const std::string &hash : cons_prop.hash_inputs)
@@ -865,8 +863,8 @@ namespace consensus
                 std::string inputtofeed;
                 inputtofeed.swap(cand_input.input);
 
-                sc::contract_iobuf_pair &bufpair = bufmap[cand_input.userpubkey];
-                bufpair.inputs.push_back(std::move(inputtofeed));
+                sc::contract_iobufs &bufs = bufmap[cand_input.userpubkey];
+                bufs.inputs.push_back(std::move(inputtofeed));
 
                 // Remove the input from the candidate set because we no longer need it.
                 //LOG_DEBUG << "candidate input deleted.";
@@ -882,14 +880,14 @@ namespace consensus
      */
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap)
     {
-        for (auto &[pubkey, bufpair] : bufmap)
+        for (auto &[pubkey, bufs] : bufmap)
         {
-            if (!bufpair.outputs.empty())
+            if (!bufs.outputs.empty())
             {
-                const std::string hash = crypto::get_hash(pubkey, bufpair.outputs);
+                const std::string hash = crypto::get_hash(pubkey, bufs.outputs);
                 ctx.candidate_user_outputs.try_emplace(
                     std::move(hash),
-                    candidate_user_output(pubkey, std::move(bufpair.outputs)));
+                    candidate_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
     }
