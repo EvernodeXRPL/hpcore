@@ -101,6 +101,8 @@ namespace consensus
 
     int consensus();
 
+    void update_candidate_proposals();
+
     void purify_candidate_proposals();
 
     bool wait_and_proceed_stage(uint64_t &stage_start);

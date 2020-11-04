@@ -103,40 +103,20 @@ namespace consensus
         if (!wait_and_proceed_stage(stage_start))
             return 0; // This means the stage has been reset.
 
-        // Get the latest current time.
-        ctx.time_now = stage_start;
-        std::list<p2p::proposal> collected_proposals;
+        // Throughout consensus, we move over the incoming proposals collected via the network so far into
+        // the local proposal set. This is to have a private working set for the consensus and avoid threading
+        // conflicts with network incoming proposals.
+        update_candidate_proposals();
 
-        // Get current lcl and sequence no.
+        LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
+
+        // We consider stage start time as the current discreet time throughout the stage.
+        ctx.time_now = stage_start;
+
+        // Get current lcl and state.
         const std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         const hpfs::h32 state = state_common::ctx.get_state();
-
-        // Throughout consensus, we move over the incoming proposals collected via the network so far into
-        // the candidate proposal set (move and append). This is to have a private working set for the consensus
-        // and avoid threading conflicts with network incoming proposals.
-        {
-            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
-            collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
-        }
-
-        //Copy collected propsals to candidate set of proposals.
-        //Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
-        for (const auto &proposal : collected_proposals)
-        {
-            auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
-            if (prop_itr != ctx.candidate_proposals.end())
-            {
-                ctx.candidate_proposals.erase(prop_itr);
-                ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
-            }
-            else
-            {
-                ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
-            }
-        }
-
-        LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
 
         if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
         {
@@ -203,6 +183,31 @@ namespace consensus
         // Node has finished a consensus stage. Transition to next stage.
         ctx.stage = (ctx.stage + 1) % 4;
         return 0;
+    }
+
+    void update_candidate_proposals()
+    {
+        std::list<p2p::proposal> collected_proposals;
+        {
+            std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
+            collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
+        }
+
+        // Copy collected propsals to candidate set of proposals.
+        // Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
+        for (const auto &proposal : collected_proposals)
+        {
+            auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
+            if (prop_itr != ctx.candidate_proposals.end())
+            {
+                ctx.candidate_proposals.erase(prop_itr);
+                ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
+            }
+            else
+            {
+                ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
+            }
+        }
     }
 
     /**
@@ -289,7 +294,6 @@ namespace consensus
 
     /**
      * Broadcasts any inputs from locally connected users via an NUP.
-     * @return 0 for successful broadcast. -1 for failure.
      */
     void broadcast_nonunl_proposal()
     {
@@ -300,7 +304,7 @@ namespace consensus
         p2p::nonunl_proposal nup;
 
         {
-            std::scoped_lock<std::mutex>(usr::ctx.users_mutex);
+            std::scoped_lock lock(usr::ctx.users_mutex);
             for (auto &[sid, user] : usr::ctx.users)
             {
                 std::list<usr::user_input> user_inputs;
@@ -336,15 +340,21 @@ namespace consensus
      */
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
-        // Lock the user sessions and the list so any network activity is blocked.
-        std::scoped_lock<std::mutex, std::mutex> lock(usr::ctx.users_mutex, p2p::ctx.collected_msgs.nonunl_proposals_mutex);
-        for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
+        // Move over NUPs collected from the network into a local list.
+        std::list<p2p::nonunl_proposal> nups;
+        {
+            std::scoped_lock lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+            nups.splice(nups.end(), p2p::ctx.collected_msgs.nonunl_proposals);
+        }
+
+        // Maintains users and any input-acceptance responses we should send to them.
+        // Key: user pubkey. Value: List of [user-protocol, msg-sig, reject-reason] tuples.
+        std::unordered_map<std::string, std::list<std::tuple<const util::PROTOCOL, const std::string, const char *>>> responses;
+
+        for (const p2p::nonunl_proposal &p : nups)
         {
             for (const auto &[pubkey, umsgs] : p.user_inputs)
             {
-                // Locate this user's socket session in case we need to send any status messages regarding user inputs.
-                comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
-
                 // Populate user list with this user's pubkey.
                 ctx.candidate_users.emplace(pubkey);
 
@@ -420,19 +430,40 @@ namespace consensus
                         reject_reason = msg::usrmsg::REASON_DUPLICATE_MSG;
                     }
 
-                    // Send the request status result if this user is connected to us.
-                    if (session != NULL)
+                    responses[pubkey].push_back(std::tuple<const util::PROTOCOL, const std::string, const char *>(umsg.protocol, umsg.sig, reject_reason));
+                }
+            }
+        }
+
+        nups.clear();
+
+        {
+            // Lock the user sessions.
+            std::scoped_lock lock(usr::ctx.users_mutex);
+
+            for (auto &[pubkey, user_responses] : responses)
+            {
+                // Locate this user's socket session.
+                comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
+                // Send the request status result if this user is connected to us.
+                if (session != NULL)
+                {
+                    for (auto &resp : user_responses)
                     {
+                        // resp: 0=protocl, 1=msg sig, 2=reject reason.
+                        msg::usrmsg::usrmsg_parser parser(std::get<0>(resp));
+                        const std::string &msg_sig = std::get<1>(resp);
+                        const char *reject_reason = std::get<2>(resp);
+
                         usr::send_input_status(parser,
                                                *session,
                                                reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                                reject_reason == NULL ? "" : reject_reason,
-                                               umsg.sig);
+                                               msg_sig);
                     }
                 }
             }
         }
-        p2p::ctx.collected_msgs.nonunl_proposals.clear();
     }
 
     /**
@@ -536,14 +567,14 @@ namespace consensus
 
         // we always vote for our current lcl and state regardless of what other peers are saying
         // if there's a fork condition we will either request history and state from
-        // our peers or we will halt depending on level of consensus on the sides of the fork
+        // our peers or we will halt depending on level of consensus on the sides of the fork.
         stg_prop.lcl = lcl;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
             // Vote for times.
-            // Everyone votes on an arbitrary time, as long as its within the round time and not in the future.
+            // Everyone votes on an arbitrary time, as long as it's not in the future and within the round time.
             if (ctx.time_now > cp.time && (ctx.time_now - cp.time) < conf::cfg.roundtime)
                 increment(votes.time, cp.time);
 
@@ -658,25 +689,27 @@ namespace consensus
             }
         }
 
-        // Check wheher there are good enough winning votes.
-        if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
-        {
-            // potential fork condition.
-            LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
-            return false;
-        }
-
-        // Iif winning lcl is not matched with our lcl, that means we are not on the consensus ledger.
+        // If winning lcl is not matched with our lcl, that means we are not on the consensus ledger.
+        // We should request history straight away.
         if (lcl != majority_lcl)
         {
             LOG_DEBUG << "We are not on the consensus ledger,  we must request history from a peer.";
             is_desync = true;
             return true;
         }
-
-        // Reaching here means we have reliable amount of lcl votes and our lcl match with majority lcl.
-        is_desync = false;
-        return true;
+        // Check wheher there are good enough winning votes.
+        else if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
+        {
+            // potential fork condition.
+            LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
+            return false;
+        }
+        else
+        {
+            // Reaching here means we have reliable amount of lcl votes and our lcl match with majority lcl.
+            is_desync = false;
+            return true;
+        }
     }
 
     /**
