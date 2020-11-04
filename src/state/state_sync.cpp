@@ -14,7 +14,7 @@
 namespace state_sync
 {
     // Idle loop sleep time  (milliseconds).
-    constexpr uint16_t IDLE_WAIT = 20;
+    constexpr uint16_t IDLE_WAIT = 40;
 
     // Max number of requests that can be awaiting response at any given time.
     constexpr uint16_t MAX_AWAITING_REQUESTS = 4;
@@ -137,12 +137,17 @@ namespace state_sync
     {
         std::string lcl = ledger::ctx.get_lcl();
 
+        // Indicates whether any responses were processed in the previous loop iteration.
+        bool prev_responses_processed = false;
+
         // Send the initial root state request.
         submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, current_target}, lcl);
 
         while (!should_stop_request_loop(current_target))
         {
-            util::sleep(REQUEST_LOOP_WAIT);
+            // Wait a small delay if there were no responses processed during previous iteration.
+            if (!prev_responses_processed)
+                util::sleep(REQUEST_LOOP_WAIT);
 
             // Get current lcl.
             std::string lcl = ledger::ctx.get_lcl();
@@ -155,12 +160,14 @@ namespace state_sync
                     ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.state_responses);
             }
 
+            prev_responses_processed = !ctx.candidate_state_responses.empty();
+
             for (auto &response : ctx.candidate_state_responses)
             {
                 if (should_stop_request_loop(current_target))
                     return;
 
-                LOG_DEBUG << "Processing state resposne from [" << response.first.substr(0, 10) << "]";
+                LOG_DEBUG << "State sync: Processing state response from [" << response.first.substr(0, 10) << "]";
 
                 const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
                 const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();

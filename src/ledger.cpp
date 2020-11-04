@@ -139,9 +139,14 @@ namespace ledger
         std::list<std::pair<std::string, p2p::history_request>> history_requests;
         std::list<p2p::history_response> history_responses;
 
+        // Indicates whether any requests/responses were processed in the previous loop iteration.
+        bool prev_processed = false;
+
         while (!sync_ctx.is_shutting_down)
         {
-            util::sleep(SYNCER_IDLE_WAIT);
+            // Wait a small delay if there were no requests/responses processed during previous iteration.
+            if (!prev_processed)
+                util::sleep(SYNCER_IDLE_WAIT);
 
             const std::string lcl = ctx.get_lcl();
 
@@ -151,6 +156,8 @@ namespace ledger
                 history_requests.splice(history_requests.end(), sync_ctx.collected_history_requests);
                 history_responses.splice(history_responses.end(), sync_ctx.collected_history_responses);
             }
+
+            prev_processed = !history_requests.empty() || !history_responses.empty();
 
             // Process any target lcl sync activities.
             {
