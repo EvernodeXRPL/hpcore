@@ -222,7 +222,7 @@ namespace msg::fbuf::p2pmsg
         p2p::proposal p;
 
         p.pubkey = flatbuff_bytes_to_sv(pubkey);
-        p.timestamp = timestamp;
+        p.sent_timestamp = timestamp;
         p.time = msg.time();
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);

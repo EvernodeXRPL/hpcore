@@ -16,7 +16,11 @@ namespace p2p
     struct proposal
     {
         std::string pubkey;
-        uint64_t timestamp = 0;
+
+        // The timestamp of the sender when this proposal was sent.
+        uint64_t sent_timestamp = 0;
+
+        // The time value that is voted on.
         uint64_t time = 0;
         uint8_t stage = 0;
         std::string lcl;

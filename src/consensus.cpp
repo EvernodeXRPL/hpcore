@@ -214,7 +214,7 @@ namespace consensus
         while (itr != ctx.candidate_proposals.end())
         {
             const p2p::proposal &cp = itr->second;
-            const uint64_t time_diff = (ctx.time_now > cp.timestamp) ? (ctx.time_now - cp.timestamp) : 0;
+            const uint64_t time_diff = (ctx.time_now > cp.sent_timestamp) ? (ctx.time_now - cp.sent_timestamp) : 0;
             const int8_t stage_diff = ctx.stage - cp.stage;
 
             // only consider recent proposals and proposals from previous stage and current stage.
