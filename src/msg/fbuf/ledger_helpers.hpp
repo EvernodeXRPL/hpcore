@@ -10,6 +10,8 @@ namespace msg::fbuf::ledger
 
     void create_ledger_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no);
 
+    p2p::proposal create_proposal_from_ledger(const std::vector<uint8_t> &ledger_buf);
+
     bool verify_ledger_buffer(const uint8_t *ledger_buf_ptr, const size_t buf_len);
 
 } // namespace msg::fbuf::ledger

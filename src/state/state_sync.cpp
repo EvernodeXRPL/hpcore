@@ -14,7 +14,7 @@
 namespace state_sync
 {
     // Idle loop sleep time  (milliseconds).
-    constexpr uint16_t IDLE_WAIT = 20;
+    constexpr uint16_t IDLE_WAIT = 40;
 
     // Max number of requests that can be awaiting response at any given time.
     constexpr uint16_t MAX_AWAITING_REQUESTS = 4;
@@ -54,15 +54,14 @@ namespace state_sync
      * @param target_state The target state which we should sync towards.
      * @param completion_callback The callback function to call upon state sync completion.
      */
-    void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32))
+    void set_target(const hpfs::h32 target_state)
     {
-        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+        std::unique_lock lock(ctx.target_state_mutex);
 
         // Do not do anything if we are already syncing towards the specified target state.
         if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_state == target_state))
             return;
 
-        ctx.completion_callback = completion_callback;
         ctx.target_state = target_state;
         ctx.is_syncing = true;
     }
@@ -82,7 +81,7 @@ namespace state_sync
 
             // Keep idling if we are not doing any sync activity.
             {
-                std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+                std::shared_lock lock(ctx.target_state_mutex);
                 if (!ctx.is_syncing)
                     continue;
 
@@ -104,12 +103,11 @@ namespace state_sync
                     ctx.submitted_requests.clear();
 
                     {
-                        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+                        std::shared_lock lock(ctx.target_state_mutex);
 
                         if (new_state == ctx.target_state)
                         {
                             LOG_INFO << "State sync: Target state achieved: " << new_state;
-                            ctx.completion_callback(new_state);
                             break;
                         }
                         else
@@ -127,7 +125,7 @@ namespace state_sync
                 LOG_ERROR << "State sync: Failed to start hpfs rw session";
             }
 
-            std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+            std::unique_lock lock(ctx.target_state_mutex);
             ctx.target_state = hpfs::h32_empty;
             ctx.is_syncing = false;
         }
@@ -139,30 +137,37 @@ namespace state_sync
     {
         std::string lcl = ledger::ctx.get_lcl();
 
+        // Indicates whether any responses were processed in the previous loop iteration.
+        bool prev_responses_processed = false;
+
         // Send the initial root state request.
         submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, current_target}, lcl);
 
         while (!should_stop_request_loop(current_target))
         {
-            util::sleep(REQUEST_LOOP_WAIT);
+            // Wait a small delay if there were no responses processed during previous iteration.
+            if (!prev_responses_processed)
+                util::sleep(REQUEST_LOOP_WAIT);
 
             // Get current lcl.
             std::string lcl = ledger::ctx.get_lcl();
 
             {
-                std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.state_responses_mutex);
+                std::scoped_lock lock(p2p::ctx.collected_msgs.state_responses_mutex);
 
                 // Move collected state responses over to local candidate responses list.
                 if (!p2p::ctx.collected_msgs.state_responses.empty())
                     ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.state_responses);
             }
 
+            prev_responses_processed = !ctx.candidate_state_responses.empty();
+
             for (auto &response : ctx.candidate_state_responses)
             {
                 if (should_stop_request_loop(current_target))
                     return;
 
-                LOG_DEBUG << "Processing state resposne from [" << response.first.substr(0, 10) << "]";
+                LOG_DEBUG << "State sync: Processing state response from [" << response.first.substr(0, 10) << "]";
 
                 const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
                 const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
@@ -198,6 +203,9 @@ namespace state_sync
                     LOG_ERROR << "State sync: exiting due to hash check error.";
                     return;
                 }
+
+                // Update the central state tracker.
+                state_common::ctx.set_state(updated_state);
 
                 LOG_DEBUG << "State sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
@@ -252,7 +260,7 @@ namespace state_sync
             return true;
 
         // Stop request loop if the target has changed.
-        std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
+        std::shared_lock lock(ctx.target_state_mutex);
         return current_target != ctx.target_state;
     }
 

@@ -361,7 +361,7 @@ namespace msg::fbuf::p2pmsg
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
-                sv_to_flatbuff_bytes(builder, p.state.to_string_view()));
+                hash_to_flatbuff_bytes(builder, p.state));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
