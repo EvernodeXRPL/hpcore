@@ -30,7 +30,7 @@ function HotPocketContract() {
 function HotPocketChannel(fd, userPubKey, events) {
     let socket = null;
     if (fd > 0) {
-        socket = fs.createReadStream(null, { fd: fd, highWaterMark: 100 });
+        socket = fs.createReadStream(null, { fd: fd });
         let dataParts = [];
         let msgCount = -1;
         let msgLen = -1;
@@ -38,15 +38,15 @@ function HotPocketChannel(fd, userPubKey, events) {
         socket.on("data", (buf) => {
             pos = 0;
             if (msgCount == -1) {
-                const msgCountBuf = readBytes(buf, 0, 2)
-                msgCount = msgCountBuf.readUInt16BE();
-                pos += 2;
+                const msgCountBuf = readBytes(buf, 0, 4)
+                msgCount = msgCountBuf.readUInt32BE();
+                pos += 4;
             }
             while (pos < buf.byteLength) {
                 if (msgLen == -1) {
-                    const msgLenBuf = readBytes(buf, pos, 2);
-                    pos += 2;
-                    msgLen = msgLenBuf.readUInt16BE();
+                    const msgLenBuf = readBytes(buf, pos, 4);
+                    pos += 4;
+                    msgLen = msgLenBuf.readUInt32BE();
                 }
                 let possible_read_len;
                 if (((buf.byteLength - pos) - msgLen) >= 0) {
@@ -88,11 +88,12 @@ function HotPocketChannel(fd, userPubKey, events) {
 
     this.sendOutput = function (output) {
         const outputStringBuf = Buffer.from(output);
-        let outputBuf = Buffer.alloc(2);
+        let outputBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
-        outputBuf[0] = outputStringBuf.byteLength >>> 8;
-        outputBuf[1] = outputStringBuf.byteLength;
-        console.log(outputBuf.readUInt16BE())
+        outputBuf[0] = outputStringBuf.byteLength >>> 24;
+        outputBuf[1] = outputStringBuf.byteLength >>> 16;
+        outputBuf[2] = outputStringBuf.byteLength >>> 8;
+        outputBuf[3] = outputStringBuf.byteLength;
         fs.writeSync(fd, Buffer.concat([outputBuf, outputStringBuf]));
     }
 

@@ -595,8 +595,8 @@ namespace sc
                 {
                     if (stream_util.stream_msg_length == -1)
                     {
-                        stream_util.stream_msg_length = output.at(pos + 1) | (output.at(pos) << 8);
-                        pos += 2;
+                        stream_util.stream_msg_length = output.at(pos + 3) | (output.at(pos + 2) << 24) | (output.at(pos + 1) << 16) | (output.at(pos) << 8);
+                        pos += 4;
                     }
                     int possible_read_len;
                     if (((res - pos) - stream_util.stream_msg_length) >= 0)
@@ -698,23 +698,27 @@ namespace sc
             // Prepare the input memory segments to write with wrtiev.
             // Extra one element for the header.
             iovec memsegs[inputs.size() * 2 + 1];
-            uint8_t header[inputs.size() * 2 + 2];
-            header[0] = inputs.size() >> 8;
-            header[1] = inputs.size();
+            uint8_t header[inputs.size() * 4 + 4];
+            header[0] = inputs.size() >> 24;
+            header[1] = inputs.size() >> 16;
+            header[2] = inputs.size() >> 8;
+            header[3] = inputs.size();
             // Message count header.
             memsegs[0].iov_base = header;
-            memsegs[0].iov_len = 2;
+            memsegs[0].iov_len = 4;
             size_t i = 1;
             for (std::string &input : inputs)
             {
-                // 2 bytes for message len header.
-                header[i + 1] = input.length() >> 8;
-                header[i + 2] = input.length();
-                memsegs[i].iov_base = &header[i + 1];
-                memsegs[i].iov_len = 2;
-                memsegs[i + 1].iov_base = input.data();
-                memsegs[i + 1].iov_len = input.length();
-                i += 2;
+                // 4 bytes for message len header.
+                header[i * 4] = input.length() >> 24;
+                header[i * 4 + 1] = input.length() >> 16;
+                header[i * 4 + 2] = input.length() >> 8;
+                header[i * 4 + 3] = input.length();
+                memsegs[i * 2 - 1].iov_base = &header[i * 4];
+                memsegs[i * 2 - 1].iov_len = 4;
+                memsegs[i * 2].iov_base = input.data();
+                memsegs[i * 2].iov_len = input.length();
+                i++;
             }
 
             if (writev(writefd, memsegs, (inputs.size() * 2 + 1)) == -1)
