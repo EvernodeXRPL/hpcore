@@ -50,7 +50,7 @@ function HotPocketChannel(fd, userPubKey, events) {
                 }
                 let possible_read_len;
                 if (((buf.byteLength - pos) - msgLen) >= 0) {
-                    // Can finish reading a full msg
+                    // Can finish reading a full message.
                     possible_read_len = msgLen;
                     msgLen = -1;
                 } else {

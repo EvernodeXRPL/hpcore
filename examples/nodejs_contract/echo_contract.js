@@ -17,14 +17,11 @@ hpc.events.on("user_message", (pubKey, message) => {
         user.closeChannel();
     }
     else {
-        console.log('received: ' + userInput);
         user.sendOutput("Echoing: " + userInput);
-        // user.closeChannel();
     }
 });
 
 hpc.events.on("user_finished", (pubKey) => {
-    console.log('finished receiving')
     hpc.users[pubKey].closeChannel();
 });
 

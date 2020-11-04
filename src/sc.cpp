@@ -575,6 +575,7 @@ namespace sc
      * 
      * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
+     * @param user_stream_utils A map which has a public key and stream util variables for that public key.
      * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
      */
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, contract_utilmap_t &user_stream_utils)
@@ -601,7 +602,7 @@ namespace sc
                     int possible_read_len;
                     if (((res - pos) - stream_util.stream_msg_length) >= 0)
                     {
-                        // Can finish reading a full msg
+                        // Can finish reading a full message.
                         possible_read_len = stream_util.stream_msg_length;
                         stream_util.stream_msg_length = -1;
                     }
@@ -621,21 +622,13 @@ namespace sc
                         stream_util.temp_stream_read_buf.clear();
                     }
                 }
+                bytes_read = true;
             }
 
-            if (res > 0)
-            {
-                LOG_INFO << "contract outputs";
-                for (std::string str : bufpair.outputs)
-                    LOG_INFO << str;
-            }
             if (res == -1)
             {
                 return -1;
             }
-
-            if (res > 0)
-                bytes_read = true;
         }
 
         return bytes_read ? 1 : 0;
