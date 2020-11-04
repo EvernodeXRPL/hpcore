@@ -51,7 +51,7 @@ namespace consensus
         std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
         // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
-        std::unordered_set<std::string> candidate_users;
+        std::set<std::string> candidate_users;
 
         // Map of candidate user inputs with input hash as map key. Inputs will stay here until they
         // achieve consensus or expire (due to maxledgerseqno). Input hash is globally unique among inputs
@@ -63,8 +63,6 @@ namespace consensus
         // all users. We will use this map to distribute outputs back to connected users once consensus is achieved.
         std::unordered_map<std::string, candidate_user_output> candidate_user_outputs;
 
-        util::rollover_hashset recent_userinput_hashes;
-
         uint8_t stage = 0;
         uint64_t time_now = 0;
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
@@ -74,11 +72,6 @@ namespace consensus
         bool is_shutting_down = false;
 
         std::thread consensus_thread;
-
-        consensus_context()
-            : recent_userinput_hashes(200)
-        {
-        }
     };
 
     struct vote_counter
@@ -112,8 +105,6 @@ namespace consensus
     bool push_npl_message(p2p::npl_message &npl_message);
 
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
-
-    bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 

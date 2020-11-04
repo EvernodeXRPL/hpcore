@@ -362,72 +362,36 @@ namespace consensus
                 // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
                 size_t total_input_len = 0;
                 bool appbill_balance_exceeded = false;
+                util::rollover_hashset recent_user_input_hashes(200);
 
                 for (const usr::user_input &umsg : umsgs)
                 {
-                    msg::usrmsg::usrmsg_parser parser(umsg.protocol);
-
                     const char *reject_reason = NULL;
-                    const std::string sig_hash = crypto::get_hash(umsg.sig);
 
-                    // Check for duplicate messages using hash of the signature.
-                    if (ctx.recent_userinput_hashes.try_emplace(sig_hash))
+                    if (appbill_balance_exceeded)
                     {
-                        // Verify the signature of the input_container.
-                        if (crypto::verify(umsg.input_container, umsg.sig, pubkey) == 0)
-                        {
-                            std::string nonce;
-                            std::string input;
-                            uint64_t max_lcl_seqno;
-                            parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
-
-                            // Ignore the input if our ledger has passed the input TTL.
-                            if (max_lcl_seqno > lcl_seq_no)
-                            {
-                                if (!appbill_balance_exceeded)
-                                {
-                                    // Hash is prefixed with the nonce to support user-defined sort order.
-                                    std::string hash = std::move(nonce);
-                                    // Append the hash of the message signature to get the final hash.
-                                    hash.append(sig_hash);
-
-                                    // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
-                                    total_input_len += input.length();
-                                    if (verify_appbill_check(pubkey, total_input_len))
-                                    {
-                                        ctx.candidate_user_inputs.try_emplace(
-                                            hash,
-                                            candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
-                                    }
-                                    else
-                                    {
-                                        // Abandon processing further inputs from this user when we find out
-                                        // an input cannot be processed with the account balance.
-                                        appbill_balance_exceeded = true;
-                                        reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
-                                    }
-                                }
-                                else
-                                {
-                                    reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
-                                }
-                            }
-                            else
-                            {
-                                LOG_DEBUG << "User message bad max ledger seq expired.";
-                                reject_reason = msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
-                            }
-                        }
-                        else
-                        {
-                            LOG_DEBUG << "User message bad signature.";
-                            reject_reason = msg::usrmsg::REASON_BAD_SIG;
-                        }
+                        reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
                     }
                     else
                     {
-                        LOG_DEBUG << "Duplicate user message.";
-                        reject_reason = msg::usrmsg::REASON_DUPLICATE_MSG;
+                        std::string hash, input;
+                        uint64_t max_lcl_seqno;
+                        reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, recent_user_input_hashes,
+                                                                            hash, input, max_lcl_seqno);
+
+                        if (reject_reason == NULL)
+                        {
+                            // No reject reason means we should go ahead and subject the input to consensus.
+                            ctx.candidate_user_inputs.try_emplace(
+                                hash,
+                                candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
+                        }
+                        else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
+                        {
+                            // Abandon processing further inputs from this user when we find out
+                            // an input cannot be processed with the account balance.
+                            appbill_balance_exceeded = true;
+                        }
                     }
 
                     responses[pubkey].push_back(std::tuple<const util::PROTOCOL, const std::string, const char *>(umsg.protocol, umsg.sig, reject_reason));
@@ -466,69 +430,6 @@ namespace consensus
         }
     }
 
-    /**
-     * Executes the appbill and verifies whether the user has enough account balance to process the provided input.
-     * @param pubkey User binary pubkey.
-     * @param input_len Total bytes length of user input.
-     * @return Whether the user is allowed to process the input or not.
-     */
-    bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
-    {
-        // If appbill not enabled always green light the input.
-        if (conf::cfg.appbill.empty())
-            return true;
-
-        // execute appbill in --check mode to verify this user can submit a packet/connection to the network
-        // todo: this can be made more efficient, appbill --check can process 7 at a time
-
-        // Fill appbill args
-        const int len = conf::cfg.runtime_appbill_args.size() + 4;
-        char *execv_args[len];
-        for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
-            execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
-        char option[] = "--check";
-        execv_args[len - 4] = option;
-        // add the hex encoded public key as the last parameter
-        std::string hexpubkey;
-        util::bin2hex(hexpubkey, reinterpret_cast<const unsigned char *>(pubkey.data()), pubkey.size());
-        std::string inputsize = std::to_string(input_len);
-        execv_args[len - 3] = hexpubkey.data();
-        execv_args[len - 2] = inputsize.data();
-        execv_args[len - 1] = NULL;
-
-        int pid = fork();
-        if (pid == 0)
-        {
-            // appbill process.
-            util::fork_detach();
-
-            // before execution chdir into a valid the latest state data directory that contains an appbill.table
-            chdir(conf::ctx.state_rw_dir.c_str());
-            int ret = execv(execv_args[0], execv_args);
-            std::cerr << errno << ": Appbill process execv failed.\n";
-            return false;
-        }
-        else
-        {
-            // app bill in check mode takes a very short period of time to execute, typically 1ms
-            // so we will blocking wait for it here
-            int status = 0;
-            waitpid(pid, &status, 0); //todo: check error conditions here
-            status = WEXITSTATUS(status);
-            if (status != 128 && status != 0)
-            {
-                // this user's key passed appbill
-                return true;
-            }
-            else
-            {
-                // user's key did not pass, do not add to user input candidates
-                LOG_DEBUG << "Appbill validation failed " << hexpubkey << " return code was " << status;
-                return false;
-            }
-        }
-    }
-
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
     {
         // The proposal we are going to emit in stage 0.
@@ -539,11 +440,7 @@ namespace consensus
         stg_prop.state = state;
 
         // Populate the proposal with set of candidate user pubkeys.
-        for (const std::string &pubkey : ctx.candidate_users)
-            stg_prop.users.emplace(pubkey);
-
-        // We don't need candidate_users anymore, so clear it. It will be repopulated during next consensus round.
-        ctx.candidate_users.clear();
+        stg_prop.users.swap(ctx.candidate_users);
 
         // Populate the proposal with hashes of user inputs.
         for (const auto &[hash, cand_input] : ctx.candidate_user_inputs)
