@@ -1,5 +1,5 @@
-#ifndef _HP_CONS_STATE_SERVE_
-#define _HP_CONS_STATE_SERVE_
+#ifndef _HP_STATE_STATE_SERVE_
+#define _HP_STATE_STATE_SERVE_
 
 #include "../hpfs/h32.hpp"
 #include "../hpfs/hpfs.hpp"

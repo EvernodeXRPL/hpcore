@@ -54,7 +54,7 @@ namespace state_sync
      * @param target_state The target state which we should sync towards.
      * @param completion_callback The callback function to call upon state sync completion.
      */
-    void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32))
+    void set_target(const hpfs::h32 target_state)
     {
         std::scoped_lock<std::mutex> lock(ctx.target_state_update_lock);
 
@@ -62,7 +62,6 @@ namespace state_sync
         if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_state == target_state))
             return;
 
-        ctx.completion_callback = completion_callback;
         ctx.target_state = target_state;
         ctx.is_syncing = true;
     }
@@ -109,7 +108,6 @@ namespace state_sync
                         if (new_state == ctx.target_state)
                         {
                             LOG_INFO << "State sync: Target state achieved: " << new_state;
-                            ctx.completion_callback(new_state);
                             break;
                         }
                         else
@@ -198,6 +196,9 @@ namespace state_sync
                     LOG_ERROR << "State sync: exiting due to hash check error.";
                     return;
                 }
+
+                // Update the central state tracker.
+                state_common::ctx.set_state(updated_state);
 
                 LOG_DEBUG << "State sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)

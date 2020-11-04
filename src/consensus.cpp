@@ -12,6 +12,7 @@
 #include "sc.hpp"
 #include "hpfs/h32.hpp"
 #include "hpfs/hpfs.hpp"
+#include "state/state_common.hpp"
 #include "state/state_sync.hpp"
 #include "ledger.hpp"
 #include "consensus.hpp"
@@ -34,14 +35,6 @@ namespace consensus
 
     int init()
     {
-        if (get_initial_state_hash(ctx.state) == -1)
-        {
-            LOG_ERROR << "Failed to get initial state hash.";
-            return -1;
-        }
-
-        LOG_INFO << "Initial state: " << ctx.state;
-
         // We allocate 1/4 of roundtime for each stage (there are 4 stages: 0,1,2,3)
         ctx.stage_time = conf::cfg.roundtime / 4;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
@@ -117,6 +110,7 @@ namespace consensus
         // Get current lcl and sequence no.
         const std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
+        const hpfs::h32 state = state_common::ctx.get_state();
 
         // Throughout consensus, we move over the incoming proposals collected via the network so far into
         // the candidate proposal set (move and append). This is to have a private working set for the consensus
@@ -153,7 +147,7 @@ namespace consensus
             verify_and_populate_candidate_user_inputs(lcl_seq_no);
 
             // In stage 0 we create a novel proposal and broadcast it.
-            const p2p::proposal stg_prop = create_stage0_proposal(lcl);
+            const p2p::proposal stg_prop = create_stage0_proposal(lcl, state);
             broadcast_proposal(stg_prop);
         }
         else // Stage 1, 2, 3
@@ -186,14 +180,14 @@ namespace consensus
                 if (is_state_desync)
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-                    state_sync::set_target(majority_state, on_state_sync_completion);
+                    state_sync::set_target(majority_state);
                 }
                 else
                 {
                     conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
 
                     // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
-                    const p2p::proposal stg_prop = create_stage123_proposal(votes, lcl);
+                    const p2p::proposal stg_prop = create_stage123_proposal(votes, lcl, state);
 
                     broadcast_proposal(stg_prop);
 
@@ -502,14 +496,14 @@ namespace consensus
         }
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
     {
         // The proposal we are going to emit in stage 0.
         p2p::proposal stg_prop;
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
         stg_prop.lcl = lcl;
-        stg_prop.state = ctx.state;
+        stg_prop.state = state;
 
         // Populate the proposal with set of candidate user pubkeys.
         for (const std::string &pubkey : ctx.candidate_users)
@@ -531,17 +525,17 @@ namespace consensus
         return stg_prop;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, hpfs::h32 state)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal stg_prop;
         stg_prop.stage = ctx.stage;
+        stg_prop.state = state;
 
         // we always vote for our current lcl and state regardless of what other peers are saying
         // if there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork
         stg_prop.lcl = lcl;
-        stg_prop.state = ctx.state;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -702,10 +696,7 @@ namespace consensus
             }
         }
 
-        {
-            std::scoped_lock<std::mutex>(ctx.state_sync_lock);
-            is_desync = (ctx.state != majority_state);
-        }
+        is_desync = (state_common::ctx.get_state() != majority_state);
     }
 
     /**
@@ -738,7 +729,7 @@ namespace consensus
         std::string new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << ctx.state << ")";
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state << ")";
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
@@ -771,7 +762,7 @@ namespace consensus
                 return -1;
             }
 
-            ctx.state = args.post_execution_state_hash;
+            state_common::ctx.set_state(args.post_execution_state_hash);
             extract_user_outputs_from_contract_bufmap(args.userbufs);
 
             sc::clear_args(args);
@@ -904,24 +895,6 @@ namespace consensus
             counter[candidate]++;
         else
             counter.try_emplace(candidate, 1);
-    }
-
-    /**
-     * Get the contract state hash.
-     */
-    int get_initial_state_hash(hpfs::h32 &hash)
-    {
-        if (hpfs::start_fs_session(conf::ctx.state_rw_dir) == -1 ||
-            hpfs::get_hash(ctx.state, conf::ctx.state_rw_dir, "/") == -1 ||
-            hpfs::stop_fs_session(conf::ctx.state_rw_dir) == -1)
-            return -1;
-        return 0;
-    }
-
-    void on_state_sync_completion(const hpfs::h32 new_state)
-    {
-        std::scoped_lock<std::mutex>(ctx.state_sync_lock);
-        ctx.state = new_state;
     }
 
 } // namespace consensus

@@ -67,12 +67,9 @@ namespace consensus
 
         uint8_t stage = 0;
         uint64_t time_now = 0;
-        hpfs::h32 state = hpfs::h32_empty;
-
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
-        std::mutex state_sync_lock;
         sc::execution_context contract_ctx;
         bool is_shutting_down = false;
 
@@ -116,9 +113,9 @@ namespace consensus
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, hpfs::h32 state);
 
     void broadcast_proposal(const p2p::proposal &p);
 
@@ -146,8 +143,6 @@ namespace consensus
     void increment(std::map<T, int32_t> &counter, const T &candidate);
 
     int get_initial_state_hash(hpfs::h32 &hash);
-
-    void on_state_sync_completion(const hpfs::h32 new_state);
 
 } // namespace consensus
 

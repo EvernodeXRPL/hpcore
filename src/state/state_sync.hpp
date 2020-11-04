@@ -1,5 +1,5 @@
-#ifndef _HP_CONS_STATE_SYNC_
-#define _HP_CONS_STATE_SYNC_
+#ifndef _HP_STATE_STATE_SYNC_
+#define _HP_STATE_STATE_SYNC_
 
 #include "../pchheader.hpp"
 #include "../p2p/p2p.hpp"
@@ -45,11 +45,9 @@ namespace state_sync
 
         std::thread state_sync_thread;
         std::mutex target_state_update_lock;
-        bool is_syncing = false;
-        bool is_shutting_down = false;
+        std::atomic<bool> is_syncing = false;
+        std::atomic<bool> is_shutting_down = false;
         std::string hpfs_mount_dir;
-
-        void (*completion_callback)(const hpfs::h32);
     };
 
     extern sync_context ctx;
@@ -60,7 +58,7 @@ namespace state_sync
 
     void deinit();
 
-    void set_target(const hpfs::h32 target_state, void (*const completion_callback)(const hpfs::h32));
+    void set_target(const hpfs::h32 target_state);
 
     void state_syncer_loop();
 

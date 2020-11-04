@@ -47,6 +47,7 @@ add_executable(hpcore
     src/usr/read_req.cpp
     src/ledger.cpp
     src/consensus.cpp
+    src/state/state_common.cpp
     src/state/state_sync.cpp
     src/state/state_serve.cpp
     src/main.cpp
