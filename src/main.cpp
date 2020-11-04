@@ -123,34 +123,16 @@ void std_terminate() noexcept
     exit(1);
 }
 
-int get_open_fd_count()
-{
-    int file_count = 0;
-    DIR *dirp;
-    struct dirent *entry;
-
-    std::string path = "/proc/self/fd";
-
-    dirp = opendir(path.c_str());
-    if (dirp == NULL)
-    {
-        LOG_ERROR << errno << ": error in get fd count.";
-        return 0;
-    }
-    while ((entry = readdir(dirp)) != NULL)
-    {
-        file_count++;
-    }
-    closedir(dirp);
-    return file_count;
-}
-
 int main(int argc, char **argv)
 {
     // Register exception and segfault handlers.
     std::set_terminate(&std_terminate);
     signal(SIGSEGV, &segfault_handler);
     signal(SIGABRT, &segfault_handler);
+
+    // Become a sub-reaper so we can gracefully reap hpws child processes via hpws.hpp.
+    // (Otherwise they will get reaped by OS init process and we'll end up with race conditions with gracefull kills)
+    prctl(PR_SET_CHILD_SUBREAPER, 1);
 
     // seed rand
     srand(util::get_epoch_milliseconds());
@@ -231,11 +213,7 @@ int main(int argc, char **argv)
                 signal(SIGINT, &sigint_handler);
 
                 // Wait until consensus thread finishes.
-                while(1)
-                {
-                    sleep(2);
-                    LOG_ERROR << " --------------OPEN FD COUNT: " << get_open_fd_count(); 
-                }
+                consensus::wait();
 
                 // deinit() here only gets called when there is an error in consensus.
                 // If not deinit in the sigint handler is called when a SIGINT is received.
