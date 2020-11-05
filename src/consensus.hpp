@@ -63,7 +63,7 @@ namespace consensus
         // all users. We will use this map to distribute outputs back to connected users once consensus is achieved.
         std::unordered_map<std::string, candidate_user_output> candidate_user_outputs;
 
-        uint8_t stage = 0;
+        uint8_t stage = 1;
         uint64_t time_now = 0;
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
@@ -94,6 +94,8 @@ namespace consensus
 
     int consensus();
 
+    bool is_in_sync(std::string_view lcl, vote_counter &votes);
+
     void update_candidate_proposals();
 
     void purify_candidate_proposals();
@@ -106,9 +108,9 @@ namespace consensus
 
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
 
     void broadcast_proposal(const p2p::proposal &p);
 
@@ -116,15 +118,13 @@ namespace consensus
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 
-    float_t get_stage_threshold(const uint8_t stage);
-
     void timewait_stage(const bool reset, const uint64_t time);
 
     uint64_t get_ledger_time_resolution(const uint64_t time);
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int apply_ledger(const p2p::proposal &proposal);
+    int update_ledger_and_execute_contract(const p2p::proposal &proposal, std::string &new_lcl, hpfs::h32 &new_state);
 
     void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 

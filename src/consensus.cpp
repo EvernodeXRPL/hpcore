@@ -35,8 +35,8 @@ namespace consensus
 
     int init()
     {
-        // We allocate 1/4 of roundtime for each stage (there are 4 stages: 0,1,2,3)
-        ctx.stage_time = conf::cfg.roundtime / 4;
+        // We allocate 1/3 of roundtime for each stage (there are 3 stages: 1,2,3)
+        ctx.stage_time = conf::cfg.roundtime / 3;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
         ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
@@ -96,7 +96,8 @@ namespace consensus
 
     int consensus()
     {
-        // A consensus round consists of 4 stages (0,1,2,3).
+        // A consensus round consists of 3 stages (1,2,3).
+        // Stage 3 is the last stage AND it also provides entry point for next round stage 1.
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
         uint64_t stage_start = 0;
@@ -114,79 +115,100 @@ namespace consensus
         ctx.time_now = stage_start;
 
         // Get current lcl and state.
-        const std::string lcl = ledger::ctx.get_lcl();
-        const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        const hpfs::h32 state = state_common::ctx.get_state();
+        std::string lcl = ledger::ctx.get_lcl();
+        uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
+        hpfs::h32 state = state_common::ctx.get_state();
+        vote_counter votes;
 
-        if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
+        if (ctx.stage == 1)
         {
-            // Verify and transfer user inputs from incoming NUPs onto consensus candidate data.
+            if (is_in_sync(lcl, votes))
+            {
+                // If we are in sync, vote and broadcast the winning votes to next stage.
+                const p2p::proposal p = create_stage_proposal(STAGE1_THRESHOLD, votes, lcl, state);
+                broadcast_proposal(p);
+            }
+        }
+        else if (ctx.stage == 2)
+        {
+            if (is_in_sync(lcl, votes))
+            {
+                // If we are in sync, vote and broadcast the winning votes to next stage.
+                const p2p::proposal p = create_stage_proposal(STAGE2_THRESHOLD, votes, lcl, state);
+                broadcast_proposal(p);
+            }
+
+            // In stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
+            // This will be captured and verified at the end of stage 3.
+            broadcast_nonunl_proposal();
+        }
+        else if (ctx.stage == 3)
+        {
+            if (is_in_sync(lcl, votes))
+            {
+                // If we are in sync, vote and get the final winning votes.
+                // This is the consensus proposal which makes it into the ledger and contract execution
+                const p2p::proposal p = create_stage_proposal(STAGE3_THRESHOLD, votes, lcl, state);
+
+                // Update the ledger and execute the contract using the consensus proposal.
+                if (update_ledger_and_execute_contract(p, lcl, state) == -1)
+                    LOG_ERROR << "Error occured in Stage 3 consensus execution.";
+            }
+
+            // Prepare for next round by sending NEW-ROUND PROPOSAL.
+            // At the end of stage 3, we broadcast the "new round" proposal which is subjected
+            // to voting in next round stage 1.
+
+            // Prepare the consensus candidate user inputs that we have acumulated so far. (We receive them periodically via NUPs)
+            // The candidate inputs will be included in the new round proposal.
             verify_and_populate_candidate_user_inputs(lcl_seq_no);
 
-            // In stage 0 we create a novel proposal and broadcast it.
-            const p2p::proposal stg_prop = create_stage0_proposal(lcl, state);
-            broadcast_proposal(stg_prop);
-        }
-        else // Stage 1, 2, 3
-        {
-            if (ctx.stage == 3)
-            {
-                // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
-                // They will be captured and processed during next round stage 0.
-                broadcast_nonunl_proposal();
-            }
-
-            purify_candidate_proposals();
-
-            // Initialize vote counters.
-            vote_counter votes;
-
-            // Check if we're ahead/behind of consensus lcl.
-            bool is_lcl_desync = false;
-            std::string majority_lcl;
-            if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl))
-            {
-                // We proceed further only if lcl check was success (meaning lcl check could be reliably performed).
-
-                // State lcl sync if we are out-of-sync with majority lcl.
-                if (is_lcl_desync)
-                {
-                    conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-                    ledger::set_sync_target(majority_lcl);
-                }
-
-                // Check our state with majority state.
-                bool is_state_desync = false;
-                hpfs::h32 majority_state = hpfs::h32_empty;
-                check_state_votes(is_state_desync, majority_state, votes);
-
-                // State state sync if we are out-of-sync with majority state.
-                if (is_state_desync)
-                {
-                    conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-                    state_sync::set_target(majority_state);
-                }
-
-                // Proceed further only if both lcl and state are in sync with majority.
-                if (!is_lcl_desync && !is_state_desync)
-                {
-                    conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
-
-                    // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
-                    const p2p::proposal stg_prop = create_stage123_proposal(votes, lcl, state);
-
-                    broadcast_proposal(stg_prop);
-
-                    // The node has finished a consensus round (all 4 stages)
-                    if (ctx.stage == 3 && apply_ledger(stg_prop) == -1)
-                        LOG_ERROR << "Error occured in Stage 3 consensus execution.";
-                }
-            }
+            const p2p::proposal new_round_prop = create_new_round_proposal(lcl, state);
+            broadcast_proposal(new_round_prop);
         }
 
-        // Node has finished a consensus stage. Transition to next stage.
-        ctx.stage = (ctx.stage + 1) % 4;
+        // We have finished a consensus stage. Transition to next stage. (if at stage 3 go to next round stage 1)
+        ctx.stage = (ctx.stage + 1) % 3;
         return 0;
+    }
+
+    bool is_in_sync(std::string_view lcl, vote_counter &votes)
+    {
+        // Check if we're ahead/behind of consensus lcl.
+        bool is_lcl_desync = false;
+        std::string majority_lcl;
+        if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl))
+        {
+            // We proceed further only if lcl check was success (meaning lcl check could be reliably performed).
+
+            // State lcl sync if we are out-of-sync with majority lcl.
+            if (is_lcl_desync)
+            {
+                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                ledger::set_sync_target(majority_lcl);
+            }
+
+            // Check our state with majority state.
+            bool is_state_desync = false;
+            hpfs::h32 majority_state = hpfs::h32_empty;
+            check_state_votes(is_state_desync, majority_state, votes);
+
+            // State state sync if we are out-of-sync with majority state.
+            if (is_state_desync)
+            {
+                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                state_sync::set_target(majority_state);
+            }
+
+            // Proceed further only if both lcl and state are in sync with majority.
+            if (!is_lcl_desync && !is_state_desync)
+            {
+                conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void update_candidate_proposals()
@@ -258,16 +280,16 @@ namespace consensus
         const uint64_t now = util::get_epoch_milliseconds();
 
         // Rrounds are discreet windows of roundtime.
-        // This gets the start time of current round window. Stage 0 must start in the next window.
+        // This gets the start time of current round window. Stage 1 must start in the next round window.
         const uint64_t current_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
 
-        if (ctx.stage == 0)
+        if (ctx.stage == 1)
         {
-            // Stage 0 must start in the next round window.
+            // Stage 1 must start in the next round window.
             stage_start = current_round_start + conf::cfg.roundtime;
             const int64_t to_wait = stage_start - now;
 
-            LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 0";
+            LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 1";
             util::sleep(to_wait);
             return true;
         }
@@ -283,8 +305,8 @@ namespace consensus
             // it will join in next round. Otherwise it will continue particapating in this round.
             if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
             {
-                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";
-                ctx.stage = 0;
+                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 1";
+                ctx.stage = 1;
                 return false;
             }
             else
@@ -447,9 +469,10 @@ namespace consensus
         }
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
+    p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state)
     {
-        // The proposal we are going to emit in stage 0.
+        // The proposal we are going to emit at the end of stage 3 after ledger update.
+        // This is the proposal that stage 1 votes on.
         p2p::proposal stg_prop;
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
@@ -472,7 +495,7 @@ namespace consensus
         return stg_prop;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, hpfs::h32 state)
+    p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal stg_prop;
@@ -507,7 +530,7 @@ namespace consensus
                     increment(votes.outputs, hash);
         }
 
-        const float_t vote_threshold = get_stage_threshold(ctx.stage);
+        const float_t required_votes = vote_threshold * conf::cfg.unl.size();
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -516,17 +539,17 @@ namespace consensus
 
         // Add user pubkeys which have votes over stage threshold to proposal.
         for (const auto &[pubkey, numvotes] : votes.users)
-            if (numvotes >= vote_threshold || (ctx.stage == 1 && numvotes > 0))
+            if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
                 stg_prop.users.emplace(pubkey);
 
         // Add inputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.inputs)
-            if (numvotes >= vote_threshold || (ctx.stage == 1 && numvotes > 0))
+            if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
                 stg_prop.hash_inputs.emplace(hash);
 
         // Add outputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.outputs)
-            if (numvotes >= vote_threshold)
+            if (numvotes >= required_votes)
                 stg_prop.hash_outputs.emplace(hash);
 
         // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
@@ -547,7 +570,8 @@ namespace consensus
     }
 
     /**
-     * Broadcasts the given proposal to all connected peers.
+     * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Otherwise
+     * only send to self in OBSERVER mode.
      * @return 0 on success. -1 if no peers to broadcast.
      */
     void broadcast_proposal(const p2p::proposal &p)
@@ -651,33 +675,15 @@ namespace consensus
     }
 
     /**
-     * Returns the consensus percentage threshold for the specified stage.
-     * @param stage The consensus stage [1, 2, 3]
-     */
-    float_t get_stage_threshold(const uint8_t stage)
-    {
-        switch (stage)
-        {
-        case 1:
-            return STAGE1_THRESHOLD * conf::cfg.unl.size();
-        case 2:
-            return STAGE2_THRESHOLD * conf::cfg.unl.size();
-        case 3:
-            return STAGE3_THRESHOLD * conf::cfg.unl.size();
-        }
-        return -1;
-    }
-
-    /**
-     * Finalize the ledger after consensus.
+     * Update the ledger and execute the contract after consensus.
      * @param cons_prop The proposal that reached consensus.
      */
-    int apply_ledger(const p2p::proposal &cons_prop)
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, hpfs::h32 &new_state)
     {
         if (ledger::save_ledger(cons_prop) == -1)
             return -1;
 
-        std::string new_lcl = ledger::ctx.get_lcl();
+        new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state << ")";
@@ -714,6 +720,8 @@ namespace consensus
             }
 
             state_common::ctx.set_state(args.post_execution_state_hash);
+            new_state = args.post_execution_state_hash;
+
             extract_user_outputs_from_contract_bufmap(args.userbufs);
 
             sc::clear_args(args);
