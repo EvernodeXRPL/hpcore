@@ -52,8 +52,8 @@ do
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 2000, \
-            loglevel: 'dbg', \
+            roundtime: 1000, \
+            loglevel: 'inf', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
     rm tmp.json

@@ -104,10 +104,9 @@ namespace consensus
         if (!wait_and_proceed_stage(stage_start))
             return 0; // This means the stage has been reset.
 
-        // Throughout consensus, we move over the incoming proposals collected via the network so far into
-        // the local proposal set. This is to have a private working set for the consensus and avoid threading
-        // conflicts with network incoming proposals.
-        update_candidate_proposals();
+        // Throughout consensus, we continously update and prune the candidate proposals for newly
+        // arived ones and expired ones.
+        revise_candidate_proposals();
 
         LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
 
@@ -168,7 +167,7 @@ namespace consensus
         }
 
         // We have finished a consensus stage. Transition to next stage. (if at stage 3 go to next round stage 1)
-        ctx.stage = (ctx.stage + 1) % 3;
+        ctx.stage = (ctx.stage < 3) ? (ctx.stage + 1) : 1;
         return 0;
     }
 
@@ -193,7 +192,7 @@ namespace consensus
             hpfs::h32 majority_state = hpfs::h32_empty;
             check_state_votes(is_state_desync, majority_state, votes);
 
-            // State state sync if we are out-of-sync with majority state.
+            // Start state sync if we are out-of-sync with majority state.
             if (is_state_desync)
             {
                 conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
@@ -211,15 +210,21 @@ namespace consensus
         return false;
     }
 
-    void update_candidate_proposals()
+    /**
+     * Moves proposals collected from the network into candidate proposals and
+     * cleans up any outdated proposals from the candidate set.
+     */
+    void revise_candidate_proposals()
     {
+        // Move over the network proposal collection into a local list. This is to have a private working
+        // set for candidate parsing and avoid threading conflicts with network incoming proposals.
         std::list<p2p::proposal> collected_proposals;
         {
             std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
-        // Copy collected propsals to candidate set of proposals.
+        // Move collected propsals to candidate set of proposals.
         // Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
         for (const auto &proposal : collected_proposals)
         {
@@ -234,13 +239,8 @@ namespace consensus
                 ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
             }
         }
-    }
 
-    /**
-     * Cleanup any outdated proposals from the candidate set.
-     */
-    void purify_candidate_proposals()
-    {
+        // Prune any outdated proposals.
         auto itr = ctx.candidate_proposals.begin();
         while (itr != ctx.candidate_proposals.end())
         {
@@ -295,7 +295,7 @@ namespace consensus
         }
         else
         {
-            stage_start = current_round_start + (ctx.stage * ctx.stage_time);
+            stage_start = current_round_start + ((ctx.stage - 1) * ctx.stage_time);
 
             // Compute stage time wait.
             // Node wait between stages to collect enough proposals from previous stages from other nodes.

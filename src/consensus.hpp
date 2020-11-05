@@ -96,9 +96,7 @@ namespace consensus
 
     bool is_in_sync(std::string_view lcl, vote_counter &votes);
 
-    void update_candidate_proposals();
-
-    void purify_candidate_proposals();
+    void revise_candidate_proposals();
 
     bool wait_and_proceed_stage(uint64_t &stage_start);
 
