@@ -425,10 +425,10 @@ namespace consensus
             for (auto &[pubkey, user_responses] : responses)
             {
                 // Locate this user's socket session.
-                comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
-                // Send the request status result if this user is connected to us.
-                if (session != NULL)
+                const auto user_itr = usr::ctx.users.find(pubkey);
+                if (user_itr != usr::ctx.users.end())
                 {
+                    // Send the request status result if this user is connected to us.
                     for (auto &resp : user_responses)
                     {
                         // resp: 0=protocl, 1=msg sig, 2=reject reason.
@@ -437,7 +437,7 @@ namespace consensus
                         const char *reject_reason = std::get<2>(resp);
 
                         usr::send_input_status(parser,
-                                               *session,
+                                               user_itr->second.session,
                                                reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                                reject_reason == NULL ? "" : reject_reason,
                                                msg_sig);
@@ -745,24 +745,19 @@ namespace consensus
 
                 candidate_user_output &cand_output = cu_itr->second;
 
-                // Find the user session by user pubkey.
-                const auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
-                if (sess_itr != usr::ctx.sessionids.end()) // match found
+                const auto user_itr = usr::ctx.users.find(cand_output.userpubkey);
+                if (user_itr != usr::ctx.users.end()) // match found
                 {
-                    const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
-                    if (user_itr != usr::ctx.users.end())                        // match found
-                    {
-                        std::string outputtosend;
-                        outputtosend.swap(cand_output.output);
+                    const usr::connected_user &user = user_itr->second;
+                    msg::usrmsg::usrmsg_parser parser(user.protocol);
 
-                        const usr::connected_user &user = user_itr->second;
-                        msg::usrmsg::usrmsg_parser parser(user.protocol);
+                    std::string outputtosend;
+                    outputtosend.swap(cand_output.output);
 
-                        std::vector<uint8_t> msg;
-                        parser.create_contract_output_container(msg, outputtosend, lcl_seq_no, lcl);
+                    std::vector<uint8_t> msg;
+                    parser.create_contract_output_container(msg, outputtosend, lcl_seq_no, lcl);
 
-                        user.session.send(msg);
-                    }
+                    user.session.send(msg);
                 }
 
                 // now we can safely delete this candidate output.
