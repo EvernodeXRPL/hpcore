@@ -70,6 +70,7 @@ namespace comm
         void process_outbound_msg_queue();
         void mark_for_closure();
         void close(const bool invoke_handler = true);
+        std::string display_name();
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
         void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);

@@ -131,7 +131,7 @@ namespace p2p
                     session.is_weakly_connected = ex_session.is_weakly_connected;
                     p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
-                    LOG_DEBUG << "Replacing existing connection [" << session.uniqueid.substr(0, 10) << "]";
+                    LOG_DEBUG << "Replacing existing connection [" << session.display_name() << "]";
                     return 0;
                 }
                 else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())

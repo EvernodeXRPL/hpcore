@@ -75,7 +75,7 @@ namespace usr
         // The received message must be the challenge response. We need to verify it.
         if (session.issued_challenge.empty())
         {
-            LOG_DEBUG << "No user challenge found for the session " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "No user challenge found for the session " << session.display_name();
             return -1;
         }
 
@@ -91,7 +91,7 @@ namespace usr
         }
         else
         {
-            LOG_DEBUG << "User challenge verification failed " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "User challenge verification failed " << session.display_name();
             return -1;
         }
     }
@@ -222,7 +222,7 @@ namespace usr
         }
         else
         {
-            LOG_DEBUG << "Duplicate user public key " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "Duplicate user public key " << session.display_name();
         }
 
         return 0;
