@@ -1,12 +1,45 @@
 const fs = require('fs');
-const events = require('events');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
+
+function AsyncCallbackEmitter() {
+    this.callbacks = {};
+
+    this.on = (event, callback) => {
+        if (!this.callbacks[event]) {
+            this.callbacks[event] = [];
+        }
+        this.callbacks[event].push(callback);
+    };
+
+    this.emit = async (event, ...args) => {
+        let eventCallbacks = this.callbacks[event];
+        if (eventCallbacks && eventCallbacks.length) {
+            await Promise.all(eventCallbacks.map(async callback => {
+                if (callback.constructor.name === 'AsyncFunction') {
+                    await callback(...args);
+                }
+                else {
+                    callback(...args);
+                }
+            }));
+        }
+    };
+
+    this.removeAllListeners = () => {
+        this.callbacks = {};
+    };
+
+    this.removeListener = (event) => {
+        delete this.callbacks[event];
+    };
+}
 
 function HotPocketContract() {
     const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
     this.readonly = hpargs.readonly;
     this.timestamp = hpargs.ts;
+    this.incomplete_users = 0;
 
     if (!this.readonly) {
         const lclParts = hpargs.lcl.split("-");
@@ -19,15 +52,16 @@ function HotPocketContract() {
     }
 
     this.control = new HotPocketControlChannel(hpargs.hpfd);
-    this.events = new events.EventEmitter();
+    this.events = new AsyncCallbackEmitter();
 
     this.users = {};
     Object.keys(hpargs.usrfd).forEach((userPubKey) => {
-        this.users[userPubKey] = new HotPocketChannel(hpargs.usrfd[userPubKey], userPubKey, this.events);
+        this.users[userPubKey] = new HotPocketChannel(this, hpargs.usrfd[userPubKey], userPubKey);
+        this.incomplete_users++;
     });
 }
 
-function HotPocketChannel(fd, userPubKey, events) {
+function HotPocketChannel(contract, fd, userPubKey) {
     let socket = null;
     if (fd > 0) {
         socket = fs.createReadStream(null, { fd: fd });
@@ -63,19 +97,23 @@ function HotPocketChannel(fd, userPubKey, events) {
                 dataParts.push(msgBuf)
                 
                 if (msgLen == -1) {
-                    events.emit("user_message", userPubKey, Buffer.concat(dataParts));
+                    contract.events.emit("user_message", userPubKey, Buffer.concat(dataParts));
                     dataParts = [];
                     msgCount--
                 }
                 if (msgCount == 0) {
                     msgCount = -1
-                    events.emit("user_finished", userPubKey);
+                    contract.incomplete_users--;
+                    if (contract.incomplete_users == 0) {
+                        contract.events.emit("all_users_completed");
+                    }
+                    contract.events.emit("user_completed", userPubKey);
                 }
             }
         });
 
         socket.on("error", (e) => {
-            events.emit("user_error", userPubKey, e);
+            contract.events.emit("user_error", userPubKey, e);
         })
     }
 
@@ -106,7 +144,7 @@ function HotPocketChannel(fd, userPubKey, events) {
 
 function HotPocketNplChannel(fd) {
 
-    this.events = new events.EventEmitter();
+    this.events = new AsyncCallbackEmitter();
     let socket = null;
     let isPubKeyReceived = false;
     let pubKey;
@@ -149,7 +187,7 @@ function HotPocketNplChannel(fd) {
 
 function HotPocketControlChannel(fd) {
 
-    this.events = new events.EventEmitter();
+    this.events = new AsyncCallbackEmitter();
     let socket = null;
     if (fd > 0) {
         socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });

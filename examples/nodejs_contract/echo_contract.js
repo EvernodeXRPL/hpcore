@@ -14,15 +14,16 @@ hpc.events.on("user_message", (pubKey, message) => {
     const user = hpc.users[pubKey];
     if (userInput == "ts") {
         user.sendOutput(fs.readFileSync("exects.txt"));
-        user.closeChannel();
     }
     else {
         user.sendOutput("Echoing: " + userInput);
     }
 });
 
-hpc.events.on("user_finished", (pubKey) => {
-    hpc.users[pubKey].closeChannel();
+hpc.events.on("all_users_completed", () => {
+    Object.keys(hpc.users).forEach(pubKey => {
+        hpc.users[pubKey].closeChannel();
+    });
 });
 
 const npl = hpc.npl;
