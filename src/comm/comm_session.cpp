@@ -234,7 +234,7 @@ namespace comm
     /**
      * Returns printable name for the session based on uniqueid (used for logging).
      */
-    std::string comm_session::display_name()
+    const std::string comm_session::display_name()
     {
         if (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED)
         {
