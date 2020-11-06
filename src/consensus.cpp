@@ -795,7 +795,6 @@ namespace consensus
             else
             {
                 // Send matching outputs to locally connected users.
-
                 candidate_user_output &cand_output = cu_itr->second;
 
                 // Find the user session by user pubkey.
@@ -805,16 +804,16 @@ namespace consensus
                     const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
                     if (user_itr != usr::ctx.users.end())                        // match found
                     {
-                        std::string outputtosend;
-                        outputtosend.swap(cand_output.output);
-
                         const usr::connected_user &user = user_itr->second;
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
-
-                        std::vector<uint8_t> msg;
-                        parser.create_contract_output_container(msg, outputtosend, lcl_seq_no, lcl);
-
-                        user.session.send(msg);
+                        // Sending all the outputs to the user.
+                        for (sc::contract_output &output : cand_output.outputs)
+                        {
+                            std::vector<uint8_t> msg;
+                            parser.create_contract_output_container(msg, output.message, lcl_seq_no, lcl);
+                            user.session.send(msg);
+                            output.message.clear();
+                        }
                     }
                 }
 
@@ -834,7 +833,9 @@ namespace consensus
         // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
         // This is in case the contract wanted to emit some data to a user without needing any input.
         for (const std::string &pubkey : cons_prop.users)
-            bufmap.try_emplace(pubkey, sc::contract_iobuf_pair());
+        {
+            bufmap.try_emplace(pubkey, sc::contract_iobufs());
+        }
 
         for (const std::string &hash : cons_prop.hash_inputs)
         {
@@ -855,8 +856,8 @@ namespace consensus
                 std::string inputtofeed;
                 inputtofeed.swap(cand_input.input);
 
-                sc::contract_iobuf_pair &bufpair = bufmap[cand_input.userpubkey];
-                bufpair.inputs.push_back(std::move(inputtofeed));
+                sc::contract_iobufs &bufs = bufmap[cand_input.userpubkey];
+                bufs.inputs.push_back(std::move(inputtofeed));
 
                 // Remove the input from the candidate set because we no longer need it.
                 //LOG_DEBUG << "candidate input deleted.";
@@ -872,17 +873,21 @@ namespace consensus
      */
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap)
     {
-        for (auto &[pubkey, bufpair] : bufmap)
+        for (auto &[pubkey, bufs] : bufmap)
         {
-            if (!bufpair.output.empty())
+            if (!bufs.outputs.empty())
             {
-                std::string output;
-                output.swap(bufpair.output);
+                std::vector<std::string_view> vect;
+                // Adding public key.
+                vect.push_back(pubkey);
+                // Only using message to generate hash for output messages. Length is not needed.
+                for (sc::contract_output &output : bufs.outputs)
+                    vect.push_back(output.message);
 
-                const std::string hash = crypto::get_hash(pubkey, output);
+                const std::string hash = crypto::get_hash(vect);
                 ctx.candidate_user_outputs.try_emplace(
                     std::move(hash),
-                    candidate_user_output(pubkey, std::move(output)));
+                    candidate_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
     }

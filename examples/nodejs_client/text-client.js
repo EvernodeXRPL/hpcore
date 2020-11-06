@@ -66,14 +66,15 @@ async function main() {
     console.log("Ready to accept inputs.");
 
     const input_pump = () => {
-        rl.question('', async (inp) => {
+        rl.question('', (inp) => {
 
             if (inp.startsWith("read "))
                 hpc.sendContractReadRequest(inp.substr(5))
             else {
-                const submissionStatus = await hpc.sendContractInput(inp);
-                if (submissionStatus && submissionStatus != "ok")
-                    console.log("Input submission failed. reason: " + submissionStatus);
+                hpc.sendContractInput(inp).then(submissionStatus => {
+                    if (submissionStatus && submissionStatus != "ok")
+                        console.log("Input submission failed. reason: " + submissionStatus);
+                });
             }
 
             input_pump();

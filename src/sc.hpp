@@ -25,17 +25,25 @@ namespace sc
     };
 
     /**
+     * Stores contract output message length along with the message. Length is used to construct the message from the stream buffer.
+    */
+    struct contract_output
+    {
+        uint32_t message_len = 0;
+        std::string message;
+
+    };
+    /**
  * Represents list of inputs to the contract and the accumulated contract output for those inputs.
  */
-    struct contract_iobuf_pair
+
+    struct contract_iobufs
     {
         // List of inputs to be fed into the contract.
         std::list<std::string> inputs;
 
-        // Output emitted by contract after execution.
-        // (Because we are reading output at the end, there's no way to
-        // get a "list" of outputs. So it's always a one contiguous output.)
-        std::string output;
+        // List of outputs from the contract.
+        std::list<contract_output> outputs;
     };
 
     // Common typedef for a map of pubkey->fdlist.
@@ -44,7 +52,7 @@ namespace sc
 
     // Common typedef for a map of pubkey->I/O list pair (input list and output list).
     // This is used to keep track of input/output buffers for a given public key (eg. user, npl)
-    typedef std::unordered_map<std::string, contract_iobuf_pair> contract_bufmap_t;
+    typedef std::unordered_map<std::string, contract_iobufs> contract_bufmap_t;
 
     /**
  * Holds information that should be passed into the contract process.
@@ -66,7 +74,7 @@ namespace sc
         
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
-        contract_iobuf_pair hpscbufs;
+        // contract_iobuf_pair hpscbufs;
 
         // Current HotPocket consensus time.
         int64_t time = 0;

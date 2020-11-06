@@ -32,10 +32,10 @@ namespace consensus
     struct candidate_user_output
     {
         const std::string userpubkey;
-        std::string output;
+        std::list<sc::contract_output> outputs;
 
-        candidate_user_output(const std::string userpubkey, const std::string output)
-            : userpubkey(std::move(userpubkey)), output(std::move(output))
+        candidate_user_output(const std::string userpubkey, const std::list<sc::contract_output> outputs)
+            : userpubkey(std::move(userpubkey)), outputs(std::move(outputs))
         {
         }
     };
