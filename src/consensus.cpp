@@ -756,8 +756,8 @@ namespace consensus
             args.time = cons_prop.time;
             args.lcl = new_lcl;
 
-            // Populate user bufs and user stream util map.
-            feed_user_inputs_to_contract_bufmap(args.userbufs, args.user_stream_utils, cons_prop);
+            // Populate user bufs.
+            feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
             // TODO: Do something usefull with HP<-->SC channel.
 
             if (sc::execute_contract(ctx.contract_ctx) == -1)
@@ -826,10 +826,9 @@ namespace consensus
     /**
      * Transfers consensus-reached inputs into the provided contract buf map so it can be fed into the contract process.
      * @param bufmap The contract bufmap which needs to be populated with inputs.
-     * @param user_stream_util_map The contract stream util map which keeps the stream util variables per user.
      * @param cons_prop The proposal that achieved consensus.
      */
-    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, sc::contract_utilmap_t &user_stream_util_map, const p2p::proposal &cons_prop)
+    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
     {
         // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
         // This is in case the contract wanted to emit some data to a user without needing any input.

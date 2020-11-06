@@ -46,17 +46,6 @@ namespace sc
         std::list<contract_output> outputs;
     };
 
-    // Reprents the variables used in user output separation when reading stream sockets.
-    struct contract_user_stream_utils
-    {
-        // Current message length.
-        int16_t stream_msg_length = -1;
-        // Current message buffer.
-        std::string temp_stream_read_buf;
-    };
-
-    typedef std::unordered_map<std::string, contract_user_stream_utils> contract_utilmap_t;
-
     // Common typedef for a map of pubkey->fdlist.
     // This is used to keep track of fdlist quadruplet with a public key (eg. user, npl).
     typedef std::unordered_map<std::string, std::vector<int>> contract_fdmap_t;
@@ -79,10 +68,6 @@ namespace sc
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
         contract_bufmap_t userbufs;
-
-        // Stores pub key vs variables for each user. Used in message seperation in output read from SC.
-        // Map (key: user binary public key)
-        contract_utilmap_t user_stream_utils;
 
         // NPL messages to be passed into contract.
         moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
