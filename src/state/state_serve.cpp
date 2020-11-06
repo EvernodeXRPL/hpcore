@@ -18,7 +18,7 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
  */
 namespace state_serve
 {
-    constexpr uint16_t LOOP_WAIT = 100; // Milliseconds
+    constexpr uint16_t LOOP_WAIT = 20; // Milliseconds
 
     uint16_t REQUEST_BATCH_TIMEOUT;
 
@@ -60,9 +60,14 @@ namespace state_serve
 
         std::list<std::pair<std::string, std::string>> state_requests;
 
+        // Indicates whether any requests were processed in the previous loop iteration.
+        bool prev_requests_processed = false;
+
         while (!is_shutting_down)
         {
-            util::sleep(LOOP_WAIT);
+            // Wait a small delay if there were no requests processed during previous iteration.
+            if (!prev_requests_processed)
+                util::sleep(LOOP_WAIT);
 
             {
                 std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.state_requests_mutex);
@@ -72,6 +77,7 @@ namespace state_serve
                     state_requests.splice(state_requests.end(), p2p::ctx.collected_msgs.state_requests);
             }
 
+            prev_requests_processed = !state_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
             const std::string lcl = ledger::ctx.get_lcl();
 

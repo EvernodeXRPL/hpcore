@@ -32,9 +32,9 @@ namespace consensus
     struct candidate_user_output
     {
         const std::string userpubkey;
-        std::list<std::string> outputs;
+        std::list<sc::contract_output> outputs;
 
-        candidate_user_output(const std::string userpubkey, const std::list<std::string> outputs)
+        candidate_user_output(const std::string userpubkey, const std::list<sc::contract_output> outputs)
             : userpubkey(std::move(userpubkey)), outputs(std::move(outputs))
         {
         }
@@ -67,12 +67,9 @@ namespace consensus
 
         uint8_t stage = 0;
         uint64_t time_now = 0;
-        hpfs::h32 state = hpfs::h32_empty;
-
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
-        std::mutex state_sync_lock;
         sc::execution_context contract_ctx;
         bool is_shutting_down = false;
 
@@ -116,13 +113,13 @@ namespace consensus
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, hpfs::h32 state);
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    void check_lcl_votes(bool &is_desync, bool &should_request_history, std::string &majority_lcl, vote_counter &votes, std::string_view lcl);
+    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl);
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 
@@ -146,8 +143,6 @@ namespace consensus
     void increment(std::map<T, int32_t> &counter, const T &candidate);
 
     int get_initial_state_hash(hpfs::h32 &hash);
-
-    void on_state_sync_completion(const hpfs::h32 new_state);
 
 } // namespace consensus
 

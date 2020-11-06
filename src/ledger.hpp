@@ -20,7 +20,8 @@ namespace ledger
         std::mutex list_mutex;
 
         std::thread lcl_sync_thread;
-        bool is_shutting_down = false;
+        std::atomic<bool> is_syncing = false;
+        std::atomic<bool> is_shutting_down = false;
     };
 
     struct ledger_context
@@ -90,7 +91,7 @@ namespace ledger
 
     int retrieve_ledger_history(const p2p::history_request &hr, p2p::history_response &history_response);
 
-    int handle_ledger_history_response(const p2p::history_response &hr);
+    int handle_ledger_history_response(const p2p::history_response &hr, std::string &new_lcl);
 
 } // namespace ledger
 

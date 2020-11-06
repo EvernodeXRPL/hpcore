@@ -370,7 +370,7 @@ namespace sc
             if (npl_write_res == -1)
                 return -1;
 
-            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs, ctx.args.user_stream_utils);
+            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
             if (user_res == -1)
             {
                 LOG_ERROR << "Error reading user outputs from the contract.";
@@ -393,11 +393,11 @@ namespace sc
      */
     int write_contract_hp_inputs(execution_context &ctx)
     {
-        if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
-        {
-            LOG_ERROR << "Error writing HP inputs to SC";
-            return -1;
-        }
+        // if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
+        // {
+        //     LOG_ERROR << "Error writing HP inputs to SC";
+        //     return -1;
+        // }
 
         return 0;
     }
@@ -458,7 +458,7 @@ namespace sc
         }
         else if (hpsc_res > 0)
         {
-            ctx.args.hpscbufs.outputs.push_back(output);
+            // ctx.args.hpscbufs.outputs.push_back(output);
         }
 
         return (hpsc_res == 0) ? 0 : 1;
@@ -575,57 +575,73 @@ namespace sc
      * 
      * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
-     * @param user_stream_utils A map which has a public key and stream util variables for that public key.
      * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
      */
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, contract_utilmap_t &user_stream_utils)
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
     {
         bool bytes_read = false;
-        for (auto &[pubkey, bufpair] : bufmap)
+        for (auto &[pubkey, bufs] : bufmap)
         {
             // Get fds for the pubkey.
             std::string output;
             std::vector<int> &fds = fdmap[pubkey];
-            contract_user_stream_utils &stream_util = user_stream_utils[pubkey];
-            const int res = read_iosocket_stream(fds, output);
 
-            if (res > 0)
+            // This returns the total bytes read from the socket.
+            const int total_bytes_read = read_iosocket_stream(fds, output);
+
+            if (total_bytes_read > 0)
             {
+                // Current reading position of the received buffer chunk.
                 int pos = 0;
-                while (pos < res)
+                // Go through the buffer to the end.
+                while (pos < total_bytes_read)
                 {
-                    if (stream_util.stream_msg_length == -1)
+                    // Check whether the output list is empty or the last message stored is finished reading.
+                    // If so, an empty container is added to store the new message.
+                    if (bufs.outputs.empty() || (bufs.outputs.back().message.length() == bufs.outputs.back().message_len))
                     {
-                        stream_util.stream_msg_length = output.at(pos + 3) | (output.at(pos + 2) << 24) | (output.at(pos + 1) << 16) | (output.at(pos) << 8);
+                        // Add new empty container.
+                        bufs.outputs.push_back(contract_output());
+                    }
+
+                    // Get the laterst element from the list.
+                    contract_output &current_output = bufs.outputs.back();
+
+                    // This is a new container. Message len of container is defaults to 0.
+                    if (current_output.message_len == 0)
+                    {
+                        // Extract the message length from four byte header in the buffer.
+                        // Length received is in Big Endian format.
+                        // Re-construct it into natural order. (No matter the format computer saves it in).
+                        current_output.message_len = (uint8_t)output[pos] << 24 | (uint8_t)output[pos + 1] << 16 | (uint8_t)output[pos + 2] << 8 | (uint8_t)output[pos + 3];
+                        // Advance the current position.
                         pos += 4;
                     }
+                    // Store the possible message length which could be read from the remaining buffer length.
                     int possible_read_len;
-                    if (((res - pos) - stream_util.stream_msg_length) >= 0)
+
+                    // Checking whether the remaing buffer length is long enough to finish reading the current message.
+                    if (((total_bytes_read - pos) - (current_output.message_len - current_output.message.length())) >= 0)
                     {
-                        // Can finish reading a full message.
-                        possible_read_len = stream_util.stream_msg_length;
-                        stream_util.stream_msg_length = -1;
+                        // Can finish reading a full message. Possible length is equal to the remaining message length.
+                        possible_read_len = current_output.message_len - current_output.message.length();
                     }
                     else
                     {
-                        // Only parcial message is recieved.
-                        possible_read_len = res - pos;
-                        stream_util.stream_msg_length -= possible_read_len;
+                        // Only partial message is recieved. Store the received bytes until other chunk is received.
+                        possible_read_len = total_bytes_read - pos;
                     }
+                    // Extract the message chunk from the buffer.
                     std::string msgBuf = output.substr(pos, possible_read_len);
                     pos += possible_read_len;
-                    stream_util.temp_stream_read_buf += msgBuf;
-
-                    if (stream_util.stream_msg_length == -1)
-                    {
-                        bufpair.outputs.push_back(stream_util.temp_stream_read_buf);
-                        stream_util.temp_stream_read_buf.clear();
-                    }
+                    // Append the extracted message chunk to the current message.
+                    current_output.message += msgBuf;
                 }
+
                 bytes_read = true;
             }
 
-            if (res == -1)
+            if (total_bytes_read == -1)
             {
                 return -1;
             }
@@ -921,8 +937,8 @@ namespace sc
     void clear_args(contract_execution_args &args)
     {
         args.userbufs.clear();
-        args.hpscbufs.inputs.clear();
-        args.hpscbufs.outputs.clear();
+        // args.hpscbufs.inputs.clear();
+        // args.hpscbufs.outputs.clear();
         // Empty npl message queue.
         while (args.npl_messages.pop())
         {
