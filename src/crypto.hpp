@@ -35,7 +35,7 @@ namespace crypto
 
     std::string get_hash(std::string_view s1, std::string_view s2);
 
-    std::string get_hash(std::list<std::string_view> &sw_list);
+    std::string get_hash(const std::vector<std::string_view> &sw_vect);
 
 } // namespace crypto
 

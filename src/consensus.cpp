@@ -877,14 +877,14 @@ namespace consensus
         {
             if (!bufs.outputs.empty())
             {
-                std::list<std::string_view> list;
+                std::vector<std::string_view> vect;
                 // Adding public key.
-                list.push_back(pubkey);
+                vect.push_back(pubkey);
                 // Only using message to generate hash for output messages. Length is not needed.
                 for (sc::contract_output &output : bufs.outputs)
-                    list.push_back(output.message);
+                    vect.push_back(output.message);
 
-                const std::string hash = crypto::get_hash(list);
+                const std::string hash = crypto::get_hash(vect);
                 ctx.candidate_user_outputs.try_emplace(
                     std::move(hash),
                     candidate_user_output(pubkey, std::move(bufs.outputs)));
