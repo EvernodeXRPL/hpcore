@@ -40,7 +40,7 @@ function HotPocketContract() {
     let autoCloseTimer = null;
     this.readonly = hpargs.readonly;
     this.timestamp = hpargs.ts;
-    this.incomplete_users = 0;
+    this.incompleteUsers = 0;
 
     if (!this.readonly) {
         const lclParts = hpargs.lcl.split("-");
@@ -58,14 +58,14 @@ function HotPocketContract() {
     this.users = {};
     Object.keys(hpargs.usrfd).forEach((userPubKey) => {
         this.users[userPubKey] = new HotPocketChannel(this, hpargs.usrfd[userPubKey], userPubKey);
-        this.incomplete_users++;
+        this.incompleteUsers++;
     });
 
     this.terminate = () => {
         process.kill(0);
     }
     
-    let enableAutoClose = () => {
+    this.enableAutoClose = () => {
         if (!autoCloseTimer) {
             autoCloseTimer = setTimeout(() => {
                 this.terminate();
@@ -84,7 +84,7 @@ function HotPocketContract() {
         this.terminate();
     }
     else {
-        enableAutoClose();
+        this.enableAutoClose();
     }
 }
 
@@ -131,9 +131,12 @@ function HotPocketChannel(contract, fd, userPubKey) {
                 }
                 if (msgCount == 0) {
                     msgCount = -1
-                    contract.incomplete_users--;
-                    if (contract.incomplete_users == 0) {
+                    contract.incompleteUsers--;
+                    if (contract.incompleteUsers == 0) {
                         contract.events.emit("all_users_completed");
+                    }
+                    else {
+                        contract.enableAutoClose()
                     }
                     contract.events.emit("user_completed", userPubKey);
                 }
