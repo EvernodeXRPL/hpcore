@@ -196,9 +196,12 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
         {
-            const p2p::history_response hr = p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
-            std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
-            ledger::sync_ctx.collected_history_responses.push_back(std::move(hr));
+            if (ledger::sync_ctx.is_syncing) // Only accept history responses if ledger is syncing.
+            {
+                const p2p::history_response hr = p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
+                std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
+                ledger::sync_ctx.collected_history_responses.push_back(std::move(hr));
+            }
         }
         else
         {

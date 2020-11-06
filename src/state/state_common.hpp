@@ -1,8 +1,9 @@
-#ifndef _HP_CONS_STATE_COMMON_
-#define _HP_CONS_STATE_COMMON_
+#ifndef _HP_STATE_STATE_COMMON_
+#define _HP_STATE_STATE_COMMON_
 
 #include "../pchheader.hpp"
 #include "../conf.hpp"
+#include "../hpfs/h32.hpp"
 
 namespace state_common
 {
@@ -12,6 +13,31 @@ namespace state_common
     {
         return conf::cfg.roundtime;
     }
-}
+
+    struct state_context
+    {
+    private:
+        hpfs::h32 state;
+        std::shared_mutex state_mutex;
+
+    public:
+        hpfs::h32 get_state()
+        {
+            std::shared_lock lock(state_mutex);
+            return state;
+        }
+
+        void set_state(hpfs::h32 new_state)
+        {
+            std::unique_lock lock(state_mutex);
+            state = new_state;
+        }
+    };
+
+    extern state_context ctx;
+
+    int init();
+
+} // namespace state_common
 
 #endif

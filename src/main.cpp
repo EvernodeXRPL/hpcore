@@ -14,6 +14,7 @@
 #include "consensus.hpp"
 #include "ledger.hpp"
 #include "hpfs/hpfs.hpp"
+#include "state/state_common.hpp"
 #include "state/state_sync.hpp"
 #include "state/state_serve.hpp"
 
@@ -198,6 +199,7 @@ int main(int argc, char **argv)
 
                 if (ledger::init() ||
                     sc::init() ||
+                    state_common::init() != 0 ||
                     state_serve::init() != 0 ||
                     state_sync::init() != 0 ||
                     consensus::init() != 0 ||

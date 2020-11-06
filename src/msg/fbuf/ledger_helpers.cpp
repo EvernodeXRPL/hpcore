@@ -19,12 +19,22 @@ namespace msg::fbuf::ledger
                 seq_no,
                 p.time,
                 sv_to_flatbuff_bytes(builder, p.lcl),
-                sv_to_flatbuff_bytes(builder, p.state.to_string_view()),
+                hash_to_flatbuff_bytes(builder, p.state),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
         builder.Finish(ledger); // Finished building message content to get serialised content.
+    }
+
+    p2p::proposal create_proposal_from_ledger(const std::vector<uint8_t> &ledger_buf)
+    {
+        auto ledger = msg::fbuf::ledger::GetLedger(ledger_buf.data());
+        p2p::proposal p;
+        p.lcl = flatbuff_bytes_to_sv(ledger->lcl());
+        p.state = flatbuff_bytes_to_hash(ledger->state());
+        // We do not need to convert all the fields of the proposal due to them not being used for any ledger-specific logic.
+        return p;
     }
 
     bool verify_ledger_buffer(const uint8_t *ledger_buf_ptr, const size_t buf_len)
