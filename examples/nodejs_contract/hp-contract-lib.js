@@ -62,6 +62,7 @@ function HotPocketContract() {
     });
 
     this.terminate = () => {
+        this.control.sendOutput("Terminated")
         process.kill(0);
     }
     
@@ -102,6 +103,8 @@ function HotPocketChannel(contract, fd, userPubKey) {
                 const msgCountBuf = readBytes(buf, 0, 4)
                 msgCount = msgCountBuf.readUInt32BE();
                 pos += 4;
+                // disable auto close timer when start receiving messages.
+                contract.disableAutoClose();
             }
             while (pos < buf.byteLength) {
                 if (msgLen == -1) {
@@ -124,7 +127,6 @@ function HotPocketChannel(contract, fd, userPubKey) {
                 dataParts.push(msgBuf)
 
                 if (msgLen == -1) {
-                    contract.disableAutoClose();
                     await contract.events.emit("user_message", userPubKey, Buffer.concat(dataParts));
                     dataParts = [];
                     msgCount--
