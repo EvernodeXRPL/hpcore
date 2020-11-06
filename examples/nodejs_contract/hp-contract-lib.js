@@ -63,9 +63,8 @@ function HotPocketContract() {
 
     this.terminate = () => {
         this.control.sendOutput("Terminated")
-        process.kill(0);
     }
-    
+
     this.enableAutoClose = () => {
         if (!autoCloseTimer) {
             autoCloseTimer = setTimeout(() => {

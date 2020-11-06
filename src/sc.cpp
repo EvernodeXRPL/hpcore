@@ -67,10 +67,12 @@ namespace sc
 
         if (!ctx.args.readonly)
         {
-            // create sequential packet sockets for npl and hp messages.
+            // Create sequential packet sockets for npl messages.
             create_iosockets(ctx.nplfds, SOCK_SEQPACKET);
-            create_iosockets(ctx.hpscfds, SOCK_SEQPACKET);
         }
+
+        // Create sequential packet sockets for hp messages.
+        create_iosockets(ctx.hpscfds, SOCK_SEQPACKET);
 
         int ret = 0;
 
@@ -168,9 +170,10 @@ namespace sc
             ret = -1;
 
         cleanup_fdmap(ctx.userfds);
+        cleanup_vectorfds(ctx.hpscfds);
+
         if (!ctx.args.readonly)
         {
-            cleanup_vectorfds(ctx.hpscfds);
             cleanup_vectorfds(ctx.nplfds);
         }
 
@@ -270,10 +273,10 @@ namespace sc
         if (!ctx.args.readonly)
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
-               << "\",\"hpfd\":" << ctx.hpscfds[SOCKETFDTYPE::SCREADWRITE]
-               << ",\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE];
+               << "\",\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE];
         }
 
+        os << ",\"hpfd\":" << ctx.hpscfds[SOCKETFDTYPE::SCREADWRITE];
         os << ",\"usrfd\":{";
 
         fdmap_json_to_stream(ctx.userfds, os);
@@ -328,7 +331,7 @@ namespace sc
     int feed_inputs(execution_context &ctx)
     {
         // Write any input messages to hp->sc socket.
-        if (!ctx.args.readonly && write_contract_hp_inputs(ctx) == -1)
+        if (write_contract_hp_inputs(ctx) == -1)
         {
             LOG_ERROR << "Error when writing contract hp inputs.";
             return -1;
@@ -358,23 +361,48 @@ namespace sc
             if (ctx.should_stop)
                 break;
 
-            const int hpsc_res = ctx.args.readonly ? 0 : read_contract_hp_outputs(ctx);
+            const int hpsc_res = read_contract_hp_outputs(ctx);
             if (hpsc_res == -1)
+            {
                 return -1;
-
+            }
+            else if (ctx.args.received_contract_terminate_msg && hpsc_res == 0)
+            {
+                close(ctx.hpscfds[SOCKETFDTYPE::HPREADWRITE]);
+                ctx.hpscfds[SOCKETFDTYPE::HPREADWRITE] = -1;
+            }
+           
             const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
             if (npl_read_res == -1)
+            {
                 return -1;
+            }
+            else if (!ctx.args.readonly && ctx.args.received_contract_terminate_msg && npl_read_res == 0)
+            {
+                close(ctx.nplfds[SOCKETFDTYPE::HPREADWRITE]);
+                ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
+            }
 
-            const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
-            if (npl_write_res == -1)
-                return -1;
+            if (!ctx.args.received_contract_terminate_msg)
+            {
+                const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
+                if (npl_write_res == -1)
+                    return -1;
+            }
 
             const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
             if (user_res == -1)
             {
                 LOG_ERROR << "Error reading user outputs from the contract.";
                 return -1;
+            }
+            else if (ctx.args.received_contract_terminate_msg && user_res == 0)
+            {
+                for (auto &[pubkey, fds] : ctx.userfds)
+                {
+                    close(fds[SOCKETFDTYPE::HPREADWRITE]);
+                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                }
             }
 
             // If no bytes were read after contract finished execution, exit the read loop.
@@ -459,6 +487,10 @@ namespace sc
         else if (hpsc_res > 0)
         {
             // ctx.args.hpscbufs.outputs.push_back(output);
+            if (output == "Terminated")
+            {
+                ctx.args.received_contract_terminate_msg = true;
+            }
         }
 
         return (hpsc_res == 0) ? 0 : 1;
@@ -877,9 +909,10 @@ namespace sc
     {
         if (!ctx.args.readonly)
         {
-            close_unused_socket_vectorfds(is_hp, ctx.hpscfds);
             close_unused_socket_vectorfds(is_hp, ctx.nplfds);
         }
+
+        close_unused_socket_vectorfds(is_hp, ctx.hpscfds);
 
         // Loop through user fds.
         for (auto &[pubkey, fds] : ctx.userfds)
@@ -946,6 +979,7 @@ namespace sc
         args.time = 0;
         args.lcl.clear();
         args.post_execution_state_hash = hpfs::h32_empty;
+        args.received_contract_terminate_msg = false;
     }
 
     /**
