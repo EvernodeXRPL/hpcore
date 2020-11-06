@@ -37,6 +37,7 @@ function AsyncCallbackEmitter() {
 
 function HotPocketContract() {
     const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
+    let autoCloseTimer = null;
     this.readonly = hpargs.readonly;
     this.timestamp = hpargs.ts;
     this.incomplete_users = 0;
@@ -59,6 +60,32 @@ function HotPocketContract() {
         this.users[userPubKey] = new HotPocketChannel(this, hpargs.usrfd[userPubKey], userPubKey);
         this.incomplete_users++;
     });
+
+    this.terminate = () => {
+        process.kill(0);
+    }
+    
+    let enableAutoClose = () => {
+        if (!autoCloseTimer) {
+            autoCloseTimer = setTimeout(() => {
+                this.terminate();
+            }, 1000);
+        }
+    }
+
+    this.disableAutoClose = () => {
+        if (autoCloseTimer) {
+            clearTimeout(autoCloseTimer);
+            autoCloseTimer = null;
+        }
+    }
+
+    if (!Object.keys(hpargs.usrfd).length) {
+        this.terminate();
+    }
+    else {
+        enableAutoClose();
+    }
 }
 
 function HotPocketChannel(contract, fd, userPubKey) {
@@ -69,7 +96,7 @@ function HotPocketChannel(contract, fd, userPubKey) {
         let msgCount = -1;
         let msgLen = -1;
         let pos = 0;
-        socket.on("data", (buf) => {
+        socket.on("data", async (buf) => {
             pos = 0;
             if (msgCount == -1) {
                 const msgCountBuf = readBytes(buf, 0, 4)
@@ -95,9 +122,10 @@ function HotPocketChannel(contract, fd, userPubKey) {
                 const msgBuf = readBytes(buf, pos, possible_read_len);
                 pos += possible_read_len;
                 dataParts.push(msgBuf)
-                
+
                 if (msgLen == -1) {
-                    contract.events.emit("user_message", userPubKey, Buffer.concat(dataParts));
+                    contract.disableAutoClose();
+                    await contract.events.emit("user_message", userPubKey, Buffer.concat(dataParts));
                     dataParts = [];
                     msgCount--
                 }

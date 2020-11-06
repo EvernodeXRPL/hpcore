@@ -9,9 +9,20 @@ const hpc = new HotPocketContract();
 if (!hpc.readonly)
     fs.appendFileSync("exects.txt", "ts:" + hpc.timestamp + "\n");
 
-hpc.events.on("user_message", (pubKey, message) => {
+// Utility function to simulate asynchronous behavior.
+// let asyncSimulator = (timeout) => {
+//     return new Promise(resolve => {
+//         setTimeout(() => {
+//             resolve();
+//         }, timeout);
+//     })
+// }
+
+hpc.events.on("user_message", async (pubKey, message) => {
     const userInput = message.toString("utf8");
     const user = hpc.users[pubKey];
+    // Simulate asynchronous behavior.
+    // await asyncSimulator(1000);
     if (userInput == "ts") {
         user.sendOutput(fs.readFileSync("exects.txt"));
     }
@@ -21,23 +32,12 @@ hpc.events.on("user_message", (pubKey, message) => {
 });
 
 hpc.events.on("all_users_completed", () => {
-    Object.keys(hpc.users).forEach(pubKey => {
-        hpc.users[pubKey].closeChannel();
-    });
+    hpc.terminate();
 });
 
 const npl = hpc.npl;
 
-// Npl channel always connected if contract is not in readonly mode.
-// Smart contract developer has to mannually close the channel once the execution logic is complete.
-if (npl) {
-    npl.closeNplChannel();
-}
-
-// HP <--> SC
-const hp = hpc.control;
-hp.closeControlChannel();
-
+// Control message sending and receiving template.
 // let i = 0;
 // hp.events.on('message', (msg) => {
 //     console.log('control msg - ' + msg);
