@@ -25,17 +25,13 @@ namespace sc
     };
 
     /**
-     * Stores message length along with the message. Length is used to construct the message from the stream buffer.
+     * Stores contract output message length along with the message. Length is used to construct the message from the stream buffer.
     */
     struct contract_output
     {
-        int32_t message_len = -1;
+        uint32_t message_len = 0;
         std::string message;
 
-        bool is_filled()
-        {
-            return message_len == message.length();
-        }
     };
     /**
  * Represents list of inputs to the contract and the accumulated contract output for those inputs.

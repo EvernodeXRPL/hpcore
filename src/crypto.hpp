@@ -2,7 +2,6 @@
 #define _HP_CRYPTO_
 
 #include "pchheader.hpp"
-#include "sc.hpp"
 
 /**
  * Offers convenience functions for cryptographic operations wrapping libsodium.
@@ -36,7 +35,7 @@ namespace crypto
 
     std::string get_hash(std::string_view s1, std::string_view s2);
 
-    std::string get_hash(std::string_view s1, std::list<sc::contract_output> &list);
+    std::string get_hash(std::list<std::string_view> &sw_list);
 
 } // namespace crypto
 

@@ -586,48 +586,62 @@ namespace sc
             std::string output;
             std::vector<int> &fds = fdmap[pubkey];
 
-            const int res = read_iosocket_stream(fds, output);
+            // This returns the total bytes read from the socket.
+            const int total_bytes_read = read_iosocket_stream(fds, output);
 
-            if (res > 0)
+            if (total_bytes_read > 0)
             {
+                // Current reading position of the received buffer chunk.
                 int pos = 0;
-                while (pos < res)
+                // Go through the buffer to the end.
+                while (pos < total_bytes_read)
                 {
-                    if (bufs.outputs.empty() || bufs.outputs.back().is_filled())
+                    // Check whether the output list is empty or the last message stored is finished reading.
+                    // If so, an empty container is added to store the new message.
+                    if (bufs.outputs.empty() || (bufs.outputs.back().message.length() == bufs.outputs.back().message_len))
                     {
                         // Add new empty container.
                         bufs.outputs.push_back(contract_output());
                     }
 
-                    // Get the laterst element from the list;
+                    // Get the laterst element from the list.
                     contract_output &current_output = bufs.outputs.back();
 
-                    if (current_output.message_len == -1)
+                    // This is a new container. Message len of container is defaults to 0.
+                    if (current_output.message_len == 0)
                     {
-                        current_output.message_len = output.at(pos + 3) | (output.at(pos + 2) << 24) | (output.at(pos + 1) << 16) | (output.at(pos) << 8);
+                        // Extract the message length from four byte header in the buffer.
+                        // Length received is in Big Endian format.
+                        // Re-construct it into natural order. (No matter the format computer saves it in).
+                        current_output.message_len = (uint8_t)output[pos] << 24 | (uint8_t)output[pos + 1] << 16 | (uint8_t)output[pos + 2] << 8 | (uint8_t)output[pos + 3];
+                        // Advance the current position.
                         pos += 4;
                     }
+                    // Store the possible message length which could be read from the remaining buffer length.
                     int possible_read_len;
-                    if (((res - pos) - current_output.message_len) >= 0)
+
+                    // Checking whether the remaing buffer length is long enough to finish reading the current message.
+                    if (((total_bytes_read - pos) - (current_output.message_len - current_output.message.length())) >= 0)
                     {
-                        // Can finish reading a full message.
-                        possible_read_len = current_output.message_len;
+                        // Can finish reading a full message. Possible length is equal to the remaining message length.
+                        possible_read_len = current_output.message_len - current_output.message.length();
                     }
                     else
                     {
-                        // Only partial message is recieved.
-                        possible_read_len = res - pos;
-                        current_output.message_len -= possible_read_len;
+                        // Only partial message is recieved. Store the received bytes until other chunk is received.
+                        possible_read_len = total_bytes_read - pos;
                     }
+                    // Extract the message chunk from the buffer.
                     std::string msgBuf = output.substr(pos, possible_read_len);
                     pos += possible_read_len;
+                    // Append the extracted message chunk to the current message.
                     current_output.message += msgBuf;
-
                 }
+
                 bytes_read = true;
             }
 
-            if (res == -1)
+            if (total_bytes_read == -1)
             {
                 return -1;
             }

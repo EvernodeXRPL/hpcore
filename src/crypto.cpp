@@ -197,9 +197,9 @@ namespace crypto
     }
 
     /**
-     * Generates blake3 hash for the given string view and the contract output list using stream hashing.
+     * Generates blake3 hash for the given string view list using stream hashing.
      */
-    std::string get_hash(std::string_view s1, std::list<sc::contract_output> &list)
+    std::string get_hash(std::list<std::string_view> &sw_list)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
@@ -208,11 +208,9 @@ namespace crypto
         blake3_hasher hasher;
         blake3_hasher_init(&hasher);
 
-        // updating hash with given data
-        blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(s1.data()), s1.length());
         // Hash is generated only using message in contract output struct.
-        for (sc::contract_output output : list)
-            blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(output.message.data()), output.message.length());
+        for (std::string_view sw : sw_list)
+            blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(sw.data()), sw.length());
 
         // Get the final hash.
         blake3_hasher_finalize(&hasher, reinterpret_cast<unsigned char *>(hash.data()), hash.length());
