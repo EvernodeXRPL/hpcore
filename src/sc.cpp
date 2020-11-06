@@ -393,11 +393,11 @@ namespace sc
      */
     int write_contract_hp_inputs(execution_context &ctx)
     {
-        if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
-        {
-            LOG_ERROR << "Error writing HP inputs to SC";
-            return -1;
-        }
+        // if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
+        // {
+        //     LOG_ERROR << "Error writing HP inputs to SC";
+        //     return -1;
+        // }
 
         return 0;
     }
@@ -450,11 +450,15 @@ namespace sc
     int read_contract_hp_outputs(execution_context &ctx)
     {
         std::string output;
-        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.output);
+        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, output);
         if (hpsc_res == -1)
         {
             LOG_ERROR << "Error reading HP output from the contract.";
             return -1;
+        }
+        else if (hpsc_res > 0)
+        {
+            // ctx.args.hpscbufs.outputs.push_back(output);
         }
 
         return (hpsc_res == 0) ? 0 : 1;
@@ -576,19 +580,71 @@ namespace sc
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
     {
         bool bytes_read = false;
-        for (auto &[pubkey, bufpair] : bufmap)
+        for (auto &[pubkey, bufs] : bufmap)
         {
             // Get fds for the pubkey.
+            std::string output;
             std::vector<int> &fds = fdmap[pubkey];
 
-            const int res = read_iosocket_stream(fds, bufpair.output);
-            if (res == -1)
+            // This returns the total bytes read from the socket.
+            const int total_bytes_read = read_iosocket_stream(fds, output);
+
+            if (total_bytes_read > 0)
+            {
+                // Current reading position of the received buffer chunk.
+                int pos = 0;
+                // Go through the buffer to the end.
+                while (pos < total_bytes_read)
+                {
+                    // Check whether the output list is empty or the last message stored is finished reading.
+                    // If so, an empty container is added to store the new message.
+                    if (bufs.outputs.empty() || (bufs.outputs.back().message.length() == bufs.outputs.back().message_len))
+                    {
+                        // Add new empty container.
+                        bufs.outputs.push_back(contract_output());
+                    }
+
+                    // Get the laterst element from the list.
+                    contract_output &current_output = bufs.outputs.back();
+
+                    // This is a new container. Message len of container is defaults to 0.
+                    if (current_output.message_len == 0)
+                    {
+                        // Extract the message length from four byte header in the buffer.
+                        // Length received is in Big Endian format.
+                        // Re-construct it into natural order. (No matter the format computer saves it in).
+                        current_output.message_len = (uint8_t)output[pos] << 24 | (uint8_t)output[pos + 1] << 16 | (uint8_t)output[pos + 2] << 8 | (uint8_t)output[pos + 3];
+                        // Advance the current position.
+                        pos += 4;
+                    }
+                    // Store the possible message length which could be read from the remaining buffer length.
+                    int possible_read_len;
+
+                    // Checking whether the remaing buffer length is long enough to finish reading the current message.
+                    if (((total_bytes_read - pos) - (current_output.message_len - current_output.message.length())) >= 0)
+                    {
+                        // Can finish reading a full message. Possible length is equal to the remaining message length.
+                        possible_read_len = current_output.message_len - current_output.message.length();
+                    }
+                    else
+                    {
+                        // Only partial message is recieved. Store the received bytes until other chunk is received.
+                        possible_read_len = total_bytes_read - pos;
+                    }
+                    // Extract the message chunk from the buffer.
+                    std::string msgBuf = output.substr(pos, possible_read_len);
+                    pos += possible_read_len;
+                    // Append the extracted message chunk to the current message.
+                    current_output.message += msgBuf;
+                }
+
+                bytes_read = true;
+            }
+
+            if (total_bytes_read == -1)
             {
                 return -1;
             }
-
-            if (res > 0)
-                bytes_read = true;
         }
 
         return bytes_read ? 1 : 0;
@@ -649,25 +705,32 @@ namespace sc
         if (!inputs.empty())
         {
             // Prepare the input memory segments to write with wrtiev.
-            iovec memsegs[2];
-            std::string msg_buf;
+            // Extra one element for the header.
+            iovec memsegs[inputs.size() * 2 + 1];
+            uint8_t header[inputs.size() * 4 + 4];
+            header[0] = inputs.size() >> 24;
+            header[1] = inputs.size() >> 16;
+            header[2] = inputs.size() >> 8;
+            header[3] = inputs.size();
+            // Message count header.
+            memsegs[0].iov_base = header;
+            memsegs[0].iov_len = 4;
+            size_t i = 1;
             for (std::string &input : inputs)
             {
-                // Concat messages into one message segment.
-                msg_buf += input;
+                // 4 bytes for message len header.
+                header[i * 4] = input.length() >> 24;
+                header[i * 4 + 1] = input.length() >> 16;
+                header[i * 4 + 2] = input.length() >> 8;
+                header[i * 4 + 3] = input.length();
+                memsegs[i * 2 - 1].iov_base = &header[i * 4];
+                memsegs[i * 2 - 1].iov_len = 4;
+                memsegs[i * 2].iov_base = input.data();
+                memsegs[i * 2].iov_len = input.length();
+                i++;
             }
-            // Storing message len in big endian.
-            uint8_t header[4];
-            header[0] = msg_buf.length() >> 24;
-            header[1] = msg_buf.length() >> 16;
-            header[2] = msg_buf.length() >> 8;
-            header[3] = msg_buf.length();
-            memsegs[0].iov_base = header;
-            memsegs[0].iov_len = sizeof(header);
-            memsegs[1].iov_base = msg_buf.data();
-            memsegs[1].iov_len = msg_buf.length();
 
-            if (writev(writefd, memsegs, 2) == -1)
+            if (writev(writefd, memsegs, (inputs.size() * 2 + 1)) == -1)
                 write_error = true;
 
             inputs.clear();
@@ -755,10 +818,9 @@ namespace sc
                 }
                 return res;
             }
-
         }
 
-        close(readfd);          
+        close(readfd);
         fds[SOCKETFDTYPE::HPREADWRITE] = -1;
         LOG_ERROR << errno << ": Error reading sequence packet socket.";
 
@@ -790,9 +852,8 @@ namespace sc
                 return 0;
             }
 
-            const size_t current_size = output.size();
-            output.resize(current_size + available_bytes);
-            const int res = read(readfd, output.data() + current_size, available_bytes);
+            output.resize(available_bytes);
+            const int res = read(readfd, output.data(), available_bytes);
 
             if (res >= 0)
             {
@@ -876,8 +937,8 @@ namespace sc
     void clear_args(contract_execution_args &args)
     {
         args.userbufs.clear();
-        args.hpscbufs.inputs.clear();
-        args.hpscbufs.output.clear();
+        // args.hpscbufs.inputs.clear();
+        // args.hpscbufs.outputs.clear();
         // Empty npl message queue.
         while (args.npl_messages.pop())
         {

@@ -139,21 +139,22 @@ namespace read_req
                     std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
                     const auto user_buf_itr = context_itr->args.userbufs.begin();
-                    if (!user_buf_itr->second.output.empty())
+                    if (!user_buf_itr->second.outputs.empty())
                     {
                         // Find the user session by user pubkey.
-                        const auto user_itr = usr::ctx.users.find(user_buf_itr->first); // sess_itr->second is the session id.
-                        if (user_itr != usr::ctx.users.end())                           // match found
+                        const auto user_itr = usr::ctx.users.find(user_buf_itr->first);
+                        if (user_itr != usr::ctx.users.end()) // match found
                         {
-                            std::string outputtosend;
-                            outputtosend.swap(user_buf_itr->second.output);
-
                             const usr::connected_user &user = user_itr->second;
                             msg::usrmsg::usrmsg_parser parser(user.protocol);
-
-                            std::vector<uint8_t> msg;
-                            parser.create_contract_read_response_container(msg, outputtosend);
-                            user.session.send(msg);
+                            for (sc::contract_output &output : user_buf_itr->second.outputs)
+                            {
+                                std::vector<uint8_t> msg;
+                                parser.create_contract_read_response_container(msg, output.message);
+                                user.session.send(msg);
+                                output.message.clear();
+                            }
+                            user_buf_itr->second.outputs.clear();
                         }
                     }
                     LOG_DEBUG << "Read request contract execution ended.";
@@ -211,9 +212,9 @@ namespace read_req
         contract_ctx.args.state_dir = conf::ctx.state_dir;
         contract_ctx.args.state_dir.append("/rr_").append(std::to_string(thread_id));
         contract_ctx.args.readonly = true;
-        sc::contract_iobuf_pair user_bufpair;
-        user_bufpair.inputs.push_back(std::move(read_request.content));
-        contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufpair));
+        sc::contract_iobufs user_bufs;
+        user_bufs.inputs.push_back(std::move(read_request.content));
+        contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufs));
     }
 
     /**

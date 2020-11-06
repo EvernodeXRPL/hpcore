@@ -18,8 +18,11 @@ hpc.events.on("user_message", (pubKey, message) => {
     }
     else {
         user.sendOutput("Echoing: " + userInput);
-        user.closeChannel();
     }
+});
+
+hpc.events.on("user_finished", (pubKey) => {
+    hpc.users[pubKey].closeChannel();
 });
 
 const npl = hpc.npl;
