@@ -1,6 +1,4 @@
 #include "comm_server.hpp"
-#include "comm_session.hpp"
-#include "comm_session.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
 #include "../bill/corebill.h"
@@ -10,29 +8,30 @@
 namespace comm
 {
     constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 16 * 1024 * 1024;
-    constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
 
-    int comm_server::start(
-        const uint16_t port, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4],
-        const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
+    template <typename T>
+    comm_server<T>::comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
+        : name(name),
+          port(port),
+          metric_thresholds(metric_thresholds),
+          max_msg_size(max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE)
     {
-        const uint64_t final_max_msg_size = max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE;
+    }
 
-        if (start_hpws_server(port, final_max_msg_size) == -1)
+    template <typename T>
+    int comm_server<T>::start()
+    {
+        if (start_hpws_server() == -1)
             return -1;
 
-        watchdog_thread = std::thread(
-            &comm_server::connection_watchdog, this, session_type,
-            std::ref(metric_thresholds), req_known_remotes, final_max_msg_size);
-
-        inbound_message_processor_thread = std::thread(&comm_server::inbound_message_processor_loop, this, session_type);
+        watchdog_thread = std::thread(&comm_server<T>::connection_watchdog, this);
+        inbound_message_processor_thread = std::thread(&comm_server<T>::inbound_message_processor_loop, this);
 
         return 0;
     }
 
-    void comm_server::connection_watchdog(
-        const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4],
-        const std::set<conf::ip_port_pair> &req_known_remotes, const uint64_t max_msg_size)
+    template <typename T>
+    void comm_server<T>::connection_watchdog()
     {
         util::mask_signal();
 
@@ -44,18 +43,7 @@ namespace comm
             util::sleep(100);
 
             // Accept any new incoming connection if available.
-            check_for_new_connection(sessions, session_type, metric_thresholds);
-
-            // Restore any missing outbound connections.
-            if (!req_known_remotes.empty())
-            {
-                if (loop_counter == 20)
-                {
-                    loop_counter = 0;
-                    maintain_known_connections(sessions, req_known_remotes, session_type, max_msg_size, metric_thresholds);
-                }
-                loop_counter++;
-            }
+            check_for_new_connection();
 
             // Cleanup any sessions that needs closure.
             for (auto itr = sessions.begin(); itr != sessions.end();)
@@ -68,50 +56,21 @@ namespace comm
                 else
                     ++itr;
             }
-
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-            if (sessions.size() > 1)
-            {
-                if (is_weakly_connected())
-                {
-                    if (!weakly_connected_status_sent)
-                    {
-                        LOG_DEBUG << "Weakly connected status announcement sent";
-                        p2p::send_connected_status_announcement(fbuf, true);
-                        // Mark that the p2p message forwarding is requested.
-                        weakly_connected_status_sent = true;
-                    }
-                }
-                else
-                {
-                    if (weakly_connected_status_sent)
-                    {
-                        LOG_DEBUG << "Strongly connected status announcement sent";
-                        p2p::send_connected_status_announcement(fbuf, false);
-                        weakly_connected_status_sent = false;
-                    }
-                }
-            }
         }
 
         // If we reach this point that means we are shutting down.
 
         // Close and erase all sessions.
-        for (comm_session &session : sessions)
+        for (T &session : sessions)
             session.close(false);
 
         sessions.clear();
 
-        LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " listener stopped.";
+        LOG_INFO << name << " listener stopped.";
     }
 
-    bool comm_server::is_weakly_connected()
-    {
-        return (sessions.size() - 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
-    }
-
-    void comm_server::check_for_new_connection(
-        std::list<comm_session> &sessions, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4])
+    template <typename T>
+    void comm_server<T>::check_for_new_connection()
     {
         std::variant<hpws::client, hpws::error> accept_result = hpws_server.value().accept(true);
 
@@ -131,7 +90,7 @@ namespace comm
         if (std::holds_alternative<hpws::error>(host_result))
         {
             const hpws::error error = std::get<hpws::error>(host_result);
-            LOG_ERROR << "Error getting ip from hpws:" << error.first << " " << error.second;
+            LOG_ERROR << "Error getting " << name << " ip from hpws:" << error.first << " " << error.second;
         }
         else
         {
@@ -140,96 +99,27 @@ namespace comm
             if (corebill::is_banned(host_address))
             {
                 // We just let the client object gets destructed without adding it to a session.
-                LOG_DEBUG << "Dropping connection for banned host " << host_address;
+                LOG_DEBUG << "Dropping " << name << " connection for banned host " << host_address;
             }
             else
             {
-                comm_session session(host_address, std::move(client), session_type, true, metric_thresholds);
+                T session(host_address, std::move(client), session_type, true, metric_thresholds);
                 if (session.on_connect() == 0)
                 {
                     std::scoped_lock<std::mutex> lock(sessions_mutex);
-                    comm_session &inserted_session = sessions.emplace_back(std::move(session));
+                    T &inserted_session = sessions.emplace_back(std::move(session));
 
                     // Thread is seperately started after the moving operation to overcome the difficulty
                     // in accessing class member variables inside the thread.
                     // Class member variables gives unacceptable values if the thread starts before the move operation.
                     inserted_session.start_messaging_threads();
-                    // Making sure the newly connected node get the weakly connected announcement if the number of
-                    // connected peers are under the threshold.
-                    if ((sessions.size() > 1) && is_weakly_connected())
-                    {
-                        weakly_connected_status_sent = false;
-                    }
                 }
             }
         }
     }
 
-    void comm_server::maintain_known_connections(
-        std::list<comm_session> &sessions, const std::set<conf::ip_port_pair> &req_known_remotes,
-        const SESSION_TYPE session_type, const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4])
-    {
-        // Find already connected known remote parties list
-        std::set<conf::ip_port_pair> known_remotes;
-        for (const comm_session &session : sessions)
-        {
-            if (session.state != SESSION_STATE::CLOSED && !session.known_ipport.first.empty())
-                known_remotes.emplace(session.known_ipport);
-        }
-
-        for (const auto &ipport : req_known_remotes)
-        {
-            if (should_stop_listening)
-                break;
-
-            // Check if we are already connected to this remote party.
-            if (known_remotes.find(ipport) != known_remotes.end())
-                continue;
-
-            std::string_view host = ipport.first;
-            const uint16_t port = ipport.second;
-            LOG_DEBUG << "Trying to connect " << host << ":" << std::to_string(port);
-
-            std::variant<hpws::client, hpws::error> client_result = hpws::client::connect(conf::ctx.hpws_exe_path, max_msg_size, host, port, "/", {}, util::fork_detach);
-
-            if (std::holds_alternative<hpws::error>(client_result))
-            {
-                const hpws::error error = std::get<hpws::error>(client_result);
-                if (error.first != 202)
-                    LOG_ERROR << "Outbound connection hpws error:" << error.first << " " << error.second;
-            }
-            else
-            {
-                hpws::client client = std::move(std::get<hpws::client>(client_result));
-                const std::variant<std::string, hpws::error> host_result = client.host_address();
-                if (std::holds_alternative<hpws::error>(host_result))
-                {
-                    const hpws::error error = std::get<hpws::error>(host_result);
-                    LOG_ERROR << "Error getting ip from hpws:" << error.first << " " << error.second;
-                }
-                else
-                {
-                    const std::string &host_address = std::get<std::string>(host_result);
-                    comm_session session(host_address, std::move(client), session_type, false, metric_thresholds);
-                    session.known_ipport = ipport;
-                    if (session.on_connect() == 0)
-                    {
-                        std::scoped_lock<std::mutex> lock(sessions_mutex);
-                        comm_session &inserted_session = sessions.emplace_back(std::move(session));
-
-                        // Thread is seperately started after the moving operation to overcome the difficulty
-                        // in accessing class member variables inside the thread.
-                        // Class member variables gives unacceptable values if the thread starts before the move operation.
-                        inserted_session.start_messaging_threads();
-
-                        known_remotes.emplace(ipport);
-                    }
-                }
-            }
-        }
-    }
-
-    void comm_server::inbound_message_processor_loop(const SESSION_TYPE session_type)
+    template <typename T>
+    void comm_server<T>::inbound_message_processor_loop()
     {
         util::mask_signal();
 
@@ -237,14 +127,10 @@ namespace comm
         {
             bool messages_processed = false;
 
-            // Process one message from self session first (if any).
-            if (session_type == SESSION_TYPE::PEER && p2p::ctx.self_session.process_next_inbound_message() != 0)
-                messages_processed = true;
-
             {
                 // Process one message from each session in round-robin fashion.
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
-                for (comm_session &session : sessions)
+                for (T &session : sessions)
                 {
                     const int result = session.process_next_inbound_message();
 
@@ -261,10 +147,11 @@ namespace comm
                 util::sleep(10);
         }
 
-        LOG_INFO << (session_type == SESSION_TYPE::USER ? "User" : "Peer") << " message processor stopped.";
+        LOG_INFO << name << " message processor stopped.";
     }
 
-    int comm_server::start_hpws_server(const uint16_t port, const uint64_t max_msg_size)
+    template <typename T>
+    int comm_server<T>::start_hpws_server()
     {
         std::variant<hpws::server, hpws::error> result = hpws::server::create(
             conf::ctx.hpws_exe_path,
@@ -289,7 +176,8 @@ namespace comm
         return 0;
     }
 
-    void comm_server::stop()
+    template <typename T>
+    void comm_server<T>::stop()
     {
         should_stop_listening = true;
         watchdog_thread.join();
