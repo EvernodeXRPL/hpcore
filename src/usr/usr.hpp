@@ -52,14 +52,9 @@ namespace usr
     struct connected_context
     {
         // Connected (authenticated) user list.
-        // Map key: User socket session id.
+        // Map key: User pubkey. Value: User info object.
         std::unordered_map<std::string, usr::connected_user> users;
         std::mutex users_mutex; // Mutex for users access race conditions.
-
-        // Holds set of connected user session ids and public keys for lookups.
-        // This is used for pubkey duplicate checks as well.
-        // Map key: User binary pubkey
-        std::unordered_map<std::string, const std::string> sessionids;
 
         comm::comm_server listener;
     };
@@ -78,11 +73,16 @@ namespace usr
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig);
 
-    int add_user(comm::comm_session &session, const std::string &pubkey, const util::PROTOCOL protocol);
+    int add_user(comm::comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
 
-    int remove_user(const std::string &sessionid);
+    int remove_user(const std::string &pubkey);
 
-    comm::comm_session *get_session_by_pubkey(const std::string &pubkey);
+    const char *validate_user_input_submission(const std::string_view user_pubkey, const usr::user_input &umsg,
+                                               const uint64_t lcl_seq_no, size_t &total_input_len,
+                                               util::rollover_hashset &recent_user_input_hashes,
+                                               std::string &hash, std::string &input, uint64_t &max_lcl_seqno);
+
+    bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
 } // namespace usr
 

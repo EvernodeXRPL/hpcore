@@ -18,6 +18,7 @@
 #include <jsoncons_ext/bson/bson.hpp>
 #include <libgen.h>
 #include <list>
+#include <math.h>
 #include <memory>
 #include <mutex>
 #include <poll.h>

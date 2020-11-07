@@ -228,7 +228,34 @@ namespace comm
         reader_thread.join();
 
         LOG_DEBUG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
-                  << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
+                  << display_name() << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
+    }
+
+    /**
+     * Returns printable name for the session based on uniqueid (used for logging).
+     */
+    const std::string comm_session::display_name()
+    {
+        if (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED)
+        {
+            if (session_type == SESSION_TYPE::PEER)
+            {
+                // Peer sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
+                return uniqueid.substr(2, 10);
+            }
+            else
+            {
+                // User sessions use binary pubkey as unique id. So we need to convert to hex.
+                std::string hex;
+                util::bin2hex(hex,
+                              reinterpret_cast<const unsigned char *>(uniqueid.data()),
+                              uniqueid.length());
+                return hex.substr(2, 10); // Skipping first 2 bytes key type prefix.
+            }
+        }
+
+        // Unverified sessions just use the ip/host address as the unique id.
+        return uniqueid;
     }
 
     /**
@@ -268,13 +295,13 @@ namespace comm
             const uint64_t elapsed_time = time_now - t.timestamp;
             if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
             {
-                this->close();
+                close();
 
                 t.timestamp = 0;
                 t.counter_value = 0;
 
-                LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-                corebill::report_violation(this->address);
+                LOG_INFO << "Session " << uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+                corebill::report_violation(address);
             }
             else if (elapsed_time > t.intervalms)
             {

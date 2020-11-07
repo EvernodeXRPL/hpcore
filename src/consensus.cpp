@@ -35,8 +35,9 @@ namespace consensus
 
     int init()
     {
-        // We allocate 1/4 of roundtime for each stage (there are 4 stages: 0,1,2,3)
-        ctx.stage_time = conf::cfg.roundtime / 4;
+        // We allocate 2/7 of roundtime for stage 1 and 2. The rest (4/7) is allocated to stage 3.
+        // This is because stage 3 needs some time to execute the contract in addition to broadcasting the proposal.
+        ctx.stage_time = (conf::cfg.roundtime * 2) / 7;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
         ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
@@ -96,32 +97,136 @@ namespace consensus
 
     int consensus()
     {
-        // A consensus round consists of 4 stages (0,1,2,3).
+        // A consensus round consists of 3 stages (1,2,3).
+        // Stage 3 is the last stage AND it also provides entry point for next round stage 1.
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
         uint64_t stage_start = 0;
         if (!wait_and_proceed_stage(stage_start))
             return 0; // This means the stage has been reset.
 
-        // Get the latest current time.
+        LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
+
+        // We consider stage start time as the current discreet time throughout the stage.
         ctx.time_now = stage_start;
+
+        // Throughout consensus, we continously update and prune the candidate proposals for newly
+        // arived ones and expired ones.
+        revise_candidate_proposals();
+
+        // Get current lcl and state.
+        std::string lcl = ledger::ctx.get_lcl();
+        uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
+        hpfs::h32 state = state_common::ctx.get_state();
+        vote_counter votes;
+
+        if (ctx.stage == 1)
+        {
+            if (is_in_sync(lcl, votes))
+            {
+                // If we are in sync, vote and broadcast the winning votes to next stage.
+                const p2p::proposal p = create_stage_proposal(STAGE1_THRESHOLD, votes, lcl, state);
+                broadcast_proposal(p);
+            }
+        }
+        else if (ctx.stage == 2)
+        {
+            if (is_in_sync(lcl, votes))
+            {
+                // If we are in sync, vote and broadcast the winning votes to next stage.
+                const p2p::proposal p = create_stage_proposal(STAGE2_THRESHOLD, votes, lcl, state);
+                broadcast_proposal(p);
+            }
+
+            // In stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
+            // This will be captured and verified at the end of stage 3.
+            broadcast_nonunl_proposal();
+        }
+        else if (ctx.stage == 3)
+        {
+            if (is_in_sync(lcl, votes))
+            {
+                // If we are in sync, vote and get the final winning votes.
+                // This is the consensus proposal which makes it into the ledger and contract execution
+                const p2p::proposal p = create_stage_proposal(STAGE3_THRESHOLD, votes, lcl, state);
+
+                // Update the ledger and execute the contract using the consensus proposal.
+                if (update_ledger_and_execute_contract(p, lcl, state) == -1)
+                    LOG_ERROR << "Error occured in Stage 3 consensus execution.";
+            }
+
+            // Prepare for next round by sending NEW-ROUND PROPOSAL.
+            // At the end of stage 3, we broadcast the "new round" proposal which is subjected
+            // to voting in next round stage 1.
+
+            // Prepare the consensus candidate user inputs that we have acumulated so far. (We receive them periodically via NUPs)
+            // The candidate inputs will be included in the new round proposal.
+            verify_and_populate_candidate_user_inputs(lcl_seq_no);
+
+            const p2p::proposal new_round_prop = create_new_round_proposal(lcl, state);
+            broadcast_proposal(new_round_prop);
+        }
+
+        // We have finished a consensus stage. Transition to next stage. (if at stage 3 go to next round stage 1)
+        ctx.stage = (ctx.stage < 3) ? (ctx.stage + 1) : 1;
+        return 0;
+    }
+
+    bool is_in_sync(std::string_view lcl, vote_counter &votes)
+    {
+        // Check if we're ahead/behind of consensus lcl.
+        bool is_lcl_desync = false;
+        std::string majority_lcl;
+        if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl))
+        {
+            // We proceed further only if lcl check was success (meaning lcl check could be reliably performed).
+
+            // State lcl sync if we are out-of-sync with majority lcl.
+            if (is_lcl_desync)
+            {
+                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                ledger::set_sync_target(majority_lcl);
+            }
+
+            // Check our state with majority state.
+            bool is_state_desync = false;
+            hpfs::h32 majority_state = hpfs::h32_empty;
+            check_state_votes(is_state_desync, majority_state, votes);
+
+            // Start state sync if we are out-of-sync with majority state.
+            if (is_state_desync)
+            {
+                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                state_sync::set_target(majority_state);
+            }
+
+            // Proceed further only if both lcl and state are in sync with majority.
+            if (!is_lcl_desync && !is_state_desync)
+            {
+                conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Moves proposals collected from the network into candidate proposals and
+     * cleans up any outdated proposals from the candidate set.
+     */
+    void revise_candidate_proposals()
+    {
+        // Move over the network proposal collection into a local list. This is to have a private working
+        // set for candidate parsing and avoid threading conflicts with network incoming proposals.
         std::list<p2p::proposal> collected_proposals;
-
-        // Get current lcl and sequence no.
-        const std::string lcl = ledger::ctx.get_lcl();
-        const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        const hpfs::h32 state = state_common::ctx.get_state();
-
-        // Throughout consensus, we move over the incoming proposals collected via the network so far into
-        // the candidate proposal set (move and append). This is to have a private working set for the consensus
-        // and avoid threading conflicts with network incoming proposals.
         {
             std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
-        //Copy collected propsals to candidate set of proposals.
-        //Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
+        // Move collected propsals to candidate set of proposals.
+        // Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
         for (const auto &proposal : collected_proposals)
         {
             auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
@@ -136,85 +241,12 @@ namespace consensus
             }
         }
 
-        LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
-
-        if (ctx.stage == 0) // Stage 0 means begining of a consensus round.
-        {
-            // Broadcast non-unl proposals (NUP) containing inputs from locally connected users.
-            broadcast_nonunl_proposal();
-
-            // Verify and transfer user inputs from incoming NUPs onto consensus candidate data.
-            verify_and_populate_candidate_user_inputs(lcl_seq_no);
-
-            // In stage 0 we create a novel proposal and broadcast it.
-            const p2p::proposal stg_prop = create_stage0_proposal(lcl, state);
-            broadcast_proposal(stg_prop);
-        }
-        else // Stage 1, 2, 3
-        {
-            purify_candidate_proposals();
-
-            // Initialize vote counters.
-            vote_counter votes;
-
-            // Check if we're ahead/behind of consensus lcl.
-            bool is_lcl_desync = false;
-            std::string majority_lcl;
-            if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl))
-            {
-                // We proceed further only if lcl check was success (meaning lcl check could be reliably performed).
-
-                // State lcl sync if we are out-of-sync with majority lcl.
-                if (is_lcl_desync)
-                {
-                    conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-                    ledger::set_sync_target(majority_lcl);
-                }
-
-                // Check our state with majority state.
-                bool is_state_desync = false;
-                hpfs::h32 majority_state = hpfs::h32_empty;
-                check_state_votes(is_state_desync, majority_state, votes);
-
-                // State state sync if we are out-of-sync with majority state.
-                if (is_state_desync)
-                {
-                    conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-                    state_sync::set_target(majority_state);
-                }
-
-                // Proceed further only if both lcl and state are in sync with majority.
-                if (!is_lcl_desync && !is_state_desync)
-                {
-                    conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
-
-                    // In stage 1, 2, 3 we vote for incoming proposals and promote winning votes based on thresholds.
-                    const p2p::proposal stg_prop = create_stage123_proposal(votes, lcl, state);
-
-                    broadcast_proposal(stg_prop);
-
-                    // The node has finished a consensus round (all 4 stages)
-                    if (ctx.stage == 3 && apply_ledger(stg_prop) == -1)
-                        LOG_ERROR << "Error occured in Stage 3 consensus execution.";
-                }
-            }
-        }
-
-        // Node has finished a consensus stage. Transition to next stage.
-        ctx.stage = (ctx.stage + 1) % 4;
-        return 0;
-    }
-
-    /**
-     * Cleanup any outdated proposals from the candidate set.
-     */
-    void purify_candidate_proposals()
-    {
+        // Prune any outdated proposals.
         auto itr = ctx.candidate_proposals.begin();
         while (itr != ctx.candidate_proposals.end())
         {
             const p2p::proposal &cp = itr->second;
-            const uint64_t time_diff = (ctx.time_now > cp.timestamp) ? (ctx.time_now - cp.timestamp) : 0;
+            const uint64_t time_diff = (ctx.time_now > cp.sent_timestamp) ? (ctx.time_now - cp.sent_timestamp) : 0;
             const int8_t stage_diff = ctx.stage - cp.stage;
 
             // only consider recent proposals and proposals from previous stage and current stage.
@@ -249,22 +281,23 @@ namespace consensus
         const uint64_t now = util::get_epoch_milliseconds();
 
         // Rrounds are discreet windows of roundtime.
-        // This gets the start time of current round window. Stage 0 must start in the next window.
+        // This gets the start time of current round window. Stage 1 must start in the next round window.
         const uint64_t current_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
 
-        if (ctx.stage == 0)
+        if (ctx.stage == 1)
         {
-            // Stage 0 must start in the next round window.
+            // Stage 1 must start in the next round window.
+            // (This makes sure stage 3 gets whichever the remaining time in the round after stage 1 and 2)
             stage_start = current_round_start + conf::cfg.roundtime;
             const int64_t to_wait = stage_start - now;
 
-            LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 0";
+            LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 1";
             util::sleep(to_wait);
             return true;
         }
         else
         {
-            stage_start = current_round_start + (ctx.stage * ctx.stage_time);
+            stage_start = current_round_start + ((ctx.stage - 1) * ctx.stage_time);
 
             // Compute stage time wait.
             // Node wait between stages to collect enough proposals from previous stages from other nodes.
@@ -274,8 +307,8 @@ namespace consensus
             // it will join in next round. Otherwise it will continue particapating in this round.
             if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
             {
-                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";
-                ctx.stage = 0;
+                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 1";
+                ctx.stage = 1;
                 return false;
             }
             else
@@ -289,18 +322,19 @@ namespace consensus
 
     /**
      * Broadcasts any inputs from locally connected users via an NUP.
-     * @return 0 for successful broadcast. -1 for failure.
      */
     void broadcast_nonunl_proposal()
     {
-        if (usr::ctx.users.empty())
-            return;
-
-        // Construct NUP.
         p2p::nonunl_proposal nup;
 
         {
-            std::scoped_lock<std::mutex>(usr::ctx.users_mutex);
+            // Populate users and inputs to the NUP within user lock.
+            std::scoped_lock lock(usr::ctx.users_mutex);
+
+            if (usr::ctx.users.empty())
+                return;
+
+            // Construct NUP.
             for (auto &[sid, user] : usr::ctx.users)
             {
                 std::list<usr::user_input> user_inputs;
@@ -336,171 +370,111 @@ namespace consensus
      */
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
-        // Lock the user sessions and the list so any network activity is blocked.
-        std::scoped_lock<std::mutex, std::mutex> lock(usr::ctx.users_mutex, p2p::ctx.collected_msgs.nonunl_proposals_mutex);
-        for (const p2p::nonunl_proposal &p : p2p::ctx.collected_msgs.nonunl_proposals)
+        // Move over NUPs collected from the network into a local list.
+        std::list<p2p::nonunl_proposal> collected_nups;
         {
-            for (const auto &[pubkey, umsgs] : p.user_inputs)
+            std::scoped_lock lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+            collected_nups.splice(collected_nups.end(), p2p::ctx.collected_msgs.nonunl_proposals);
+        }
+
+        // Prepare merged list of users with each user's inputs grouped under the user.
+        // Key: user pubkey, Value: List of inputs from the user.
+        std::unordered_map<std::string, std::list<usr::user_input>> input_groups;
+        for (p2p::nonunl_proposal &p : collected_nups)
+        {
+            for (auto &[pubkey, umsgs] : p.user_inputs)
             {
-                // Locate this user's socket session in case we need to send any status messages regarding user inputs.
-                comm::comm_session *session = usr::get_session_by_pubkey(pubkey);
+                // Move any user inputs from each NUP over to the grouped inputs under the user pubkey.
+                std::list<usr::user_input> &input_list = input_groups[pubkey];
+                input_list.splice(input_list.end(), umsgs);
+            }
+        }
+        collected_nups.clear();
 
-                // Populate user list with this user's pubkey.
-                ctx.candidate_users.emplace(pubkey);
+        // Maintains users and any input-acceptance responses we should send to them.
+        // Key: user pubkey. Value: List of [user-protocol, msg-sig, reject-reason] tuples.
+        std::unordered_map<std::string, std::list<std::tuple<const util::PROTOCOL, const std::string, const char *>>> responses;
 
-                // Keep track of total input length to verify against remaining balance.
-                // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
-                size_t total_input_len = 0;
-                bool appbill_balance_exceeded = false;
+        for (const auto &[pubkey, umsgs] : input_groups)
+        {
+            // Populate user list with this user's pubkey.
+            ctx.candidate_users.emplace(pubkey);
 
-                for (const usr::user_input &umsg : umsgs)
+            // Keep track of total input length to verify against remaining balance.
+            // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
+            size_t total_input_len = 0;
+            bool appbill_balance_exceeded = false;
+            util::rollover_hashset recent_user_input_hashes(200);
+
+            for (const usr::user_input &umsg : umsgs)
+            {
+                const char *reject_reason = NULL;
+
+                if (appbill_balance_exceeded)
                 {
-                    msg::usrmsg::usrmsg_parser parser(umsg.protocol);
+                    reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
+                }
+                else
+                {
+                    std::string hash, input;
+                    uint64_t max_lcl_seqno;
+                    reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, recent_user_input_hashes,
+                                                                        hash, input, max_lcl_seqno);
 
-                    const char *reject_reason = NULL;
-                    const std::string sig_hash = crypto::get_hash(umsg.sig);
-
-                    // Check for duplicate messages using hash of the signature.
-                    if (ctx.recent_userinput_hashes.try_emplace(sig_hash))
+                    if (reject_reason == NULL)
                     {
-                        // Verify the signature of the input_container.
-                        if (crypto::verify(umsg.input_container, umsg.sig, pubkey) == 0)
-                        {
-                            std::string nonce;
-                            std::string input;
-                            uint64_t max_lcl_seqno;
-                            parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
-
-                            // Ignore the input if our ledger has passed the input TTL.
-                            if (max_lcl_seqno > lcl_seq_no)
-                            {
-                                if (!appbill_balance_exceeded)
-                                {
-                                    // Hash is prefixed with the nonce to support user-defined sort order.
-                                    std::string hash = std::move(nonce);
-                                    // Append the hash of the message signature to get the final hash.
-                                    hash.append(sig_hash);
-
-                                    // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
-                                    total_input_len += input.length();
-                                    if (verify_appbill_check(pubkey, total_input_len))
-                                    {
-                                        ctx.candidate_user_inputs.try_emplace(
-                                            hash,
-                                            candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
-                                    }
-                                    else
-                                    {
-                                        // Abandon processing further inputs from this user when we find out
-                                        // an input cannot be processed with the account balance.
-                                        appbill_balance_exceeded = true;
-                                        reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
-                                    }
-                                }
-                                else
-                                {
-                                    reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
-                                }
-                            }
-                            else
-                            {
-                                LOG_DEBUG << "User message bad max ledger seq expired.";
-                                reject_reason = msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
-                            }
-                        }
-                        else
-                        {
-                            LOG_DEBUG << "User message bad signature.";
-                            reject_reason = msg::usrmsg::REASON_BAD_SIG;
-                        }
+                        // No reject reason means we should go ahead and subject the input to consensus.
+                        ctx.candidate_user_inputs.try_emplace(
+                            hash,
+                            candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
                     }
-                    else
+                    else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
                     {
-                        LOG_DEBUG << "Duplicate user message.";
-                        reject_reason = msg::usrmsg::REASON_DUPLICATE_MSG;
+                        // Abandon processing further inputs from this user when we find out
+                        // an input cannot be processed with the account balance.
+                        appbill_balance_exceeded = true;
                     }
+                }
 
+                responses[pubkey].push_back(std::tuple<const util::PROTOCOL, const std::string, const char *>(umsg.protocol, umsg.sig, reject_reason));
+            }
+        }
+
+        input_groups.clear();
+
+        {
+            // Lock the user sessions.
+            std::scoped_lock lock(usr::ctx.users_mutex);
+
+            for (auto &[pubkey, user_responses] : responses)
+            {
+                // Locate this user's socket session.
+                const auto user_itr = usr::ctx.users.find(pubkey);
+                if (user_itr != usr::ctx.users.end())
+                {
                     // Send the request status result if this user is connected to us.
-                    if (session != NULL)
+                    for (auto &resp : user_responses)
                     {
+                        // resp: 0=protocl, 1=msg sig, 2=reject reason.
+                        msg::usrmsg::usrmsg_parser parser(std::get<0>(resp));
+                        const std::string &msg_sig = std::get<1>(resp);
+                        const char *reject_reason = std::get<2>(resp);
+
                         usr::send_input_status(parser,
-                                               *session,
+                                               user_itr->second.session,
                                                reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                                reject_reason == NULL ? "" : reject_reason,
-                                               umsg.sig);
+                                               msg_sig);
                     }
                 }
             }
         }
-        p2p::ctx.collected_msgs.nonunl_proposals.clear();
     }
 
-    /**
-     * Executes the appbill and verifies whether the user has enough account balance to process the provided input.
-     * @param pubkey User binary pubkey.
-     * @param input_len Total bytes length of user input.
-     * @return Whether the user is allowed to process the input or not.
-     */
-    bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
+    p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state)
     {
-        // If appbill not enabled always green light the input.
-        if (conf::cfg.appbill.empty())
-            return true;
-
-        // execute appbill in --check mode to verify this user can submit a packet/connection to the network
-        // todo: this can be made more efficient, appbill --check can process 7 at a time
-
-        // Fill appbill args
-        const int len = conf::cfg.runtime_appbill_args.size() + 4;
-        char *execv_args[len];
-        for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
-            execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
-        char option[] = "--check";
-        execv_args[len - 4] = option;
-        // add the hex encoded public key as the last parameter
-        std::string hexpubkey;
-        util::bin2hex(hexpubkey, reinterpret_cast<const unsigned char *>(pubkey.data()), pubkey.size());
-        std::string inputsize = std::to_string(input_len);
-        execv_args[len - 3] = hexpubkey.data();
-        execv_args[len - 2] = inputsize.data();
-        execv_args[len - 1] = NULL;
-
-        int pid = fork();
-        if (pid == 0)
-        {
-            // appbill process.
-            util::fork_detach();
-
-            // before execution chdir into a valid the latest state data directory that contains an appbill.table
-            chdir(conf::ctx.state_rw_dir.c_str());
-            int ret = execv(execv_args[0], execv_args);
-            std::cerr << errno << ": Appbill process execv failed.\n";
-            return false;
-        }
-        else
-        {
-            // app bill in check mode takes a very short period of time to execute, typically 1ms
-            // so we will blocking wait for it here
-            int status = 0;
-            waitpid(pid, &status, 0); //todo: check error conditions here
-            status = WEXITSTATUS(status);
-            if (status != 128 && status != 0)
-            {
-                // this user's key passed appbill
-                return true;
-            }
-            else
-            {
-                // user's key did not pass, do not add to user input candidates
-                LOG_DEBUG << "Appbill validation failed " << hexpubkey << " return code was " << status;
-                return false;
-            }
-        }
-    }
-
-    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
-    {
-        // The proposal we are going to emit in stage 0.
+        // The proposal we are going to emit at the end of stage 3 after ledger update.
+        // This is the proposal that stage 1 votes on.
         p2p::proposal stg_prop;
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
@@ -508,11 +482,7 @@ namespace consensus
         stg_prop.state = state;
 
         // Populate the proposal with set of candidate user pubkeys.
-        for (const std::string &pubkey : ctx.candidate_users)
-            stg_prop.users.emplace(pubkey);
-
-        // We don't need candidate_users anymore, so clear it. It will be repopulated during next consensus round.
-        ctx.candidate_users.clear();
+        stg_prop.users.swap(ctx.candidate_users);
 
         // Populate the proposal with hashes of user inputs.
         for (const auto &[hash, cand_input] : ctx.candidate_user_inputs)
@@ -527,7 +497,7 @@ namespace consensus
         return stg_prop;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, hpfs::h32 state)
+    p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal stg_prop;
@@ -536,14 +506,14 @@ namespace consensus
 
         // we always vote for our current lcl and state regardless of what other peers are saying
         // if there's a fork condition we will either request history and state from
-        // our peers or we will halt depending on level of consensus on the sides of the fork
+        // our peers or we will halt depending on level of consensus on the sides of the fork.
         stg_prop.lcl = lcl;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
             // Vote for times.
-            // Everyone votes on an arbitrary time, as long as its within the round time and not in the future.
+            // Everyone votes on an arbitrary time, as long as it's not in the future and within the round time.
             if (ctx.time_now > cp.time && (ctx.time_now - cp.time) < conf::cfg.roundtime)
                 increment(votes.time, cp.time);
 
@@ -562,7 +532,7 @@ namespace consensus
                     increment(votes.outputs, hash);
         }
 
-        const float_t vote_threshold = get_stage_threshold(ctx.stage);
+        const uint32_t required_votes = ceil(vote_threshold * conf::cfg.unl.size());
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -571,25 +541,25 @@ namespace consensus
 
         // Add user pubkeys which have votes over stage threshold to proposal.
         for (const auto &[pubkey, numvotes] : votes.users)
-            if (numvotes >= vote_threshold || (ctx.stage == 1 && numvotes > 0))
+            if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
                 stg_prop.users.emplace(pubkey);
 
         // Add inputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.inputs)
-            if (numvotes >= vote_threshold || (ctx.stage == 1 && numvotes > 0))
+            if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
                 stg_prop.hash_inputs.emplace(hash);
 
         // Add outputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.outputs)
-            if (numvotes >= vote_threshold)
+            if (numvotes >= required_votes)
                 stg_prop.hash_outputs.emplace(hash);
 
         // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
-        int32_t highest_time_vote = 0;
+        uint32_t highest_time_vote = 0;
         for (auto itr = votes.time.rbegin(); itr != votes.time.rend(); ++itr)
         {
             const uint64_t time = itr->first;
-            const int32_t numvotes = itr->second;
+            const uint32_t numvotes = itr->second;
 
             if (numvotes > highest_time_vote)
             {
@@ -602,7 +572,8 @@ namespace consensus
     }
 
     /**
-     * Broadcasts the given proposal to all connected peers.
+     * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Otherwise
+     * only send to self in OBSERVER mode.
      * @return 0 on success. -1 if no peers to broadcast.
      */
     void broadcast_proposal(const p2p::proposal &p)
@@ -634,7 +605,7 @@ namespace consensus
      */
     bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl)
     {
-        int32_t total_lcl_votes = 0;
+        uint32_t total_lcl_votes = 0;
 
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
@@ -642,13 +613,15 @@ namespace consensus
             total_lcl_votes++;
         }
 
-        if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
+        // Check whether we have received enough votes in total.
+        const uint32_t min_required = ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        if (total_lcl_votes < min_required)
         {
-            LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+            LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << min_required;
             return false;
         }
 
-        int32_t winning_votes = 0;
+        uint32_t winning_votes = 0;
         for (const auto [lcl, votes] : votes.lcl)
         {
             if (votes > winning_votes)
@@ -658,25 +631,30 @@ namespace consensus
             }
         }
 
-        // Check wheher there are good enough winning votes.
-        if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
-        {
-            // potential fork condition.
-            LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
-            return false;
-        }
-
-        // Iif winning lcl is not matched with our lcl, that means we are not on the consensus ledger.
+        // If winning lcl is not matched with our lcl, that means we are not on the consensus ledger.
+        // If that's the case we should request history straight away.
         if (lcl != majority_lcl)
         {
-            LOG_DEBUG << "We are not on the consensus ledger,  we must request history from a peer.";
+            LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
             is_desync = true;
             return true;
         }
-
-        // Reaching here means we have reliable amount of lcl votes and our lcl match with majority lcl.
-        is_desync = false;
-        return true;
+        else
+        {
+            // Check wheher there are enough winning votes for the lcl to be reliable.
+            const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
+            if (winning_votes < min_wins_required)
+            {
+                LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
+                return false;
+            }
+            else
+            {
+                // Reaching here means we have reliable amount of winning lcl votes and our lcl matches with majority lcl.
+                is_desync = false;
+                return true;
+            }
+        }
     }
 
     /**
@@ -690,7 +668,7 @@ namespace consensus
             increment(votes.state, cp.state);
         }
 
-        int32_t winning_votes = 0;
+        uint32_t winning_votes = 0;
         for (const auto [state, votes] : votes.state)
         {
             if (votes > winning_votes)
@@ -704,33 +682,15 @@ namespace consensus
     }
 
     /**
-     * Returns the consensus percentage threshold for the specified stage.
-     * @param stage The consensus stage [1, 2, 3]
-     */
-    float_t get_stage_threshold(const uint8_t stage)
-    {
-        switch (stage)
-        {
-        case 1:
-            return STAGE1_THRESHOLD * conf::cfg.unl.size();
-        case 2:
-            return STAGE2_THRESHOLD * conf::cfg.unl.size();
-        case 3:
-            return STAGE3_THRESHOLD * conf::cfg.unl.size();
-        }
-        return -1;
-    }
-
-    /**
-     * Finalize the ledger after consensus.
+     * Update the ledger and execute the contract after consensus.
      * @param cons_prop The proposal that reached consensus.
      */
-    int apply_ledger(const p2p::proposal &cons_prop)
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, hpfs::h32 &new_state)
     {
         if (ledger::save_ledger(cons_prop) == -1)
             return -1;
 
-        std::string new_lcl = ledger::ctx.get_lcl();
+        new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state << ")";
@@ -767,6 +727,8 @@ namespace consensus
             }
 
             state_common::ctx.set_state(args.post_execution_state_hash);
+            new_state = args.post_execution_state_hash;
+
             extract_user_outputs_from_contract_bufmap(args.userbufs);
 
             sc::clear_args(args);
@@ -797,23 +759,20 @@ namespace consensus
                 // Send matching outputs to locally connected users.
                 candidate_user_output &cand_output = cu_itr->second;
 
-                // Find the user session by user pubkey.
-                const auto sess_itr = usr::ctx.sessionids.find(cand_output.userpubkey);
-                if (sess_itr != usr::ctx.sessionids.end()) // match found
+                // Find user to send by pubkey.
+                const auto user_itr = usr::ctx.users.find(cand_output.userpubkey);
+                if (user_itr != usr::ctx.users.end()) // match found
                 {
-                    const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
-                    if (user_itr != usr::ctx.users.end())                        // match found
+                    const usr::connected_user &user = user_itr->second;
+                    msg::usrmsg::usrmsg_parser parser(user.protocol);
+
+                    // Sending all the outputs to the user.
+                    for (sc::contract_output &output : cand_output.outputs)
                     {
-                        const usr::connected_user &user = user_itr->second;
-                        msg::usrmsg::usrmsg_parser parser(user.protocol);
-                        // Sending all the outputs to the user.
-                        for (sc::contract_output &output : cand_output.outputs)
-                        {
-                            std::vector<uint8_t> msg;
-                            parser.create_contract_output_container(msg, output.message, lcl_seq_no, lcl);
-                            user.session.send(msg);
-                            output.message.clear();
-                        }
+                        std::vector<uint8_t> msg;
+                        parser.create_contract_output_container(msg, output.message, lcl_seq_no, lcl);
+                        user.session.send(msg);
+                        output.message.clear();
                     }
                 }
 
@@ -898,7 +857,7 @@ namespace consensus
      * @param candidate The candidate whose vote should be increased by 1.
      */
     template <typename T>
-    void increment(std::map<T, int32_t> &counter, const T &candidate)
+    void increment(std::map<T, uint32_t> &counter, const T &candidate)
     {
         if (counter.count(candidate))
             counter[candidate]++;

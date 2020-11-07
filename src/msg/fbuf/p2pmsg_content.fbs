@@ -49,8 +49,8 @@ table Proposal_Message { //Proposal type message schema
     stage:uint8;
     time:uint64;
     users:[ByteArray];
-    hash_inputs:[ByteArray];     //stage > 0 inputs (hash of stage 0 inputs)
-    hash_outputs:[ByteArray];    //stage > 0 outputs (hash of stage 0 outputs)
+    hash_inputs:[ByteArray];
+    hash_outputs:[ByteArray];
     state: [ubyte];
 }
 

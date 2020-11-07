@@ -32,7 +32,7 @@ namespace p2p
             // Limit max number of inbound connections.
             if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
             {
-                LOG_DEBUG << "Max peer connections reached. Dropped connection " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "Max peer connections reached. Dropped connection " << session.display_name();
                 return -1;
             }
         }
@@ -69,7 +69,7 @@ namespace p2p
         if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Duplicate peer message. " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "Duplicate peer message. " << session.display_name();
             return 0;
         }
 
@@ -112,7 +112,7 @@ namespace p2p
 
         if (session.challenge_status != comm::CHALLENGE_VERIFIED)
         {
-            LOG_DEBUG << "Cannot accept messages. Peer challenge unresolved. " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "Cannot accept messages. Peer challenge unresolved. " << session.display_name();
             return 0;
         }
 
@@ -122,7 +122,7 @@ namespace p2p
             if (p2pmsg::validate_container_trust(container) != 0)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "Proposal rejected due to trust failure. " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "Proposal rejected due to trust failure. " << session.display_name();
                 return 0;
             }
 
@@ -143,7 +143,7 @@ namespace p2p
             if (p2pmsg::validate_container_trust(container) != 0)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "NPL message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "NPL message rejected due to trust failure. " << session.display_name();
                 return 0;
             }
 
@@ -155,7 +155,7 @@ namespace p2p
 
             if (!consensus::push_npl_message(msg))
             {
-                LOG_DEBUG << "NPL message enqueue failure. " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "NPL message enqueue failure. " << session.display_name();
             }
         }
         else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
@@ -164,11 +164,11 @@ namespace p2p
             session.is_weakly_connected = announcement_msg->is_weakly_connected();
             if (session.is_weakly_connected)
             {
-                LOG_DEBUG << "Weakly connected announcement received from " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "Weakly connected announcement received from " << session.display_name();
             }
             else
             {
-                LOG_DEBUG << "Strongly connected announcement received from " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "Strongly connected announcement received from " << session.display_name();
             }
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
@@ -206,7 +206,7 @@ namespace p2p
         else
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Received invalid peer message type. " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "Received invalid peer message type. " << session.display_name();
         }
         return 0;
     }
