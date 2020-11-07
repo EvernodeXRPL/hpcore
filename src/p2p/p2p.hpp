@@ -124,11 +124,11 @@ namespace p2p
         message_collection collected_msgs;
 
         // Set of currently connected peer connections mapped by the uniqueid of socket session.
-        std::unordered_map<std::string, p2p::peer_comm_session *> peer_connections;
+        std::unordered_map<std::string, peer_comm_session *> peer_connections;
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
-        std::optional<p2p::peer_comm_server> listener;
+        std::optional<peer_comm_server> listener;
     };
 
     extern connected_context ctx;
@@ -139,17 +139,17 @@ namespace p2p
 
     int start_peer_connections();
 
-    int resolve_peer_challenge(p2p::peer_comm_session &session, const peer_challenge_response &challenge_resp);
+    int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp);
 
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false);
 
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const comm::comm_session *skipping_session = NULL);
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const peer_comm_session *skipping_session = NULL);
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey);
 
-    bool validate_for_peer_msg_forwarding(const p2p::peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected);
 } // namespace p2p

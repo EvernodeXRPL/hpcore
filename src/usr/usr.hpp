@@ -66,14 +66,14 @@ namespace usr
 
     int start_listening();
 
-    int verify_challenge(std::string_view message, comm::comm_session &session);
+    int verify_challenge(std::string_view message, usr::user_comm_session &session);
 
     int handle_user_message(connected_user &user, std::string_view message);
 
-    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::comm_session &session,
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig);
 
-    int add_user(comm::comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
+    int add_user(usr::user_comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
 
     int remove_user(const std::string &pubkey);
 

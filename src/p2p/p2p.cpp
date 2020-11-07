@@ -55,7 +55,7 @@ namespace p2p
         return 0;
     }
 
-    int resolve_peer_challenge(p2p::peer_comm_session &session, const peer_challenge_response &challenge_resp)
+    int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp)
     {
         // Compare the response challenge string with the original issued challenge.
         if (session.issued_challenge != challenge_resp.challenge)
@@ -95,18 +95,18 @@ namespace p2p
 
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
-        const auto iter = p2p::ctx.peer_connections.find(pubkeyhex);
-        if (iter == p2p::ctx.peer_connections.end())
+        const auto iter = ctx.peer_connections.find(pubkeyhex);
+        if (iter == ctx.peer_connections.end())
         {
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
-            session.challenge_status = comm::CHALLENGE_VERIFIED;
-            p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session);
+            session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
+            ctx.peer_connections.try_emplace(session.uniqueid, &session);
             return 0;
         }
         else // Peer pub key already exists in our sessions.
         {
-            p2p::peer_comm_session &ex_session = *iter->second;
+            peer_comm_session &ex_session = *iter->second;
             // We don't allow duplicate sessions to the same peer to same direction.
             if (ex_session.is_inbound != session.is_inbound)
             {
@@ -118,14 +118,14 @@ namespace p2p
                     if (session.known_ipport.first.empty())
                         session.known_ipport.swap(ex_session.known_ipport);
                     session.uniqueid.swap(pubkeyhex);
-                    session.challenge_status = comm::CHALLENGE_VERIFIED;
+                    session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
 
                     ex_session.mark_for_closure();
-                    p2p::ctx.peer_connections.erase(iter); // remove existing session.
+                    ctx.peer_connections.erase(iter); // remove existing session.
                     // We have to keep the weekly connected status of the removed session object.
                     // If not, connected status received prior to connection dropping will be lost.
                     session.is_weakly_connected = ex_session.is_weakly_connected;
-                    p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
+                    ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << session.display_name() << "]";
                     return 0;
@@ -163,7 +163,7 @@ namespace p2p
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
      * @param skipping_session Session to be skipped in message forwarding(optional).
      */
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const comm::comm_session *skipping_session)
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const peer_comm_session *skipping_session)
     {
         if (send_to_self)
             self::send(message);
@@ -189,7 +189,7 @@ namespace p2p
      * @param content_message_type The message type.
      * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
     */
-    bool validate_for_peer_msg_forwarding(const p2p::peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
     {
         // Checking whether the message forwarding is enabled.
         if (!conf::cfg.msgforwarding)
@@ -233,7 +233,7 @@ namespace p2p
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey)
     {
         //Send while locking the peer_connections.
-        std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         const size_t connected_peers = ctx.peer_connections.size();
         if (connected_peers == 0)
@@ -250,7 +250,7 @@ namespace p2p
             std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 
             //send message to selected peer.
-            p2p::peer_comm_session *session = it->second;
+            peer_comm_session *session = it->second;
             std::string_view msg = std::string_view(
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
@@ -268,7 +268,7 @@ namespace p2p
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected)
     {
         msg::fbuf::p2pmsg::create_msg_for_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
-        p2p::broadcast_message(fbuf, false);
+        broadcast_message(fbuf, false);
     }
 
 } // namespace p2p

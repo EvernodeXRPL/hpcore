@@ -3,8 +3,6 @@
 #include "../util.hpp"
 #include "../bill/corebill.h"
 #include "../hpws/hpws.hpp"
-#include "../usr/user_comm_server.hpp"
-#include "../p2p/peer_comm_server.hpp"
 
 namespace comm
 {
@@ -177,14 +175,5 @@ namespace comm
         return 0;
     }
 
-    template <typename T>
-    void comm_server<T>::stop()
-    {
-        should_stop_listening = true;
-        watchdog_thread.join();
-        hpws_server.reset();
-
-        inbound_message_processor_thread.join();
-    }
 
 } // namespace comm
