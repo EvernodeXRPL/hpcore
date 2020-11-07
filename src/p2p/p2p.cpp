@@ -104,7 +104,7 @@ namespace p2p
             p2p::ctx.peer_connections.try_emplace(session.uniqueid, &session);
             return 0;
         }
-        else // New connection is not self but peer pub key already exists in our sessions.
+        else // Peer pub key already exists in our sessions.
         {
             comm::hpws_comm_session &ex_session = *iter->second;
             // We don't allow duplicate sessions to the same peer to same direction.
@@ -165,18 +165,15 @@ namespace p2p
      */
     void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const comm::comm_session *skipping_session)
     {
-        if (ctx.peer_connections.size() == 0)
-        {
-            LOG_DEBUG << "No peers to broadcast (not even self). Cannot broadcast.";
-            return;
-        }
+        if (send_to_self)
+            ctx.self_session.send(message);
 
         //Broadcast while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         for (const auto &[k, session] : ctx.peer_connections)
         {
-            // Exclude given session and self if provided.
+            // Exclude given session if provided.
             // Messages are forwarded only to the weakly connected nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
                 (is_msg_forwarding && !session->is_weakly_connected))
@@ -222,19 +219,9 @@ namespace p2p
  */
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
     {
-        //Send while locking the peer_connections.
-        std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-
-        // Find the peer session connected to self.
-        const auto peer_itr = ctx.peer_connections.find(conf::cfg.pubkeyhex);
-        if (peer_itr != ctx.peer_connections.end())
-        {
-            std::string_view msg = std::string_view(
-                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-
-            comm::comm_session *session = peer_itr->second;
-            session->send(msg);
-        }
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+        ctx.self_session.send(msg);
     }
 
     /**

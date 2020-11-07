@@ -5,6 +5,7 @@
 #include "../comm/comm_server.hpp"
 #include "../comm/comm_session.hpp"
 #include "../comm/hpws_comm_session.hpp"
+#include "../comm/self_comm_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
 #include "../hpfs/h32.hpp"
@@ -131,6 +132,8 @@ namespace p2p
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
         comm::comm_server listener;
+
+        comm::self_comm_session self_session; // Session representing itself. Used to send/receive messages from self.
     };
 
     extern connected_context ctx;

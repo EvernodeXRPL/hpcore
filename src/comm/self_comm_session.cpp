@@ -9,7 +9,7 @@ namespace comm
 
     /**
      * Processes the next queued message (if any).
-     * @return 0 if no messages in queue. 1 if message was processed. -1 meansthere was an error processing the message.
+     * @return 0 if no messages in queue. 1 if message was processed. -1 means there was an error processing the message.
      */
     int self_comm_session::process_next_inbound_message()
     {

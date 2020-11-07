@@ -238,6 +238,10 @@ namespace comm
         {
             bool messages_processed = false;
 
+            // Process one message from self session first (if any).
+            if (session_type == SESSION_TYPE::PEER && p2p::ctx.self_session.process_next_inbound_message() != 0)
+                messages_processed = true;
+
             {
                 // Process one message from each session in round-robin fashion.
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
