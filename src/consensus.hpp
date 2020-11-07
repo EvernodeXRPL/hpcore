@@ -76,12 +76,12 @@ namespace consensus
 
     struct vote_counter
     {
-        std::map<uint64_t, int32_t> time;
-        std::map<std::string, int32_t> lcl;
-        std::map<std::string, int32_t> users;
-        std::map<std::string, int32_t> inputs;
-        std::map<std::string, int32_t> outputs;
-        std::map<hpfs::h32, int32_t> state;
+        std::map<uint64_t, uint32_t> time;
+        std::map<std::string, uint32_t> lcl;
+        std::map<std::string, uint32_t> users;
+        std::map<std::string, uint32_t> inputs;
+        std::map<std::string, uint32_t> outputs;
+        std::map<hpfs::h32, uint32_t> state;
     };
 
     int init();
@@ -131,7 +131,7 @@ namespace consensus
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 
     template <typename T>
-    void increment(std::map<T, int32_t> &counter, const T &candidate);
+    void increment(std::map<T, uint32_t> &counter, const T &candidate);
 
     int get_initial_state_hash(hpfs::h32 &hash);
 

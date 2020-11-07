@@ -35,8 +35,9 @@ namespace consensus
 
     int init()
     {
-        // We allocate 1/3 of roundtime for each stage (there are 3 stages: 1,2,3)
-        ctx.stage_time = conf::cfg.roundtime / 3;
+        // We allocate 2/7 of roundtime for stage 1 and 2. The rest (4/7) is allocated to stage 3.
+        // This is because stage 3 needs some time to execute the contract in addition to broadcasting the proposal.
+        ctx.stage_time = (conf::cfg.roundtime * 2) / 7;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
         ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
@@ -104,14 +105,14 @@ namespace consensus
         if (!wait_and_proceed_stage(stage_start))
             return 0; // This means the stage has been reset.
 
-        // Throughout consensus, we continously update and prune the candidate proposals for newly
-        // arived ones and expired ones.
-        revise_candidate_proposals();
-
         LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
 
         // We consider stage start time as the current discreet time throughout the stage.
         ctx.time_now = stage_start;
+
+        // Throughout consensus, we continously update and prune the candidate proposals for newly
+        // arived ones and expired ones.
+        revise_candidate_proposals();
 
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
@@ -286,6 +287,7 @@ namespace consensus
         if (ctx.stage == 1)
         {
             // Stage 1 must start in the next round window.
+            // (This makes sure stage 3 gets whichever the remaining time in the round after stage 1 and 2)
             stage_start = current_round_start + conf::cfg.roundtime;
             const int64_t to_wait = stage_start - now;
 
@@ -530,7 +532,7 @@ namespace consensus
                     increment(votes.outputs, hash);
         }
 
-        const float_t required_votes = vote_threshold * conf::cfg.unl.size();
+        const uint32_t required_votes = ceil(vote_threshold * conf::cfg.unl.size());
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -553,11 +555,11 @@ namespace consensus
                 stg_prop.hash_outputs.emplace(hash);
 
         // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
-        int32_t highest_time_vote = 0;
+        uint32_t highest_time_vote = 0;
         for (auto itr = votes.time.rbegin(); itr != votes.time.rend(); ++itr)
         {
             const uint64_t time = itr->first;
-            const int32_t numvotes = itr->second;
+            const uint32_t numvotes = itr->second;
 
             if (numvotes > highest_time_vote)
             {
@@ -603,7 +605,7 @@ namespace consensus
      */
     bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl)
     {
-        int32_t total_lcl_votes = 0;
+        uint32_t total_lcl_votes = 0;
 
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
@@ -611,13 +613,15 @@ namespace consensus
             total_lcl_votes++;
         }
 
-        if (total_lcl_votes < (MAJORITY_THRESHOLD * conf::cfg.unl.size()))
+        // Check whether we have received enough votes in total.
+        const uint32_t min_required = ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        if (total_lcl_votes < min_required)
         {
-            LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+            LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << min_required;
             return false;
         }
 
-        int32_t winning_votes = 0;
+        uint32_t winning_votes = 0;
         for (const auto [lcl, votes] : votes.lcl)
         {
             if (votes > winning_votes)
@@ -628,25 +632,28 @@ namespace consensus
         }
 
         // If winning lcl is not matched with our lcl, that means we are not on the consensus ledger.
-        // We should request history straight away.
+        // If that's the case we should request history straight away.
         if (lcl != majority_lcl)
         {
-            LOG_DEBUG << "We are not on the consensus ledger,  we must request history from a peer.";
+            LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
             is_desync = true;
             return true;
         }
-        // Check wheher there are good enough winning votes.
-        else if (winning_votes < MAJORITY_THRESHOLD * ctx.candidate_proposals.size())
-        {
-            // potential fork condition.
-            LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " total:" << ctx.candidate_proposals.size();
-            return false;
-        }
         else
         {
-            // Reaching here means we have reliable amount of lcl votes and our lcl match with majority lcl.
-            is_desync = false;
-            return true;
+            // Check wheher there are enough winning votes for the lcl to be reliable.
+            const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
+            if (winning_votes < min_wins_required)
+            {
+                LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
+                return false;
+            }
+            else
+            {
+                // Reaching here means we have reliable amount of winning lcl votes and our lcl matches with majority lcl.
+                is_desync = false;
+                return true;
+            }
         }
     }
 
@@ -661,7 +668,7 @@ namespace consensus
             increment(votes.state, cp.state);
         }
 
-        int32_t winning_votes = 0;
+        uint32_t winning_votes = 0;
         for (const auto [state, votes] : votes.state)
         {
             if (votes > winning_votes)
@@ -758,7 +765,7 @@ namespace consensus
                 {
                     const usr::connected_user &user = user_itr->second;
                     msg::usrmsg::usrmsg_parser parser(user.protocol);
-                    
+
                     // Sending all the outputs to the user.
                     for (sc::contract_output &output : cand_output.outputs)
                     {
@@ -850,7 +857,7 @@ namespace consensus
      * @param candidate The candidate whose vote should be increased by 1.
      */
     template <typename T>
-    void increment(std::map<T, int32_t> &counter, const T &candidate)
+    void increment(std::map<T, uint32_t> &counter, const T &candidate)
     {
         if (counter.count(candidate))
             counter[candidate]++;
