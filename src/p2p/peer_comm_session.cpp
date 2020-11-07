@@ -2,7 +2,7 @@
 #include "peer_comm_session.hpp"
 #include "peer_session_handler.hpp"
 
-namespace comm
+namespace p2p
 {
     int peer_comm_session::handle_connect()
     {
@@ -14,9 +14,24 @@ namespace comm
         return p2p::handle_peer_message(*this, msg);
     }
 
-    int peer_comm_session::handle_close()
+    void peer_comm_session::handle_close()
     {
-        return p2p::handle_peer_close(*this);
+        p2p::handle_peer_close(*this);
     }
 
-} // namespace comm
+    /**
+     * Returns printable name for the session based on uniqueid (used for logging).
+     */
+    const std::string peer_comm_session::display_name()
+    {
+        if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
+        {
+            // Peer sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
+            return uniqueid.substr(2, 10);
+        }
+
+        // Unverified sessions just use the ip/host address as the unique id.
+        return uniqueid;
+    }
+
+} // namespace p2p

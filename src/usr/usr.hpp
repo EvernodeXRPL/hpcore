@@ -3,9 +3,9 @@
 
 #include "../pchheader.hpp"
 #include "../util.hpp"
-#include "../comm/comm_server.hpp"
-#include "../comm/comm_session.hpp"
 #include "../msg/usrmsg_parser.hpp"
+#include "user_comm_session.hpp"
+#include "user_comm_server.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
 
@@ -31,7 +31,7 @@ namespace usr
 
         // Holds the websocket session of this user.
         // We don't need to own the session object since the lifetime of user and session are coupled.
-        comm::comm_session &session;
+        usr::user_comm_session &session;
 
         // The messaging protocol used by this user.
         const util::PROTOCOL protocol = util::PROTOCOL::JSON;
@@ -40,7 +40,7 @@ namespace usr
          * @param session The web socket session the user is connected to.
          * @param pubkey The public key of the user in binary format.
          */
-        connected_user(comm::comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
+        connected_user(usr::user_comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
             : session(session), pubkey(pubkey), protocol(protocol)
         {
         }
@@ -56,7 +56,7 @@ namespace usr
         std::unordered_map<std::string, usr::connected_user> users;
         std::mutex users_mutex; // Mutex for users access race conditions.
 
-        comm::comm_server listener;
+        std::optional<usr::user_comm_server> listener;
     };
     extern connected_context ctx;
 

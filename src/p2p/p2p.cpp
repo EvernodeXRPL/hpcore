@@ -1,5 +1,4 @@
 #include "../pchheader.hpp"
-#include "../comm/comm_server.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../util.hpp"
@@ -19,9 +18,9 @@ namespace p2p
     bool init_success = false;
 
     /**
- * Initializes the p2p subsystem. Must be called once during application startup.
- * @return 0 for successful initialization. -1 for failure.
- */
+     * Initializes the p2p subsystem. Must be called once during application startup.
+     * @return 0 for successful initialization. -1 for failure.
+     */
     int init()
     {
         metric_thresholds[0] = conf::cfg.peermaxcpm;
@@ -38,25 +37,25 @@ namespace p2p
     }
 
     /**
- * Cleanup any running processes.
- */
+     * Cleanup any running processes.
+     */
     void deinit()
     {
         if (init_success)
-            ctx.listener.stop();
+            ctx.listener->stop();
     }
 
     int start_peer_connections()
     {
-        if (ctx.listener.start(
-                conf::cfg.peerport, comm::SESSION_TYPE::PEER, metric_thresholds, conf::cfg.peers, conf::cfg.peermaxsize) == -1)
+        ctx.listener.emplace("Peer", conf::cfg.peerport, metric_thresholds, conf::cfg.peermaxsize);
+        if (ctx.listener->start() == -1)
             return -1;
 
         LOG_INFO << "Started listening for peer connections on " << std::to_string(conf::cfg.peerport);
         return 0;
     }
 
-    int resolve_peer_challenge(comm::peer_comm_session &session, const peer_challenge_response &challenge_resp)
+    int resolve_peer_challenge(p2p::peer_comm_session &session, const peer_challenge_response &challenge_resp)
     {
         // Compare the response challenge string with the original issued challenge.
         if (session.issued_challenge != challenge_resp.challenge)
@@ -107,7 +106,7 @@ namespace p2p
         }
         else // Peer pub key already exists in our sessions.
         {
-            comm::peer_comm_session &ex_session = *iter->second;
+            p2p::peer_comm_session &ex_session = *iter->second;
             // We don't allow duplicate sessions to the same peer to same direction.
             if (ex_session.is_inbound != session.is_inbound)
             {
@@ -183,13 +182,14 @@ namespace p2p
             session->send(message);
         }
     }
+
     /**
      * Check whether the given message is qualified to be forwarded to peers.
      * @param container The message container.
      * @param content_message_type The message type.
      * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
     */
-    bool validate_for_peer_msg_forwarding(const comm::peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
+    bool validate_for_peer_msg_forwarding(const p2p::peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
     {
         // Checking whether the message forwarding is enabled.
         if (!conf::cfg.msgforwarding)
@@ -215,9 +215,9 @@ namespace p2p
     }
 
     /**
- * Sends the given message to self (this node).
- * @param fbuf Peer outbound message to be sent to self.
- */
+     * Sends the given message to self (this node).
+     * @param fbuf Peer outbound message to be sent to self.
+     */
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf)
     {
         std::string_view msg = std::string_view(
@@ -226,10 +226,10 @@ namespace p2p
     }
 
     /**
- * Sends the given message to a random peer (except self).
- * @param fbuf Peer outbound message to be sent to peer.
- * @param target_pubkey Randomly selected target peer pubkey.
- */
+     * Sends the given message to a random peer (except self).
+     * @param fbuf Peer outbound message to be sent to peer.
+     * @param target_pubkey Randomly selected target peer pubkey.
+     */
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey)
     {
         //Send while locking the peer_connections.
@@ -250,7 +250,7 @@ namespace p2p
             std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 
             //send message to selected peer.
-            comm::peer_comm_session *session = it->second;
+            p2p::peer_comm_session *session = it->second;
             std::string_view msg = std::string_view(
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 

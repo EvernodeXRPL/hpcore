@@ -3,7 +3,8 @@
 #include "../util.hpp"
 #include "../bill/corebill.h"
 #include "../hpws/hpws.hpp"
-#include "../p2p/p2p.hpp"
+#include "../usr/user_comm_server.hpp"
+#include "../p2p/peer_comm_server.hpp"
 
 namespace comm
 {
@@ -103,7 +104,7 @@ namespace comm
             }
             else
             {
-                T session(host_address, std::move(client), session_type, true, metric_thresholds);
+                T session(host_address, std::move(client), true, metric_thresholds);
                 if (session.on_connect() == 0)
                 {
                     std::scoped_lock<std::mutex> lock(sessions_mutex);

@@ -4,22 +4,23 @@
 #include "../pchheader.hpp"
 #include "../comm/comm_session.hpp"
 
-namespace comm
+namespace p2p
 {
     /** 
      * Represents a WebSocket connection to a Hot Pocket peer.
      */
-    class peer_comm_session : public comm_session
+    class peer_comm_session : public comm::comm_session
     {
         using comm_session::comm_session; // Inherit constructors.
 
     private:
         int handle_connect();
         int handle_message(std::string_view msg);
-        int handle_close();
+        void handle_close();
 
     public:
         bool is_weakly_connected = false; // Holds whether this node is weakly connected to the other nodes.
+        const std::string display_name();
     };
 
 } // namespace comm

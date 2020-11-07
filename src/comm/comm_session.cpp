@@ -11,12 +11,10 @@ namespace comm
     constexpr uint32_t INTERVALMS = 60000;
 
     comm_session::comm_session(
-        std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,
-        const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+        std::string_view ip, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
         : uniqueid(ip),
           address(ip),
           hpws_client(std::move(hpws_client)),
-          session_type(session_type),
           is_inbound(is_inbound),
           in_msg_queue(32)
     {
@@ -83,7 +81,7 @@ namespace comm
     int comm_session::on_connect()
     {
         state = SESSION_STATE::ACTIVE;
-        handle_connect();
+        return handle_connect();
     }
 
     /**
@@ -209,8 +207,7 @@ namespace comm
         writer_thread.join();
         reader_thread.join();
 
-        LOG_DEBUG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
-                  << display_name() << (is_inbound ? "[in]" : "[out]");
+        LOG_DEBUG << "Session closed: " << display_name() << (is_inbound ? "[in]" : "[out]");
     }
 
     /**
@@ -218,25 +215,6 @@ namespace comm
      */
     const std::string comm_session::display_name()
     {
-        if (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED)
-        {
-            if (session_type == SESSION_TYPE::PEER)
-            {
-                // Peer sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
-                return uniqueid.substr(2, 10);
-            }
-            else
-            {
-                // User sessions use binary pubkey as unique id. So we need to convert to hex.
-                std::string hex;
-                util::bin2hex(hex,
-                              reinterpret_cast<const unsigned char *>(uniqueid.data()),
-                              uniqueid.length());
-                return hex.substr(2, 10); // Skipping first 2 bytes key type prefix.
-            }
-        }
-
-        // Unverified sessions just use the ip/host address as the unique id.
         return uniqueid;
     }
 
@@ -291,6 +269,20 @@ namespace comm
                 t.counter_value = amount;
             }
         }
+    }
+
+    int comm_session::handle_connect()
+    {
+        return 0;
+    }
+
+    int comm_session::handle_message(std::string_view msg)
+    {
+        return 0;
+    }
+
+    void comm_session::handle_close()
+    {
     }
 
 } // namespace comm

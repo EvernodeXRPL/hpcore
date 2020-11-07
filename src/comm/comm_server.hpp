@@ -9,10 +9,10 @@ namespace comm
     template <typename T>
     class comm_server
     {
-    private:
+    protected:
         const std::string name;
-        const uint16_t port,
-        const uint64_t (&metric_thresholds)[4],
+        const uint16_t port;
+        const uint64_t (&metric_thresholds)[4];
         const uint64_t max_msg_size;
         std::optional<hpws::server> hpws_server;
         std::thread watchdog_thread;                  // Connection watcher thread.
@@ -23,14 +23,10 @@ namespace comm
         std::mutex sessions_mutex;
 
         void connection_watchdog();
-
-        void inbound_message_processor_loop();
-
-        int start_hpws_server();
-
-        int poll_fds(pollfd *pollfds, const int accept_fd, const std::list<T> &sessions);
-
         void check_for_new_connection();
+        void inbound_message_processor_loop();
+        int start_hpws_server();
+        int poll_fds(pollfd *pollfds, const int accept_fd, const std::list<T> &sessions);
 
     public:
         comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size);

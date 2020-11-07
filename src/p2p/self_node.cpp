@@ -13,12 +13,6 @@ namespace p2p::self
             p2p::handle_self_message(msg);
     }
 
-    void send(const std::vector<uint8_t> &message)
-    {
-        std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
-        send(sv);
-    }
-
     void send(std::string_view message)
     {
         // Passing the ownership of message to the queue.

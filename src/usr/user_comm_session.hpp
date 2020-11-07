@@ -4,21 +4,24 @@
 #include "../pchheader.hpp"
 #include "../comm/comm_session.hpp"
 
-namespace comm
+namespace usr
 {
     /** 
      * Represents a WebSocket connection to a Hot Pocket user.
      */
-    class user_comm_session : public comm_session
+    class user_comm_session : public comm::comm_session
     {
         using comm_session::comm_session; // Inherit constructors.
 
     private:
         int handle_connect();
         int handle_message(std::string_view msg);
-        int handle_close();
+        void handle_close();
+
+    public:
+        const std::string display_name();
     };
 
-} // namespace comm
+} // namespace usr
 
 #endif

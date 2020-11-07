@@ -23,7 +23,7 @@ namespace p2p
     /**
      * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
      */
-    int handle_peer_connect(comm::peer_comm_session &session)
+    int handle_peer_connect(p2p::peer_comm_session &session)
     {
         if (session.is_inbound)
         {
@@ -47,7 +47,7 @@ namespace p2p
 
     // peer session on message callback method.
     // validate and handle each type of peer messages.
-    int handle_peer_message(comm::peer_comm_session &session, std::string_view message)
+    int handle_peer_message(p2p::peer_comm_session &session, std::string_view message)
     {
         const p2pmsg::Container *container;
         if (p2pmsg::validate_and_extract_container(&container, message) != 0)

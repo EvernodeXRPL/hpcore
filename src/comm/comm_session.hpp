@@ -24,12 +24,6 @@ namespace comm
         CLOSED           // Session is fully closed.
     };
 
-    enum SESSION_TYPE
-    {
-        USER = 0,
-        PEER = 1
-    };
-
     /** 
      * Represents an active WebSocket connection
      */
@@ -37,7 +31,6 @@ namespace comm
     {
     private:
         std::optional<hpws::client> hpws_client;
-        const SESSION_TYPE session_type;
         std::vector<session_threshold> thresholds; // track down various communication thresholds
 
         std::thread reader_thread;                                     // The thread responsible for reading messages from the read fd.
@@ -48,9 +41,9 @@ namespace comm
         void reader_loop();
 
     protected:
-        virtual int handle_connect() = 0;
-        virtual int handle_message(std::string_view msg) = 0;
-        virtual int handle_close() = 0;
+        virtual int handle_connect();
+        virtual int handle_message(std::string_view msg);
+        virtual void handle_close();
 
     public:
         std::string uniqueid;
@@ -62,8 +55,7 @@ namespace comm
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
 
         comm_session(
-            std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,
-            const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
+            std::string_view ip, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
         int on_connect();
         void start_messaging_threads();
         int process_next_inbound_message();
@@ -73,7 +65,7 @@ namespace comm
         void process_outbound_msg_queue();
         void mark_for_closure();
         void close(const bool invoke_handler = true);
-        const std::string display_name();
+        virtual const std::string display_name();
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
         void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
