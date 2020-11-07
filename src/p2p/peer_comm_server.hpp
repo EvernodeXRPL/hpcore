@@ -11,6 +11,7 @@ namespace p2p
     private:
         const std::set<conf::ip_port_pair> &req_known_remotes;
         std::thread known_peers_thread; // Known peers connection establishment thread.
+        void peer_monitor_loop();
         void maintain_known_connections();
 
     protected:
