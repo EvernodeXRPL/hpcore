@@ -3,7 +3,7 @@
 #include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
 #include "../comm/comm_server.hpp"
-#include "../comm/hpws_comm_session.hpp"
+#include "../comm/comm_session.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
@@ -70,7 +70,7 @@ namespace usr
      * @param session The socket session that received the response.
      * @return 0 for successful verification. -1 for failure.
      */
-    int verify_challenge(std::string_view message, comm::hpws_comm_session &session)
+    int verify_challenge(std::string_view message, comm::comm_session &session)
     {
         // The received message must be the challenge response. We need to verify it.
         if (session.issued_challenge.empty())
@@ -173,7 +173,7 @@ namespace usr
     /**
      * Send the specified contract input status result via the provided session.
      */
-    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::hpws_comm_session &session,
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig)
     {
         std::vector<uint8_t> msg;
@@ -190,7 +190,7 @@ namespace usr
      * @param protocol_code Messaging protocol used by user.
      * @return 0 on successful additions. -1 on failure.
      */
-    int add_user(comm::hpws_comm_session &session, const std::string &pubkey_hex, std::string_view protocol_code)
+    int add_user(comm::comm_session &session, const std::string &pubkey_hex, std::string_view protocol_code)
     {
         // Decode hex pubkey and get binary pubkey. We are only going to keep
         // the binary pubkey due to reduced memory footprint.

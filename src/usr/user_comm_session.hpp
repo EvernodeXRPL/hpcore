@@ -2,16 +2,16 @@
 #define _HP_USR_USER_COMM_SESSION_
 
 #include "../pchheader.hpp"
-#include "../comm/hpws_comm_session.hpp"
+#include "../comm/comm_session.hpp"
 
 namespace comm
 {
     /** 
      * Represents a WebSocket connection to a Hot Pocket user.
      */
-    class user_comm_session : public hpws_comm_session
+    class user_comm_session : public comm_session
     {
-        using hpws_comm_session::hpws_comm_session; // Inherit constructors.
+        using comm_session::comm_session; // Inherit constructors.
 
     private:
         int handle_connect();

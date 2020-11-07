@@ -3,7 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "comm_session.hpp"
-#include "hpws_comm_session.hpp"
+#include "comm_session.hpp"
 #include "../hpws/hpws.hpp"
 
 namespace comm
@@ -17,7 +17,7 @@ namespace comm
         bool should_stop_listening = false;
         bool weakly_connected_status_sent = false; // keep track whether the weakly connected status announcement is sent or not.
 
-        std::list<hpws_comm_session> sessions;
+        std::list<comm_session> sessions;
         std::mutex sessions_mutex;
 
         void connection_watchdog(
@@ -31,10 +31,10 @@ namespace comm
         int poll_fds(pollfd *pollfds, const int accept_fd, const std::list<comm_session> &sessions);
 
         void check_for_new_connection(
-            std::list<hpws_comm_session> &sessions, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4]);
+            std::list<comm_session> &sessions, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4]);
 
         void maintain_known_connections(
-            std::list<hpws_comm_session> &sessions, const std::set<conf::ip_port_pair> &req_known_remotes,
+            std::list<comm_session> &sessions, const std::set<conf::ip_port_pair> &req_known_remotes,
             const SESSION_TYPE session_type, const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4]);
 
         std::string get_cgi_ip(const int fd);

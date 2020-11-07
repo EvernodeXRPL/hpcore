@@ -137,17 +137,11 @@ namespace p2p
                 return 0;
             }
 
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
-
-            ctx.collected_msgs.proposals.push_back(
-                p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
+            handle_proposal_message(container, content);
         }
         else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
         {
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
-
-            ctx.collected_msgs.nonunl_proposals.push_back(
-                p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
+            handle_nonunl_proposal_message(container, content);
         }
         else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
         {
@@ -158,16 +152,7 @@ namespace p2p
                 return 0;
             }
 
-            const p2pmsg::Npl_Message *npl_p2p_msg = content->message_as_Npl_Message();
-            npl_message msg;
-            msg.data = msg::fbuf::flatbuff_bytes_to_sv(npl_p2p_msg->data());
-            msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
-            msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
-
-            if (!consensus::push_npl_message(msg))
-            {
-                LOG_DEBUG << "NPL message enqueue failure. " << session.display_name();
-            }
+            handle_npl_message(container, content);
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
@@ -209,6 +194,9 @@ namespace p2p
         return 0;
     }
 
+    /**
+     * Handles messages that we receive from ourselves.
+     */
     int handle_self_message(std::string_view message)
     {
         const p2pmsg::Container *container;
@@ -229,38 +217,47 @@ namespace p2p
         const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
         if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
-        {
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
-
-            ctx.collected_msgs.proposals.push_back(
-                p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
-        }
+            handle_proposal_message(container, content);
         else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
-        {
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
-
-            ctx.collected_msgs.nonunl_proposals.push_back(
-                p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
-        }
+            handle_nonunl_proposal_message(container, content);
         else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
-        {
-            const p2pmsg::Npl_Message *npl_p2p_msg = content->message_as_Npl_Message();
-            npl_message msg;
-            msg.data = msg::fbuf::flatbuff_bytes_to_sv(npl_p2p_msg->data());
-            msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
-            msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
-
-            if (!consensus::push_npl_message(msg))
-            {
-                LOG_DEBUG << "NPL message from self enqueue failure.";
-            }
-        }
+            handle_npl_message(container, content);
 
         return 0;
     }
 
+    void handle_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    {
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
+
+        ctx.collected_msgs.proposals.push_back(
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
+    }
+
+    void handle_nonunl_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    {
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+
+        ctx.collected_msgs.nonunl_proposals.push_back(
+            p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
+    }
+
+    void handle_npl_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    {
+        const p2pmsg::Npl_Message *npl_p2p_msg = content->message_as_Npl_Message();
+        npl_message msg;
+        msg.data = msg::fbuf::flatbuff_bytes_to_sv(npl_p2p_msg->data());
+        msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
+        msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
+
+        if (!consensus::push_npl_message(msg))
+        {
+            LOG_DEBUG << "NPL message from self enqueue failure.";
+        }
+    }
+
     //peer session on message callback method
-    int handle_peer_close(const comm::hpws_comm_session &session)
+    int handle_peer_close(const comm::comm_session &session)
     {
         // Erase the corresponding uniqueid peer connection if it's this session.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);

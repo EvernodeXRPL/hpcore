@@ -4,9 +4,10 @@
 #include "../crypto.hpp"
 #include "../util.hpp"
 #include "../hplog.hpp"
-#include "p2p.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../ledger.hpp"
+#include "p2p.hpp"
+#include "self_node.hpp"
 
 namespace p2p
 {
@@ -166,7 +167,7 @@ namespace p2p
     void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const comm::comm_session *skipping_session)
     {
         if (send_to_self)
-            ctx.self_session.send(message);
+            self::send(message);
 
         //Broadcast while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
@@ -221,7 +222,7 @@ namespace p2p
     {
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-        ctx.self_session.send(msg);
+        self::send(msg);
     }
 
     /**

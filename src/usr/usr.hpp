@@ -4,7 +4,7 @@
 #include "../pchheader.hpp"
 #include "../util.hpp"
 #include "../comm/comm_server.hpp"
-#include "../comm/hpws_comm_session.hpp"
+#include "../comm/comm_session.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
@@ -31,7 +31,7 @@ namespace usr
 
         // Holds the websocket session of this user.
         // We don't need to own the session object since the lifetime of user and session are coupled.
-        comm::hpws_comm_session &session;
+        comm::comm_session &session;
 
         // The messaging protocol used by this user.
         const util::PROTOCOL protocol = util::PROTOCOL::JSON;
@@ -40,7 +40,7 @@ namespace usr
          * @param session The web socket session the user is connected to.
          * @param pubkey The public key of the user in binary format.
          */
-        connected_user(comm::hpws_comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
+        connected_user(comm::comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
             : session(session), pubkey(pubkey), protocol(protocol)
         {
         }
@@ -66,14 +66,14 @@ namespace usr
 
     int start_listening();
 
-    int verify_challenge(std::string_view message, comm::hpws_comm_session &session);
+    int verify_challenge(std::string_view message, comm::comm_session &session);
 
     int handle_user_message(connected_user &user, std::string_view message);
 
-    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::hpws_comm_session &session,
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig);
 
-    int add_user(comm::hpws_comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
+    int add_user(comm::comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
 
     int remove_user(const std::string &pubkey);
 
