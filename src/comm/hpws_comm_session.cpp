@@ -1,20 +1,14 @@
 #include "../pchheader.hpp"
-#include "../usr/user_session_handler.hpp"
-#include "../p2p/peer_session_handler.hpp"
-#include "hpws_comm_session.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../bill/corebill.h"
 #include "../hpws/hpws.hpp"
+#include "hpws_comm_session.hpp"
 
 namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
-
-    // Global instances of user and peer session handlers.
-    usr::user_session_handler user_sess_handler;
-    p2p::peer_session_handler peer_sess_handler;
 
     hpws_comm_session::hpws_comm_session(
         std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,
@@ -89,11 +83,7 @@ namespace comm
     int hpws_comm_session::on_connect()
     {
         state = SESSION_STATE::ACTIVE;
-
-        if (session_type == SESSION_TYPE::USER)
-            return user_sess_handler.on_connect(*this);
-        else
-            return peer_sess_handler.on_connect(*this);
+        handle_connect();
     }
 
     /**
@@ -109,9 +99,7 @@ namespace comm
         if (in_msg_queue.try_dequeue(msg))
         {
             std::string_view sv(msg.data(), msg.size());
-            const int sess_handler_result = (session_type == SESSION_TYPE::USER)
-                                                ? user_sess_handler.on_message(*this, sv)
-                                                : peer_sess_handler.on_message(*this, sv);
+            const int sess_handler_result = handle_message(sv);
 
             // If session handler returns -1 then that means the session must be closed.
             // Otherwise it's considered message processing is successful.
@@ -210,12 +198,7 @@ namespace comm
             return;
 
         if (invoke_handler)
-        {
-            if (session_type == SESSION_TYPE::USER)
-                user_sess_handler.on_close(*this);
-            else
-                peer_sess_handler.on_close(*this);
-        }
+            handle_close();
 
         state = SESSION_STATE::CLOSED;
 

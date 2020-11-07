@@ -55,7 +55,7 @@ namespace p2p
         return 0;
     }
 
-    int resolve_peer_challenge(comm::hpws_comm_session &session, const peer_challenge_response &challenge_resp)
+    int resolve_peer_challenge(comm::peer_comm_session &session, const peer_challenge_response &challenge_resp)
     {
         // Compare the response challenge string with the original issued challenge.
         if (session.issued_challenge != challenge_resp.challenge)
@@ -106,7 +106,7 @@ namespace p2p
         }
         else // Peer pub key already exists in our sessions.
         {
-            comm::hpws_comm_session &ex_session = *iter->second;
+            comm::peer_comm_session &ex_session = *iter->second;
             // We don't allow duplicate sessions to the same peer to same direction.
             if (ex_session.is_inbound != session.is_inbound)
             {
@@ -188,7 +188,7 @@ namespace p2p
      * @param content_message_type The message type.
      * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
     */
-    bool validate_for_peer_msg_forwarding(const comm::hpws_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
+    bool validate_for_peer_msg_forwarding(const comm::peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
     {
         // Checking whether the message forwarding is enabled.
         if (!conf::cfg.msgforwarding)
@@ -249,7 +249,7 @@ namespace p2p
             std::advance(it, random_peer_index); //move iterator to point to random selected peer.
 
             //send message to selected peer.
-            comm::hpws_comm_session *session = it->second;
+            comm::peer_comm_session *session = it->second;
             std::string_view msg = std::string_view(
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 

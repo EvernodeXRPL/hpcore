@@ -48,6 +48,11 @@ namespace comm
 
         void reader_loop();
 
+    protected:
+        virtual int handle_connect() = 0;
+        virtual int handle_message(std::string_view msg) = 0;
+        virtual int handle_close() = 0;
+
     public:
         const bool is_inbound;
         const std::string address; // IP address of the remote party.
@@ -55,7 +60,6 @@ namespace comm
         conf::ip_port_pair known_ipport;
         SESSION_STATE state = SESSION_STATE::NOT_INITIALIZED;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
-        bool is_weakly_connected = false; // Holds whether this node is weakly connected to the other nodes.
 
         hpws_comm_session(
             std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,

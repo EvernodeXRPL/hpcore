@@ -44,4 +44,12 @@ namespace comm
         return 0;
     }
 
+    void self_comm_session::set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms)
+    {
+    }
+
+    void self_comm_session::increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount)
+    {
+    }
+
 } // namespace comm

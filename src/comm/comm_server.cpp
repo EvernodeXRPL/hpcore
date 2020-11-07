@@ -1,7 +1,6 @@
 #include "comm_server.hpp"
 #include "hpws_comm_session.hpp"
 #include "comm_session.hpp"
-#include "comm_session_handler.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
 #include "../bill/corebill.h"
