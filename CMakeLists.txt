@@ -39,6 +39,7 @@ add_executable(hpcore
     src/msg/json/usrmsg_json.cpp
     src/msg/bson/usrmsg_bson.cpp
     src/msg/usrmsg_parser.cpp
+    src/p2p/peer_comm_server.cpp
     src/p2p/peer_comm_session.cpp
     src/p2p/peer_session_handler.cpp
     src/p2p/self_node.cpp

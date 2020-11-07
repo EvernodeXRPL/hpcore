@@ -47,7 +47,7 @@ namespace p2p
 
     int start_peer_connections()
     {
-        ctx.listener.emplace("Peer", conf::cfg.peerport, metric_thresholds, conf::cfg.peermaxsize);
+        ctx.listener.emplace(conf::cfg.peerport, metric_thresholds, conf::cfg.peermaxsize, conf::cfg.peers);
         if (ctx.listener->start() == -1)
             return -1;
 

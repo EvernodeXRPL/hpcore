@@ -15,18 +15,27 @@ namespace comm
     template <typename T>
     class comm_server
     {
-    private:
-        const std::string name;
-        const uint16_t port;
+    protected:
         const uint64_t (&metric_thresholds)[4];
         const uint64_t max_msg_size;
+        bool should_stop_listening = false;
+        std::list<T> sessions;
+        std::mutex sessions_mutex;
+
+        virtual void start_custom_jobs()
+        {
+        }
+
+        virtual void stop_custom_jobs()
+        {
+        }
+
+    private:
+        const std::string name;
+        const uint16_t listen_port;
         std::optional<hpws::server> hpws_server;
         std::thread watchdog_thread;                  // Connection watcher thread.
         std::thread inbound_message_processor_thread; // Incoming message processor thread.
-        bool should_stop_listening = false;
-
-        std::list<T> sessions;
-        std::mutex sessions_mutex;
 
         void connection_watchdog()
         {
@@ -150,7 +159,7 @@ namespace comm
             std::variant<hpws::server, hpws::error> result = hpws::server::create(
                 conf::ctx.hpws_exe_path,
                 max_msg_size,
-                port,
+                listen_port,
                 512, // Max connections
                 2,   // Max connections per IP.
                 conf::ctx.tls_cert_file,
@@ -173,7 +182,7 @@ namespace comm
     public:
         comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
             : name(name),
-              port(port),
+              listen_port(port),
               metric_thresholds(metric_thresholds),
               max_msg_size(max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE)
         {
@@ -186,6 +195,7 @@ namespace comm
 
             watchdog_thread = std::thread(&comm_server<T>::connection_watchdog, this);
             inbound_message_processor_thread = std::thread(&comm_server<T>::inbound_message_processor_loop, this);
+            start_custom_jobs();
 
             return 0;
         }
@@ -193,6 +203,9 @@ namespace comm
         void stop()
         {
             should_stop_listening = true;
+
+            stop_custom_jobs();
+
             watchdog_thread.join();
             hpws_server.reset();
 
