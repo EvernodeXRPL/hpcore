@@ -4,6 +4,7 @@
 #include "../pchheader.hpp"
 #include "../comm/comm_server.hpp"
 #include "../comm/comm_session.hpp"
+#include "../comm/hpws_comm_session.hpp"
 #include "../usr/user_input.hpp"
 #include "peer_session_handler.hpp"
 #include "../hpfs/h32.hpp"
@@ -125,7 +126,7 @@ namespace p2p
         message_collection collected_msgs;
 
         // Set of currently connected peer connections mapped by the uniqueid of socket session.
-        std::unordered_map<std::string, comm::comm_session *> peer_connections;
+        std::unordered_map<std::string, comm::hpws_comm_session *> peer_connections;
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
@@ -140,7 +141,7 @@ namespace p2p
 
     int start_peer_connections();
 
-    int resolve_peer_challenge(comm::comm_session &session, const peer_challenge_response &challenge_resp);
+    int resolve_peer_challenge(comm::hpws_comm_session &session, const peer_challenge_response &challenge_resp);
 
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false);
 
@@ -150,7 +151,7 @@ namespace p2p
 
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey);
 
-    bool validate_for_peer_msg_forwarding(const comm::comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
+    bool validate_for_peer_msg_forwarding(const comm::hpws_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected);
 } // namespace p2p

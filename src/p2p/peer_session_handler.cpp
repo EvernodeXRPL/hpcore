@@ -25,7 +25,7 @@ namespace p2p
     /**
  * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
  */
-    int peer_session_handler::on_connect(comm::comm_session &session) const
+    int peer_session_handler::on_connect(comm::hpws_comm_session &session) const
     {
         if (session.is_inbound)
         {
@@ -74,46 +74,66 @@ namespace p2p
         }
 
         const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
-        // Check whether the message is qualified for forwarding.
-        if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
-        {
-            if (session.is_weakly_connected)
-            {
-                // Forward messages received by weakly connected nodes to other peers.
-                p2p::broadcast_message(message, false, false, &session);
-            }
-            else
-            {
-                // Forward message received from other nodes to weakly connected peers.
-                p2p::broadcast_message(message, false, true, &session);
-            }
-        }
 
-        if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
+        // Perform any activites that are only performed for real peers (excluding self).
+        if (!session.is_self)
         {
-            // Sending the challenge response to the respected peer.
-            const std::string challenge = std::string(p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message()));
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_peer_challenge_response_from_challenge(fbuf, challenge);
-            std::string_view msg = std::string_view(
-                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-            return session.send(msg);
-        }
+            comm::hpws_comm_session &hpws_session = dynamic_cast<comm::hpws_comm_session &>(session);
 
-        if (content_message_type == p2pmsg::Message_Peer_Challenge_Response_Message) // message is a peer challenge response
-        {
-            // Ignore if challenge is already resolved.
-            if (session.challenge_status == comm::CHALLENGE_ISSUED)
+            // Check whether the message is qualified for forwarding.
+            if (p2p::validate_for_peer_msg_forwarding(hpws_session, container, content_message_type))
             {
-                const p2p::peer_challenge_response challenge_resp = p2pmsg::create_peer_challenge_response_from_msg(*content->message_as_Peer_Challenge_Response_Message(), container->pubkey());
-                return p2p::resolve_peer_challenge(session, challenge_resp);
+                if (hpws_session.is_weakly_connected)
+                {
+                    // Forward messages received by weakly connected nodes to other peers.
+                    p2p::broadcast_message(message, false, false, &hpws_session);
+                }
+                else
+                {
+                    // Forward message received from other nodes to weakly connected peers.
+                    p2p::broadcast_message(message, false, true, &hpws_session);
+                }
             }
-        }
 
-        if (session.challenge_status != comm::CHALLENGE_VERIFIED)
-        {
-            LOG_DEBUG << "Cannot accept messages. Peer challenge unresolved. " << session.display_name();
-            return 0;
+            if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
+            {
+                // Sending the challenge response to the respected peer.
+                const std::string challenge = std::string(p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message()));
+                flatbuffers::FlatBufferBuilder fbuf(1024);
+                p2pmsg::create_peer_challenge_response_from_challenge(fbuf, challenge);
+                std::string_view msg = std::string_view(
+                    reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+                return hpws_session.send(msg);
+            }
+            else if (content_message_type == p2pmsg::Message_Peer_Challenge_Response_Message) // message is a peer challenge response
+            {
+                // Ignore if challenge is already resolved.
+                if (hpws_session.challenge_status == comm::CHALLENGE_ISSUED)
+                {
+                    const p2p::peer_challenge_response challenge_resp = p2pmsg::create_peer_challenge_response_from_msg(*content->message_as_Peer_Challenge_Response_Message(), container->pubkey());
+                    return p2p::resolve_peer_challenge(hpws_session, challenge_resp);
+                }
+            }
+
+            if (hpws_session.challenge_status != comm::CHALLENGE_VERIFIED)
+            {
+                LOG_DEBUG << "Cannot accept messages. Peer challenge unresolved. " << hpws_session.display_name();
+                return 0;
+            }
+
+            if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
+            {
+                const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
+                hpws_session.is_weakly_connected = announcement_msg->is_weakly_connected();
+                if (hpws_session.is_weakly_connected)
+                {
+                    LOG_DEBUG << "Weakly connected announcement received from " << hpws_session.display_name();
+                }
+                else
+                {
+                    LOG_DEBUG << "Strongly connected announcement received from " << hpws_session.display_name();
+                }
+            }
         }
 
         if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
@@ -158,19 +178,6 @@ namespace p2p
                 LOG_DEBUG << "NPL message enqueue failure. " << session.display_name();
             }
         }
-        else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
-        {
-            const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
-            session.is_weakly_connected = announcement_msg->is_weakly_connected();
-            if (session.is_weakly_connected)
-            {
-                LOG_DEBUG << "Weakly connected announcement received from " << session.display_name();
-            }
-            else
-            {
-                LOG_DEBUG << "Strongly connected announcement received from " << session.display_name();
-            }
-        }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
             // Insert request with lock.
@@ -212,7 +219,7 @@ namespace p2p
     }
 
     //peer session on message callback method
-    void peer_session_handler::on_close(const comm::comm_session &session) const
+    void peer_session_handler::on_close(const comm::hpws_comm_session &session) const
     {
         // Erase the corresponding uniqueid peer connection if it's this session.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);

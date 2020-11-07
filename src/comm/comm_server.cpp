@@ -1,4 +1,5 @@
 #include "comm_server.hpp"
+#include "hpws_comm_session.hpp"
 #include "comm_session.hpp"
 #include "comm_session_handler.hpp"
 #include "../hplog.hpp"
@@ -97,7 +98,7 @@ namespace comm
         // If we reach this point that means we are shutting down.
 
         // Close and erase all sessions.
-        for (comm_session &session : sessions)
+        for (hpws_comm_session &session : sessions)
             session.close(false);
 
         sessions.clear();
@@ -111,7 +112,7 @@ namespace comm
     }
 
     void comm_server::check_for_new_connection(
-        std::list<comm_session> &sessions, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4])
+        std::list<hpws_comm_session> &sessions, const SESSION_TYPE session_type, const uint64_t (&metric_thresholds)[4])
     {
         std::variant<hpws::client, hpws::error> accept_result = hpws_server.value().accept(true);
 
@@ -144,11 +145,11 @@ namespace comm
             }
             else
             {
-                comm_session session(host_address, std::move(client), session_type, true, metric_thresholds);
+                hpws_comm_session session(host_address, std::move(client), session_type, true, metric_thresholds);
                 if (session.on_connect() == 0)
                 {
                     std::scoped_lock<std::mutex> lock(sessions_mutex);
-                    comm_session &inserted_session = sessions.emplace_back(std::move(session));
+                    hpws_comm_session &inserted_session = sessions.emplace_back(std::move(session));
 
                     // Thread is seperately started after the moving operation to overcome the difficulty
                     // in accessing class member variables inside the thread.
@@ -166,12 +167,12 @@ namespace comm
     }
 
     void comm_server::maintain_known_connections(
-        std::list<comm_session> &sessions, const std::set<conf::ip_port_pair> &req_known_remotes,
+        std::list<hpws_comm_session> &sessions, const std::set<conf::ip_port_pair> &req_known_remotes,
         const SESSION_TYPE session_type, const uint64_t max_msg_size, const uint64_t (&metric_thresholds)[4])
     {
         // Find already connected known remote parties list
         std::set<conf::ip_port_pair> known_remotes;
-        for (const comm_session &session : sessions)
+        for (const hpws_comm_session &session : sessions)
         {
             if (session.state != SESSION_STATE::CLOSED && !session.known_ipport.first.empty())
                 known_remotes.emplace(session.known_ipport);
@@ -210,12 +211,12 @@ namespace comm
                 else
                 {
                     const std::string &host_address = std::get<std::string>(host_result);
-                    comm::comm_session session(host_address, std::move(client), session_type, false, metric_thresholds);
+                    hpws_comm_session session(host_address, std::move(client), session_type, false, metric_thresholds);
                     session.known_ipport = ipport;
                     if (session.on_connect() == 0)
                     {
                         std::scoped_lock<std::mutex> lock(sessions_mutex);
-                        comm_session &inserted_session = sessions.emplace_back(std::move(session));
+                        hpws_comm_session &inserted_session = sessions.emplace_back(std::move(session));
 
                         // Thread is seperately started after the moving operation to overcome the difficulty
                         // in accessing class member variables inside the thread.
@@ -240,7 +241,7 @@ namespace comm
             {
                 // Process one message from each session in round-robin fashion.
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
-                for (comm_session &session : sessions)
+                for (hpws_comm_session &session : sessions)
                 {
                     const int result = session.process_next_inbound_message();
 

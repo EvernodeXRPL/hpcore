@@ -33,6 +33,8 @@ add_executable(hpcore
     src/hpfs/h32.cpp
     src/hpfs/hpfs.cpp
     src/comm/comm_session.cpp
+    src/comm/self_comm_session.cpp
+    src/comm/hpws_comm_session.cpp
     src/comm/comm_server.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/p2pmsg_helpers.cpp

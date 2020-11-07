@@ -1,0 +1,313 @@
+#include "../pchheader.hpp"
+#include "../usr/user_session_handler.hpp"
+#include "../p2p/peer_session_handler.hpp"
+#include "hpws_comm_session.hpp"
+#include "../hplog.hpp"
+#include "../util.hpp"
+#include "../conf.hpp"
+#include "../bill/corebill.h"
+#include "../hpws/hpws.hpp"
+
+namespace comm
+{
+    constexpr uint32_t INTERVALMS = 60000;
+
+    // Global instances of user and peer session handlers.
+    usr::user_session_handler user_sess_handler;
+    p2p::peer_session_handler peer_sess_handler;
+
+    hpws_comm_session::hpws_comm_session(
+        std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,
+        const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+        : comm_session(ip, false),
+          address(ip),
+          hpws_client(std::move(hpws_client)),
+          session_type(session_type),
+          is_inbound(is_inbound),
+          in_msg_queue(32)
+    {
+        // Create new session_thresholds and insert it to thresholds vector.
+        // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
+        // since enum's value is used as index in the vector to update vector values.
+        thresholds.reserve(4);
+        for (size_t i = 0; i < 4; i++)
+            thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
+    }
+
+    /**
+     * Starts the outbound queue processing thread.
+    */
+    void hpws_comm_session::start_messaging_threads()
+    {
+        reader_thread = std::thread(&hpws_comm_session::reader_loop, this);
+        writer_thread = std::thread(&hpws_comm_session::process_outbound_msg_queue, this);
+    }
+
+    void hpws_comm_session::reader_loop()
+    {
+        util::mask_signal();
+
+        while (state != SESSION_STATE::CLOSED && hpws_client)
+        {
+            bool should_disconnect = false;
+
+            std::variant<std::string_view, hpws::error> read_result = hpws_client->read();
+            if (std::holds_alternative<hpws::error>(read_result))
+            {
+                should_disconnect = true;
+                const hpws::error error = std::get<hpws::error>(read_result);
+                if (error.first != 1) // 1 indicates channel has closed.
+                    LOG_DEBUG << "hpws client read failed:" << error.first << " " << error.second;
+            }
+            else
+            {
+                // Enqueue the message for processing.
+                std::string_view data = std::get<std::string_view>(read_result);
+                std::vector<char> msg(data.size());
+                memcpy(msg.data(), data.data(), data.size());
+                in_msg_queue.enqueue(std::move(msg));
+
+                // Signal the hpws client that we are ready for next message.
+                std::optional<hpws::error> error = hpws_client->ack(data);
+                if (error.has_value())
+                {
+                    LOG_DEBUG << "hpws client ack failed:" << error.value().first << " " << error.value().second;
+                    should_disconnect = true;
+                }
+            }
+
+            if (should_disconnect)
+            {
+                // Here we mark the session as needing to close.
+                // The session will be properly "closed" and cleaned up by the global comm_server thread.
+                mark_for_closure();
+                break;
+            }
+        }
+    }
+
+    int hpws_comm_session::on_connect()
+    {
+        state = SESSION_STATE::ACTIVE;
+
+        if (session_type == SESSION_TYPE::USER)
+            return user_sess_handler.on_connect(*this);
+        else
+            return peer_sess_handler.on_connect(*this);
+    }
+
+    /**
+     * Processes the next queued message (if any).
+     * @return 0 if no messages in queue. 1 if message was processed. -1 means session must be closed.
+     */
+    int hpws_comm_session::process_next_inbound_message()
+    {
+        if (state != SESSION_STATE::ACTIVE)
+            return 0;
+
+        std::vector<char> msg;
+        if (in_msg_queue.try_dequeue(msg))
+        {
+            std::string_view sv(msg.data(), msg.size());
+            const int sess_handler_result = (session_type == SESSION_TYPE::USER)
+                                                ? user_sess_handler.on_message(*this, sv)
+                                                : peer_sess_handler.on_message(*this, sv);
+
+            // If session handler returns -1 then that means the session must be closed.
+            // Otherwise it's considered message processing is successful.
+            return sess_handler_result == -1 ? -1 : 1;
+        }
+
+        return 0;
+    }
+
+    int hpws_comm_session::send(const std::vector<uint8_t> &message)
+    {
+        std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
+        send(sv);
+        return 0;
+    }
+
+    /**
+     * Adds the given message to the outbound message queue.
+     * @param message Message to be added to the outbound queue.
+     * @return 0 on successful addition and -1 if the session is already closed.
+    */
+    int hpws_comm_session::send(std::string_view message)
+    {
+        if (state == SESSION_STATE::CLOSED)
+            return -1;
+
+        // Passing the ownership of message to the queue.
+        out_msg_queue.enqueue(std::string(message));
+        return 0;
+    }
+
+    /**
+     * This function constructs and sends the message to the target from the given message.
+     * @param message Message to be sent via the pipe.
+     * @return 0 on successful message sent and -1 on error.
+    */
+    int hpws_comm_session::process_outbound_message(std::string_view message)
+    {
+        if (state == SESSION_STATE::CLOSED || !hpws_client)
+            return -1;
+
+        std::optional<hpws::error> error = hpws_client->write(message);
+        if (error.has_value())
+        {
+            LOG_DEBUG << "hpws client write failed:" << error.value().first << " " << error.value().second;
+            return -1;
+        }
+        return 0;
+    }
+
+    /**
+     * Process message sending in the queue in the outbound_queue_thread.
+    */
+    void hpws_comm_session::process_outbound_msg_queue()
+    {
+        // Appling a signal mask to prevent receiving control signals from linux kernel.
+        util::mask_signal();
+
+        // Keep checking until the session is terminated.
+        while (state != SESSION_STATE::CLOSED)
+        {
+            std::string msg_to_send;
+
+            // If the queue is not empty, the first element will be processed,
+            // else wait 10ms until queue gets populated.
+            if (out_msg_queue.try_dequeue(msg_to_send))
+            {
+                process_outbound_message(msg_to_send);
+            }
+            else
+            {
+                util::sleep(10);
+            }
+        }
+    }
+
+    /**
+     * Mark the session as needing to close. The session will be properly "closed"
+     * and cleaned up by the global comm_server thread.
+     */
+    void hpws_comm_session::mark_for_closure()
+    {
+        if (state == SESSION_STATE::CLOSED)
+            return;
+
+        state = SESSION_STATE::MUST_CLOSE;
+    }
+
+    /**
+     * Close the connection and wrap up any session processing threads.
+     * This will be only called by the global comm_server thread.
+     */
+    void hpws_comm_session::close(const bool invoke_handler)
+    {
+        if (state == SESSION_STATE::CLOSED)
+            return;
+
+        if (invoke_handler)
+        {
+            if (session_type == SESSION_TYPE::USER)
+                user_sess_handler.on_close(*this);
+            else
+                peer_sess_handler.on_close(*this);
+        }
+
+        state = SESSION_STATE::CLOSED;
+
+        // Destruct the hpws client instance so it will close the sockets and related processes.
+        hpws_client.reset();
+
+        // Wait untill reader/writer threads gracefully stop.
+        writer_thread.join();
+        reader_thread.join();
+
+        LOG_DEBUG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
+                  << display_name() << (is_inbound ? "[in]" : "[out]");
+    }
+
+    /**
+     * Returns printable name for the session based on uniqueid (used for logging).
+     */
+    const std::string hpws_comm_session::display_name()
+    {
+        if (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED)
+        {
+            if (session_type == SESSION_TYPE::PEER)
+            {
+                // Peer sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
+                return uniqueid.substr(2, 10);
+            }
+            else
+            {
+                // User sessions use binary pubkey as unique id. So we need to convert to hex.
+                std::string hex;
+                util::bin2hex(hex,
+                              reinterpret_cast<const unsigned char *>(uniqueid.data()),
+                              uniqueid.length());
+                return hex.substr(2, 10); // Skipping first 2 bytes key type prefix.
+            }
+        }
+
+        // Unverified sessions just use the ip/host address as the unique id.
+        return uniqueid;
+    }
+
+    /**
+     * Set thresholds to the socket session
+    */
+    void hpws_comm_session::set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms)
+    {
+        session_threshold &t = thresholds[threshold_type];
+        t.counter_value = 0;
+        t.intervalms = intervalms;
+        t.threshold_limit = threshold_limit;
+    }
+
+    /*
+    * Increment the provided thresholds counter value with the provided amount and validate it against the
+    * configured threshold limit.
+    */
+    void hpws_comm_session::increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount)
+    {
+        session_threshold &t = thresholds[threshold_type];
+
+        // Ignore the counter if limit is set as 0.
+        if (t.threshold_limit == 0)
+            return;
+
+        const uint64_t time_now = util::get_epoch_milliseconds();
+
+        t.counter_value += amount;
+        if (t.timestamp == 0)
+        {
+            // Reset counter timestamp.
+            t.timestamp = time_now;
+        }
+        else
+        {
+            // Check whether we have exceeded the threshold within the monitering interval.
+            const uint64_t elapsed_time = time_now - t.timestamp;
+            if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
+            {
+                close();
+
+                t.timestamp = 0;
+                t.counter_value = 0;
+
+                LOG_INFO << "Session " << uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+                corebill::report_violation(address);
+            }
+            else if (elapsed_time > t.intervalms)
+            {
+                t.timestamp = time_now;
+                t.counter_value = amount;
+            }
+        }
+    }
+
+} // namespace comm

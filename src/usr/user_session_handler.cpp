@@ -13,7 +13,7 @@ namespace usr
 /**
  * This gets hit every time a client connects to HP via the public port (configured in contract config).
  */
-int user_session_handler::on_connect(comm::comm_session &session) const
+int user_session_handler::on_connect(comm::hpws_comm_session &session) const
 {
     if (conf::cfg.pubmaxcons > 0 && ctx.users.size() >= conf::cfg.pubmaxcons)
     {
@@ -38,7 +38,7 @@ int user_session_handler::on_connect(comm::comm_session &session) const
 /**
  * This gets hit every time we receive some data from a client connected to the HP public port.
  */
-int user_session_handler::on_message(comm::comm_session &session, std::string_view message) const
+int user_session_handler::on_message(comm::hpws_comm_session &session, std::string_view message) const
 {
     // First check whether this session is pending challenge.
     // Meaning we have previously issued a challenge to the client.
@@ -83,7 +83,7 @@ int user_session_handler::on_message(comm::comm_session &session, std::string_vi
 /**
  * This gets hit every time a client disconnects from the HP public port.
  */
-void user_session_handler::on_close(const comm::comm_session &session) const
+void user_session_handler::on_close(const comm::hpws_comm_session &session) const
 {
     // Session belongs to an authed user.
     if (session.challenge_status == comm::CHALLENGE_VERIFIED)
