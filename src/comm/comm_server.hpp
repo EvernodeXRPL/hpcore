@@ -30,6 +30,11 @@ namespace comm
         {
         }
 
+        virtual int process_custom_messages()
+        {
+            return 0;
+        }
+
     private:
         const std::string name;
         const uint16_t listen_port;
@@ -130,6 +135,9 @@ namespace comm
             while (!should_stop_listening)
             {
                 bool messages_processed = false;
+
+                if (process_custom_messages() != 0)
+                    messages_processed = true;
 
                 {
                     // Process one message from each session in round-robin fashion.

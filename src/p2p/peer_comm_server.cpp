@@ -2,6 +2,7 @@
 #include "../util.hpp"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
+#include "self_node.hpp"
 
 namespace p2p
 {
@@ -22,6 +23,11 @@ namespace p2p
     known_peers_thread.join();
   }
 
+  int peer_comm_server::process_custom_messages()
+  {
+    return self::process_next_message();
+  }
+
   void peer_comm_server::maintain_known_connections()
   {
     util::mask_signal();
@@ -30,10 +36,14 @@ namespace p2p
     {
       // Find already connected known remote parties list
       std::set<conf::ip_port_pair> known_remotes;
-      for (const p2p::peer_comm_session &session : sessions)
+
       {
-        if (session.state != comm::SESSION_STATE::CLOSED && !session.known_ipport.first.empty())
-          known_remotes.emplace(session.known_ipport);
+        std::scoped_lock<std::mutex> lock(sessions_mutex);
+        for (const p2p::peer_comm_session &session : sessions)
+        {
+          if (session.state != comm::SESSION_STATE::CLOSED && !session.known_ipport.first.empty())
+            known_remotes.emplace(session.known_ipport);
+        }
       }
 
       for (const auto &ipport : req_known_remotes)

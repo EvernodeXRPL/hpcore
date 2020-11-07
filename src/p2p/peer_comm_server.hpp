@@ -16,6 +16,7 @@ namespace p2p
     protected:
         void start_custom_jobs();
         void stop_custom_jobs();
+        int process_custom_messages();
 
     public:
         peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
