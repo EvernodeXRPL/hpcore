@@ -2,8 +2,6 @@
 #include "../msg/json/usrmsg_json.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
-#include "../comm/comm_server.hpp"
-#include "../comm/comm_session.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
@@ -11,6 +9,8 @@
 #include "../ledger.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
+#include "user_comm_session.hpp"
+#include "user_comm_server.hpp"
 #include "user_input.hpp"
 #include "read_req.hpp"
 
@@ -48,7 +48,7 @@ namespace usr
     void deinit()
     {
         if (init_success)
-            ctx.listener.stop();
+            ctx.server->stop();
     }
 
     /**
@@ -56,8 +56,8 @@ namespace usr
      */
     int start_listening()
     {
-        if (ctx.listener.start(
-                conf::cfg.pubport, comm::SESSION_TYPE::USER, metric_thresholds, std::set<conf::ip_port_pair>(), conf::cfg.pubmaxsize) == -1)
+        ctx.server.emplace("User", conf::cfg.pubport, metric_thresholds, conf::cfg.pubmaxsize);
+        if (ctx.server->start() == -1)
             return -1;
 
         LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.pubport);
@@ -70,7 +70,7 @@ namespace usr
      * @param session The socket session that received the response.
      * @return 0 for successful verification. -1 for failure.
      */
-    int verify_challenge(std::string_view message, comm::comm_session &session)
+    int verify_challenge(std::string_view message, usr::user_comm_session &session)
     {
         // The received message must be the challenge response. We need to verify it.
         if (session.issued_challenge.empty())
@@ -173,7 +173,7 @@ namespace usr
     /**
      * Send the specified contract input status result via the provided session.
      */
-    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, comm::comm_session &session,
+    void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig)
     {
         std::vector<uint8_t> msg;
@@ -190,7 +190,7 @@ namespace usr
      * @param protocol_code Messaging protocol used by user.
      * @return 0 on successful additions. -1 on failure.
      */
-    int add_user(comm::comm_session &session, const std::string &pubkey_hex, std::string_view protocol_code)
+    int add_user(usr::user_comm_session &session, const std::string &pubkey_hex, std::string_view protocol_code)
     {
         // Decode hex pubkey and get binary pubkey. We are only going to keep
         // the binary pubkey due to reduced memory footprint.

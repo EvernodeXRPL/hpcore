@@ -1,10 +1,10 @@
-#ifndef _HP_COMM_SESSION_
-#define _HP_COMM_SESSION_
+#ifndef _HP_COMM_COMM_SESSION_
+#define _HP_COMM_COMM_SESSION_
 
 #include "../pchheader.hpp"
-#include "comm_session_threshold.hpp"
 #include "../conf.hpp"
 #include "../hpws/hpws.hpp"
+#include "comm_session_threshold.hpp"
 
 namespace comm
 {
@@ -18,26 +18,19 @@ namespace comm
 
     enum SESSION_STATE
     {
-        NOT_INITIALIZED, // Session is not yet initialized properly.
-        ACTIVE,          // Session is active and functioning.
-        MUST_CLOSE,      // Session socket is in unusable state and must be closed.
-        CLOSED           // Session is fully closed.
-    };
-
-    enum SESSION_TYPE
-    {
-        USER = 0,
-        PEER = 1
+        NONE,       // Session is not yet initialized properly.
+        ACTIVE,     // Session is active and functioning.
+        MUST_CLOSE, // Session socket is in unusable state and must be closed.
+        CLOSED      // Session is fully closed.
     };
 
     /** 
- * Represents an active WebSocket connection
-*/
+     * Represents an active WebSocket connection
+     */
     class comm_session
     {
     private:
         std::optional<hpws::client> hpws_client;
-        const SESSION_TYPE session_type;
         std::vector<session_threshold> thresholds; // track down various communication thresholds
 
         std::thread reader_thread;                                     // The thread responsible for reading messages from the read fd.
@@ -47,22 +40,22 @@ namespace comm
 
         void reader_loop();
 
+    protected:
+        virtual void handle_connect();
+        virtual int handle_message(std::string_view msg);
+        virtual void handle_close();
+
     public:
-        const bool is_inbound;
-        bool is_self = false;
-        const std::string address; // IP address of the remote party.
         std::string uniqueid;
+        const bool is_inbound;
+        const std::string host_address; // Connection host address of the remote party.
         std::string issued_challenge;
-        conf::ip_port_pair known_ipport;
-        SESSION_STATE state = SESSION_STATE::NOT_INITIALIZED;
+        SESSION_STATE state = SESSION_STATE::NONE;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
-        bool is_weakly_connected = false; // Holds whether this node is weakly connected to the other nodes.
 
         comm_session(
-            std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,
-            const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
-        int on_connect();
-        void start_messaging_threads();
+            std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
+        void init();
         int process_next_inbound_message();
         int send(const std::vector<uint8_t> &message);
         int send(std::string_view message);
@@ -70,7 +63,7 @@ namespace comm
         void process_outbound_msg_queue();
         void mark_for_closure();
         void close(const bool invoke_handler = true);
-        const std::string display_name();
+        virtual const std::string display_name();
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);
         void increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount);
