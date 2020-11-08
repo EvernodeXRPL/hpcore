@@ -42,13 +42,13 @@ namespace p2p
     void deinit()
     {
         if (init_success)
-            ctx.listener->stop();
+            ctx.server->stop();
     }
 
     int start_peer_connections()
     {
-        ctx.listener.emplace(conf::cfg.peerport, metric_thresholds, conf::cfg.peermaxsize, conf::cfg.peers);
-        if (ctx.listener->start() == -1)
+        ctx.server.emplace(conf::cfg.peerport, metric_thresholds, conf::cfg.peermaxsize, conf::cfg.peers);
+        if (ctx.server->start() == -1)
             return -1;
 
         LOG_INFO << "Started listening for peer connections on " << std::to_string(conf::cfg.peerport);

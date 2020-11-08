@@ -15,9 +15,9 @@
 namespace usr
 {
     /**
- * Holds information about an authenticated (challenge-verified) user
- * connected to the HotPocket node.
- */
+     * Holds information about an authenticated (challenge-verified) user
+     * connected to the HotPocket node.
+     */
     struct connected_user
     {
         // User binary public key
@@ -47,8 +47,8 @@ namespace usr
     };
 
     /**
- * The context struct to hold global connected-users and related objects.
- */
+     * The context struct to hold global connected-users and related objects.
+     */
     struct connected_context
     {
         // Connected (authenticated) user list.
@@ -56,7 +56,7 @@ namespace usr
         std::unordered_map<std::string, usr::connected_user> users;
         std::mutex users_mutex; // Mutex for users access race conditions.
 
-        std::optional<usr::user_comm_server> listener;
+        std::optional<usr::user_comm_server> server;
     };
     extern connected_context ctx;
 

@@ -128,7 +128,7 @@ namespace p2p
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
-        std::optional<peer_comm_server> listener;
+        std::optional<peer_comm_server> server;
     };
 
     extern connected_context ctx;

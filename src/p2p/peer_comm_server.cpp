@@ -34,7 +34,7 @@ namespace p2p
 
         LOG_INFO << "Started peer monitor.";
 
-        while (!should_stop_listening)
+        while (!is_shutting_down)
         {
             util::sleep(2000);
             maintain_known_connections();
@@ -59,7 +59,7 @@ namespace p2p
 
         for (const auto &ipport : req_known_remotes)
         {
-            if (should_stop_listening)
+            if (is_shutting_down)
                 break;
 
             // Check if we are already connected to this remote party.

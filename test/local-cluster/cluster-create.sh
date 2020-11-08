@@ -69,7 +69,8 @@ do
     cp ../bin/appbill ./node$n/bin/
 
     pushd ./node$n/bin > /dev/null 2>&1
-    npm install
+    # Uncomment this if the contract needs npm install.
+    # npm install
     popd
 done
 

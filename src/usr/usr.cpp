@@ -48,7 +48,7 @@ namespace usr
     void deinit()
     {
         if (init_success)
-            ctx.listener->stop();
+            ctx.server->stop();
     }
 
     /**
@@ -56,8 +56,8 @@ namespace usr
      */
     int start_listening()
     {
-        ctx.listener.emplace("User", conf::cfg.pubport, metric_thresholds, conf::cfg.pubmaxsize);
-        if (ctx.listener->start() == -1)
+        ctx.server.emplace("User", conf::cfg.pubport, metric_thresholds, conf::cfg.pubmaxsize);
+        if (ctx.server->start() == -1)
             return -1;
 
         LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.pubport);

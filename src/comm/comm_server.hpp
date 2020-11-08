@@ -18,7 +18,7 @@ namespace comm
     protected:
         const uint64_t (&metric_thresholds)[4];
         const uint64_t max_msg_size;
-        bool should_stop_listening = false;
+        bool is_shutting_down = false;
         std::list<T> sessions;
         std::list<T> new_sessions; // Sessions that haven't been initialized properly which are yet to be merge to "sessions" list.
         std::mutex sessions_mutex;
@@ -48,7 +48,7 @@ namespace comm
         {
             util::mask_signal();
 
-            while (!should_stop_listening)
+            while (!is_shutting_down)
             {
                 util::sleep(100);
 
@@ -144,7 +144,7 @@ namespace comm
         {
             util::mask_signal();
 
-            while (!should_stop_listening)
+            while (!is_shutting_down)
             {
                 bool messages_processed = false;
 
@@ -222,7 +222,7 @@ namespace comm
 
         void stop()
         {
-            should_stop_listening = true;
+            is_shutting_down = true;
 
             stop_custom_jobs();
 
