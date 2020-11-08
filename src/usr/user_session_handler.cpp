@@ -13,14 +13,8 @@ namespace usr
     /**
      * This gets hit every time a client connects to HP via the public port (configured in contract config).
      */
-    int handle_user_connect(usr::user_comm_session &session)
+    void handle_user_connect(usr::user_comm_session &session)
     {
-        if (conf::cfg.pubmaxcons > 0 && ctx.users.size() >= conf::cfg.pubmaxcons)
-        {
-            LOG_DEBUG << "Max user connections reached. Dropped connection " << session.display_name();
-            return -1;
-        }
-
         LOG_DEBUG << "User client connected " << session.display_name();
 
         // As soon as a user connects, we issue them a challenge message. We remember the
@@ -31,8 +25,6 @@ namespace usr
 
         // Set the challenge-issued value to true.
         session.challenge_status = comm::CHALLENGE_ISSUED;
-
-        return 0;
     }
 
     /**

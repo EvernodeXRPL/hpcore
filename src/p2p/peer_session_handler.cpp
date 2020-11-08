@@ -23,18 +23,8 @@ namespace p2p
     /**
      * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
      */
-    int handle_peer_connect(p2p::peer_comm_session &session)
+    void handle_peer_connect(p2p::peer_comm_session &session)
     {
-        if (session.is_inbound)
-        {
-            // Limit max number of inbound connections.
-            if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
-            {
-                LOG_DEBUG << "Max peer connections reached. Dropped connection " << session.display_name();
-                return -1;
-            }
-        }
-
         // Send peer challenge.
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
@@ -42,7 +32,6 @@ namespace p2p
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
         session.send(msg);
         session.challenge_status = comm::CHALLENGE_ISSUED;
-        return 0;
     }
 
     // peer session on message callback method.

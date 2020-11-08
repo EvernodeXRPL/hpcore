@@ -45,7 +45,6 @@ namespace p2p
 
     void peer_comm_server::maintain_known_connections()
     {
-
         // Find already connected known remote parties list
         std::set<conf::ip_port_pair> known_remotes;
 
@@ -93,18 +92,9 @@ namespace p2p
                     const std::string &host_address = std::get<std::string>(host_result);
                     p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
                     session.known_ipport = ipport;
-                    if (session.on_connect() == 0)
-                    {
-                        std::scoped_lock<std::mutex> lock(sessions_mutex);
-                        p2p::peer_comm_session &inserted_session = sessions.emplace_back(std::move(session));
 
-                        // Thread is seperately started after the moving operation to overcome the difficulty
-                        // in accessing class member variables inside the thread.
-                        // Class member variables gives unacceptable values if the thread starts before the move operation.
-                        inserted_session.start_messaging_threads();
-
-                        known_remotes.emplace(ipport);
-                    }
+                    std::scoped_lock<std::mutex> lock(new_sessions_mutex);
+                    new_sessions.emplace_back(std::move(session));
                 }
             }
         }

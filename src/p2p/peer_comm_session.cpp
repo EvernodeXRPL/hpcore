@@ -4,9 +4,9 @@
 
 namespace p2p
 {
-    int peer_comm_session::handle_connect()
+    void peer_comm_session::handle_connect()
     {
-        return p2p::handle_peer_connect(*this);
+        p2p::handle_peer_connect(*this);
     }
 
     int peer_comm_session::handle_message(std::string_view msg)

@@ -18,10 +18,10 @@ namespace comm
 
     enum SESSION_STATE
     {
-        NOT_INITIALIZED, // Session is not yet initialized properly.
-        ACTIVE,          // Session is active and functioning.
-        MUST_CLOSE,      // Session socket is in unusable state and must be closed.
-        CLOSED           // Session is fully closed.
+        NONE,       // Session is not yet initialized properly.
+        ACTIVE,     // Session is active and functioning.
+        MUST_CLOSE, // Session socket is in unusable state and must be closed.
+        CLOSED      // Session is fully closed.
     };
 
     /** 
@@ -41,7 +41,7 @@ namespace comm
         void reader_loop();
 
     protected:
-        virtual int handle_connect();
+        virtual void handle_connect();
         virtual int handle_message(std::string_view msg);
         virtual void handle_close();
 
@@ -50,13 +50,12 @@ namespace comm
         const bool is_inbound;
         const std::string host_address; // Connection host address of the remote party.
         std::string issued_challenge;
-        SESSION_STATE state = SESSION_STATE::NOT_INITIALIZED;
+        SESSION_STATE state = SESSION_STATE::NONE;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
 
         comm_session(
             std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
-        int on_connect();
-        void start_messaging_threads();
+        void init();
         int process_next_inbound_message();
         int send(const std::vector<uint8_t> &message);
         int send(std::string_view message);

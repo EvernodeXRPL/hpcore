@@ -6,7 +6,7 @@
 
 namespace usr
 {
-    int handle_user_connect(usr::user_comm_session &session);
+    void handle_user_connect(usr::user_comm_session &session);
     int handle_user_message(usr::user_comm_session &session, std::string_view message);
     int handle_user_close(const usr::user_comm_session &session);
 

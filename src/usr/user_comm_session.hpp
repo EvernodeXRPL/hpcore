@@ -14,7 +14,7 @@ namespace usr
         using comm_session::comm_session; // Inherit constructors.
 
     private:
-        int handle_connect();
+        void handle_connect();
         int handle_message(std::string_view msg);
         void handle_close();
 

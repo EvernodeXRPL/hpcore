@@ -27,12 +27,18 @@ namespace comm
     }
 
     /**
-     * Starts the outbound queue processing thread.
-    */
-    void comm_session::start_messaging_threads()
+     * Init() should be called to activate the session.
+     * Because we are starting threads here, after init() is called, the session object must not be "std::moved".
+     */
+    void comm_session::init()
     {
-        reader_thread = std::thread(&comm_session::reader_loop, this);
-        writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
+        if (state == SESSION_STATE::NONE)
+        {
+            handle_connect();
+            reader_thread = std::thread(&comm_session::reader_loop, this);
+            writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
+            state = SESSION_STATE::ACTIVE;
+        }
     }
 
     void comm_session::reader_loop()
@@ -76,12 +82,6 @@ namespace comm
                 break;
             }
         }
-    }
-
-    int comm_session::on_connect()
-    {
-        state = SESSION_STATE::ACTIVE;
-        return handle_connect();
     }
 
     /**
@@ -204,8 +204,11 @@ namespace comm
         hpws_client.reset();
 
         // Wait untill reader/writer threads gracefully stop.
-        writer_thread.join();
-        reader_thread.join();
+        if (writer_thread.joinable())
+            writer_thread.join();
+
+        if (reader_thread.joinable())
+            reader_thread.join();
 
         LOG_DEBUG << "Session closed: " << display_name();
     }
@@ -271,9 +274,8 @@ namespace comm
         }
     }
 
-    int comm_session::handle_connect()
+    void comm_session::handle_connect()
     {
-        return 0;
     }
 
     int comm_session::handle_message(std::string_view msg)

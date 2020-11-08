@@ -20,7 +20,9 @@ namespace comm
         const uint64_t max_msg_size;
         bool should_stop_listening = false;
         std::list<T> sessions;
+        std::list<T> new_sessions; // Sessions that haven't been initialized properly which are yet to be merge to "sessions" list.
         std::mutex sessions_mutex;
+        std::mutex new_sessions_mutex;
 
         virtual void start_custom_jobs()
         {
@@ -46,15 +48,31 @@ namespace comm
         {
             util::mask_signal();
 
-            // Counter to track when to initiate outbound client connections.
-            int16_t loop_counter = -1;
-
             while (!should_stop_listening)
             {
                 util::sleep(100);
 
                 // Accept any new incoming connection if available.
                 check_for_new_connection();
+
+                std::scoped_lock<std::mutex> lock(sessions_mutex);
+
+                // Initialize any new sessions.
+                {
+                    // Get current last session.
+                    auto ex_last_session = std::prev(sessions.end());
+
+                    {
+                        // Move new sessions to the end of "sessions" list.
+                        std::scoped_lock<std::mutex> lock(new_sessions_mutex);
+                        sessions.splice(sessions.end(), new_sessions);
+                    }
+
+                    // Initialize newly inserted sessions.
+                    // This must be performed after session objects end up in their final location.
+                    for (auto itr = ++ex_last_session; itr != sessions.end(); itr++)
+                        itr->init();
+                }
 
                 // Cleanup any sessions that needs closure.
                 for (auto itr = sessions.begin(); itr != sessions.end();)
@@ -105,27 +123,21 @@ namespace comm
             else
             {
                 const std::string &host_address = std::get<std::string>(host_result);
-
-                if (corebill::is_banned(host_address))
+                if (!corebill::is_banned(host_address))
                 {
-                    // We just let the client object gets destructed without adding it to a session.
-                    LOG_DEBUG << "Dropping " << name << " connection for banned host " << host_address;
+                    // We do not directly add to sessions list. We simply add to new_sessions list under a lock so the main server
+                    // loop will take care of initialize the new sessions. This is because inherited classes (eg. peer_comm_server)
+                    // need a way to safely inject new sessions from another thread.
+                    std::scoped_lock<std::mutex> lock(new_sessions_mutex);
+                    new_sessions.emplace_back(host_address, std::move(client), true, metric_thresholds);
                 }
                 else
                 {
-                    T session(host_address, std::move(client), true, metric_thresholds);
-                    if (session.on_connect() == 0)
-                    {
-                        std::scoped_lock<std::mutex> lock(sessions_mutex);
-                        T &inserted_session = sessions.emplace_back(std::move(session));
-
-                        // Thread is seperately started after the moving operation to overcome the difficulty
-                        // in accessing class member variables inside the thread.
-                        // Class member variables gives unacceptable values if the thread starts before the move operation.
-                        inserted_session.start_messaging_threads();
-                    }
+                    LOG_DEBUG << "Dropping " << name << " connection for banned host " << host_address;
                 }
             }
+
+            // If the hpws client object was not added to a session so far, in will get dstructed and the channel will close.
         }
 
         void inbound_message_processor_loop()
