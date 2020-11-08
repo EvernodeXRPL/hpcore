@@ -15,12 +15,12 @@ namespace p2p
 
     void peer_comm_server::start_custom_jobs()
     {
-        known_peers_thread = std::thread(&peer_comm_server::peer_monitor_loop, this);
+        // known_peers_thread = std::thread(&peer_comm_server::peer_monitor_loop, this);
     }
 
     void peer_comm_server::stop_custom_jobs()
     {
-        known_peers_thread.join();
+        // known_peers_thread.join();
     }
 
     int peer_comm_server::process_custom_messages()
@@ -28,24 +28,35 @@ namespace p2p
         return self::process_next_message();
     }
 
-    void peer_comm_server::peer_monitor_loop()
+    void peer_comm_server::custom_connections()
     {
-        util::mask_signal();
-
-        LOG_INFO << "Started peer monitor.";
-
-        while (!is_shutting_down)
+        if (custom_connection_invocations == 20 || custom_connection_invocations == -1)
         {
-            util::sleep(2000);
             maintain_known_connections();
+            custom_connection_invocations = 0;
         }
 
-        LOG_INFO << "Stopped peer monitor.";
+        custom_connection_invocations++;
     }
+
+    // void peer_comm_server::peer_monitor_loop()
+    // {
+    //     util::mask_signal();
+
+    //     LOG_INFO << "Started peer monitor.";
+
+    //     while (!is_shutting_down)
+    //     {
+    //         util::sleep(2000);
+    //         maintain_known_connections();
+    //     }
+
+    //     LOG_INFO << "Stopped peer monitor.";
+    // }
 
     void peer_comm_server::maintain_known_connections()
     {
-        // Find already connected known remote parties list
+        // Find already connected known remote parties list.
         std::set<conf::ip_port_pair> known_remotes;
 
         {
@@ -76,7 +87,7 @@ namespace p2p
             {
                 const hpws::error error = std::get<hpws::error>(client_result);
                 if (error.first != 202)
-                    LOG_ERROR << "Outbound connection hpws error:" << error.first << " " << error.second;
+                    LOG_DEBUG << "Outbound connection hpws error:" << error.first << " " << error.second;
             }
             else
             {
