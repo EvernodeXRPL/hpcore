@@ -48,14 +48,13 @@ namespace comm
     public:
         std::string uniqueid;
         const bool is_inbound;
-        const std::string address; // IP address of the remote party.
+        const std::string host_address; // Connection host address of the remote party.
         std::string issued_challenge;
-        conf::ip_port_pair known_ipport;
         SESSION_STATE state = SESSION_STATE::NOT_INITIALIZED;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
 
         comm_session(
-            std::string_view ip, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
+            std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
         int on_connect();
         void start_messaging_threads();
         int process_next_inbound_message();

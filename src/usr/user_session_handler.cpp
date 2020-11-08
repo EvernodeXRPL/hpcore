@@ -76,7 +76,7 @@ namespace usr
         // If for any reason we reach this point, we should drop the connection because none of the
         // valid cases match.
         LOG_DEBUG << "Dropping the user connection " << session.display_name();
-        corebill::report_violation(session.address);
+        corebill::report_violation(session.host_address);
         return -1;
     }
 

@@ -27,11 +27,10 @@ namespace p2p
         if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
         {
             // Peer sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
-            return uniqueid.substr(2, 10);
+            return uniqueid.substr(2, 10) + (is_inbound ? ":in" : ":out");
         }
 
-        // Unverified sessions just use the ip/host address as the unique id.
-        return uniqueid;
+        return comm_session::display_name();
     }
 
 } // namespace p2p

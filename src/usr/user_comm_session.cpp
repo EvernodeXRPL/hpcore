@@ -32,11 +32,10 @@ namespace usr
             util::bin2hex(hex,
                           reinterpret_cast<const unsigned char *>(uniqueid.data()),
                           uniqueid.length());
-            return hex.substr(2, 10); // Skipping first 2 bytes key type prefix.
+            return hex.substr(2, 10) + (is_inbound ? ":in" : ":out"); // Skipping first 2 bytes key type prefix.
         }
 
-        // Unverified sessions just use the ip/host address as the unique id.
-        return uniqueid;
+        return comm_session::display_name();
     }
 
 } // namespace usr

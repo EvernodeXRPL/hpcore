@@ -11,9 +11,9 @@ namespace comm
     constexpr uint32_t INTERVALMS = 60000;
 
     comm_session::comm_session(
-        std::string_view ip, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
-        : uniqueid(ip),
-          address(ip),
+        std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+        : uniqueid(host_address),
+          host_address(host_address),
           hpws_client(std::move(hpws_client)),
           is_inbound(is_inbound),
           in_msg_queue(32)
@@ -207,7 +207,7 @@ namespace comm
         writer_thread.join();
         reader_thread.join();
 
-        LOG_DEBUG << "Session closed: " << display_name() << (is_inbound ? "[in]" : "[out]");
+        LOG_DEBUG << "Session closed: " << display_name();
     }
 
     /**
@@ -215,7 +215,7 @@ namespace comm
      */
     const std::string comm_session::display_name()
     {
-        return uniqueid;
+        return uniqueid + (is_inbound ? ":in" : ":out");
     }
 
     /**
@@ -261,7 +261,7 @@ namespace comm
                 t.counter_value = 0;
 
                 LOG_INFO << "Session " << uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-                corebill::report_violation(address);
+                corebill::report_violation(host_address);
             }
             else if (elapsed_time > t.intervalms)
             {

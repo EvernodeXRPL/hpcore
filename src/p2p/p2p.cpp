@@ -65,10 +65,7 @@ namespace p2p
         }
 
         // Verify the challenge signature.
-        if (crypto::verify(
-                challenge_resp.challenge,
-                challenge_resp.signature,
-                challenge_resp.pubkey) != 0)
+        if (crypto::verify(challenge_resp.challenge, challenge_resp.signature, challenge_resp.pubkey) != 0)
         {
             LOG_DEBUG << "Peer challenge response signature verification failed.";
             return -1;
@@ -102,6 +99,8 @@ namespace p2p
             session.uniqueid.swap(pubkeyhex);
             session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
             ctx.peer_connections.try_emplace(session.uniqueid, &session);
+
+            LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
             return 0;
         }
         else // Peer pub key already exists in our sessions.
@@ -127,18 +126,19 @@ namespace p2p
                     session.is_weakly_connected = ex_session.is_weakly_connected;
                     ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
-                    LOG_DEBUG << "Replacing existing connection [" << session.display_name() << "]";
+                    LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
                     return 0;
                 }
                 else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
                 {
                     // If we have any known ip-port info from the new session, transfer them to the existing session.
                     ex_session.known_ipport.swap(session.known_ipport);
+                    LOG_DEBUG << "Merging new connection [" << session.display_name() << "] with [" << ex_session.display_name() << "]";
                 }
             }
 
             // Reaching this point means we don't need the new session.
-            LOG_DEBUG << "Rejecting new peer connection [" << session.display_name() << "] because existing connection [" << ex_session.display_name() << "] takes priority.";
+            LOG_DEBUG << "Rejecting new connection [" << session.display_name() << "] in favour of [" << ex_session.display_name() << "]";
             return -1;
         }
     }
