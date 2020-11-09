@@ -58,7 +58,7 @@ function HotPocketContract() {
 
         this.users = {};
         Object.keys(hpargs.usrfd).forEach((userPubKey) => {
-            this.users[userPubKey] = new HotPocketChannel(this.events, hpargs.usrfd[userPubKey], userPubKey);
+            this.users[userPubKey] = new HotPocketUserChannel(this.events, hpargs.usrfd[userPubKey], userPubKey);
             incompleteUserCount++;
         });
 
@@ -73,7 +73,7 @@ function HotPocketContract() {
     };
 }
 
-function HotPocketChannel(events, fd, userPubKey) {
+function HotPocketUserChannel(events, fd, userPubKey) {
     let socket = null;
     if (fd > 0) {
         socket = fs.createReadStream(null, { fd: fd });
