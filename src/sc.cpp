@@ -171,14 +171,8 @@ namespace sc
         if (stop_hpfs_session(ctx) == -1)
             ret = -1;
 
+        // Cleaning the user fdmap after executing the contract.   
         cleanup_fdmap(ctx.userfds);
-        cleanup_vectorfds(ctx.hpscfds);
-
-        if (!ctx.args.readonly)
-        {
-            cleanup_vectorfds(ctx.nplfds);
-        }
-
         return ret;
     }
 
@@ -357,58 +351,19 @@ namespace sc
                 break;
 
             const int hpsc_res = read_contract_hp_outputs(ctx);
-            if (hpsc_res == -1)
-            {
-                return -1;
-            }
-            else if (ctx.args.contract_terminated && hpsc_res == 0)
-            {
-                close(ctx.hpscfds[SOCKETFDTYPE::HPREADWRITE]);
-                ctx.hpscfds[SOCKETFDTYPE::HPREADWRITE] = -1;
-            }
 
             const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
-            if (npl_read_res == -1)
-            {
-                return -1;
-            }
-            else if (!ctx.args.readonly && ctx.args.contract_terminated && npl_read_res == 0)
-            {
-                close(ctx.nplfds[SOCKETFDTYPE::HPREADWRITE]);
-                ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
-            }
 
             if (!ctx.args.contract_terminated)
             {
                 const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
-                if (npl_write_res == -1)
-                    return -1;
-            }
-
-            if (!ctx.args.contract_terminated)
-            {
                 const int hpsc_write_res = write_contract_hp_inputs(ctx);
-                if (hpsc_write_res == -1)
-                    return -1;
             }
 
-            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
-            if (user_res == -1)
-            {
-                LOG_ERROR << "Error reading user outputs from the contract.";
-                return -1;
-            }
-            else if (ctx.args.contract_terminated && user_res == 0)
-            {
-                for (auto &[pubkey, fds] : ctx.userfds)
-                {
-                    close(fds[SOCKETFDTYPE::HPREADWRITE]);
-                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-                }
-            }
+            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs, ctx.args.contract_terminated);
 
             // If no bytes were read after contract finished execution, exit the read loop.
-            if (hpsc_res == 0 && npl_read_res == 0 && user_res == 0 && ctx.contract_pid == 0)
+            if (hpsc_res <= 0 && npl_read_res <= 0 && user_res <= 0 && ctx.args.contract_terminated)
                 break;
 
             util::sleep(20);
@@ -490,7 +445,7 @@ namespace sc
     int read_contract_hp_outputs(execution_context &ctx)
     {
         std::string output;
-        const int hpsc_res = read_iosocket_seq_packet(ctx.hpscfds, output);
+        const int hpsc_res = read_iosocket(false, ctx.hpscfds, output, ctx.args.contract_terminated);
         if (hpsc_res == -1)
         {
             LOG_ERROR << "Error reading HP output from the contract.";
@@ -514,7 +469,7 @@ namespace sc
     int read_contract_npl_outputs(execution_context &ctx)
     {
         std::string output;
-        const int npl_res = read_iosocket_seq_packet(ctx.nplfds, output);
+        const int npl_res = read_iosocket(false, ctx.nplfds, output, ctx.args.contract_terminated);
 
         if (npl_res == -1)
         {
@@ -617,9 +572,10 @@ namespace sc
      * 
      * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
+     * @param contract_terminated Indicates whether the contract termination signal recieved.
      * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
      */
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, const bool &contract_terminated)
     {
         bool bytes_read = false;
         for (auto &[pubkey, bufs] : bufmap)
@@ -629,7 +585,7 @@ namespace sc
             std::vector<int> &fds = fdmap[pubkey];
 
             // This returns the total bytes read from the socket.
-            const int total_bytes_read = read_iosocket_stream(fds, output);
+            const int total_bytes_read = read_iosocket(true, fds, output, contract_terminated);
 
             if (total_bytes_read > 0)
             {
@@ -682,11 +638,6 @@ namespace sc
 
                 bytes_read = true;
             }
-
-            if (total_bytes_read == -1)
-            {
-                return -1;
-            }
         }
 
         return bytes_read ? 1 : 0;
@@ -698,9 +649,6 @@ namespace sc
      */
     void cleanup_fdmap(contract_fdmap_t &fdmap)
     {
-        for (auto &[pubkey, fds] : fdmap)
-            cleanup_vectorfds(fds);
-
         fdmap.clear();
     }
 
@@ -802,7 +750,7 @@ namespace sc
                     write_error = true;
             }
         }
-       
+
         if (write_error)
             LOG_ERROR << errno << ": Error writing to sequece packet socket.";
 
@@ -810,18 +758,21 @@ namespace sc
     }
 
     /**
-     * Common function to read buffered output from the sequence packet socket and populate the output.
+     * Common function to read buffered output from the socket and populate the output.
+     * @param is_stream_socket Indicates whether socket is steam socket or not
      * @param fds Vector representing the socket fd list.
      * @param output The buffer to place the read output.
+     * @param contract_terminated Indicates whether the contract termination signal recieved.
      * @return -1 on error. Otherwise no. of bytes read.
      */
-    int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output)
+    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output, const bool &contract_terminated)
     {
         // Read any available data that have been written by the contract process
         // from the output socket and store in the output buffer.
         // Outputs will be read by the consensus process later when it wishes so.
 
         const int readfd = fds[SOCKETFDTYPE::HPREADWRITE];
+        int res = 0;
 
         if (readfd == -1)
             return 0;
@@ -831,74 +782,38 @@ namespace sc
         if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
         {
             if (available_bytes == 0)
-                return 0;
-
-            output.resize(MIN(MAX_SEQ_PACKET_SIZE, available_bytes));
-            const int res = read(readfd, output.data(), MAX_SEQ_PACKET_SIZE);
-            output.resize(res);
-
-            if (res >= 0)
             {
-                if (res == 0) // EOF
+                res = 0;
+            }
+            else
+            {
+
+                output.resize(is_stream_socket ? available_bytes : MIN(MAX_SEQ_PACKET_SIZE, available_bytes));
+                const int read_res = read(readfd, output.data(), is_stream_socket ? available_bytes : MAX_SEQ_PACKET_SIZE);
+
+                if (read_res >= 0)
                 {
-                    close(readfd);
-                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
+                    res = read_res;
+                    if (is_stream_socket)
+                        output.resize(read_res);
                 }
-                return res;
+                else
+                {
+                    res = -1;
+                }
             }
         }
-
-        close(readfd);
-        fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-        LOG_ERROR << errno << ": Error reading sequence packet socket.";
-
-        return -1;
-    }
-
-    /**
-     * Common function to read buffered output from the stream socket and populate the output list.
-     * @param fds Vector representing the sockets fd list.
-     * @param output The buffer to place the read output.
-     * @return -1 on error. Otherwise no. of bytes read.
-     */
-    int read_iosocket_stream(std::vector<int> &fds, std::string &output)
-    {
-        // Read any available data that have been written by the contract process
-        // from the output socket and store in the output buffer.
-        // Outputs will be read by the consensus process later when it wishes so.
-
-        const int readfd = fds[SOCKETFDTYPE::HPREADWRITE];
-        if (readfd == -1)
-            return 0;
-
-        bool read_error = false;
-        size_t available_bytes = 0;
-        if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
+        else
         {
-            if (available_bytes == 0)
-            {
-                return 0;
-            }
-
-            output.resize(available_bytes);
-            const int res = read(readfd, output.data(), available_bytes);
-
-            if (res >= 0)
-            {
-                if (res == 0) // EOF
-                {
-                    close(readfd);
-                    fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-                }
-                return res;
-            }
+            res = -1;
         }
 
-        close(readfd);
-        fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-        LOG_ERROR << errno << ": Error reading stream socket.";
+        if (res == -1 || (res == 0 && contract_terminated))
+        {
+            cleanup_vectorfds(fds);
+        }
 
-        return -1;
+        return res;
     }
 
     void close_unused_fds(execution_context &ctx, const bool is_hp)

@@ -160,7 +160,7 @@ namespace sc
 
     int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, const bool &contract_terminated);
 
     void cleanup_fdmap(contract_fdmap_t &fdmap);
 
@@ -170,9 +170,7 @@ namespace sc
 
     int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs);
 
-    int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output);
-
-    int read_iosocket_stream(std::vector<int> &fds, std::string &output);
+    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output, const bool &contract_terminated);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
 
