@@ -71,6 +71,9 @@ namespace sc
 
         // NPL messages to be passed into contract.
         moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
+
+        // Contol messages to be passed into contract.
+        moodycamel::ReaderWriterQueue<std::string> control_messages;
         
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
@@ -86,7 +89,7 @@ namespace sc
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
 
         // Indicate that teh contract send termination message.
-        bool received_contract_terminate_msg =  false;
+        bool contract_terminated =  false;
     };
 
     /**
@@ -180,6 +183,8 @@ namespace sc
     void clear_args(contract_execution_args &args);
 
     void stop(execution_context &ctx);
+
+    void handle_control_msgs(contract_execution_args &args, std::string &output);
 
 } // namespace sc
 

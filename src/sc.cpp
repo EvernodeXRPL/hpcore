@@ -95,12 +95,14 @@ namespace sc
             {
                 util::kill_process(pid, true);
                 ctx.contract_pid = 0;
+                ctx.args.contract_terminated = true;
                 goto failure;
             }
 
             // Wait for child process (contract process) to complete execution.
             const int presult = await_process_execution(ctx.contract_pid);
             ctx.contract_pid = 0;
+            ctx.args.contract_terminated = true;
             LOG_DEBUG << "Contract process ended." << (ctx.args.readonly ? " (rdonly)" : "");
 
             // There could be 2 reasons for the contract to end; the contract voluntary finished execution or
@@ -330,13 +332,6 @@ namespace sc
 
     int feed_inputs(execution_context &ctx)
     {
-        // Write any input messages to hp->sc socket.
-        if (write_contract_hp_inputs(ctx) == -1)
-        {
-            LOG_ERROR << "Error when writing contract hp inputs.";
-            return -1;
-        }
-
         // Write any user inputs to user sockets.
         if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) == -1)
         {
@@ -366,27 +361,34 @@ namespace sc
             {
                 return -1;
             }
-            else if (ctx.args.received_contract_terminate_msg && hpsc_res == 0)
+            else if (ctx.args.contract_terminated && hpsc_res == 0)
             {
                 close(ctx.hpscfds[SOCKETFDTYPE::HPREADWRITE]);
                 ctx.hpscfds[SOCKETFDTYPE::HPREADWRITE] = -1;
             }
-           
+
             const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
             if (npl_read_res == -1)
             {
                 return -1;
             }
-            else if (!ctx.args.readonly && ctx.args.received_contract_terminate_msg && npl_read_res == 0)
+            else if (!ctx.args.readonly && ctx.args.contract_terminated && npl_read_res == 0)
             {
                 close(ctx.nplfds[SOCKETFDTYPE::HPREADWRITE]);
                 ctx.nplfds[SOCKETFDTYPE::HPREADWRITE] = -1;
             }
 
-            if (!ctx.args.received_contract_terminate_msg)
+            if (!ctx.args.contract_terminated)
             {
                 const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
                 if (npl_write_res == -1)
+                    return -1;
+            }
+
+            if (!ctx.args.contract_terminated)
+            {
+                const int hpsc_write_res = write_contract_hp_inputs(ctx);
+                if (hpsc_write_res == -1)
                     return -1;
             }
 
@@ -396,7 +398,7 @@ namespace sc
                 LOG_ERROR << "Error reading user outputs from the contract.";
                 return -1;
             }
-            else if (ctx.args.received_contract_terminate_msg && user_res == 0)
+            else if (ctx.args.contract_terminated && user_res == 0)
             {
                 for (auto &[pubkey, fds] : ctx.userfds)
                 {
@@ -421,11 +423,21 @@ namespace sc
      */
     int write_contract_hp_inputs(execution_context &ctx)
     {
-        // if (write_iosocket_seq_packet(ctx.hpscfds, ctx.args.hpscbufs.inputs, false) == -1)
-        // {
-        //     LOG_ERROR << "Error writing HP inputs to SC";
-        //     return -1;
-        // }
+
+        std::list<std::string> control_msgs;
+
+        std::string control_msg;
+
+        if (ctx.args.control_messages.try_dequeue(control_msg))
+        {
+            control_msgs.push_back(control_msg);
+        }
+
+        if (write_iosocket_seq_packet(ctx.hpscfds, control_msgs, false) == -1)
+        {
+            LOG_ERROR << "Error writing HP inputs to SC";
+            return -1;
+        }
 
         return 0;
     }
@@ -487,10 +499,8 @@ namespace sc
         else if (hpsc_res > 0)
         {
             // ctx.args.hpscbufs.outputs.push_back(output);
-            if (output == "Terminated")
-            {
-                ctx.args.received_contract_terminate_msg = true;
-            }
+
+            handle_control_msgs(ctx.args, output);
         }
 
         return (hpsc_res == 0) ? 0 : 1;
@@ -979,7 +989,7 @@ namespace sc
         args.time = 0;
         args.lcl.clear();
         args.post_execution_state_hash = hpfs::h32_empty;
-        args.received_contract_terminate_msg = false;
+        args.contract_terminated = false;
     }
 
     /**
@@ -994,6 +1004,15 @@ namespace sc
 
         if (ctx.contract_io_thread.joinable())
             ctx.contract_io_thread.join();
+    }
+
+    void handle_control_msgs(contract_execution_args &args, std::string &output)
+    {
+        if (output == "Terminated")
+        {
+            args.contract_terminated = true;
+        }
+        output.clear();
     }
 
 } // namespace sc

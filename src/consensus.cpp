@@ -321,13 +321,23 @@ namespace consensus
     }
 
     /**
-     * Equeue npl messages to the npl messages queue.
+     * Enqueue npl messages to the npl messages queue.
      * @param npl_msg Constructed npl message.
      * @return Returns true if enqueue is success otherwise false.
      */
     bool push_npl_message(p2p::npl_message &npl_msg)
     {
         return ctx.contract_ctx.args.npl_messages.try_enqueue(npl_msg);
+    }
+
+    /**
+     * Enqueue conrol messages to the control messages queue.
+     * @param control_msg Constructed control message.
+     * @return Returns true if enqueue is success otherwise false.
+     */
+    bool push_control_message(const std::string &control_msg)
+    {
+        return ctx.contract_ctx.args.control_messages.try_enqueue(control_msg);
     }
 
     /**
