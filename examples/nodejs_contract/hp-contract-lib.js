@@ -87,7 +87,6 @@ function HotPocketChannel(events, fd, userPubKey) {
                 const msgCountBuf = readBytes(buf, 0, 4)
                 msgCount = msgCountBuf.readUInt32BE();
                 pos += 4;
-                console.log(msgCount)
             }
             while (pos < buf.byteLength) {
                 if (msgLen == -1) {
