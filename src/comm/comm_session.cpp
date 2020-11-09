@@ -1,29 +1,20 @@
 #include "../pchheader.hpp"
-#include "../usr/user_session_handler.hpp"
-#include "../p2p/peer_session_handler.hpp"
-#include "comm_session.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
 #include "../conf.hpp"
 #include "../bill/corebill.h"
 #include "../hpws/hpws.hpp"
+#include "comm_session.hpp"
 
 namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
 
-    // Global instances of user and peer session handlers.
-    usr::user_session_handler user_sess_handler;
-    p2p::peer_session_handler peer_sess_handler;
-
     comm_session::comm_session(
-        std::string_view ip, hpws::client &&hpws_client, const SESSION_TYPE session_type,
-        const bool is_inbound, const uint64_t (&metric_thresholds)[4])
-
-        : address(ip),
+        std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+        : uniqueid(host_address),
+          host_address(host_address),
           hpws_client(std::move(hpws_client)),
-          session_type(session_type),
-          uniqueid(ip),
           is_inbound(is_inbound),
           in_msg_queue(32)
     {
@@ -36,12 +27,18 @@ namespace comm
     }
 
     /**
-     * Starts the outbound queue processing thread.
-    */
-    void comm_session::start_messaging_threads()
+     * Init() should be called to activate the session.
+     * Because we are starting threads here, after init() is called, the session object must not be "std::moved".
+     */
+    void comm_session::init()
     {
-        reader_thread = std::thread(&comm_session::reader_loop, this);
-        writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
+        if (state == SESSION_STATE::NONE)
+        {
+            handle_connect();
+            reader_thread = std::thread(&comm_session::reader_loop, this);
+            writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
+            state = SESSION_STATE::ACTIVE;
+        }
     }
 
     void comm_session::reader_loop()
@@ -87,16 +84,6 @@ namespace comm
         }
     }
 
-    int comm_session::on_connect()
-    {
-        state = SESSION_STATE::ACTIVE;
-
-        if (session_type == SESSION_TYPE::USER)
-            return user_sess_handler.on_connect(*this);
-        else
-            return peer_sess_handler.on_connect(*this);
-    }
-
     /**
      * Processes the next queued message (if any).
      * @return 0 if no messages in queue. 1 if message was processed. -1 means session must be closed.
@@ -110,9 +97,7 @@ namespace comm
         if (in_msg_queue.try_dequeue(msg))
         {
             std::string_view sv(msg.data(), msg.size());
-            const int sess_handler_result = (session_type == SESSION_TYPE::USER)
-                                                ? user_sess_handler.on_message(*this, sv)
-                                                : peer_sess_handler.on_message(*this, sv);
+            const int sess_handler_result = handle_message(sv);
 
             // If session handler returns -1 then that means the session must be closed.
             // Otherwise it's considered message processing is successful.
@@ -211,12 +196,7 @@ namespace comm
             return;
 
         if (invoke_handler)
-        {
-            if (session_type == SESSION_TYPE::USER)
-                user_sess_handler.on_close(*this);
-            else
-                peer_sess_handler.on_close(*this);
-        }
+            handle_close();
 
         state = SESSION_STATE::CLOSED;
 
@@ -224,11 +204,21 @@ namespace comm
         hpws_client.reset();
 
         // Wait untill reader/writer threads gracefully stop.
-        writer_thread.join();
-        reader_thread.join();
+        if (writer_thread.joinable())
+            writer_thread.join();
 
-        LOG_DEBUG << (session_type == SESSION_TYPE::PEER ? "Peer" : "User") << " session closed: "
-                  << uniqueid.substr(0, 10) << (is_inbound ? "[in]" : "[out]") << (is_self ? "[self]" : "");
+        if (reader_thread.joinable())
+            reader_thread.join();
+
+        LOG_DEBUG << "Session closed: " << display_name();
+    }
+
+    /**
+     * Returns printable name for the session based on uniqueid (used for logging).
+     */
+    const std::string comm_session::display_name()
+    {
+        return uniqueid + (is_inbound ? ":in" : ":out");
     }
 
     /**
@@ -268,13 +258,13 @@ namespace comm
             const uint64_t elapsed_time = time_now - t.timestamp;
             if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
             {
-                this->close();
+                close();
 
                 t.timestamp = 0;
                 t.counter_value = 0;
 
-                LOG_INFO << "Session " << this->uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-                corebill::report_violation(this->address);
+                LOG_INFO << "Session " << uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+                corebill::report_violation(host_address);
             }
             else if (elapsed_time > t.intervalms)
             {
@@ -282,6 +272,19 @@ namespace comm
                 t.counter_value = amount;
             }
         }
+    }
+
+    void comm_session::handle_connect()
+    {
+    }
+
+    int comm_session::handle_message(std::string_view msg)
+    {
+        return 0;
+    }
+
+    void comm_session::handle_close()
+    {
     }
 
 } // namespace comm

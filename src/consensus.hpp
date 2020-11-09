@@ -51,7 +51,7 @@ namespace consensus
         std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
         // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
-        std::unordered_set<std::string> candidate_users;
+        std::set<std::string> candidate_users;
 
         // Map of candidate user inputs with input hash as map key. Inputs will stay here until they
         // achieve consensus or expire (due to maxledgerseqno). Input hash is globally unique among inputs
@@ -63,9 +63,7 @@ namespace consensus
         // all users. We will use this map to distribute outputs back to connected users once consensus is achieved.
         std::unordered_map<std::string, candidate_user_output> candidate_user_outputs;
 
-        util::rollover_hashset recent_userinput_hashes;
-
-        uint8_t stage = 0;
+        uint8_t stage = 1;
         uint64_t time_now = 0;
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
@@ -74,21 +72,16 @@ namespace consensus
         bool is_shutting_down = false;
 
         std::thread consensus_thread;
-
-        consensus_context()
-            : recent_userinput_hashes(200)
-        {
-        }
     };
 
     struct vote_counter
     {
-        std::map<uint64_t, int32_t> time;
-        std::map<std::string, int32_t> lcl;
-        std::map<std::string, int32_t> users;
-        std::map<std::string, int32_t> inputs;
-        std::map<std::string, int32_t> outputs;
-        std::map<hpfs::h32, int32_t> state;
+        std::map<uint64_t, uint32_t> time;
+        std::map<std::string, uint32_t> lcl;
+        std::map<std::string, uint32_t> users;
+        std::map<std::string, uint32_t> inputs;
+        std::map<std::string, uint32_t> outputs;
+        std::map<hpfs::h32, uint32_t> state;
     };
 
     int init();
@@ -101,7 +94,9 @@ namespace consensus
 
     int consensus();
 
-    void purify_candidate_proposals();
+    bool is_in_sync(std::string_view lcl, vote_counter &votes);
+
+    void revise_candidate_proposals();
 
     bool wait_and_proceed_stage(uint64_t &stage_start);
 
@@ -111,11 +106,9 @@ namespace consensus
 
     void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
+    p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
-
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
 
     void broadcast_proposal(const p2p::proposal &p);
 
@@ -123,15 +116,13 @@ namespace consensus
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 
-    float_t get_stage_threshold(const uint8_t stage);
-
     void timewait_stage(const bool reset, const uint64_t time);
 
     uint64_t get_ledger_time_resolution(const uint64_t time);
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int apply_ledger(const p2p::proposal &proposal);
+    int update_ledger_and_execute_contract(const p2p::proposal &proposal, std::string &new_lcl, hpfs::h32 &new_state);
 
     void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 
@@ -140,7 +131,7 @@ namespace consensus
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 
     template <typename T>
-    void increment(std::map<T, int32_t> &counter, const T &candidate);
+    void increment(std::map<T, uint32_t> &counter, const T &candidate);
 
     int get_initial_state_hash(hpfs::h32 &hash);
 

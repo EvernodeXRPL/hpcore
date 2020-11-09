@@ -33,15 +33,18 @@ add_executable(hpcore
     src/hpfs/h32.cpp
     src/hpfs/hpfs.cpp
     src/comm/comm_session.cpp
-    src/comm/comm_server.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/p2pmsg_helpers.cpp
     src/msg/fbuf/ledger_helpers.cpp
     src/msg/json/usrmsg_json.cpp
     src/msg/bson/usrmsg_bson.cpp
     src/msg/usrmsg_parser.cpp
+    src/p2p/peer_comm_server.cpp
+    src/p2p/peer_comm_session.cpp
     src/p2p/peer_session_handler.cpp
+    src/p2p/self_node.cpp
     src/p2p/p2p.cpp
+    src/usr/user_comm_session.cpp
     src/usr/user_session_handler.cpp
     src/usr/usr.cpp
     src/usr/read_req.cpp

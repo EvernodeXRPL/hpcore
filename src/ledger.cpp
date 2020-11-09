@@ -567,6 +567,7 @@ namespace ledger
             const auto [seq_no, lcl] = get_ledger_cache_top();
             ctx.set_lcl(seq_no, lcl);
 
+            new_lcl = lcl;
             LOG_INFO << "lcl sync: Fork detected. Removed last ledger. New lcl:" << lcl.substr(0, 15);
             return 0;
         }

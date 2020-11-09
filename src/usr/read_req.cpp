@@ -143,23 +143,19 @@ namespace read_req
                     if (!user_buf_itr->second.outputs.empty())
                     {
                         // Find the user session by user pubkey.
-                        const auto sess_itr = usr::ctx.sessionids.find(user_buf_itr->first);
-                        if (sess_itr != usr::ctx.sessionids.end()) // match found
+                        const auto user_itr = usr::ctx.users.find(user_buf_itr->first);
+                        if (user_itr != usr::ctx.users.end()) // match found
                         {
-                            const auto user_itr = usr::ctx.users.find(sess_itr->second); // sess_itr->second is the session id.
-                            if (user_itr != usr::ctx.users.end())                        // match found
+                            const usr::connected_user &user = user_itr->second;
+                            msg::usrmsg::usrmsg_parser parser(user.protocol);
+                            for (sc::contract_output &output : user_buf_itr->second.outputs)
                             {
-                                const usr::connected_user &user = user_itr->second;
-                                msg::usrmsg::usrmsg_parser parser(user.protocol);
-                                for (sc::contract_output &output : user_buf_itr->second.outputs)
-                                {
-                                    std::vector<uint8_t> msg;
-                                    parser.create_contract_read_response_container(msg, output.message);
-                                    user.session.send(msg);
-                                    output.message.clear();
-                                }
-                                user_buf_itr->second.outputs.clear();
+                                std::vector<uint8_t> msg;
+                                parser.create_contract_read_response_container(msg, output.message);
+                                user.session.send(msg);
+                                output.message.clear();
                             }
+                            user_buf_itr->second.outputs.clear();
                         }
                     }
                     LOG_DEBUG << "Read request contract execution ended.";
