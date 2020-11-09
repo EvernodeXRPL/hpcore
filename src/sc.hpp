@@ -162,7 +162,7 @@ namespace sc
 
     int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs,  const bool close_if_empty);
 
-    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, const bool close_if_empty);
+    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs);
 
     int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output);
 

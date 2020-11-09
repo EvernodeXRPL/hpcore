@@ -9,20 +9,9 @@ const hpc = new HotPocketContract();
 if (!hpc.readonly)
     fs.appendFileSync("exects.txt", "ts:" + hpc.timestamp + "\n");
 
-// Utility function to simulate asynchronous behavior.
-// let asyncSimulator = (timeout) => {
-//     return new Promise(resolve => {
-//         setTimeout(() => {
-//             resolve();
-//         }, timeout);
-//     })
-// }
-
 hpc.events.on("user_message", async (pubKey, message) => {
     const userInput = message.toString("utf8");
     const user = hpc.users[pubKey];
-    // Simulate asynchronous behavior.
-    // await asyncSimulator(1000);
     if (userInput == "ts") {
         user.sendOutput(fs.readFileSync("exects.txt"));
     }
@@ -35,31 +24,29 @@ hpc.events.on("all_users_completed", () => {
     hpc.terminate();
 });
 
-const npl = hpc.npl;
+// Developer should call run method after all the event subscriptions are done.
+hpc.run();
 
 // Control message sending and receiving template.
-// let i = 0;
-// hp.events.on('message', (msg) => {
+// const hp = hpc.control;
+// hpc.events.on('control_message', (msg) => {
 //     console.log('control msg - ' + msg);
 //     hp.sendOutput(msg);
-//     i++;
-//     if (i == 2)
-//         hp.closeControlChannel();
 // })
 
 // Npl message sending and receiving template.
+// const npl = hpc.npl;
 // if (npl) {
 //     let i = 0;
 //     let interval = setInterval(() => {
 //         npl.sendOutput(`npl${i} from contract`);
 //         if (i == 5) {
 //             clearInterval(interval);
-//             npl.closeNplChannel();
 //         }
 //         i++;
 //     }, 500);
 
-//     npl.events.on("message", msg => {
+//     hpc.events.on("npl_message", msg => {
 //         if (msg) {
 //             console.log(msg);
 //         }

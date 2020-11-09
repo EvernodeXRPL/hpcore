@@ -2,6 +2,8 @@ const fs = require('fs');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 
+let incompleteUserCount = 0;
+
 function AsyncCallbackEmitter() {
     this.callbacks = {};
 
@@ -37,61 +39,44 @@ function AsyncCallbackEmitter() {
 
 function HotPocketContract() {
     const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
-    let autoCloseTimer = null;
     this.readonly = hpargs.readonly;
     this.timestamp = hpargs.ts;
-    this.incompleteUsers = 0;
-
-    if (!this.readonly) {
-        const lclParts = hpargs.lcl.split("-");
-        this.lcl = {
-            seqNo: parseInt(lclParts[0]),
-            hash: lclParts[1]
-        };
-
-        this.npl = new HotPocketNplChannel(hpargs.nplfd);
-    }
-
-    this.control = new HotPocketControlChannel(hpargs.hpfd);
     this.events = new AsyncCallbackEmitter();
 
-    this.users = {};
-    Object.keys(hpargs.usrfd).forEach((userPubKey) => {
-        this.users[userPubKey] = new HotPocketChannel(this, hpargs.usrfd[userPubKey], userPubKey);
-        this.incompleteUsers++;
-    });
+    this.run = () => {
+        if (!this.readonly) {
+            const lclParts = hpargs.lcl.split("-");
+            this.lcl = {
+                seqNo: parseInt(lclParts[0]),
+                hash: lclParts[1]
+            };
 
-    this.terminate = () => {
-        this.control.sendOutput("Terminated")
-        // We are still using process.kill(0) temporarily to stop contract hanging.
-        // This will be removed after the control message is implemented.
-        process.kill(0);
-    }
-    
-    this.enableAutoClose = () => {
-        if (!autoCloseTimer) {
-            autoCloseTimer = setTimeout(() => {
-                this.terminate();
-            }, 1000);
+            this.npl = new HotPocketNplChannel(this.events, hpargs.nplfd);
         }
-    }
 
-    this.disableAutoClose = () => {
-        if (autoCloseTimer) {
-            clearTimeout(autoCloseTimer);
-            autoCloseTimer = null;
+        this.control = new HotPocketControlChannel(this.events, hpargs.hpfd);
+
+        this.users = {};
+        Object.keys(hpargs.usrfd).forEach((userPubKey) => {
+            this.users[userPubKey] = new HotPocketChannel(this.events, hpargs.usrfd[userPubKey], userPubKey);
+            incompleteUserCount++;
+        });
+
+        this.terminate = () => {
+            this.control.sendOutput("Terminated")
+            // We are still using process.kill(0) temporarily to stop contract hanging.
+            // This will be removed after the control message is implemented.
+            process.kill(0);
         }
-    }
 
-    if (!Object.keys(hpargs.usrfd).length) {
-        this.terminate();
-    }
-    else {
-        this.enableAutoClose();
-    }
+        if (!Object.keys(hpargs.usrfd).length) {
+            
+            this.events.emit("all_users_completed");
+        }
+    };
 }
 
-function HotPocketChannel(contract, fd, userPubKey) {
+function HotPocketChannel(events, fd, userPubKey) {
     let socket = null;
     if (fd > 0) {
         socket = fs.createReadStream(null, { fd: fd });
@@ -105,8 +90,7 @@ function HotPocketChannel(contract, fd, userPubKey) {
                 const msgCountBuf = readBytes(buf, 0, 4)
                 msgCount = msgCountBuf.readUInt32BE();
                 pos += 4;
-                // disable auto close timer when start receiving messages.
-                contract.disableAutoClose();
+                console.log(msgCount)
             }
             while (pos < buf.byteLength) {
                 if (msgLen == -1) {
@@ -129,26 +113,24 @@ function HotPocketChannel(contract, fd, userPubKey) {
                 dataParts.push(msgBuf)
 
                 if (msgLen == -1) {
-                    await contract.events.emit("user_message", userPubKey, Buffer.concat(dataParts));
+                    await events.emit("user_message", userPubKey, Buffer.concat(dataParts));
                     dataParts = [];
                     msgCount--
                 }
-                if (msgCount == 0) {
-                    msgCount = -1
-                    contract.incompleteUsers--;
-                    if (contract.incompleteUsers == 0) {
-                        contract.events.emit("all_users_completed");
-                    }
-                    else {
-                        contract.enableAutoClose()
-                    }
-                    contract.events.emit("user_completed", userPubKey);
+            }
+
+            if (msgCount == 0) {
+                msgCount = -1;
+                incompleteUserCount--;
+                if (incompleteUserCount == 0) {
+                    events.emit("all_users_completed");
                 }
+                events.emit("user_completed", userPubKey);
             }
         });
 
         socket.on("error", (e) => {
-            contract.events.emit("user_error", userPubKey, e);
+            events.emit("user_error", userPubKey, e);
         })
     }
 
@@ -167,17 +149,10 @@ function HotPocketChannel(contract, fd, userPubKey) {
         fs.writeSync(fd, headerBuf);
         fs.writeSync(fd, outputStringBuf);
     }
-
-    this.closeChannel = function () {
-        if (fd > 0) {
-            socket.destroy();
-        }
-    }
 }
 
-function HotPocketNplChannel(fd) {
+function HotPocketNplChannel(events, fd) {
 
-    this.events = new AsyncCallbackEmitter();
     let socket = null;
     let isPubKeyReceived = false;
     let pubKey;
@@ -192,7 +167,7 @@ function HotPocketNplChannel(fd) {
                 isPubKeyReceived = true;
             }
             else {
-                this.events.emit("message", {
+                events.emit("npl_message", {
                     pubkey: pubKey,
                     input: d
                 });
@@ -201,47 +176,34 @@ function HotPocketNplChannel(fd) {
             }
         });
         socket.on("error", (e) => {
-            this.events.emit("error", e);
+            events.emit("npl_error", e);
         });
     }
 
     this.sendOutput = (output) => {
         if (fd > 0) {
             fs.writeSync(fd, output);
-        }
-    }
-
-    this.closeNplChannel = () => {
-        if (fd > 0) {
-            socket.destroy();
         }
     }
 }
 
-function HotPocketControlChannel(fd) {
+function HotPocketControlChannel(events, fd) {
 
-    this.events = new AsyncCallbackEmitter();
     let socket = null;
     if (fd > 0) {
         socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
         socket.on("data", d => {
-            this.events.emit("message", d);
+            events.emit("control_message", d);
         });
 
         socket.on("error", (e) => {
-            this.events.emit("error", e);
+            events.emit("control_error", e);
         });
     }
 
     this.sendOutput = (output) => {
         if (fd > 0) {
             fs.writeSync(fd, output);
-        }
-    }
-
-    this.closeControlChannel = () => {
-        if (fd > 0) {
-            socket.destroy();
         }
     }
 }
