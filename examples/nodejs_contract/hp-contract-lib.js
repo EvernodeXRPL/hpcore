@@ -63,6 +63,8 @@ function HotPocketContract() {
 
     this.terminate = () => {
         this.control.sendOutput("Terminated")
+        // We are still using process.kill(0) temporarily to stop contract hanging.
+        // This will be removed after the control message is implemented.
         process.kill(0);
     }
     
