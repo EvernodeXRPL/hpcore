@@ -1,5 +1,5 @@
-#ifndef _HP_COMM_SESSION_THRESHOLD_
-#define _HP_COMM_SESSION_THRESHOLD_
+#ifndef _HP_COMM_COMM_SESSION_THRESHOLD_
+#define _HP_COMM_COMM_SESSION_THRESHOLD_
 
 #include "../pchheader.hpp"
 

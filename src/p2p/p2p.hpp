@@ -2,21 +2,24 @@
 #define _HP_P2P_
 
 #include "../pchheader.hpp"
-#include "../comm/comm_server.hpp"
-#include "../comm/comm_session.hpp"
 #include "../usr/user_input.hpp"
-#include "peer_session_handler.hpp"
 #include "../hpfs/h32.hpp"
 #include "../conf.hpp"
 #include "../msg/fbuf/p2pmsg_container_generated.h"
+#include "peer_comm_server.hpp"
+#include "peer_comm_session.hpp"
+#include "peer_session_handler.hpp"
 
 namespace p2p
 {
-
     struct proposal
     {
         std::string pubkey;
-        uint64_t timestamp = 0;
+
+        // The timestamp of the sender when this proposal was sent.
+        uint64_t sent_timestamp = 0;
+
+        // The time value that is voted on.
         uint64_t time = 0;
         uint8_t stage = 0;
         std::string lcl;
@@ -28,7 +31,7 @@ namespace p2p
 
     struct nonunl_proposal
     {
-        std::unordered_map<std::string, const std::list<usr::user_input>> user_inputs;
+        std::unordered_map<std::string, std::list<usr::user_input>> user_inputs;
     };
 
     struct history_request
@@ -121,11 +124,11 @@ namespace p2p
         message_collection collected_msgs;
 
         // Set of currently connected peer connections mapped by the uniqueid of socket session.
-        std::unordered_map<std::string, comm::comm_session *> peer_connections;
+        std::unordered_map<std::string, peer_comm_session *> peer_connections;
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
 
-        comm::comm_server listener;
+        std::optional<peer_comm_server> server;
     };
 
     extern connected_context ctx;
@@ -136,17 +139,17 @@ namespace p2p
 
     int start_peer_connections();
 
-    int resolve_peer_challenge(comm::comm_session &session, const peer_challenge_response &challenge_resp);
+    int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp);
 
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false);
 
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const comm::comm_session *skipping_session = NULL);
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const peer_comm_session *skipping_session = NULL);
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey);
 
-    bool validate_for_peer_msg_forwarding(const comm::comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected);
 } // namespace p2p

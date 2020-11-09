@@ -8,35 +8,23 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../comm/comm_session.hpp"
-#include "p2p.hpp"
-#include "peer_session_handler.hpp"
 #include "../state/state_sync.hpp"
 #include "../ledger.hpp"
+#include "peer_comm_session.hpp"
+#include "p2p.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
-
     // The set of recent peer message hashes used for duplicate detection.
     util::rollover_hashset recent_peermsg_hashes(200);
 
     /**
- * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
- */
-    int peer_session_handler::on_connect(comm::comm_session &session) const
+     * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
+     */
+    void handle_peer_connect(p2p::peer_comm_session &session)
     {
-        if (session.is_inbound)
-        {
-            // Limit max number of inbound connections.
-            if (conf::cfg.peermaxcons > 0 && ctx.peer_connections.size() >= conf::cfg.peermaxcons)
-            {
-                LOG_DEBUG << "Max peer connections reached. Dropped connection " << session.uniqueid.substr(0, 10);
-                return -1;
-            }
-        }
-
         // Send peer challenge.
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
@@ -44,12 +32,11 @@ namespace p2p
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
         session.send(msg);
         session.challenge_status = comm::CHALLENGE_ISSUED;
-        return 0;
     }
 
-    //peer session on message callback method
-    //validate and handle each type of peer messages.
-    int peer_session_handler::on_message(comm::comm_session &session, std::string_view message) const
+    // peer session on message callback method.
+    // validate and handle each type of peer messages.
+    int handle_peer_message(p2p::peer_comm_session &session, std::string_view message)
     {
         const p2pmsg::Container *container;
         if (p2pmsg::validate_and_extract_container(&container, message) != 0)
@@ -69,11 +56,12 @@ namespace p2p
         if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Duplicate peer message. " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "Duplicate peer message. " << session.display_name();
             return 0;
         }
 
         const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
+
         // Check whether the message is qualified for forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
@@ -99,8 +87,7 @@ namespace p2p
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
             return session.send(msg);
         }
-
-        if (content_message_type == p2pmsg::Message_Peer_Challenge_Response_Message) // message is a peer challenge response
+        else if (content_message_type == p2pmsg::Message_Peer_Challenge_Response_Message) // message is a peer challenge response
         {
             // Ignore if challenge is already resolved.
             if (session.challenge_status == comm::CHALLENGE_ISSUED)
@@ -112,64 +99,49 @@ namespace p2p
 
         if (session.challenge_status != comm::CHALLENGE_VERIFIED)
         {
-            LOG_DEBUG << "Cannot accept messages. Peer challenge unresolved. " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "Cannot accept messages. Peer challenge unresolved. " << session.display_name();
             return 0;
         }
 
-        if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
+        if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
+        {
+            const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
+            session.is_weakly_connected = announcement_msg->is_weakly_connected();
+            if (session.is_weakly_connected)
+            {
+                LOG_DEBUG << "Weakly connected announcement received from " << session.display_name();
+            }
+            else
+            {
+                LOG_DEBUG << "Strongly connected announcement received from " << session.display_name();
+            }
+        }
+        else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
         {
             // We only trust proposals coming from trusted peers.
             if (p2pmsg::validate_container_trust(container) != 0)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "Proposal rejected due to trust failure. " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "Proposal rejected due to trust failure. " << session.display_name();
                 return 0;
             }
 
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
-
-            ctx.collected_msgs.proposals.push_back(
-                p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
+            handle_proposal_message(container, content);
         }
         else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
         {
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
-
-            ctx.collected_msgs.nonunl_proposals.push_back(
-                p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
+            handle_nonunl_proposal_message(container, content);
         }
         else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
         {
             if (p2pmsg::validate_container_trust(container) != 0)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
-                LOG_DEBUG << "NPL message rejected due to trust failure. " << session.uniqueid.substr(0, 10);
+                LOG_DEBUG << "NPL message rejected due to trust failure. " << session.display_name();
                 return 0;
             }
 
-            const p2pmsg::Npl_Message *npl_p2p_msg = content->message_as_Npl_Message();
-            npl_message msg;
-            msg.data = msg::fbuf::flatbuff_bytes_to_sv(npl_p2p_msg->data());
-            msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
-            msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
-
-            if (!consensus::push_npl_message(msg))
-            {
-                LOG_DEBUG << "NPL message enqueue failure. " << session.uniqueid.substr(0, 10);
-            }
-        }
-        else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
-        {
-            const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
-            session.is_weakly_connected = announcement_msg->is_weakly_connected();
-            if (session.is_weakly_connected)
-            {
-                LOG_DEBUG << "Weakly connected announcement received from " << session.uniqueid.substr(0, 10);
-            }
-            else
-            {
-                LOG_DEBUG << "Strongly connected announcement received from " << session.uniqueid.substr(0, 10);
-            }
+            handle_npl_message(container, content);
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
@@ -206,19 +178,83 @@ namespace p2p
         else
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Received invalid peer message type. " << session.uniqueid.substr(0, 10);
+            LOG_DEBUG << "Received invalid peer message type. " << session.display_name();
         }
         return 0;
     }
 
+    /**
+     * Handles messages that we receive from ourselves.
+     */
+    int handle_self_message(std::string_view message)
+    {
+        const p2pmsg::Container *container;
+        if (p2pmsg::validate_and_extract_container(&container, message) != 0)
+            return 0;
+
+        //Get serialised message content.
+        const flatbuffers::Vector<uint8_t> *container_content = container->content();
+
+        //Accessing message content and size.
+        const uint8_t *content_ptr = container_content->Data();
+        const flatbuffers::uoffset_t content_size = container_content->size();
+
+        const p2pmsg::Content *content;
+        if (p2pmsg::validate_and_extract_content(&content, content_ptr, content_size) != 0)
+            return 0;
+
+        const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
+
+        if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
+            handle_proposal_message(container, content);
+        else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
+            handle_nonunl_proposal_message(container, content);
+        else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
+            handle_npl_message(container, content);
+
+        return 0;
+    }
+
+    void handle_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    {
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
+
+        ctx.collected_msgs.proposals.push_back(
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
+    }
+
+    void handle_nonunl_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    {
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+
+        ctx.collected_msgs.nonunl_proposals.push_back(
+            p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
+    }
+
+    void handle_npl_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    {
+        const p2pmsg::Npl_Message *npl_p2p_msg = content->message_as_Npl_Message();
+        npl_message msg;
+        msg.data = msg::fbuf::flatbuff_bytes_to_sv(npl_p2p_msg->data());
+        msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
+        msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
+
+        if (!consensus::push_npl_message(msg))
+        {
+            LOG_DEBUG << "NPL message from self enqueue failure.";
+        }
+    }
+
     //peer session on message callback method
-    void peer_session_handler::on_close(const comm::comm_session &session) const
+    int handle_peer_close(const comm::comm_session &session)
     {
         // Erase the corresponding uniqueid peer connection if it's this session.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
         const auto itr = ctx.peer_connections.find(session.uniqueid);
         if (itr != ctx.peer_connections.end() && itr->second == &session)
             ctx.peer_connections.erase(itr);
+
+        return 0;
     }
 
 } // namespace p2p
