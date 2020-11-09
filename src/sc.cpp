@@ -562,7 +562,7 @@ namespace sc
         // Loop through input buffers for each pubkey.
         for (auto &[pubkey, buflist] : bufmap)
         {
-            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs, true) == -1)
+            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs) == -1)
                 return -1;
         }
 
@@ -692,7 +692,7 @@ namespace sc
      * @param inputs Buffer to write into the HP write fd.
      * @param close_if_empty Close the socket after writing if this is true.
      */
-    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs, const bool close_if_empty)
+    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs)
     {
         // Write the inputs (if any) into the contract.
 
@@ -702,44 +702,36 @@ namespace sc
 
         bool write_error = false;
 
-        if (!inputs.empty())
+        // Prepare the input memory segments to write with wrtiev.
+        // Extra one element for the header.
+        iovec memsegs[inputs.size() * 2 + 1];
+        uint8_t header[inputs.size() * 4 + 4];
+        header[0] = inputs.size() >> 24;
+        header[1] = inputs.size() >> 16;
+        header[2] = inputs.size() >> 8;
+        header[3] = inputs.size();
+        // Message count header.
+        memsegs[0].iov_base = header;
+        memsegs[0].iov_len = 4;
+        size_t i = 1;
+        for (std::string &input : inputs)
         {
-            // Prepare the input memory segments to write with wrtiev.
-            // Extra one element for the header.
-            iovec memsegs[inputs.size() * 2 + 1];
-            uint8_t header[inputs.size() * 4 + 4];
-            header[0] = inputs.size() >> 24;
-            header[1] = inputs.size() >> 16;
-            header[2] = inputs.size() >> 8;
-            header[3] = inputs.size();
-            // Message count header.
-            memsegs[0].iov_base = header;
-            memsegs[0].iov_len = 4;
-            size_t i = 1;
-            for (std::string &input : inputs)
-            {
-                // 4 bytes for message len header.
-                header[i * 4] = input.length() >> 24;
-                header[i * 4 + 1] = input.length() >> 16;
-                header[i * 4 + 2] = input.length() >> 8;
-                header[i * 4 + 3] = input.length();
-                memsegs[i * 2 - 1].iov_base = &header[i * 4];
-                memsegs[i * 2 - 1].iov_len = 4;
-                memsegs[i * 2].iov_base = input.data();
-                memsegs[i * 2].iov_len = input.length();
-                i++;
-            }
-
-            if (writev(writefd, memsegs, (inputs.size() * 2 + 1)) == -1)
-                write_error = true;
-
-            inputs.clear();
+            // 4 bytes for message len header.
+            header[i * 4] = input.length() >> 24;
+            header[i * 4 + 1] = input.length() >> 16;
+            header[i * 4 + 2] = input.length() >> 8;
+            header[i * 4 + 3] = input.length();
+            memsegs[i * 2 - 1].iov_base = &header[i * 4];
+            memsegs[i * 2 - 1].iov_len = 4;
+            memsegs[i * 2].iov_base = input.data();
+            memsegs[i * 2].iov_len = input.length();
+            i++;
         }
-        else if (close_if_empty)
-        {
-            close(writefd);
-            fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-        }
+
+        if (writev(writefd, memsegs, (inputs.size() * 2 + 1)) == -1)
+            write_error = true;
+
+        inputs.clear();
 
         if (write_error)
             LOG_ERROR << errno << ": Error writing to stream socket.";
