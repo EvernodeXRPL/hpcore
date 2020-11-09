@@ -433,7 +433,7 @@ namespace sc
             control_msgs.push_back(control_msg);
         }
 
-        if (write_iosocket_seq_packet(ctx.hpscfds, control_msgs, false) == -1)
+        if (write_iosocket_seq_packet(ctx.hpscfds, control_msgs) == -1)
         {
             LOG_ERROR << "Error writing HP inputs to SC";
             return -1;
@@ -732,7 +732,6 @@ namespace sc
      * Common function to write the given input buffer into the write fd from the HP side socket.
      * @param fds Vector of fd list.
      * @param inputs Buffer to write into the HP write fd.
-     * @param close_if_empty Close the socket after writing if this is true.
      */
     int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs)
     {
@@ -785,9 +784,8 @@ namespace sc
      * Common function to write the given input buffer into the write fd from the HP side socket.
      * @param fds Vector of fd list.
      * @param inputs Buffer to write into the HP write fd.
-     * @param close_if_empty Close the socket after writing if this is true.
      */
-    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs, const bool close_if_empty)
+    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs)
     {
         // Write the inputs (if any) into the contract.
         const int writefd = fds[SOCKETFDTYPE::HPREADWRITE];
@@ -804,11 +802,7 @@ namespace sc
                     write_error = true;
             }
         }
-        else if (close_if_empty)
-        {
-            close(writefd);
-            fds[SOCKETFDTYPE::HPREADWRITE] = -1;
-        }
+       
         if (write_error)
             LOG_ERROR << errno << ": Error writing to sequece packet socket.";
 
