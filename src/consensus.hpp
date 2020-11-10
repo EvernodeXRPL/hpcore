@@ -135,6 +135,8 @@ namespace consensus
 
     int get_initial_state_hash(hpfs::h32 &hash);
 
+    bool push_control_message(const std::string &control_msg);
+
 } // namespace consensus
 
 #endif

@@ -71,6 +71,9 @@ namespace sc
 
         // NPL messages to be passed into contract.
         moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
+
+        // Contol messages to be passed into contract.
+        moodycamel::ReaderWriterQueue<std::string> control_messages;
         
         // Pair of HP<->SC JSON message buffers (mainly used for control messages).
         // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
@@ -84,6 +87,9 @@ namespace sc
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
+
+        // Indicates that the contract has sent termination control message or it has exited.
+        bool contract_terminated =  false;
     };
 
     /**
@@ -154,19 +160,17 @@ namespace sc
 
     int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, const bool contract_terminated);
 
     void cleanup_fdmap(contract_fdmap_t &fdmap);
 
     int create_iosockets(std::vector<int> &fds, const int socket_type);
 
-    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs,  const bool close_if_empty);
+    int write_iosocket_seq_packet(std::vector<int> &fds, std::string_view input);
 
     int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs);
 
-    int read_iosocket_seq_packet(std::vector<int> &fds, std::string &output);
-
-    int read_iosocket_stream(std::vector<int> &fds, std::string &output);
+    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output, const bool contract_terminated);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
 
@@ -177,6 +181,8 @@ namespace sc
     void clear_args(contract_execution_args &args);
 
     void stop(execution_context &ctx);
+
+    void handle_control_msgs(contract_execution_args &args, std::string &output);
 
 } // namespace sc
 
