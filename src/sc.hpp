@@ -88,7 +88,7 @@ namespace sc
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
 
-        // Indicate that teh contract send termination message.
+        // Indicates that the contract has sent termination control message or it has exited.
         bool contract_terminated =  false;
     };
 
