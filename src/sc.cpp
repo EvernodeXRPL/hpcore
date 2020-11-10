@@ -356,15 +356,20 @@ namespace sc
 
             if (!ctx.args.contract_terminated)
             {
-                const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
-                const int hpsc_write_res = write_contract_hp_inputs(ctx);
+                if (!ctx.args.readonly)
+                    write_npl_messages(ctx);
+                write_contract_hp_inputs(ctx);
             }
 
             // If no bytes were read after contract finished execution, exit the read loop.
             if (hpsc_res <= 0 && npl_read_res <= 0 && user_res <= 0 && ctx.args.contract_terminated)
+            {
                 break;
-
-            util::sleep(20);
+            }
+            else if (hpsc_res <= 0 && npl_read_res <= 0 && user_res <= 0)
+            {
+                util::sleep(20);
+            }
         }
 
         LOG_DEBUG << "Contract outputs collected.";
@@ -376,20 +381,15 @@ namespace sc
      */
     int write_contract_hp_inputs(execution_context &ctx)
     {
-
-        std::list<std::string> control_msgs;
-
         std::string control_msg;
 
         if (ctx.args.control_messages.try_dequeue(control_msg))
         {
-            control_msgs.push_back(control_msg);
-        }
-
-        if (write_iosocket_seq_packet(ctx.hpscfds, control_msgs) == -1)
-        {
-            LOG_ERROR << "Error writing HP inputs to SC";
-            return -1;
+            if (write_iosocket_seq_packet(ctx.hpscfds, control_msg) == -1)
+            {
+                LOG_ERROR << "Error writing HP inputs to SC";
+                return -1;
+            }
         }
 
         return 0;
@@ -416,7 +416,7 @@ namespace sc
         p2p::npl_message npl_msg;
         if (ctx.args.npl_messages.try_dequeue(npl_msg))
         {
-            if (npl_msg.lcl == ledger::ctx.get_lcl())
+            if (npl_msg.lcl == ctx.args.lcl)
             {
                 // Writing the public key to the contract's fd.
                 if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
@@ -727,32 +727,25 @@ namespace sc
     }
 
     /**
-     * Common function to write the given input buffer into the write fd from the HP side socket.
+     * Common function to write the given input into the write fd from the HP side socket.
      * @param fds Vector of fd list.
-     * @param inputs Buffer to write into the HP write fd.
+     * @param input Input to write into the HP write fd.
      */
-    int write_iosocket_seq_packet(std::vector<int> &fds, std::list<std::string> &inputs)
+    int write_iosocket_seq_packet(std::vector<int> &fds, std::string_view input)
     {
         // Write the inputs (if any) into the contract.
         const int writefd = fds[SOCKETFDTYPE::HPREADWRITE];
         if (writefd == -1)
             return 0;
 
-        bool write_error = false;
-
-        if (!inputs.empty())
+        if (write(writefd, input.data(), input.length()) == -1)
         {
-            for (std::string &input : inputs)
-            {
-                if (write(writefd, input.data(), input.length()) == -1)
-                    write_error = true;
-            }
+            LOG_ERROR << errno << ": Error writing to sequece packet socket.";
+            //cleanup_vectorfds(fds);
+            return -1;
         }
 
-        if (write_error)
-            LOG_ERROR << errno << ": Error writing to sequece packet socket.";
-
-        return write_error ? -1 : 0;
+        return 0;
     }
 
     /**
