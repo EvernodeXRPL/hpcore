@@ -171,7 +171,7 @@ namespace sc
         if (stop_hpfs_session(ctx) == -1)
             ret = -1;
 
-        // Cleaning the user fdmap after executing the contract.   
+        // Cleaning the user fdmap after executing the contract.
         cleanup_fdmap(ctx.userfds);
         return ret;
     }
@@ -351,16 +351,14 @@ namespace sc
                 break;
 
             const int hpsc_res = read_contract_hp_outputs(ctx);
-
             const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
+            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs, ctx.args.contract_terminated);
 
             if (!ctx.args.contract_terminated)
             {
                 const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
                 const int hpsc_write_res = write_contract_hp_inputs(ctx);
             }
-
-            const int user_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs, ctx.args.contract_terminated);
 
             // If no bytes were read after contract finished execution, exit the read loop.
             if (hpsc_res <= 0 && npl_read_res <= 0 && user_res <= 0 && ctx.args.contract_terminated)
@@ -575,7 +573,7 @@ namespace sc
      * @param contract_terminated Indicates whether the contract termination signal recieved.
      * @return 0 if no bytes were read. 1 if bytes were read. -1 on failure.
      */
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, const bool &contract_terminated)
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, const bool contract_terminated)
     {
         bool bytes_read = false;
         for (auto &[pubkey, bufs] : bufmap)
@@ -765,7 +763,7 @@ namespace sc
      * @param contract_terminated Indicates whether the contract termination signal recieved.
      * @return -1 on error. Otherwise no. of bytes read.
      */
-    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output, const bool &contract_terminated)
+    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output, const bool contract_terminated)
     {
         // Read any available data that have been written by the contract process
         // from the output socket and store in the output buffer.
@@ -787,9 +785,9 @@ namespace sc
             }
             else
             {
-
-                output.resize(is_stream_socket ? available_bytes : MIN(MAX_SEQ_PACKET_SIZE, available_bytes));
-                const int read_res = read(readfd, output.data(), is_stream_socket ? available_bytes : MAX_SEQ_PACKET_SIZE);
+                const size_t bytes_to_read = is_stream_socket ? available_bytes : MIN(MAX_SEQ_PACKET_SIZE, available_bytes);
+                output.resize(bytes_to_read);
+                const int read_res = read(readfd, output.data(), bytes_to_read);
 
                 if (read_res >= 0)
                 {
