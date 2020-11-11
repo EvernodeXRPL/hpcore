@@ -93,6 +93,8 @@ namespace ledger
 
     int handle_ledger_history_response(const p2p::history_response &hr, std::string &new_lcl);
 
+    bool perform_individual_ledger_integrity_check(std::string_view lcl, const std::vector<uint8_t> &raw_ledger);
+
 } // namespace ledger
 
 #endif

@@ -301,9 +301,9 @@ namespace util
      * @param path Directory path.
      * @return Returns the list of entries inside the directory.
      */
-    std::list<dirent> fetch_dir_entries(std::string_view path)
+    std::list<std::string> fetch_dir_entries(std::string_view path)
     {
-        std::list<dirent> entries;
+        std::list<std::string> entries;
         DIR *dr;
 
         // Open the directory stream.
@@ -317,7 +317,7 @@ namespace util
                 // or previous directory entry.
                 if (std::strcmp(en->d_name, ".") != 0 && std::strcmp(en->d_name, "..") != 0)
                 {
-                    entries.push_back(*en);
+                    entries.push_back(en->d_name);
                 }
             }
             // Close directory stream.
