@@ -26,9 +26,9 @@ namespace ledger
     int init()
     {
         // Filename list of the history folder.
-        std::list<std::string> sorted_folder_list = util::fetch_dir_entries(conf::ctx.hist_dir);
+        std::list<std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);
         // Sorting to make filenames in seq_no order.
-        sorted_folder_list.sort([](std::string &a, std::string &b) {
+        sorted_folder_entries.sort([](std::string &a, std::string &b) {
             const uint64_t seq_no_a = std::stoull(a.substr(0, a.find("-")));
             const uint64_t seq_no_b = std::stoull(b.substr(0, b.find("-")));
 
@@ -37,7 +37,7 @@ namespace ledger
         // Temporary buffer to store previous round buffer lcl folder traversal.
         std::vector<uint8_t> previous_ledger_buffer;
         // Get all records at lcl history direcory and find the last closed ledger.
-        for (const auto &entry : sorted_folder_list)
+        for (const auto &entry : sorted_folder_entries)
         {
             const std::string file_path = conf::ctx.hist_dir + "/" + entry;
 
@@ -72,7 +72,7 @@ namespace ledger
                     }
                     if (!perform_individual_ledger_integrity_check(file_name, buffer))
                     {
-                        LOG_ERROR << "lcl sync: Ledger item integrity check failed.";
+                        LOG_ERROR << "lcl sync: Ledger item integrity check failed. " << file_name;
                         return -1;
                     }
 
