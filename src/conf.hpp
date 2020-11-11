@@ -15,6 +15,15 @@ namespace conf
     // Typedef to represent ip address and port pair.
     typedef std::pair<std::string, uint16_t> ip_port_pair;
 
+    // Struct to represent information about a peer.
+    struct peer_properties
+    {
+        std::string host_address;
+        uint16_t port;
+        uint16_t capacity;
+        uint64_t timestamp;
+    };
+
     // The operating mode of the contract node.
     enum OPERATING_MODE
     {
@@ -71,7 +80,7 @@ namespace conf
         std::string binargs;                                    // CLI arguments to pass to the contract binary
         std::string appbill;                                    // binary to execute for appbill
         std::string appbillargs;                                // any arguments to supply to appbill binary by default
-        std::set<ip_port_pair> peers;                           // Set of peers keyed by "<ip address>:<port>" concatenated format
+        std::list<peer_properties> peers;                           // Set of peers with host address, timestamp, capacity
         std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)
         uint16_t peerport = 0;                                  // Listening port for peer connections
         uint16_t roundtime = 0;                                 // Consensus round time in ms
@@ -88,6 +97,7 @@ namespace conf
         uint64_t peermaxbadmpm = 0;   // Peer bad messages per minute
         uint64_t peermaxbadsigpm = 0; // Peer bad signatures per minute
         uint16_t peermaxcons = 0;     // Max inbound peer connections
+        uint16_t peermaxknowncons = 0;     // Max inbound peer connections
 
         bool msgforwarding = false; // Whether peer message forwarding is on/off.
 

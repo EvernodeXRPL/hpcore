@@ -37,6 +37,8 @@ namespace msg::fbuf::p2pmsg
     const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg);
 
     const p2p::state_request create_state_request_from_msg(const State_Request_Message &msg);
+    
+    const std::list<conf::peer_properties> create_peer_list_response_from_msg(const Peer_List_Response_Message &msg);
 
     //---Message creation helpers---//
     void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &container_builder, const std::string &challenge);
@@ -68,6 +70,12 @@ namespace msg::fbuf::p2pmsg
     void create_containermsg_from_content(
         flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign);
 
+    void create_msg_from_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl);
+
+    void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &container_builder, std::string_view lcl);
+
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::list<conf::peer_properties> peer_list, std::string_view lcl);
+
     //---Conversion helpers from flatbuffers data types to std data types---//
 
     const std::unordered_map<std::string, std::list<usr::user_input>>
@@ -81,8 +89,14 @@ namespace msg::fbuf::p2pmsg
     const std::map<uint64_t, const p2p::history_ledger>
     flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *fbvec);
 
+    const std::list<conf::peer_properties>
+    flatbuf_peer_propertieslist_to_peer_propertieslist(const flatbuffers::Vector<flatbuffers::Offset<Peer_Properies>> *fbvec);
+
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
     historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map);
+
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properies>>>
+    peer_propertieslist_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::list<conf::peer_properties> &peer_list);
 
     void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries,
                                                       const flatbuffers::Vector<flatbuffers::Offset<State_FS_Hash_Entry>> *fhashes);
@@ -94,8 +108,6 @@ namespace msg::fbuf::p2pmsg
     statefshashentry_to_flatbuff_statefshashentry(
         flatbuffers::FlatBufferBuilder &builder,
         std::vector<hpfs::child_hash_node> &hash_nodes);
-
-    void create_msg_for_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl);
 
 } // namespace msg::fbuf::p2pmsg
 

@@ -103,7 +103,15 @@ namespace p2p
             return 0;
         }
 
-        if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
+        if (content_message_type == p2pmsg::Message_Peer_List_Response_Message) // This message is the peer list response message.
+        {
+            handle_peer_list_response_message(container, content);
+        }
+        else if (content_message_type == p2pmsg::Message_Peer_List_Request_Message) // This message is the peer list request message.
+        {
+            handle_peer_list_request_message(session);
+        }
+        else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
         {
             const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
             session.is_weakly_connected = announcement_msg->is_weakly_connected();
@@ -243,6 +251,17 @@ namespace p2p
         {
             LOG_DEBUG << "NPL message from self enqueue failure.";
         }
+    }
+
+    void handle_peer_list_response_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    {
+        std::list<conf::peer_properties> peer_list = p2pmsg::create_peer_list_response_from_msg(*content->message_as_Peer_List_Response_Message());
+        p2p::merge_peer_list(peer_list);
+    }
+
+    void handle_peer_list_request_message(peer_comm_session &session)
+    {
+        p2p::send_known_peer_list(&session);
     }
 
     //peer session on message callback method

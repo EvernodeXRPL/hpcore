@@ -252,7 +252,15 @@ namespace conf
                 return -1;
             }
 
-            cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
+            //cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
+            
+            peer_properties peer;
+            peer.host_address = splitted_peers.front();
+            peer.port = std::stoi(splitted_peers.back());
+            peer.timestamp = 0;
+            peer.capacity = 0;
+
+            cfg.peers.push_back(peer);
             splitted_peers.clear();
         }
 
@@ -288,6 +296,7 @@ namespace conf
         cfg.peermaxbadmpm = d["peermaxbadmpm"].as<uint64_t>();
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
+        cfg.peermaxknowncons = d["peermaxknowncons"].as<unsigned int>();
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
 
@@ -326,7 +335,7 @@ namespace conf
         jsoncons::ojson peers(jsoncons::json_array_arg);
         for (const auto &ipport_pair : cfg.peers)
         {
-            const std::string concat_str = std::string(ipport_pair.first).append(":").append(std::to_string(ipport_pair.second));
+            const std::string concat_str = std::string(ipport_pair.host_address).append(":").append(std::to_string(ipport_pair.port));
             peers.push_back(concat_str);
         }
         d.insert_or_assign("peers", peers);
@@ -358,6 +367,7 @@ namespace conf
         d.insert_or_assign("peermaxbadmpm", cfg.peermaxbadmpm);
         d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
+        d.insert_or_assign("peermaxknowncons", cfg.peermaxknowncons);
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
 

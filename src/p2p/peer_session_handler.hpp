@@ -17,6 +17,8 @@ namespace p2p
     void handle_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content);
     void handle_nonunl_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content);
     void handle_npl_message(const p2pmsg::Container *container, const p2pmsg::Content *content);
+    void handle_peer_list_response_message(const p2pmsg::Container *container, const p2pmsg::Content *content);
+    void handle_peer_list_request_message(p2p::peer_comm_session &session);
 
 } // namespace p2p
 #endif

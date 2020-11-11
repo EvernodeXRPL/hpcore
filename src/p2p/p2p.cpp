@@ -114,8 +114,8 @@ namespace p2p
                 if (replace_needed)
                 {
                     // If we happen to replace a peer session with known IP, transfer required details to the new session.
-                    if (session.known_ipport.first.empty())
-                        session.known_ipport.swap(ex_session.known_ipport);
+                    if (session.known_ipport.host_address.empty())
+                        session.known_ipport = ex_session.known_ipport;
                     session.uniqueid.swap(pubkeyhex);
                     session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
 
@@ -129,10 +129,10 @@ namespace p2p
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
                     return 0;
                 }
-                else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
+                else if (ex_session.known_ipport.host_address.empty() || !session.known_ipport.host_address.empty())
                 {
                     // If we have any known ip-port info from the new session, transfer them to the existing session.
-                    ex_session.known_ipport.swap(session.known_ipport);
+                    ex_session.known_ipport = session.known_ipport;
                     LOG_DEBUG << "Merging new connection [" << session.display_name() << "] with [" << ex_session.display_name() << "]";
                 }
             }
@@ -267,8 +267,46 @@ namespace p2p
      */
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected)
     {
-        msg::fbuf::p2pmsg::create_msg_for_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
+        msg::fbuf::p2pmsg::create_msg_from_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
         broadcast_message(fbuf, false);
+    }
+
+    /**
+     * Send known peer list to a given peer.
+     * @param session Session to be sent the peers.
+     */
+    void send_known_peer_list(peer_comm_session *session)
+    {
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, ledger::ctx.get_lcl());
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+
+        session->send(msg);
+    }
+
+    void send_peer_list_request()
+    {
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        msg::fbuf::p2pmsg::create_msg_from_peer_list_request(fbuf, ledger::ctx.get_lcl());
+        std::string target_pubkey;
+        send_message_to_random_peer(fbuf, target_pubkey);
+        LOG_INFO << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";
+    }
+
+    void merge_peer_list(std::list<conf::peer_properties> peer_list)
+    {
+        for (const conf::peer_properties &peer : peer_list)
+        {
+            std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
+
+            if (std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
+                             [&](const conf::peer_properties &p) { return p.host_address == peer.host_address; }) == ctx.server->req_known_remotes.end())
+            {
+                ctx.server->req_known_remotes.push_back(peer);
+                LOG_INFO << "Adding " + peer.host_address + " to the known peer list";
+            }
+        }
     }
 
 } // namespace p2p

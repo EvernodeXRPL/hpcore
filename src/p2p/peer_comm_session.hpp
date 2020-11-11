@@ -20,7 +20,7 @@ namespace p2p
         void handle_close();
 
     public:
-        conf::ip_port_pair known_ipport;  // A known ip/port information that matches with our peer list configuration.
+        conf::peer_properties known_ipport;  // A known ip/port information that matches with our peer list configuration.
         bool is_weakly_connected = false; // Holds whether this node is weakly connected to the other nodes.
         const std::string display_name();
     };
