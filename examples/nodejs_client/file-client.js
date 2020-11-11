@@ -1,35 +1,21 @@
 const fs = require('fs');
 const readline = require('readline');
-const sodium = require('libsodium-wrappers');
 const { exit } = require('process');
-const { HotPocketClient, HotPocketProtocols, HotPocketEvents } = require('./hp-client-lib');
 const bson = require('bson');
 var path = require("path");
+const { HotPocketClient, HotPocketKeyGenerator, HotPocketEvents } = require('./hp-client-lib');
 
 async function main() {
 
-    await sodium.ready;
+    const keys = await HotPocketKeyGenerator.generate();
 
-    let keys = {};
-    const key_file = '.hp_client_keys';
-    if (!fs.existsSync(key_file)) {
-        keys = sodium.crypto_sign_keypair();
-        keys.privateKey = sodium.to_hex(keys.privateKey)
-        keys.publicKey = sodium.to_hex(keys.publicKey)
-        fs.writeFileSync(key_file, JSON.stringify(keys))
-    } else {
-        keys = JSON.parse(fs.readFileSync(key_file))
-        keys.privateKey = Uint8Array.from(Buffer.from(keys.privateKey, 'hex'))
-        keys.publicKey = Uint8Array.from(Buffer.from(keys.publicKey, 'hex'))
-    }
-
-    const pkhex = 'ed' + Buffer.from(keys.publicKey).toString('hex');
+    const pkhex = Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
 
     let server = 'wss://localhost:8080'
     if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
     if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-    const hpc = new HotPocketClient(server, HotPocketProtocols.BSON, keys);
+    const hpc = new HotPocketClient(server, keys);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
