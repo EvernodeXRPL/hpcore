@@ -26,16 +26,39 @@ namespace ledger
     int init()
     {
         // Filename list of the history folder.
-        std::list<std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);
+        std::list<const std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);
         // Sorting to make filenames in seq_no order.
-        sorted_folder_entries.sort([](std::string &a, std::string &b) {
-            const uint64_t seq_no_a = std::stoull(a.substr(0, a.find("-")));
-            const uint64_t seq_no_b = std::stoull(b.substr(0, b.find("-")));
+        try
+        {
+            sorted_folder_entries.sort([](const std::string &a, const std::string &b) {
+                uint64_t seq_no_a;
+                uint64_t seq_no_b;
+                if (util::stoull(a.substr(0, a.find("-")), seq_no_a) == -1 || util::stoull(b.substr(0, b.find("-")), seq_no_b) == -1)
+                {
+                    throw "Lcl file parsing error";
+                }
+                const std::string_view extension_a = util::fetch_file_extension(conf::ctx.hist_dir + a);
+                if (extension_a != ".lcl")
+                {
+                    throw "Found invalid file extension: " + std::string(extension_a) + " for lcl file " + a + " in " + conf::ctx.hist_dir;
+                }
+                const std::string_view extension_b = util::fetch_file_extension(conf::ctx.hist_dir + b);
+                if (extension_b != ".lcl")
+                {
+                    // throw message;
+                    throw "Found invalid file extension: " + std::string(extension_b) + " for lcl file " + b + " in " + conf::ctx.hist_dir;
+                }
+                return seq_no_a < seq_no_b;
+            });
+        }
+        catch (std::string message)
+        {
+            LOG_ERROR << message;
+            return -1;
+        }
 
-            return seq_no_a < seq_no_b;
-        });
-        // Temporary buffer to store previous round buffer lcl folder traversal.
-        std::vector<uint8_t> previous_ledger_buffer;
+        std::string previous_block_lcl;
+        uint64_t previous_block_seq_no;
         // Get all records at lcl history direcory and find the last closed ledger.
         for (const auto &entry : sorted_folder_entries)
         {
@@ -48,19 +71,18 @@ namespace ledger
             }
             else
             {
-                const std::string_view extension = util::fetch_file_extension(file_path);
                 const std::string file_name(util::remove_file_extension(entry));
-
-                if (extension != ".lcl")
-                {
-                    LOG_ERROR << "Found invalid file extension: " << extension << " for lcl file " << entry << " in " << conf::ctx.hist_dir;
-                    return -1;
-                }
 
                 const size_t pos = file_name.find("-");
 
                 if (pos != std::string::npos)
                 {
+                    uint64_t seq_no;
+                    if (util::stoull(file_name.substr(0, pos), seq_no) == -1)
+                    {
+                        LOG_ERROR << "Found invalid sequence number in lcl file " << entry << " in " << conf::ctx.hist_dir;
+                        return -1;
+                    }
                     std::vector<uint8_t> buffer;
                     if (read_ledger(file_path, buffer) == -1)
                         return -1;
@@ -70,30 +92,25 @@ namespace ledger
                         LOG_ERROR << "Ledger data verification failed. " << file_name;
                         return -1;
                     }
-                    if (!perform_individual_ledger_integrity_check(file_name, buffer))
+                    if (!check_block_integrity(file_name, buffer))
                     {
-                        LOG_ERROR << "lcl sync: Ledger item integrity check failed. " << file_name;
+                        LOG_ERROR << "Ledger block integrity check failed. " << file_name;
                         return -1;
                     }
 
-                    // Ledger chain integrity check.
-                    if (previous_ledger_buffer.empty())
+                    // Ledger integrity check.
+                    if (!previous_block_lcl.empty())
                     {
-                        // First node in the ledger chain.
-                        previous_ledger_buffer = buffer;
-                    }
-                    else
-                    {
-                        p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger(buffer);
-                        if (!perform_individual_ledger_integrity_check(proposal.lcl, previous_ledger_buffer))
+                        const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger(buffer);
+                        if ((seq_no - previous_block_seq_no != 1) && (previous_block_lcl != proposal.lcl))
                         {
-                            LOG_ERROR << "lcl sync: Ledger chain integrity check failed on lcl loading from disk.";
+                            LOG_ERROR << "Ledger block chain-link verification failed. " << file_name;
                             return -1;
                         }
-                        previous_ledger_buffer = buffer;
                     }
+                    previous_block_lcl = file_name;
+                    previous_block_seq_no = seq_no;
 
-                    const uint64_t seq_no = std::stoull(file_name.substr(0, pos));
                     ctx.cache.emplace(seq_no, std::move(file_name)); // cache -> [seq_no - hash]
                 }
                 else
@@ -104,9 +121,6 @@ namespace ledger
                 }
             }
         }
-
-        // Clearing previous ledger buffer stored for integrity check.
-        previous_ledger_buffer.clear();
 
         // Check if there is a saved lcl file -> if no send genesis lcl.
         if (ctx.cache.empty())
@@ -290,10 +304,9 @@ namespace ledger
         const size_t pos = proposal.lcl.find("-");
         uint64_t seq_no = 0;
 
-        if (pos != std::string::npos)
+        if (pos != std::string::npos && util::stoull(proposal.lcl.substr(0, pos), seq_no) != -1)
         {
-            seq_no = std::stoull(proposal.lcl.substr(0, pos)); // Get lcl sequence number.
-            seq_no++;                                          // New lcl sequence number.
+            seq_no++; // New lcl sequence number.
         }
         else
         {
@@ -483,7 +496,12 @@ namespace ledger
         // Get sequence number of required lcl
         if (pos != std::string::npos)
         {
-            req_seq_no = std::stoull(required_lcl.substr(0, pos)); // Get required lcl sequence number
+            // Get required lcl sequence number
+            if (util::stoull(required_lcl.substr(0, pos), req_seq_no) == -1)
+            {
+                LOG_ERROR << "Retrieving seq_no from required_lcl failed";
+                return -1;
+            }
         }
 
         if (req_seq_no > 0)
@@ -530,7 +548,11 @@ namespace ledger
         // We put the requester's own lcl back in the response so they can validate the liveliness of the response.
         history_response.requester_lcl = hr.minimum_lcl;
 
-        uint64_t min_seq_no = std::stoull(hr.minimum_lcl.substr(0, pos)); // Get required lcl sequence number
+        uint64_t min_seq_no;
+        if (util::stoull(hr.minimum_lcl.substr(0, pos), min_seq_no) == -1) // Get required lcl sequence number.
+        {
+            LOG_ERROR << "lcl serve: Retrieving minimum ledger sequence no failed. Requested: " << hr.minimum_lcl;
+        }
 
         const auto itr = ctx.cache.find(min_seq_no);
         if (itr != ctx.cache.end()) // Requested minimum lcl is not in our lcl history cache
@@ -629,53 +651,46 @@ namespace ledger
             // Check integrity of recieved lcl list.
             // By checking recieved lcl hashes matches lcl content by applying hashing for each raw content.
             // TODO: Also verify chain hashes.
-            std::vector<uint8_t> previous_history_buffer;
-            bool performed_chain_join_check = false;
+            std::string previous_history_block_lcl;
+            uint64_t previous_history_block_seq_no;
             for (auto &[seq_no, ledger] : hr.hist_ledgers)
             {
                 // Individually check each ledger entry's integrity before the chain check.
-                if (!perform_individual_ledger_integrity_check(ledger.lcl, ledger.raw_ledger))
+                if (!check_block_integrity(ledger.lcl, ledger.raw_ledger))
                 {
                     LOG_DEBUG << "lcl sync: Peer sent us a history response but the ledger data does not match the hashes.";
                     // todo: we should penalize peer who sent this.
                     return -1;
                 }
-                // Performing chain history joining check.
-                if (!performed_chain_join_check)
-                {
-                    if (!ctx.cache.empty())
-                    {
-                        p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger(ledger.raw_ledger);
-                        // Has to find the hash of right ledger node from cache relavent to the first history node.
-                        const auto cache_last_ledger = ctx.cache.find(seq_no - 1);
-                        if (cache_last_ledger != ctx.cache.end())
-                        {
-                            if (history_first_proposal.lcl != cache_last_ledger->second)
-                            {
-                                LOG_ERROR << "lcl sync: Ledger chain integrity check at history joining point failed";
-                                // todo: we should penalize peer who sent this.
-                                return -1;
-                            }
-                        }
-                        performed_chain_join_check = true;
-                    }
-                }
 
-                // Performing chain integrity of the history ledgers sent.
-                if (previous_history_buffer.empty())
+                // Ledger integrity check.
+                if (!previous_history_block_lcl.empty())
                 {
-                    previous_history_buffer = ledger.raw_ledger;
-                }
-                else
-                {
-                    p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger(ledger.raw_ledger);
-                    if (!perform_individual_ledger_integrity_check(proposal.lcl, previous_history_buffer))
+                    const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger(ledger.raw_ledger);
+                    if ((seq_no - previous_history_block_seq_no != 1) && (previous_history_block_lcl != proposal.lcl))
                     {
-                        LOG_ERROR << "lcl sync: Ledger chain integrity check failed.";
-                        // todo: we should penalize peer who sent this.
+                        LOG_ERROR << "Ledger block chain-link verification failed. " << ledger.lcl;
                         return -1;
                     }
-                    previous_history_buffer = ledger.raw_ledger;
+                }
+                previous_history_block_lcl = ledger.lcl;
+                previous_history_block_seq_no = seq_no;
+            }
+        }
+
+        // Performing ledger history joining check.
+        if (!ctx.cache.empty())
+        {
+            const auto history_itr = hr.hist_ledgers.begin();
+            const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger(history_itr->second.raw_ledger);
+            // Has to find the hash of right ledger node from cache relavent to the first history node.
+            const auto cache_last_ledger = ctx.cache.find(history_itr->first - 1);
+            if (cache_last_ledger != ctx.cache.end())
+            {
+                if ((history_itr->first - cache_last_ledger->first != 1) && (history_first_proposal.lcl != cache_last_ledger->second))
+                {
+                    LOG_ERROR << "lcl sync: Ledger integrity check at history joining point failed";
+                    return -1;
                 }
             }
         }
@@ -708,23 +723,22 @@ namespace ledger
      * @param raw_ledger ledger.
      * @return true if the integrity check passes and false otherwise.
      */
-    bool perform_individual_ledger_integrity_check(std::string_view lcl, const std::vector<uint8_t> &raw_ledger)
+    bool check_block_integrity(std::string_view lcl, const std::vector<uint8_t> &raw_ledger)
     {
         const size_t pos = lcl.find("-");
-        std::string_view rec_lcl_hash = lcl.substr((pos + 1), (lcl.size() - 1));
+        std::string_view supplied_lcl_hash = lcl.substr((pos + 1), (lcl.size() - 1));
 
         // Get binary hash of the serialized lcl.
-        const std::string binary_lcl = crypto::get_hash(raw_ledger.data(), raw_ledger.size());
+        const std::string binary_lcl_hash = crypto::get_hash(raw_ledger.data(), raw_ledger.size());
 
         // Get hex from binary hash.
         std::string lcl_hash;
 
         util::bin2hex(lcl_hash,
-                      reinterpret_cast<const unsigned char *>(binary_lcl.data()),
-                      binary_lcl.size());
+                      reinterpret_cast<const unsigned char *>(binary_lcl_hash.data()),
+                      binary_lcl_hash.size());
 
-        // Recieved lcl hash and hash generated from recieved lcl content doesn't match -> abandon applying it.
-        return lcl_hash == rec_lcl_hash;
+        return lcl_hash == supplied_lcl_hash;
     }
 
 } // namespace ledger
