@@ -26,34 +26,10 @@ namespace ledger
     int init()
     {
         // Filename list of the history folder.
-        std::list<const std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);
+        std::list<std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);
         // Sorting to make filenames in seq_no order.
-        try
+        if (sort_lcl_filenames_and_validate(sorted_folder_entries) == -1)
         {
-            sorted_folder_entries.sort([](const std::string &a, const std::string &b) {
-                uint64_t seq_no_a;
-                uint64_t seq_no_b;
-                if (util::stoull(a.substr(0, a.find("-")), seq_no_a) == -1 || util::stoull(b.substr(0, b.find("-")), seq_no_b) == -1)
-                {
-                    throw "Lcl file parsing error";
-                }
-                const std::string_view extension_a = util::fetch_file_extension(conf::ctx.hist_dir + a);
-                if (extension_a != ".lcl")
-                {
-                    throw "Found invalid file extension: " + std::string(extension_a) + " for lcl file " + a + " in " + conf::ctx.hist_dir;
-                }
-                const std::string_view extension_b = util::fetch_file_extension(conf::ctx.hist_dir + b);
-                if (extension_b != ".lcl")
-                {
-                    // throw message;
-                    throw "Found invalid file extension: " + std::string(extension_b) + " for lcl file " + b + " in " + conf::ctx.hist_dir;
-                }
-                return seq_no_a < seq_no_b;
-            });
-        }
-        catch (std::string message)
-        {
-            LOG_ERROR << message;
             return -1;
         }
 
@@ -683,11 +659,25 @@ namespace ledger
         {
             const auto history_itr = hr.hist_ledgers.begin();
             const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger(history_itr->second.raw_ledger);
-            // Has to find the hash of right ledger node from cache relavent to the first history node.
-            const auto cache_last_ledger = ctx.cache.find(history_itr->first - 1);
-            if (cache_last_ledger != ctx.cache.end())
+
+            // Removing ledger blocks upto the received histroy response starting point.
+            const auto reverse_history_ptr = std::make_reverse_iterator(ctx.cache.find(history_itr->first));
+            if (reverse_history_ptr != ctx.cache.rend())
             {
-                if ((history_itr->first - cache_last_ledger->first != 1) && (history_first_proposal.lcl != cache_last_ledger->second))
+                // If cache ledger and history ledger are overlapping, remove blocks from end until the
+                // cache end at the state where history ledger can be straightly joined.
+                auto it = ctx.cache.rbegin();
+                while (it != reverse_history_ptr)
+                {
+                    remove_ledger(it->second);
+                    // Erase function advance the iteratior.
+                    ctx.cache.erase((--it).base());
+                }
+
+                auto &[cache_seq_no, cache_lcl] = get_ledger_cache_top();
+
+                // Comparing the sequence number and the lcl to validate the joining point.
+                if ((history_itr->first - cache_seq_no != 1) && (history_first_proposal.lcl != cache_lcl))
                 {
                     LOG_ERROR << "lcl sync: Ledger integrity check at history joining point failed";
                     return -1;
@@ -697,16 +687,8 @@ namespace ledger
 
         // Execution to here means the history data sent checks out.
         // Save recieved lcl in file system and update lcl history cache.
-        // TODO: Verify chain hashes at the point of joining with our existing history.
         for (auto &[seq_no, ledger] : hr.hist_ledgers)
         {
-            auto prev_dup_itr = ctx.cache.find(seq_no);
-            if (prev_dup_itr != ctx.cache.end())
-            {
-                remove_ledger(prev_dup_itr->second);
-                ctx.cache.erase(prev_dup_itr);
-            }
-
             write_ledger(ledger.lcl, ledger.raw_ledger.data(), ledger.raw_ledger.size());
             ctx.cache.emplace(seq_no, ledger.lcl);
         }
@@ -739,6 +721,47 @@ namespace ledger
                       binary_lcl_hash.size());
 
         return lcl_hash == supplied_lcl_hash;
+    }
+
+    /**
+     * Sorting given lcl filename list in sequence number order and validate filenames.
+     * @param list List of lcl filenames.
+     * @return 0 if success and -1 on error.
+    */
+    int sort_lcl_filenames_and_validate(std::list<std::string> &list)
+    {
+        try
+        {
+            list.sort([](std::string &a, std::string &b) {
+                uint64_t seq_no_a;
+                uint64_t seq_no_b;
+                if (util::stoull(a.substr(0, a.find("-")), seq_no_a) == -1)
+                {
+                    throw "Lcl file parsing error in file " + a + " in " + conf::ctx.hist_dir;
+                }
+                if (util::stoull(b.substr(0, b.find("-")), seq_no_b) == -1)
+                {
+                    throw "Lcl file parsing error in file " + b + " in " + conf::ctx.hist_dir;
+                }
+                const std::string_view extension_a = util::fetch_file_extension(conf::ctx.hist_dir + a);
+                if (extension_a != ".lcl")
+                {
+                    throw "Found invalid file extension: " + std::string(extension_a) + " for lcl file " + a + " in " + conf::ctx.hist_dir;
+                }
+                const std::string_view extension_b = util::fetch_file_extension(conf::ctx.hist_dir + b);
+                if (extension_b != ".lcl")
+                {
+                    throw "Found invalid file extension: " + std::string(extension_b) + " for lcl file " + b + " in " + conf::ctx.hist_dir;
+                }
+                return seq_no_a < seq_no_b;
+            });
+            return 0;
+        }
+        catch (std::string message)
+        {
+            LOG_ERROR << message;
+            return -1;
+        }
     }
 
 } // namespace ledger

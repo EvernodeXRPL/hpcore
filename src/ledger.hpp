@@ -95,6 +95,8 @@ namespace ledger
 
     bool check_block_integrity(std::string_view lcl, const std::vector<uint8_t> &raw_ledger);
 
+    int sort_lcl_filenames_and_validate(std::list<std::string> &list);
+
 } // namespace ledger
 
 #endif
