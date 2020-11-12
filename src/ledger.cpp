@@ -63,7 +63,7 @@ namespace ledger
                     if (read_ledger(file_path, buffer) == -1)
                         return -1;
 
-                    if (!msg::fbuf::ledger::verify_ledger_buffer(buffer.data(), buffer.size()))
+                    if (!msg::fbuf::ledger::verify_ledger_block_buffer(buffer.data(), buffer.size()))
                     {
                         LOG_ERROR << "Ledger data verification failed. " << file_name;
                         return -1;
@@ -77,7 +77,7 @@ namespace ledger
                     // Ledger integrity check.
                     if (!previous_block_lcl.empty())
                     {
-                        const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger(buffer);
+                        const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(buffer);
                         if ((seq_no - previous_block_seq_no != 1) && (previous_block_lcl != proposal.lcl))
                         {
                             LOG_ERROR << "Ledger block chain-link verification failed. " << file_name;
@@ -291,9 +291,9 @@ namespace ledger
             return -1;
         }
 
-        // Serialize lcl using flatbuffer ledger schema.
+        // Serialize lcl using flatbuffer ledger block schema.
         flatbuffers::FlatBufferBuilder builder(1024);
-        msg::fbuf::ledger::create_ledger_from_proposal(builder, proposal, seq_no);
+        msg::fbuf::ledger::create_ledger_block_from_proposal(builder, proposal, seq_no);
 
         // Get binary hash of the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
@@ -639,10 +639,10 @@ namespace ledger
                     return -1;
                 }
 
-                // Ledger integrity check.
+                // Ledger chain integrity check.
                 if (!previous_history_block_lcl.empty())
                 {
-                    const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger(ledger.raw_ledger);
+                    const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(ledger.raw_ledger);
                     if ((seq_no - previous_history_block_seq_no != 1) && (previous_history_block_lcl != proposal.lcl))
                     {
                         LOG_ERROR << "Ledger block chain-link verification failed. " << ledger.lcl;
@@ -658,7 +658,7 @@ namespace ledger
         if (!ctx.cache.empty())
         {
             const auto history_itr = hr.hist_ledgers.begin();
-            const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger(history_itr->second.raw_ledger);
+            const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(history_itr->second.raw_ledger);
 
             // Removing ledger blocks upto the received histroy response starting point.
             const auto reverse_history_ptr = std::make_reverse_iterator(ctx.cache.find(history_itr->first));
