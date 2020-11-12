@@ -567,18 +567,18 @@ namespace ledger
         //Get raw content of lcls that going to be send.
         for (const auto &[seq_no, lcl] : led_cache)
         {
-            p2p::history_ledger ledger;
+            p2p::history_ledger_block ledger;
             ledger.lcl = lcl;
 
             // Read lcl file.
             const std::string file_path = conf::ctx.hist_dir + "/" + lcl + ".lcl";
-            if (read_ledger(file_path, ledger.raw_ledger) == -1)
+            if (read_ledger(file_path, ledger.block_buffer) == -1)
             {
                 LOG_DEBUG << "lcl serve: Error when reading ledger file.";
                 return -1;
             }
 
-            history_response.hist_ledgers.emplace(seq_no, std::move(ledger));
+            history_response.hist_ledger_blocks.emplace(seq_no, std::move(ledger));
         }
 
         return 0;
@@ -609,7 +609,7 @@ namespace ledger
         {
             // Check whether recieved lcl history contains the current lcl node required.
             bool contains_requested_lcl = false;
-            for (auto &[seq_no, ledger] : hr.hist_ledgers)
+            for (auto &[seq_no, ledger] : hr.hist_ledger_blocks)
             {
                 if (sync_ctx.target_lcl == ledger.lcl)
                 {
@@ -629,10 +629,10 @@ namespace ledger
             // TODO: Also verify chain hashes.
             std::string previous_history_block_lcl;
             uint64_t previous_history_block_seq_no;
-            for (auto &[seq_no, ledger] : hr.hist_ledgers)
+            for (auto &[seq_no, ledger] : hr.hist_ledger_blocks)
             {
                 // Individually check each ledger entry's integrity before the chain check.
-                if (!check_block_integrity(ledger.lcl, ledger.raw_ledger))
+                if (!check_block_integrity(ledger.lcl, ledger.block_buffer))
                 {
                     LOG_DEBUG << "lcl sync: Peer sent us a history response but the ledger data does not match the hashes.";
                     // todo: we should penalize peer who sent this.
@@ -642,7 +642,7 @@ namespace ledger
                 // Ledger chain integrity check.
                 if (!previous_history_block_lcl.empty())
                 {
-                    const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(ledger.raw_ledger);
+                    const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(ledger.block_buffer);
                     if ((seq_no - previous_history_block_seq_no != 1) && (previous_history_block_lcl != proposal.lcl))
                     {
                         LOG_ERROR << "Ledger block chain-link verification failed. " << ledger.lcl;
@@ -657,8 +657,8 @@ namespace ledger
         // Performing ledger history joining check.
         if (!ctx.cache.empty())
         {
-            const auto history_itr = hr.hist_ledgers.begin();
-            const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(history_itr->second.raw_ledger);
+            const auto history_itr = hr.hist_ledger_blocks.begin();
+            const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(history_itr->second.block_buffer);
 
             // Removing ledger blocks upto the received histroy response starting point.
             const auto reverse_history_ptr = std::make_reverse_iterator(ctx.cache.find(history_itr->first));
@@ -687,9 +687,9 @@ namespace ledger
 
         // Execution to here means the history data sent checks out.
         // Save recieved lcl in file system and update lcl history cache.
-        for (auto &[seq_no, ledger] : hr.hist_ledgers)
+        for (auto &[seq_no, ledger] : hr.hist_ledger_blocks)
         {
-            write_ledger(ledger.lcl, ledger.raw_ledger.data(), ledger.raw_ledger.size());
+            write_ledger(ledger.lcl, ledger.block_buffer.data(), ledger.block_buffer.size());
             ctx.cache.emplace(seq_no, ledger.lcl);
         }
 
@@ -705,13 +705,13 @@ namespace ledger
      * @param raw_ledger ledger.
      * @return true if the integrity check passes and false otherwise.
      */
-    bool check_block_integrity(std::string_view lcl, const std::vector<uint8_t> &raw_ledger)
+    bool check_block_integrity(std::string_view lcl, const std::vector<uint8_t> &block_buffer)
     {
         const size_t pos = lcl.find("-");
         std::string_view supplied_lcl_hash = lcl.substr((pos + 1), (lcl.size() - 1));
 
         // Get binary hash of the serialized lcl.
-        const std::string binary_lcl_hash = crypto::get_hash(raw_ledger.data(), raw_ledger.size());
+        const std::string binary_lcl_hash = crypto::get_hash(block_buffer.data(), block_buffer.size());
 
         // Get hex from binary hash.
         std::string lcl_hash;
