@@ -23,10 +23,11 @@ namespace p2p
         void custom_connections();
 
     public:
+        std::atomic<uint16_t> available_capacity = 1000;
         std::mutex req_known_remotes_mutex;
-        std::list<conf::peer_properties> &req_known_remotes;
+        std::vector<conf::peer_properties> &req_known_remotes;
         peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
-                         const uint64_t max_msg_size, std::list<conf::peer_properties> &req_known_remotes);
+                         const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes);
     };
 } // namespace p2p
 

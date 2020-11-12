@@ -86,8 +86,10 @@ namespace conf
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
         cfg.pubport = 8080;
+        cfg.peerdiscoverytime = 1000;
 
         cfg.msgforwarding = false;
+        cfg.dynamicpeerdiscovery = false;
 
 #ifndef NDEBUG
         cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -252,11 +254,9 @@ namespace conf
                 return -1;
             }
 
-            //cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
-            
             peer_properties peer;
-            peer.host_address = splitted_peers.front();
-            peer.port = std::stoi(splitted_peers.back());
+            peer.ip_port.host_address = splitted_peers.front();
+            peer.ip_port.port = std::stoi(splitted_peers.back());
             peer.timestamp = 0;
             peer.capacity = 0;
 
@@ -284,6 +284,7 @@ namespace conf
         cfg.peerport = d["peerport"].as<int>();
         cfg.pubport = d["pubport"].as<int>();
         cfg.roundtime = d["roundtime"].as<int>();
+        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<int>();
 
         cfg.pubmaxsize = d["pubmaxsize"].as<uint64_t>();
         cfg.pubmaxcpm = d["pubmaxcpm"].as<uint64_t>();
@@ -299,6 +300,7 @@ namespace conf
         cfg.peermaxknowncons = d["peermaxknowncons"].as<unsigned int>();
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
+        cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
@@ -333,9 +335,9 @@ namespace conf
         d.insert_or_assign("appbillargs", cfg.appbillargs.data());
 
         jsoncons::ojson peers(jsoncons::json_array_arg);
-        for (const auto &ipport_pair : cfg.peers)
+        for (const auto &peer : cfg.peers)
         {
-            const std::string concat_str = std::string(ipport_pair.host_address).append(":").append(std::to_string(ipport_pair.port));
+            const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
             peers.push_back(concat_str);
         }
         d.insert_or_assign("peers", peers);
@@ -355,6 +357,7 @@ namespace conf
         d.insert_or_assign("peerport", cfg.peerport);
         d.insert_or_assign("pubport", cfg.pubport);
         d.insert_or_assign("roundtime", cfg.roundtime);
+        d.insert_or_assign("peerdiscoverytime", cfg.peerdiscoverytime);
 
         d.insert_or_assign("pubmaxsize", cfg.pubmaxsize);
         d.insert_or_assign("pubmaxcpm", cfg.pubmaxcpm);
@@ -370,6 +373,7 @@ namespace conf
         d.insert_or_assign("peermaxknowncons", cfg.peermaxknowncons);
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
+        d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
 
         d.insert_or_assign("loglevel", cfg.loglevel);
 

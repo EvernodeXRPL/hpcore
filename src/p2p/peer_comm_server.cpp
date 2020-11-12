@@ -9,7 +9,7 @@
 namespace p2p
 {
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
-                                       const uint64_t max_msg_size, std::list<conf::peer_properties> &req_known_remotes)
+                                       const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes)
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size),
           req_known_remotes(req_known_remotes)
     {
@@ -67,24 +67,50 @@ namespace p2p
         while (!is_shutting_down)
         {
             // Find already connected known remote parties list.
-            std::list<conf::peer_properties> known_remotes;
+            std::vector<conf::ip_port_prop> known_remotes;
 
             {
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
                 for (const p2p::peer_comm_session &session : sessions)
                 {
-                    if (session.state != comm::SESSION_STATE::CLOSED && !session.known_ipport.host_address.empty())
-                        known_remotes.push_back(session.known_ipport);
+                    if (session.state != comm::SESSION_STATE::CLOSED && session.known_ipport.has_value())
+                        known_remotes.push_back(session.known_ipport.value());
                 }
             }
 
-            if (known_remotes.size() > 0) {
-                p2p::send_peer_list_request();
+            if (conf::cfg.peermaxcons == 0)
+            {
+                available_capacity = 1000;
+            }
+            else if (conf::cfg.peermaxknowncons == 0)
+            {
+                available_capacity = conf::cfg.peermaxcons - sessions.size();
+            }
+            else
+            {
+                available_capacity = conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - (sessions.size() - known_remotes.size());
             }
 
-            if (conf::cfg.peermaxknowncons != 0 && known_remotes.size() >= conf::cfg.peermaxknowncons)
+            p2p::send_available_capacity_announcement(available_capacity);
+
+            if (conf::cfg.dynamicpeerdiscovery)
             {
-                util::sleep(5000);
+                if (known_remotes.size() > 0)
+                {
+                    p2p::send_peer_list_request();
+                }
+
+                // If max known peer connection cap is reached then periodically request peer list from random known peer.
+                // Otherwise frequently request peer list from a random known peer.
+                // Peer discovery time interval can be configured in the config.
+                if (conf::cfg.peermaxknowncons != 0 && known_remotes.size() >= conf::cfg.peermaxknowncons)
+                {
+                    util::sleep(conf::cfg.peerdiscoverytime * 5);
+                }
+                else
+                {
+                    util::sleep(conf::cfg.peerdiscoverytime);
+                }
             }
             else
             {
@@ -98,60 +124,65 @@ namespace p2p
     void peer_comm_server::maintain_known_connections()
     {
         // Find already connected known remote parties list.
-        std::list<conf::peer_properties> known_remotes;
+        std::vector<conf::ip_port_prop> known_remotes;
 
         {
             std::scoped_lock<std::mutex> lock(sessions_mutex);
             for (const p2p::peer_comm_session &session : sessions)
             {
-                if (session.state != comm::SESSION_STATE::CLOSED && !session.known_ipport.host_address.empty())
-                    known_remotes.push_back(session.known_ipport);
+                if (session.state != comm::SESSION_STATE::CLOSED && session.known_ipport.has_value())
+                    known_remotes.push_back(session.known_ipport.value());
             }
         }
 
-        if (conf::cfg.peermaxknowncons == 0 || known_remotes.size() < conf::cfg.peermaxknowncons)
+        std::scoped_lock<std::mutex> lock(req_known_remotes_mutex);
+
+        for (const auto &peer : req_known_remotes)
         {
-            std::scoped_lock<std::mutex> lock(req_known_remotes_mutex);
+            if (is_shutting_down)
+                break;
 
-            for (const auto &ipport : req_known_remotes)
+            if (conf::cfg.peermaxknowncons != 0 && known_remotes.size() == conf::cfg.peermaxknowncons)
+                break;
+
+            if (conf::cfg.peermaxcons != 0 && sessions.size() == conf::cfg.peermaxcons)
+                break;
+
+            // Check if we are already connected to this remote party.
+            if (std::find_if(known_remotes.begin(), known_remotes.end(),
+                             [&](const conf::ip_port_prop &p) { return p.host_address == peer.ip_port.host_address && p.port == peer.ip_port.port; }) != known_remotes.end())
+                continue;
+
+            std::string_view host = peer.ip_port.host_address;
+            const uint16_t port = peer.ip_port.port;
+            LOG_DEBUG << "Trying to connect " << host << ":" << std::to_string(port);
+
+            std::variant<hpws::client, hpws::error> client_result = hpws::client::connect(conf::ctx.hpws_exe_path, max_msg_size, host, port, "/", {}, util::fork_detach);
+
+            if (std::holds_alternative<hpws::error>(client_result))
             {
-                if (is_shutting_down)
-                    break;
-
-                // Check if we are already connected to this remote party.
-                if (std::find_if(known_remotes.begin(), known_remotes.end(), [&](const conf::peer_properties &p) { return p.host_address == ipport.host_address; }) != known_remotes.end())
-                    continue;
-
-                std::string_view host = ipport.host_address;
-                const uint16_t port = ipport.port;
-                LOG_DEBUG << "Trying to connect " << host << ":" << std::to_string(port);
-
-                std::variant<hpws::client, hpws::error> client_result = hpws::client::connect(conf::ctx.hpws_exe_path, max_msg_size, host, port, "/", {}, util::fork_detach);
-
-                if (std::holds_alternative<hpws::error>(client_result))
+                const hpws::error error = std::get<hpws::error>(client_result);
+                if (error.first != 202)
+                    LOG_DEBUG << "Outbound connection hpws error:" << error.first << " " << error.second;
+            }
+            else
+            {
+                hpws::client client = std::move(std::get<hpws::client>(client_result));
+                const std::variant<std::string, hpws::error> host_result = client.host_address();
+                if (std::holds_alternative<hpws::error>(host_result))
                 {
-                    const hpws::error error = std::get<hpws::error>(client_result);
-                    if (error.first != 202)
-                        LOG_DEBUG << "Outbound connection hpws error:" << error.first << " " << error.second;
+                    const hpws::error error = std::get<hpws::error>(host_result);
+                    LOG_ERROR << "Error getting ip from hpws:" << error.first << " " << error.second;
                 }
                 else
                 {
-                    hpws::client client = std::move(std::get<hpws::client>(client_result));
-                    const std::variant<std::string, hpws::error> host_result = client.host_address();
-                    if (std::holds_alternative<hpws::error>(host_result))
-                    {
-                        const hpws::error error = std::get<hpws::error>(host_result);
-                        LOG_ERROR << "Error getting ip from hpws:" << error.first << " " << error.second;
-                    }
-                    else
-                    {
-                        const std::string &host_address = std::get<std::string>(host_result);
-                        p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
-                        session.known_ipport = ipport;
+                    const std::string &host_address = std::get<std::string>(host_result);
+                    p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
+                    session.known_ipport.emplace(peer.ip_port);
+                    known_remotes.push_back(peer.ip_port);
 
-                        std::scoped_lock<std::mutex> lock(new_sessions_mutex);
-                        new_sessions.emplace_back(std::move(session));
-                    }
+                    std::scoped_lock<std::mutex> lock(new_sessions_mutex);
+                    new_sessions.emplace_back(std::move(session));
                 }
             }
         }

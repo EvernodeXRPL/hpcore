@@ -105,11 +105,19 @@ namespace p2p
 
         if (content_message_type == p2pmsg::Message_Peer_List_Response_Message) // This message is the peer list response message.
         {
-            handle_peer_list_response_message(container, content);
+            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(*content->message_as_Peer_List_Response_Message()));
         }
         else if (content_message_type == p2pmsg::Message_Peer_List_Request_Message) // This message is the peer list request message.
         {
-            handle_peer_list_request_message(session);
+            p2p::send_known_peer_list(&session);
+        }
+        else if (content_message_type == p2pmsg::Message_Available_Capacity_Announcement_Message) // This message is the available capacity announcement message.
+        {
+            if (session.known_ipport.has_value())
+            {
+                const p2pmsg::Available_Capacity_Announcement_Message *announcement_msg = content->message_as_Available_Capacity_Announcement_Message();
+                p2p::update_known_peer_available_capacity(session.known_ipport.value(), announcement_msg->capacity(), announcement_msg->timestamp());
+            }
         }
         else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
         {
@@ -251,17 +259,6 @@ namespace p2p
         {
             LOG_DEBUG << "NPL message from self enqueue failure.";
         }
-    }
-
-    void handle_peer_list_response_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
-    {
-        std::list<conf::peer_properties> peer_list = p2pmsg::create_peer_list_response_from_msg(*content->message_as_Peer_List_Response_Message());
-        p2p::merge_peer_list(peer_list);
-    }
-
-    void handle_peer_list_request_message(peer_comm_session &session)
-    {
-        p2p::send_known_peer_list(&session);
     }
 
     //peer session on message callback method

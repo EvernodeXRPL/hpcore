@@ -153,11 +153,17 @@ namespace p2p
 
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected);
 
+    void send_available_capacity_announcement(const uint16_t capacity);
+
     void send_known_peer_list(peer_comm_session *session);
 
     void send_peer_list_request();
 
-    void merge_peer_list(std::list<conf::peer_properties> peer_list);
+    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const uint16_t capacity, const uint64_t timestamp);
+
+    void merge_peer_list(std::vector<conf::peer_properties> peers);
+
+    uint32_t get_peer_weight(const conf::peer_properties &peer);
 } // namespace p2p
 
 #endif

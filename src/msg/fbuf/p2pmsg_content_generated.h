@@ -69,6 +69,9 @@ struct State_FS_Hash_EntryBuilder;
 struct Connected_Status_Announcement_Message;
 struct Connected_Status_Announcement_MessageBuilder;
 
+struct Available_Capacity_Announcement_Message;
+struct Available_Capacity_Announcement_MessageBuilder;
+
 struct Peer_List_Request_Message;
 struct Peer_List_Request_MessageBuilder;
 
@@ -92,11 +95,12 @@ enum Message {
   Message_Connected_Status_Announcement_Message = 10,
   Message_Peer_List_Request_Message = 11,
   Message_Peer_List_Response_Message = 12,
+  Message_Available_Capacity_Announcement_Message = 13,
   Message_MIN = Message_NONE,
-  Message_MAX = Message_Peer_List_Response_Message
+  Message_MAX = Message_Available_Capacity_Announcement_Message
 };
 
-inline const Message (&EnumValuesMessage())[13] {
+inline const Message (&EnumValuesMessage())[14] {
   static const Message values[] = {
     Message_NONE,
     Message_Peer_Challenge_Response_Message,
@@ -110,13 +114,14 @@ inline const Message (&EnumValuesMessage())[13] {
     Message_History_Response_Message,
     Message_Connected_Status_Announcement_Message,
     Message_Peer_List_Request_Message,
-    Message_Peer_List_Response_Message
+    Message_Peer_List_Response_Message,
+    Message_Available_Capacity_Announcement_Message
   };
   return values;
 }
 
 inline const char * const *EnumNamesMessage() {
-  static const char * const names[14] = {
+  static const char * const names[15] = {
     "NONE",
     "Peer_Challenge_Response_Message",
     "Peer_Challenge_Message",
@@ -130,13 +135,14 @@ inline const char * const *EnumNamesMessage() {
     "Connected_Status_Announcement_Message",
     "Peer_List_Request_Message",
     "Peer_List_Response_Message",
+    "Available_Capacity_Announcement_Message",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMessage(Message e) {
-  if (flatbuffers::IsOutRange(e, Message_NONE, Message_Peer_List_Response_Message)) return "";
+  if (flatbuffers::IsOutRange(e, Message_NONE, Message_Available_Capacity_Announcement_Message)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessage()[index];
 }
@@ -191,6 +197,10 @@ template<> struct MessageTraits<msg::fbuf::p2pmsg::Peer_List_Request_Message> {
 
 template<> struct MessageTraits<msg::fbuf::p2pmsg::Peer_List_Response_Message> {
   static const Message enum_value = Message_Peer_List_Response_Message;
+};
+
+template<> struct MessageTraits<msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message> {
+  static const Message enum_value = Message_Available_Capacity_Announcement_Message;
 };
 
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
@@ -616,6 +626,9 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf::p2pmsg::Peer_List_Response_Message *message_as_Peer_List_Response_Message() const {
     return message_type() == msg::fbuf::p2pmsg::Message_Peer_List_Response_Message ? static_cast<const msg::fbuf::p2pmsg::Peer_List_Response_Message *>(message()) : nullptr;
   }
+  const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *message_as_Available_Capacity_Announcement_Message() const {
+    return message_type() == msg::fbuf::p2pmsg::Message_Available_Capacity_Announcement_Message ? static_cast<const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *>(message()) : nullptr;
+  }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
   }
@@ -674,6 +687,10 @@ template<> inline const msg::fbuf::p2pmsg::Peer_List_Request_Message *Content::m
 
 template<> inline const msg::fbuf::p2pmsg::Peer_List_Response_Message *Content::message_as<msg::fbuf::p2pmsg::Peer_List_Response_Message>() const {
   return message_as_Peer_List_Response_Message();
+}
+
+template<> inline const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *Content::message_as<msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message>() const {
+  return message_as_Available_Capacity_Announcement_Message();
 }
 
 struct ContentBuilder {
@@ -1786,6 +1803,63 @@ inline flatbuffers::Offset<Connected_Status_Announcement_Message> CreateConnecte
   return builder_.Finish();
 }
 
+struct Available_Capacity_Announcement_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Available_Capacity_Announcement_MessageBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CAPACITY = 4,
+    VT_TIMESTAMP = 6
+  };
+  uint16_t capacity() const {
+    return GetField<uint16_t>(VT_CAPACITY, 0);
+  }
+  bool mutate_capacity(uint16_t _capacity) {
+    return SetField<uint16_t>(VT_CAPACITY, _capacity, 0);
+  }
+  uint64_t timestamp() const {
+    return GetField<uint64_t>(VT_TIMESTAMP, 0);
+  }
+  bool mutate_timestamp(uint64_t _timestamp) {
+    return SetField<uint64_t>(VT_TIMESTAMP, _timestamp, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint16_t>(verifier, VT_CAPACITY) &&
+           VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
+           verifier.EndTable();
+  }
+};
+
+struct Available_Capacity_Announcement_MessageBuilder {
+  typedef Available_Capacity_Announcement_Message Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_capacity(uint16_t capacity) {
+    fbb_.AddElement<uint16_t>(Available_Capacity_Announcement_Message::VT_CAPACITY, capacity, 0);
+  }
+  void add_timestamp(uint64_t timestamp) {
+    fbb_.AddElement<uint64_t>(Available_Capacity_Announcement_Message::VT_TIMESTAMP, timestamp, 0);
+  }
+  explicit Available_Capacity_Announcement_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Available_Capacity_Announcement_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Available_Capacity_Announcement_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Available_Capacity_Announcement_Message> CreateAvailable_Capacity_Announcement_Message(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint16_t capacity = 0,
+    uint64_t timestamp = 0) {
+  Available_Capacity_Announcement_MessageBuilder builder_(_fbb);
+  builder_.add_timestamp(timestamp);
+  builder_.add_capacity(capacity);
+  return builder_.Finish();
+}
+
 struct Peer_List_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Peer_List_Request_MessageBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
@@ -2020,6 +2094,10 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
     }
     case Message_Peer_List_Response_Message: {
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Peer_List_Response_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Message_Available_Capacity_Announcement_Message: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
