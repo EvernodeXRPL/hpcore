@@ -287,10 +287,11 @@ namespace comm
     void comm_session::check_last_activity_rules()
     {
         LOG_INFO << "last_activity : " << display_name() << " : " << (util::get_epoch_milliseconds()/1000) - last_activity_timestamp;
-        int64_t time_threshold = 10;
+        // Expire inactive sessions in 2 minutes.
+        int64_t time_threshold = 120;
         if (challenge_status == CHALLENGE_STATUS::CHALLENGE_ISSUED)
         {
-            // Close if 5 seconds elapsed after the final activity.
+            // If the connection is not verified, close the connection after 5 secondes.
             time_threshold = 5;
         }
         if ((util::get_epoch_milliseconds()/1000) - last_activity_timestamp >= time_threshold)
