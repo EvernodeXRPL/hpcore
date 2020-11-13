@@ -1,56 +1,41 @@
 const { HotPocketContract } = require("./hp-contract-lib");
 const fs = require('fs');
 
-const hpc = new HotPocketContract();
-
 //console.log("===Echo contract started===");
 
-// We just save execution timestamp as an example state file change.
-if (!hpc.readonly)
-    fs.appendFileSync("exects.txt", "ts:" + hpc.timestamp + "\n");
+const hpc = new HotPocketContract();
+hpc.events.on("exec", ctx => {
 
-hpc.events.on("user_message", async (pubKey, message) => {
-    const userInput = message.toString("utf8");
-    const user = hpc.users[pubKey];
-    if (userInput == "ts") {
-        user.sendOutput(fs.readFileSync("exects.txt"));
-    }
-    else {
-        user.sendOutput("Echoing: " + userInput);
-    }
+    // We just save execution timestamp as an example state file change.
+    if (!ctx.readonly)
+        fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
+
+    ctx.events.on("user_message", async (pubKey, message) => {
+        const userInput = message.toString("utf8");
+        const user = ctx.users[pubKey];
+        if (userInput == "ts") {
+            user.send(fs.readFileSync("exects.txt"));
+        }
+        else {
+            user.send("Echoing: " + userInput);
+        }
+    });
+
+    ctx.events.on("all_users_completed", () => {
+        ctx.terminate();
+    });
+
+    // Npl message sending and receiving template.
+    // ctx.events.on("npl_message", (peerPubKey, msg) => {
+    //     console.log(msg);
+    // });
+    // ctx.sendNplMessage(msg);
+
+    // Developer should run method after all the event subscriptions are done.
+    ctx.run();
 });
 
-hpc.events.on("all_users_completed", () => {
-    hpc.terminate();
-});
-
-// Developer should call run method after all the event subscriptions are done.
-hpc.run();
-
-// Control message sending and receiving template.
-// const hp = hpc.control;
-// hpc.events.on('control_message', (msg) => {
-//     console.log('control msg - ' + msg);
-//     hp.sendOutput(msg);
-// })
-
-// Npl message sending and receiving template.
-// const npl = hpc.npl;
-// if (npl) {
-//     let i = 0;
-//     let interval = setInterval(() => {
-//         npl.sendOutput(`npl${i} from contract`);
-//         if (i == 5) {
-//             clearInterval(interval);
-//         }
-//         i++;
-//     }, 500);
-
-//     hpc.events.on("npl_message", msg => {
-//         if (msg) {
-//             console.log(msg);
-//         }
-//     });
-// }
+// Developer should call init method after all the event subscriptions are done.
+hpc.init();
 
 //console.log("===Echo contract ended===");
