@@ -4,15 +4,12 @@ const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 let incompleteUserCount = 0;
 
 class HotPocketContract {
-
-    events = new AsyncCallbackEmitter();
-
-    init() {
+    init(executionCallback) {
         const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
         const control = new HotPocketControlChannel(hpargs.hpfd);
 
         const executionContext = new ContractExecutionContext(hpargs, control);
-        this.events.emit("exec", executionContext)
+        executionCallback(executionContext)
     }
 }
 

@@ -4,8 +4,7 @@ const fs = require('fs');
 //console.log("===Echo contract started===");
 
 const hpc = new HotPocketContract();
-hpc.events.on("exec", ctx => {
-
+hpc.init(ctx => {
     // We just save execution timestamp as an example state file change.
     if (!ctx.readonly)
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
@@ -34,8 +33,5 @@ hpc.events.on("exec", ctx => {
     // Developer should run method after all the event subscriptions are done.
     ctx.run();
 });
-
-// Developer should call init method after all the event subscriptions are done.
-hpc.init();
 
 //console.log("===Echo contract ended===");
