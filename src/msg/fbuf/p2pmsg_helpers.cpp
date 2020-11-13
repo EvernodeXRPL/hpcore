@@ -603,18 +603,18 @@ namespace msg::fbuf::p2pmsg
     /**
      * Create available capacity announcement message.
      * @param container_builder Flatbuffer builder for the container message.
-     * @param capacity Number of ncoming connection slots available.
+     * @param available_capacity Number of incoming connection slots available.
      * @param timestamp Announced timestamp.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &container_builder, const uint16_t capacity, const uint64_t timestamp, std::string_view lcl)
+    void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &container_builder, const int16_t available_capacity, const uint64_t timestamp, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
         const flatbuffers::Offset<Available_Capacity_Announcement_Message> announcement =
             CreateAvailable_Capacity_Announcement_Message(
                 builder,
-                capacity,
+                available_capacity,
                 timestamp);
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Available_Capacity_Announcement_Message, announcement.Union());
@@ -853,7 +853,7 @@ namespace msg::fbuf::p2pmsg
                 builder,
                 sv_to_flatbuff_str(builder, peer.ip_port.host_address),
                 peer.ip_port.port,
-                peer.capacity,
+                peer.available_capacity,
                 peer.timestamp));
         }
         return builder.CreateVector(fbvec);
@@ -875,7 +875,7 @@ namespace msg::fbuf::p2pmsg
             properties.ip_port.host_address = flatbuff_str_to_sv(peer->host_address());
             properties.ip_port.port = peer->port();
             properties.timestamp = peer->timestamp();
-            properties.capacity = peer->capacity();
+            properties.available_capacity = peer->available_capacity();
 
             peers.push_back(properties);
         }

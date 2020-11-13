@@ -18,13 +18,29 @@ namespace p2p
     void peer_comm_server::start_custom_jobs()
     {
         // known_peers_thread = std::thread(&peer_comm_server::peer_monitor_loop, this);
-        req_peers_thread = std::thread(&peer_comm_server::peer_list_request_loop, this);
+        if (conf::cfg.dynamicpeerdiscovery)
+        {
+            peer_list_request_thread = std::thread(&peer_comm_server::peer_list_request_loop, this);
+        }
+        if (conf::cfg.peermaxcons != 0)
+        {
+            available_capacity_announcement_thread = std::thread(&peer_comm_server::available_capacity_announcement_loop, this);
+        }
     }
 
     void peer_comm_server::stop_custom_jobs()
     {
         // known_peers_thread.join();
-        req_peers_thread.join();
+        // Start peer list request loop is dynamic peer discovery is enabled.
+        if (conf::cfg.dynamicpeerdiscovery)
+        {
+            peer_list_request_thread.join();
+        }
+        // Start sending available capacity updates if peermaxcons cap is not 0(unlimited).
+        if (conf::cfg.peermaxcons != 0)
+        {
+            available_capacity_announcement_thread.join();
+        }
     }
 
     int peer_comm_server::process_custom_messages()
@@ -58,67 +74,60 @@ namespace p2p
     //     LOG_INFO << "Stopped peer monitor.";
     // }
 
-    void peer_comm_server::peer_list_request_loop()
+    void peer_comm_server::available_capacity_announcement_loop()
     {
         util::mask_signal();
 
-        //LOG_INFO << "Started peer monitor.";
+        LOG_DEBUG << "Started available capacity announcement loop.";
 
         while (!is_shutting_down)
         {
-            // Find already connected known remote parties list.
-            std::vector<conf::ip_port_prop> known_remotes;
-
-            {
-                std::scoped_lock<std::mutex> lock(sessions_mutex);
-                for (const p2p::peer_comm_session &session : sessions)
-                {
-                    if (session.state != comm::SESSION_STATE::CLOSED && session.known_ipport.has_value())
-                        known_remotes.push_back(session.known_ipport.value());
-                }
-            }
-
-            if (conf::cfg.peermaxcons == 0)
-            {
-                available_capacity = 1000;
-            }
-            else if (conf::cfg.peermaxknowncons == 0)
+            // If peermaxknowncons is 0(unlimited) available capacity is max connections - total active sessions.
+            // Otherwise max connections - max known connections - active unknown connections.
+            if (conf::cfg.peermaxknowncons == 0)
             {
                 available_capacity = conf::cfg.peermaxcons - sessions.size();
             }
             else
             {
-                available_capacity = conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - (sessions.size() - known_remotes.size());
+                available_capacity = conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - (sessions.size() - known_remote_count);
             }
 
             p2p::send_available_capacity_announcement(available_capacity);
 
-            if (conf::cfg.dynamicpeerdiscovery)
-            {
-                if (known_remotes.size() > 0)
-                {
-                    p2p::send_peer_list_request();
-                }
+            util::sleep(1000);
+        }
 
-                // If max known peer connection cap is reached then periodically request peer list from random known peer.
-                // Otherwise frequently request peer list from a random known peer.
-                // Peer discovery time interval can be configured in the config.
-                if (conf::cfg.peermaxknowncons != 0 && known_remotes.size() >= conf::cfg.peermaxknowncons)
-                {
-                    util::sleep(conf::cfg.peerdiscoverytime * 5);
-                }
-                else
-                {
-                    util::sleep(conf::cfg.peerdiscoverytime);
-                }
+        LOG_DEBUG << "Stopped available capacity announcement loop.";
+    }
+
+    void peer_comm_server::peer_list_request_loop()
+    {
+        util::mask_signal();
+
+        LOG_INFO << "Started peer list request loop.";
+
+        while (!is_shutting_down)
+        {
+            if (known_remote_count > 0)
+            {
+                p2p::send_peer_list_request();
+            }
+
+            // If max known peer connection cap is reached then periodically request peer list from random known peer.
+            // Otherwise frequently request peer list from a random known peer.
+            // Peer discovery time interval can be configured in the config.
+            if (conf::cfg.peermaxknowncons != 0 && known_remote_count >= conf::cfg.peermaxknowncons)
+            {
+                util::sleep(conf::cfg.peerdiscoverytime * 5);
             }
             else
             {
-                util::sleep(1000);
+                util::sleep(conf::cfg.peerdiscoverytime);
             }
         }
 
-        //LOG_INFO << "Stopped peer monitor.";
+        LOG_INFO << "Stopped peer list request loop.";
     }
 
     void peer_comm_server::maintain_known_connections()
@@ -142,10 +151,16 @@ namespace p2p
             if (is_shutting_down)
                 break;
 
+            // Break if known peer cap is reached.
             if (conf::cfg.peermaxknowncons != 0 && known_remotes.size() == conf::cfg.peermaxknowncons)
                 break;
 
-            if (conf::cfg.peermaxcons != 0 && sessions.size() == conf::cfg.peermaxcons)
+            // Break if mac peer connection cap is reached.
+            if (conf::cfg.peermaxcons != 0 && (sessions.size() + new_sessions.size()) >= conf::cfg.peermaxcons)
+                break;
+
+            // Break if the peer has no free slots.
+            if (peer.available_capacity == 0)
                 break;
 
             // Check if we are already connected to this remote party.
@@ -186,6 +201,9 @@ namespace p2p
                 }
             }
         }
+
+        // Update global known remote count when new connections are made.
+        known_remote_count = known_remotes.size();
     }
 
 } // namespace p2p

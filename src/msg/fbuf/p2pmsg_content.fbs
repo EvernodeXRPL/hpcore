@@ -129,7 +129,7 @@ table Connected_Status_Announcement_Message{
 }
 
 table Available_Capacity_Announcement_Message{
-    capacity:uint16;
+    available_capacity:int16;
     timestamp:uint64;
 }
 
@@ -143,7 +143,7 @@ table Peer_List_Response_Message{
 table Peer_Properies {
     host_address:string;
     port:uint16;
-    capacity:uint16;
+    available_capacity:int16;
     timestamp:uint64;
 }
 

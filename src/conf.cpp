@@ -257,9 +257,7 @@ namespace conf
             peer_properties peer;
             peer.ip_port.host_address = splitted_peers.front();
             peer.ip_port.port = std::stoi(splitted_peers.back());
-            peer.timestamp = 0;
-            peer.capacity = 0;
-
+            
             cfg.peers.push_back(peer);
             splitted_peers.clear();
         }

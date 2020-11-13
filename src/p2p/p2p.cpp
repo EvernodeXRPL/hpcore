@@ -57,7 +57,7 @@ namespace p2p
 
     int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp)
     {
-        // Skip if max inbound connection cap reached.
+        // Skip if max inbound connection cap is reached.
         if (ctx.server->available_capacity == 0)
         {
             LOG_DEBUG << "Max inbound connection cap reached.";
@@ -279,15 +279,14 @@ namespace p2p
     }
 
     /**
-     * @param capacity Available capacity of the known peer.
+     * @param available_capacity Available capacity of the known peer.
      * @param timestamp Capacity announced time.
      */
-    void send_available_capacity_announcement(const uint16_t capacity)
+    void send_available_capacity_announcement(const int16_t available_capacity)
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_available_capacity_announcement(fbuf, capacity, time_now, ledger::ctx.get_lcl());
-        std::string target_pubkey;
+        msg::fbuf::p2pmsg::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now, ledger::ctx.get_lcl());
         broadcast_message(fbuf, false);
     }
 
@@ -308,24 +307,27 @@ namespace p2p
     /**
      * Updates the capacity of the given known peer.
      * @param ip_port Ip and port of the know peer.
-     * @param capacity Available capacity of the known peer.
+     * @param available_capacity Available capacity of the known peer.
      * @param timestamp Capacity announced time.
      */
-    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const uint16_t capacity, const uint64_t timestamp)
+    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t timestamp)
     {
         auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
                                 [&](const conf::peer_properties &p) { return p.ip_port.host_address == ip_port.host_address && p.ip_port.port == ip_port.port; });
         if (itr != ctx.server->req_known_remotes.end())
         {
-            LOG_DEBUG << "Updating peer capacity: Host address: " << itr->ip_port.host_address << ", Capacity: " << std::to_string(capacity);
-            itr->capacity = capacity;
+            LOG_INFO << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ", Capacity: " << std::to_string(available_capacity);
+            itr->available_capacity = available_capacity;
             itr->timestamp = timestamp;
 
-            std::sort(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
-                      [](const conf::peer_properties &p1, const conf::peer_properties &p2) { return get_peer_weight(p1) > get_peer_weight(p2); });
+            // Sorting the known remote list  according to the weight value after updating the peer properties.
+            sort_known_remotes();
         }
     }
 
+    /**
+     * Send peer list request to a random peer.
+     */
     void send_peer_list_request()
     {
         flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -335,6 +337,10 @@ namespace p2p
         LOG_DEBUG << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";
     }
 
+    /**
+     * Merging the response peer list with the own known peer list.
+     * @param peers Incoming peer list.
+     */
     void merge_peer_list(std::vector<conf::peer_properties> peers)
     {
         for (const conf::peer_properties &peer : peers)
@@ -353,20 +359,35 @@ namespace p2p
             }
             else if (itr->timestamp < peer.timestamp)
             {
-                itr->capacity = peer.capacity;
+                itr->available_capacity = peer.available_capacity;
                 itr->timestamp = peer.timestamp;
                 LOG_DEBUG << "Replacing " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " to the known peer list";
             }
-
-            std::sort(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
-                      [](const conf::peer_properties &p1, const conf::peer_properties &p2) { return get_peer_weight(p1) > get_peer_weight(p2); });
         }
+
+        // Sorting the known remote list according to the weight value after merging the peer list.
+        sort_known_remotes();
     }
 
-    uint32_t get_peer_weight(const conf::peer_properties &peer)
+    /**
+     * Sorting the known remote list according to the weight value.
+     */
+    void sort_known_remotes()
+    {
+        std::sort(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
+                  [](const conf::peer_properties &p1, const conf::peer_properties &p2) {
+                      return get_peer_weight(p1) < 0 || get_peer_weight(p1) > get_peer_weight(p2);
+                  });
+    }
+
+    /**
+     * Calculate the weight value for the peer.
+     * @param peer Properties of the peer.
+     */
+    int32_t get_peer_weight(const conf::peer_properties &peer)
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
-        return peer.capacity * 1000 / ceil(time_now - peer.timestamp);
+        return peer.available_capacity >= 0 ? peer.available_capacity * 1000 * 60 / ceil(time_now - peer.timestamp) : -1;
     }
 
 } // namespace p2p

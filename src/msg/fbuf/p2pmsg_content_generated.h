@@ -1806,14 +1806,14 @@ inline flatbuffers::Offset<Connected_Status_Announcement_Message> CreateConnecte
 struct Available_Capacity_Announcement_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Available_Capacity_Announcement_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_CAPACITY = 4,
+    VT_AVAILABLE_CAPACITY = 4,
     VT_TIMESTAMP = 6
   };
-  uint16_t capacity() const {
-    return GetField<uint16_t>(VT_CAPACITY, 0);
+  int16_t available_capacity() const {
+    return GetField<int16_t>(VT_AVAILABLE_CAPACITY, 0);
   }
-  bool mutate_capacity(uint16_t _capacity) {
-    return SetField<uint16_t>(VT_CAPACITY, _capacity, 0);
+  bool mutate_available_capacity(int16_t _available_capacity) {
+    return SetField<int16_t>(VT_AVAILABLE_CAPACITY, _available_capacity, 0);
   }
   uint64_t timestamp() const {
     return GetField<uint64_t>(VT_TIMESTAMP, 0);
@@ -1823,7 +1823,7 @@ struct Available_Capacity_Announcement_Message FLATBUFFERS_FINAL_CLASS : private
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint16_t>(verifier, VT_CAPACITY) &&
+           VerifyField<int16_t>(verifier, VT_AVAILABLE_CAPACITY) &&
            VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
            verifier.EndTable();
   }
@@ -1833,8 +1833,8 @@ struct Available_Capacity_Announcement_MessageBuilder {
   typedef Available_Capacity_Announcement_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_capacity(uint16_t capacity) {
-    fbb_.AddElement<uint16_t>(Available_Capacity_Announcement_Message::VT_CAPACITY, capacity, 0);
+  void add_available_capacity(int16_t available_capacity) {
+    fbb_.AddElement<int16_t>(Available_Capacity_Announcement_Message::VT_AVAILABLE_CAPACITY, available_capacity, 0);
   }
   void add_timestamp(uint64_t timestamp) {
     fbb_.AddElement<uint64_t>(Available_Capacity_Announcement_Message::VT_TIMESTAMP, timestamp, 0);
@@ -1852,11 +1852,11 @@ struct Available_Capacity_Announcement_MessageBuilder {
 
 inline flatbuffers::Offset<Available_Capacity_Announcement_Message> CreateAvailable_Capacity_Announcement_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint16_t capacity = 0,
+    int16_t available_capacity = 0,
     uint64_t timestamp = 0) {
   Available_Capacity_Announcement_MessageBuilder builder_(_fbb);
   builder_.add_timestamp(timestamp);
-  builder_.add_capacity(capacity);
+  builder_.add_available_capacity(available_capacity);
   return builder_.Finish();
 }
 
@@ -1949,7 +1949,7 @@ struct Peer_Properies FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HOST_ADDRESS = 4,
     VT_PORT = 6,
-    VT_CAPACITY = 8,
+    VT_AVAILABLE_CAPACITY = 8,
     VT_TIMESTAMP = 10
   };
   const flatbuffers::String *host_address() const {
@@ -1964,11 +1964,11 @@ struct Peer_Properies FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool mutate_port(uint16_t _port) {
     return SetField<uint16_t>(VT_PORT, _port, 0);
   }
-  uint16_t capacity() const {
-    return GetField<uint16_t>(VT_CAPACITY, 0);
+  int16_t available_capacity() const {
+    return GetField<int16_t>(VT_AVAILABLE_CAPACITY, 0);
   }
-  bool mutate_capacity(uint16_t _capacity) {
-    return SetField<uint16_t>(VT_CAPACITY, _capacity, 0);
+  bool mutate_available_capacity(int16_t _available_capacity) {
+    return SetField<int16_t>(VT_AVAILABLE_CAPACITY, _available_capacity, 0);
   }
   uint64_t timestamp() const {
     return GetField<uint64_t>(VT_TIMESTAMP, 0);
@@ -1981,7 +1981,7 @@ struct Peer_Properies FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_HOST_ADDRESS) &&
            verifier.VerifyString(host_address()) &&
            VerifyField<uint16_t>(verifier, VT_PORT) &&
-           VerifyField<uint16_t>(verifier, VT_CAPACITY) &&
+           VerifyField<int16_t>(verifier, VT_AVAILABLE_CAPACITY) &&
            VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
            verifier.EndTable();
   }
@@ -1997,8 +1997,8 @@ struct Peer_ProperiesBuilder {
   void add_port(uint16_t port) {
     fbb_.AddElement<uint16_t>(Peer_Properies::VT_PORT, port, 0);
   }
-  void add_capacity(uint16_t capacity) {
-    fbb_.AddElement<uint16_t>(Peer_Properies::VT_CAPACITY, capacity, 0);
+  void add_available_capacity(int16_t available_capacity) {
+    fbb_.AddElement<int16_t>(Peer_Properies::VT_AVAILABLE_CAPACITY, available_capacity, 0);
   }
   void add_timestamp(uint64_t timestamp) {
     fbb_.AddElement<uint64_t>(Peer_Properies::VT_TIMESTAMP, timestamp, 0);
@@ -2018,12 +2018,12 @@ inline flatbuffers::Offset<Peer_Properies> CreatePeer_Properies(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> host_address = 0,
     uint16_t port = 0,
-    uint16_t capacity = 0,
+    int16_t available_capacity = 0,
     uint64_t timestamp = 0) {
   Peer_ProperiesBuilder builder_(_fbb);
   builder_.add_timestamp(timestamp);
   builder_.add_host_address(host_address);
-  builder_.add_capacity(capacity);
+  builder_.add_available_capacity(available_capacity);
   builder_.add_port(port);
   return builder_.Finish();
 }
@@ -2032,14 +2032,14 @@ inline flatbuffers::Offset<Peer_Properies> CreatePeer_ProperiesDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *host_address = nullptr,
     uint16_t port = 0,
-    uint16_t capacity = 0,
+    int16_t available_capacity = 0,
     uint64_t timestamp = 0) {
   auto host_address__ = host_address ? _fbb.CreateString(host_address) : 0;
   return msg::fbuf::p2pmsg::CreatePeer_Properies(
       _fbb,
       host_address__,
       port,
-      capacity,
+      available_capacity,
       timestamp);
 }
 

@@ -17,11 +17,13 @@ namespace conf
     };
 
     // Struct to represent information about a peer.
+    // Initially available capacity is set to -1 and timestamp is set to 0.
+    // Later it will be updated according to the capacity anouncement from the peers.
     struct peer_properties
     {
         ip_port_prop ip_port;
-        uint16_t capacity;
-        uint64_t timestamp;
+        int16_t available_capacity = -1;
+        uint64_t timestamp = 0;
     };
 
     // The operating mode of the contract node.

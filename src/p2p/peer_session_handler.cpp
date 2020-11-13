@@ -116,7 +116,7 @@ namespace p2p
             if (session.known_ipport.has_value())
             {
                 const p2pmsg::Available_Capacity_Announcement_Message *announcement_msg = content->message_as_Available_Capacity_Announcement_Message();
-                p2p::update_known_peer_available_capacity(session.known_ipport.value(), announcement_msg->capacity(), announcement_msg->timestamp());
+                p2p::update_known_peer_available_capacity(session.known_ipport.value(), announcement_msg->available_capacity(), announcement_msg->timestamp());
             }
         }
         else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
