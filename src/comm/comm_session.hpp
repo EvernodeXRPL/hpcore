@@ -52,7 +52,7 @@ namespace comm
         std::string issued_challenge;
         SESSION_STATE state = SESSION_STATE::NONE;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
-        int64_t last_activity_timestamp; // Keep track of the last activity timestamp in seconds.
+        uint64_t last_activity_timestamp; // Keep track of the last activity timestamp in milliseconds.
 
         comm_session(
             std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);

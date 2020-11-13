@@ -9,6 +9,8 @@
 namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
+    constexpr uint16_t INACTIVE_TIMEOUT = 120;          // Time threshold for verified inactive connections in seconds.
+    constexpr uint16_t UNVERIFIED_INACTIVE_TIMEOUT = 5; // Time threshold for unverified inactive connections in seconds.
 
     comm_session::comm_session(
         std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
@@ -38,7 +40,7 @@ namespace comm
             reader_thread = std::thread(&comm_session::reader_loop, this);
             writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
             state = SESSION_STATE::ACTIVE;
-            last_activity_timestamp = util::get_epoch_milliseconds()/1000;
+            last_activity_timestamp = util::get_epoch_milliseconds();
         }
     }
 
@@ -61,7 +63,7 @@ namespace comm
             else
             {
                 // Update last activity timestamp since this session received a message.
-                last_activity_timestamp = util::get_epoch_milliseconds()/1000;
+                last_activity_timestamp = util::get_epoch_milliseconds();
 
                 // Enqueue the message for processing.
                 std::string_view data = std::get<std::string_view>(read_result);
@@ -127,9 +129,9 @@ namespace comm
     {
         if (state == SESSION_STATE::CLOSED)
             return -1;
-        
+
         // Updating last activity timestamp since this session is sending a message.
-        last_activity_timestamp = util::get_epoch_milliseconds()/1000;
+        last_activity_timestamp = util::get_epoch_milliseconds();
 
         // Passing the ownership of message to the queue.
         out_msg_queue.enqueue(std::string(message));
@@ -286,21 +288,14 @@ namespace comm
     */
     void comm_session::check_last_activity_rules()
     {
-        LOG_INFO << "last_activity : " << display_name() << " : " << (util::get_epoch_milliseconds()/1000) - last_activity_timestamp;
-        // Expire inactive sessions in 2 minutes.
-        int64_t time_threshold = 120;
-        if (challenge_status == CHALLENGE_STATUS::CHALLENGE_ISSUED)
-        {
-            // If the connection is not verified, close the connection after 5 secondes.
-            time_threshold = 5;
-        }
-        if ((util::get_epoch_milliseconds()/1000) - last_activity_timestamp >= time_threshold)
+        const uint16_t timeout_seconds = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? INACTIVE_TIMEOUT : UNVERIFIED_INACTIVE_TIMEOUT);
+
+        if (util::get_epoch_milliseconds() - last_activity_timestamp >= (timeout_seconds * 1000))
         {
             LOG_DEBUG << "Closing " << display_name() << " connection due to inactivity.";
             mark_for_closure();
         }
-        
-    }   
+    }
 
     void comm_session::handle_connect()
     {
