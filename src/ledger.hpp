@@ -93,6 +93,10 @@ namespace ledger
 
     int handle_ledger_history_response(const p2p::history_response &hr, std::string &new_lcl);
 
+    bool check_block_integrity(std::string_view lcl, const std::vector<uint8_t> &block_buffer);
+
+    int sort_lcl_filenames_and_validate(std::list<std::string> &list);
+
 } // namespace ledger
 
 #endif

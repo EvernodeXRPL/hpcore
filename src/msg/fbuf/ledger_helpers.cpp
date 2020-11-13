@@ -8,13 +8,13 @@ namespace msg::fbuf::ledger
 {
 
     /**
- * Create ledger from the given proposal struct.
- * @param p The proposal struct to be placed in ledger.
- */
-    void create_ledger_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no)
+     * Create ledger block from the given proposal struct.
+     * @param p The proposal struct to be placed in ledger.
+     */
+    void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no)
     {
-        flatbuffers::Offset<ledger::Ledger> ledger =
-            ledger::CreateLedger(
+        flatbuffers::Offset<ledger::LedgerBlock> ledger =
+            ledger::CreateLedgerBlock(
                 builder,
                 seq_no,
                 p.time,
@@ -27,9 +27,9 @@ namespace msg::fbuf::ledger
         builder.Finish(ledger); // Finished building message content to get serialised content.
     }
 
-    p2p::proposal create_proposal_from_ledger(const std::vector<uint8_t> &ledger_buf)
+    p2p::proposal create_proposal_from_ledger_block(const std::vector<uint8_t> &ledger_buf)
     {
-        auto ledger = msg::fbuf::ledger::GetLedger(ledger_buf.data());
+        auto ledger = msg::fbuf::ledger::GetLedgerBlock(ledger_buf.data());
         p2p::proposal p;
         p.lcl = flatbuff_bytes_to_sv(ledger->lcl());
         p.state = flatbuff_bytes_to_hash(ledger->state());
@@ -37,10 +37,10 @@ namespace msg::fbuf::ledger
         return p;
     }
 
-    bool verify_ledger_buffer(const uint8_t *ledger_buf_ptr, const size_t buf_len)
+    bool verify_ledger_block_buffer(const uint8_t *ledger_buf_ptr, const size_t buf_len)
     {
         flatbuffers::Verifier ledger_verifier(ledger_buf_ptr, buf_len);
-        return VerifyLedgerBuffer(ledger_verifier);
+        return VerifyLedgerBlockBuffer(ledger_verifier);
     }
 
 } // namespace msg::fbuf::ledger
