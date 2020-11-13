@@ -567,18 +567,18 @@ namespace ledger
         //Get raw content of lcls that going to be send.
         for (const auto &[seq_no, lcl] : led_cache)
         {
-            p2p::history_ledger_block ledger;
-            ledger.lcl = lcl;
+            p2p::history_ledger_block ledger_block;
+            ledger_block.lcl = lcl;
 
             // Read lcl file.
             const std::string file_path = conf::ctx.hist_dir + "/" + lcl + ".lcl";
-            if (read_ledger(file_path, ledger.block_buffer) == -1)
+            if (read_ledger(file_path, ledger_block.block_buffer) == -1)
             {
                 LOG_DEBUG << "lcl serve: Error when reading ledger file.";
                 return -1;
             }
 
-            history_response.hist_ledger_blocks.emplace(seq_no, std::move(ledger));
+            history_response.hist_ledger_blocks.emplace(seq_no, std::move(ledger_block));
         }
 
         return 0;
