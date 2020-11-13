@@ -268,8 +268,17 @@ namespace p2p
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
         const auto itr = ctx.peer_connections.find(session.uniqueid);
         if (itr != ctx.peer_connections.end() && itr->second == &session)
+        {
             ctx.peer_connections.erase(itr);
 
+            // Update available capacity on connection close.
+            if (conf::cfg.peermaxcons != 0)
+                ctx.server->available_capacity++;
+
+            // Update peer properties to default on peer close.
+            if (itr->second->known_ipport.has_value())
+                p2p::update_known_peer_available_capacity(itr->second->known_ipport.value(), -1, 0);
+        }
         return 0;
     }
 

@@ -13,6 +13,9 @@ namespace p2p
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size),
           req_known_remotes(req_known_remotes)
     {
+        // Setup available capacity from the config.
+        if (conf::cfg.peermaxcons != 0)
+            available_capacity = conf::cfg.peermaxcons - conf::cfg.peermaxknowncons;
     }
 
     void peer_comm_server::start_custom_jobs()
@@ -82,17 +85,6 @@ namespace p2p
 
         while (!is_shutting_down)
         {
-            // If peermaxknowncons is 0(unlimited) available capacity is max connections - total active sessions.
-            // Otherwise max connections - max known connections - active unknown connections.
-            if (conf::cfg.peermaxknowncons == 0)
-            {
-                available_capacity = conf::cfg.peermaxcons - sessions.size();
-            }
-            else
-            {
-                available_capacity = conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - (sessions.size() - known_remote_count);
-            }
-
             p2p::send_available_capacity_announcement(available_capacity);
 
             util::sleep(1000);
@@ -144,6 +136,9 @@ namespace p2p
             }
         }
 
+        // Update global known remote count when new connections are made.
+        known_remote_count = known_remotes.size();
+
         std::scoped_lock<std::mutex> lock(req_known_remotes_mutex);
 
         for (const auto &peer : req_known_remotes)
@@ -152,10 +147,10 @@ namespace p2p
                 break;
 
             // Break if known peer cap is reached.
-            if (conf::cfg.peermaxknowncons != 0 && known_remotes.size() == conf::cfg.peermaxknowncons)
+            if (conf::cfg.peermaxknowncons != 0 && known_remote_count == conf::cfg.peermaxknowncons)
                 break;
 
-            // Break if mac peer connection cap is reached.
+            // Break if max peer connection cap is reached.
             if (conf::cfg.peermaxcons != 0 && (sessions.size() + new_sessions.size()) >= conf::cfg.peermaxcons)
                 break;
 
@@ -194,16 +189,13 @@ namespace p2p
                     const std::string &host_address = std::get<std::string>(host_result);
                     p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
                     session.known_ipport.emplace(peer.ip_port);
-                    known_remotes.push_back(peer.ip_port);
+                    known_remote_count++;
 
                     std::scoped_lock<std::mutex> lock(new_sessions_mutex);
                     new_sessions.emplace_back(std::move(session));
                 }
             }
         }
-
-        // Update global known remote count when new connections are made.
-        known_remote_count = known_remotes.size();
     }
 
 } // namespace p2p

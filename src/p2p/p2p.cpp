@@ -107,6 +107,10 @@ namespace p2p
             session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
             ctx.peer_connections.try_emplace(session.uniqueid, &session);
 
+            // Reduce available capacity if new connection is made.
+            if (conf::cfg.peermaxcons != 0)
+                ctx.server->available_capacity--;
+
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
             return 0;
         }
@@ -296,12 +300,36 @@ namespace p2p
      */
     void send_known_peer_list(peer_comm_session *session)
     {
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, ledger::ctx.get_lcl());
-        std::string_view msg = std::string_view(
-            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+        // If session is a known peer then remove that peer from the peer list response.
+        if (session->known_ipport.has_value())
+        {
+            std::vector<conf::peer_properties> peers;
+            for (const conf::peer_properties &peer : ctx.server->req_known_remotes)
+            {
 
-        session->send(msg);
+                conf::ip_port_prop ip_port = session->known_ipport.value();
+                if (ip_port.host_address != peer.ip_port.host_address && ip_port.port != peer.ip_port.port)
+                {
+                    peers.push_back(peer);
+                }
+            }
+            if (!peers.empty())
+            {
+                flatbuffers::FlatBufferBuilder fbuf(1024);
+                msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, peers, ledger::ctx.get_lcl());
+                std::string_view msg = std::string_view(
+                    reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+                session->send(msg);
+            }
+        }
+        else
+        {
+            flatbuffers::FlatBufferBuilder fbuf(1024);
+            msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, ledger::ctx.get_lcl());
+            std::string_view msg = std::string_view(
+                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+            session->send(msg);
+        }
     }
 
     /**
@@ -312,6 +340,8 @@ namespace p2p
      */
     void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t timestamp)
     {
+        std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
+
         auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
                                 [&](const conf::peer_properties &p) { return p.ip_port.host_address == ip_port.host_address && p.ip_port.port == ip_port.port; });
         if (itr != ctx.server->req_known_remotes.end())
@@ -343,10 +373,10 @@ namespace p2p
      */
     void merge_peer_list(std::vector<conf::peer_properties> peers)
     {
+        std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
+
         for (const conf::peer_properties &peer : peers)
         {
-            std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
-
             auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
                                     [&](const conf::peer_properties &p) { return p.ip_port.host_address == peer.ip_port.host_address && p.ip_port.port == peer.ip_port.port; });
 
