@@ -42,11 +42,11 @@ struct History_Request_MessageBuilder;
 struct History_Response_Message;
 struct History_Response_MessageBuilder;
 
-struct HistoryLedgerPair;
-struct HistoryLedgerPairBuilder;
+struct HistoryLedgerBlockPair;
+struct HistoryLedgerBlockPairBuilder;
 
-struct HistoryLedger;
-struct HistoryLedgerBuilder;
+struct HistoryLedgerBlock;
+struct HistoryLedgerBlockBuilder;
 
 struct State_Request_Message;
 struct State_Request_MessageBuilder;
@@ -992,7 +992,7 @@ struct History_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   typedef History_Response_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_REQUESTER_LCL = 4,
-    VT_HIST_LEDGERS = 6,
+    VT_HIST_LEDGER_BLOCKS = 6,
     VT_ERROR = 8
   };
   const flatbuffers::Vector<uint8_t> *requester_lcl() const {
@@ -1001,11 +1001,11 @@ struct History_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   flatbuffers::Vector<uint8_t> *mutable_requester_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_REQUESTER_LCL);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>> *hist_ledgers() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>> *>(VT_HIST_LEDGERS);
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>> *hist_ledger_blocks() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>> *>(VT_HIST_LEDGER_BLOCKS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>> *mutable_hist_ledgers() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>> *>(VT_HIST_LEDGERS);
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>> *mutable_hist_ledger_blocks() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>> *>(VT_HIST_LEDGER_BLOCKS);
   }
   msg::fbuf::p2pmsg::Ledger_Response_Error error() const {
     return static_cast<msg::fbuf::p2pmsg::Ledger_Response_Error>(GetField<uint8_t>(VT_ERROR, 0));
@@ -1017,9 +1017,9 @@ struct History_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_REQUESTER_LCL) &&
            verifier.VerifyVector(requester_lcl()) &&
-           VerifyOffset(verifier, VT_HIST_LEDGERS) &&
-           verifier.VerifyVector(hist_ledgers()) &&
-           verifier.VerifyVectorOfTables(hist_ledgers()) &&
+           VerifyOffset(verifier, VT_HIST_LEDGER_BLOCKS) &&
+           verifier.VerifyVector(hist_ledger_blocks()) &&
+           verifier.VerifyVectorOfTables(hist_ledger_blocks()) &&
            VerifyField<uint8_t>(verifier, VT_ERROR) &&
            verifier.EndTable();
   }
@@ -1032,8 +1032,8 @@ struct History_Response_MessageBuilder {
   void add_requester_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> requester_lcl) {
     fbb_.AddOffset(History_Response_Message::VT_REQUESTER_LCL, requester_lcl);
   }
-  void add_hist_ledgers(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>>> hist_ledgers) {
-    fbb_.AddOffset(History_Response_Message::VT_HIST_LEDGERS, hist_ledgers);
+  void add_hist_ledger_blocks(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>>> hist_ledger_blocks) {
+    fbb_.AddOffset(History_Response_Message::VT_HIST_LEDGER_BLOCKS, hist_ledger_blocks);
   }
   void add_error(msg::fbuf::p2pmsg::Ledger_Response_Error error) {
     fbb_.AddElement<uint8_t>(History_Response_Message::VT_ERROR, static_cast<uint8_t>(error), 0);
@@ -1052,10 +1052,10 @@ struct History_Response_MessageBuilder {
 inline flatbuffers::Offset<History_Response_Message> CreateHistory_Response_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> requester_lcl = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>>> hist_ledgers = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>>> hist_ledger_blocks = 0,
     msg::fbuf::p2pmsg::Ledger_Response_Error error = msg::fbuf::p2pmsg::Ledger_Response_Error_None) {
   History_Response_MessageBuilder builder_(_fbb);
-  builder_.add_hist_ledgers(hist_ledgers);
+  builder_.add_hist_ledger_blocks(hist_ledger_blocks);
   builder_.add_requester_lcl(requester_lcl);
   builder_.add_error(error);
   return builder_.Finish();
@@ -1064,19 +1064,19 @@ inline flatbuffers::Offset<History_Response_Message> CreateHistory_Response_Mess
 inline flatbuffers::Offset<History_Response_Message> CreateHistory_Response_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *requester_lcl = nullptr,
-    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>> *hist_ledgers = nullptr,
+    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>> *hist_ledger_blocks = nullptr,
     msg::fbuf::p2pmsg::Ledger_Response_Error error = msg::fbuf::p2pmsg::Ledger_Response_Error_None) {
   auto requester_lcl__ = requester_lcl ? _fbb.CreateVector<uint8_t>(*requester_lcl) : 0;
-  auto hist_ledgers__ = hist_ledgers ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerPair>>(*hist_ledgers) : 0;
+  auto hist_ledger_blocks__ = hist_ledger_blocks ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlockPair>>(*hist_ledger_blocks) : 0;
   return msg::fbuf::p2pmsg::CreateHistory_Response_Message(
       _fbb,
       requester_lcl__,
-      hist_ledgers__,
+      hist_ledger_blocks__,
       error);
 }
 
-struct HistoryLedgerPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef HistoryLedgerPairBuilder Builder;
+struct HistoryLedgerBlockPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HistoryLedgerBlockPairBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEQ_NO = 4,
     VT_LEDGER = 6
@@ -1087,11 +1087,11 @@ struct HistoryLedgerPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool mutate_seq_no(uint64_t _seq_no) {
     return SetField<uint64_t>(VT_SEQ_NO, _seq_no, 0);
   }
-  const msg::fbuf::p2pmsg::HistoryLedger *ledger() const {
-    return GetPointer<const msg::fbuf::p2pmsg::HistoryLedger *>(VT_LEDGER);
+  const msg::fbuf::p2pmsg::HistoryLedgerBlock *ledger() const {
+    return GetPointer<const msg::fbuf::p2pmsg::HistoryLedgerBlock *>(VT_LEDGER);
   }
-  msg::fbuf::p2pmsg::HistoryLedger *mutable_ledger() {
-    return GetPointer<msg::fbuf::p2pmsg::HistoryLedger *>(VT_LEDGER);
+  msg::fbuf::p2pmsg::HistoryLedgerBlock *mutable_ledger() {
+    return GetPointer<msg::fbuf::p2pmsg::HistoryLedgerBlock *>(VT_LEDGER);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1102,42 +1102,42 @@ struct HistoryLedgerPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct HistoryLedgerPairBuilder {
-  typedef HistoryLedgerPair Table;
+struct HistoryLedgerBlockPairBuilder {
+  typedef HistoryLedgerBlockPair Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_seq_no(uint64_t seq_no) {
-    fbb_.AddElement<uint64_t>(HistoryLedgerPair::VT_SEQ_NO, seq_no, 0);
+    fbb_.AddElement<uint64_t>(HistoryLedgerBlockPair::VT_SEQ_NO, seq_no, 0);
   }
-  void add_ledger(flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedger> ledger) {
-    fbb_.AddOffset(HistoryLedgerPair::VT_LEDGER, ledger);
+  void add_ledger(flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlock> ledger) {
+    fbb_.AddOffset(HistoryLedgerBlockPair::VT_LEDGER, ledger);
   }
-  explicit HistoryLedgerPairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit HistoryLedgerBlockPairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<HistoryLedgerPair> Finish() {
+  flatbuffers::Offset<HistoryLedgerBlockPair> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<HistoryLedgerPair>(end);
+    auto o = flatbuffers::Offset<HistoryLedgerBlockPair>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<HistoryLedgerPair> CreateHistoryLedgerPair(
+inline flatbuffers::Offset<HistoryLedgerBlockPair> CreateHistoryLedgerBlockPair(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t seq_no = 0,
-    flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedger> ledger = 0) {
-  HistoryLedgerPairBuilder builder_(_fbb);
+    flatbuffers::Offset<msg::fbuf::p2pmsg::HistoryLedgerBlock> ledger = 0) {
+  HistoryLedgerBlockPairBuilder builder_(_fbb);
   builder_.add_seq_no(seq_no);
   builder_.add_ledger(ledger);
   return builder_.Finish();
 }
 
-struct HistoryLedger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef HistoryLedgerBuilder Builder;
+struct HistoryLedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HistoryLedgerBlockBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LCL = 4,
-    VT_RAW_LEDGER = 6
+    VT_BLOCK_BUFFER = 6
   };
   const flatbuffers::Vector<uint8_t> *lcl() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LCL);
@@ -1145,63 +1145,63 @@ struct HistoryLedger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
-  const flatbuffers::Vector<uint8_t> *raw_ledger() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_RAW_LEDGER);
+  const flatbuffers::Vector<uint8_t> *block_buffer() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_BLOCK_BUFFER);
   }
-  flatbuffers::Vector<uint8_t> *mutable_raw_ledger() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_RAW_LEDGER);
+  flatbuffers::Vector<uint8_t> *mutable_block_buffer() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_BLOCK_BUFFER);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
-           VerifyOffset(verifier, VT_RAW_LEDGER) &&
-           verifier.VerifyVector(raw_ledger()) &&
+           VerifyOffset(verifier, VT_BLOCK_BUFFER) &&
+           verifier.VerifyVector(block_buffer()) &&
            verifier.EndTable();
   }
 };
 
-struct HistoryLedgerBuilder {
-  typedef HistoryLedger Table;
+struct HistoryLedgerBlockBuilder {
+  typedef HistoryLedgerBlock Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
-    fbb_.AddOffset(HistoryLedger::VT_LCL, lcl);
+    fbb_.AddOffset(HistoryLedgerBlock::VT_LCL, lcl);
   }
-  void add_raw_ledger(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> raw_ledger) {
-    fbb_.AddOffset(HistoryLedger::VT_RAW_LEDGER, raw_ledger);
+  void add_block_buffer(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> block_buffer) {
+    fbb_.AddOffset(HistoryLedgerBlock::VT_BLOCK_BUFFER, block_buffer);
   }
-  explicit HistoryLedgerBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit HistoryLedgerBlockBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<HistoryLedger> Finish() {
+  flatbuffers::Offset<HistoryLedgerBlock> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<HistoryLedger>(end);
+    auto o = flatbuffers::Offset<HistoryLedgerBlock>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedger(
+inline flatbuffers::Offset<HistoryLedgerBlock> CreateHistoryLedgerBlock(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> raw_ledger = 0) {
-  HistoryLedgerBuilder builder_(_fbb);
-  builder_.add_raw_ledger(raw_ledger);
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> block_buffer = 0) {
+  HistoryLedgerBlockBuilder builder_(_fbb);
+  builder_.add_block_buffer(block_buffer);
   builder_.add_lcl(lcl);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<HistoryLedger> CreateHistoryLedgerDirect(
+inline flatbuffers::Offset<HistoryLedgerBlock> CreateHistoryLedgerBlockDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *lcl = nullptr,
-    const std::vector<uint8_t> *raw_ledger = nullptr) {
+    const std::vector<uint8_t> *block_buffer = nullptr) {
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
-  auto raw_ledger__ = raw_ledger ? _fbb.CreateVector<uint8_t>(*raw_ledger) : 0;
-  return msg::fbuf::p2pmsg::CreateHistoryLedger(
+  auto block_buffer__ = block_buffer ? _fbb.CreateVector<uint8_t>(*block_buffer) : 0;
+  return msg::fbuf::p2pmsg::CreateHistoryLedgerBlock(
       _fbb,
       lcl__,
-      raw_ledger__);
+      block_buffer__);
 }
 
 struct State_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

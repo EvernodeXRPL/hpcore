@@ -301,9 +301,9 @@ namespace util
      * @param path Directory path.
      * @return Returns the list of entries inside the directory.
      */
-    std::list<dirent> fetch_dir_entries(std::string_view path)
+    std::list<std::string> fetch_dir_entries(std::string_view path)
     {
-        std::list<dirent> entries;
+        std::list<std::string> entries;
         DIR *dr;
 
         // Open the directory stream.
@@ -317,7 +317,7 @@ namespace util
                 // or previous directory entry.
                 if (std::strcmp(en->d_name, ".") != 0 && std::strcmp(en->d_name, "..") != 0)
                 {
-                    entries.push_back(*en);
+                    entries.push_back(en->d_name);
                 }
             }
             // Close directory stream.
@@ -409,6 +409,27 @@ namespace util
         // If there are any leftover from the source string add the remaining.
         if (start < str.size())
             collection.push_back(std::string(str.substr(start)));
+    }
+
+    /**
+     * Converts given string to a uint_64. A wrapper function for std::stoull. 
+     * @param str String variable.
+     * @param result Variable to store the answer from the conversion.
+     * @return Returns 0 in a successful conversion and -1 on error.
+    */
+    int stoull(const std::string &str, uint64_t &result)
+    {
+        try
+        {
+            result = std::stoull(str);
+        }
+        catch(const std::exception& e)
+        {
+            // Return -1 if any exceptions are captured.
+            return -1;
+        }
+        return 0;
+        
     }
 
 } // namespace util
