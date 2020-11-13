@@ -4,17 +4,23 @@ const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 let incompleteUserCount = 0;
 
 class HotPocketContract {
-    init(executionCallback) {
+
+    #events = new AsyncCallbackEmitter();
+
+    init(eventRegistrationCallback) {
         const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
         const control = new HotPocketControlChannel(hpargs.hpfd);
 
+        eventRegistrationCallback(this.#events);
+
         const executionContext = new ContractExecutionContext(hpargs, control);
-        executionCallback(executionContext)
+        this.#events.emit("exec", executionContext);
     }
 }
 
 class ContractExecutionContext {
 
+    #events = new AsyncCallbackEmitter();
     #npl = null;
     #hpargs = null;
     #control = null;
@@ -25,7 +31,6 @@ class ContractExecutionContext {
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
         this.unl = hpargs.unl;
-        this.events = new AsyncCallbackEmitter();
 
         if (!this.readonly) {
             const lclParts = this.#hpargs.lcl.split("-");
@@ -36,23 +41,26 @@ class ContractExecutionContext {
         }
     }
 
-    run() {
+    init(eventRegistrationCallback) {
+
+        eventRegistrationCallback(this.#events);
+
         if (!this.readonly)
-            this.#npl = new HotPocketNplChannel(this.events, this.#hpargs.nplfd);
+            this.#npl = new HotPocketNplChannel(this.#events, this.#hpargs.nplfd);
 
         this.users = {};
         Object.keys(this.#hpargs.usrfd).forEach((userPubKey) => {
-            this.users[userPubKey] = new HotPocketUserChannel(this.events, this.#hpargs.usrfd[userPubKey], userPubKey);
+            this.users[userPubKey] = new HotPocketUserChannel(this.#events, this.#hpargs.usrfd[userPubKey], userPubKey);
             incompleteUserCount++;
         });
 
         if (!Object.keys(this.#hpargs.usrfd).length) {
-            this.events.emit("all_users_completed");
+            this.#events.emit("all_users_completed");
         }
     }
 
     sendNplMessage(msg) {
-        npl && npl.send(msg);
+        this.#npl && this.#npl.send(msg);
     }
 
     terminate() {
@@ -130,8 +138,8 @@ class HotPocketUserChannel {
         })
     }
 
-    send(output) {
-        const outputStringBuf = Buffer.from(output);
+    send(msg) {
+        const outputStringBuf = Buffer.from(msg);
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
         headerBuf.writeUInt32BE(outputStringBuf.byteLength)
@@ -156,12 +164,12 @@ class HotPocketNplChannel {
             this.#fd = fd;
 
             this.#socket.on("data", data => {
-                if (!pubKey) {
-                    pubKey = data.toString('hex');
+                if (!this.#pubKey) {
+                    this.#pubKey = data.toString('hex');
                 }
                 else {
-                    events.emit("npl_message", pubKey, data);
-                    pubKey = null;
+                    events.emit("npl_message", this.#pubKey, data);
+                    this.#pubKey = null;
                 }
             });
             this.#socket.on("error", (e) => {
@@ -170,9 +178,9 @@ class HotPocketNplChannel {
         }
     }
 
-    send(output) {
+    send(msg) {
         if (this.#fd > 0) {
-            fs.writeSync(fd, output);
+            fs.writeSync(this.#fd, msg);
         }
     }
 }
