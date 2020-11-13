@@ -38,6 +38,7 @@ namespace comm
             reader_thread = std::thread(&comm_session::reader_loop, this);
             writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
             state = SESSION_STATE::ACTIVE;
+            last_activity_timestamp = util::get_epoch_milliseconds()/1000;
         }
     }
 
@@ -59,6 +60,9 @@ namespace comm
             }
             else
             {
+                // Update last activity timestamp since this session received a message.
+                last_activity_timestamp = util::get_epoch_milliseconds()/1000;
+
                 // Enqueue the message for processing.
                 std::string_view data = std::get<std::string_view>(read_result);
                 std::vector<char> msg(data.size());
@@ -123,6 +127,9 @@ namespace comm
     {
         if (state == SESSION_STATE::CLOSED)
             return -1;
+        
+        // Updating last activity timestamp since this session is sending a message.
+        last_activity_timestamp = util::get_epoch_milliseconds()/1000;
 
         // Passing the ownership of message to the queue.
         out_msg_queue.enqueue(std::string(message));
@@ -273,6 +280,26 @@ namespace comm
             }
         }
     }
+
+    /**
+     * Check whether the connection expires according to last activity time rules and then mark for closure.
+    */
+    void comm_session::check_last_activity_rules()
+    {
+        LOG_INFO << "last_activity : " << display_name() << " : " << (util::get_epoch_milliseconds()/1000) - last_activity_timestamp;
+        int64_t time_threshold = 10;
+        if (challenge_status == CHALLENGE_STATUS::CHALLENGE_ISSUED)
+        {
+            // Close if 5 seconds elapsed after the final activity.
+            time_threshold = 5;
+        }
+        if ((util::get_epoch_milliseconds()/1000) - last_activity_timestamp >= time_threshold)
+        {
+            LOG_DEBUG << "Closing " << display_name() << " connection due to inactivity.";
+            mark_for_closure();
+        }
+        
+    }   
 
     void comm_session::handle_connect()
     {
