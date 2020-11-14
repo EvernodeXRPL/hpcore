@@ -6,10 +6,12 @@ class HotPocketContract {
 
     async init(executionCallback) {
         const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
-        const control = new HotPocketControlChannel(hpargs.hpfd);
 
-        const executionContext = new ContractExecutionContext(hpargs, control);
+        const control = new ControlChannel(hpargs.hpfd);
+
+        const executionContext = new ContractExecutionContext(hpargs);
         await invokeCallback(executionCallback, executionContext);
+
         control.send("Terminated");
     }
 }
@@ -225,7 +227,7 @@ class Peer {
 
 class NplChannel {
 
-    readStream = null;
+    #readStream = null;
     #fd = -1;
 
     constructor(fd) {
@@ -234,14 +236,14 @@ class NplChannel {
 
     consume(onMessage) {
 
-        this.readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
+        this.#readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
 
         // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
         // and then the message, First data buffer is taken as pubkey and the second one as message,
         // then npl message object is constructed and the event is emmited.
         let pubKey = null;
 
-        this.readStream.on("data", async (data) => {
+        this.#readStream.on("data", async (data) => {
             if (!pubKey) {
                 pubKey = data.toString('hex');
             }
@@ -257,60 +259,28 @@ class NplChannel {
     }
 }
 
-class HotPocketControlChannel {
 
-    events = new AsyncCallbackEmitter();
-    #socket = null;
-    #fd = null;
+class ControlChannel {
+
+    #readStream = null;
+    #fd = -1;
 
     constructor(fd) {
-        if (fd > 0) {
-            this.#socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
-            this.#fd = fd;
-
-            this.#socket.on("data", d => {
-                this.events.emit("control_message", d);
-            });
-
-            this.#socket.on("error", (e) => {
-                this.events.emit("control_error", e);
-            });
-        }
+        this.#fd = fd;
     }
 
-    send(output) {
-        if (this.#fd > 0) {
-            fs.writeSync(this.#fd, output);
-        }
+    consume(onMessage) {
+
+        this.#readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
+
+        this.#readStream.on("data", async (data) => {
+            await invokeCallback(onMessage, data);
+        });
     }
-}
 
-class AsyncCallbackEmitter {
-    callbacks = {};
-
-    on(event, callback) {
-        if (!this.callbacks[event]) {
-            this.callbacks[event] = [];
-        }
-        this.callbacks[event].push(callback);
-    };
-
-    async emit(event, ...args) {
-        let eventCallbacks = this.callbacks[event];
-        if (eventCallbacks && eventCallbacks.length) {
-            await Promise.all(eventCallbacks.map(async callback => {
-                invokeCallback(callback, ...args);
-            }));
-        }
-    };
-
-    removeAllListeners() {
-        this.callbacks = {};
-    };
-
-    removeListener(event) {
-        delete this.callbacks[event];
-    };
+    send(msg) {
+        fs.writeSync(this.#fd, msg);
+    }
 }
 
 const invokeCallback = async (callback, ...args) => {
