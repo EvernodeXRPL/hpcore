@@ -1,7 +1,6 @@
 const fs = require('fs');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
-let incompleteUserCount = 0;
 
 class HotPocketContract {
 
@@ -24,6 +23,15 @@ class ContractExecutionContext {
     #npl = null;
     #hpargs = null;
     #control = null;
+    #incompleteUserCount = 0;
+    users = {};
+
+    #onUserComplete = () => {
+        this.#incompleteUserCount--;
+        if (this.#incompleteUserCount == 0) {
+            events.emit("all_users_completed");
+        }
+    }
 
     constructor(hpargs, control) {
         this.#hpargs = hpargs;
@@ -48,10 +56,10 @@ class ContractExecutionContext {
         if (!this.readonly)
             this.#npl = new HotPocketNplChannel(this.#events, this.#hpargs.nplfd);
 
-        this.users = {};
-        Object.keys(this.#hpargs.usrfd).forEach((userPubKey) => {
-            this.users[userPubKey] = new HotPocketUserChannel(this.#events, this.#hpargs.usrfd[userPubKey], userPubKey);
-            incompleteUserCount++;
+        const userKeys = Object.keys(this.#hpargs.usrfd);
+        this.#incompleteUserCount = userKeys.length;
+        userKeys.forEach((userPubKey) => {
+            this.users[userPubKey] = new HotPocketUserChannel(this.#events, this.#hpargs.usrfd[userPubKey], userPubKey, this.#onUserComplete);
         });
 
         if (!Object.keys(this.#hpargs.usrfd).length) {
@@ -79,7 +87,7 @@ class HotPocketUserChannel {
         return buf.slice(pos, pos + count);
     }
 
-    constructor(events, fd, userPubKey) {
+    constructor(events, fd, userPubKey, onUserComplete) {
         if (fd <= 0)
             return;
 
@@ -125,11 +133,8 @@ class HotPocketUserChannel {
 
             if (msgCount == 0) {
                 msgCount = -1;
-                incompleteUserCount--;
-                if (incompleteUserCount == 0) {
-                    events.emit("all_users_completed");
-                }
                 events.emit("user_completed", userPubKey);
+                onUserComplete();
             }
         });
 

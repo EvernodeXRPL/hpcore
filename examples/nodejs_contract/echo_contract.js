@@ -7,10 +7,6 @@ const hpc = new HotPocketContract();
 hpc.init(events => {
     events.on("exec", (ctx) => {
 
-        // We just save execution timestamp as an example state file change.
-        if (!ctx.readonly)
-            fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
-
         ctx.init(events => {
             events.on("user_message", (pubKey, message) => {
                 const userInput = message.toString("utf8");
@@ -24,7 +20,12 @@ hpc.init(events => {
             });
 
             events.on("all_users_completed", () => {
-                // After we finish processing everything we call terinate to exit gracefully.
+
+                // We just save execution timestamp as an example state file change.
+                if (!ctx.readonly)
+                    fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
+
+                // After we finish processing everything we call terminate to exit gracefully.
                 ctx.terminate();
             });
 
@@ -32,6 +33,9 @@ hpc.init(events => {
                 console.log(msg);
             });
         })
+
+        // NPL send example.
+        // ctx.sendNplMessage(msg);
     });
 });
 
