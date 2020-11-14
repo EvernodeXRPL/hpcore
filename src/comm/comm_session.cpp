@@ -9,6 +9,8 @@
 namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
+    constexpr uint16_t INACTIVE_TIMEOUT = 120;          // Time threshold for verified inactive connections in seconds.
+    constexpr uint16_t UNVERIFIED_INACTIVE_TIMEOUT = 5; // Time threshold for unverified inactive connections in seconds.
 
     comm_session::comm_session(
         std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
@@ -38,6 +40,7 @@ namespace comm
             reader_thread = std::thread(&comm_session::reader_loop, this);
             writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
             state = SESSION_STATE::ACTIVE;
+            last_activity_timestamp = util::get_epoch_milliseconds();
         }
     }
 
@@ -59,6 +62,9 @@ namespace comm
             }
             else
             {
+                // Update last activity timestamp since this session received a message.
+                last_activity_timestamp = util::get_epoch_milliseconds();
+
                 // Enqueue the message for processing.
                 std::string_view data = std::get<std::string_view>(read_result);
                 std::vector<char> msg(data.size());
@@ -123,6 +129,9 @@ namespace comm
     {
         if (state == SESSION_STATE::CLOSED)
             return -1;
+
+        // Updating last activity timestamp since this session is sending a message.
+        last_activity_timestamp = util::get_epoch_milliseconds();
 
         // Passing the ownership of message to the queue.
         out_msg_queue.enqueue(std::string(message));
@@ -271,6 +280,20 @@ namespace comm
                 t.timestamp = time_now;
                 t.counter_value = amount;
             }
+        }
+    }
+
+    /**
+     * Check whether the connection expires according to last activity time rules and then mark for closure.
+    */
+    void comm_session::check_last_activity_rules()
+    {
+        const uint16_t timeout_seconds = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? INACTIVE_TIMEOUT : UNVERIFIED_INACTIVE_TIMEOUT);
+
+        if (util::get_epoch_milliseconds() - last_activity_timestamp >= (timeout_seconds * 1000))
+        {
+            LOG_DEBUG << "Closing " << display_name() << " connection due to inactivity.";
+            mark_for_closure();
         }
     }
 

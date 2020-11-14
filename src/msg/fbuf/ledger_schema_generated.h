@@ -12,14 +12,14 @@ namespace msg {
 namespace fbuf {
 namespace ledger {
 
-struct Ledger;
-struct LedgerBuilder;
+struct LedgerBlock;
+struct LedgerBlockBuilder;
 
 struct RawInputList;
 struct RawInputListBuilder;
 
-struct Ledger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef LedgerBuilder Builder;
+struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef LedgerBlockBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEQ_NO = 4,
     VT_TIME = 6,
@@ -92,43 +92,43 @@ struct Ledger FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct LedgerBuilder {
-  typedef Ledger Table;
+struct LedgerBlockBuilder {
+  typedef LedgerBlock Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_seq_no(uint64_t seq_no) {
-    fbb_.AddElement<uint64_t>(Ledger::VT_SEQ_NO, seq_no, 0);
+    fbb_.AddElement<uint64_t>(LedgerBlock::VT_SEQ_NO, seq_no, 0);
   }
   void add_time(uint64_t time) {
-    fbb_.AddElement<uint64_t>(Ledger::VT_TIME, time, 0);
+    fbb_.AddElement<uint64_t>(LedgerBlock::VT_TIME, time, 0);
   }
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
-    fbb_.AddOffset(Ledger::VT_LCL, lcl);
+    fbb_.AddOffset(LedgerBlock::VT_LCL, lcl);
   }
   void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
-    fbb_.AddOffset(Ledger::VT_STATE, state);
+    fbb_.AddOffset(LedgerBlock::VT_STATE, state);
   }
   void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users) {
-    fbb_.AddOffset(Ledger::VT_USERS, users);
+    fbb_.AddOffset(LedgerBlock::VT_USERS, users);
   }
   void add_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> inputs) {
-    fbb_.AddOffset(Ledger::VT_INPUTS, inputs);
+    fbb_.AddOffset(LedgerBlock::VT_INPUTS, inputs);
   }
   void add_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> outputs) {
-    fbb_.AddOffset(Ledger::VT_OUTPUTS, outputs);
+    fbb_.AddOffset(LedgerBlock::VT_OUTPUTS, outputs);
   }
-  explicit LedgerBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit LedgerBlockBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<Ledger> Finish() {
+  flatbuffers::Offset<LedgerBlock> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Ledger>(end);
+    auto o = flatbuffers::Offset<LedgerBlock>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Ledger> CreateLedger(
+inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t seq_no = 0,
     uint64_t time = 0,
@@ -137,7 +137,7 @@ inline flatbuffers::Offset<Ledger> CreateLedger(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> outputs = 0) {
-  LedgerBuilder builder_(_fbb);
+  LedgerBlockBuilder builder_(_fbb);
   builder_.add_time(time);
   builder_.add_seq_no(seq_no);
   builder_.add_outputs(outputs);
@@ -148,7 +148,7 @@ inline flatbuffers::Offset<Ledger> CreateLedger(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Ledger> CreateLedgerDirect(
+inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t seq_no = 0,
     uint64_t time = 0,
@@ -162,7 +162,7 @@ inline flatbuffers::Offset<Ledger> CreateLedgerDirect(
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
   auto inputs__ = inputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*inputs) : 0;
   auto outputs__ = outputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*outputs) : 0;
-  return msg::fbuf::ledger::CreateLedger(
+  return msg::fbuf::ledger::CreateLedgerBlock(
       _fbb,
       seq_no,
       time,
@@ -245,37 +245,37 @@ inline flatbuffers::Offset<RawInputList> CreateRawInputListDirect(
       inputs__);
 }
 
-inline const msg::fbuf::ledger::Ledger *GetLedger(const void *buf) {
-  return flatbuffers::GetRoot<msg::fbuf::ledger::Ledger>(buf);
+inline const msg::fbuf::ledger::LedgerBlock *GetLedgerBlock(const void *buf) {
+  return flatbuffers::GetRoot<msg::fbuf::ledger::LedgerBlock>(buf);
 }
 
-inline const msg::fbuf::ledger::Ledger *GetSizePrefixedLedger(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<msg::fbuf::ledger::Ledger>(buf);
+inline const msg::fbuf::ledger::LedgerBlock *GetSizePrefixedLedgerBlock(const void *buf) {
+  return flatbuffers::GetSizePrefixedRoot<msg::fbuf::ledger::LedgerBlock>(buf);
 }
 
-inline Ledger *GetMutableLedger(void *buf) {
-  return flatbuffers::GetMutableRoot<Ledger>(buf);
+inline LedgerBlock *GetMutableLedgerBlock(void *buf) {
+  return flatbuffers::GetMutableRoot<LedgerBlock>(buf);
 }
 
-inline bool VerifyLedgerBuffer(
+inline bool VerifyLedgerBlockBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifyBuffer<msg::fbuf::ledger::Ledger>(nullptr);
+  return verifier.VerifyBuffer<msg::fbuf::ledger::LedgerBlock>(nullptr);
 }
 
-inline bool VerifySizePrefixedLedgerBuffer(
+inline bool VerifySizePrefixedLedgerBlockBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifySizePrefixedBuffer<msg::fbuf::ledger::Ledger>(nullptr);
+  return verifier.VerifySizePrefixedBuffer<msg::fbuf::ledger::LedgerBlock>(nullptr);
 }
 
-inline void FinishLedgerBuffer(
+inline void FinishLedgerBlockBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<msg::fbuf::ledger::Ledger> root) {
+    flatbuffers::Offset<msg::fbuf::ledger::LedgerBlock> root) {
   fbb.Finish(root);
 }
 
-inline void FinishSizePrefixedLedgerBuffer(
+inline void FinishSizePrefixedLedgerBlockBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<msg::fbuf::ledger::Ledger> root) {
+    flatbuffers::Offset<msg::fbuf::ledger::LedgerBlock> root) {
   fbb.FinishSizePrefixed(root);
 }
 
