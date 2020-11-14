@@ -524,7 +524,7 @@ namespace consensus
         {
             // Vote for times.
             // Everyone votes on an arbitrary time, as long as it's not in the future and within the round time.
-            if (ctx.time_now > cp.time && (ctx.time_now - cp.time) < conf::cfg.roundtime)
+            if (ctx.time_now > cp.time && (ctx.time_now - cp.time) <= conf::cfg.roundtime)
                 increment(votes.time, cp.time);
 
             // Vote for user pubkeys.
