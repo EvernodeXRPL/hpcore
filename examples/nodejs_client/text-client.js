@@ -54,13 +54,15 @@ async function main() {
     const input_pump = () => {
         rl.question('', (inp) => {
 
-            if (inp.startsWith("read "))
-                hpc.sendContractReadRequest(inp.substr(5))
-            else {
-                hpc.sendContractInput(inp).then(submissionStatus => {
-                    if (submissionStatus && submissionStatus != "ok")
-                        console.log("Input submission failed. reason: " + submissionStatus);
-                });
+            if (inp.length > 0) {
+                if (inp.startsWith("read "))
+                    hpc.sendContractReadRequest(inp.substr(5))
+                else {
+                    hpc.sendContractInput(inp).then(submissionStatus => {
+                        if (submissionStatus && submissionStatus != "ok")
+                            console.log("Input submission failed. reason: " + submissionStatus);
+                    });
+                }
             }
 
             input_pump();

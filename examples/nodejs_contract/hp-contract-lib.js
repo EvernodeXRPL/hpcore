@@ -16,37 +16,19 @@ class HotPocketContract {
 
 class ContractExecutionContext {
 
-    #npl = null;
-    #hpargs = null;
-    #control = null;
-
-    constructor(hpargs, control) {
-        this.#hpargs = hpargs;
-        this.#control = control;
+    constructor(hpargs) {
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
-        this.unl = hpargs.unl;
         this.users = new UsersCollection(hpargs.usrfd);
+        this.peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd)
 
-        if (!this.readonly) {
-            const lclParts = this.#hpargs.lcl.split("-");
+        if (!hpargs.readonly) {
+            const lclParts = hpargs.lcl.split("-");
             this.lcl = {
                 seqNo: parseInt(lclParts[0]),
                 hash: lclParts[1]
             };
         }
-    }
-
-    // init(eventRegistrationCallback) {
-
-    //     eventRegistrationCallback(this.#events);
-
-    //     if (!this.readonly)
-    //         this.#npl = new NplChannel(this.#events, this.#hpargs.nplfd);
-    // }
-
-    sendNplMessage(msg) {
-        //this.#npl && this.#npl.send(msg);
     }
 }
 
@@ -198,40 +180,80 @@ class UserChannel {
     }
 }
 
-class NplChannel {
+class PeersCollection {
+    #peers = {};
+    #channel = null;
+    #readonly = false;
 
-    #socket = null;
-    #pubKey = null;
-    #fd = null;
+    constructor(readonly, unl, nplfd) {
+        this.#readonly = readonly;
 
-    constructor(events, fd) {
-
-        if (fd > 0) {
-            // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
-            // and then the message, First data buffer is taken as pubkey and the second one as message,
-            // then npl message object is constructed and the event is emmited.
-            this.#socket = fs.createReadStream(null, { fd: fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
-            this.#fd = fd;
-
-            this.#socket.on("data", data => {
-                if (!this.#pubKey) {
-                    this.#pubKey = data.toString('hex');
-                }
-                else {
-                    events.emit("npl_message", this.#pubKey, data);
-                    this.#pubKey = null;
-                }
+        if (!readonly) {
+            unl.forEach(pubKey => {
+                this.#peers[pubKey] = new Peer(pubKey);
             });
-            this.#socket.on("error", (e) => {
-                events.emit("npl_error", e);
-            });
+
+            this.#channel = new NplChannel(nplfd);
         }
     }
 
+    onMessage(callback) {
+
+        if (this.#readonly)
+            throw "Peer messages not available in readonly mode.";
+
+        this.#channel.consume(async (pubKey, msg) => {
+            await invokeCallback(callback, this.#peers[pubKey], msg);
+        });
+    }
+
     send(msg) {
-        if (this.#fd > 0) {
-            fs.writeSync(this.#fd, msg);
-        }
+        if (this.#readonly)
+            throw "Peer messages not available in readonly mode.";
+
+        this.#channel.send(msg);
+    }
+}
+
+class Peer {
+    pubKey = null;
+
+    constructor(pubKey) {
+        this.pubKey = pubKey;
+    }
+}
+
+class NplChannel {
+
+    readStream = null;
+    #fd = -1;
+
+    constructor(fd) {
+        this.#fd = fd;
+    }
+
+    consume(onMessage) {
+
+        this.readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
+
+        // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
+        // and then the message, First data buffer is taken as pubkey and the second one as message,
+        // then npl message object is constructed and the event is emmited.
+        let pubKey = null;
+
+        this.readStream.on("data", async (data) => {
+            if (!pubKey) {
+                pubKey = data.toString('hex');
+            }
+            else {
+                await invokeCallback(onMessage, pubKey, data);
+                pubKey = null;
+            }
+        });
+    }
+
+    send(msg) {
+        fs.writeSync(this.#fd, msg);
     }
 }
 

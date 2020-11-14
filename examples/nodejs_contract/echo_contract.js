@@ -7,13 +7,13 @@ const echoContract = async (ctx) => {
     if (!ctx.readonly)
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
 
-    await ctx.users.consumeMessages((user, msg) => {
-        const userInput = msg.toString("utf8");
-        if (userInput == "ts") {
+    await ctx.users.consumeMessages((user, buf) => {
+        const msg = buf.toString("utf8");
+        if (msg == "ts") {
             user.send(fs.readFileSync("exects.txt"));
         }
         else {
-            user.send("Echoing: " + userInput);
+            user.send("Echoing: " + msg);
         }
     });
 
