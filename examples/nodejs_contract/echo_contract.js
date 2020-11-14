@@ -1,43 +1,30 @@
 const { HotPocketContract } = require("./hp-contract-lib");
 const fs = require('fs');
 
-//console.log("===Echo contract started===");
+const echoContract = async (ctx) => {
 
-const hpc = new HotPocketContract();
-hpc.init(events => {
-    events.on("exec", (ctx) => {
+    // We just save execution timestamp as an example state file change.
+    if (!ctx.readonly)
+        fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
 
-        ctx.init(events => {
-            events.on("user_message", (pubKey, message) => {
-                const userInput = message.toString("utf8");
-                const user = ctx.users[pubKey];
-                if (userInput == "ts") {
-                    user.send(fs.readFileSync("exects.txt"));
-                }
-                else {
-                    user.send("Echoing: " + userInput);
-                }
-            });
-
-            events.on("all_users_completed", () => {
-
-                // We just save execution timestamp as an example state file change.
-                if (!ctx.readonly)
-                    fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
-
-                // After we finish processing everything we call terminate to exit gracefully.
-                ctx.terminate();
-            });
-
-            // NPL receive example.
-            // events.on("npl_message", (peerPubKey, msg) => {
-            //     console.log(msg);
-            // });
-        });
-
-        // NPL send example.
-        // ctx.sendNplMessage("hello");
+    await ctx.users.consumeMessages((user, msg) => {
+        const userInput = msg.toString("utf8");
+        if (userInput == "ts") {
+            user.send(fs.readFileSync("exects.txt"));
+        }
+        else {
+            user.send("Echoing: " + userInput);
+        }
     });
-});
 
-//console.log("===Echo contract ended===");
+    // ctx.peers.onMessage((peer, msg) => {
+
+    // })
+
+    // await ctx.peers.send(msg);
+}
+
+(async function () {
+    const hpc = new HotPocketContract();
+    await hpc.init(echoContract);
+}());

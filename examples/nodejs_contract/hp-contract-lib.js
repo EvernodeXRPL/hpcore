@@ -4,34 +4,21 @@ const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 
 class HotPocketContract {
 
-    #events = new AsyncCallbackEmitter();
-
-    init(eventRegistrationCallback) {
+    async init(executionCallback) {
         const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
         const control = new HotPocketControlChannel(hpargs.hpfd);
 
-        eventRegistrationCallback(this.#events);
-
         const executionContext = new ContractExecutionContext(hpargs, control);
-        this.#events.emit("exec", executionContext);
+        await invokeCallback(executionCallback, executionContext);
+        control.send("Terminated");
     }
 }
 
 class ContractExecutionContext {
 
-    #events = new AsyncCallbackEmitter();
     #npl = null;
     #hpargs = null;
     #control = null;
-    #incompleteUserCount = 0;
-    users = {};
-
-    #onUserComplete = () => {
-        this.#incompleteUserCount--;
-        if (this.#incompleteUserCount == 0) {
-            this.#events.emit("all_users_completed");
-        }
-    }
 
     constructor(hpargs, control) {
         this.#hpargs = hpargs;
@@ -39,6 +26,7 @@ class ContractExecutionContext {
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
         this.unl = hpargs.unl;
+        this.users = new UsersCollection(hpargs.usrfd);
 
         if (!this.readonly) {
             const lclParts = this.#hpargs.lcl.split("-");
@@ -49,65 +37,126 @@ class ContractExecutionContext {
         }
     }
 
-    init(eventRegistrationCallback) {
+    // init(eventRegistrationCallback) {
 
-        eventRegistrationCallback(this.#events);
+    //     eventRegistrationCallback(this.#events);
 
-        if (!this.readonly)
-            this.#npl = new HotPocketNplChannel(this.#events, this.#hpargs.nplfd);
-
-        const userKeys = Object.keys(this.#hpargs.usrfd);
-        this.#incompleteUserCount = userKeys.length;
-        userKeys.forEach((userPubKey) => {
-            this.users[userPubKey] = new HotPocketUserChannel(this.#events, this.#hpargs.usrfd[userPubKey], userPubKey, this.#onUserComplete);
-        });
-
-        if (!Object.keys(this.#hpargs.usrfd).length) {
-            this.#events.emit("all_users_completed");
-        }
-    }
+    //     if (!this.readonly)
+    //         this.#npl = new NplChannel(this.#events, this.#hpargs.nplfd);
+    // }
 
     sendNplMessage(msg) {
-        this.#npl && this.#npl.send(msg);
-    }
-
-    terminate() {
-        this.#control.send("Terminated")
+        //this.#npl && this.#npl.send(msg);
     }
 }
 
-class HotPocketUserChannel {
-    #socket = null;
-    #fd = -1;
+class UsersCollection {
 
-    // Read bytes from the given buffer.
-    #readBytes = (buf, pos, count) => {
-        if (pos + count > buf.byteLength)
-            return null;
-        return buf.slice(pos, pos + count);
+    #users = {};
+    #totalUsers = 0;
+
+    constructor(usrfds) {
+        const userKeys = Object.keys(usrfds);
+
+        userKeys.forEach((pubKey) => {
+            const channel = new UserChannel(usrfds[pubKey]);
+            const user = new User(pubKey, channel);
+            this.#users[pubKey] = {
+                user: user,
+                channel: channel
+            }
+        });
+
+        this.#totalUsers = userKeys.length;
+
     }
 
-    constructor(events, fd, userPubKey, onUserComplete) {
-        if (fd <= 0)
-            return;
+    get(pubKey) {
+        const u = this.#users[pubKey];
+        return u && u.user;
+    }
 
-        this.#socket = fs.createReadStream(null, { fd: fd });
+    async forEach(callback) {
+        Object.values(this.#users).forEach(async u => {
+            await invokeCallback(callback, u.user);
+        });
+    }
+
+    consumeMessages(onMessageCallback) {
+
+        return new Promise(resolve => {
+
+            if (this.#totalUsers == 0) {
+                resolve();
+            }
+            else {
+                let incompleteUserCount = this.#totalUsers;
+
+                const onMessage = async (user, msg) => {
+                    await invokeCallback(onMessageCallback, user, msg)
+                };
+
+                const onComplete = () => {
+                    incompleteUserCount--;
+                    if (incompleteUserCount == 0)
+                        resolve();
+                }
+
+                Object.values(this.#users).forEach(u => {
+                    u.channel.consume(async (msg) => await onMessage(u.user, msg), onComplete);
+                })
+            }
+        })
+    }
+}
+
+class User {
+    pubKey = null;
+    #channel = null;
+
+    constructor(pubKey, channel) {
+        this.pubKey = pubKey;
+        this.#channel = channel;
+    }
+
+    send(msg) {
+        this.#channel.send(msg);
+    }
+}
+
+class UserChannel {
+    #readStream = null;
+    #fd = -1;
+
+    constructor(fd) {
         this.#fd = fd;
+    }
+
+    consume(onMessage, onComplete) {
+
+        this.#readStream = fs.createReadStream(null, { fd: this.#fd });
         let dataParts = [];
         let msgCount = -1;
         let msgLen = -1;
         let pos = 0;
-        
-        this.#socket.on("data", async (buf) => {
+
+        // Read bytes from the given buffer.
+        const readBytes = (buf, pos, count) => {
+            if (pos + count > buf.byteLength)
+                return null;
+            return buf.slice(pos, pos + count);
+        }
+
+        this.#readStream.on("data", async (buf) => {
             pos = 0;
             if (msgCount == -1) {
-                const msgCountBuf = this.#readBytes(buf, 0, 4)
+                const msgCountBuf = readBytes(buf, 0, 4)
                 msgCount = msgCountBuf.readUInt32BE();
                 pos += 4;
             }
             while (pos < buf.byteLength) {
                 if (msgLen == -1) {
-                    const msgLenBuf = this.#readBytes(buf, pos, 4);
+                    const msgLenBuf = readBytes(buf, pos, 4);
                     pos += 4;
                     msgLen = msgLenBuf.readUInt32BE();
                 }
@@ -121,12 +170,12 @@ class HotPocketUserChannel {
                     possible_read_len = buf.byteLength - pos
                     msgLen -= possible_read_len;
                 }
-                const msgBuf = this.#readBytes(buf, pos, possible_read_len);
+                const msgBuf = readBytes(buf, pos, possible_read_len);
                 pos += possible_read_len;
                 dataParts.push(msgBuf)
 
                 if (msgLen == -1) {
-                    await events.emit("user_message", userPubKey, Buffer.concat(dataParts));
+                    await invokeCallback(onMessage, Buffer.concat(dataParts));
                     dataParts = [];
                     msgCount--
                 }
@@ -134,14 +183,9 @@ class HotPocketUserChannel {
 
             if (msgCount == 0) {
                 msgCount = -1;
-                events.emit("user_completed", userPubKey);
-                onUserComplete();
+                await invokeCallback(onComplete);
             }
         });
-
-        this.#socket.on("error", (e) => {
-            events.emit("user_error", userPubKey, e);
-        })
     }
 
     send(msg) {
@@ -154,7 +198,7 @@ class HotPocketUserChannel {
     }
 }
 
-class HotPocketNplChannel {
+class NplChannel {
 
     #socket = null;
     #pubKey = null;
@@ -233,12 +277,7 @@ class AsyncCallbackEmitter {
         let eventCallbacks = this.callbacks[event];
         if (eventCallbacks && eventCallbacks.length) {
             await Promise.all(eventCallbacks.map(async callback => {
-                if (callback.constructor.name === 'AsyncFunction') {
-                    await callback(...args);
-                }
-                else {
-                    callback(...args);
-                }
+                invokeCallback(callback, ...args);
             }));
         }
     };
@@ -250,6 +289,18 @@ class AsyncCallbackEmitter {
     removeListener(event) {
         delete this.callbacks[event];
     };
+}
+
+const invokeCallback = async (callback, ...args) => {
+    if (!callback)
+        return;
+
+    if (callback.constructor.name === 'AsyncFunction') {
+        await callback(...args);
+    }
+    else {
+        callback(...args);
+    }
 }
 
 module.exports = {
