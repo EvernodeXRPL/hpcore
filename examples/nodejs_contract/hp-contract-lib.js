@@ -29,7 +29,7 @@ class ContractExecutionContext {
     #onUserComplete = () => {
         this.#incompleteUserCount--;
         if (this.#incompleteUserCount == 0) {
-            events.emit("all_users_completed");
+            this.#events.emit("all_users_completed");
         }
     }
 
@@ -97,6 +97,7 @@ class HotPocketUserChannel {
         let msgCount = -1;
         let msgLen = -1;
         let pos = 0;
+        
         this.#socket.on("data", async (buf) => {
             pos = 0;
             if (msgCount == -1) {

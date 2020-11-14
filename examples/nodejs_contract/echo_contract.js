@@ -1,6 +1,6 @@
 const { HotPocketContract } = require("./hp-contract-lib");
 const fs = require('fs');
-const timeout = ms => new Promise(res => setTimeout(res, ms));
+
 //console.log("===Echo contract started===");
 
 const hpc = new HotPocketContract();
@@ -29,13 +29,14 @@ hpc.init(events => {
                 ctx.terminate();
             });
 
-            events.on("npl_message", (peerPubKey, msg) => {
-                console.log(msg);
-            });
-        })
+            // NPL receive example.
+            // events.on("npl_message", (peerPubKey, msg) => {
+            //     console.log(msg);
+            // });
+        });
 
         // NPL send example.
-        // ctx.sendNplMessage(msg);
+        // ctx.sendNplMessage("hello");
     });
 });
 

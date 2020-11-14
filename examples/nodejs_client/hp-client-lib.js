@@ -105,7 +105,7 @@ function HotPocketClient(server, keys, protocol = protocols.BSON) {
                     // sign the challenge and send back the response
                     const response = msgHelper.createHandshakeResponse(m.challenge);
                     ws.send(JSON.stringify(response));
-                    console.log("handsake complete");
+                    
                     setTimeout(() => {
                         // If we are still connected, report handshaking as successful.
                         // (If websocket disconnects, handshakeResolver will be null)
