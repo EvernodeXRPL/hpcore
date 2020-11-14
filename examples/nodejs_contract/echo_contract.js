@@ -7,21 +7,23 @@ const echoContract = async (ctx) => {
     if (!ctx.readonly)
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
 
-    await ctx.users.consumeMessages((user, buf) => {
+    await ctx.users.consumeMessages(async (user, buf) => {
         const msg = buf.toString("utf8");
         if (msg == "ts") {
-            user.send(fs.readFileSync("exects.txt"));
+            await user.send(fs.readFileSync("exects.txt"));
         }
         else {
-            user.send("Echoing: " + msg);
+            await user.send("Echoing: " + msg);
         }
     });
 
-    // ctx.peers.onMessage((peer, msg) => {
-
-    // })
-
-    // await ctx.peers.send(msg);
+    // Peer messages example.
+    // if (!ctx.readonly) {
+    //     ctx.peers.onMessage((peer, msg) => {
+    //         console.log(msg + " from " + peer.pubKey);
+    //     })
+    //     await ctx.peers.send("Hello");
+    // }
 }
 
 (async function () {

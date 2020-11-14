@@ -12,7 +12,7 @@ class HotPocketContract {
         const executionContext = new ContractExecutionContext(hpargs);
         await invokeCallback(executionCallback, executionContext);
 
-        control.send("Terminated");
+        await control.send("Terminated");
     }
 }
 
@@ -103,8 +103,8 @@ class User {
         this.#channel = channel;
     }
 
-    send(msg) {
-        this.#channel.send(msg);
+    async send(msg) {
+        await this.#channel.send(msg);
     }
 }
 
@@ -172,13 +172,13 @@ class UserChannel {
         });
     }
 
-    send(msg) {
+    async send(msg) {
         const outputStringBuf = Buffer.from(msg);
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
         headerBuf.writeUInt32BE(outputStringBuf.byteLength)
-        fs.writeSync(this.#fd, headerBuf);
-        fs.writeSync(this.#fd, outputStringBuf);
+        await writeAsync(this.#fd, headerBuf);
+        await writeAsync(this.#fd, outputStringBuf);
     }
 }
 
@@ -209,11 +209,11 @@ class PeersCollection {
         });
     }
 
-    send(msg) {
+    async send(msg) {
         if (this.#readonly)
             throw "Peer messages not available in readonly mode.";
 
-        this.#channel.send(msg);
+        await this.#channel.send(msg);
     }
 }
 
@@ -254,8 +254,8 @@ class NplChannel {
         });
     }
 
-    send(msg) {
-        fs.writeSync(this.#fd, msg);
+    async send(msg) {
+        await writeAsync(this.#fd, msg);
     }
 }
 
@@ -278,9 +278,15 @@ class ControlChannel {
         });
     }
 
-    send(msg) {
-        fs.writeSync(this.#fd, msg);
+    async send(msg) {
+        await writeAsync(this.#fd, msg);
     }
+}
+
+const writeAsync = (fd, msg) => {
+    return new Promise(resolve => {
+        fs.write(fd, msg, resolve);
+    })
 }
 
 const invokeCallback = async (callback, ...args) => {
