@@ -213,16 +213,12 @@ class UserChannel {
         });
     }
 
-    async send(msg) {
-        const outputStringBuf = Buffer.from(msg);
+    send(msg) {
+        const messageBuf = Buffer.from(msg);
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
-        headerBuf.writeUInt32BE(outputStringBuf.byteLength)
-
-        // We need to use synchronous writes (non-async) here because we want to atomically
-        // write header and the message together without them getting rescheduled by NodeJs event loop.
-        fs.writeSync(this.#fd, headerBuf);
-        fs.writeSync(this.#fd, outputStringBuf);
+        headerBuf.writeUInt32BE(messageBuf.byteLength)
+        return writevAsync(this.#fd, [headerBuf, messageBuf]);
     }
 
     close() {
@@ -318,7 +314,10 @@ class NplChannel {
     }
 
     send(msg) {
-        return writeAsync(this.#fd, msg);
+        const buf = Buffer.from(msg);
+        if (buf.length > MAX_SEQ_PACKET_SIZE)
+            throw ("Peer message exceeds max size " + MAX_SEQ_PACKET_SIZE);
+        return writeAsync(this.#fd, buf);
     }
 
     close() {
@@ -342,7 +341,10 @@ class ControlChannel {
     }
 
     send(msg) {
-        return writeAsync(this.#fd, msg);
+        const buf = Buffer.from(msg);
+        if (buf.length > MAX_SEQ_PACKET_SIZE)
+            throw ("Control message exceeds max size " + MAX_SEQ_PACKET_SIZE);
+        return writeAsync(this.#fd, buf);
     }
 
     close() {
@@ -350,9 +352,8 @@ class ControlChannel {
     }
 }
 
-const writeAsync = (fd, msg) => new Promise(resolve => {
-    fs.write(fd, msg, resolve);
-});
+const writeAsync = (fd, buf) => new Promise(resolve => fs.write(fd, buf, resolve));
+const writevAsync = (fd, bufList) => new Promise(resolve => fs.writev(fd, bufList, resolve));
 
 const invokeCallback = async (callback, ...args) => {
     if (!callback)
