@@ -1,33 +1,56 @@
+const { EventEmitter } = require('events');
 const fs = require('fs');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 
 class HotPocketContract {
 
-    init(executionCallback) {
+    events = new EventEmitter();
+    #controlChannel = null;
+
+    init(contractFunc) {
+
+        if (this.#controlChannel) // Already initialized.
+            return;
+
+        // Parse HotPocket args.
         const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
 
-        const control = new ControlChannel(hpargs.hpfd);
+        this.#controlChannel = new ControlChannel(hpargs.hpfd);
+        this.#executeContract(hpargs, contractFunc);
+    }
 
+    #executeContract = (hpargs, contractFunc) => {
+        // Keeps track of all the tasks (promises) that must be awaited before the termination.
         const pendingTasks = [];
 
-        const executionContext = new ContractExecutionContext(hpargs, pendingTasks);
-        invokeCallback(executionCallback, executionContext).then(() => {
+        const users = new UsersCollection(hpargs.usrfd, pendingTasks, this.events);
+        const peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd, pendingTasks, this.events);
+        const executionContext = new ContractExecutionContext(hpargs, users, peers);
+
+        this.events.emit("session_start");
+        invokeCallback(contractFunc, executionContext).then(() => {
             // Wait for any pending tasks added during execution.
             Promise.all(pendingTasks).then(() => {
-                control.send("Terminated")
+                this.events.emit("session_end");
+                this.#terminate();
             });
         });
+    }
+
+    #terminate = () => {
+        this.#controlChannel.send("Terminated")
+        this.#controlChannel.close();
     }
 }
 
 class ContractExecutionContext {
 
-    constructor(hpargs, pendingTasks) {
+    constructor(hpargs, users, peers) {
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
-        this.users = new UsersCollection(hpargs.usrfd, pendingTasks);
-        this.peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd)
+        this.users = users;
+        this.peers = peers;
 
         if (!hpargs.readonly) {
             const lclParts = hpargs.lcl.split("-");
@@ -45,7 +68,7 @@ class UsersCollection {
     #totalUsers = 0;
     #pendingTasks = null
 
-    constructor(usrfds, pendingTasks) {
+    constructor(usrfds, pendingTasks, events) {
         const userKeys = Object.keys(usrfds);
 
         userKeys.forEach((pubKey) => {
@@ -59,6 +82,8 @@ class UsersCollection {
 
         this.#totalUsers = userKeys.length;
         this.#pendingTasks = pendingTasks;
+
+        events.on("session_end", () => Object.values(this.#users).forEach(u => u.channel.close()));
     }
 
     get(pubKey) {
@@ -195,6 +220,10 @@ class UserChannel {
         fs.writeSync(this.#fd, headerBuf);
         fs.writeSync(this.#fd, outputStringBuf);
     }
+
+    close() {
+        this.#readStream && this.#readStream.close();
+    }
 }
 
 class PeersCollection {
@@ -203,7 +232,7 @@ class PeersCollection {
     #readonly = false;
     #pendingTasks = null;
 
-    constructor(readonly, unl, nplfd, pendingTasks) {
+    constructor(readonly, unl, nplfd, pendingTasks, events) {
         this.#readonly = readonly;
         this.#pendingTasks = pendingTasks;
 
@@ -213,6 +242,7 @@ class PeersCollection {
             });
 
             this.#channel = new NplChannel(nplfd);
+            events.on("session_end", () => this.#channel.close());
         }
     }
 
@@ -274,6 +304,10 @@ class NplChannel {
     send(msg) {
         return writeAsync(this.#fd, msg);
     }
+
+    close() {
+        this.#readStream && this.#readStream.close();
+    }
 }
 
 
@@ -293,6 +327,10 @@ class ControlChannel {
 
     send(msg) {
         return writeAsync(this.#fd, msg);
+    }
+
+    close() {
+        this.#readStream && this.#readStream.close();
     }
 }
 

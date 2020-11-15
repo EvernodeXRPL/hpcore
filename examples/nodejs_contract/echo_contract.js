@@ -1,6 +1,8 @@
 const { HotPocketContract } = require("./hp-contract-lib");
 const fs = require('fs');
 
+// HP smart contract is defined as a function which takes HP ExecutionContext as an argument.
+// HP considers execution as complete, when this function completes and all the user message callbacks are complete.
 const echoContract = (ctx) => {
 
     // We just save execution timestamp as an example state file change.
@@ -22,7 +24,7 @@ const echoContract = (ctx) => {
     //     ctx.peers.onMessage((peer, msg) => {
     //         console.log(msg + " from " + peer.pubKey);
     //     })
-    //     await ctx.peers.send("Hello");
+    //     ctx.peers.send("Hello");
     // }
 }
 
