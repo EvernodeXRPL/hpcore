@@ -86,15 +86,15 @@ class UsersCollection {
         events.on("session_end", () => Object.values(this.#users).forEach(u => u.channel.close()));
     }
 
-    get(pubKey) {
+    // Returns the User for the specified pubkey. Returns null if not found.
+    find(pubKey) {
         const u = this.#users[pubKey];
         return u && u.user;
     }
 
-    async forEach(callback) {
-        Object.values(this.#users).forEach(async u => {
-            await invokeCallback(callback, u.user);
-        });
+    // Returns all the currently connected users.
+    get() {
+        return Object.values(this.#users).map(u => u.user);
     }
 
     onMessage(callback) {
@@ -114,10 +114,14 @@ class UsersCollection {
 
             const onUserComplete = () => {
                 pendingUserCount--;
-                if (pendingUserCount == 0)
+                if (pendingUserCount == 0) {
+                    // All user message events has been emitted.
+                    // Now start waiting for queued up user message callback completion.
                     Promise.all(userMessageTasks).then(allUsersCompletionResolver)
+                }
             }
 
+            // Register callback to consume all users messages.
             Object.values(this.#users).forEach(u => {
                 u.channel.consume((msg) => onUserMessage(u.user, msg), onUserComplete);
             })
@@ -246,6 +250,17 @@ class PeersCollection {
         }
     }
 
+    // Returns the Peer for the specified pubkey. Returns null if not found.
+    find(pubKey) {
+        return this.#peers[pubKey];
+    }
+
+    // Returns all the peers.
+    get() {
+        return Object.values(this.#peers);
+    }
+
+    // Registers for peer messages.
     onMessage(callback) {
 
         if (this.#readonly)
@@ -256,6 +271,7 @@ class PeersCollection {
         });
     }
 
+    // Broadcasts a message to all peers (including self).
     async send(msg) {
         if (this.#readonly)
             throw "Peer messages not available in readonly mode.";
