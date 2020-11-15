@@ -4,24 +4,29 @@ const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 
 class HotPocketContract {
 
-    async init(executionCallback) {
+    init(executionCallback) {
         const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
 
         const control = new ControlChannel(hpargs.hpfd);
 
-        const executionContext = new ContractExecutionContext(hpargs);
-        await invokeCallback(executionCallback, executionContext);
+        const pendingTasks = [];
 
-        await control.send("Terminated");
+        const executionContext = new ContractExecutionContext(hpargs, pendingTasks);
+        invokeCallback(executionCallback, executionContext).then(() => {
+            // Wait for any pending tasks added during execution.
+            Promise.all(pendingTasks).then(() => {
+                control.send("Terminated")
+            });
+        });
     }
 }
 
 class ContractExecutionContext {
 
-    constructor(hpargs) {
+    constructor(hpargs, pendingTasks) {
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
-        this.users = new UsersCollection(hpargs.usrfd);
+        this.users = new UsersCollection(hpargs.usrfd, pendingTasks);
         this.peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd)
 
         if (!hpargs.readonly) {
@@ -38,8 +43,9 @@ class UsersCollection {
 
     #users = {};
     #totalUsers = 0;
+    #pendingTasks = null
 
-    constructor(usrfds) {
+    constructor(usrfds, pendingTasks) {
         const userKeys = Object.keys(usrfds);
 
         userKeys.forEach((pubKey) => {
@@ -52,7 +58,7 @@ class UsersCollection {
         });
 
         this.#totalUsers = userKeys.length;
-
+        this.#pendingTasks = pendingTasks;
     }
 
     get(pubKey) {
@@ -66,31 +72,36 @@ class UsersCollection {
         });
     }
 
-    consumeMessages(onMessageCallback) {
+    onMessage(callback) {
 
-        return new Promise(resolve => {
+        if (this.#totalUsers == 0)
+            return Promise.resolve();
 
-            if (this.#totalUsers == 0) {
-                resolve();
+        // We create a promise which would get resolved when all users' message emissions have completed.
+        const allUsersCompletedTask = new Promise(allUsersCompletionResolver => {
+
+            let pendingUserCount = this.#totalUsers;
+            const userMessageTasks = [];
+
+            const onUserMessage = (user, msg) => {
+                userMessageTasks.push(invokeCallback(callback, user, msg));
+            };
+
+            const onUserComplete = () => {
+                pendingUserCount--;
+                if (pendingUserCount == 0)
+                    Promise.all(userMessageTasks).then(allUsersCompletionResolver)
             }
-            else {
-                let incompleteUserCount = this.#totalUsers;
 
-                const onMessage = async (user, msg) => {
-                    await invokeCallback(onMessageCallback, user, msg)
-                };
+            Object.values(this.#users).forEach(u => {
+                u.channel.consume((msg) => onUserMessage(u.user, msg), onUserComplete);
+            })
+        });
 
-                const onComplete = () => {
-                    incompleteUserCount--;
-                    if (incompleteUserCount == 0)
-                        resolve();
-                }
-
-                Object.values(this.#users).forEach(u => {
-                    u.channel.consume(async (msg) => await onMessage(u.user, msg), onComplete);
-                })
-            }
-        })
+        // We add the all users completed task to the global pending tasks list so the contract execution will not
+        // wrap up before this task is complete.
+        this.#pendingTasks.push(allUsersCompletedTask);
+        return allUsersCompletedTask;
     }
 }
 
@@ -120,8 +131,8 @@ class UserChannel {
 
         this.#readStream = fs.createReadStream(null, { fd: this.#fd });
         let dataParts = [];
-        let msgCount = -1;
-        let msgLen = -1;
+        let remainingMsgCount = -1;
+        let currentMsgLen = -1;
         let pos = 0;
 
         // Read bytes from the given buffer.
@@ -131,43 +142,44 @@ class UserChannel {
             return buf.slice(pos, pos + count);
         }
 
-        this.#readStream.on("data", async (buf) => {
+        this.#readStream.on("data", (buf) => {
             pos = 0;
-            if (msgCount == -1) {
+            if (remainingMsgCount == -1) {
                 const msgCountBuf = readBytes(buf, 0, 4)
-                msgCount = msgCountBuf.readUInt32BE();
+                remainingMsgCount = msgCountBuf.readUInt32BE();
                 pos += 4;
             }
+
             while (pos < buf.byteLength) {
-                if (msgLen == -1) {
+                if (currentMsgLen == -1) {
                     const msgLenBuf = readBytes(buf, pos, 4);
                     pos += 4;
-                    msgLen = msgLenBuf.readUInt32BE();
+                    currentMsgLen = msgLenBuf.readUInt32BE();
                 }
                 let possible_read_len;
-                if (((buf.byteLength - pos) - msgLen) >= 0) {
+                if (((buf.byteLength - pos) - currentMsgLen) >= 0) {
                     // Can finish reading a full message.
-                    possible_read_len = msgLen;
-                    msgLen = -1;
+                    possible_read_len = currentMsgLen;
+                    currentMsgLen = -1;
                 } else {
                     // Only partial message is recieved.
                     possible_read_len = buf.byteLength - pos
-                    msgLen -= possible_read_len;
+                    currentMsgLen -= possible_read_len;
                 }
                 const msgBuf = readBytes(buf, pos, possible_read_len);
                 pos += possible_read_len;
                 dataParts.push(msgBuf)
 
-                if (msgLen == -1) {
-                    await invokeCallback(onMessage, Buffer.concat(dataParts));
+                if (currentMsgLen == -1) {
+                    onMessage(Buffer.concat(dataParts));
                     dataParts = [];
-                    msgCount--
+                    remainingMsgCount--
                 }
             }
 
-            if (msgCount == 0) {
-                msgCount = -1;
-                await invokeCallback(onComplete);
+            if (remainingMsgCount == 0) {
+                remainingMsgCount = -1;
+                onComplete();
             }
         });
     }
@@ -177,8 +189,11 @@ class UserChannel {
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
         headerBuf.writeUInt32BE(outputStringBuf.byteLength)
-        await writeAsync(this.#fd, headerBuf);
-        await writeAsync(this.#fd, outputStringBuf);
+
+        // We need to use synchronous writes (non-async) here because we want to atomically
+        // write header and the message together without them getting rescheduled by NodeJs event loop.
+        fs.writeSync(this.#fd, headerBuf);
+        fs.writeSync(this.#fd, outputStringBuf);
     }
 }
 
@@ -186,9 +201,11 @@ class PeersCollection {
     #peers = {};
     #channel = null;
     #readonly = false;
+    #pendingTasks = null;
 
-    constructor(readonly, unl, nplfd) {
+    constructor(readonly, unl, nplfd, pendingTasks) {
         this.#readonly = readonly;
+        this.#pendingTasks = pendingTasks;
 
         if (!readonly) {
             unl.forEach(pubKey => {
@@ -204,8 +221,8 @@ class PeersCollection {
         if (this.#readonly)
             throw "Peer messages not available in readonly mode.";
 
-        this.#channel.consume(async (pubKey, msg) => {
-            await invokeCallback(callback, this.#peers[pubKey], msg);
+        this.#channel.consume((pubKey, msg) => {
+            this.#pendingTasks.push(invokeCallback(callback, this.#peers[pubKey], msg));
         });
     }
 
@@ -243,19 +260,19 @@ class NplChannel {
         // then npl message object is constructed and the event is emmited.
         let pubKey = null;
 
-        this.#readStream.on("data", async (data) => {
+        this.#readStream.on("data", (data) => {
             if (!pubKey) {
                 pubKey = data.toString('hex');
             }
             else {
-                await invokeCallback(onMessage, pubKey, data);
+                onMessage(pubKey, data);
                 pubKey = null;
             }
         });
     }
 
-    async send(msg) {
-        await writeAsync(this.#fd, msg);
+    send(msg) {
+        return writeAsync(this.#fd, msg);
     }
 }
 
@@ -270,24 +287,18 @@ class ControlChannel {
     }
 
     consume(onMessage) {
-
         this.#readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
-
-        this.#readStream.on("data", async (data) => {
-            await invokeCallback(onMessage, data);
-        });
+        this.#readStream.on("data", onMessage);
     }
 
-    async send(msg) {
-        await writeAsync(this.#fd, msg);
+    send(msg) {
+        return writeAsync(this.#fd, msg);
     }
 }
 
-const writeAsync = (fd, msg) => {
-    return new Promise(resolve => {
-        fs.write(fd, msg, resolve);
-    })
-}
+const writeAsync = (fd, msg) => new Promise(resolve => {
+    fs.write(fd, msg, resolve);
+});
 
 const invokeCallback = async (callback, ...args) => {
     if (!callback)

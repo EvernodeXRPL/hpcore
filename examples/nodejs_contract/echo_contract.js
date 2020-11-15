@@ -1,13 +1,13 @@
 const { HotPocketContract } = require("./hp-contract-lib");
 const fs = require('fs');
 
-const echoContract = async (ctx) => {
+const echoContract = (ctx) => {
 
     // We just save execution timestamp as an example state file change.
     if (!ctx.readonly)
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
 
-    await ctx.users.consumeMessages(async (user, buf) => {
+    ctx.users.onMessage(async (user, buf) => {
         const msg = buf.toString("utf8");
         if (msg == "ts") {
             await user.send(fs.readFileSync("exects.txt"));
@@ -26,7 +26,5 @@ const echoContract = async (ctx) => {
     // }
 }
 
-(async function () {
-    const hpc = new HotPocketContract();
-    await hpc.init(echoContract);
-}());
+const hpc = new HotPocketContract();
+hpc.init(echoContract);
