@@ -107,7 +107,7 @@ namespace p2p
             session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
             ctx.peer_connections.try_emplace(session.uniqueid, &session);
 
-            // Reduce available capacity if new connection is made.
+            // Reduce available capacity when new peer connection is made.
             if (conf::cfg.peermaxcons != 0)
                 ctx.server->available_capacity--;
 
@@ -335,7 +335,7 @@ namespace p2p
     /**
      * Updates the capacity of the given known peer.
      * @param ip_port Ip and port of the know peer.
-     * @param available_capacity Available capacity of the known peer.
+     * @param available_capacity Available capacity of the known peer, -1 if number of connections is unlimited.
      * @param timestamp Capacity announced time.
      */
     void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t timestamp)
@@ -346,7 +346,7 @@ namespace p2p
                                 [&](const conf::peer_properties &p) { return p.ip_port.host_address == ip_port.host_address && p.ip_port.port == ip_port.port; });
         if (itr != ctx.server->req_known_remotes.end())
         {
-            LOG_INFO << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ", Capacity: " << std::to_string(available_capacity);
+            LOG_DEBUG << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ", Capacity: " << std::to_string(available_capacity);
             itr->available_capacity = available_capacity;
             itr->timestamp = timestamp;
 

@@ -603,7 +603,7 @@ namespace msg::fbuf::p2pmsg
     /**
      * Create available capacity announcement message.
      * @param container_builder Flatbuffer builder for the container message.
-     * @param available_capacity Number of incoming connection slots available.
+     * @param available_capacity Number of incoming connection slots available, -1 means there's no limitation for connections.
      * @param timestamp Announced timestamp.
      * @param lcl Lcl value to be passed in the container message.
      */

@@ -82,7 +82,7 @@ namespace conf
         std::string binargs;                                    // CLI arguments to pass to the contract binary
         std::string appbill;                                    // binary to execute for appbill
         std::string appbillargs;                                // any arguments to supply to appbill binary by default
-        std::vector<peer_properties> peers;                     // Vector of peers with host address, timestamp, capacity
+        std::vector<peer_properties> peers;                     // Vector of peers with ip_port, timestamp, capacity
         std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)
         uint16_t peerport = 0;                                  // Listening port for peer connections
         uint16_t roundtime = 0;                                 // Consensus round time in ms
@@ -94,16 +94,16 @@ namespace conf
         uint64_t pubmaxbadmpm = 0; // User bad messages per minute
         uint16_t pubmaxcons = 0;   // Max inbound user connections
 
-        uint64_t peermaxsize = 0;     // Peer message max size in bytes
-        uint64_t peermaxcpm = 0;      // Peer message rate (characters(bytes) per minute)
-        uint64_t peermaxdupmpm = 0;   // Peer max duplicate messages per minute
-        uint64_t peermaxbadmpm = 0;   // Peer bad messages per minute
-        uint64_t peermaxbadsigpm = 0; // Peer bad signatures per minute
-        uint16_t peermaxcons = 0;     // Max inbound peer connections
-        uint16_t peermaxknowncons = 0;     // Max inbound peer connections
+        uint64_t peermaxsize = 0;           // Peer message max size in bytes
+        uint64_t peermaxcpm = 0;            // Peer message rate (characters(bytes) per minute)
+        uint64_t peermaxdupmpm = 0;         // Peer max duplicate messages per minute
+        uint64_t peermaxbadmpm = 0;         // Peer bad messages per minute
+        uint64_t peermaxbadsigpm = 0;       // Peer bad signatures per minute
+        uint16_t peermaxcons = 0;           // Max peer connections
+        uint16_t peermaxknowncons = 0;      // Max known peer connections
 
-        bool msgforwarding = false; // Whether peer message forwarding is on/off.
-        bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
+        bool msgforwarding = false;         // Whether peer message forwarding is on/off.
+        bool dynamicpeerdiscovery = false;  // Whether dynamic peer discovery is on/off.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)

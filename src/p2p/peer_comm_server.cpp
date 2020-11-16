@@ -21,10 +21,12 @@ namespace p2p
     void peer_comm_server::start_custom_jobs()
     {
         // known_peers_thread = std::thread(&peer_comm_server::peer_monitor_loop, this);
+        // Start peer list request loop is dynamic peer discovery is enabled.
         if (conf::cfg.dynamicpeerdiscovery)
         {
             peer_list_request_thread = std::thread(&peer_comm_server::peer_list_request_loop, this);
         }
+        // Start sending available capacity updates if peermaxcons cap is not 0(unlimited).
         if (conf::cfg.peermaxcons != 0)
         {
             available_capacity_announcement_thread = std::thread(&peer_comm_server::available_capacity_announcement_loop, this);
@@ -34,12 +36,12 @@ namespace p2p
     void peer_comm_server::stop_custom_jobs()
     {
         // known_peers_thread.join();
-        // Start peer list request loop is dynamic peer discovery is enabled.
+        // Join peer list request thread is dynamic peer discovery is enabled.
         if (conf::cfg.dynamicpeerdiscovery)
         {
             peer_list_request_thread.join();
         }
-        // Start sending available capacity updates if peermaxcons cap is not 0(unlimited).
+        // Join available capacity update sending thread if peermaxcons cap is not 0(unlimited).
         if (conf::cfg.peermaxcons != 0)
         {
             available_capacity_announcement_thread.join();
@@ -109,7 +111,7 @@ namespace p2p
             // If max known peer connection cap is reached then periodically request peer list from random known peer.
             // Otherwise frequently request peer list from a random known peer.
             // Peer discovery time interval can be configured in the config.
-            if (conf::cfg.peermaxknowncons != 0 && known_remote_count >= conf::cfg.peermaxknowncons)
+            if (conf::cfg.peermaxknowncons != 0 && known_remote_count == conf::cfg.peermaxknowncons)
             {
                 util::sleep(conf::cfg.peerdiscoverytime * 5);
             }
@@ -151,7 +153,7 @@ namespace p2p
                 break;
 
             // Break if max peer connection cap is reached.
-            if (conf::cfg.peermaxcons != 0 && (sessions.size() + new_sessions.size()) >= conf::cfg.peermaxcons)
+            if (conf::cfg.peermaxcons != 0 && new_sessions.size() >= available_capacity)
                 break;
 
             // Break if the peer has no free slots.
