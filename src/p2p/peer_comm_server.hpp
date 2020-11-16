@@ -19,7 +19,6 @@ namespace p2p
         void available_capacity_announcement_loop();
 
     protected:
-        std::atomic<uint16_t> known_remote_count = 0;
         void start_custom_jobs();
         void stop_custom_jobs();
         int process_custom_messages();
@@ -27,7 +26,7 @@ namespace p2p
 
 
     public:
-        std::atomic<int16_t> available_capacity = -1;
+        std::atomic<uint16_t> known_remote_count = 0;
         std::mutex req_known_remotes_mutex;
         std::vector<conf::peer_properties> &req_known_remotes;
         peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],

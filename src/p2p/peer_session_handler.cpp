@@ -271,10 +271,6 @@ namespace p2p
         {
             ctx.peer_connections.erase(itr);
 
-            // Update available capacity on connection close.
-            if (conf::cfg.peermaxcons != 0)
-                ctx.server->available_capacity++;
-
             // Update peer properties to default on peer close.
             if (itr->second->known_ipport.has_value())
                 p2p::update_known_peer_available_capacity(itr->second->known_ipport.value(), -1, 0);

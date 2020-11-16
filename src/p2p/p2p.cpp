@@ -58,7 +58,7 @@ namespace p2p
     int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp)
     {
         // Skip if max inbound connection cap is reached.
-        if (ctx.server->available_capacity == 0)
+        if (session.is_inbound && get_available_capacity() == 0)
         {
             LOG_DEBUG << "Max inbound connection cap reached.";
             return -1;
@@ -106,10 +106,6 @@ namespace p2p
             session.uniqueid.swap(pubkeyhex);
             session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
             ctx.peer_connections.try_emplace(session.uniqueid, &session);
-
-            // Reduce available capacity when new peer connection is made.
-            if (conf::cfg.peermaxcons != 0)
-                ctx.server->available_capacity--;
 
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
             return 0;
@@ -413,11 +409,30 @@ namespace p2p
     /**
      * Calculate the weight value for the peer.
      * @param peer Properties of the peer.
+     * @returns -1 if available capacity is unlimited otherwise weight value.
      */
     int32_t get_peer_weight(const conf::peer_properties &peer)
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
         return peer.available_capacity >= 0 ? peer.available_capacity * 1000 * 60 / ceil(time_now - peer.timestamp) : -1;
+    }
+
+    /**
+     * Calculate and retunrns the available capacity.
+     * @returns -1 if available capacity is unlimited otherwise available value.
+     */
+    int16_t get_available_capacity()
+    {
+        if (conf::cfg.peermaxcons != 0)
+        {
+            // If known peer max connection count is greater than peer max connection count return 0.
+            // Otherwise peer max con count - know peer max con count - inbound peer cons.
+            if (conf::cfg.peermaxknowncons != 0 && conf::cfg.peermaxcons > conf::cfg.peermaxknowncons)
+                return conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - ctx.peer_connections.size() + ctx.server->known_remote_count;
+            else if (conf::cfg.peermaxknowncons != 0)
+                return 0;
+        }
+        return -1;
     }
 
 } // namespace p2p

@@ -166,6 +166,8 @@ namespace p2p
     int32_t get_peer_weight(const conf::peer_properties &peer);
 
     void sort_known_remotes();
+
+    int16_t get_available_capacity();
 } // namespace p2p
 
 #endif

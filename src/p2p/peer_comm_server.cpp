@@ -13,9 +13,6 @@ namespace p2p
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size),
           req_known_remotes(req_known_remotes)
     {
-        // Setup available capacity from the config.
-        if (conf::cfg.peermaxcons != 0)
-            available_capacity = conf::cfg.peermaxcons - conf::cfg.peermaxknowncons;
     }
 
     void peer_comm_server::start_custom_jobs()
@@ -87,7 +84,8 @@ namespace p2p
 
         while (!is_shutting_down)
         {
-            p2p::send_available_capacity_announcement(available_capacity);
+            if (conf::cfg.peermaxcons != 0)
+                p2p::send_available_capacity_announcement(p2p::get_available_capacity());
 
             util::sleep(1000);
         }
@@ -153,7 +151,7 @@ namespace p2p
                 break;
 
             // Break if max peer connection cap is reached.
-            if (conf::cfg.peermaxcons != 0 && new_sessions.size() >= available_capacity)
+            if (conf::cfg.peermaxcons != 0 && known_remote_count == conf::cfg.peermaxcons)
                 break;
 
             // Break if the peer has no free slots.
