@@ -607,7 +607,7 @@ namespace msg::fbuf::p2pmsg
      * @param timestamp Announced timestamp.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &container_builder, const int16_t available_capacity, const uint64_t timestamp, std::string_view lcl)
+    void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &container_builder, const int16_t &available_capacity, const uint64_t &timestamp, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 

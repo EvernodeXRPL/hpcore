@@ -286,7 +286,7 @@ namespace p2p
      * @param available_capacity Available capacity of the known peer.
      * @param timestamp Capacity announced time.
      */
-    void send_available_capacity_announcement(const int16_t available_capacity)
+    void send_available_capacity_announcement(const int16_t &available_capacity)
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
         flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -338,7 +338,7 @@ namespace p2p
      * @param available_capacity Available capacity of the known peer, -1 if number of connections is unlimited.
      * @param timestamp Capacity announced time.
      */
-    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t timestamp)
+    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t &available_capacity, const uint64_t &timestamp)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
@@ -371,7 +371,7 @@ namespace p2p
      * Merging the response peer list with the own known peer list.
      * @param peers Incoming peer list.
      */
-    void merge_peer_list(std::vector<conf::peer_properties> peers)
+    void merge_peer_list(const std::vector<conf::peer_properties> &peers)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
