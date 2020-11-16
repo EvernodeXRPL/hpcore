@@ -203,8 +203,8 @@ namespace msg::fbuf::p2pmsg
         if (msg.requester_lcl())
             hr.requester_lcl = flatbuff_bytes_to_sv(msg.requester_lcl());
 
-        if (msg.hist_ledgers())
-            hr.hist_ledgers = flatbuf_historyledgermap_to_historyledgermap(msg.hist_ledgers());
+        if (msg.hist_ledger_blocks())
+            hr.hist_ledger_blocks = flatbuf_historyledgermap_to_historyledgermap(msg.hist_ledger_blocks());
 
         if (msg.error())
             hr.error = (p2p::LEDGER_RESPONSE_ERROR)msg.error();
@@ -440,7 +440,7 @@ namespace msg::fbuf::p2pmsg
             CreateHistory_Response_Message(
                 builder,
                 sv_to_flatbuff_bytes(builder, hr.requester_lcl),
-                historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledgers),
+                historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledger_blocks),
                 (Ledger_Response_Error)hr.error);
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Response_Message, hrmsg.Union());
@@ -764,39 +764,39 @@ namespace msg::fbuf::p2pmsg
         return builder.CreateVector(fbvec);
     }
 
-    const std::map<uint64_t, const p2p::history_ledger>
-    flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>> *fbvec)
+    const std::map<uint64_t, const p2p::history_ledger_block>
+    flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerBlockPair>> *fbvec)
     {
-        std::map<uint64_t, const p2p::history_ledger> map;
+        std::map<uint64_t, const p2p::history_ledger_block> map;
 
-        for (const HistoryLedgerPair *pair : *fbvec)
+        for (const HistoryLedgerBlockPair *pair : *fbvec)
         {
             std::list<usr::user_input> msglist;
 
-            p2p::history_ledger ledger;
+            p2p::history_ledger_block ledger;
 
             ledger.lcl = flatbuff_bytes_to_sv(pair->ledger()->lcl());
-            auto raw = pair->ledger()->raw_ledger();
-            ledger.raw_ledger = std::vector<uint8_t>(raw->begin(), raw->end());
+            auto raw = pair->ledger()->block_buffer();
+            ledger.block_buffer = std::vector<uint8_t>(raw->begin(), raw->end());
 
             map.emplace(pair->seq_no(), std::move(ledger));
         }
         return map;
     }
 
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerPair>>>
-    historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger> &map)
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerBlockPair>>>
+    historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger_block> &map)
     {
-        std::vector<flatbuffers::Offset<HistoryLedgerPair>> fbvec;
+        std::vector<flatbuffers::Offset<HistoryLedgerBlockPair>> fbvec;
         fbvec.reserve(map.size());
         for (auto const &[seq_no, ledger] : map)
         {
-            flatbuffers::Offset<HistoryLedger> history_ledger = CreateHistoryLedger(
+            flatbuffers::Offset<HistoryLedgerBlock> history_ledger = CreateHistoryLedgerBlock(
                 builder,
                 sv_to_flatbuff_bytes(builder, ledger.lcl),
-                builder.CreateVector(ledger.raw_ledger));
+                builder.CreateVector(ledger.block_buffer));
 
-            fbvec.push_back(CreateHistoryLedgerPair(
+            fbvec.push_back(CreateHistoryLedgerBlockPair(
                 builder,
                 seq_no,
                 history_ledger));

@@ -99,7 +99,7 @@ namespace util
 
     int create_dir_tree_recursive(std::string_view path);
 
-    std::list<dirent> fetch_dir_entries(std::string_view path);
+    std::list<std::string> fetch_dir_entries(std::string_view path);
 
     std::string_view fetch_file_extension(std::string_view path);
 
@@ -110,6 +110,8 @@ namespace util
     int clear_directory(std::string_view dir_path);
 
     void split_string(std::vector<std::string> &collection, std::string_view str, std::string_view delimeter);
+
+    int stoull(const std::string &str, uint64_t &result);
 
 } // namespace util
 

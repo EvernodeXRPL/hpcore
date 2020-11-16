@@ -2,7 +2,7 @@ include "common_schema.fbs";
 
 namespace msg.fbuf.ledger;
 
-table Ledger {
+table LedgerBlock {
     seq_no:uint64;
     time:uint64;
     lcl:[ubyte];
@@ -17,4 +17,4 @@ table RawInputList {
     inputs:[ByteArray];
 }
 
-root_type Ledger;
+root_type LedgerBlock;

@@ -84,6 +84,9 @@ namespace comm
                 // Cleanup any sessions that needs closure.
                 for (auto itr = sessions.begin(); itr != sessions.end();)
                 {
+                    // Check whether the connection expired according to last activity time rules.
+                    itr->check_last_activity_rules();
+
                     if (itr->state == SESSION_STATE::MUST_CLOSE)
                         itr->close(true);
 

@@ -40,10 +40,10 @@ namespace p2p
         std::string required_lcl;
     };
 
-    struct history_ledger
+    struct history_ledger_block
     {
         std::string lcl;
-        std::vector<uint8_t> raw_ledger;
+        std::vector<uint8_t> block_buffer;
     };
 
     struct peer_challenge_response
@@ -63,7 +63,7 @@ namespace p2p
     struct history_response
     {
         std::string requester_lcl;
-        std::map<uint64_t, const history_ledger> hist_ledgers;
+        std::map<uint64_t, const history_ledger_block> hist_ledger_blocks;
         LEDGER_RESPONSE_ERROR error = LEDGER_RESPONSE_ERROR::NONE;
     };
 
