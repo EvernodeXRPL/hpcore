@@ -97,6 +97,10 @@ class UsersCollection {
         return Object.values(this.#users).map(u => u.user);
     }
 
+    count() {
+        return Object.keys(this.#users).length;
+    }
+
     onMessage(callback) {
 
         if (this.#totalUsers == 0)
@@ -254,6 +258,10 @@ class PeersCollection {
     // Returns all the peers.
     get() {
         return Object.values(this.#peers);
+    }
+
+    count() {
+        return Object.keys(this.#peers).length;
     }
 
     // Registers for peer messages.
