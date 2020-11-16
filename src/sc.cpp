@@ -418,8 +418,8 @@ namespace sc
         {
             if (npl_msg.lcl == ctx.args.lcl)
             {
-                // Writing the public key to the contract's fd.
-                if (write(writefd, npl_msg.pubkey.data(), npl_msg.pubkey.size()) == -1)
+                // Writing the public key to the contract's fd (Skip first byte for key type prefix).
+                if (write(writefd, npl_msg.pubkey.data() + 1, npl_msg.pubkey.size() - 1) == -1)
                     return -1;
                 // Writing the message to the contract's fd.
                 if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
