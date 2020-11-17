@@ -95,6 +95,14 @@ namespace p2p
         const auto iter = ctx.peer_connections.find(pubkeyhex);
         if (iter == ctx.peer_connections.end())
         {
+            // Skip the new connection if max connection cap is reached.
+            if (get_available_capacity() == 0)
+            {
+                session.mark_for_closure();
+                LOG_INFO << "Max connection cap reached. Rejecting new peer connection [" << session.display_name() << "]";
+                return -1;
+            }
+
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
             session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;

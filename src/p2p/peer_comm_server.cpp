@@ -18,31 +18,13 @@ namespace p2p
     void peer_comm_server::start_custom_jobs()
     {
         // known_peers_thread = std::thread(&peer_comm_server::peer_monitor_loop, this);
-        // Start peer list request loop is dynamic peer discovery is enabled.
-        if (conf::cfg.dynamicpeerdiscovery)
-        {
-            peer_list_request_thread = std::thread(&peer_comm_server::peer_list_request_loop, this);
-        }
-        // Start sending available capacity updates if peermaxcons cap is not 0(unlimited).
-        if (conf::cfg.peermaxcons != 0)
-        {
-            available_capacity_announcement_thread = std::thread(&peer_comm_server::available_capacity_announcement_loop, this);
-        }
+        peer_managing_thread = std::thread(&peer_comm_server::peer_managing_loop, this);
     }
 
     void peer_comm_server::stop_custom_jobs()
     {
         // known_peers_thread.join();
-        // Join peer list request thread is dynamic peer discovery is enabled.
-        if (conf::cfg.dynamicpeerdiscovery)
-        {
-            peer_list_request_thread.join();
-        }
-        // Join available capacity update sending thread if peermaxcons cap is not 0(unlimited).
-        if (conf::cfg.peermaxcons != 0)
-        {
-            available_capacity_announcement_thread.join();
-        }
+        peer_managing_thread.join();
     }
 
     int peer_comm_server::process_custom_messages()
@@ -76,50 +58,45 @@ namespace p2p
     //     LOG_INFO << "Stopped peer monitor.";
     // }
 
-    void peer_comm_server::available_capacity_announcement_loop()
+    void peer_comm_server::peer_managing_loop()
     {
         util::mask_signal();
 
-        LOG_DEBUG << "Started available capacity announcement loop.";
+        LOG_INFO << "Started peer managing thread.";
 
         while (!is_shutting_down)
         {
+            peer_managing_counter++;
+
+            // Send available peer capacity if peermaxcons is configured.
             if (conf::cfg.peermaxcons != 0)
                 p2p::send_available_capacity_announcement(p2p::get_available_capacity());
+
+            // Start peer list request loop is dynamic peer discovery is enabled.
+            if (conf::cfg.dynamicpeerdiscovery && known_remote_count > 0)
+            {
+                // If max known peer connection cap is reached then periodically request peer list from random known peer.
+                // Otherwise frequently request peer list from a random known peer.
+                // Peer discovery time interval can be configured in the config.
+                if (conf::cfg.peermaxknowncons != 0 && known_remote_count == conf::cfg.peermaxknowncons)
+                {
+                    if (peer_managing_counter * 100 >= conf::cfg.peerdiscoverytime * 5)
+                    {
+                        p2p::send_peer_list_request();
+                        peer_managing_counter = 0;
+                    }
+                }
+                else if (peer_managing_counter * 100 >= conf::cfg.peerdiscoverytime)
+                {
+                    p2p::send_peer_list_request();
+                    peer_managing_counter = 0;
+                }
+            }
 
             util::sleep(100);
         }
 
-        LOG_DEBUG << "Stopped available capacity announcement loop.";
-    }
-
-    void peer_comm_server::peer_list_request_loop()
-    {
-        util::mask_signal();
-
-        LOG_INFO << "Started peer list request loop.";
-
-        while (!is_shutting_down)
-        {
-            if (known_remote_count > 0)
-            {
-                p2p::send_peer_list_request();
-            }
-
-            // If max known peer connection cap is reached then periodically request peer list from random known peer.
-            // Otherwise frequently request peer list from a random known peer.
-            // Peer discovery time interval can be configured in the config.
-            if (conf::cfg.peermaxknowncons != 0 && known_remote_count == conf::cfg.peermaxknowncons)
-            {
-                util::sleep(conf::cfg.peerdiscoverytime * 5);
-            }
-            else
-            {
-                util::sleep(conf::cfg.peerdiscoverytime);
-            }
-        }
-
-        LOG_INFO << "Stopped peer list request loop.";
+        LOG_INFO << "Stopped peer managing thread.";
     }
 
     void peer_comm_server::maintain_known_connections()

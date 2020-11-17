@@ -10,13 +10,12 @@ namespace p2p
     {
     private:
         int custom_connection_invocations = -1;
+        int peer_managing_counter = 0;
         // std::thread known_peers_thread; // Known peers connection establishment thread.
-        std::thread peer_list_request_thread; // Thread to request known peer list from a random peer.
-        std::thread available_capacity_announcement_thread; // Thread to announce available capacity to the peers.
-
+        std::thread peer_managing_thread; // Thread to request known peer list from a random peer and announce available capacity.
+        
         void maintain_known_connections();
-        void peer_list_request_loop();
-        void available_capacity_announcement_loop();
+        void peer_managing_loop();
 
     protected:
         void start_custom_jobs();
