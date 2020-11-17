@@ -267,7 +267,7 @@ namespace comm
             const uint64_t elapsed_time = time_now - t.timestamp;
             if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
             {
-                close();
+                mark_for_closure();
 
                 t.timestamp = 0;
                 t.counter_value = 0;
