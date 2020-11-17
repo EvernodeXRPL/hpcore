@@ -40,9 +40,6 @@ namespace consensus
         ctx.stage_time = (conf::cfg.roundtime * 2) / 7;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
-        ctx.contract_ctx.args.state_dir = conf::ctx.state_rw_dir;
-        ctx.contract_ctx.args.readonly = false;
-
         // Starting consensus processing thread.
         ctx.consensus_thread = std::thread(run_consensus);
 
@@ -61,7 +58,11 @@ namespace consensus
             ctx.is_shutting_down = true;
 
             // Stop the contract if running.
-            sc::stop(ctx.contract_ctx);
+            {
+                std::scoped_lock lock(ctx.contract_ctx_mutex);
+                if (ctx.contract_ctx)
+                    sc::stop(ctx.contract_ctx.value());
+            }
 
             // Joining consensus processing thread.
             if (ctx.consensus_thread.joinable())
@@ -361,7 +362,10 @@ namespace consensus
      */
     bool push_npl_message(p2p::npl_message &npl_msg)
     {
-        return ctx.contract_ctx.args.npl_messages.try_enqueue(npl_msg);
+        std::scoped_lock lock(ctx.contract_ctx_mutex);
+        if (ctx.contract_ctx)
+            return ctx.contract_ctx->args.npl_messages.try_enqueue(npl_msg);
+        return false;
     }
 
     /**
@@ -371,7 +375,10 @@ namespace consensus
      */
     bool push_control_message(const std::string &control_msg)
     {
-        return ctx.contract_ctx.args.control_messages.try_enqueue(control_msg);
+        std::scoped_lock lock(ctx.contract_ctx_mutex);
+        if (ctx.contract_ctx)
+            return ctx.contract_ctx->args.control_messages.try_enqueue(control_msg);
+        return false;
     }
 
     /**
@@ -721,16 +728,23 @@ namespace consensus
         dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl);
 
         // Execute the contract
+        if (!ctx.is_shutting_down)
         {
-            sc::contract_execution_args &args = ctx.contract_ctx.args;
+            {
+                std::scoped_lock lock(ctx.contract_ctx_mutex);
+                ctx.contract_ctx.emplace();
+            }
+
+            sc::contract_execution_args &args = ctx.contract_ctx->args;
+            args.state_dir = conf::ctx.state_rw_dir;
+            args.readonly = false;
             args.time = cons_prop.time;
             args.lcl = new_lcl;
 
             // Populate user bufs.
             feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
-            // TODO: Do something usefull with HP<-->SC channel.
 
-            if (sc::execute_contract(ctx.contract_ctx) == -1)
+            if (sc::execute_contract(ctx.contract_ctx.value()) == -1)
             {
                 LOG_ERROR << "Contract execution failed.";
                 return -1;
@@ -740,7 +754,11 @@ namespace consensus
             new_state = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);
-            args.clear();
+
+            {
+                std::scoped_lock lock(ctx.contract_ctx_mutex);
+                ctx.contract_ctx.reset();
+            }
         }
 
         return 0;

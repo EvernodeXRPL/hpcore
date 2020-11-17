@@ -58,8 +58,6 @@ namespace sc
      */
     int execute_contract(execution_context &ctx)
     {
-        ctx.termination_signaled = false;
-
         // Start the hpfs rw session before starting the contract process.
         if (start_hpfs_session(ctx) == -1)
             return -1;

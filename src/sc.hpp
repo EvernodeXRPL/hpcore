@@ -82,20 +82,6 @@ namespace sc
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
-
-        void clear()
-        {
-            userbufs.clear();
-            while (npl_messages.pop())
-            {
-            }
-            while (control_messages.pop())
-            {
-            }
-            time = 0;
-            lcl.clear();
-            post_execution_state_hash = hpfs::h32_empty;
-        }
     };
 
     /**
