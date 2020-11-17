@@ -137,10 +137,10 @@ table Peer_List_Request_Message{
 }
 
 table Peer_List_Response_Message{
-    peer_list: [Peer_Properies];
+    peer_list: [Peer_Properties];
 }
 
-table Peer_Properies {
+table Peer_Properties {
     host_address:string;
     port:uint16;
     available_capacity:int16;

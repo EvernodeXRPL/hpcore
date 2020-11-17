@@ -842,14 +842,14 @@ namespace msg::fbuf::p2pmsg
  * @param container_builder Flatbuffer builder for the container message.
  * @param peers The Vector of peer properties to be placed in the container message.
  */
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properies>>>
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>>>
     peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers)
     {
-        std::vector<flatbuffers::Offset<Peer_Properies>> fbvec;
+        std::vector<flatbuffers::Offset<Peer_Properties>> fbvec;
         fbvec.reserve(peers.size());
         for (auto const peer : peers)
         {
-            fbvec.push_back(CreatePeer_Properies(
+            fbvec.push_back(CreatePeer_Properties(
                 builder,
                 sv_to_flatbuff_str(builder, peer.ip_port.host_address),
                 peer.ip_port.port,
@@ -864,11 +864,11 @@ namespace msg::fbuf::p2pmsg
  * @param fbvec The peer list message to be convert to a list of peer properties structs.
  */
     const std::vector<conf::peer_properties>
-    flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<Peer_Properies>> *fbvec)
+    flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>> *fbvec)
     {
         std::vector<conf::peer_properties> peers;
 
-        for (const Peer_Properies *peer : *fbvec)
+        for (const Peer_Properties *peer : *fbvec)
         {
             conf::peer_properties properties;
 

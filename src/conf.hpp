@@ -14,6 +14,11 @@ namespace conf
     {
         std::string host_address;
         uint16_t port;
+
+        bool operator==(ip_port_prop ip_port)
+        {
+            return host_address == ip_port.host_address && port == ip_port.port;
+        }
     };
 
     // Struct to represent information about a peer.
@@ -94,16 +99,16 @@ namespace conf
         uint64_t pubmaxbadmpm = 0; // User bad messages per minute
         uint16_t pubmaxcons = 0;   // Max inbound user connections
 
-        uint64_t peermaxsize = 0;           // Peer message max size in bytes
-        uint64_t peermaxcpm = 0;            // Peer message rate (characters(bytes) per minute)
-        uint64_t peermaxdupmpm = 0;         // Peer max duplicate messages per minute
-        uint64_t peermaxbadmpm = 0;         // Peer bad messages per minute
-        uint64_t peermaxbadsigpm = 0;       // Peer bad signatures per minute
-        uint16_t peermaxcons = 0;           // Max peer connections
-        uint16_t peermaxknowncons = 0;      // Max known peer connections
+        uint64_t peermaxsize = 0;      // Peer message max size in bytes
+        uint64_t peermaxcpm = 0;       // Peer message rate (characters(bytes) per minute)
+        uint64_t peermaxdupmpm = 0;    // Peer max duplicate messages per minute
+        uint64_t peermaxbadmpm = 0;    // Peer bad messages per minute
+        uint64_t peermaxbadsigpm = 0;  // Peer bad signatures per minute
+        uint16_t peermaxcons = 0;      // Max peer connections
+        uint16_t peermaxknowncons = 0; // Max known peer connections
 
-        bool msgforwarding = false;         // Whether peer message forwarding is on/off.
-        bool dynamicpeerdiscovery = false;  // Whether dynamic peer discovery is on/off.
+        bool msgforwarding = false;        // Whether peer message forwarding is on/off.
+        bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)

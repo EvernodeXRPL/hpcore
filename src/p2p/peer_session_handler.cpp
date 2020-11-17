@@ -41,7 +41,6 @@ namespace p2p
             session.mark_for_closure();
             LOG_DEBUG << "Max connection cap reached. Marking peer connection to close [" << session.display_name() << "]";
         }
-        
     }
 
     // peer session on message callback method.
@@ -272,19 +271,22 @@ namespace p2p
     }
 
     //peer session on message callback method
-    int handle_peer_close(const comm::comm_session &session)
+    int handle_peer_close(const p2p::peer_comm_session &session)
     {
-        // Erase the corresponding uniqueid peer connection if it's this session.
-        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
-        const auto itr = ctx.peer_connections.find(session.uniqueid);
-        if (itr != ctx.peer_connections.end() && itr->second == &session)
         {
-            ctx.peer_connections.erase(itr);
-
-            // Update peer properties to default on peer close.
-            if (itr->second->known_ipport.has_value())
-                p2p::update_known_peer_available_capacity(itr->second->known_ipport.value(), -1, 0);
+            // Erase the corresponding uniqueid peer connection if it's this session.
+            std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
+            const auto itr = ctx.peer_connections.find(session.uniqueid);
+            if (itr != ctx.peer_connections.end() && itr->second == &session)
+            {
+                ctx.peer_connections.erase(itr);
+            }
         }
+
+        // Update peer properties to default on peer close.
+        if (session.known_ipport.has_value())
+            p2p::update_known_peer_available_capacity(session.known_ipport.value(), -1, 0);
+
         return 0;
     }
 

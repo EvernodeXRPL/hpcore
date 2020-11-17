@@ -272,8 +272,8 @@ namespace p2p
     }
 
     /**
+     * Sends theavailable capacity announcement to all the connected peers.
      * @param available_capacity Available capacity of the known peer.
-     * @param timestamp Capacity announced time.
      */
     void send_available_capacity_announcement(const int16_t &available_capacity)
     {
@@ -289,36 +289,11 @@ namespace p2p
      */
     void send_known_peer_list(peer_comm_session *session)
     {
-        // If session is a known peer then remove that peer from the peer list response.
-        if (session->known_ipport.has_value())
-        {
-            std::vector<conf::peer_properties> peers;
-            for (const conf::peer_properties &peer : ctx.server->req_known_remotes)
-            {
-
-                conf::ip_port_prop ip_port = session->known_ipport.value();
-                if (ip_port.host_address != peer.ip_port.host_address && ip_port.port != peer.ip_port.port)
-                {
-                    peers.push_back(peer);
-                }
-            }
-            if (!peers.empty())
-            {
-                flatbuffers::FlatBufferBuilder fbuf(1024);
-                msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, peers, ledger::ctx.get_lcl());
-                std::string_view msg = std::string_view(
-                    reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-                session->send(msg);
-            }
-        }
-        else
-        {
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-            msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, ledger::ctx.get_lcl());
-            std::string_view msg = std::string_view(
-                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-            session->send(msg);
-        }
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, ledger::ctx.get_lcl());
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+        session->send(msg);
     }
 
     /**
@@ -327,15 +302,14 @@ namespace p2p
      * @param available_capacity Available capacity of the known peer, -1 if number of connections is unlimited.
      * @param timestamp Capacity announced time.
      */
-    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t &available_capacity, const uint64_t &timestamp)
+    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t &timestamp)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
-                                [&](const conf::peer_properties &p) { return p.ip_port.host_address == ip_port.host_address && p.ip_port.port == ip_port.port; });
+        auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](conf::peer_properties &p) { return p.ip_port == ip_port; });
         if (itr != ctx.server->req_known_remotes.end())
         {
-            LOG_DEBUG << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ", Capacity: " << std::to_string(available_capacity);
+            LOG_DEBUG << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ":" << itr->ip_port.port << ", Capacity: " << std::to_string(available_capacity);
             itr->available_capacity = available_capacity;
             itr->timestamp = timestamp;
 
@@ -366,8 +340,7 @@ namespace p2p
 
         for (const conf::peer_properties &peer : peers)
         {
-            auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
-                                    [&](const conf::peer_properties &p) { return p.ip_port.host_address == peer.ip_port.host_address && p.ip_port.port == peer.ip_port.port; });
+            auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](conf::peer_properties &p) { return p.ip_port == peer.ip_port; });
 
             // If the new peer is not in the peer list then add to the req_known_remotes
             // Otherwise if new peer is recently updated (timestamp >) replace with the current one.

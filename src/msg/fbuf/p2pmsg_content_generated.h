@@ -78,8 +78,8 @@ struct Peer_List_Request_MessageBuilder;
 struct Peer_List_Response_Message;
 struct Peer_List_Response_MessageBuilder;
 
-struct Peer_Properies;
-struct Peer_ProperiesBuilder;
+struct Peer_Properties;
+struct Peer_PropertiesBuilder;
 
 enum Message {
   Message_NONE = 0,
@@ -1894,11 +1894,11 @@ struct Peer_List_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers:
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PEER_LIST = 4
   };
-  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>> *peer_list() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>> *>(VT_PEER_LIST);
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *peer_list() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *>(VT_PEER_LIST);
   }
-  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>> *mutable_peer_list() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>> *>(VT_PEER_LIST);
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *mutable_peer_list() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *>(VT_PEER_LIST);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1913,7 +1913,7 @@ struct Peer_List_Response_MessageBuilder {
   typedef Peer_List_Response_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_peer_list(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>>> peer_list) {
+  void add_peer_list(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>>> peer_list) {
     fbb_.AddOffset(Peer_List_Response_Message::VT_PEER_LIST, peer_list);
   }
   explicit Peer_List_Response_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1929,7 +1929,7 @@ struct Peer_List_Response_MessageBuilder {
 
 inline flatbuffers::Offset<Peer_List_Response_Message> CreatePeer_List_Response_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>>> peer_list = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>>> peer_list = 0) {
   Peer_List_Response_MessageBuilder builder_(_fbb);
   builder_.add_peer_list(peer_list);
   return builder_.Finish();
@@ -1937,15 +1937,15 @@ inline flatbuffers::Offset<Peer_List_Response_Message> CreatePeer_List_Response_
 
 inline flatbuffers::Offset<Peer_List_Response_Message> CreatePeer_List_Response_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>> *peer_list = nullptr) {
-  auto peer_list__ = peer_list ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properies>>(*peer_list) : 0;
+    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *peer_list = nullptr) {
+  auto peer_list__ = peer_list ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>>(*peer_list) : 0;
   return msg::fbuf::p2pmsg::CreatePeer_List_Response_Message(
       _fbb,
       peer_list__);
 }
 
-struct Peer_Properies FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef Peer_ProperiesBuilder Builder;
+struct Peer_Properties FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Peer_PropertiesBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HOST_ADDRESS = 4,
     VT_PORT = 6,
@@ -1987,40 +1987,40 @@ struct Peer_Properies FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct Peer_ProperiesBuilder {
-  typedef Peer_Properies Table;
+struct Peer_PropertiesBuilder {
+  typedef Peer_Properties Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_host_address(flatbuffers::Offset<flatbuffers::String> host_address) {
-    fbb_.AddOffset(Peer_Properies::VT_HOST_ADDRESS, host_address);
+    fbb_.AddOffset(Peer_Properties::VT_HOST_ADDRESS, host_address);
   }
   void add_port(uint16_t port) {
-    fbb_.AddElement<uint16_t>(Peer_Properies::VT_PORT, port, 0);
+    fbb_.AddElement<uint16_t>(Peer_Properties::VT_PORT, port, 0);
   }
   void add_available_capacity(int16_t available_capacity) {
-    fbb_.AddElement<int16_t>(Peer_Properies::VT_AVAILABLE_CAPACITY, available_capacity, 0);
+    fbb_.AddElement<int16_t>(Peer_Properties::VT_AVAILABLE_CAPACITY, available_capacity, 0);
   }
   void add_timestamp(uint64_t timestamp) {
-    fbb_.AddElement<uint64_t>(Peer_Properies::VT_TIMESTAMP, timestamp, 0);
+    fbb_.AddElement<uint64_t>(Peer_Properties::VT_TIMESTAMP, timestamp, 0);
   }
-  explicit Peer_ProperiesBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit Peer_PropertiesBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<Peer_Properies> Finish() {
+  flatbuffers::Offset<Peer_Properties> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Peer_Properies>(end);
+    auto o = flatbuffers::Offset<Peer_Properties>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Peer_Properies> CreatePeer_Properies(
+inline flatbuffers::Offset<Peer_Properties> CreatePeer_Properties(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> host_address = 0,
     uint16_t port = 0,
     int16_t available_capacity = 0,
     uint64_t timestamp = 0) {
-  Peer_ProperiesBuilder builder_(_fbb);
+  Peer_PropertiesBuilder builder_(_fbb);
   builder_.add_timestamp(timestamp);
   builder_.add_host_address(host_address);
   builder_.add_available_capacity(available_capacity);
@@ -2028,14 +2028,14 @@ inline flatbuffers::Offset<Peer_Properies> CreatePeer_Properies(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Peer_Properies> CreatePeer_ProperiesDirect(
+inline flatbuffers::Offset<Peer_Properties> CreatePeer_PropertiesDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *host_address = nullptr,
     uint16_t port = 0,
     int16_t available_capacity = 0,
     uint64_t timestamp = 0) {
   auto host_address__ = host_address ? _fbb.CreateString(host_address) : 0;
-  return msg::fbuf::p2pmsg::CreatePeer_Properies(
+  return msg::fbuf::p2pmsg::CreatePeer_Properties(
       _fbb,
       host_address__,
       port,

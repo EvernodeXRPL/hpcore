@@ -86,7 +86,7 @@ namespace conf
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
         cfg.pubport = 8080;
-        cfg.peerdiscoverytime = 1000;
+        cfg.peerdiscoverytime = 30000;
 
         cfg.msgforwarding = false;
         cfg.dynamicpeerdiscovery = false;
@@ -300,7 +300,7 @@ namespace conf
         // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
         if (cfg.peermaxknowncons > cfg.peermaxcons)
         {
-            std::cout << "Invalid configuration values: peermaxknowncons count should not exeed peermaxcons." << '\n';
+            std::cout << "Invalid configuration values: peermaxknowncons count should not exceed peermaxcons." << '\n';
             return -1;
         }
 

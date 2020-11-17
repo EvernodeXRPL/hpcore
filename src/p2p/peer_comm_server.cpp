@@ -87,7 +87,7 @@ namespace p2p
             if (conf::cfg.peermaxcons != 0)
                 p2p::send_available_capacity_announcement(p2p::get_available_capacity());
 
-            util::sleep(1000);
+            util::sleep(100);
         }
 
         LOG_DEBUG << "Stopped available capacity announcement loop.";
@@ -154,13 +154,12 @@ namespace p2p
             if (conf::cfg.peermaxcons != 0 && known_remote_count == conf::cfg.peermaxcons)
                 break;
 
-            // Break if the peer has no free slots.
+            // Continue if the peer has no free slots.
             if (peer.available_capacity == 0)
-                break;
+                continue;
 
             // Check if we are already connected to this remote party.
-            if (std::find_if(known_remotes.begin(), known_remotes.end(),
-                             [&](const conf::ip_port_prop &p) { return p.host_address == peer.ip_port.host_address && p.port == peer.ip_port.port; }) != known_remotes.end())
+            if (std::find(known_remotes.begin(), known_remotes.end(), peer.ip_port) != known_remotes.end())
                 continue;
 
             std::string_view host = peer.ip_port.host_address;

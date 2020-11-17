@@ -92,12 +92,12 @@ namespace msg::fbuf::p2pmsg
     flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerBlockPair>> *fbvec);
 
     const std::vector<conf::peer_properties>
-    flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<Peer_Properies>> *fbvec);
+    flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>> *fbvec);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerBlockPair>>>
     historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger_block> &map);
 
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properies>>>
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>>>
     peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers);
 
     void flatbuf_statefshashentry_to_statefshashentry(std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entries,
