@@ -740,8 +740,7 @@ namespace consensus
             new_state = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);
-
-            sc::clear_args(args);
+            args.clear();
         }
 
         return 0;
