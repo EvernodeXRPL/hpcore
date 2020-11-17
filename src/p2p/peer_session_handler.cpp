@@ -25,13 +25,23 @@ namespace p2p
      */
     void handle_peer_connect(p2p::peer_comm_session &session)
     {
-        // Send peer challenge.
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        p2pmsg::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
-        std::string_view msg = std::string_view(
-            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-        session.send(msg);
-        session.challenge_status = comm::CHALLENGE_ISSUED;
+        // Skip the new connection if max connection cap is reached.
+        if (get_available_capacity() != 0)
+        {
+            // Send peer challenge.
+            flatbuffers::FlatBufferBuilder fbuf(1024);
+            p2pmsg::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
+            std::string_view msg = std::string_view(
+                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+            session.send(msg);
+            session.challenge_status = comm::CHALLENGE_ISSUED;
+        }
+        else
+        {
+            session.mark_for_closure();
+            LOG_DEBUG << "Max connection cap reached. Marking peer connection to close [" << session.display_name() << "]";
+        }
+        
     }
 
     // peer session on message callback method.
