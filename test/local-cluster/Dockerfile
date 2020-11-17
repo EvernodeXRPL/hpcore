@@ -3,7 +3,7 @@
 FROM node:12.18.3-buster-slim
 
 RUN apt-get update
-RUN apt-get install -y libgomp1 libssl-dev
+RUN apt-get install -y libgomp1 libssl-dev gdb
 
 # Install shared libraries.
 # Copy shared libraries and register it.

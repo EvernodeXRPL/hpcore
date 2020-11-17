@@ -1,7 +1,10 @@
-const ws_api = require('ws');
+const WebSocket = require('isomorphic-ws');
 const sodium = require('libsodium-wrappers');
 const EventEmitter = require('events');
 const bson = require('bson');
+
+// Whether we are in NodeJS or Browser.
+const isNodeJS = (typeof window === 'undefined');
 
 const protocols = {
     JSON: "json",
@@ -16,17 +19,35 @@ const events = {
 }
 Object.freeze(events);
 
-function HotPocketClient(server, protocol, keys) {
+const HotPocketKeyGenerator = {
+    generate: async function (privateKeyHex = null) {
+        await sodium.ready;
 
-    if (protocol != protocols.JSON && protocol != protocols.BSON)
-        throw new Error("Protocol: 'json' or 'bson' expected.");
+        if (!privateKeyHex) {
+            const keys = sodium.crypto_sign_keypair();
+            return {
+                privateKey: keys.privateKey,
+                publicKey: keys.publicKey
+            }
+        }
+        else {
+            const binPrivateKey = Buffer.from(privateKeyHex, "hex");
+            return {
+                privateKey: Uint8Array.from(binPrivateKey),
+                publicKey: Uint8Array.from(binPrivateKey.slice(32))
+            }
+        }
+    },
+}
+
+function HotPocketClient(server, keys, protocol = protocols.BSON) {
 
     let ws = null;
     const msgHelper = new MessageHelper(keys, protocol);
     const emitter = new EventEmitter();
 
     let handshakeResolver = null;
-    let statResponseResolver = null;
+    let statResponseResolvers = [];
     let contractInputResolvers = {};
 
     this.connect = function () {
@@ -34,31 +55,47 @@ function HotPocketClient(server, protocol, keys) {
 
             handshakeResolver = resolve;
 
-            ws = new ws_api(server, {
-                rejectUnauthorized: false
-            })
+            if (isNodeJS) {
+                ws = new WebSocket(server, {
+                    rejectUnauthorized: false
+                })
+            }
+            else {
+                ws = new WebSocket(server);
+            }
 
-            ws.on('close', () => {
+            ws.onclose = () => {
 
                 // If there are any ongoing resolvers resolve them with error output.
 
                 handshakeResolver && handshakeResolver(false);
                 handshakeResolver = null;
 
-                statResponseResolver && statResponseResolver(null);
-                statResponseResolver = null;
+                statResponseResolvers.forEach(resolver => resolver(null));
+                statResponseResolvers = [];
 
                 Object.values(contractInputResolvers).forEach(resolver => resolver(null));
                 contractInputResolvers = {};
 
                 emitter.emit(events.disconnect);
-            });
+            };
 
-            ws.on('message', (msg) => {
+            ws.onmessage = async (rcvd) => {
+
+                if (isNodeJS) {
+                    msg = rcvd.data;
+                }
+                else {
+                    msg = (handshakeResolver || protocol == protocols.JSON) ?
+                        await rcvd.data.text() :
+                        Buffer.from(await rcvd.data.arrayBuffer());
+                }
+
                 try {
                     // Use JSON if we are still in handshake phase.
                     m = handshakeResolver ? JSON.parse(msg) : msgHelper.deserializeMessage(msg);
                 } catch (e) {
+                    console.log(e);
                     console.log("Exception deserializing: ");
                     console.log(msg)
                     return;
@@ -68,7 +105,7 @@ function HotPocketClient(server, protocol, keys) {
                     // sign the challenge and send back the response
                     const response = msgHelper.createHandshakeResponse(m.challenge);
                     ws.send(JSON.stringify(response));
-
+                    
                     setTimeout(() => {
                         // If we are still connected, report handshaking as successful.
                         // (If websocket disconnects, handshakeResolver will be null)
@@ -96,16 +133,18 @@ function HotPocketClient(server, protocol, keys) {
                     emitter.emit(events.contractOutput, decoded);
                 }
                 else if (m.type == "stat_response") {
-                    statResponseResolver && statResponseResolver({
-                        lcl: m.lcl,
-                        lclSeqNo: m.lcl_seqno
-                    });
-                    statResponseResolver = null;
+                    statResponseResolvers.forEach(resolver => {
+                        resolver({
+                            lcl: m.lcl,
+                            lclSeqNo: m.lcl_seqno
+                        });
+                    })
+                    statResponseResolvers = [];
                 }
                 else {
                     console.log("Received unrecognized message: type:" + m.type);
                 }
-            });
+            }
         });
     };
 
@@ -116,7 +155,7 @@ function HotPocketClient(server, protocol, keys) {
     this.close = function () {
         return new Promise(resolve => {
             try {
-                ws.removeAllListeners("close");
+                ws.onclose = resolve;
                 ws.on("close", resolve);
                 ws.close();
             } catch (error) {
@@ -126,12 +165,16 @@ function HotPocketClient(server, protocol, keys) {
     }
 
     this.getStatus = function () {
-        const msg = msgHelper.createStatusRequest();
         const p = new Promise(resolve => {
-            statResponseResolver = resolve;
+            statResponseResolvers.push(resolve);
         });
 
-        ws.send(msgHelper.serializeObject(msg));
+        // If this is the only awaiting stat request, then send an actual stat request.
+        // Otherwise simply wait for the previously sent request.
+        if (statResponseResolvers.length == 1) {
+            const msg = msgHelper.createStatusRequest();
+            ws.send(msgHelper.serializeObject(msg));
+        }
         return p;
     }
 
@@ -146,7 +189,7 @@ function HotPocketClient(server, protocol, keys) {
         // Acquire the current lcl and add the specified offset.
         const stat = await this.getStatus();
         if (!stat)
-            return new Promise(resolve => resolve(null));
+            return new Promise(resolve => resolve("ledger_status_error"));
         const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
 
         const msg = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
@@ -185,7 +228,7 @@ function MessageHelper(keys, protocol) {
     }
 
     this.createHandshakeResponse = function (challenge) {
-        // For handshake response encoding we Hot Pocket always use json.
+        // For handshake response encoding Hot Pocket always uses json.
         // Handshake response will specify the protocol to use for subsequent messages.
         const sigBytes = sodium.crypto_sign_detached(challenge, keys.privateKey);
         return {
@@ -236,8 +279,17 @@ function MessageHelper(keys, protocol) {
     }
 }
 
-module.exports = {
-    HotPocketClient,
-    HotPocketProtocols: protocols,
-    HotPocketEvents: events
-};
+if (isNodeJS) {
+    module.exports = {
+        HotPocketKeyGenerator,
+        HotPocketClient,
+        HotPocketEvents: events
+    };
+}
+else {
+    window.HotPocket = {
+        KeyGenerator: HotPocketKeyGenerator,
+        Client: HotPocketClient,
+        Events: events
+    }
+}
