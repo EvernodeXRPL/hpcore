@@ -57,13 +57,6 @@ namespace p2p
 
     int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp)
     {
-        // Skip if max inbound connection cap is reached.
-        if (session.is_inbound && get_available_capacity() == 0)
-        {
-            LOG_DEBUG << "Max inbound connection cap reached.";
-            return -1;
-        }
-
         // Compare the response challenge string with the original issued challenge.
         if (session.issued_challenge != challenge_resp.challenge)
         {
@@ -102,6 +95,13 @@ namespace p2p
         const auto iter = ctx.peer_connections.find(pubkeyhex);
         if (iter == ctx.peer_connections.end())
         {
+            // Skip the new connection if max connection cap is reached.
+            if (get_available_capacity() == 0)
+            {
+                LOG_INFO << "Max connection cap reached. Rejecting new peer connection [" << session.display_name() << "]";
+                return -1;
+            }
+
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
             session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
@@ -423,15 +423,18 @@ namespace p2p
      */
     int16_t get_available_capacity()
     {
-        if (conf::cfg.peermaxcons != 0)
+        // If both peermaxcons and peermaxknowncons are configured calculate the capacity.
+        if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons != 0)
         {
-            // If known peer max connection count is greater than peer max connection count return 0.
+            // If known peer max connection count is equal to the peer max connection count then return 0.
             // Otherwise peer max con count - know peer max con count - inbound peer cons.
-            if (conf::cfg.peermaxknowncons != 0 && conf::cfg.peermaxcons > conf::cfg.peermaxknowncons)
+            if (conf::cfg.peermaxcons != conf::cfg.peermaxknowncons)
                 return conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - ctx.peer_connections.size() + ctx.server->known_remote_count;
-            else if (conf::cfg.peermaxknowncons != 0)
+            else
                 return 0;
         }
+        else if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons == 0)
+            return conf::cfg.peermaxcons - ctx.peer_connections.size();
         return -1;
     }
 

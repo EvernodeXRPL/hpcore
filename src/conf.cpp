@@ -257,7 +257,7 @@ namespace conf
             peer_properties peer;
             peer.ip_port.host_address = splitted_peers.front();
             peer.ip_port.port = std::stoi(splitted_peers.back());
-            
+
             cfg.peers.push_back(peer);
             splitted_peers.clear();
         }
@@ -296,6 +296,13 @@ namespace conf
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
         cfg.peermaxknowncons = d["peermaxknowncons"].as<unsigned int>();
+
+        // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
+        if (cfg.peermaxknowncons > cfg.peermaxcons)
+        {
+            std::cout << "Invalid configuration values: peermaxknowncons count should not exeed peermaxcons." << '\n';
+            return -1;
+        }
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
         cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
