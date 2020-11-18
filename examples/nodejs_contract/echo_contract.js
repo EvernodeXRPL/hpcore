@@ -21,13 +21,19 @@ const echoContract = (ctx) => {
         else {
             await user.send("Echoing: " + msg);
         }
-    });
+    });    
 
-    // Broadcast message to all connected users.
-    // ctx.users.get().forEach(u => u.send("Hello"));
+    // Get list of all users who are connected.
+    // ctx.users.get();
 
-    // Send message to specific user (identified by public key).
-    // await ctx.users.find(<PubkeyHex>).send("Hello");
+    // Get the user identified by public key.
+    // ctx.users.find("<PubkeyHex>");
+
+    // Get list of all peers in the cluster.
+    // ctx.peers.get();
+
+    // Get the peer identified by public key.
+    // ctx.peers.find("<PubkeyHex>");
 
     // Peer messages example.
     // if (!ctx.readonly) {

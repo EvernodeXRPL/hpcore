@@ -31,7 +31,6 @@ namespace sc
     {
         uint32_t message_len = 0;
         std::string message;
-
     };
     /**
  * Represents list of inputs to the contract and the accumulated contract output for those inputs.
@@ -74,10 +73,6 @@ namespace sc
 
         // Contol messages to be passed into contract.
         moodycamel::ReaderWriterQueue<std::string> control_messages;
-        
-        // Pair of HP<->SC JSON message buffers (mainly used for control messages).
-        // Input buffers for HP->SC messages, Output buffers for SC->HP messages.
-        // contract_iobuf_pair hpscbufs;
 
         // Current HotPocket consensus time.
         int64_t time = 0;
@@ -87,9 +82,6 @@ namespace sc
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
-
-        // Indicates that the contract has sent termination control message or it has exited.
-        bool contract_terminated =  false;
     };
 
     /**
@@ -116,10 +108,13 @@ namespace sc
         pid_t hpfs_pid = 0;
 
         // Thread to collect contract inputs and outputs and feed npl messages while contract is running.
-        std::thread contract_io_thread;
+        std::thread contract_monitor_thread;
+
+        // Indicates that the contract has sent termination control message.
+        bool termination_signaled = false;
 
         // Indicates that the deinit procedure has begun.
-        bool should_stop = false;
+        bool is_shutting_down = false;
     };
 
     int init();
@@ -130,7 +125,7 @@ namespace sc
 
     //------Internal-use functions for this namespace.
 
-    int await_process_execution(pid_t pid);
+    int check_contract_exited(execution_context &ctx, const bool block);
 
     int start_hpfs_session(execution_context &ctx);
 
@@ -138,9 +133,7 @@ namespace sc
 
     int write_contract_args(const execution_context &ctx);
 
-    int feed_inputs(execution_context &ctx);
-
-    int handle_contract_io(execution_context &ctx);
+    void contract_monitor_loop(execution_context &ctx);
 
     int write_contract_hp_inputs(execution_context &ctx);
 
@@ -160,9 +153,7 @@ namespace sc
 
     int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap, const bool contract_terminated);
-
-    void cleanup_fdmap(contract_fdmap_t &fdmap);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
     int create_iosockets(std::vector<int> &fds, const int socket_type);
 
@@ -170,7 +161,7 @@ namespace sc
 
     int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs);
 
-    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output, const bool contract_terminated);
+    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
 
@@ -178,11 +169,9 @@ namespace sc
 
     void cleanup_vectorfds(std::vector<int> &fds);
 
-    void clear_args(contract_execution_args &args);
-
     void stop(execution_context &ctx);
 
-    void handle_control_msgs(contract_execution_args &args, std::string &output);
+    void handle_control_msgs(execution_context &ctx, std::string &msg);
 
 } // namespace sc
 
