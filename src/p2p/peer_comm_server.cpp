@@ -64,6 +64,8 @@ namespace p2p
 
         LOG_INFO << "Started peer managing thread.";
 
+        int peer_managing_counter = 0;
+
         while (!is_shutting_down)
         {
             peer_managing_counter++;

@@ -10,7 +10,7 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
-    void handle_peer_connect(p2p::peer_comm_session &session);
+    int handle_peer_connect(p2p::peer_comm_session &session);
     int handle_peer_message(p2p::peer_comm_session &session, std::string_view message);
     int handle_self_message(std::string_view message);
     int handle_peer_close(const p2p::peer_comm_session &session);

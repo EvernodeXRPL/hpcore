@@ -648,16 +648,17 @@ namespace msg::fbuf::p2pmsg
      * Create peer list response message.
      * @param container_builder Flatbuffer builder for the container message.
      * @param peers Peer list to be sent to another peer.
+     * @param skipping_peer Peer that does not need to be sent.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> peers, std::string_view lcl)
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
         const flatbuffers::Offset<Peer_List_Response_Message> response =
             CreatePeer_List_Response_Message(
                 builder,
-                peer_propertiesvector_to_flatbuf_peer_propertieslist(builder, peers));
+                peer_propertiesvector_to_flatbuf_peer_propertieslist(builder, peers, skipping_ip_port));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_List_Response_Message, response.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -841,20 +842,23 @@ namespace msg::fbuf::p2pmsg
  * Create peer list message from the given vector of peer properties structs.
  * @param container_builder Flatbuffer builder for the container message.
  * @param peers The Vector of peer properties to be placed in the container message.
+ * @param skipping_peer Peer that does not need to be sent.
  */
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>>>
-    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers)
+    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port)
     {
         std::vector<flatbuffers::Offset<Peer_Properties>> fbvec;
         fbvec.reserve(peers.size());
-        for (auto const peer : peers)
+        for (auto peer : peers)
         {
-            fbvec.push_back(CreatePeer_Properties(
-                builder,
-                sv_to_flatbuff_str(builder, peer.ip_port.host_address),
-                peer.ip_port.port,
-                peer.available_capacity,
-                peer.timestamp));
+            // Skipping the requestedc peer from the peer list response.
+            if (!skipping_ip_port.has_value() || peer.ip_port != skipping_ip_port.value())
+                fbvec.push_back(CreatePeer_Properties(
+                    builder,
+                    sv_to_flatbuff_str(builder, peer.ip_port.host_address),
+                    peer.ip_port.port,
+                    peer.available_capacity,
+                    peer.timestamp));
         }
         return builder.CreateVector(fbvec);
     }

@@ -19,6 +19,11 @@ namespace conf
         {
             return host_address == ip_port.host_address && port == ip_port.port;
         }
+
+        bool operator!=(ip_port_prop ip_port)
+        {
+            return !(host_address == ip_port.host_address && port == ip_port.port);
+        }
     };
 
     // Struct to represent information about a peer.
