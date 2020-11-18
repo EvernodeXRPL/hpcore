@@ -242,10 +242,10 @@ namespace sc
      *   "ts": <this node's timestamp (unix milliseconds)>,
      *   "readonly": <true|false>,
      *   "lcl": "<this node's last closed ledger seq no. and hash in hex>", (eg: 169-a1d82eb4c9ed005ec2c4f4f82b6f0c2fd7543d66b1a0f6b8e58ae670b3e2bcfb)
-     *   "hpfd": [fd0, fd1],
-     *   "nplfd":[fd0, fd1],
-     *   "usrfd":{ "<pkhex>":[fd0, fd1], ... },
-     *   "unl":[ "pkhex", ... ]
+     *   "hpfd": fd,
+     *   "nplfd":fd,
+     *   "usrfd":{ "<pkhex>":fd, ... },
+     *   "unl":[ "<pkhex>", ... ]
      * }
      */
     int write_contract_args(const execution_context &ctx)
@@ -256,7 +256,7 @@ namespace sc
 
         std::ostringstream os;
         os << "{\"version\":\"" << util::HP_VERSION
-           << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
+           << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex.substr(2)
            << "\",\"ts\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
@@ -307,7 +307,7 @@ namespace sc
         close(stdinpipe[0]);
 
         // Write the json message and close write fd.
-        if (write(stdinpipe[1], json.data(), json.size()) == -1)
+        if (write(stdinpipe[1], json.data(), json.size() + 1) == -1)
         {
             close(stdinpipe[1]);
             LOG_ERROR << errno << ": Failed to write to stdin of contract process.";
