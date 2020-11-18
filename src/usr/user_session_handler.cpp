@@ -19,7 +19,7 @@ namespace usr
     {
         // Allow connection only if the maximum capacity is not reached. 0 means allowing unlimited connections.
         if ((conf::cfg.pubmaxcons == 0) || (usr::ctx.users.size() < conf::cfg.pubmaxcons))
-        { 
+        {
             corebill::add_to_whitelist(session.host_address);
             LOG_DEBUG << "User client connected " << session.display_name();
 
@@ -31,12 +31,13 @@ namespace usr
 
             // Set the challenge-issued value to true.
             session.challenge_status = comm::CHALLENGE_ISSUED;
+            return 0;
         }
         else
         {
             LOG_DEBUG << "Dropping the user connection. Maximum user capacity reached. Session: " << session.display_name() << " (limit: " << conf::cfg.pubmaxcons << ").";
-            session.mark_for_closure();
-        } 
+            return -1;
+        }
     }
 
     /**
