@@ -68,7 +68,8 @@ namespace consensus
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
-        sc::execution_context contract_ctx;
+        std::optional<sc::execution_context> contract_ctx;
+        std::mutex contract_ctx_mutex;
         bool is_shutting_down = false;
 
         std::thread consensus_thread;

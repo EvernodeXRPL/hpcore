@@ -29,9 +29,9 @@ class HotPocketContract {
         const executionContext = new ContractExecutionContext(hpargs, users, peers);
 
         this.events.emit("session_start");
-        invokeCallback(contractFunc, executionContext).then(() => {
+        invokeCallback(contractFunc, executionContext).catch(errHandler).finally(() => {
             // Wait for any pending tasks added during execution.
-            Promise.all(pendingTasks).then(() => {
+            Promise.all(pendingTasks).catch(errHandler).finally(() => {
                 this.events.emit("session_end");
                 this.#terminate();
             });
@@ -121,7 +121,7 @@ class UsersCollection {
                 if (pendingUserCount == 0) {
                     // All user message events has been emitted.
                     // Now start waiting for queued up user message callback completion.
-                    Promise.all(userMessageTasks).then(allUsersCompletionResolver)
+                    Promise.all(userMessageTasks).catch(errHandler).finally(allUsersCompletionResolver)
                 }
             }
 
@@ -368,12 +368,14 @@ const invokeCallback = async (callback, ...args) => {
         return;
 
     if (callback.constructor.name === 'AsyncFunction') {
-        await callback(...args);
+        await callback(...args).catch(errHandler);
     }
     else {
         callback(...args);
     }
 }
+
+const errHandler = (err) => console.log(err);
 
 module.exports = {
     HotPocketContract
