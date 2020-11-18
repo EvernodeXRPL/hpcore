@@ -39,13 +39,26 @@
 
 struct hotpocket_user
 {
-    char pubkey[__HOTPOCKET_KEY_SIZE];
+    char pubkey[__HOTPOCKET_KEY_SIZE + 1];
     int fd;
 };
 
 struct hotpocket_peer
 {
-    char pubkey[__HOTPOCKET_KEY_SIZE];
+    char pubkey[__HOTPOCKET_KEY_SIZE + 1];
+};
+
+struct hotpocket_users_collection
+{
+    struct hotpocket_user *list;
+    size_t count;
+};
+
+struct hotpocket_peers_collection
+{
+    struct hotpocket_peer *list;
+    size_t count;
+    int fd;
 };
 
 struct hotpocket_context
@@ -53,23 +66,24 @@ struct hotpocket_context
     bool readonly;
 
     uint64_t timestamp;
-    char pubkey[__HOTPOCKET_KEY_SIZE];
+    char pubkey[__HOTPOCKET_KEY_SIZE + 1];
 
-    char lcl_hash[__HOTPOCKET_HASH_SIZE];
+    char lcl_hash[__HOTPOCKET_HASH_SIZE + 1];
     uint64_t lcl_seq_no;
 
-    struct hotpocket_user *users;
-    size_t users_count;
-
-    struct hotpocket_peer *peers;
-    size_t peers_count;
-    int peers_fd;
+    struct hotpocket_users_collection users;
+    struct hotpocket_peers_collection peers;
 };
 
+typedef void (*hotpocket_contract_func)(const struct hotpocket_context *ctx);
+typedef void (*hotpocket_user_message_func)(const struct hotpocket_user *user, const void *buf, const size_t len);
+typedef void (*hotpocket_peer_message_func)(const char *peerPubKey, const void *buf, const size_t len);
+
 int hotpocket_init();
+int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message, hotpocket_peer_message_func on_peer_message);
 void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct json_object_s *object);
 
-int hotpocket_init()
+int hotpocket_init(hotpocket_contract_func contract_func)
 {
     // char buf[4096];
     // const int len = read(STDIN_FILENO, buf, sizeof(buf));
@@ -86,17 +100,26 @@ int hotpocket_init()
         if (object->length > 0)
         {
             // Create and populate hotpocket context.
-            struct hotpocket_context *ctx = (struct hotpocket_context *)malloc(sizeof(struct hotpocket_context));
-            memset(ctx, 0, sizeof(struct hotpocket_context));
-            __hotpocket_parse_args_json(ctx, object);
-
+            struct hotpocket_context ctx;
+            memset(&ctx, 0, sizeof(struct hotpocket_context));
+            __hotpocket_parse_args_json(&ctx, object);
             free(root);
+
+            // Execute user defined contract function.
+            if (contract_func)
+                contract_func(&ctx);
             return 0;
         }
     }
 
     free(root);
     return -1;
+}
+
+int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message, hotpocket_peer_message_func on_peer_message)
+{
+    
+    return 0;
 }
 
 void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct json_object_s *object)
@@ -134,10 +157,6 @@ void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct jso
                 memcpy(ctx->lcl_hash, hash_str, __HOTPOCKET_HASH_SIZE);
             }
         }
-        else if (strcmp(k->string, "nplfd") == 0)
-        {
-            __HOTPOCKET_ASSIGN_INT(ctx->peers_fd, elem);
-        }
         else if (strcmp(k->string, "usrfd") == 0)
         {
             if (elem->value->type == json_type_object)
@@ -145,21 +164,25 @@ void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct jso
                 struct json_object_s *user_object = (struct json_object_s *)elem->value->payload;
                 const size_t user_count = user_object->length;
 
-                ctx->users_count = user_count;
-                ctx->users = user_count ? (struct hotpocket_user *)malloc(sizeof(struct hotpocket_user) * user_count) : NULL;
+                ctx->users.count = user_count;
+                ctx->users.list = user_count ? (struct hotpocket_user *)malloc(sizeof(struct hotpocket_user) * user_count) : NULL;
 
                 if (user_count > 0)
                 {
                     struct json_object_element_s *user_elem = user_object->start;
                     for (int i = 0; i < user_count; i++)
                     {
-                        memcpy(ctx->users[i].pubkey, user_elem->name->string, __HOTPOCKET_KEY_SIZE);
-                        __HOTPOCKET_ASSIGN_INT(ctx->users[i].fd, user_elem);
+                        memcpy(ctx->users.list[i].pubkey, user_elem->name->string, __HOTPOCKET_KEY_SIZE);
+                        __HOTPOCKET_ASSIGN_INT(ctx->users.list[i].fd, user_elem);
 
                         user_elem = user_elem->next;
                     }
                 }
             }
+        }
+        else if (strcmp(k->string, "nplfd") == 0)
+        {
+            __HOTPOCKET_ASSIGN_INT(ctx->peers.fd, elem);
         }
         else if (strcmp(k->string, "unl") == 0)
         {
@@ -168,15 +191,15 @@ void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct jso
                 struct json_array_s *peer_array = (struct json_array_s *)elem->value->payload;
                 const size_t peer_count = peer_array->length;
 
-                ctx->peers_count = peer_count;
-                ctx->peers = peer_count ? (struct hotpocket_peer *)malloc(sizeof(struct hotpocket_peer) * peer_count) : NULL;
+                ctx->peers.count = peer_count;
+                ctx->peers.list = peer_count ? (struct hotpocket_peer *)malloc(sizeof(struct hotpocket_peer) * peer_count) : NULL;
 
                 if (peer_count > 0)
                 {
                     struct json_array_element_s *peer_elem = peer_array->start;
                     for (int i = 0; i < peer_count; i++)
                     {
-                        __HOTPOCKET_ASSIGN_STRING(ctx->peers[i].pubkey, peer_elem);
+                        __HOTPOCKET_ASSIGN_STRING(ctx->peers.list[i].pubkey, peer_elem);
                         peer_elem = peer_elem->next;
                     }
                 }
