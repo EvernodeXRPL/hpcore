@@ -713,10 +713,11 @@ namespace sc
         for (std::string &input : inputs)
         {
             // 4 bytes for message len header.
-            header[i * 4] = input.length() >> 24;
-            header[i * 4 + 1] = input.length() >> 16;
-            header[i * 4 + 2] = input.length() >> 8;
-            header[i * 4 + 3] = input.length();
+            const uint32_t len = input.length();
+            header[i * 4] = len >> 24;
+            header[i * 4 + 1] = len >> 16;
+            header[i * 4 + 2] = len >> 8;
+            header[i * 4 + 3] = len;
             memsegs[i * 2 - 1].iov_base = &header[i * 4];
             memsegs[i * 2 - 1].iov_len = 4;
             memsegs[i * 2].iov_base = input.data();
