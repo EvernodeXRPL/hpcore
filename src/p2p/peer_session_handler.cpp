@@ -38,6 +38,9 @@ namespace p2p
     // validate and handle each type of peer messages.
     int handle_peer_message(p2p::peer_comm_session &session, std::string_view message)
     {
+        // Adding message size to peer message characters(bytes) per minute counter.
+        session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.size());
+
         const p2pmsg::Container *container;
         if (p2pmsg::validate_and_extract_container(&container, message) != 0)
             return 0;
