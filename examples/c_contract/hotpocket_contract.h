@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
+#include <poll.h>
 #include "json.h"
 
 #define __HOTPOCKET_KEY_SIZE 64
@@ -73,6 +74,7 @@ struct hotpocket_context
 
     struct hotpocket_users_collection users;
     struct hotpocket_peers_collection peers;
+    int control_fd;
 };
 
 typedef void (*hotpocket_contract_func)(const struct hotpocket_context *ctx);
@@ -118,13 +120,57 @@ int hotpocket_init(hotpocket_contract_func contract_func)
 
 int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message, hotpocket_peer_message_func on_peer_message)
 {
-    
+    // We poll user fds, control fd and npl fd (npl fd not available in read only mode)
+    const size_t total_users = ctx->users.count;
+    const int fd_count = total_users + (ctx->readonly ? 1 : 2);
+    size_t remaining_users = total_users;
+
+    // Create fd set to be polled.
+    struct pollfd pollfds[fd_count];
+    for (int i = 0; i < pollfds; i++)
+    {
+        int fd = 0;
+        if (i < total_users)
+            fd = ctx->users.list[i].fd;
+        else if (i == total_users)
+            fd = ctx->control_fd;
+        else
+            fd = ctx->peers.fd; // This will not occur in readonly mode.
+
+        pollfds[0].fd = fd;
+        pollfds[0].events = POLLIN;
+        pollfds[0].revents = 0;
+    }
+
+    while (remaining_users > 0)
+    {
+        // Cleanup poll fd set because we are reusing it.
+        for (int i = 0; i < pollfds; i++)
+            pollfds[0].revents = 0;
+
+        if (poll(pollfds, fd_count, 20) == -1)
+            goto error;
+
+        for (int i = 0; i < pollfds; i++)
+        {
+            if (pollfds[i].revents == 0)
+                continue;
+                
+            if (pollfds[i].revents & POLLIN)
+            {
+                
+            }
+        }
+    }
+
     return 0;
+
+error:
+    return -1;
 }
 
 void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct json_object_s *object)
 {
-
     struct json_object_element_s *elem = object->start;
     do
     {
@@ -204,6 +250,10 @@ void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct jso
                     }
                 }
             }
+        }
+        else if (strcmp(k->string, "hpfd") == 0)
+        {
+            __HOTPOCKET_ASSIGN_INT(ctx->control_fd, elem);
         }
 
         elem = elem->next;
