@@ -275,6 +275,16 @@ namespace msg::fbuf::p2pmsg
         return sr;
     }
 
+    /**
+ * Creates a peer property list from the given peer list response message.
+ * @param msg Flatbuffer Peer List response message received from the peer.
+ * @return A Peer list representing the message.
+ */
+    const std::vector<conf::peer_properties> create_peer_list_response_from_msg(const Peer_List_Response_Message &msg)
+    {
+        return flatbuf_peer_propertieslist_to_peer_propertiesvector(msg.peer_list());
+    }
+
     //---Message creation helpers---//
 
     /**
@@ -574,7 +584,7 @@ namespace msg::fbuf::p2pmsg
      * @param is_weakly_connected True if number of connections are below threshold and false otherwise.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_for_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl)
+    void create_msg_from_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -584,6 +594,73 @@ namespace msg::fbuf::p2pmsg
                 is_weakly_connected);
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Connected_Status_Announcement_Message, announcement.Union());
+        builder.Finish(message); // Finished building message content to get serialised content.
+
+        // Now that we have built the content message,
+        create_containermsg_from_content(container_builder, builder, lcl, false);
+    }
+
+    /**
+     * Create available capacity announcement message.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param available_capacity Number of incoming connection slots available, -1 means there's no limitation for connections.
+     * @param timestamp Announced timestamp.
+     * @param lcl Lcl value to be passed in the container message.
+     */
+    void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &container_builder, const int16_t &available_capacity, const uint64_t &timestamp, std::string_view lcl)
+    {
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        const flatbuffers::Offset<Available_Capacity_Announcement_Message> announcement =
+            CreateAvailable_Capacity_Announcement_Message(
+                builder,
+                available_capacity,
+                timestamp);
+
+        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Available_Capacity_Announcement_Message, announcement.Union());
+        builder.Finish(message); // Finished building message content to get serialised content.
+
+        // Now that we have built the content message,
+        create_containermsg_from_content(container_builder, builder, lcl, false);
+    }
+
+    /**
+     * Create peer list request message.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param lcl Lcl value to be passed in the container message.
+     */
+    void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &container_builder, std::string_view lcl)
+    {
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        const flatbuffers::Offset<Peer_List_Request_Message> request =
+            CreatePeer_List_Request_Message(
+                builder);
+
+        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_List_Request_Message, request.Union());
+        builder.Finish(message); // Finished building message content to get serialised content.
+
+        // Now that we have built the content message,
+        create_containermsg_from_content(container_builder, builder, lcl, false);
+    }
+
+    /**
+     * Create peer list response message.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param peers Peer list to be sent to another peer.
+     * @param skipping_peer Peer that does not need to be sent.
+     * @param lcl Lcl value to be passed in the container message.
+     */
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port, std::string_view lcl)
+    {
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        const flatbuffers::Offset<Peer_List_Response_Message> response =
+            CreatePeer_List_Response_Message(
+                builder,
+                peer_propertiesvector_to_flatbuf_peer_propertieslist(builder, peers, skipping_ip_port));
+
+        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_List_Response_Message, response.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message,
@@ -759,5 +836,53 @@ namespace msg::fbuf::p2pmsg
             fbvec.push_back(state_fs_entry);
         }
         return builder.CreateVector(fbvec);
+    }
+
+    /**
+ * Create peer list message from the given vector of peer properties structs.
+ * @param container_builder Flatbuffer builder for the container message.
+ * @param peers The Vector of peer properties to be placed in the container message.
+ * @param skipping_peer Peer that does not need to be sent.
+ */
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>>>
+    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port)
+    {
+        std::vector<flatbuffers::Offset<Peer_Properties>> fbvec;
+        fbvec.reserve(peers.size());
+        for (auto peer : peers)
+        {
+            // Skipping the requestedc peer from the peer list response.
+            if (!skipping_ip_port.has_value() || peer.ip_port != skipping_ip_port.value())
+                fbvec.push_back(CreatePeer_Properties(
+                    builder,
+                    sv_to_flatbuff_str(builder, peer.ip_port.host_address),
+                    peer.ip_port.port,
+                    peer.available_capacity,
+                    peer.timestamp));
+        }
+        return builder.CreateVector(fbvec);
+    }
+
+    /**
+ * Create vector of peer properties structs from the given peer list message.
+ * @param fbvec The peer list message to be convert to a list of peer properties structs.
+ */
+    const std::vector<conf::peer_properties>
+    flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>> *fbvec)
+    {
+        std::vector<conf::peer_properties> peers;
+
+        for (const Peer_Properties *peer : *fbvec)
+        {
+            conf::peer_properties properties;
+
+            properties.ip_port.host_address = flatbuff_str_to_sv(peer->host_address());
+            properties.ip_port.port = peer->port();
+            properties.timestamp = peer->timestamp();
+            properties.available_capacity = peer->available_capacity();
+
+            peers.push_back(properties);
+        }
+        return peers;
     }
 } // namespace msg::fbuf::p2pmsg

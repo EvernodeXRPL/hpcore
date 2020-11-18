@@ -69,6 +69,18 @@ struct State_FS_Hash_EntryBuilder;
 struct Connected_Status_Announcement_Message;
 struct Connected_Status_Announcement_MessageBuilder;
 
+struct Available_Capacity_Announcement_Message;
+struct Available_Capacity_Announcement_MessageBuilder;
+
+struct Peer_List_Request_Message;
+struct Peer_List_Request_MessageBuilder;
+
+struct Peer_List_Response_Message;
+struct Peer_List_Response_MessageBuilder;
+
+struct Peer_Properties;
+struct Peer_PropertiesBuilder;
+
 enum Message {
   Message_NONE = 0,
   Message_Peer_Challenge_Response_Message = 1,
@@ -81,11 +93,14 @@ enum Message {
   Message_History_Request_Message = 8,
   Message_History_Response_Message = 9,
   Message_Connected_Status_Announcement_Message = 10,
+  Message_Peer_List_Request_Message = 11,
+  Message_Peer_List_Response_Message = 12,
+  Message_Available_Capacity_Announcement_Message = 13,
   Message_MIN = Message_NONE,
-  Message_MAX = Message_Connected_Status_Announcement_Message
+  Message_MAX = Message_Available_Capacity_Announcement_Message
 };
 
-inline const Message (&EnumValuesMessage())[11] {
+inline const Message (&EnumValuesMessage())[14] {
   static const Message values[] = {
     Message_NONE,
     Message_Peer_Challenge_Response_Message,
@@ -97,13 +112,16 @@ inline const Message (&EnumValuesMessage())[11] {
     Message_State_Response_Message,
     Message_History_Request_Message,
     Message_History_Response_Message,
-    Message_Connected_Status_Announcement_Message
+    Message_Connected_Status_Announcement_Message,
+    Message_Peer_List_Request_Message,
+    Message_Peer_List_Response_Message,
+    Message_Available_Capacity_Announcement_Message
   };
   return values;
 }
 
 inline const char * const *EnumNamesMessage() {
-  static const char * const names[12] = {
+  static const char * const names[15] = {
     "NONE",
     "Peer_Challenge_Response_Message",
     "Peer_Challenge_Message",
@@ -115,13 +133,16 @@ inline const char * const *EnumNamesMessage() {
     "History_Request_Message",
     "History_Response_Message",
     "Connected_Status_Announcement_Message",
+    "Peer_List_Request_Message",
+    "Peer_List_Response_Message",
+    "Available_Capacity_Announcement_Message",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameMessage(Message e) {
-  if (flatbuffers::IsOutRange(e, Message_NONE, Message_Connected_Status_Announcement_Message)) return "";
+  if (flatbuffers::IsOutRange(e, Message_NONE, Message_Available_Capacity_Announcement_Message)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessage()[index];
 }
@@ -168,6 +189,18 @@ template<> struct MessageTraits<msg::fbuf::p2pmsg::History_Response_Message> {
 
 template<> struct MessageTraits<msg::fbuf::p2pmsg::Connected_Status_Announcement_Message> {
   static const Message enum_value = Message_Connected_Status_Announcement_Message;
+};
+
+template<> struct MessageTraits<msg::fbuf::p2pmsg::Peer_List_Request_Message> {
+  static const Message enum_value = Message_Peer_List_Request_Message;
+};
+
+template<> struct MessageTraits<msg::fbuf::p2pmsg::Peer_List_Response_Message> {
+  static const Message enum_value = Message_Peer_List_Response_Message;
+};
+
+template<> struct MessageTraits<msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message> {
+  static const Message enum_value = Message_Available_Capacity_Announcement_Message;
 };
 
 bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type);
@@ -587,6 +620,15 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *message_as_Connected_Status_Announcement_Message() const {
     return message_type() == msg::fbuf::p2pmsg::Message_Connected_Status_Announcement_Message ? static_cast<const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *>(message()) : nullptr;
   }
+  const msg::fbuf::p2pmsg::Peer_List_Request_Message *message_as_Peer_List_Request_Message() const {
+    return message_type() == msg::fbuf::p2pmsg::Message_Peer_List_Request_Message ? static_cast<const msg::fbuf::p2pmsg::Peer_List_Request_Message *>(message()) : nullptr;
+  }
+  const msg::fbuf::p2pmsg::Peer_List_Response_Message *message_as_Peer_List_Response_Message() const {
+    return message_type() == msg::fbuf::p2pmsg::Message_Peer_List_Response_Message ? static_cast<const msg::fbuf::p2pmsg::Peer_List_Response_Message *>(message()) : nullptr;
+  }
+  const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *message_as_Available_Capacity_Announcement_Message() const {
+    return message_type() == msg::fbuf::p2pmsg::Message_Available_Capacity_Announcement_Message ? static_cast<const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *>(message()) : nullptr;
+  }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
   }
@@ -637,6 +679,18 @@ template<> inline const msg::fbuf::p2pmsg::History_Response_Message *Content::me
 
 template<> inline const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *Content::message_as<msg::fbuf::p2pmsg::Connected_Status_Announcement_Message>() const {
   return message_as_Connected_Status_Announcement_Message();
+}
+
+template<> inline const msg::fbuf::p2pmsg::Peer_List_Request_Message *Content::message_as<msg::fbuf::p2pmsg::Peer_List_Request_Message>() const {
+  return message_as_Peer_List_Request_Message();
+}
+
+template<> inline const msg::fbuf::p2pmsg::Peer_List_Response_Message *Content::message_as<msg::fbuf::p2pmsg::Peer_List_Response_Message>() const {
+  return message_as_Peer_List_Response_Message();
+}
+
+template<> inline const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *Content::message_as<msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message>() const {
+  return message_as_Available_Capacity_Announcement_Message();
 }
 
 struct ContentBuilder {
@@ -1749,6 +1803,246 @@ inline flatbuffers::Offset<Connected_Status_Announcement_Message> CreateConnecte
   return builder_.Finish();
 }
 
+struct Available_Capacity_Announcement_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Available_Capacity_Announcement_MessageBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_AVAILABLE_CAPACITY = 4,
+    VT_TIMESTAMP = 6
+  };
+  int16_t available_capacity() const {
+    return GetField<int16_t>(VT_AVAILABLE_CAPACITY, 0);
+  }
+  bool mutate_available_capacity(int16_t _available_capacity) {
+    return SetField<int16_t>(VT_AVAILABLE_CAPACITY, _available_capacity, 0);
+  }
+  uint64_t timestamp() const {
+    return GetField<uint64_t>(VT_TIMESTAMP, 0);
+  }
+  bool mutate_timestamp(uint64_t _timestamp) {
+    return SetField<uint64_t>(VT_TIMESTAMP, _timestamp, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int16_t>(verifier, VT_AVAILABLE_CAPACITY) &&
+           VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
+           verifier.EndTable();
+  }
+};
+
+struct Available_Capacity_Announcement_MessageBuilder {
+  typedef Available_Capacity_Announcement_Message Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_available_capacity(int16_t available_capacity) {
+    fbb_.AddElement<int16_t>(Available_Capacity_Announcement_Message::VT_AVAILABLE_CAPACITY, available_capacity, 0);
+  }
+  void add_timestamp(uint64_t timestamp) {
+    fbb_.AddElement<uint64_t>(Available_Capacity_Announcement_Message::VT_TIMESTAMP, timestamp, 0);
+  }
+  explicit Available_Capacity_Announcement_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Available_Capacity_Announcement_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Available_Capacity_Announcement_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Available_Capacity_Announcement_Message> CreateAvailable_Capacity_Announcement_Message(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    int16_t available_capacity = 0,
+    uint64_t timestamp = 0) {
+  Available_Capacity_Announcement_MessageBuilder builder_(_fbb);
+  builder_.add_timestamp(timestamp);
+  builder_.add_available_capacity(available_capacity);
+  return builder_.Finish();
+}
+
+struct Peer_List_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Peer_List_Request_MessageBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct Peer_List_Request_MessageBuilder {
+  typedef Peer_List_Request_Message Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit Peer_List_Request_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Peer_List_Request_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Peer_List_Request_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Peer_List_Request_Message> CreatePeer_List_Request_Message(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  Peer_List_Request_MessageBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct Peer_List_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Peer_List_Response_MessageBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PEER_LIST = 4
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *peer_list() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *>(VT_PEER_LIST);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *mutable_peer_list() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *>(VT_PEER_LIST);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_PEER_LIST) &&
+           verifier.VerifyVector(peer_list()) &&
+           verifier.VerifyVectorOfTables(peer_list()) &&
+           verifier.EndTable();
+  }
+};
+
+struct Peer_List_Response_MessageBuilder {
+  typedef Peer_List_Response_Message Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_peer_list(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>>> peer_list) {
+    fbb_.AddOffset(Peer_List_Response_Message::VT_PEER_LIST, peer_list);
+  }
+  explicit Peer_List_Response_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Peer_List_Response_Message> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Peer_List_Response_Message>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Peer_List_Response_Message> CreatePeer_List_Response_Message(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>>> peer_list = 0) {
+  Peer_List_Response_MessageBuilder builder_(_fbb);
+  builder_.add_peer_list(peer_list);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Peer_List_Response_Message> CreatePeer_List_Response_MessageDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>> *peer_list = nullptr) {
+  auto peer_list__ = peer_list ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::Peer_Properties>>(*peer_list) : 0;
+  return msg::fbuf::p2pmsg::CreatePeer_List_Response_Message(
+      _fbb,
+      peer_list__);
+}
+
+struct Peer_Properties FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Peer_PropertiesBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HOST_ADDRESS = 4,
+    VT_PORT = 6,
+    VT_AVAILABLE_CAPACITY = 8,
+    VT_TIMESTAMP = 10
+  };
+  const flatbuffers::String *host_address() const {
+    return GetPointer<const flatbuffers::String *>(VT_HOST_ADDRESS);
+  }
+  flatbuffers::String *mutable_host_address() {
+    return GetPointer<flatbuffers::String *>(VT_HOST_ADDRESS);
+  }
+  uint16_t port() const {
+    return GetField<uint16_t>(VT_PORT, 0);
+  }
+  bool mutate_port(uint16_t _port) {
+    return SetField<uint16_t>(VT_PORT, _port, 0);
+  }
+  int16_t available_capacity() const {
+    return GetField<int16_t>(VT_AVAILABLE_CAPACITY, 0);
+  }
+  bool mutate_available_capacity(int16_t _available_capacity) {
+    return SetField<int16_t>(VT_AVAILABLE_CAPACITY, _available_capacity, 0);
+  }
+  uint64_t timestamp() const {
+    return GetField<uint64_t>(VT_TIMESTAMP, 0);
+  }
+  bool mutate_timestamp(uint64_t _timestamp) {
+    return SetField<uint64_t>(VT_TIMESTAMP, _timestamp, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_HOST_ADDRESS) &&
+           verifier.VerifyString(host_address()) &&
+           VerifyField<uint16_t>(verifier, VT_PORT) &&
+           VerifyField<int16_t>(verifier, VT_AVAILABLE_CAPACITY) &&
+           VerifyField<uint64_t>(verifier, VT_TIMESTAMP) &&
+           verifier.EndTable();
+  }
+};
+
+struct Peer_PropertiesBuilder {
+  typedef Peer_Properties Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_host_address(flatbuffers::Offset<flatbuffers::String> host_address) {
+    fbb_.AddOffset(Peer_Properties::VT_HOST_ADDRESS, host_address);
+  }
+  void add_port(uint16_t port) {
+    fbb_.AddElement<uint16_t>(Peer_Properties::VT_PORT, port, 0);
+  }
+  void add_available_capacity(int16_t available_capacity) {
+    fbb_.AddElement<int16_t>(Peer_Properties::VT_AVAILABLE_CAPACITY, available_capacity, 0);
+  }
+  void add_timestamp(uint64_t timestamp) {
+    fbb_.AddElement<uint64_t>(Peer_Properties::VT_TIMESTAMP, timestamp, 0);
+  }
+  explicit Peer_PropertiesBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Peer_Properties> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Peer_Properties>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Peer_Properties> CreatePeer_Properties(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> host_address = 0,
+    uint16_t port = 0,
+    int16_t available_capacity = 0,
+    uint64_t timestamp = 0) {
+  Peer_PropertiesBuilder builder_(_fbb);
+  builder_.add_timestamp(timestamp);
+  builder_.add_host_address(host_address);
+  builder_.add_available_capacity(available_capacity);
+  builder_.add_port(port);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Peer_Properties> CreatePeer_PropertiesDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *host_address = nullptr,
+    uint16_t port = 0,
+    int16_t available_capacity = 0,
+    uint64_t timestamp = 0) {
+  auto host_address__ = host_address ? _fbb.CreateString(host_address) : 0;
+  return msg::fbuf::p2pmsg::CreatePeer_Properties(
+      _fbb,
+      host_address__,
+      port,
+      available_capacity,
+      timestamp);
+}
+
 inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Message type) {
   switch (type) {
     case Message_NONE: {
@@ -1792,6 +2086,18 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
     }
     case Message_Connected_Status_Announcement_Message: {
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Message_Peer_List_Request_Message: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Peer_List_Request_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Message_Peer_List_Response_Message: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Peer_List_Response_Message *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Message_Available_Capacity_Announcement_Message: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Available_Capacity_Announcement_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

@@ -34,7 +34,10 @@ union Message {
     State_Response_Message,
     History_Request_Message,
     History_Response_Message,
-    Connected_Status_Announcement_Message
+    Connected_Status_Announcement_Message,
+    Peer_List_Request_Message,
+    Peer_List_Response_Message,
+    Available_Capacity_Announcement_Message
 } //message content type
 
 table Content {
@@ -123,6 +126,25 @@ table State_FS_Hash_Entry{
 
 table Connected_Status_Announcement_Message{
     is_weakly_connected: bool;
+}
+
+table Available_Capacity_Announcement_Message{
+    available_capacity:int16;
+    timestamp:uint64;
+}
+
+table Peer_List_Request_Message{
+}
+
+table Peer_List_Response_Message{
+    peer_list: [Peer_Properties];
+}
+
+table Peer_Properties {
+    host_address:string;
+    port:uint16;
+    available_capacity:int16;
+    timestamp:uint64;
 }
 
 root_type Content; //root type for message content

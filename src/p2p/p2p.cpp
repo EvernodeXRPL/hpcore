@@ -114,7 +114,7 @@ namespace p2p
                 if (replace_needed)
                 {
                     // If we happen to replace a peer session with known IP, transfer required details to the new session.
-                    if (session.known_ipport.first.empty())
+                    if (!session.known_ipport.has_value())
                         session.known_ipport.swap(ex_session.known_ipport);
                     session.uniqueid.swap(pubkeyhex);
                     session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
@@ -129,7 +129,7 @@ namespace p2p
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
                     return 0;
                 }
-                else if (ex_session.known_ipport.first.empty() || !session.known_ipport.first.empty())
+                else if (!ex_session.known_ipport.has_value() || session.known_ipport.has_value())
                 {
                     // If we have any known ip-port info from the new session, transfer them to the existing session.
                     ex_session.known_ipport.swap(session.known_ipport);
@@ -267,8 +267,141 @@ namespace p2p
      */
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected)
     {
-        msg::fbuf::p2pmsg::create_msg_for_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
+        msg::fbuf::p2pmsg::create_msg_from_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
         broadcast_message(fbuf, false);
+    }
+
+    /**
+     * Sends theavailable capacity announcement to all the connected peers.
+     * @param available_capacity Available capacity of the known peer.
+     */
+    void send_available_capacity_announcement(const int16_t &available_capacity)
+    {
+        const uint64_t time_now = util::get_epoch_milliseconds();
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        msg::fbuf::p2pmsg::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now, ledger::ctx.get_lcl());
+        broadcast_message(fbuf, false);
+    }
+
+    /**
+     * Send known peer list to a given peer.
+     * @param session Session to be sent the peers.
+     */
+    void send_known_peer_list(peer_comm_session *session)
+    {
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport, ledger::ctx.get_lcl());
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+        session->send(msg);
+    }
+
+    /**
+     * Updates the capacity of the given known peer.
+     * @param ip_port Ip and port of the know peer.
+     * @param available_capacity Available capacity of the known peer, -1 if number of connections is unlimited.
+     * @param timestamp Capacity announced time.
+     */
+    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t &timestamp)
+    {
+        std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
+
+        const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](conf::peer_properties &p) { return p.ip_port == ip_port; });
+        if (itr != ctx.server->req_known_remotes.end())
+        {
+            LOG_DEBUG << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ":" << itr->ip_port.port << ", Capacity: " << std::to_string(available_capacity);
+            itr->available_capacity = available_capacity;
+            itr->timestamp = timestamp;
+
+            // Sorting the known remote list  according to the weight value after updating the peer properties.
+            sort_known_remotes();
+        }
+    }
+
+    /**
+     * Send peer list request to a random peer.
+     */
+    void send_peer_list_request()
+    {
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        msg::fbuf::p2pmsg::create_msg_from_peer_list_request(fbuf, ledger::ctx.get_lcl());
+        std::string target_pubkey;
+        send_message_to_random_peer(fbuf, target_pubkey);
+        LOG_DEBUG << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";
+    }
+
+    /**
+     * Merging the response peer list with the own known peer list.
+     * @param peers Incoming peer list.
+     */
+    void merge_peer_list(const std::vector<conf::peer_properties> &peers)
+    {
+        std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
+
+        for (const conf::peer_properties &peer : peers)
+        {
+            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](conf::peer_properties &p) { return p.ip_port == peer.ip_port; });
+
+            // If the new peer is not in the peer list then add to the req_known_remotes
+            // Otherwise if new peer is recently updated (timestamp >) replace with the current one.
+            if (itr == ctx.server->req_known_remotes.end())
+            {
+                ctx.server->req_known_remotes.push_back(peer);
+                LOG_DEBUG << "Adding " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " to the known peer list";
+            }
+            else if (itr->timestamp < peer.timestamp)
+            {
+                itr->available_capacity = peer.available_capacity;
+                itr->timestamp = peer.timestamp;
+                LOG_DEBUG << "Replacing " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " to the known peer list";
+            }
+        }
+
+        // Sorting the known remote list according to the weight value after merging the peer list.
+        sort_known_remotes();
+    }
+
+    /**
+     * Sorting the known remote list according to the weight value.
+     */
+    void sort_known_remotes()
+    {
+        std::sort(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
+                  [](const conf::peer_properties &p1, const conf::peer_properties &p2) {
+                      return get_peer_weight(p1) < 0 || get_peer_weight(p1) > get_peer_weight(p2);
+                  });
+    }
+
+    /**
+     * Calculate the weight value for the peer.
+     * @param peer Properties of the peer.
+     * @returns -1 if available capacity is unlimited otherwise weight value.
+     */
+    int32_t get_peer_weight(const conf::peer_properties &peer)
+    {
+        const uint64_t time_now = util::get_epoch_milliseconds();
+        return peer.available_capacity >= 0 ? peer.available_capacity * 1000 * 60 / ceil(time_now - peer.timestamp) : -1;
+    }
+
+    /**
+     * Calculate and retunrns the available capacity.
+     * @returns -1 if available capacity is unlimited otherwise available value.
+     */
+    int16_t get_available_capacity()
+    {
+        // If both peermaxcons and peermaxknowncons are configured calculate the capacity.
+        if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons != 0)
+        {
+            // If known peer max connection count is equal to the peer max connection count then return 0.
+            // Otherwise peer max con count - know peer max con count - inbound peer cons.
+            if (conf::cfg.peermaxcons != conf::cfg.peermaxknowncons)
+                return conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - ctx.peer_connections.size() + ctx.server->known_remote_count;
+            else
+                return 0;
+        }
+        else if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons == 0)
+            return conf::cfg.peermaxcons - ctx.peer_connections.size();
+        return -1;
     }
 
 } // namespace p2p

@@ -15,12 +15,12 @@ namespace p2p
         using comm_session::comm_session; // Inherit constructors.
 
     private:
-        void handle_connect();
+        int handle_connect();
         int handle_message(std::string_view msg);
         void handle_close();
 
     public:
-        conf::ip_port_pair known_ipport;  // A known ip/port information that matches with our peer list configuration.
+        std::optional<conf::ip_port_prop> known_ipport;  // A known ip/port information that matches with our peer list configuration.
         bool is_weakly_connected = false; // Holds whether this node is weakly connected to the other nodes.
         const std::string display_name();
     };

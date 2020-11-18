@@ -12,8 +12,10 @@ namespace usr
 {
     /**
      * This gets hit every time a client connects to HP via the public port (configured in contract config).
+     * @param session connected session.
+     * @return returns 0 if connection is successful and user challenge is sent, otherwise -1.
      */
-    void handle_user_connect(usr::user_comm_session &session)
+    int handle_user_connect(usr::user_comm_session &session)
     {
         // Allow connection only if the maximum capacity is not reached. 0 means allowing unlimited connections.
         if ((conf::cfg.pubmaxcons == 0) || (usr::ctx.users.size() < conf::cfg.pubmaxcons))
@@ -34,7 +36,7 @@ namespace usr
         {
             LOG_DEBUG << "Dropping the user connection. Maximum user capacity reached. Session: " << session.display_name() << " (limit: " << conf::cfg.pubmaxcons << ").";
             session.mark_for_closure();
-        }
+        } 
     }
 
     /**

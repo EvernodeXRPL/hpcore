@@ -22,9 +22,18 @@ namespace p2p
 
     /**
      * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
+     * @param session connected session.
+     * @return returns 0 if connection is successful and peer challenge is sent otherwise, -1.
      */
-    void handle_peer_connect(p2p::peer_comm_session &session)
+    int handle_peer_connect(p2p::peer_comm_session &session)
     {
+        // Skip new inbound connection if max inbound connection cap is reached.
+        if (session.is_inbound && get_available_capacity() == 0)
+        {
+            LOG_DEBUG << "Max peer connection cap reached. Rejecting new peer connection [" << session.display_name() << "]";
+            return -1;
+        }
+
         // Send peer challenge.
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
@@ -32,6 +41,7 @@ namespace p2p
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
         session.send(msg);
         session.challenge_status = comm::CHALLENGE_ISSUED;
+        return 0;
     }
 
     // peer session on message callback method.
@@ -106,7 +116,23 @@ namespace p2p
             return 0;
         }
 
-        if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
+        if (content_message_type == p2pmsg::Message_Peer_List_Response_Message) // This message is the peer list response message.
+        {
+            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(*content->message_as_Peer_List_Response_Message()));
+        }
+        else if (content_message_type == p2pmsg::Message_Peer_List_Request_Message) // This message is the peer list request message.
+        {
+            p2p::send_known_peer_list(&session);
+        }
+        else if (content_message_type == p2pmsg::Message_Available_Capacity_Announcement_Message) // This message is the available capacity announcement message.
+        {
+            if (session.known_ipport.has_value())
+            {
+                const p2pmsg::Available_Capacity_Announcement_Message *announcement_msg = content->message_as_Available_Capacity_Announcement_Message();
+                p2p::update_known_peer_available_capacity(session.known_ipport.value(), announcement_msg->available_capacity(), announcement_msg->timestamp());
+            }
+        }
+        else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
         {
             const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
             session.is_weakly_connected = announcement_msg->is_weakly_connected();
@@ -249,13 +275,21 @@ namespace p2p
     }
 
     //peer session on message callback method
-    int handle_peer_close(const comm::comm_session &session)
+    int handle_peer_close(const p2p::peer_comm_session &session)
     {
-        // Erase the corresponding uniqueid peer connection if it's this session.
-        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
-        const auto itr = ctx.peer_connections.find(session.uniqueid);
-        if (itr != ctx.peer_connections.end() && itr->second == &session)
-            ctx.peer_connections.erase(itr);
+        {
+            // Erase the corresponding uniqueid peer connection if it's this session.
+            std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
+            const auto itr = ctx.peer_connections.find(session.uniqueid);
+            if (itr != ctx.peer_connections.end() && itr->second == &session)
+            {
+                ctx.peer_connections.erase(itr);
+            }
+        }
+
+        // Update peer properties to default on peer close.
+        if (session.known_ipport.has_value())
+            p2p::update_known_peer_available_capacity(session.known_ipport.value(), -1, 0);
 
         return 0;
     }
