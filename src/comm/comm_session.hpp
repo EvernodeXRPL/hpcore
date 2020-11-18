@@ -41,7 +41,7 @@ namespace comm
         void reader_loop();
 
     protected:
-        virtual void handle_connect();
+        virtual int handle_connect();
         virtual int handle_message(std::string_view msg);
         virtual void handle_close();
 
@@ -56,7 +56,7 @@ namespace comm
 
         comm_session(
             std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
-        void init();
+        int init();
         int process_next_inbound_message();
         int send(const std::vector<uint8_t> &message);
         int send(std::string_view message);

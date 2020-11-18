@@ -12,8 +12,10 @@ namespace usr
 {
     /**
      * This gets hit every time a client connects to HP via the public port (configured in contract config).
+     * @param session connected session.
+     * @return returns 0 if connection is successful and user challenge is sent, otherwise -1.
      */
-    void handle_user_connect(usr::user_comm_session &session)
+    int handle_user_connect(usr::user_comm_session &session)
     {
         LOG_DEBUG << "User client connected " << session.display_name();
 
@@ -25,6 +27,8 @@ namespace usr
 
         // Set the challenge-issued value to true.
         session.challenge_status = comm::CHALLENGE_ISSUED;
+
+        return 0;
     }
 
     /**

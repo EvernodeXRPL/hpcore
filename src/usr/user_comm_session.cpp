@@ -5,9 +5,9 @@
 
 namespace usr
 {
-    void user_comm_session::handle_connect()
+    int user_comm_session::handle_connect()
     {
-        usr::handle_user_connect(*this);
+        return usr::handle_user_connect(*this);
     }
 
     int user_comm_session::handle_message(std::string_view msg)
