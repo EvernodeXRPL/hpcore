@@ -67,7 +67,6 @@ namespace p2p
         LOG_INFO << "Started peer managing thread.";
 
         int peer_managing_counter = 0;
-        bool is_need_consensus_message_forward_announcment_sent = false;
 
         while (!is_shutting_down)
         {
@@ -98,25 +97,20 @@ namespace p2p
                 }
             }
 
-            if (sessions.size() > 0)
+            if (!sessions.empty())
             {
-                flatbuffers::FlatBufferBuilder fbuf(1024);
-                if (is_weakly_connected())
+                const bool current_status = detect_if_weakly_connected();
+                if (current_status != is_weakly_connected)
                 {
-                    if (!is_need_consensus_message_forward_announcment_sent)
-                    {
-                        p2p::send_peer_requirement_announcement(fbuf, true);
-                        // Mark that the consensus message forwarding announcement is already sent.
-                        is_need_consensus_message_forward_announcment_sent = true;
-                    }
+                    weakly_connected_status_changed = true;
+                    is_weakly_connected = current_status;
                 }
-                else
+
+                if (weakly_connected_status_changed)
                 {
-                    if (is_need_consensus_message_forward_announcment_sent)
-                    {
-                        p2p::send_peer_requirement_announcement(fbuf, false);
-                        is_need_consensus_message_forward_announcment_sent = false;
-                    }
+                    flatbuffers::FlatBufferBuilder fbuf(1024);
+                    p2p::send_peer_requirement_announcement(fbuf, is_weakly_connected);
+                    weakly_connected_status_changed = false;
                 }
             }
 
@@ -203,7 +197,7 @@ namespace p2p
                     known_remote_count++;
 
                     // Sending newly connected node the requirement of consensus msg fowarding if this node is weakly connected.
-                    if (is_weakly_connected())
+                    if (detect_if_weakly_connected())
                     {
                         flatbuffers::FlatBufferBuilder fbuf(1024);
                         msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, true, ledger::ctx.get_lcl());
@@ -222,7 +216,7 @@ namespace p2p
      * Check whether the node is weakly connected or strongly connected.
      * @return Return true if the node is weakly connected. False otherwise.
     */
-    bool peer_comm_server::is_weakly_connected()
+    bool peer_comm_server::detect_if_weakly_connected()
     {
         // One is added to session list size to reflect the loop back connection.
         return (sessions.size() + 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);

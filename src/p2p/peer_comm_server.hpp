@@ -12,17 +12,18 @@ namespace p2p
         int custom_connection_invocations = -1;
         // std::thread known_peers_thread; // Known peers connection establishment thread.
         std::thread peer_managing_thread; // Thread to request known peer list from a random peer and announce available capacity.
-        
+        bool weakly_connected_status_changed = false;
+        bool is_weakly_connected = false;
+
         void maintain_known_connections();
         void peer_managing_loop();
-        bool is_weakly_connected();
+        bool detect_if_weakly_connected();
 
     protected:
         void start_custom_jobs();
         void stop_custom_jobs();
         int process_custom_messages();
         void custom_connections();
-
 
     public:
         std::atomic<uint16_t> known_remote_count = 0;

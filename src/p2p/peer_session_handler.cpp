@@ -138,11 +138,11 @@ namespace p2p
             session.need_consensus_msg_forwarding = announcement_msg->need_consensus_msg_forwarding();
             if (session.need_consensus_msg_forwarding)
             {
-                LOG_INFO << "Consensus message forwaring is required for " << session.display_name();
+                LOG_DEBUG << "Consensus message forwaring is required for " << session.display_name();
             }
             else
             {
-                LOG_INFO << "Consensus message forwaring is not required for " << session.display_name();
+                LOG_DEBUG << "Consensus message forwaring is not required for " << session.display_name();
             }
         }
         else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
