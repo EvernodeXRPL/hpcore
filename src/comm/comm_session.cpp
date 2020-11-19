@@ -18,7 +18,8 @@ namespace comm
           host_address(host_address),
           hpws_client(std::move(hpws_client)),
           is_inbound(is_inbound),
-          in_msg_queue(32)
+          in_msg_queue(conf::cfg.inmsgqueuesize),
+          out_msg_queue(conf::cfg.outmsgqueuesize)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -77,7 +78,7 @@ namespace comm
                 std::string_view data = std::get<std::string_view>(read_result);
                 std::vector<char> msg(data.size());
                 memcpy(msg.data(), data.data(), data.size());
-                in_msg_queue.enqueue(std::move(msg));
+                in_msg_queue.try_enqueue(std::move(msg));
 
                 // Signal the hpws client that we are ready for next message.
                 std::optional<hpws::error> error = hpws_client->ack(data);
@@ -131,7 +132,7 @@ namespace comm
     /**
      * Adds the given message to the outbound message queue.
      * @param message Message to be added to the outbound queue.
-     * @return 0 on successful addition and -1 if the session is already closed.
+     * @return 0 on successful addition and -1 if the session is already closed or there's no space in the queue.
     */
     int comm_session::send(std::string_view message)
     {
@@ -142,8 +143,7 @@ namespace comm
         last_activity_timestamp = util::get_epoch_milliseconds();
 
         // Passing the ownership of message to the queue.
-        out_msg_queue.enqueue(std::string(message));
-        return 0;
+        return out_msg_queue.try_enqueue(std::string(message)) ? 0 : -1;
     }
 
     /**

@@ -4,7 +4,7 @@
 namespace p2p::self
 {
     // Holds self messages waiting to be processed.
-    moodycamel::ConcurrentQueue<std::string> msg_queue;
+    moodycamel::ConcurrentQueue<std::string> msg_queue(100);
 
     /**
      * Processes the next queued message (if any).
@@ -19,10 +19,14 @@ namespace p2p::self
         return 0;
     }
 
-    void send(std::string_view message)
+    /**
+     * Add next message to the queue.
+     * @return 0 on successful addition and -1 if there's no space in the queue.
+     */
+    int send(std::string_view message)
     {
         // Passing the ownership of message to the queue.
-        msg_queue.enqueue(std::string(message));
+        return msg_queue.try_enqueue(std::string(message)) ? 0 : -1;
     }
 
 } // namespace p2p::self

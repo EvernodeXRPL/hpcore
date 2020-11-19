@@ -191,8 +191,6 @@ namespace read_req
     */
     int populate_read_req_queue(const std::string &pubkey, const std::string &content)
     {
-        sc::execution_context contract_ctx;
-
         user_read_req read_request;
         read_request.content = std::move(content);
         read_request.pubkey = pubkey;

@@ -88,6 +88,13 @@ namespace conf
         cfg.pubport = 8080;
         cfg.peerdiscoverytime = 30000;
 
+        cfg.selfmsgqueuesize = 100;
+        cfg.inmsgqueuesize = 32;
+        cfg.outmsgqueuesize = 100;
+        cfg.nplmsgqueuesize = 32;
+        cfg.controlmsgqueuesize = 32;
+        cfg.readrequestqueuesize = 100;
+
         cfg.msgforwarding = false;
         cfg.dynamicpeerdiscovery = false;
 
@@ -294,8 +301,8 @@ namespace conf
         cfg.peermaxdupmpm = d["peermaxdupmpm"].as<uint64_t>();
         cfg.peermaxbadmpm = d["peermaxbadmpm"].as<uint64_t>();
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
-        cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
-        cfg.peermaxknowncons = d["peermaxknowncons"].as<unsigned int>();
+        cfg.peermaxcons = d["peermaxcons"].as<uint16_t>();
+        cfg.peermaxknowncons = d["peermaxknowncons"].as<uint16_t>();
 
         // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
         if (cfg.peermaxknowncons > cfg.peermaxcons)
@@ -303,6 +310,13 @@ namespace conf
             std::cout << "Invalid configuration values: peermaxknowncons count should not exceed peermaxcons." << '\n';
             return -1;
         }
+
+        cfg.selfmsgqueuesize = d["selfmsgqueuesize"].as<uint16_t>();
+        cfg.inmsgqueuesize = d["inmsgqueuesize"].as<uint16_t>();
+        cfg.outmsgqueuesize = d["outmsgqueuesize"].as<uint16_t>();
+        cfg.nplmsgqueuesize = d["nplmsgqueuesize"].as<uint16_t>();
+        cfg.controlmsgqueuesize = d["controlmsgqueuesize"].as<uint16_t>();
+        cfg.readrequestqueuesize = d["readrequestqueuesize"].as<uint16_t>();
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
         cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
@@ -376,6 +390,13 @@ namespace conf
         d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
         d.insert_or_assign("peermaxknowncons", cfg.peermaxknowncons);
+
+        d.insert_or_assign("selfmsgqueuesize", cfg.selfmsgqueuesize);
+        d.insert_or_assign("inmsgqueuesize", cfg.inmsgqueuesize);
+        d.insert_or_assign("outmsgqueuesize", cfg.outmsgqueuesize);
+        d.insert_or_assign("nplmsgqueuesize", cfg.nplmsgqueuesize);
+        d.insert_or_assign("controlmsgqueuesize", cfg.controlmsgqueuesize);
+        d.insert_or_assign("readrequestqueuesize", cfg.readrequestqueuesize);
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
         d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);

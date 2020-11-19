@@ -58,6 +58,12 @@ namespace sc
  */
     struct contract_execution_args
     {
+        contract_execution_args()
+            : npl_messages(conf::cfg.nplmsgqueuesize),
+              control_messages(conf::cfg.controlmsgqueuesize)
+        {
+        }
+
         // Whether the contract should execute in read only mode (to serve read requests).
         bool readonly = false;
 
