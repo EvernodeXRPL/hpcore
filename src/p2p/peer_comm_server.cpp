@@ -8,6 +8,8 @@
 
 namespace p2p
 {
+    constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
+
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
                                        const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes)
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size),
@@ -65,6 +67,7 @@ namespace p2p
         LOG_INFO << "Started peer managing thread.";
 
         int peer_managing_counter = 0;
+        bool is_need_consensus_message_forward_announcment_sent = false;
 
         while (!is_shutting_down)
         {
@@ -92,6 +95,28 @@ namespace p2p
                 {
                     p2p::send_peer_list_request();
                     peer_managing_counter = 0;
+                }
+            }
+
+            if (sessions.size() > 0)
+            {
+                flatbuffers::FlatBufferBuilder fbuf(1024);
+                if (is_weakly_connected())
+                {
+                    if (!is_need_consensus_message_forward_announcment_sent)
+                    {
+                        p2p::send_peer_requirement_announcement(fbuf, true);
+                        // Mark that the p2p message forwarding is requested.
+                        is_need_consensus_message_forward_announcment_sent = true;
+                    }
+                }
+                else
+                {
+                    if (is_need_consensus_message_forward_announcment_sent)
+                    {
+                        p2p::send_peer_requirement_announcement(fbuf, false);
+                        is_need_consensus_message_forward_announcment_sent = false;
+                    }
                 }
             }
 
@@ -166,7 +191,7 @@ namespace p2p
                 {
                     const std::string &host_address = std::get<std::string>(host_result);
                     p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
-                    
+
                     // Skip if this peer is banned due to corebill violations.
                     if (corebill::is_banned(host_address))
                     {
@@ -177,11 +202,29 @@ namespace p2p
                     session.known_ipport.emplace(peer.ip_port);
                     known_remote_count++;
 
+                    // Sending newly connected node the requirement of consensus msg fowarding if this node is weakly connected.
+                    if (is_weakly_connected())
+                    {
+                        flatbuffers::FlatBufferBuilder fbuf(1024);
+                        msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, true, ledger::ctx.get_lcl());
+                        std::string_view msg = std::string_view(
+                            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+                        session.send(msg);
+                    }
+
                     std::scoped_lock<std::mutex> lock(new_sessions_mutex);
                     new_sessions.emplace_back(std::move(session));
                 }
             }
         }
     }
-
+    /**
+     * Check whether the node is weakly connected or strongly connected.
+     * @return Return true if the node is weakly connected. False otherwise.
+    */
+    bool peer_comm_server::is_weakly_connected()
+    {
+        // One is added to session list size to reflect the loop back connection.
+        return (sessions.size() + 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
+    }
 } // namespace p2p

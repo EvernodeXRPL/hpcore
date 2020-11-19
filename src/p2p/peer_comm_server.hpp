@@ -15,6 +15,7 @@ namespace p2p
         
         void maintain_known_connections();
         void peer_managing_loop();
+        bool is_weakly_connected();
 
     protected:
         void start_custom_jobs();

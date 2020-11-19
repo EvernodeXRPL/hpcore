@@ -66,8 +66,8 @@ struct Block_ResponseBuilder;
 struct State_FS_Hash_Entry;
 struct State_FS_Hash_EntryBuilder;
 
-struct Connected_Status_Announcement_Message;
-struct Connected_Status_Announcement_MessageBuilder;
+struct Peer_Requirement_Announcement_Message;
+struct Peer_Requirement_Announcement_MessageBuilder;
 
 struct Available_Capacity_Announcement_Message;
 struct Available_Capacity_Announcement_MessageBuilder;
@@ -92,7 +92,7 @@ enum Message {
   Message_State_Response_Message = 7,
   Message_History_Request_Message = 8,
   Message_History_Response_Message = 9,
-  Message_Connected_Status_Announcement_Message = 10,
+  Message_Peer_Requirement_Announcement_Message = 10,
   Message_Peer_List_Request_Message = 11,
   Message_Peer_List_Response_Message = 12,
   Message_Available_Capacity_Announcement_Message = 13,
@@ -112,7 +112,7 @@ inline const Message (&EnumValuesMessage())[14] {
     Message_State_Response_Message,
     Message_History_Request_Message,
     Message_History_Response_Message,
-    Message_Connected_Status_Announcement_Message,
+    Message_Peer_Requirement_Announcement_Message,
     Message_Peer_List_Request_Message,
     Message_Peer_List_Response_Message,
     Message_Available_Capacity_Announcement_Message
@@ -132,7 +132,7 @@ inline const char * const *EnumNamesMessage() {
     "State_Response_Message",
     "History_Request_Message",
     "History_Response_Message",
-    "Connected_Status_Announcement_Message",
+    "Peer_Requirement_Announcement_Message",
     "Peer_List_Request_Message",
     "Peer_List_Response_Message",
     "Available_Capacity_Announcement_Message",
@@ -187,8 +187,8 @@ template<> struct MessageTraits<msg::fbuf::p2pmsg::History_Response_Message> {
   static const Message enum_value = Message_History_Response_Message;
 };
 
-template<> struct MessageTraits<msg::fbuf::p2pmsg::Connected_Status_Announcement_Message> {
-  static const Message enum_value = Message_Connected_Status_Announcement_Message;
+template<> struct MessageTraits<msg::fbuf::p2pmsg::Peer_Requirement_Announcement_Message> {
+  static const Message enum_value = Message_Peer_Requirement_Announcement_Message;
 };
 
 template<> struct MessageTraits<msg::fbuf::p2pmsg::Peer_List_Request_Message> {
@@ -617,8 +617,8 @@ struct Content FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf::p2pmsg::History_Response_Message *message_as_History_Response_Message() const {
     return message_type() == msg::fbuf::p2pmsg::Message_History_Response_Message ? static_cast<const msg::fbuf::p2pmsg::History_Response_Message *>(message()) : nullptr;
   }
-  const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *message_as_Connected_Status_Announcement_Message() const {
-    return message_type() == msg::fbuf::p2pmsg::Message_Connected_Status_Announcement_Message ? static_cast<const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *>(message()) : nullptr;
+  const msg::fbuf::p2pmsg::Peer_Requirement_Announcement_Message *message_as_Peer_Requirement_Announcement_Message() const {
+    return message_type() == msg::fbuf::p2pmsg::Message_Peer_Requirement_Announcement_Message ? static_cast<const msg::fbuf::p2pmsg::Peer_Requirement_Announcement_Message *>(message()) : nullptr;
   }
   const msg::fbuf::p2pmsg::Peer_List_Request_Message *message_as_Peer_List_Request_Message() const {
     return message_type() == msg::fbuf::p2pmsg::Message_Peer_List_Request_Message ? static_cast<const msg::fbuf::p2pmsg::Peer_List_Request_Message *>(message()) : nullptr;
@@ -677,8 +677,8 @@ template<> inline const msg::fbuf::p2pmsg::History_Response_Message *Content::me
   return message_as_History_Response_Message();
 }
 
-template<> inline const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *Content::message_as<msg::fbuf::p2pmsg::Connected_Status_Announcement_Message>() const {
-  return message_as_Connected_Status_Announcement_Message();
+template<> inline const msg::fbuf::p2pmsg::Peer_Requirement_Announcement_Message *Content::message_as<msg::fbuf::p2pmsg::Peer_Requirement_Announcement_Message>() const {
+  return message_as_Peer_Requirement_Announcement_Message();
 }
 
 template<> inline const msg::fbuf::p2pmsg::Peer_List_Request_Message *Content::message_as<msg::fbuf::p2pmsg::Peer_List_Request_Message>() const {
@@ -1759,47 +1759,47 @@ inline flatbuffers::Offset<State_FS_Hash_Entry> CreateState_FS_Hash_EntryDirect(
       hash__);
 }
 
-struct Connected_Status_Announcement_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef Connected_Status_Announcement_MessageBuilder Builder;
+struct Peer_Requirement_Announcement_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Peer_Requirement_Announcement_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_IS_WEAKLY_CONNECTED = 4
+    VT_NEED_CONSENSUS_MSG_FORWARDING = 4
   };
-  bool is_weakly_connected() const {
-    return GetField<uint8_t>(VT_IS_WEAKLY_CONNECTED, 0) != 0;
+  bool need_consensus_msg_forwarding() const {
+    return GetField<uint8_t>(VT_NEED_CONSENSUS_MSG_FORWARDING, 0) != 0;
   }
-  bool mutate_is_weakly_connected(bool _is_weakly_connected) {
-    return SetField<uint8_t>(VT_IS_WEAKLY_CONNECTED, static_cast<uint8_t>(_is_weakly_connected), 0);
+  bool mutate_need_consensus_msg_forwarding(bool _need_consensus_msg_forwarding) {
+    return SetField<uint8_t>(VT_NEED_CONSENSUS_MSG_FORWARDING, static_cast<uint8_t>(_need_consensus_msg_forwarding), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_IS_WEAKLY_CONNECTED) &&
+           VerifyField<uint8_t>(verifier, VT_NEED_CONSENSUS_MSG_FORWARDING) &&
            verifier.EndTable();
   }
 };
 
-struct Connected_Status_Announcement_MessageBuilder {
-  typedef Connected_Status_Announcement_Message Table;
+struct Peer_Requirement_Announcement_MessageBuilder {
+  typedef Peer_Requirement_Announcement_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_is_weakly_connected(bool is_weakly_connected) {
-    fbb_.AddElement<uint8_t>(Connected_Status_Announcement_Message::VT_IS_WEAKLY_CONNECTED, static_cast<uint8_t>(is_weakly_connected), 0);
+  void add_need_consensus_msg_forwarding(bool need_consensus_msg_forwarding) {
+    fbb_.AddElement<uint8_t>(Peer_Requirement_Announcement_Message::VT_NEED_CONSENSUS_MSG_FORWARDING, static_cast<uint8_t>(need_consensus_msg_forwarding), 0);
   }
-  explicit Connected_Status_Announcement_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit Peer_Requirement_Announcement_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<Connected_Status_Announcement_Message> Finish() {
+  flatbuffers::Offset<Peer_Requirement_Announcement_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Connected_Status_Announcement_Message>(end);
+    auto o = flatbuffers::Offset<Peer_Requirement_Announcement_Message>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Connected_Status_Announcement_Message> CreateConnected_Status_Announcement_Message(
+inline flatbuffers::Offset<Peer_Requirement_Announcement_Message> CreatePeer_Requirement_Announcement_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    bool is_weakly_connected = false) {
-  Connected_Status_Announcement_MessageBuilder builder_(_fbb);
-  builder_.add_is_weakly_connected(is_weakly_connected);
+    bool need_consensus_msg_forwarding = false) {
+  Peer_Requirement_Announcement_MessageBuilder builder_(_fbb);
+  builder_.add_need_consensus_msg_forwarding(need_consensus_msg_forwarding);
   return builder_.Finish();
 }
 
@@ -2084,8 +2084,8 @@ inline bool VerifyMessage(flatbuffers::Verifier &verifier, const void *obj, Mess
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::History_Response_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Message_Connected_Status_Announcement_Message: {
-      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Connected_Status_Announcement_Message *>(obj);
+    case Message_Peer_Requirement_Announcement_Message: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::Peer_Requirement_Announcement_Message *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case Message_Peer_List_Request_Message: {

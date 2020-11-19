@@ -581,19 +581,19 @@ namespace msg::fbuf::p2pmsg
     /**
      * Create connected status announcement message.
      * @param container_builder Flatbuffer builder for the container message.
-     * @param is_weakly_connected True if number of connections are below threshold and false otherwise.
+     * @param need_consensus_msg_forwarding True if number of connections are below threshold and false otherwise.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl)
+    void create_msg_from_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool need_consensus_msg_forwarding, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
-        const flatbuffers::Offset<Connected_Status_Announcement_Message> announcement =
-            CreateConnected_Status_Announcement_Message(
+        const flatbuffers::Offset<Peer_Requirement_Announcement_Message> announcement =
+            CreatePeer_Requirement_Announcement_Message(
                 builder,
-                is_weakly_connected);
+                need_consensus_msg_forwarding);
 
-        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Connected_Status_Announcement_Message, announcement.Union());
+        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Requirement_Announcement_Message, announcement.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message,

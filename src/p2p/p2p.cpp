@@ -123,7 +123,7 @@ namespace p2p
                     ctx.peer_connections.erase(iter); // remove existing session.
                     // We have to keep the weekly connected status of the removed session object.
                     // If not, connected status received prior to connection dropping will be lost.
-                    session.is_weakly_connected = ex_session.is_weakly_connected;
+                    session.need_consensus_msg_forwarding = ex_session.need_consensus_msg_forwarding;
                     ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
@@ -176,7 +176,7 @@ namespace p2p
             // Exclude given session if provided.
             // Messages are forwarded only to the weakly connected nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
-                (is_msg_forwarding && !session->is_weakly_connected))
+                (is_msg_forwarding && !session->need_consensus_msg_forwarding))
                 continue;
 
             session->send(message);
@@ -261,13 +261,13 @@ namespace p2p
     }
 
     /**
-     * Sends the connected status broadcast announcement to all the connected peers.
+     * Sends the peer requirement broadcast announcement to all the connected peers.
      * @param fbuf Peer outbound message to be sent to peer.
-     * @param is_weakly_connected True if the number of connections are below the threshold value.
+     * @param need_consensus_msg_forwarding True if the number of connections are below the threshold value.
      */
-    void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected)
+    void send_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool need_consensus_msg_forwarding)
     {
-        msg::fbuf::p2pmsg::create_msg_from_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
+        msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding, ledger::ctx.get_lcl());
         broadcast_message(fbuf, false);
     }
 
