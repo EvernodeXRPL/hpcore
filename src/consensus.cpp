@@ -290,7 +290,7 @@ namespace consensus
             // Stage 1 must start in the next round window.
             // (This makes sure stage 3 gets whichever the remaining time in the round after stage 1 and 2)
             stage_start = current_round_start + conf::cfg.roundtime;
-            const int64_t to_wait = stage_start - now;
+            const uint64_t to_wait = stage_start - now;
 
             LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 1";
             util::sleep(to_wait);
@@ -302,7 +302,7 @@ namespace consensus
 
             // Compute stage time wait.
             // Node wait between stages to collect enough proposals from previous stages from other nodes.
-            const int64_t to_wait = stage_start - now;
+            const uint64_t to_wait = stage_start - now;
 
             // If a node doesn't have enough time (eg. due to network delay) to recieve/send reliable stage proposals for next stage,
             // it will join in next round. Otherwise it will continue particapating in this round.
