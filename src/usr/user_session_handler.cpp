@@ -17,18 +17,27 @@ namespace usr
      */
     int handle_user_connect(usr::user_comm_session &session)
     {
-        LOG_DEBUG << "User client connected " << session.display_name();
+        // Allow connection only if the maximum capacity is not reached. 0 means allowing unlimited connections.
+        if ((conf::cfg.pubmaxcons == 0) || (usr::ctx.users.size() < conf::cfg.pubmaxcons))
+        {
+            corebill::add_to_whitelist(session.host_address);
+            LOG_DEBUG << "User client connected " << session.display_name();
 
-        // As soon as a user connects, we issue them a challenge message. We remember the
-        // challenge we issued and later verify the user's response with it.
-        std::vector<uint8_t> msg;
-        jusrmsg::create_user_challenge(msg, session.issued_challenge);
-        session.send(msg);
+            // As soon as a user connects, we issue them a challenge message. We remember the
+            // challenge we issued and later verify the user's response with it.
+            std::vector<uint8_t> msg;
+            jusrmsg::create_user_challenge(msg, session.issued_challenge);
+            session.send(msg);
 
-        // Set the challenge-issued value to true.
-        session.challenge_status = comm::CHALLENGE_ISSUED;
-
-        return 0;
+            // Set the challenge-issued value to true.
+            session.challenge_status = comm::CHALLENGE_ISSUED;
+            return 0;
+        }
+        else
+        {
+            LOG_DEBUG << "Dropping the user connection. Maximum user capacity reached. Session: " << session.display_name() << " (limit: " << conf::cfg.pubmaxcons << ").";
+            return -1;
+        }
     }
 
     /**
@@ -36,6 +45,9 @@ namespace usr
      */
     int handle_user_message(usr::user_comm_session &session, std::string_view message)
     {
+        // Adding message size to user message characters(bytes) per minute counter.
+        session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.size());
+
         // First check whether this session is pending challenge.
         // Meaning we have previously issued a challenge to the client.
         if (session.challenge_status == comm::CHALLENGE_ISSUED)

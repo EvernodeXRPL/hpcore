@@ -275,12 +275,12 @@ namespace comm
             const uint64_t elapsed_time = time_now - t.timestamp;
             if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
             {
-                close();
+                mark_for_closure();
 
                 t.timestamp = 0;
                 t.counter_value = 0;
 
-                LOG_INFO << "Session " << uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+                LOG_INFO << "Session " << display_name() << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
                 corebill::report_violation(host_address);
             }
             else if (elapsed_time > t.intervalms)

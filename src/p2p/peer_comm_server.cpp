@@ -74,7 +74,7 @@ namespace p2p
             if (conf::cfg.peermaxcons != 0)
                 p2p::send_available_capacity_announcement(p2p::get_available_capacity());
 
-            // Start peer list request loop is dynamic peer discovery is enabled.
+            // Start peer list request loop if dynamic peer discovery is enabled.
             if (conf::cfg.dynamicpeerdiscovery && known_remote_count > 0)
             {
                 // If max known peer connection cap is reached then periodically request peer list from random known peer.
@@ -166,6 +166,14 @@ namespace p2p
                 {
                     const std::string &host_address = std::get<std::string>(host_result);
                     p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
+                    
+                    // Skip if this peer is banned due to corebill violations.
+                    if (corebill::is_banned(host_address))
+                    {
+                        LOG_DEBUG << "Skipping peer " << host_address << " from connecting. This peer is banned.";
+                        continue;
+                    }
+
                     session.known_ipport.emplace(peer.ip_port);
                     known_remote_count++;
 
