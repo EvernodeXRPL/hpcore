@@ -279,10 +279,10 @@ namespace conf
             cfg.unl.emplace(bin_pubkey);
         }
 
-        cfg.peerport = d["peerport"].as<int>();
-        cfg.pubport = d["pubport"].as<int>();
-        cfg.roundtime = d["roundtime"].as<int>();
-        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<int>();
+        cfg.peerport = d["peerport"].as<uint16_t>();
+        cfg.pubport = d["pubport"].as<uint16_t>();
+        cfg.roundtime = d["roundtime"].as<uint16_t>();
+        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<uint16_t>();
 
         cfg.pubmaxsize = d["pubmaxsize"].as<uint64_t>();
         cfg.pubmaxcpm = d["pubmaxcpm"].as<uint64_t>();

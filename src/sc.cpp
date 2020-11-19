@@ -9,7 +9,7 @@
 
 namespace sc
 {
-    const int MAX_SEQ_PACKET_SIZE = 128 * 1024;
+    const uint32_t MAX_SEQ_PACKET_SIZE = 128 * 1024;
     bool init_success = false;
 
     // We maintain two hpfs global processes for merging and rw sessions.
