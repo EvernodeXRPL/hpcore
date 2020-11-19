@@ -437,8 +437,14 @@ namespace sc
         {
             if (npl_msg.lcl == ctx.args.lcl)
             {
+                std::string pubkeyhex;
+                util::bin2hex(
+                    pubkeyhex,
+                    reinterpret_cast<const unsigned char *>(npl_msg.pubkey.data()) + 1, // Skip first byte for key type prefix.
+                    npl_msg.pubkey.length() - 1);
+
                 // Writing the public key to the contract's fd (Skip first byte for key type prefix).
-                if (write(writefd, npl_msg.pubkey.data() + 1, npl_msg.pubkey.size() - 1) == -1)
+                if (write(writefd, pubkeyhex.data(), pubkeyhex.size()) == -1)
                 {
                     LOG_ERROR << errno << ": Error writing npl message pubkey.";
                     return -1;

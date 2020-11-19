@@ -313,7 +313,7 @@ class NplChannel {
 
         this.#readStream.on("data", (data) => {
             if (!pubKey) {
-                pubKey = data.toString('hex');
+                pubKey = data.toString();
             }
             else {
                 onMessage(pubKey, data);
