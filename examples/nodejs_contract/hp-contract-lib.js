@@ -227,6 +227,7 @@ class UserChannel {
 
     close() {
         this.#readStream && this.#readStream.close();
+        fs.closeSync(this.#fd);
     }
 }
 
@@ -330,6 +331,7 @@ class NplChannel {
 
     close() {
         this.#readStream && this.#readStream.close();
+        fs.closeSync(this.#fd);
     }
 }
 
@@ -357,6 +359,7 @@ class ControlChannel {
 
     close() {
         this.#readStream && this.#readStream.close();
+        fs.closeSync(this.#fd);
     }
 }
 

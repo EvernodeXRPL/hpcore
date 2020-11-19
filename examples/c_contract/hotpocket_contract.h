@@ -6,12 +6,16 @@
 #include <string.h>
 #include <stdbool.h>
 #include <poll.h>
+#include <sys/uio.h>
 #include "json.h"
 
 #define __HOTPOCKET_KEY_SIZE 64
 #define __HOTPOCKET_HASH_SIZE 64
-#define __HOTPOCKET_READ_BUF_SIZE 131072 // 128KB to support to SEQ_PACKET sockets.
 #define __HOTPOCKET_MSG_HEADER_LEN 4
+#define __HOTPOCKET_USER_BUF_SIZE 4096     // Buffer used to read user message data.
+#define __HOTPOCKET_SEQPKT_BUF_SIZE 131072 // 128KB to support to SEQ_PACKET sockets.
+#define __HOTPOCKET_POLL_TIMEOUT 20
+
 #define __HOTPOCKET_MIN(a, b) ((a < b) ? a : b)
 
 #define __HOTPOCKET_ASSIGN_STRING(dest, elem)                                       \
@@ -112,7 +116,9 @@ typedef void (*hotpocket_user_message_func)(const struct hotpocket_user *user, c
 typedef void (*hotpocket_peer_message_func)(const char *peerPubKey, const void *buf, const uint32_t len);
 
 int hotpocket_init();
-int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message, hotpocket_peer_message_func on_peer_message);
+int hotpocket_user_message_loop(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message);
+int hotpocket_user_write(const struct hotpocket_user *user, const uint8_t *buf, const uint32_t len);
+int hotpocket_user_writev(const struct hotpocket_user *user, const struct iovec *bufs, const int buf_count);
 void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct json_object_s *object);
 void __hotpocket_parse_user_chunk(struct __hotpocket_user_state *us, const uint8_t *buf, const uint32_t len, hotpocket_user_message_func on_user_message);
 bool __hotpocket_parse_length_header(struct __hotpocket_user_state *us, const uint8_t *chunk, const uint32_t chunk_len,
@@ -144,6 +150,17 @@ int hotpocket_init(hotpocket_contract_func contract_func)
             // Execute user defined contract function.
             if (contract_func)
                 contract_func(&ctx);
+
+            // Cleanup.
+            for (int i = 0; i < ctx.users.count; i++)
+                close(ctx.users.list[i].fd);
+
+            close(ctx.peers.fd);
+
+            // Send termination control message.
+            write(ctx.control_fd, "Terminated", 10);
+            close(ctx.control_fd);
+
             return 0;
         }
     }
@@ -154,11 +171,12 @@ int hotpocket_init(hotpocket_contract_func contract_func)
     return -1;
 }
 
-int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message, hotpocket_peer_message_func on_peer_message)
+int hotpocket_user_message_loop(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message)
 {
+    int result = 0;
+
     // We poll user fds, control fd and npl fd (npl fd not available in read only mode)
     const size_t total_users = ctx->users.count;
-    const int fd_count = total_users + (ctx->readonly ? 1 : 2);
     size_t remaining_users = total_users;
 
     // User states list to keep track of message collection status for each user.
@@ -166,42 +184,29 @@ int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_fu
     memset(user_states, 0, sizeof(struct __hotpocket_user_state) * total_users);
 
     // Temp buffer for all read operations.
-    uint8_t *buf = malloc(__HOTPOCKET_READ_BUF_SIZE);
+    uint8_t *buf = malloc(__HOTPOCKET_USER_BUF_SIZE);
 
     // Create fd set to be polled.
-    struct pollfd pollfds[fd_count];
-    for (int i = 0; i < fd_count; i++)
+    struct pollfd pollfds[total_users];
+    for (int i = 0; i < total_users; i++)
     {
-        int fd = 0;
-        if (i < total_users)
-        {
-            fd = ctx->users.list[i].fd;
-            user_states[i].user = &ctx->users.list[i];
-        }
-        else if (i == total_users)
-        {
-            fd = ctx->control_fd;
-        }
-        else
-        {
-            fd = ctx->peers.fd; // This will not occur in readonly mode.
-        }
-
-        pollfds[i].fd = fd;
+        pollfds[i].fd = ctx->users.list[i].fd;
         pollfds[i].events = POLLIN;
         pollfds[i].revents = 0;
+
+        user_states[i].user = &ctx->users.list[i];
     }
 
     while (remaining_users > 0)
     {
         // Cleanup poll fd set because we are reusing it.
-        for (int i = 0; i < fd_count; i++)
+        for (int i = 0; i < total_users; i++)
             pollfds[0].revents = 0;
 
-        if (poll(pollfds, fd_count, 20) == -1)
+        if (poll(pollfds, total_users, __HOTPOCKET_POLL_TIMEOUT) == -1)
             goto error;
 
-        for (int i = 0; i < fd_count; i++)
+        for (int i = 0; i < total_users; i++)
         {
             short result = pollfds[i].revents;
             if (result == 0)
@@ -209,51 +214,79 @@ int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_fu
 
             if (result & (POLLHUP | POLLERR | POLLNVAL))
             {
-                fprintf(stderr, "Poll error.\n");
+                fprintf(stderr, "User poll error.\n");
                 goto error;
             }
             else if (result & POLLIN)
             {
-                printf("read 1   - %d\n", pollfds[i].fd);
-                const int read_res = read(pollfds[i].fd, buf, __HOTPOCKET_READ_BUF_SIZE);
-                printf("read 2\n");
+                const int read_res = read(pollfds[i].fd, buf, __HOTPOCKET_USER_BUF_SIZE);
                 if (read_res == -1)
                     goto error;
 
-                if (i < total_users) // This is a user fd.
+                if (!user_states[i].completed)
                 {
-                    if (!user_states[i].completed)
+                    // User sockets are stream sockets. So we have to do the message stitching ourselves based on
+                    // total msg count and msg size headers sent over the stream.
+                    __hotpocket_parse_user_chunk(&user_states[i], buf, read_res, on_user_message);
+
+                    if (user_states[i].completed)
                     {
-                        // User sockets are stream sockets. So we have to do the message stitching ourselves based on
-                        // total msg count and msg size headers sent over the stream.
-                        __hotpocket_parse_user_chunk(&user_states[i], buf, read_res, on_user_message);
+                        remaining_users--;
 
-                        if (user_states[i].completed)
-                        {
-                            remaining_users--;
-
-                            // All users completed.
-                            if (remaining_users == 0)
-                                break;
-                        }
+                        // All users completed.
+                        if (remaining_users == 0)
+                            break;
                     }
-                }
-                else if (i == total_users) // This is control fd.
-                {
-                }
-                else // This is npl fd. This will not occur in readonly mode.
-                {
                 }
             }
         }
     }
 
-    free(buf);
-    return 0;
+    // If we reach here that means result is successful.
+    result = 0;
+    goto end;
 
 error:
+    // On error set result to -1.
+    result = -1;
+
+end:
+    for (int i = 0; i < total_users; i++)
+    {
+        if (user_states[i].msg_buf)
+            free(user_states[i].msg_buf);
+    }
+
     free(buf);
-    return -1;
+    return result;
+}
+
+int hotpocket_user_write(const struct hotpocket_user *user, const uint8_t *buf, const uint32_t len)
+{
+    const struct iovec vec = {(void *)buf, len};
+    return hotpocket_user_writev(user, &vec, 1);
+}
+
+int hotpocket_user_writev(const struct hotpocket_user *user, const struct iovec *bufs, const int buf_count)
+{
+    const int total_buf_count = buf_count + 1;
+    struct iovec all_bufs[total_buf_count]; // We need to prepend the length header buf to indicate user message length.
+
+    uint32_t msg_len = 0;
+    for (int i = 0; i < buf_count; i++)
+    {
+        all_bufs[i + 1].iov_base = bufs[i].iov_base;
+        all_bufs[i + 1].iov_len = bufs[i].iov_len;
+        msg_len += bufs[i].iov_len;
+    }
+
+    uint8_t header_buf[__HOTPOCKET_MSG_HEADER_LEN];
+    __HOTPOCKET_TO_BE(msg_len, header_buf, 0);
+
+    all_bufs[0].iov_base = header_buf;
+    all_bufs[0].iov_len = __HOTPOCKET_MSG_HEADER_LEN;
+
+    return writev(user->fd, all_bufs, total_buf_count);
 }
 
 void __hotpocket_parse_user_chunk(struct __hotpocket_user_state *us, const uint8_t *chunk, const uint32_t chunk_len, hotpocket_user_message_func on_user_message)
