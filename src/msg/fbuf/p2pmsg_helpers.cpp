@@ -74,7 +74,7 @@ namespace msg::fbuf::p2pmsg
         //check message timestamp (ignore this for large messages).
         if (container_buf_size <= MAX_SIZE_FOR_TIME_CHECK)
         {
-            const int64_t time_now = util::get_epoch_milliseconds();
+            const uint64_t time_now = util::get_epoch_milliseconds();
             if (container->timestamp() < (time_now - conf::cfg.roundtime * 4))
             {
                 LOG_DEBUG << "Peer message is too old.";

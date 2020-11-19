@@ -79,7 +79,7 @@ namespace util
 
     std::string get_hex(std::string_view bin, const off_t skip = 0, const size_t take = 0);
 
-    int64_t get_epoch_milliseconds();
+    uint64_t get_epoch_milliseconds();
 
     void sleep(const uint64_t milliseconds);
 
