@@ -121,8 +121,8 @@ namespace p2p
 
                     ex_session.mark_for_closure();
                     ctx.peer_connections.erase(iter); // remove existing session.
-                    // We have to keep the weekly connected status of the removed session object.
-                    // If not, connected status received prior to connection dropping will be lost.
+                    // We have to keep the peer requirements of the removed session object.
+                    // If not, requirements received prior to connection dropping will be lost.
                     session.need_consensus_msg_forwarding = ex_session.need_consensus_msg_forwarding;
                     ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
@@ -174,7 +174,7 @@ namespace p2p
         for (const auto &[k, session] : ctx.peer_connections)
         {
             // Exclude given session if provided.
-            // Messages are forwarded only to the weakly connected nodes only in the message forwarding mode.
+            // Messages are forwarded only to the requested nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
                 (is_msg_forwarding && !session->need_consensus_msg_forwarding))
                 continue;

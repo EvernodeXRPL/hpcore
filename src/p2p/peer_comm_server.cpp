@@ -106,7 +106,7 @@ namespace p2p
                     if (!is_need_consensus_message_forward_announcment_sent)
                     {
                         p2p::send_peer_requirement_announcement(fbuf, true);
-                        // Mark that the p2p message forwarding is requested.
+                        // Mark that the consensus message forwarding announcement is already sent.
                         is_need_consensus_message_forward_announcment_sent = true;
                     }
                 }
