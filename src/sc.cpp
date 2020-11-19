@@ -307,7 +307,7 @@ namespace sc
         close(stdinpipe[0]);
 
         // Write the json message and close write fd.
-        if (write(stdinpipe[1], json.data(), json.size() + 1) == -1)
+        if (write(stdinpipe[1], json.data(), json.size()) == -1)
         {
             close(stdinpipe[1]);
             LOG_ERROR << errno << ": Failed to write to stdin of contract process.";

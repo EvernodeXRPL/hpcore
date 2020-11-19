@@ -129,7 +129,8 @@ int hotpocket_init(hotpocket_contract_func contract_func)
     // const int len = strlen(buf);
 
     struct json_value_s *root = json_parse(buf, len);
-    if (root->type == json_type_object)
+
+    if (root && root->type == json_type_object)
     {
         struct json_object_s *object = (struct json_object_s *)root->payload;
         if (object->length > 0)
@@ -147,7 +148,9 @@ int hotpocket_init(hotpocket_contract_func contract_func)
         }
     }
 
-    free(root);
+    if (root)
+        free(root);
+
     return -1;
 }
 
@@ -184,9 +187,9 @@ int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_fu
             fd = ctx->peers.fd; // This will not occur in readonly mode.
         }
 
-        pollfds[0].fd = fd;
-        pollfds[0].events = POLLIN;
-        pollfds[0].revents = 0;
+        pollfds[i].fd = fd;
+        pollfds[i].events = POLLIN;
+        pollfds[i].revents = 0;
     }
 
     while (remaining_users > 0)
@@ -200,12 +203,20 @@ int hotpocket_run(const struct hotpocket_context *ctx, hotpocket_user_message_fu
 
         for (int i = 0; i < fd_count; i++)
         {
-            if (pollfds[i].revents == 0)
+            short result = pollfds[i].revents;
+            if (result == 0)
                 continue;
 
-            if (pollfds[i].revents & POLLIN)
+            if (result & (POLLHUP | POLLERR | POLLNVAL))
             {
+                fprintf(stderr, "Poll error.\n");
+                goto error;
+            }
+            else if (result & POLLIN)
+            {
+                printf("read 1   - %d\n", pollfds[i].fd);
                 const int read_res = read(pollfds[i].fd, buf, __HOTPOCKET_READ_BUF_SIZE);
+                printf("read 2\n");
                 if (read_res == -1)
                     goto error;
 
