@@ -2,7 +2,7 @@
 
 // gcc echo_contract.c -o echo_contract
 
-void echo_contract(const struct hotpocket_context *ctx);
+void echo_contract(const struct hotpocket_contract_context *ctx);
 void on_user_message(const struct hotpocket_user *user, const void *buf, const uint32_t len);
 void on_peer_message(const char *peerPubKey, const void *buf, const uint32_t len);
 
@@ -14,8 +14,10 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void echo_contract(const struct hotpocket_context *ctx)
+void echo_contract(const struct hotpocket_contract_context *ctx)
 {
+    // hotpocket_peer_message_listener(ctx, on_peer_message);
+
     hotpocket_user_message_loop(ctx, on_user_message);
 }
 

@@ -7,13 +7,14 @@
 #include <stdbool.h>
 #include <poll.h>
 #include <sys/uio.h>
+#include <pthread.h>
 #include "json.h"
 
 #define __HOTPOCKET_KEY_SIZE 64
 #define __HOTPOCKET_HASH_SIZE 64
 #define __HOTPOCKET_MSG_HEADER_LEN 4
 #define __HOTPOCKET_USER_BUF_SIZE 4096     // Buffer used to read user message data.
-#define __HOTPOCKET_SEQPKT_BUF_SIZE 131072 // 128KB to support to SEQ_PACKET sockets.
+#define __HOTPOCKET_SEQPKT_BUF_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
 #define __HOTPOCKET_POLL_TIMEOUT 20
 
 #define __HOTPOCKET_MIN(a, b) ((a < b) ? a : b)
@@ -78,7 +79,7 @@ struct hotpocket_peers_collection
     int fd;
 };
 
-struct hotpocket_context
+struct hotpocket_contract_context
 {
     bool readonly;
 
@@ -90,7 +91,12 @@ struct hotpocket_context
 
     struct hotpocket_users_collection users;
     struct hotpocket_peers_collection peers;
+};
+
+struct __hotpocket_global_context
+{
     int control_fd;
+    bool should_stop;
 };
 
 struct __hotpocket_user_state
@@ -111,21 +117,26 @@ struct __hotpocket_user_state
     struct hotpocket_user *user; // The user reference tracked by this state struct.
 };
 
-typedef void (*hotpocket_contract_func)(const struct hotpocket_context *ctx);
+typedef void (*hotpocket_contract_func)(const struct hotpocket_contract_context *ctx);
 typedef void (*hotpocket_user_message_func)(const struct hotpocket_user *user, const void *buf, const uint32_t len);
 typedef void (*hotpocket_peer_message_func)(const char *peerPubKey, const void *buf, const uint32_t len);
 
 int hotpocket_init();
-int hotpocket_user_message_loop(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message);
+int hotpocket_user_message_loop(const struct hotpocket_contract_context *ctx, hotpocket_user_message_func on_user_message);
 int hotpocket_user_write(const struct hotpocket_user *user, const uint8_t *buf, const uint32_t len);
 int hotpocket_user_writev(const struct hotpocket_user *user, const struct iovec *bufs, const int buf_count);
-void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct json_object_s *object);
+void __hotpocket_parse_args_json(struct __hotpocket_global_context *gctx, struct hotpocket_contract_context *ctx, const struct json_object_s *object);
 void __hotpocket_parse_user_chunk(struct __hotpocket_user_state *us, const uint8_t *buf, const uint32_t len, hotpocket_user_message_func on_user_message);
 bool __hotpocket_parse_length_header(struct __hotpocket_user_state *us, const uint8_t *chunk, const uint32_t chunk_len,
                                      uint32_t *chunk_pos, uint32_t *target);
+static void *__hotpocket_control_message_loop(void *arg);
+void __hotpocket_on_control_message(const void *buf, const uint32_t len);
 
 int hotpocket_init(hotpocket_contract_func contract_func)
 {
+    if (!contract_func)
+        return -1;
+
     char buf[4096];
     const int len = read(STDIN_FILENO, buf, sizeof(buf));
     if (len == -1)
@@ -142,14 +153,26 @@ int hotpocket_init(hotpocket_contract_func contract_func)
         if (object->length > 0)
         {
             // Create and populate hotpocket context.
-            struct hotpocket_context ctx;
-            memset(&ctx, 0, sizeof(struct hotpocket_context));
-            __hotpocket_parse_args_json(&ctx, object);
+            struct __hotpocket_global_context gctx = {};
+            struct hotpocket_contract_context ctx = {};
+            __hotpocket_parse_args_json(&gctx, &ctx, object);
             free(root);
+
+            // Start control listener.
+            pthread_t control_thread;
+            if (pthread_create(&control_thread, NULL, &__hotpocket_control_message_loop, &gctx) == -1)
+            {
+                perror("Error creating control thread. ");
+                goto error;
+            }
 
             // Execute user defined contract function.
             if (contract_func)
                 contract_func(&ctx);
+
+            // Instructs to all threads to gracefully stop.
+            gctx.should_stop = true;
+            pthread_join(control_thread, NULL);
 
             // Cleanup.
             for (int i = 0; i < ctx.users.count; i++)
@@ -158,12 +181,14 @@ int hotpocket_init(hotpocket_contract_func contract_func)
             close(ctx.peers.fd);
 
             // Send termination control message.
-            write(ctx.control_fd, "Terminated", 10);
-            close(ctx.control_fd);
+            write(gctx.control_fd, "Terminated", 10);
+            close(gctx.control_fd);
 
             return 0;
         }
     }
+
+error:
 
     if (root)
         free(root);
@@ -171,7 +196,7 @@ int hotpocket_init(hotpocket_contract_func contract_func)
     return -1;
 }
 
-int hotpocket_user_message_loop(const struct hotpocket_context *ctx, hotpocket_user_message_func on_user_message)
+int hotpocket_user_message_loop(const struct hotpocket_contract_context *ctx, hotpocket_user_message_func on_user_message)
 {
     int result = 0;
 
@@ -199,7 +224,7 @@ int hotpocket_user_message_loop(const struct hotpocket_context *ctx, hotpocket_u
 
     while (remaining_users > 0)
     {
-        // Cleanup poll fd set because we are reusing it.
+        // Reset poll fd set because we are reusing it.
         for (int i = 0; i < total_users; i++)
             pollfds[0].revents = 0;
 
@@ -221,7 +246,10 @@ int hotpocket_user_message_loop(const struct hotpocket_context *ctx, hotpocket_u
             {
                 const int read_res = read(pollfds[i].fd, buf, __HOTPOCKET_USER_BUF_SIZE);
                 if (read_res == -1)
+                {
+                    perror("Error reading user socket. ");
                     goto error;
+                }
 
                 if (!user_states[i].completed)
                 {
@@ -387,7 +415,7 @@ bool __hotpocket_parse_length_header(struct __hotpocket_user_state *us, const ui
     return false; // Couldn't detect the length header with available bytes.
 }
 
-void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct json_object_s *object)
+void __hotpocket_parse_args_json(struct __hotpocket_global_context *gctx, struct hotpocket_contract_context *ctx, const struct json_object_s *object)
 {
     struct json_object_element_s *elem = object->start;
     do
@@ -471,11 +499,66 @@ void __hotpocket_parse_args_json(struct hotpocket_context *ctx, const struct jso
         }
         else if (strcmp(k->string, "hpfd") == 0)
         {
-            __HOTPOCKET_ASSIGN_INT(ctx->control_fd, elem);
+            __HOTPOCKET_ASSIGN_INT(gctx->control_fd, elem);
         }
 
         elem = elem->next;
     } while (elem);
+}
+
+static void *__hotpocket_control_message_loop(void *arg)
+{
+    const struct __hotpocket_global_context *gctx = (const struct __hotpocket_global_context *)arg;
+    int result = 0;
+
+    // Temp buffer for all read operations.
+    uint8_t *buf = malloc(__HOTPOCKET_SEQPKT_BUF_SIZE);
+
+    struct pollfd pfd = {gctx->control_fd, POLLIN, 0};
+
+    while (!gctx->should_stop)
+    {
+        // Reset poll fd because we are reusing it.
+        pfd.revents = 0;
+
+        if (poll(&pfd, 1, __HOTPOCKET_POLL_TIMEOUT) == -1)
+            goto error;
+
+        short result = pfd.revents;
+        if (result == 0)
+            continue;
+
+        if (result & (POLLHUP | POLLERR | POLLNVAL))
+        {
+            fprintf(stderr, "Control line poll error.\n");
+            goto error;
+        }
+        else if (result & POLLIN)
+        {
+            const int read_res = read(pfd.fd, buf, __HOTPOCKET_USER_BUF_SIZE);
+            if (read_res == -1)
+            {
+                perror("Error reading control line. ");
+                goto error;
+            }
+            __hotpocket_on_control_message(buf, read_res);
+        }
+    }
+
+    // If we reach here that means result is successful.
+    goto end;
+
+error:
+    // Perform any error handling.
+
+end:
+    free(buf);
+    return NULL;
+}
+
+void __hotpocket_on_control_message(const void *buf, const uint32_t len)
+{
+    // TODO: Handle control messages from hot pocket.
 }
 
 #endif
