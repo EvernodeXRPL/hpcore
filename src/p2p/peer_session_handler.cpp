@@ -41,11 +41,6 @@ namespace p2p
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
         session.send(msg);
         session.challenge_status = comm::CHALLENGE_ISSUED;
-        // Sending newly connected node the requirement of consensus msg fowarding if this node is weakly connected.
-        if (p2p::is_weakly_connected)
-        {
-            p2p::send_peer_requirement_announcement(is_weakly_connected, &session);
-        }
         return 0;
     }
 
@@ -299,4 +294,15 @@ namespace p2p
         return 0;
     }
 
+    /**
+     * Logic related to peer sessions on verfied is invoked here.
+     */
+    void handle_peer_on_verified(p2p::peer_comm_session &session)
+    {
+        // Sending newly verified node the requirement of consensus msg fowarding if this node is weakly connected.
+        if (p2p::is_weakly_connected)
+        {
+            p2p::send_peer_requirement_announcement(is_weakly_connected, &session);
+        }
+    }
 } // namespace p2p

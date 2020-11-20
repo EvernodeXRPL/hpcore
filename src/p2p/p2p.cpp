@@ -97,7 +97,8 @@ namespace p2p
         {
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
-            session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
+            // Mark the connection as a verified connection.
+            session.mark_as_verified();
             ctx.peer_connections.try_emplace(session.uniqueid, &session);
 
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
@@ -117,7 +118,8 @@ namespace p2p
                     if (!session.known_ipport.has_value())
                         session.known_ipport.swap(ex_session.known_ipport);
                     session.uniqueid.swap(pubkeyhex);
-                    session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
+                    // Mark the connection as a verified connection.
+                    session.mark_as_verified();
 
                     ex_session.mark_for_closure();
                     ctx.peer_connections.erase(iter); // remove existing session.

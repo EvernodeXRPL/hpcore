@@ -212,7 +212,7 @@ namespace usr
 
             const util::PROTOCOL protocol = (protocol_code == "json" ? util::PROTOCOL::JSON : util::PROTOCOL::BSON);
 
-            session.challenge_status = comm::CHALLENGE_VERIFIED; // Set as challenge verified
+            session.mark_as_verified(); // Mark connection as a verified connection.
             session.issued_challenge.clear();                    // Remove the stored challenge
             session.uniqueid = pubkey;
 

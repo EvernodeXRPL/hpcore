@@ -19,6 +19,11 @@ namespace p2p
         p2p::handle_peer_close(*this);
     }
 
+    void peer_comm_session::handle_on_verified()
+    {
+        p2p::handle_peer_on_verified(*this);
+    }
+
     /**
      * Returns printable name for the session based on uniqueid (used for logging).
      */

@@ -18,6 +18,7 @@ namespace p2p
         int handle_connect();
         int handle_message(std::string_view msg);
         void handle_close();
+        void handle_on_verified();
 
     public:
         std::optional<conf::ip_port_prop> known_ipport;  // A known ip/port information that matches with our peer list configuration.
