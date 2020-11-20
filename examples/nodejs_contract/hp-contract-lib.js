@@ -24,7 +24,7 @@ class HotPocketContract {
         // Keeps track of all the tasks (promises) that must be awaited before the termination.
         const pendingTasks = [];
 
-        const users = new UsersCollection(hpargs.usrfd, pendingTasks, this.events);
+        const users = new UsersCollection(hpargs.usrfd, this.events);
         const peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd, pendingTasks, this.events);
         const executionContext = new ContractExecutionContext(hpargs, users, peers);
 
@@ -66,9 +66,8 @@ class UsersCollection {
 
     #users = {};
     #totalUsers = 0;
-    #pendingTasks = null
 
-    constructor(usrfds, pendingTasks, events) {
+    constructor(usrfds, events) {
         const userKeys = Object.keys(usrfds);
 
         userKeys.forEach((pubKey) => {
@@ -81,7 +80,6 @@ class UsersCollection {
         });
 
         this.#totalUsers = userKeys.length;
-        this.#pendingTasks = pendingTasks;
 
         events.on("session_end", () => Object.values(this.#users).forEach(u => u.channel.close()));
     }
@@ -101,13 +99,15 @@ class UsersCollection {
         return Object.keys(this.#users).length;
     }
 
-    onMessage(callback) {
+    async onMessage(callback) {
 
-        if (this.#totalUsers == 0)
-            return Promise.resolve();
+        if (this.#totalUsers == 0) {
+            await Promise.resolve();
+            return;
+        }
 
-        // We create a promise which would get resolved when all users' message emissions have completed.
-        const allUsersCompletedTask = new Promise(allUsersCompletionResolver => {
+        // We create a promise which would get resolved when all users' message handling have completed.
+        const allUsersCompletedTask = new Promise(resolve => {
 
             let pendingUserCount = this.#totalUsers;
             const userMessageTasks = [];
@@ -121,7 +121,7 @@ class UsersCollection {
                 if (pendingUserCount == 0) {
                     // All user message events has been emitted.
                     // Now start waiting for queued up user message callback completion.
-                    Promise.all(userMessageTasks).catch(errHandler).finally(allUsersCompletionResolver)
+                    Promise.all(userMessageTasks).catch(errHandler).finally(resolve);
                 }
             }
 
@@ -131,10 +131,7 @@ class UsersCollection {
             })
         });
 
-        // We add the all users completed task to the global pending tasks list so the contract execution will not
-        // wrap up before this task is complete.
-        this.#pendingTasks.push(allUsersCompletedTask);
-        return allUsersCompletedTask;
+        await allUsersCompletedTask;
     }
 }
 
@@ -215,6 +212,8 @@ class UserChannel {
                 onComplete();
             }
         });
+
+        this.#readStream.on("error", (err) => { });
     }
 
     send(msg) {
@@ -312,13 +311,15 @@ class NplChannel {
 
         this.#readStream.on("data", (data) => {
             if (!pubKey) {
-                pubKey = data.toString('hex');
+                pubKey = data.toString();
             }
             else {
                 onMessage(pubKey, data);
                 pubKey = null;
             }
         });
+
+        this.#readStream.on("error", (err) => { });
     }
 
     send(msg) {
@@ -346,6 +347,7 @@ class ControlChannel {
     consume(onMessage) {
         this.#readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
         this.#readStream.on("data", onMessage);
+        this.#readStream.on("error", (err) => { });
     }
 
     send(msg) {

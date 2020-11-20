@@ -242,10 +242,10 @@ namespace sc
      *   "ts": <this node's timestamp (unix milliseconds)>,
      *   "readonly": <true|false>,
      *   "lcl": "<this node's last closed ledger seq no. and hash in hex>", (eg: 169-a1d82eb4c9ed005ec2c4f4f82b6f0c2fd7543d66b1a0f6b8e58ae670b3e2bcfb)
-     *   "hpfd": [fd0, fd1],
-     *   "nplfd":[fd0, fd1],
-     *   "usrfd":{ "<pkhex>":[fd0, fd1], ... },
-     *   "unl":[ "pkhex", ... ]
+     *   "hpfd": fd,
+     *   "nplfd":fd,
+     *   "usrfd":{ "<pkhex>":fd, ... },
+     *   "unl":[ "<pkhex>", ... ]
      * }
      */
     int write_contract_args(const execution_context &ctx)
@@ -256,7 +256,7 @@ namespace sc
 
         std::ostringstream os;
         os << "{\"version\":\"" << util::HP_VERSION
-           << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
+           << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex.substr(2)
            << "\",\"ts\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
@@ -437,8 +437,14 @@ namespace sc
         {
             if (npl_msg.lcl == ctx.args.lcl)
             {
+                std::string pubkeyhex;
+                util::bin2hex(
+                    pubkeyhex,
+                    reinterpret_cast<const unsigned char *>(npl_msg.pubkey.data()) + 1, // Skip first byte for key type prefix.
+                    npl_msg.pubkey.length() - 1);
+
                 // Writing the public key to the contract's fd (Skip first byte for key type prefix).
-                if (write(writefd, npl_msg.pubkey.data() + 1, npl_msg.pubkey.size() - 1) == -1)
+                if (write(writefd, pubkeyhex.data(), pubkeyhex.size()) == -1)
                 {
                     LOG_ERROR << errno << ": Error writing npl message pubkey.";
                     return -1;
@@ -713,10 +719,11 @@ namespace sc
         for (std::string &input : inputs)
         {
             // 4 bytes for message len header.
-            header[i * 4] = input.length() >> 24;
-            header[i * 4 + 1] = input.length() >> 16;
-            header[i * 4 + 2] = input.length() >> 8;
-            header[i * 4 + 3] = input.length();
+            const uint32_t len = input.length();
+            header[i * 4] = len >> 24;
+            header[i * 4 + 1] = len >> 16;
+            header[i * 4 + 2] = len >> 8;
+            header[i * 4 + 3] = len;
             memsegs[i * 2 - 1].iov_base = &header[i * 4];
             memsegs[i * 2 - 1].iov_len = 4;
             memsegs[i * 2].iov_base = input.data();
