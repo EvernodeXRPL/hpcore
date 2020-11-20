@@ -20,7 +20,7 @@ namespace usr
     // Holds global connected-users and related objects.
     connected_context ctx;
 
-    uint64_t metric_thresholds[4];
+    uint64_t metric_thresholds[5];
     bool init_success = false;
 
     /**
@@ -33,6 +33,7 @@ namespace usr
         metric_thresholds[1] = 0;   // This metric doesn't apply to user context.
         metric_thresholds[2] = 0;   // This metric doesn't apply to user context.
         metric_thresholds[3] = conf::cfg.pubmaxbadmpm;
+        metric_thresholds[4] = conf::cfg.pubidletimeout;
 
         // Start listening for incoming user connections.
         if (start_listening() == -1)

@@ -9,11 +9,10 @@
 namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
-    constexpr uint16_t INACTIVE_TIMEOUT = 120;          // Time threshold for verified inactive connections in seconds.
     constexpr uint16_t UNVERIFIED_INACTIVE_TIMEOUT = 5; // Time threshold for unverified inactive connections in seconds.
 
     comm_session::comm_session(
-        std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+        std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
         : uniqueid(host_address),
           host_address(host_address),
           hpws_client(std::move(hpws_client)),
@@ -23,8 +22,8 @@ namespace comm
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
         // since enum's value is used as index in the vector to update vector values.
-        thresholds.reserve(4);
-        for (size_t i = 0; i < 4; i++)
+        thresholds.reserve(5);
+        for (size_t i = 0; i < 5; i++)
             thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
     }
 
@@ -296,7 +295,11 @@ namespace comm
     */
     void comm_session::check_last_activity_rules()
     {
-        const uint16_t timeout_seconds = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? INACTIVE_TIMEOUT : UNVERIFIED_INACTIVE_TIMEOUT);
+        const uint16_t timeout_seconds = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? thresholds[SESSION_THRESHOLDS::IDLE_CONNECTION_TIMEOUT].threshold_limit : UNVERIFIED_INACTIVE_TIMEOUT);
+
+        // Timeout zero means unlimited.
+        if (timeout_seconds == 0)
+            return;
 
         if (util::get_epoch_milliseconds() - last_activity_timestamp >= (timeout_seconds * 1000))
         {
