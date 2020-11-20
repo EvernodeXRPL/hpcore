@@ -69,7 +69,6 @@ namespace p2p
         LOG_INFO << "Started peer managing thread.";
 
         int peer_managing_counter = 0;
-        uint16_t connected_status_check_counter = 0;
 
         while (!is_shutting_down)
         {
@@ -100,18 +99,9 @@ namespace p2p
                 }
             }
 
-            // Check connected status of the node in every 60 seconds and sends the announcment
+            // Check connected status of the node and sends the announcment
             // about the consensus message forwarding requirement.
-            if (connected_status_check_counter == 600)
-            {
-                if (is_weakly_connected != detect_if_weakly_connected())
-                {
-                    is_weakly_connected = !is_weakly_connected;
-                    send_peer_requirement_announcement(is_weakly_connected);
-                }
-                connected_status_check_counter = 0;
-            }
-            connected_status_check_counter++;
+            detect_if_weakly_connected();
 
             util::sleep(100);
         }
@@ -202,12 +192,21 @@ namespace p2p
         }
     }
     /**
-     * Check whether the node is weakly connected or strongly connected.
-     * @return Return true if the node is weakly connected. False otherwise.
+     * Check whether the node is weakly connected or strongly connected in every 60 seconds.
     */
-    bool peer_comm_server::detect_if_weakly_connected()
+    void peer_comm_server::detect_if_weakly_connected()
     {
-        // One is added to session list size to reflect the loop back connection.
-        return (sessions.size() + 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
+        if (connected_status_check_counter == 600)
+        {
+            // One is added to session list size to reflect the loop back connection.
+            const bool current_state = (sessions.size() + 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
+            if (is_weakly_connected != current_state)
+            {
+                is_weakly_connected = !is_weakly_connected;
+                send_peer_requirement_announcement(is_weakly_connected);
+            }
+            connected_status_check_counter = 0;
+        }
+        connected_status_check_counter++;
     }
 } // namespace p2p
