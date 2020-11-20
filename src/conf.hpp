@@ -99,6 +99,9 @@ namespace conf
         uint16_t pubport = 0;                                   // Listening port for public user connections
         uint16_t peerdiscoverytime = 0;                         // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
 
+        uint16_t peeridletimeout = 0;   // Idle connection timeout for peer connections in seconds.
+        uint16_t pubidletimeout = 0;    // Idle connection timeout for user connections in seconds.
+
         uint64_t pubmaxsize = 0;   // User message max size in bytes
         uint64_t pubmaxcpm = 0;    // User message rate (characters(bytes) per minute)
         uint64_t pubmaxbadmpm = 0; // User bad messages per minute

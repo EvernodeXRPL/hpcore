@@ -12,7 +12,7 @@ namespace p2p
     // Globally exposed weakly connected status variable.
     bool is_weakly_connected = false;
 
-    peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
+    peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5],
                                        const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes)
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size),
           req_known_remotes(req_known_remotes)

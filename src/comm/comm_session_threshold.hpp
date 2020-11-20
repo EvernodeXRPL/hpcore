@@ -21,7 +21,10 @@ enum SESSION_THRESHOLDS
     MAX_BADSIGMSGS_PER_MINUTE = 2,
 
     // Max messages with bad structure per minute.
-    MAX_BADMSGS_PER_MINUTE = 3
+    MAX_BADMSGS_PER_MINUTE = 3,
+
+    // Idle connection timeout.
+    IDLE_CONNECTION_TIMEOUT = 4
 };
 
 /*
