@@ -75,7 +75,7 @@ namespace sc
         moodycamel::ReaderWriterQueue<std::string> control_messages;
 
         // Current HotPocket consensus time.
-        int64_t time = 0;
+        uint64_t time = 0;
 
         // Current HotPocket lcl (seq no. and ledger hash hex)
         std::string lcl;

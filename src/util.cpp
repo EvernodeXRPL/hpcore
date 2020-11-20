@@ -134,18 +134,18 @@ namespace util
     }
 
     /**
- * Returns current time in UNIX epoch milliseconds.
- */
-    int64_t get_epoch_milliseconds()
+    * Returns current time in UNIX epoch milliseconds.
+    */
+    uint64_t get_epoch_milliseconds()
     {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
+        return std::chrono::duration_cast<std::chrono::duration<std::uint64_t, std::milli>>(
                    std::chrono::system_clock::now().time_since_epoch())
             .count();
     }
 
     /**
- * Sleeps the current thread for specified no. of milliseconds.
- */
+     * Sleeps the current thread for specified no. of milliseconds.
+     */
     void sleep(const uint64_t milliseconds)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
@@ -423,13 +423,12 @@ namespace util
         {
             result = std::stoull(str);
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
             // Return -1 if any exceptions are captured.
             return -1;
         }
         return 0;
-        
     }
 
 } // namespace util

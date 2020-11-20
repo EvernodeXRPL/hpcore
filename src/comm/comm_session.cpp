@@ -31,17 +31,25 @@ namespace comm
     /**
      * Init() should be called to activate the session.
      * Because we are starting threads here, after init() is called, the session object must not be "std::moved".
+     * @return returns 0 on successful init, otherwise -1;
      */
-    void comm_session::init()
+    int comm_session::init()
     {
         if (state == SESSION_STATE::NONE)
         {
-            handle_connect();
+            if (handle_connect() == -1)
+            {
+                mark_for_closure();
+                return -1;
+            }
+
             reader_thread = std::thread(&comm_session::reader_loop, this);
             writer_thread = std::thread(&comm_session::process_outbound_msg_queue, this);
             state = SESSION_STATE::ACTIVE;
             last_activity_timestamp = util::get_epoch_milliseconds();
         }
+
+        return 0;
     }
 
     void comm_session::reader_loop()
@@ -267,12 +275,12 @@ namespace comm
             const uint64_t elapsed_time = time_now - t.timestamp;
             if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
             {
-                close();
+                mark_for_closure();
 
                 t.timestamp = 0;
                 t.counter_value = 0;
 
-                LOG_INFO << "Session " << uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+                LOG_INFO << "Session " << display_name() << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
                 corebill::report_violation(host_address);
             }
             else if (elapsed_time > t.intervalms)
@@ -297,8 +305,9 @@ namespace comm
         }
     }
 
-    void comm_session::handle_connect()
+    int comm_session::handle_connect()
     {
+        return 0;
     }
 
     int comm_session::handle_message(std::string_view msg)

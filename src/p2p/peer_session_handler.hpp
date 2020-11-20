@@ -10,10 +10,10 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
-    void handle_peer_connect(p2p::peer_comm_session &session);
+    int handle_peer_connect(p2p::peer_comm_session &session);
     int handle_peer_message(p2p::peer_comm_session &session, std::string_view message);
     int handle_self_message(std::string_view message);
-    int handle_peer_close(const comm::comm_session &session);
+    int handle_peer_close(const p2p::peer_comm_session &session);
     void handle_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content);
     void handle_nonunl_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content);
     void handle_npl_message(const p2pmsg::Container *container, const p2pmsg::Content *content);

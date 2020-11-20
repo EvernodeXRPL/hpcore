@@ -9,10 +9,12 @@ namespace p2p
     class peer_comm_server : public comm::comm_server<peer_comm_session>
     {
     private:
-        const std::set<conf::ip_port_pair> &req_known_remotes;
         int custom_connection_invocations = -1;
         // std::thread known_peers_thread; // Known peers connection establishment thread.
+        std::thread peer_managing_thread; // Thread to request known peer list from a random peer and announce available capacity.
+        
         void maintain_known_connections();
+        void peer_managing_loop();
 
     protected:
         void start_custom_jobs();
@@ -20,9 +22,13 @@ namespace p2p
         int process_custom_messages();
         void custom_connections();
 
+
     public:
+        std::atomic<uint16_t> known_remote_count = 0;
+        std::mutex req_known_remotes_mutex;
+        std::vector<conf::peer_properties> &req_known_remotes;
         peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
-                         const uint64_t max_msg_size, const std::set<conf::ip_port_pair> &req_known_remotes);
+                         const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes);
     };
 } // namespace p2p
 

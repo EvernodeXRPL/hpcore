@@ -152,6 +152,22 @@ namespace p2p
     bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 
     void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected);
+
+    void send_available_capacity_announcement(const int16_t &available_capacity);
+
+    void send_known_peer_list(peer_comm_session *session);
+
+    void send_peer_list_request();
+
+    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
+
+    void merge_peer_list(const std::vector<conf::peer_properties> &peers);
+
+    int32_t get_peer_weight(const conf::peer_properties &peer);
+
+    void sort_known_remotes();
+
+    int16_t get_available_capacity();
 } // namespace p2p
 
 #endif

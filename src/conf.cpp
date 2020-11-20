@@ -86,8 +86,10 @@ namespace conf
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
         cfg.pubport = 8080;
+        cfg.peerdiscoverytime = 30000;
 
         cfg.msgforwarding = false;
+        cfg.dynamicpeerdiscovery = false;
 
 #ifndef NDEBUG
         cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -252,7 +254,11 @@ namespace conf
                 return -1;
             }
 
-            cfg.peers.emplace(std::make_pair(splitted_peers.front(), std::stoi(splitted_peers.back())));
+            peer_properties peer;
+            peer.ip_port.host_address = splitted_peers.front();
+            peer.ip_port.port = std::stoi(splitted_peers.back());
+
+            cfg.peers.push_back(peer);
             splitted_peers.clear();
         }
 
@@ -273,9 +279,10 @@ namespace conf
             cfg.unl.emplace(bin_pubkey);
         }
 
-        cfg.peerport = d["peerport"].as<int>();
-        cfg.pubport = d["pubport"].as<int>();
-        cfg.roundtime = d["roundtime"].as<int>();
+        cfg.peerport = d["peerport"].as<uint16_t>();
+        cfg.pubport = d["pubport"].as<uint16_t>();
+        cfg.roundtime = d["roundtime"].as<uint16_t>();
+        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<uint16_t>();
 
         cfg.pubmaxsize = d["pubmaxsize"].as<uint64_t>();
         cfg.pubmaxcpm = d["pubmaxcpm"].as<uint64_t>();
@@ -288,8 +295,17 @@ namespace conf
         cfg.peermaxbadmpm = d["peermaxbadmpm"].as<uint64_t>();
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
         cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
+        cfg.peermaxknowncons = d["peermaxknowncons"].as<unsigned int>();
+
+        // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
+        if (cfg.peermaxknowncons > cfg.peermaxcons)
+        {
+            std::cout << "Invalid configuration values: peermaxknowncons count should not exceed peermaxcons." << '\n';
+            return -1;
+        }
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
+        cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
@@ -324,9 +340,9 @@ namespace conf
         d.insert_or_assign("appbillargs", cfg.appbillargs.data());
 
         jsoncons::ojson peers(jsoncons::json_array_arg);
-        for (const auto &ipport_pair : cfg.peers)
+        for (const auto &peer : cfg.peers)
         {
-            const std::string concat_str = std::string(ipport_pair.first).append(":").append(std::to_string(ipport_pair.second));
+            const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
             peers.push_back(concat_str);
         }
         d.insert_or_assign("peers", peers);
@@ -346,6 +362,7 @@ namespace conf
         d.insert_or_assign("peerport", cfg.peerport);
         d.insert_or_assign("pubport", cfg.pubport);
         d.insert_or_assign("roundtime", cfg.roundtime);
+        d.insert_or_assign("peerdiscoverytime", cfg.peerdiscoverytime);
 
         d.insert_or_assign("pubmaxsize", cfg.pubmaxsize);
         d.insert_or_assign("pubmaxcpm", cfg.pubmaxcpm);
@@ -358,8 +375,10 @@ namespace conf
         d.insert_or_assign("peermaxbadmpm", cfg.peermaxbadmpm);
         d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
+        d.insert_or_assign("peermaxknowncons", cfg.peermaxknowncons);
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
+        d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
 
         d.insert_or_assign("loglevel", cfg.loglevel);
 
