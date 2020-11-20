@@ -261,14 +261,24 @@ namespace p2p
     }
 
     /**
-     * Sends the peer requirement broadcast announcement to all the connected peers.
-     * @param fbuf Peer outbound message to be sent to peer.
+     * Sends the peer requirement to the given peer session. If a session is not given, broadcast to all the connected peers.
      * @param need_consensus_msg_forwarding True if the number of connections are below the threshold value.
+     * @param session The destination peer node.
      */
-    void send_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool need_consensus_msg_forwarding)
+    void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session)
     {
+        flatbuffers::FlatBufferBuilder fbuf(1024);
         msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding, ledger::ctx.get_lcl());
-        broadcast_message(fbuf, false);
+        if (session)
+        {
+            std::string_view msg = std::string_view(
+                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+            session->send(msg);
+        }
+        else
+        {
+            broadcast_message(fbuf, false);
+        }
     }
 
     /**

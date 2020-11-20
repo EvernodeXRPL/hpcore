@@ -9,6 +9,8 @@
 namespace p2p
 {
     constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
+    // Globally exposed weakly connected status variable.
+    bool is_weakly_connected = false;
 
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
                                        const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes)
@@ -67,6 +69,7 @@ namespace p2p
         LOG_INFO << "Started peer managing thread.";
 
         int peer_managing_counter = 0;
+        uint16_t connected_status_check_counter = 0;
 
         while (!is_shutting_down)
         {
@@ -97,22 +100,18 @@ namespace p2p
                 }
             }
 
-            if (!sessions.empty())
+            // Check connected status of the node in every 60 seconds and sends the announcment
+            // about the consensus message forwarding requirement.
+            if (connected_status_check_counter == 600)
             {
-                const bool current_status = detect_if_weakly_connected();
-                if (current_status != is_weakly_connected)
+                if (is_weakly_connected != detect_if_weakly_connected())
                 {
-                    weakly_connected_status_changed = true;
-                    is_weakly_connected = current_status;
+                    is_weakly_connected = !is_weakly_connected;
+                    send_peer_requirement_announcement(is_weakly_connected);
                 }
-
-                if (weakly_connected_status_changed)
-                {
-                    flatbuffers::FlatBufferBuilder fbuf(1024);
-                    p2p::send_peer_requirement_announcement(fbuf, is_weakly_connected);
-                    weakly_connected_status_changed = false;
-                }
+                connected_status_check_counter = 0;
             }
+            connected_status_check_counter++;
 
             util::sleep(100);
         }
@@ -195,16 +194,6 @@ namespace p2p
 
                     session.known_ipport.emplace(peer.ip_port);
                     known_remote_count++;
-
-                    // Sending newly connected node the requirement of consensus msg fowarding if this node is weakly connected.
-                    if (detect_if_weakly_connected())
-                    {
-                        flatbuffers::FlatBufferBuilder fbuf(1024);
-                        msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, true, ledger::ctx.get_lcl());
-                        std::string_view msg = std::string_view(
-                            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-                        session.send(msg);
-                    }
 
                     std::scoped_lock<std::mutex> lock(new_sessions_mutex);
                     new_sessions.emplace_back(std::move(session));

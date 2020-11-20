@@ -6,14 +6,15 @@
 
 namespace p2p
 {
+    // Globally exposed weakly connected status variable.
+    extern bool is_weakly_connected;
+
     class peer_comm_server : public comm::comm_server<peer_comm_session>
     {
     private:
         int custom_connection_invocations = -1;
         // std::thread known_peers_thread; // Known peers connection establishment thread.
         std::thread peer_managing_thread; // Thread to request known peer list from a random peer and announce available capacity.
-        bool weakly_connected_status_changed = false;
-        bool is_weakly_connected = false;
 
         void maintain_known_connections();
         void peer_managing_loop();
