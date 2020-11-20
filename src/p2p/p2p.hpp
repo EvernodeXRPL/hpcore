@@ -12,6 +12,12 @@
 
 namespace p2p
 {
+    constexpr uint16_t PROPOSAL_LIST_CAP = 100;        // Maximum proposal count.
+    constexpr uint16_t NONUNL_PROPOSAL_LIST_CAP = 100; // Maximum nonunl proposal count.
+    constexpr uint16_t STATE_REQ_LIST_CAP = 100;       // Maximum state request count.
+    constexpr uint16_t STATE_RES_LIST_CAP = 100;       // Maximum state response count.
+    constexpr uint16_t PEER_LIST_CAP = 100;            // Maximum peer count.
+
     struct proposal
     {
         std::string pubkey;

@@ -112,13 +112,6 @@ namespace conf
         uint16_t peermaxcons = 0;      // Max peer connections
         uint16_t peermaxknowncons = 0; // Max known peer connections
 
-        uint16_t selfmsgqueuesize = 0;      // Self message queue size.
-        uint16_t inmsgqueuesize = 0;        // Read message queue size.
-        uint16_t outmsgqueuesize = 0;       // Write message queue size.
-        uint16_t nplmsgqueuesize = 0;       // Npl message queue size.
-        uint16_t controlmsgqueuesize = 0;   // Npl message queue size.
-        uint16_t readrequestqueuesize = 0;  // Read request queue size.
-
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
 

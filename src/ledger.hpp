@@ -7,6 +7,8 @@
 namespace ledger
 {
     constexpr const char *GENESIS_LEDGER = "0-genesis";
+    constexpr uint16_t HISTORY_REQ_LIST_CAP = 100; // Maximum history request count.
+    constexpr uint16_t HISTORY_RES_LIST_CAP = 100; // Maximum history response count.
 
     struct sync_context
     {

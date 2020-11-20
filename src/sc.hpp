@@ -12,6 +12,8 @@
  */
 namespace sc
 {
+    constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 32;     // Maximum npl message queue size.
+    constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 32; // Maximum out message queue size.
 
     // Enum used to differenciate socket fds maintained for SC socket.
     enum SOCKETFDTYPE
@@ -59,8 +61,8 @@ namespace sc
     struct contract_execution_args
     {
         contract_execution_args()
-            : npl_messages(conf::cfg.nplmsgqueuesize),
-              control_messages(conf::cfg.controlmsgqueuesize)
+            : npl_messages(MAX_NPL_MSG_QUEUE_SIZE),
+              control_messages(MAX_CONTROL_MSG_QUEUE_SIZE)
         {
         }
 

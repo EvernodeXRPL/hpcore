@@ -152,11 +152,13 @@ namespace p2p
                 return 0;
             }
 
-            handle_proposal_message(container, content);
+            if (handle_proposal_message(container, content) != 0)
+                LOG_DEBUG << "Proposal rejected. Maximum proposal count reached. " << session.display_name();
         }
         else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
         {
-            handle_nonunl_proposal_message(container, content);
+            if (handle_nonunl_proposal_message(container, content) != 0)
+                LOG_DEBUG << "Nonunl proposal rejected. Maximum nonunl proposal count reached. " << session.display_name();
         }
         else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
         {
@@ -171,34 +173,66 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_State_Request_Message)
         {
-            // Insert request with lock.
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
-            std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
-            ctx.collected_msgs.state_requests.push_back(std::make_pair(session.uniqueid, std::move(state_request_msg)));
+            // If max number of state requests reached skip the rest.
+            if (ctx.collected_msgs.state_requests.size() < p2p::STATE_REQ_LIST_CAP)
+            {
+                // Insert request with lock.
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
+                std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
+                ctx.collected_msgs.state_requests.push_back(std::make_pair(session.uniqueid, std::move(state_request_msg)));
+            }
+            else
+            {
+                LOG_DEBUG << "State request rejected. Maximum state request count reached. " << session.display_name();
+            }
         }
         else if (content_message_type == p2pmsg::Message_State_Response_Message)
         {
             if (state_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
             {
-                // Insert state_response with lock.
-                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
-                std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
+                // If max number of state responses reached skip the rest.
+                if (ctx.collected_msgs.state_responses.size() < p2p::STATE_RES_LIST_CAP)
+                {
+                    // Insert state_response with lock.
+                    std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
+                    std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
+                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
+                }
+                else
+                {
+                    LOG_DEBUG << "State response rejected. Maximum state response count reached. " << session.display_name();
+                }
             }
         }
         else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
         {
-            const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
-            std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
-            ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.uniqueid, std::move(hr)));
+            // If max number of history requests reached skip the rest.
+            if (ledger::sync_ctx.collected_history_requests.size() < ledger::HISTORY_REQ_LIST_CAP)
+            {
+                const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message());
+                std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
+                ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.uniqueid, std::move(hr)));
+            }
+            else
+            {
+                LOG_DEBUG << "History request rejected. Maximum history request count reached. " << session.display_name();
+            }
         }
         else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
         {
             if (ledger::sync_ctx.is_syncing) // Only accept history responses if ledger is syncing.
             {
-                const p2p::history_response hr = p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
-                std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
-                ledger::sync_ctx.collected_history_responses.push_back(std::move(hr));
+                // If max number of history respoinses reached skip the rest.
+                if (ledger::sync_ctx.collected_history_responses.size() < ledger::HISTORY_RES_LIST_CAP)
+                {
+                    const p2p::history_response hr = p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
+                    std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
+                    ledger::sync_ctx.collected_history_responses.push_back(std::move(hr));
+                }
+                else
+                {
+                    LOG_DEBUG << "History response rejected. Maximum history response count reached. " << session.display_name();
+                }
             }
         }
         else
@@ -232,29 +266,55 @@ namespace p2p
         const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
         if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
-            handle_proposal_message(container, content);
+        {
+            if (handle_proposal_message(container, content) != 0)
+                LOG_DEBUG << "Proposal rejected. Maximum proposal count reached. self";
+        }
         else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
-            handle_nonunl_proposal_message(container, content);
+        {
+            if (handle_nonunl_proposal_message(container, content) != 0)
+                LOG_DEBUG << "Nonunl proposal rejected. Maximum nonunl proposal count reached. self";
+        }
         else if (content_message_type == p2pmsg::Message_Npl_Message) //message is a NPL message
             handle_npl_message(container, content);
 
         return 0;
     }
 
-    void handle_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    /**
+     * Handle proposal message.
+     * @param container Message container.
+     * @param content Message content.
+     * @return returns 0 if proposal is pushed to the list, otherwise -1.
+    */
+    int handle_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
     {
-        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
+        // If max number of proposals reached skip the rest.
+        if (ctx.collected_msgs.proposals.size() == p2p::PROPOSAL_LIST_CAP)
+            return -1;
 
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex); // Insert proposal with lock.
         ctx.collected_msgs.proposals.push_back(
             p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl()));
+        return 0;
     }
 
-    void handle_nonunl_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
+    /**
+     * Handle nonunl proposal message.
+     * @param container Message container.
+     * @param content Message content.
+     * @return returns 0 if nonunl proposal is pushed to the list, otherwise -1.
+    */
+    int handle_nonunl_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
     {
-        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+        // If max number of nonunl proposals reached skip the rest.
+        if (ctx.collected_msgs.nonunl_proposals.size() == p2p::NONUNL_PROPOSAL_LIST_CAP)
+            return -1;
 
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
         ctx.collected_msgs.nonunl_proposals.push_back(
             p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
+        return 0;
     }
 
     void handle_npl_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
