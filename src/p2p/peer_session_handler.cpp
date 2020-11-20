@@ -75,10 +75,10 @@ namespace p2p
 
         const p2pmsg::Message content_message_type = content->message_type(); //i.e - proposal, npl, state request, state response, etc
 
-        // Check whether the message is qualified for forwarding.
+        // Check whether the message is qualified for message forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
-            if (session.is_weakly_connected)
+            if (session.need_consensus_msg_forwarding)
             {
                 // Forward messages received by weakly connected nodes to other peers.
                 p2p::broadcast_message(message, false, false, &session);
@@ -132,17 +132,17 @@ namespace p2p
                 p2p::update_known_peer_available_capacity(session.known_ipport.value(), announcement_msg->available_capacity(), announcement_msg->timestamp());
             }
         }
-        else if (content_message_type == p2pmsg::Message_Connected_Status_Announcement_Message) // This message is the connected status announcement message.
+        else if (content_message_type == p2pmsg::Message_Peer_Requirement_Announcement_Message) // This message is a peer requirement announcement message.
         {
-            const p2pmsg::Connected_Status_Announcement_Message *announcement_msg = content->message_as_Connected_Status_Announcement_Message();
-            session.is_weakly_connected = announcement_msg->is_weakly_connected();
-            if (session.is_weakly_connected)
+            const p2pmsg::Peer_Requirement_Announcement_Message *announcement_msg = content->message_as_Peer_Requirement_Announcement_Message();
+            session.need_consensus_msg_forwarding = announcement_msg->need_consensus_msg_forwarding();
+            if (session.need_consensus_msg_forwarding)
             {
-                LOG_DEBUG << "Weakly connected announcement received from " << session.display_name();
+                LOG_DEBUG << "Consensus message forwaring is required for " << session.display_name();
             }
             else
             {
-                LOG_DEBUG << "Strongly connected announcement received from " << session.display_name();
+                LOG_DEBUG << "Consensus message forwaring is not required for " << session.display_name();
             }
         }
         else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
@@ -294,4 +294,15 @@ namespace p2p
         return 0;
     }
 
+    /**
+     * Logic related to peer sessions on verfied is invoked here.
+     */
+    void handle_peer_on_verified(p2p::peer_comm_session &session)
+    {
+        // Sending newly verified node the requirement of consensus msg fowarding if this node is weakly connected.
+        if (p2p::is_weakly_connected)
+        {
+            p2p::send_peer_requirement_announcement(is_weakly_connected, &session);
+        }
+    }
 } // namespace p2p

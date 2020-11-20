@@ -8,6 +8,10 @@
 
 namespace p2p
 {
+    constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
+    // Globally exposed weakly connected status variable.
+    bool is_weakly_connected = false;
+
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
                                        const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes)
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size),
@@ -95,6 +99,10 @@ namespace p2p
                 }
             }
 
+            // Check connected status of the node and sends the announcment
+            // about the consensus message forwarding requirement.
+            detect_if_weakly_connected();
+
             util::sleep(100);
         }
 
@@ -166,7 +174,7 @@ namespace p2p
                 {
                     const std::string &host_address = std::get<std::string>(host_result);
                     p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
-                    
+
                     // Skip if this peer is banned due to corebill violations.
                     if (corebill::is_banned(host_address))
                     {
@@ -183,5 +191,22 @@ namespace p2p
             }
         }
     }
-
+    /**
+     * Check whether the node is weakly connected or strongly connected in every 60 seconds.
+    */
+    void peer_comm_server::detect_if_weakly_connected()
+    {
+        if (connected_status_check_counter == 600)
+        {
+            // One is added to session list size to reflect the loop back connection.
+            const bool current_state = (sessions.size() + 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
+            if (is_weakly_connected != current_state)
+            {
+                is_weakly_connected = !is_weakly_connected;
+                send_peer_requirement_announcement(is_weakly_connected);
+            }
+            connected_status_check_counter = 0;
+        }
+        connected_status_check_counter++;
+    }
 } // namespace p2p

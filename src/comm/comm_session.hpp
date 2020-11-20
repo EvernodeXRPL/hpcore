@@ -44,6 +44,7 @@ namespace comm
         virtual int handle_connect();
         virtual int handle_message(std::string_view msg);
         virtual void handle_close();
+        virtual void handle_on_verified();
 
     public:
         std::string uniqueid;
@@ -65,6 +66,7 @@ namespace comm
         void check_last_activity_rules();
         void mark_for_closure();
         void close(const bool invoke_handler = true);
+        void mark_as_verified();
         virtual const std::string display_name();
 
         void set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms);

@@ -18,10 +18,11 @@ namespace p2p
         int handle_connect();
         int handle_message(std::string_view msg);
         void handle_close();
+        void handle_on_verified();
 
     public:
         std::optional<conf::ip_port_prop> known_ipport;  // A known ip/port information that matches with our peer list configuration.
-        bool is_weakly_connected = false; // Holds whether this node is weakly connected to the other nodes.
+        bool need_consensus_msg_forwarding = false; // Holds whether this node requires consensus message forwarding.
         const std::string display_name();
     };
 

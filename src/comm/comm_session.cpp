@@ -305,6 +305,15 @@ namespace comm
         }
     }
 
+    /**
+     * Mark the connection as a verified connection.
+    */
+    void comm_session::mark_as_verified()
+    {
+        challenge_status = CHALLENGE_STATUS::CHALLENGE_VERIFIED;
+        handle_on_verified();
+    }
+
     int comm_session::handle_connect()
     {
         return 0;
@@ -316,6 +325,10 @@ namespace comm
     }
 
     void comm_session::handle_close()
+    {
+    }
+
+    void comm_session::handle_on_verified()
     {
     }
 
