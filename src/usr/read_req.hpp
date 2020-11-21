@@ -1,5 +1,5 @@
-#ifndef _HP_CONS_READ_REQ_
-#define _HP_CONS_READ_REQ_
+#ifndef _HP_USR_READ_REQ_
+#define _HP_USR_READ_REQ_
 
 #include "../sc.hpp"
 

@@ -162,7 +162,8 @@ namespace consensus
 
             // Prepare the consensus candidate user inputs that we have acumulated so far. (We receive them periodically via NUPs)
             // The candidate inputs will be included in the new round proposal.
-            verify_and_populate_candidate_user_inputs(lcl_seq_no);
+            if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
+                return -1;
 
             const p2p::proposal new_round_prop = create_new_round_proposal(lcl, state);
             broadcast_proposal(new_round_prop);
@@ -385,7 +386,7 @@ namespace consensus
      * Verifies the user signatures and populate non-expired user inputs from collected
      * non-unl proposals (if any) into consensus candidate data.
      */
-    void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
+    int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
         // Move over NUPs collected from the network into a local list.
         std::list<p2p::nonunl_proposal> collected_nups;
@@ -412,6 +413,9 @@ namespace consensus
         // Key: user pubkey. Value: List of [user-protocol, msg-sig, reject-reason] tuples.
         std::unordered_map<std::string, std::list<std::tuple<const util::PROTOCOL, const std::string, const char *>>> responses;
 
+        // Acquire lock on user input store because we are copying verified "input" field contents into it.
+        std::unique_lock lock(usr::input_store.store_mutex);
+
         for (const auto &[pubkey, umsgs] : input_groups)
         {
             // Populate user list with this user's pubkey.
@@ -433,17 +437,21 @@ namespace consensus
                 }
                 else
                 {
-                    std::string hash, input;
+                    util::buffer_view input;
+                    std::string hash;
                     uint64_t max_lcl_seqno;
                     reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, recent_user_input_hashes,
                                                                         hash, input, max_lcl_seqno);
+
+                    if (input.is_null())
+                        return -1;
 
                     if (reject_reason == NULL)
                     {
                         // No reject reason means we should go ahead and subject the input to consensus.
                         ctx.candidate_user_inputs.try_emplace(
                             hash,
-                            candidate_user_input(pubkey, std::move(input), max_lcl_seqno));
+                            candidate_user_input(pubkey, input, max_lcl_seqno));
                     }
                     else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
                     {
@@ -486,6 +494,8 @@ namespace consensus
                 }
             }
         }
+
+        return 0;
     }
 
     p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state)
@@ -838,12 +848,8 @@ namespace consensus
                 // Populate the input content into the bufmap.
 
                 candidate_user_input &cand_input = itr->second;
-
-                std::string inputtofeed;
-                inputtofeed.swap(cand_input.input);
-
+                
                 sc::contract_iobufs &bufs = bufmap[cand_input.userpubkey];
-                bufs.inputs.push_back(std::move(inputtofeed));
 
                 // Remove the input from the candidate set because we no longer need it.
                 //LOG_DEBUG << "candidate input deleted.";
