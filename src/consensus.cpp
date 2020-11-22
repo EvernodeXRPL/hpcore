@@ -413,9 +413,6 @@ namespace consensus
         // Key: user pubkey. Value: List of [user-protocol, msg-sig, reject-reason] tuples.
         std::unordered_map<std::string, std::list<std::tuple<const util::PROTOCOL, const std::string, const char *>>> responses;
 
-        // Acquire lock on user input store because we are copying verified "input" field contents into it.
-        std::unique_lock lock(usr::input_store.store_mutex);
-
         for (const auto &[pubkey, umsgs] : input_groups)
         {
             // Populate user list with this user's pubkey.
@@ -752,7 +749,8 @@ namespace consensus
             args.lcl = new_lcl;
 
             // Populate user bufs.
-            feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop);
+            if (feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop) == -1)
+                return -1;
 
             if (sc::execute_contract(ctx.contract_ctx.value()) == -1)
             {
@@ -824,7 +822,7 @@ namespace consensus
      * @param bufmap The contract bufmap which needs to be populated with inputs.
      * @param cons_prop The proposal that achieved consensus.
      */
-    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
+    int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
     {
         // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
         // This is in case the contract wanted to emit some data to a user without needing any input.
@@ -840,22 +838,22 @@ namespace consensus
             const bool hashfound = (itr != ctx.candidate_user_inputs.end());
             if (!hashfound)
             {
-                LOG_ERROR << "input required but wasn't in our candidate inputs map, this will potentially cause desync.";
-                // TODO: consider fatal
+                LOG_ERROR << "Input required but wasn't in our candidate inputs map, this will potentially cause desync.";
+                return -1;
             }
             else
             {
                 // Populate the input content into the bufmap.
-
                 candidate_user_input &cand_input = itr->second;
-                
-                sc::contract_iobufs &bufs = bufmap[cand_input.userpubkey];
+                sc::contract_iobufs &contract_user = bufmap[cand_input.userpubkey];
+                contract_user.inputs.push_back(cand_input.input);
 
                 // Remove the input from the candidate set because we no longer need it.
-                //LOG_DEBUG << "candidate input deleted.";
                 ctx.candidate_user_inputs.erase(itr);
             }
         }
+
+        return 0;
     }
 
     /**

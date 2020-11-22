@@ -1,6 +1,7 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
+#include "../util/buffer_store.hpp"
 #include "../conf.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "usr.hpp"
@@ -17,6 +18,8 @@ namespace read_req
 
     bool is_shutting_down = false;
     bool init_success = false;
+
+    util::buffer_store read_req_store;
     std::thread thread_pool_executor; // Thread which spawns new threads for the read requests is the queue.
     std::vector<std::thread> read_req_threads;
     moodycamel::ConcurrentQueue<user_read_req> read_req_queue(MAX_QUEUE_SIZE);
@@ -194,10 +197,13 @@ namespace read_req
         sc::execution_context contract_ctx;
 
         user_read_req read_request;
-        read_request.content = std::move(content);
+        read_request.content = read_req_store.write_buf(content.data(), content.size());
         read_request.pubkey = pubkey;
 
-        return read_req_queue.try_enqueue(read_request);
+        if (read_request.content.is_null())
+            return -1;
+        else
+            return read_req_queue.try_enqueue(read_request);
     }
 
     /**
@@ -213,7 +219,7 @@ namespace read_req
         contract_ctx.args.state_dir.append("/rr_").append(std::to_string(thread_id));
         contract_ctx.args.readonly = true;
         sc::contract_iobufs user_bufs;
-        user_bufs.inputs.push_back(std::move(read_request.content));
+        user_bufs.inputs.push_back(read_request.content);
         contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufs));
     }
 

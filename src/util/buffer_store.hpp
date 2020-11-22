@@ -24,10 +24,9 @@ namespace util
 
     public:
         int fd;
-        std::mutex store_mutex;
         int init();
         const buffer_view write_buf(const void *buf, const uint32_t size);
-        int purge(const buffer_view buf);
+        int purge(const buffer_view &buf);
         void deinit();
     };
 

@@ -62,17 +62,13 @@ namespace sc
         if (start_hpfs_session(ctx) == -1)
             return -1;
 
-        // Setup user io sockets and feed all inputs to them.
-        create_iosockets_for_fdmap(ctx.userfds, ctx.args.userbufs);
-
+        create_iosockets_for_fdmap(ctx.userfds, ctx.args.userbufs); // User output socket.
+        create_iosockets(ctx.hpscfds, SOCK_SEQPACKET);              // Control socket.
         if (!ctx.args.readonly)
-        {
-            // Create sequential packet sockets for npl messages.
-            create_iosockets(ctx.nplfds, SOCK_SEQPACKET);
-        }
+            create_iosockets(ctx.nplfds, SOCK_SEQPACKET); // NPL socket.
 
-        // Create sequential packet sockets for hp messages.
-        create_iosockets(ctx.hpscfds, SOCK_SEQPACKET);
+        // Clone the user inputs fd to be passed on to the contract.
+        const int user_inputs_fd = dup(usr::input_store.fd);
 
         int ret = 0;
 
@@ -86,6 +82,7 @@ namespace sc
 
             // Close all fds unused by HP process.
             close_unused_fds(ctx, true);
+            close(user_inputs_fd);
 
             // Start the contract monitor thread.
             ctx.contract_monitor_thread = std::thread(contract_monitor_loop, std::ref(ctx));
@@ -104,8 +101,11 @@ namespace sc
             // Close all fds unused by SC process.
             close_unused_fds(ctx, false);
 
+            // Reset the seek position for the contract's copy of user inputs fd.
+            lseek(user_inputs_fd, 0, SEEK_SET);
+
             // Write the contract input message from HotPocket to the stdin (0) of the contract process.
-            write_contract_args(ctx);
+            write_contract_args(ctx, user_inputs_fd);
 
             const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
             int len = conf::cfg.runtime_binexec_args.size() + 1;
@@ -248,7 +248,7 @@ namespace sc
      *   "unl":[ "<pkhex>", ... ]
      * }
      */
-    int write_contract_args(const execution_context &ctx)
+    int write_contract_args(const execution_context &ctx, const int user_inputs_fd)
     {
         // Populate the json string with contract args.
         // We don't use a JSON parser here because it's lightweight to contrstuct the
@@ -267,9 +267,11 @@ namespace sc
         }
 
         os << ",\"hpfd\":" << ctx.hpscfds[SOCKETFDTYPE::SCREADWRITE];
-        os << ",\"usrfd\":{";
 
-        fdmap_json_to_stream(ctx.userfds, os);
+        os << ",\"userinfd\":" << user_inputs_fd
+           << ",\"users\":{";
+
+        user_json_to_stream(ctx.userfds, ctx.args.userbufs, os);
 
         os << "},\"unl\":[";
 
@@ -326,49 +328,41 @@ namespace sc
     {
         util::mask_signal();
 
-        // Write any user inputs to the contract.
-        if (write_contract_fdmap_inputs(ctx.userfds, ctx.args.userbufs) == -1)
+        while (!ctx.is_shutting_down)
         {
-            LOG_ERROR << "Failed to write user inputs to contract.";
-        }
-        else
-        {
-            while (!ctx.is_shutting_down)
+            // Atempt to read messages from contract (regardless of contract terminated or not).
+            const int hpsc_read_res = read_contract_hp_outputs(ctx);
+            const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
+            const int user_read_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
+
+            if (ctx.termination_signaled || ctx.contract_pid == 0)
             {
-                // Atempt to read messages from contract (regardless of contract terminated or not).
-                const int hpsc_read_res = read_contract_hp_outputs(ctx);
-                const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
-                const int user_read_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
-
-                if (ctx.termination_signaled || ctx.contract_pid == 0)
-                {
-                    // If no bytes were read after contract finished execution, exit the loop.
-                    // Otherwise keep running the loop becaue there might be further messages to read.
-                    if ((hpsc_read_res + npl_read_res + user_read_res) == 0)
-                        break;
-                }
-                else
-                {
-                    // We assume contract is still running. Attempt to write any queued messages to the contract.
-
-                    const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
-                    if (npl_write_res == -1)
-                        break;
-
-                    const int hpsc_write_res = write_contract_hp_inputs(ctx);
-                    if (hpsc_write_res == -1)
-                        break;
-
-                    // If no operation was performed during this iteration, wait for a small delay until the next iteration.
-                    // This means there were no queued messages from either side.
-                    if ((hpsc_read_res + npl_read_res + user_read_res + hpsc_write_res + hpsc_write_res) == 0)
-                        util::sleep(20);
-                }
-
-                // Check if contract process has exited on its own during the loop.
-                if (ctx.contract_pid > 0)
-                    check_contract_exited(ctx, false);
+                // If no bytes were read after contract finished execution, exit the loop.
+                // Otherwise keep running the loop becaue there might be further messages to read.
+                if ((hpsc_read_res + npl_read_res + user_read_res) == 0)
+                    break;
             }
+            else
+            {
+                // We assume contract is still running. Attempt to write any queued messages to the contract.
+
+                const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
+                if (npl_write_res == -1)
+                    break;
+
+                const int hpsc_write_res = write_contract_hp_inputs(ctx);
+                if (hpsc_write_res == -1)
+                    break;
+
+                // If no operation was performed during this iteration, wait for a small delay until the next iteration.
+                // This means there were no queued messages from either side.
+                if ((hpsc_read_res + npl_read_res + user_read_res + hpsc_write_res + hpsc_write_res) == 0)
+                    util::sleep(20);
+            }
+
+            // Check if contract process has exited on its own during the loop.
+            if (ctx.contract_pid > 0)
+                check_contract_exited(ctx, false);
         }
 
         // Close all fds.
@@ -377,6 +371,11 @@ namespace sc
         for (auto &[pubkey, fds] : ctx.userfds)
             cleanup_vectorfds(fds);
         ctx.userfds.clear();
+
+        // Purge any inputs we passed to the contract.
+        for (const auto &[pubkey, bufs] : ctx.args.userbufs)
+            for (const util::buffer_view &input : bufs.inputs)
+                usr::input_store.purge(input);
 
         // If we reach this point but the contract is still running, then we need to kill the contract by force.
         // This can be the case if HP is shutting down, or there was an error in initial feeding of inputs.
@@ -527,29 +526,32 @@ namespace sc
         }
     }
 
-    /**
-     * Common helper function to write json output of fdmap to given ostream.
-     * @param fdmap Any pubkey->fdlist map. (eg. ctx.userfds)
-     * @param os An output stream.
-     */
-    void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os)
+    void user_json_to_stream(const contract_fdmap_t &user_fdmap, const contract_bufmap_t &user_bufmap, std::ostringstream &os)
     {
-        for (auto itr = fdmap.begin(); itr != fdmap.end(); itr++)
+        for (auto itr = user_fdmap.begin(); itr != user_fdmap.end(); itr++)
         {
-            if (itr != fdmap.begin())
+            if (itr != user_fdmap.begin())
                 os << ","; // Trailing comma separator for previous element.
 
             // Get the hex pubkey.
-            std::string_view pubkey = itr->first; // Pubkey in binary format.
+            const std::string &pubkey = itr->first; // Pubkey in binary format.
             std::string pubkeyhex;
             util::bin2hex(
                 pubkeyhex,
-                reinterpret_cast<const unsigned char *>(pubkey.data()) + 1,
+                reinterpret_cast<const unsigned char *>(pubkey.data()) + 1, // Skip key type prefix.
                 pubkey.length() - 1);
 
-            // Write  hex pubkey and fds.
-            os << "\"" << pubkeyhex << "\":"
+            const std::vector<util::buffer_view> &user_inputs = user_bufmap.find(pubkey)->second.inputs;
+
+            // Write hex pubkey as key and output fd as first element of array.
+            os << "\"" << pubkeyhex << "\":["
                << itr->second[SOCKETFDTYPE::SCREADWRITE];
+
+            // Write input offsets into the same array.
+            for (auto inp_itr = user_inputs.begin(); inp_itr != user_inputs.end(); inp_itr++)
+                os << ",[" << inp_itr->offset << "," << inp_itr->size << "]";
+
+            os << "]";
         }
     }
 
@@ -568,18 +570,6 @@ namespace sc
                 return -1;
 
             fdmap.emplace(pubkey, std::move(fds));
-        }
-
-        return 0;
-    }
-
-    int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
-    {
-        // Loop through input buffers for each pubkey.
-        for (auto &[pubkey, buflist] : bufmap)
-        {
-            if (write_iosocket_stream(fdmap[pubkey], buflist.inputs) == -1)
-                return -1;
         }
 
         return 0;
@@ -687,59 +677,6 @@ namespace sc
         fds.push_back(socket[1]); //HPREADWRITE
 
         return 0;
-    }
-
-    /**
-     * Common function to write the given input buffer into the write fd from the HP side socket.
-     * @param fds Vector of fd list.
-     * @param inputs Buffer to write into the HP write fd.
-     */
-    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs)
-    {
-        // Write the inputs (if any) into the contract.
-
-        const int writefd = fds[SOCKETFDTYPE::HPREADWRITE];
-        if (writefd == -1)
-            return 0;
-
-        bool write_error = false;
-
-        // Prepare the input memory segments to write with wrtiev.
-        // Extra one element for the header.
-        iovec memsegs[inputs.size() * 2 + 1];
-        uint8_t header[inputs.size() * 4 + 4];
-        header[0] = inputs.size() >> 24;
-        header[1] = inputs.size() >> 16;
-        header[2] = inputs.size() >> 8;
-        header[3] = inputs.size();
-        // Message count header.
-        memsegs[0].iov_base = header;
-        memsegs[0].iov_len = 4;
-        size_t i = 1;
-        for (std::string &input : inputs)
-        {
-            // 4 bytes for message len header.
-            const uint32_t len = input.length();
-            header[i * 4] = len >> 24;
-            header[i * 4 + 1] = len >> 16;
-            header[i * 4 + 2] = len >> 8;
-            header[i * 4 + 3] = len;
-            memsegs[i * 2 - 1].iov_base = &header[i * 4];
-            memsegs[i * 2 - 1].iov_len = 4;
-            memsegs[i * 2].iov_base = input.data();
-            memsegs[i * 2].iov_len = input.length();
-            i++;
-        }
-
-        if (writev(writefd, memsegs, (inputs.size() * 2 + 1)) == -1)
-            write_error = true;
-
-        inputs.clear();
-
-        if (write_error)
-            LOG_ERROR << errno << ": Error writing to stream socket.";
-
-        return write_error ? -1 : 0;
     }
 
     /**

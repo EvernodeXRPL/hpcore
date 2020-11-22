@@ -34,7 +34,7 @@ namespace util
         }
     }
 
-    int buffer_store::purge(const buffer_view buf)
+    int buffer_store::purge(const buffer_view &buf)
     {
         if (fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, buf.offset, buf.size) == -1)
         {

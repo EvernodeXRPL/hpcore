@@ -2,13 +2,14 @@
 #define _HP_USR_READ_REQ_
 
 #include "../sc.hpp"
+#include "../util/buffer_store.hpp"
 
 namespace read_req
 {
     struct user_read_req
     {
         std::string pubkey;
-        std::string content;
+        util::buffer_view content;
     };
 
     int init();
