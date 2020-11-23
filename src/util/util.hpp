@@ -30,21 +30,6 @@ namespace util
     constexpr uint8_t MIN_NPL_INPUT_VERSION = 1;
 
     /**
-     * A string set with expiration for elements.
-     */
-    class ttl_set
-    {
-    private:
-        // Keeps short-lived items with their absolute expiration time.
-        std::unordered_map<std::string, uint64_t> ttlmap;
-
-    public:
-        void emplace(const std::string key, const uint64_t ttl_milli);
-        void erase(const std::string &key);
-        bool exists(const std::string &key);
-    };
-
-    /**
      * The messaging protocol used in a web socket channel.
      */
     enum PROTOCOL
