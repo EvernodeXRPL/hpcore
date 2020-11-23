@@ -6,7 +6,9 @@
 #include <string.h>
 #include <stdbool.h>
 #include <poll.h>
+#include <math.h>
 #include <sys/uio.h>
+#include <sys/mman.h>
 #include <pthread.h>
 #include "json.h"
 
@@ -16,7 +18,8 @@
 #define __HP_SEQPKT_BUF_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
 #define __HP_POLL_TIMEOUT 20
 
-#define __HP_MIN(a, b) ((a < b) ? a : b)
+#define __HP_MMAP_BLOCK_SIZE 4096
+#define __HP_MMAP_BLOCK_ALIGN(offset) ((off_t)ceil((double)offset / (double)__HP_MMAP_BLOCK_SIZE)) * __HP_MMAP_BLOCK_SIZE;
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                    \
     if (elem->value->type == json_type_string)                                            \
@@ -166,7 +169,7 @@ int hp_init(hp_contract_func contract_func)
             // Start control channel listener.
             if (pthread_create(&__hp_control_thread, NULL, &__hp_control_message_thread_func, NULL) == -1)
             {
-                perror("Error creating control thread. ");
+                perror("Error creating control thread");
                 goto error;
             }
 
@@ -211,8 +214,39 @@ error:
 int hp_user_message_loop(const struct hp_contract_context *ctx, hp_user_message_func on_user_message)
 {
     int result = 0;
+    const int fd = ctx->users.infd;
 
-    const size_t total_users = ctx->users.count;
+    struct stat st;
+    if (fstat(fd, &st) == -1)
+    {
+        perror("Error in user input fd stat");
+        return -1;
+    }
+
+    if (st.st_size == 0)
+        return 0;
+
+    const size_t mmap_size = __HP_MMAP_BLOCK_ALIGN(st.st_size);
+    void *fdptr = mmap(NULL, mmap_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (fdptr == MAP_FAILED)
+    {
+        perror("Error in user input fd mmap");
+        return -1;
+    }
+
+    close(fd); // We can close the fd after mmap.
+
+    for (int i = 0; i < ctx->users.count; i++)
+    {
+        const struct hp_user *user = &ctx->users.list[i];
+        for (int j = 0; j < user->inputs_count; j++)
+        {
+            const struct hp_user_input *input = &user->inputs[j];
+            on_user_message(ctx, user, (fdptr + input->offset), input->size);
+        }
+    }
+
+    munmap(fdptr, mmap_size);
 }
 
 int hp_peer_message_listener(const struct hp_contract_context *ctx, hp_peer_message_func on_peer_message)
@@ -229,7 +263,7 @@ int hp_peer_message_listener(const struct hp_contract_context *ctx, hp_peer_mess
     arg->on_peer_message = on_peer_message;
     if (pthread_create(&__hp_peer_thread, NULL, &__hp_peer_message_thread_func, arg) == -1)
     {
-        perror("Error creating peer thread. ");
+        perror("Error creating peer thread");
         return -1;
     }
 
@@ -432,7 +466,7 @@ static void *__hp_peer_message_thread_func(void *arg)
 
         if (poll(&pfd, 1, __HP_POLL_TIMEOUT) == -1)
         {
-            perror("Peer channel poll error. ");
+            perror("Peer channel poll error");
             goto error;
         }
 
@@ -452,7 +486,7 @@ static void *__hp_peer_message_thread_func(void *arg)
             {
                 if (read(pfd.fd, pubkey_buf, __HP_KEY_SIZE) == -1)
                 {
-                    perror("Error reading pubkey from peer channel. ");
+                    perror("Error reading pubkey from peer channel");
                     goto error;
                 }
                 has_pubkey = true;
@@ -462,7 +496,7 @@ static void *__hp_peer_message_thread_func(void *arg)
                 const size_t read_res = read(pfd.fd, msg_buf, __HP_SEQPKT_BUF_SIZE);
                 if (read_res == -1)
                 {
-                    perror("Error reading message from peer channel. ");
+                    perror("Error reading message from peer channel");
                     goto error;
                 }
 
@@ -501,7 +535,7 @@ static void *__hp_control_message_thread_func(void *arg)
 
         if (poll(&pfd, 1, __HP_POLL_TIMEOUT) == -1)
         {
-            perror("Control channel poll error. ");
+            perror("Control channel poll error");
             goto error;
         }
 
@@ -519,7 +553,7 @@ static void *__hp_control_message_thread_func(void *arg)
             const size_t read_res = read(pfd.fd, buf, __HP_SEQPKT_BUF_SIZE);
             if (read_res == -1)
             {
-                perror("Error reading control channel. ");
+                perror("Error reading control channel");
                 goto error;
             }
 
