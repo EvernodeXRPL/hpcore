@@ -57,6 +57,9 @@ pushd flatbuffers-1.12.0 > /dev/null 2>&1
 cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
 make
 sudo cp -r include/flatbuffers /usr/local/include/
+# Copy the flatbuffers compiler
+sudo cp flatc /usr/local/bin/flatc
+sudo chmod +x /usr/local/bin/flatc
 popd > /dev/null 2>&1
 rm v1.12.0.tar.gz && rm -r flatbuffers-1.12.0
 

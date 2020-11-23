@@ -79,6 +79,7 @@ namespace consensus
     struct vote_counter
     {
         std::map<uint64_t, uint32_t> time;
+        std::map<std::string, uint32_t> nonce;
         std::map<std::string, uint32_t> lcl;
         std::map<std::string, uint32_t> users;
         std::map<std::string, uint32_t> inputs;
@@ -110,7 +111,7 @@ namespace consensus
 
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 
-    p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
 
     void broadcast_proposal(const p2p::proposal &p);
 

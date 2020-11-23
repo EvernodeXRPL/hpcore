@@ -29,6 +29,7 @@ namespace consensus
     constexpr float STAGE2_THRESHOLD = 0.65;
     constexpr float STAGE3_THRESHOLD = 0.8;
     constexpr float MAJORITY_THRESHOLD = 0.8;
+    constexpr size_t ROUND_NONCE_SIZE = 64;
 
     consensus_context ctx;
     bool init_success = false;
@@ -134,7 +135,7 @@ namespace consensus
             if (is_in_sync(lcl, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage_proposal(STAGE1_THRESHOLD, votes, lcl, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, state);
                 broadcast_proposal(p);
             }
         }
@@ -143,7 +144,7 @@ namespace consensus
             if (is_in_sync(lcl, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage_proposal(STAGE2_THRESHOLD, votes, lcl, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, state);
                 broadcast_proposal(p);
             }
 
@@ -158,7 +159,7 @@ namespace consensus
             {
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
-                const p2p::proposal p = create_stage_proposal(STAGE3_THRESHOLD, votes, lcl, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, state);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -494,13 +495,14 @@ namespace consensus
 
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
     {
-        // The proposal we are going to emit at the end of stage 3 after ledger update.
         // This is the proposal that stage 0 votes on.
+        // We report our own values in stage 0.
         p2p::proposal stg_prop;
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;
         stg_prop.lcl = lcl;
         stg_prop.state = state;
+        crypto::random_bytes(stg_prop.nonce, ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
         stg_prop.users.swap(ctx.candidate_users);
@@ -513,12 +515,10 @@ namespace consensus
         for (const auto &[hash, cand_output] : ctx.candidate_user_outputs)
             stg_prop.hash_outputs.emplace(hash);
 
-        // todo: generate stg_prop hash and check with ctx.novel_proposal, we are sending same proposal again.
-
         return stg_prop;
     }
 
-    p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state)
+    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal stg_prop;
@@ -537,6 +537,9 @@ namespace consensus
             // Everyone votes on an arbitrary time, as long as it's not in the future and within the round time.
             if (ctx.time_now > cp.time && (ctx.time_now - cp.time) <= conf::cfg.roundtime)
                 increment(votes.time, cp.time);
+
+            // Vote for round nonce.
+            increment(votes.nonce, cp.nonce);
 
             // Vote for user pubkeys.
             for (const std::string &pubkey : cp.users)
@@ -586,6 +589,20 @@ namespace consensus
             {
                 highest_time_vote = numvotes;
                 stg_prop.time = time;
+            }
+        }
+
+        // Round nonce is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
+        uint32_t highest_nonce_vote = 0;
+        for (auto itr = votes.nonce.rbegin(); itr != votes.nonce.rend(); ++itr)
+        {
+            const std::string &nonce = itr->first;
+            const uint32_t numvotes = itr->second;
+
+            if (numvotes > highest_nonce_vote)
+            {
+                highest_time_vote = numvotes;
+                stg_prop.nonce = nonce;
             }
         }
 

@@ -224,6 +224,7 @@ namespace msg::fbuf::p2pmsg
         p.pubkey = flatbuff_bytes_to_sv(pubkey);
         p.sent_timestamp = timestamp;
         p.time = msg.time();
+        p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
         p.state = flatbuff_bytes_to_sv(msg.state());
@@ -368,6 +369,7 @@ namespace msg::fbuf::p2pmsg
                 builder,
                 p.stage,
                 p.time,
+                sv_to_flatbuff_bytes(builder, p.nonce),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),

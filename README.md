@@ -26,9 +26,7 @@ Run the setup script located at the repo root (tested on Ubuntu 18.04).
 1. Refer to the Wiki for instructions on running Hot Pocket.
 
 ## FlatBuffers message definitions
-If you update flatbuffers message definitions, you need to run the flatbuffers code generator to update the stubs. You need to have flatbuffers cli tool installed for this.
-
-`sudo snap install flatbuffers --edge`
+If you update flatbuffers message definitions, you need to run the flatbuffers code generator to update the stubs.
 
 Example: When you make a change to `p2pmsg_content.fbc` defnition file, you need to run this:
 
