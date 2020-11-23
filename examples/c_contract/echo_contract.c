@@ -36,6 +36,7 @@ void echo_contract(const struct hp_contract_context *ctx)
         if (fd > 0)
         {
             char tsbuf[20];
+            memset(tsbuf, 0, 20);
             sprintf(tsbuf, "%lu\n", ctx->timestamp);
             struct iovec vec[2] = {{"ts:", 4}, {(void *)tsbuf, 20}};
             writev(fd, vec, 2);

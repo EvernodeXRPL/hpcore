@@ -355,6 +355,7 @@ void __hp_parse_args_json(struct __hp_global_context *gctx, struct hp_contract_c
 
                 ctx->lcl_seq_no = strtoull(seq_str, NULL, 0);
                 memcpy(ctx->lcl_hash, hash_str, __HP_HASH_SIZE);
+                free(tok_str);
             }
         }
         else if (strcmp(k->string, "userinfd") == 0)
