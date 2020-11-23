@@ -739,7 +739,7 @@ namespace consensus
         {
             {
                 std::scoped_lock lock(ctx.contract_ctx_mutex);
-                ctx.contract_ctx.emplace();
+                ctx.contract_ctx.emplace(usr::input_store);
             }
 
             sc::contract_execution_args &args = ctx.contract_ctx->args;

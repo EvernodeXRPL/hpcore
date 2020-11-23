@@ -68,7 +68,7 @@ namespace sc
             create_iosockets(ctx.nplfds, SOCK_SEQPACKET); // NPL socket.
 
         // Clone the user inputs fd to be passed on to the contract.
-        const int user_inputs_fd = dup(usr::input_store.fd);
+        const int user_inputs_fd = dup(ctx.args.user_input_store.fd);
 
         int ret = 0;
 
@@ -376,7 +376,7 @@ namespace sc
         // Purge any inputs we passed to the contract.
         for (const auto &[pubkey, bufs] : ctx.args.userbufs)
             for (const util::buffer_view &input : bufs.inputs)
-                usr::input_store.purge(input);
+                ctx.args.user_input_store.purge(input);
 
         // If we reach this point but the contract is still running, then we need to kill the contract by force.
         // This can be the case if HP is shutting down, or there was an error in initial feeding of inputs.

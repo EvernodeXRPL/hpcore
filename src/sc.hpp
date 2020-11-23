@@ -69,6 +69,8 @@ namespace sc
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
         contract_bufmap_t userbufs;
 
+        util::buffer_store &user_input_store;
+
         // NPL messages to be passed into contract.
         moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
 
@@ -83,6 +85,10 @@ namespace sc
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
+
+        contract_execution_args(util::buffer_store &user_input_store) : user_input_store(user_input_store)
+        {
+        }
     };
 
     /**
@@ -116,6 +122,10 @@ namespace sc
 
         // Indicates that the deinit procedure has begun.
         bool is_shutting_down = false;
+
+        execution_context(util::buffer_store &user_input_store) : args(user_input_store)
+        {
+        }
     };
 
     int init();

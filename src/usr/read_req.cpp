@@ -30,6 +30,9 @@ namespace read_req
 
     int init()
     {
+        if (read_req_store.init() == -1)
+            return -1;
+
         thread_pool_executor = std::thread(manage_thread_pool);
         init_success = true;
         return 0;
@@ -54,6 +57,8 @@ namespace read_req
             // Joining all read request processing threads.
             for (std::thread &thread : read_req_threads)
                 thread.join();
+
+            read_req_store.deinit();
         }
     }
 
@@ -126,7 +131,7 @@ namespace read_req
             {
                 {
                     // Contract context is added to the list for force kill if a SIGINT is received.
-                    sc::execution_context contract_ctx;
+                    sc::execution_context contract_ctx(read_req_store);
                     std::scoped_lock<std::mutex> execution_contract_lock(execution_contexts_mutex);
                     context_itr = execution_contexts.emplace(execution_contexts.begin(), std::move(contract_ctx));
                 }
@@ -194,8 +199,6 @@ namespace read_req
     */
     int populate_read_req_queue(const std::string &pubkey, const std::string &content)
     {
-        sc::execution_context contract_ctx;
-
         user_read_req read_request;
         read_request.content = read_req_store.write_buf(content.data(), content.size());
         read_request.pubkey = pubkey;
