@@ -132,6 +132,15 @@ namespace crypto
     }
 
     /**
+     * Generate random bytes of specified length.
+     */
+    void random_bytes(std::string &result, const size_t len)
+    {
+        result.resize(len);
+        randombytes_buf(result.data(), len);
+    }
+
+    /**
      * Generate blake3 hash for a given message.
      * @param data String to hash.
      * @return The blake3 hash of the given string.
