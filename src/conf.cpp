@@ -1,7 +1,7 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
 
 namespace conf
 {

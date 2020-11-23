@@ -2,7 +2,7 @@
 #include "h32.hpp"
 #include "../conf.hpp"
 #include "../hplog.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 
 namespace hpfs
 {

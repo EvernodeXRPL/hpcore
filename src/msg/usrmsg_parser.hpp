@@ -1,7 +1,7 @@
 #ifndef _HP_MSG_USRMSG_PARSER_
 #define _HP_MSG_USRMSG_PARSER_
 
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../pchheader.hpp"
 
 namespace msg::usrmsg

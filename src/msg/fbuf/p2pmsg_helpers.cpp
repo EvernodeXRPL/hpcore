@@ -1,7 +1,7 @@
 #include "../../pchheader.hpp"
 #include "../../conf.hpp"
 #include "../../crypto.hpp"
-#include "../../util.hpp"
+#include "../../util/util.hpp"
 #include "../../hplog.hpp"
 #include "../../hpfs/h32.hpp"
 #include "../../hpfs/hpfs.hpp"

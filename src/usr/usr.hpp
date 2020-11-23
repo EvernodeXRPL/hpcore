@@ -2,7 +2,8 @@
 #define _HP_USR_
 
 #include "../pchheader.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
+#include "../util/rollover_hashset.hpp"
 #include "../util/buffer_store.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "user_comm_session.hpp"

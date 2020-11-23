@@ -2,7 +2,7 @@
 #include "../msg/json/usrmsg_json.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"

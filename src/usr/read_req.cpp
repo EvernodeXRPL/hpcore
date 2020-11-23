@@ -1,6 +1,6 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../util/buffer_store.hpp"
 #include "../conf.hpp"
 #include "../msg/usrmsg_parser.hpp"

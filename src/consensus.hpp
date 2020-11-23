@@ -2,7 +2,7 @@
 #define _HP_CONS_
 
 #include "pchheader.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
 #include "util/buffer_store.hpp"
 #include "sc.hpp"
 #include "p2p/p2p.hpp"
