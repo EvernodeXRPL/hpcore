@@ -3,7 +3,7 @@
 #include <sys/stat.h>
 #include "hotpocket_contract.h"
 
-// gcc echo_contract.c -o echo_contract -pthread -lm
+// gcc echo_contract.c -o echo_contract -pthread
 
 void echo_contract(const struct hp_contract_context *ctx);
 void on_user_message(const struct hp_contract_context *ctx, const struct hp_user *user, const void *buf, const uint32_t len);

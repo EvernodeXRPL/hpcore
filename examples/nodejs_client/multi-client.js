@@ -5,7 +5,7 @@ async function main() {
     const clientCount = 3;
     const clients = [];
     for (let i = 1; i <= clientCount; i++) {
-        clients.push(new RoboClient('wss://localhost:', (8080 + i), i.toString()));
+        clients.push(new RoboClient('wss://localhost:', 8081, i.toString()));
     }
 
     await Promise.all(clients.map(c => c.connect()));
@@ -14,8 +14,8 @@ async function main() {
     await Promise.all(clients.map(c => c.sendInputs(["A", "B", "C"])));
     console.log("Clients submitted.");
 
-    await Promise.all(clients.map(c => c.disconnect()));
-    console.log("Clients closed.");
+    // await Promise.all(clients.map(c => c.disconnect()));
+    // console.log("Clients closed.");
 }
 
 function RoboClient(server, port, clientId) {

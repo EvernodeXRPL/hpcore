@@ -6,7 +6,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <poll.h>
-#include <math.h>
 #include <sys/uio.h>
 #include <sys/mman.h>
 #include <pthread.h>
@@ -19,7 +18,7 @@
 #define __HP_POLL_TIMEOUT 20
 
 #define __HP_MMAP_BLOCK_SIZE 4096
-#define __HP_MMAP_BLOCK_ALIGN(offset) ((off_t)ceil((double)offset / (double)__HP_MMAP_BLOCK_SIZE)) * __HP_MMAP_BLOCK_SIZE;
+#define __HP_MMAP_BLOCK_ALIGN(x) (((x) + ((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1)) & ~((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1))
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                    \
     if (elem->value->type == json_type_string)                                            \

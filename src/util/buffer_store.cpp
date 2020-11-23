@@ -1,13 +1,12 @@
 #include "../pchheader.hpp"
 #include "buffer_store.hpp"
 
-#define BLOCK_ALIGN(offset) ((off_t)ceil((double)offset / (double)BLOCK_SIZE)) * BLOCK_SIZE;
+// memfd block size to have clean hole punch so that allocated blocks are released properly.
+#define BLOCK_SIZE 4096
+#define BLOCK_ALIGN(x) (((x) + ((typeof(x))(BLOCK_SIZE)-1)) & ~((typeof(x))(BLOCK_SIZE)-1))
 
 namespace util
 {
-    // memfd block size to have clean hole punch so that allocated blocks are released properly.
-    constexpr size_t BLOCK_SIZE = 4096;
-
     int buffer_store::init()
     {
         int fd = memfd_create("buffer_store", MFD_CLOEXEC);
