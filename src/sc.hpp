@@ -5,6 +5,7 @@
 #include "usr/usr.hpp"
 #include "hpfs/h32.hpp"
 #include "util.hpp"
+#include "util/buffer_store.hpp"
 #include "p2p/p2p.hpp"
 
 /**
@@ -39,7 +40,7 @@ namespace sc
     struct contract_iobufs
     {
         // List of inputs to be fed into the contract.
-        std::list<std::string> inputs;
+        std::vector<util::buffer_view> inputs;
 
         // List of outputs from the contract.
         std::list<contract_output> outputs;
@@ -68,6 +69,8 @@ namespace sc
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
         contract_bufmap_t userbufs;
 
+        util::buffer_store &user_input_store;
+
         // NPL messages to be passed into contract.
         moodycamel::ReaderWriterQueue<p2p::npl_message> npl_messages;
 
@@ -82,6 +85,10 @@ namespace sc
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
+
+        contract_execution_args(util::buffer_store &user_input_store) : user_input_store(user_input_store)
+        {
+        }
     };
 
     /**
@@ -115,6 +122,10 @@ namespace sc
 
         // Indicates that the deinit procedure has begun.
         bool is_shutting_down = false;
+
+        execution_context(util::buffer_store &user_input_store) : args(user_input_store)
+        {
+        }
     };
 
     int init();
@@ -131,7 +142,7 @@ namespace sc
 
     int stop_hpfs_session(execution_context &ctx);
 
-    int write_contract_args(const execution_context &ctx);
+    int write_contract_args(const execution_context &ctx, const int user_inputs_fd);
 
     void contract_monitor_loop(execution_context &ctx);
 
@@ -147,19 +158,15 @@ namespace sc
 
     // Common helper functions
 
-    void fdmap_json_to_stream(const contract_fdmap_t &fdmap, std::ostringstream &os);
+    void user_json_to_stream(const contract_fdmap_t &user_fdmap, const contract_bufmap_t &user_bufmap, std::ostringstream &os);
 
     int create_iosockets_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
-
-    int write_contract_fdmap_inputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
     int create_iosockets(std::vector<int> &fds, const int socket_type);
 
     int write_iosocket_seq_packet(std::vector<int> &fds, std::string_view input);
-
-    int write_iosocket_stream(std::vector<int> &fds, std::list<std::string> &inputs);
 
     int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output);
 

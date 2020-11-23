@@ -25,6 +25,7 @@ add_executable(appbill
 
 add_executable(hpcore
     src/util.cpp
+    src/util/buffer_store.cpp
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp

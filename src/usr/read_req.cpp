@@ -1,6 +1,7 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../util.hpp"
+#include "../util/buffer_store.hpp"
 #include "../conf.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "usr.hpp"
@@ -17,6 +18,8 @@ namespace read_req
 
     bool is_shutting_down = false;
     bool init_success = false;
+
+    util::buffer_store read_req_store;
     std::thread thread_pool_executor; // Thread which spawns new threads for the read requests is the queue.
     std::vector<std::thread> read_req_threads;
     moodycamel::ConcurrentQueue<user_read_req> read_req_queue(MAX_QUEUE_SIZE);
@@ -27,6 +30,9 @@ namespace read_req
 
     int init()
     {
+        if (read_req_store.init() == -1)
+            return -1;
+
         thread_pool_executor = std::thread(manage_thread_pool);
         init_success = true;
         return 0;
@@ -51,6 +57,8 @@ namespace read_req
             // Joining all read request processing threads.
             for (std::thread &thread : read_req_threads)
                 thread.join();
+
+            read_req_store.deinit();
         }
     }
 
@@ -123,7 +131,7 @@ namespace read_req
             {
                 {
                     // Contract context is added to the list for force kill if a SIGINT is received.
-                    sc::execution_context contract_ctx;
+                    sc::execution_context contract_ctx(read_req_store);
                     std::scoped_lock<std::mutex> execution_contract_lock(execution_contexts_mutex);
                     context_itr = execution_contexts.emplace(execution_contexts.begin(), std::move(contract_ctx));
                 }
@@ -191,13 +199,14 @@ namespace read_req
     */
     int populate_read_req_queue(const std::string &pubkey, const std::string &content)
     {
-        sc::execution_context contract_ctx;
-
         user_read_req read_request;
-        read_request.content = std::move(content);
+        read_request.content = read_req_store.write_buf(content.data(), content.size());
         read_request.pubkey = pubkey;
 
-        return read_req_queue.try_enqueue(read_request);
+        if (read_request.content.is_null())
+            return -1;
+        else
+            return read_req_queue.try_enqueue(read_request);
     }
 
     /**
@@ -213,7 +222,7 @@ namespace read_req
         contract_ctx.args.state_dir.append("/rr_").append(std::to_string(thread_id));
         contract_ctx.args.readonly = true;
         sc::contract_iobufs user_bufs;
-        user_bufs.inputs.push_back(std::move(read_request.content));
+        user_bufs.inputs.push_back(read_request.content);
         contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufs));
     }
 
