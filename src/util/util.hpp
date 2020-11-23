@@ -30,28 +30,8 @@ namespace util
     constexpr uint8_t MIN_NPL_INPUT_VERSION = 1;
 
     /**
- * FIFO hash set with a max size.
- */
-    class rollover_hashset
-    {
-    private:
-        // The set of recent hashes used for duplicate detection.
-        std::unordered_set<std::string> recent_hashes;
-
-        // The supporting list of recent hashes used for adding and removing hashes from
-        // the 'recent_hashes' in a first-in-first-out manner.
-        std::list<const std::string *> recent_hashes_list;
-
-        uint32_t maxsize;
-
-    public:
-        rollover_hashset(const uint32_t maxsize);
-        bool try_emplace(const std::string hash);
-    };
-
-    /**
- * A string set with expiration for elements.
- */
+     * A string set with expiration for elements.
+     */
     class ttl_set
     {
     private:
