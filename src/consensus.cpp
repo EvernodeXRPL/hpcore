@@ -35,9 +35,8 @@ namespace consensus
 
     int init()
     {
-        // We allocate 2/7 of roundtime for stage 1 and 2. The rest (4/7) is allocated to stage 3.
-        // This is because stage 3 needs some time to execute the contract in addition to broadcasting the proposal.
-        ctx.stage_time = (conf::cfg.roundtime * 2) / 7;
+        // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).
+        ctx.stage_time = conf::cfg.roundtime / 4;
         ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
 
         // Starting consensus processing thread.
@@ -98,8 +97,7 @@ namespace consensus
 
     int consensus()
     {
-        // A consensus round consists of 3 stages (1,2,3).
-        // Stage 3 is the last stage AND it also provides entry point for next round stage 1.
+        // A consensus round consists of 4 stages (0,1,2,3).
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
         uint64_t stage_start = 0;
@@ -121,7 +119,17 @@ namespace consensus
         hpfs::h32 state = state_common::ctx.get_state();
         vote_counter votes;
 
-        if (ctx.stage == 1)
+        if (ctx.stage == 0)
+        {
+            // Prepare the consensus candidate user inputs that we have acumulated so far. (We receive them periodically via NUPs)
+            // The candidate inputs will be included in the stage 0 proposal.
+            if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
+                return -1;
+
+            const p2p::proposal new_round_prop = create_stage0_proposal(lcl, state);
+            broadcast_proposal(new_round_prop);
+        }
+        else if (ctx.stage == 1)
         {
             if (is_in_sync(lcl, votes))
             {
@@ -139,8 +147,9 @@ namespace consensus
                 broadcast_proposal(p);
             }
 
-            // In stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
-            // This will be captured and verified at the end of stage 3.
+            // During stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
+            // This will be captured and verified during every round stage 0.
+            // (We broadcast this at stage 2 instead of 3 to give it enough time to reach others before next round stage 0)
             broadcast_nonunl_proposal();
         }
         else if (ctx.stage == 3)
@@ -155,22 +164,10 @@ namespace consensus
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
             }
-
-            // Prepare for next round by sending NEW-ROUND PROPOSAL.
-            // At the end of stage 3, we broadcast the "new round" proposal which is subjected
-            // to voting in next round stage 1.
-
-            // Prepare the consensus candidate user inputs that we have acumulated so far. (We receive them periodically via NUPs)
-            // The candidate inputs will be included in the new round proposal.
-            if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
-                return -1;
-
-            const p2p::proposal new_round_prop = create_new_round_proposal(lcl, state);
-            broadcast_proposal(new_round_prop);
         }
 
-        // We have finished a consensus stage. Transition to next stage. (if at stage 3 go to next round stage 1)
-        ctx.stage = (ctx.stage < 3) ? (ctx.stage + 1) : 1;
+        // We have finished a consensus stage. Transition to next stage. (if at stage 3 go to next round stage 0)
+        ctx.stage = (ctx.stage + 1) % 4;
         return 0;
     }
 
@@ -283,23 +280,23 @@ namespace consensus
         const uint64_t now = util::get_epoch_milliseconds();
 
         // Rrounds are discreet windows of roundtime.
-        // This gets the start time of current round window. Stage 1 must start in the next round window.
+        // This gets the start time of current round window. Stage 0 must start in the next round window.
         const uint64_t current_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
 
-        if (ctx.stage == 1)
+        if (ctx.stage == 0)
         {
-            // Stage 1 must start in the next round window.
-            // (This makes sure stage 3 gets whichever the remaining time in the round after stage 1 and 2)
+            // Stage 0 must start in the next round window.
+            // (This makes sure stage 3 gets whichever the remaining time in the round after stages 0,1,2)
             stage_start = current_round_start + conf::cfg.roundtime;
             const uint64_t to_wait = stage_start - now;
 
-            LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for next round stage 1";
+            LOG_DEBUG << "Waiting " << to_wait << "ms for next round stage 0";
             util::sleep(to_wait);
             return true;
         }
         else
         {
-            stage_start = current_round_start + ((ctx.stage - 1) * ctx.stage_time);
+            stage_start = current_round_start + (ctx.stage * ctx.stage_time);
 
             // Compute stage time wait.
             // Node wait between stages to collect enough proposals from previous stages from other nodes.
@@ -309,7 +306,7 @@ namespace consensus
             // it will join in next round. Otherwise it will continue particapating in this round.
             if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
             {
-                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 1";
+                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";
                 ctx.stage = 1;
                 return false;
             }
@@ -495,10 +492,10 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
     {
         // The proposal we are going to emit at the end of stage 3 after ledger update.
-        // This is the proposal that stage 1 votes on.
+        // This is the proposal that stage 0 votes on.
         p2p::proposal stg_prop;
         stg_prop.time = ctx.time_now;
         stg_prop.stage = 0;

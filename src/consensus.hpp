@@ -108,7 +108,7 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 
     p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
 
