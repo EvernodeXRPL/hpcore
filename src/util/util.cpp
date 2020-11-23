@@ -1,5 +1,5 @@
-#include "pchheader.hpp"
-#include "hplog.hpp"
+#include "../pchheader.hpp"
+#include "../hplog.hpp"
 #include "util.hpp"
 
 namespace util

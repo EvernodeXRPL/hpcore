@@ -2,7 +2,7 @@
 #define _HP_USR_USER_INPUT_
 
 #include "../pchheader.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 
 namespace usr
 {

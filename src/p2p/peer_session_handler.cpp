@@ -2,7 +2,7 @@
 #include "../conf.hpp"
 #include "../consensus.hpp"
 #include "../crypto.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../hplog.hpp"
 #include "../msg/fbuf/p2pmsg_container_generated.h"
 #include "../msg/fbuf/p2pmsg_content_generated.h"

@@ -1,6 +1,6 @@
 #include "pchheader.hpp"
 #include "crypto.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
 
 namespace crypto
 {

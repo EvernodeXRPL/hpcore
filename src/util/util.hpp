@@ -1,7 +1,7 @@
-#ifndef _HP_UTIL_
-#define _HP_UTIL_
+#ifndef _HP_UTIL_UTIL_
+#define _HP_UTIL_UTIL_
 
-#include "pchheader.hpp"
+#include "../pchheader.hpp"
 
 /**
  * Contains helper functions and data structures used by multiple other subsystems.

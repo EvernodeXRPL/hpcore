@@ -1,5 +1,5 @@
 #include "../comm/comm_server.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../ledger.hpp"
 #include "peer_comm_server.hpp"

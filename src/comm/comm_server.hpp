@@ -3,7 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../bill/corebill.h"
 #include "../hpws/hpws.hpp"
 #include "comm_session.hpp"
