@@ -3,7 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../conf.hpp"
-#include "../hpws/hpws.hpp"
+#include "hpws.hpp"
 #include "comm_session_threshold.hpp"
 
 namespace comm
