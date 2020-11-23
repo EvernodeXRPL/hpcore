@@ -22,7 +22,7 @@ namespace usr
     connected_context ctx;
 
     util::buffer_store input_store;
-    uint64_t metric_thresholds[4];
+    uint64_t metric_thresholds[5];
     bool init_success = false;
 
     /**
@@ -35,6 +35,7 @@ namespace usr
         metric_thresholds[1] = 0; // This metric doesn't apply to user context.
         metric_thresholds[2] = 0; // This metric doesn't apply to user context.
         metric_thresholds[3] = conf::cfg.pubmaxbadmpm;
+        metric_thresholds[4] = conf::cfg.pubidletimeout;
 
         if (input_store.init() == -1)
             return -1;

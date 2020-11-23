@@ -14,7 +14,7 @@ namespace p2p
     // Holds global connected-peers and related objects.
     connected_context ctx;
 
-    uint64_t metric_thresholds[4];
+    uint64_t metric_thresholds[5];
     bool init_success = false;
 
     /**
@@ -27,6 +27,7 @@ namespace p2p
         metric_thresholds[1] = conf::cfg.peermaxdupmpm;
         metric_thresholds[2] = conf::cfg.peermaxbadsigpm;
         metric_thresholds[3] = conf::cfg.peermaxbadmpm;
+        metric_thresholds[4] = conf::cfg.peeridletimeout;
 
         //Entry point for p2p which will start peer connections to other nodes
         if (start_peer_connections() == -1)

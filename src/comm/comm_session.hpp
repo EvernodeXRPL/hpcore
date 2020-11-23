@@ -56,7 +56,7 @@ namespace comm
         uint64_t last_activity_timestamp; // Keep track of the last activity timestamp in milliseconds.
 
         comm_session(
-            std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4]);
+            std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
         int init();
         int process_next_inbound_message();
         int send(const std::vector<uint8_t> &message);
