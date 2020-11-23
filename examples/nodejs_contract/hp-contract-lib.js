@@ -14,7 +14,8 @@ class HotPocketContract {
             return;
 
         // Parse HotPocket args.
-        const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
+        const argsJson = fs.readFileSync(0, 'utf8');
+        const hpargs = JSON.parse(argsJson);
 
         this.#controlChannel = new ControlChannel(hpargs.hpfd);
         this.#executeContract(hpargs, contractFunc);
@@ -24,7 +25,7 @@ class HotPocketContract {
         // Keeps track of all the tasks (promises) that must be awaited before the termination.
         const pendingTasks = [];
 
-        const users = new UsersCollection(hpargs.usrfd, this.events);
+        const users = new UsersCollection(hpargs.userinfd, hpargs.users);
         const peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd, pendingTasks, this.events);
         const executionContext = new ContractExecutionContext(hpargs, users, peers);
 
@@ -67,21 +68,24 @@ class UsersCollection {
     #users = {};
     #totalUsers = 0;
 
-    constructor(usrfds, events) {
-        const userKeys = Object.keys(usrfds);
+    constructor(userInputsFd, usersObj) {
+        const users = Object.entries(usersObj);
 
-        userKeys.forEach((pubKey) => {
-            const channel = new UserChannel(usrfds[pubKey]);
+        users.forEach(([pubKey, arr]) => {
+
+            const outfd = arr[0]; // First array element is the output fd.
+            arr.splice(0, 1); // Remove first element (output fd). The rest are pairs of msg offset/length tuples.
+
+            const channel = new UserChannel(userInputsFd, outfd, arr);
             const user = new User(pubKey, channel);
+
             this.#users[pubKey] = {
                 user: user,
                 channel: channel
             }
         });
 
-        this.#totalUsers = userKeys.length;
-
-        events.on("session_end", () => Object.values(this.#users).forEach(u => u.channel.close()));
+        this.#totalUsers = users.length;
     }
 
     // Returns the User for the specified pubkey. Returns null if not found.
@@ -151,69 +155,26 @@ class User {
 
 class UserChannel {
     #readStream = null;
-    #fd = -1;
+    #infd = -1;
+    #outfd = -1;
+    #inputs = null;
 
-    constructor(fd) {
-        this.#fd = fd;
+    constructor(infd, outfd, inputs) {
+        this.#infd = infd;
+        this.#outfd = outfd;
+        this.#inputs = inputs;
     }
 
     consume(onMessage, onComplete) {
 
-        this.#readStream = fs.createReadStream(null, { fd: this.#fd });
-        let dataParts = [];
-        let remainingMsgCount = -1;
-        let currentMsgLen = -1;
-        let pos = 0;
-
-        // Read bytes from the given buffer.
-        const readBytes = (buf, pos, count) => {
-            if (pos + count > buf.byteLength)
-                return null;
-            return buf.slice(pos, pos + count);
+        // Each input is 2 element array of [offset, length].
+        for (const [offset, size] of this.#inputs) {
+            const buf = Buffer.alloc(size);
+            fs.readSync(this.#infd, buf, 0, size, offset);
+            onMessage(buf);
         }
 
-        this.#readStream.on("data", (buf) => {
-            pos = 0;
-            if (remainingMsgCount == -1) {
-                const msgCountBuf = readBytes(buf, 0, 4)
-                remainingMsgCount = msgCountBuf.readUInt32BE();
-                pos += 4;
-            }
-
-            while (pos < buf.byteLength) {
-                if (currentMsgLen == -1) {
-                    const msgLenBuf = readBytes(buf, pos, 4);
-                    pos += 4;
-                    currentMsgLen = msgLenBuf.readUInt32BE();
-                }
-                let possible_read_len;
-                if (((buf.byteLength - pos) - currentMsgLen) >= 0) {
-                    // Can finish reading a full message.
-                    possible_read_len = currentMsgLen;
-                    currentMsgLen = -1;
-                } else {
-                    // Only partial message is recieved.
-                    possible_read_len = buf.byteLength - pos
-                    currentMsgLen -= possible_read_len;
-                }
-                const msgBuf = readBytes(buf, pos, possible_read_len);
-                pos += possible_read_len;
-                dataParts.push(msgBuf)
-
-                if (currentMsgLen == -1) {
-                    onMessage(Buffer.concat(dataParts));
-                    dataParts = [];
-                    remainingMsgCount--
-                }
-            }
-
-            if (remainingMsgCount == 0) {
-                remainingMsgCount = -1;
-                onComplete();
-            }
-        });
-
-        this.#readStream.on("error", (err) => { });
+        onComplete();
     }
 
     send(msg) {
@@ -221,11 +182,7 @@ class UserChannel {
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
         headerBuf.writeUInt32BE(messageBuf.byteLength)
-        return writevAsync(this.#fd, [headerBuf, messageBuf]);
-    }
-
-    close() {
-        this.#readStream && this.#readStream.close();
+        return writevAsync(this.#outfd, [headerBuf, messageBuf]);
     }
 }
 

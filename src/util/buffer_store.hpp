@@ -20,7 +20,7 @@ namespace util
     class buffer_store
     {
     private:
-        size_t current_pos = 0;
+        off_t next_write_pos = 0;
 
     public:
         int fd;

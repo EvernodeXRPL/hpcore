@@ -244,7 +244,8 @@ namespace sc
      *   "lcl": "<this node's last closed ledger seq no. and hash in hex>", (eg: 169-a1d82eb4c9ed005ec2c4f4f82b6f0c2fd7543d66b1a0f6b8e58ae670b3e2bcfb)
      *   "hpfd": fd,
      *   "nplfd":fd,
-     *   "usrfd":{ "<pkhex>":fd, ... },
+     *   "userinfd":fd, // User inputs fd.
+     *   "users":{ "<pkhex>":[outfd, [msg1_off, msg1_len], ...], ... },
      *   "unl":[ "<pkhex>", ... ]
      * }
      */
