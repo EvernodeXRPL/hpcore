@@ -49,6 +49,7 @@ add_executable(hpcore
     src/p2p/p2p.cpp
     src/usr/user_comm_session.cpp
     src/usr/user_session_handler.cpp
+    src/usr/input_nonce_map.cpp
     src/usr/usr.cpp
     src/usr/read_req.cpp
     src/ledger.cpp
