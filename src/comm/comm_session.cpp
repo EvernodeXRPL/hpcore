@@ -12,7 +12,6 @@ namespace comm
     constexpr uint16_t INACTIVE_TIMEOUT = 120;          // Time threshold for verified inactive connections in seconds.
     constexpr uint16_t UNVERIFIED_INACTIVE_TIMEOUT = 5; // Time threshold for unverified inactive connections in seconds.
     constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 63;      // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
-    constexpr uint16_t MAX_OUT_MSG_QUEUE_SIZE = 96;     // Maximum out message queue size, The size passed is rounded up to the next multiple of the block size (32).
 
     comm_session::comm_session(
         std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
@@ -20,8 +19,7 @@ namespace comm
           host_address(host_address),
           hpws_client(std::move(hpws_client)),
           is_inbound(is_inbound),
-          in_msg_queue(MAX_IN_MSG_QUEUE_SIZE),
-          out_msg_queue(MAX_OUT_MSG_QUEUE_SIZE)
+          in_msg_queue(MAX_IN_MSG_QUEUE_SIZE)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -145,7 +143,8 @@ namespace comm
         last_activity_timestamp = util::get_epoch_milliseconds();
 
         // Passing the ownership of message to the queue.
-        return out_msg_queue.try_enqueue(std::string(message)) ? 0 : -1;
+        out_msg_queue.enqueue(std::string(message));
+        return 0;
     }
 
     /**

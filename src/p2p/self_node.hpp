@@ -6,7 +6,7 @@
 namespace p2p::self
 {
     int process_next_message();
-    int send(std::string_view message);
+    void send(std::string_view message);
 
 } // namespace p2p
 #endif

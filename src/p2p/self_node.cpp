@@ -3,10 +3,8 @@
 
 namespace p2p::self
 {
-    constexpr uint16_t MAX_MSG_QUEUE_SIZE = 96;    // Maximum message queue size, The size passed is rounded up to the next multiple of the block size (32).
-    
     // Holds self messages waiting to be processed.
-    moodycamel::ConcurrentQueue<std::string> msg_queue(MAX_MSG_QUEUE_SIZE);
+    moodycamel::ConcurrentQueue<std::string> msg_queue;
 
     /**
      * Processes the next queued message (if any).
@@ -21,14 +19,10 @@ namespace p2p::self
         return 0;
     }
 
-    /**
-     * Add next message to the queue.
-     * @return 0 on successful addition and -1 if there's no space in the queue.
-     */
-    int send(std::string_view message)
+    void send(std::string_view message)
     {
         // Passing the ownership of message to the queue.
-        return msg_queue.try_enqueue(std::string(message)) ? 0 : -1;
+        msg_queue.enqueue(std::string(message));
     }
 
 } // namespace p2p::self
