@@ -1,5 +1,5 @@
 #include "../pchheader.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "json/usrmsg_json.hpp"
 #include "bson/usrmsg_bson.hpp"
 #include "usrmsg_parser.hpp"

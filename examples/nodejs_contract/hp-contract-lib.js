@@ -14,7 +14,8 @@ class HotPocketContract {
             return;
 
         // Parse HotPocket args.
-        const hpargs = JSON.parse(fs.readFileSync(0, 'utf8'));
+        const argsJson = fs.readFileSync(0, 'utf8');
+        const hpargs = JSON.parse(argsJson);
 
         this.#controlChannel = new ControlChannel(hpargs.hpfd);
         this.#executeContract(hpargs, contractFunc);
@@ -24,7 +25,7 @@ class HotPocketContract {
         // Keeps track of all the tasks (promises) that must be awaited before the termination.
         const pendingTasks = [];
 
-        const users = new UsersCollection(hpargs.usrfd, pendingTasks, this.events);
+        const users = new UsersCollection(hpargs.userinfd, hpargs.users);
         const peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd, pendingTasks, this.events);
         const executionContext = new ContractExecutionContext(hpargs, users, peers);
 
@@ -66,24 +67,25 @@ class UsersCollection {
 
     #users = {};
     #totalUsers = 0;
-    #pendingTasks = null
 
-    constructor(usrfds, pendingTasks, events) {
-        const userKeys = Object.keys(usrfds);
+    constructor(userInputsFd, usersObj) {
+        const users = Object.entries(usersObj);
 
-        userKeys.forEach((pubKey) => {
-            const channel = new UserChannel(usrfds[pubKey]);
+        users.forEach(([pubKey, arr]) => {
+
+            const outfd = arr[0]; // First array element is the output fd.
+            arr.splice(0, 1); // Remove first element (output fd). The rest are pairs of msg offset/length tuples.
+
+            const channel = new UserChannel(userInputsFd, outfd, arr);
             const user = new User(pubKey, channel);
+
             this.#users[pubKey] = {
                 user: user,
                 channel: channel
             }
         });
 
-        this.#totalUsers = userKeys.length;
-        this.#pendingTasks = pendingTasks;
-
-        events.on("session_end", () => Object.values(this.#users).forEach(u => u.channel.close()));
+        this.#totalUsers = users.length;
     }
 
     // Returns the User for the specified pubkey. Returns null if not found.
@@ -101,13 +103,15 @@ class UsersCollection {
         return Object.keys(this.#users).length;
     }
 
-    onMessage(callback) {
+    async onMessage(callback) {
 
-        if (this.#totalUsers == 0)
-            return Promise.resolve();
+        if (this.#totalUsers == 0) {
+            await Promise.resolve();
+            return;
+        }
 
-        // We create a promise which would get resolved when all users' message emissions have completed.
-        const allUsersCompletedTask = new Promise(allUsersCompletionResolver => {
+        // We create a promise which would get resolved when all users' message handling have completed.
+        const allUsersCompletedTask = new Promise(resolve => {
 
             let pendingUserCount = this.#totalUsers;
             const userMessageTasks = [];
@@ -121,7 +125,7 @@ class UsersCollection {
                 if (pendingUserCount == 0) {
                     // All user message events has been emitted.
                     // Now start waiting for queued up user message callback completion.
-                    Promise.all(userMessageTasks).catch(errHandler).finally(allUsersCompletionResolver)
+                    Promise.all(userMessageTasks).catch(errHandler).finally(resolve);
                 }
             }
 
@@ -131,10 +135,7 @@ class UsersCollection {
             })
         });
 
-        // We add the all users completed task to the global pending tasks list so the contract execution will not
-        // wrap up before this task is complete.
-        this.#pendingTasks.push(allUsersCompletedTask);
-        return allUsersCompletedTask;
+        await allUsersCompletedTask;
     }
 }
 
@@ -154,67 +155,26 @@ class User {
 
 class UserChannel {
     #readStream = null;
-    #fd = -1;
+    #infd = -1;
+    #outfd = -1;
+    #inputs = null;
 
-    constructor(fd) {
-        this.#fd = fd;
+    constructor(infd, outfd, inputs) {
+        this.#infd = infd;
+        this.#outfd = outfd;
+        this.#inputs = inputs;
     }
 
     consume(onMessage, onComplete) {
 
-        this.#readStream = fs.createReadStream(null, { fd: this.#fd });
-        let dataParts = [];
-        let remainingMsgCount = -1;
-        let currentMsgLen = -1;
-        let pos = 0;
-
-        // Read bytes from the given buffer.
-        const readBytes = (buf, pos, count) => {
-            if (pos + count > buf.byteLength)
-                return null;
-            return buf.slice(pos, pos + count);
+        // Each input is 2 element array of [offset, length].
+        for (const [offset, size] of this.#inputs) {
+            const buf = Buffer.alloc(size);
+            fs.readSync(this.#infd, buf, 0, size, offset);
+            onMessage(buf);
         }
 
-        this.#readStream.on("data", (buf) => {
-            pos = 0;
-            if (remainingMsgCount == -1) {
-                const msgCountBuf = readBytes(buf, 0, 4)
-                remainingMsgCount = msgCountBuf.readUInt32BE();
-                pos += 4;
-            }
-
-            while (pos < buf.byteLength) {
-                if (currentMsgLen == -1) {
-                    const msgLenBuf = readBytes(buf, pos, 4);
-                    pos += 4;
-                    currentMsgLen = msgLenBuf.readUInt32BE();
-                }
-                let possible_read_len;
-                if (((buf.byteLength - pos) - currentMsgLen) >= 0) {
-                    // Can finish reading a full message.
-                    possible_read_len = currentMsgLen;
-                    currentMsgLen = -1;
-                } else {
-                    // Only partial message is recieved.
-                    possible_read_len = buf.byteLength - pos
-                    currentMsgLen -= possible_read_len;
-                }
-                const msgBuf = readBytes(buf, pos, possible_read_len);
-                pos += possible_read_len;
-                dataParts.push(msgBuf)
-
-                if (currentMsgLen == -1) {
-                    onMessage(Buffer.concat(dataParts));
-                    dataParts = [];
-                    remainingMsgCount--
-                }
-            }
-
-            if (remainingMsgCount == 0) {
-                remainingMsgCount = -1;
-                onComplete();
-            }
-        });
+        onComplete();
     }
 
     send(msg) {
@@ -222,11 +182,7 @@ class UserChannel {
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
         headerBuf.writeUInt32BE(messageBuf.byteLength)
-        return writevAsync(this.#fd, [headerBuf, messageBuf]);
-    }
-
-    close() {
-        this.#readStream && this.#readStream.close();
+        return writevAsync(this.#outfd, [headerBuf, messageBuf]);
     }
 }
 
@@ -312,13 +268,15 @@ class NplChannel {
 
         this.#readStream.on("data", (data) => {
             if (!pubKey) {
-                pubKey = data.toString('hex');
+                pubKey = data.toString();
             }
             else {
                 onMessage(pubKey, data);
                 pubKey = null;
             }
         });
+
+        this.#readStream.on("error", (err) => { });
     }
 
     send(msg) {
@@ -346,6 +304,7 @@ class ControlChannel {
     consume(onMessage) {
         this.#readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
         this.#readStream.on("data", onMessage);
+        this.#readStream.on("error", (err) => { });
     }
 
     send(msg) {

@@ -22,12 +22,10 @@ namespace p2p
     {
         std::string pubkey;
 
-        // The timestamp of the sender when this proposal was sent.
-        uint64_t sent_timestamp = 0;
-
-        // The time value that is voted on.
-        uint64_t time = 0;
+        uint64_t sent_timestamp = 0; // The timestamp of the sender when this proposal was sent.
+        uint64_t time = 0;           // The time value that is voted on.
         uint8_t stage = 0;
+        std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
         hpfs::h32 state;
         std::set<std::string> users;
@@ -157,7 +155,7 @@ namespace p2p
 
     bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
 
-    void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected);
+    void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session = NULL);
 
     void send_available_capacity_announcement(const int16_t &available_capacity);
 

@@ -1,5 +1,5 @@
 #include "../../pchheader.hpp"
-#include "../../util.hpp"
+#include "../../util/util.hpp"
 #include "../../crypto.hpp"
 #include "../../hplog.hpp"
 #include "../usrmsg_common.hpp"

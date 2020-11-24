@@ -1,7 +1,7 @@
-#ifndef _HP_UTIL_
-#define _HP_UTIL_
+#ifndef _HP_UTIL_UTIL_
+#define _HP_UTIL_UTIL_
 
-#include "pchheader.hpp"
+#include "../pchheader.hpp"
 
 /**
  * Contains helper functions and data structures used by multiple other subsystems.
@@ -30,41 +30,6 @@ namespace util
     constexpr uint8_t MIN_NPL_INPUT_VERSION = 1;
 
     /**
- * FIFO hash set with a max size.
- */
-    class rollover_hashset
-    {
-    private:
-        // The set of recent hashes used for duplicate detection.
-        std::unordered_set<std::string> recent_hashes;
-
-        // The supporting list of recent hashes used for adding and removing hashes from
-        // the 'recent_hashes' in a first-in-first-out manner.
-        std::list<const std::string *> recent_hashes_list;
-
-        uint32_t maxsize;
-
-    public:
-        rollover_hashset(const uint32_t maxsize);
-        bool try_emplace(const std::string hash);
-    };
-
-    /**
- * A string set with expiration for elements.
- */
-    class ttl_set
-    {
-    private:
-        // Keeps short-lived items with their absolute expiration time.
-        std::unordered_map<std::string, uint64_t> ttlmap;
-
-    public:
-        void emplace(const std::string key, const uint64_t ttl_milli);
-        void erase(const std::string &key);
-        bool exists(const std::string &key);
-    };
-
-    /**
      * The messaging protocol used in a web socket channel.
      */
     enum PROTOCOL
@@ -79,7 +44,7 @@ namespace util
 
     std::string get_hex(std::string_view bin, const off_t skip = 0, const size_t take = 0);
 
-    int64_t get_epoch_milliseconds();
+    uint64_t get_epoch_milliseconds();
 
     void sleep(const uint64_t milliseconds);
 

@@ -3,9 +3,9 @@
 
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../bill/corebill.h"
-#include "../hpws/hpws.hpp"
+#include "hpws.hpp"
 #include "comm_session.hpp"
 
 namespace comm
@@ -16,7 +16,7 @@ namespace comm
     class comm_server
     {
     protected:
-        const uint64_t (&metric_thresholds)[4];
+        const uint64_t (&metric_thresholds)[5];
         const uint64_t max_msg_size;
         bool is_shutting_down = false;
         std::list<T> sessions;
@@ -210,7 +210,7 @@ namespace comm
         }
 
     public:
-        comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[4], const uint64_t max_msg_size)
+        comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size)
             : name(name),
               listen_port(port),
               metric_thresholds(metric_thresholds),

@@ -1,92 +1,17 @@
-#include "pchheader.hpp"
-#include "hplog.hpp"
+#include "../pchheader.hpp"
+#include "../hplog.hpp"
 #include "util.hpp"
 
 namespace util
 {
-
-    // rollover_hashset class methods
-
-    rollover_hashset::rollover_hashset(const uint32_t maxsize)
-    {
-        this->maxsize = maxsize == 0 ? 1 : maxsize;
-    }
-
     /**
- * Inserts the given hash to the list.
- * @return True on succesful insertion. False if hash already exists.
- */
-    bool rollover_hashset::try_emplace(const std::string hash)
-    {
-        const auto itr = recent_hashes.find(hash);
-        if (itr == recent_hashes.end()) // Not found
-        {
-            // Add the new message hash to the set.
-            const auto [newitr, success] = recent_hashes.emplace(std::move(hash));
-
-            // Insert a pointer to the stored hash value to the back of the ordered list of hashes.
-            recent_hashes_list.push_back(&(*newitr));
-
-            // Remove oldest hash if exceeding max size.
-            if (recent_hashes_list.size() > maxsize)
-            {
-                const std::string &oldest_hash = *recent_hashes_list.front();
-                recent_hashes.erase(oldest_hash);
-                recent_hashes_list.pop_front();
-            }
-
-            return true; // Hash was inserted successfuly.
-        }
-
-        return false; // Hash already exists.
-    }
-
-    // ttl_set class methods.
-
-    /**
- * If key does not exist, inserts it with the specified ttl. If key exists,
- * renews the expiration time to match the time-to-live from now onwards.
- * @param key Object to insert.
- * @param ttl Time to live in milliseonds.
- */
-    void ttl_set::emplace(const std::string key, const uint64_t ttl_milli)
-    {
-        ttlmap[key] = util::get_epoch_milliseconds() + ttl_milli;
-    }
-
-    void ttl_set::erase(const std::string &key)
-    {
-        const auto itr = ttlmap.find(key);
-        if (itr != ttlmap.end())
-            ttlmap.erase(itr);
-    }
-
-    /**
- * Returns true of the key exists and not expired. Returns false if key does not exist
- * or has expired.
- */
-    bool ttl_set::exists(const std::string &key)
-    {
-        const auto itr = ttlmap.find(key);
-        if (itr == ttlmap.end()) // Not found
-            return false;
-
-        // Check whether we are passed the expiration time (itr->second is the expiration time)
-        const bool expired = util::get_epoch_milliseconds() > itr->second;
-        if (expired)
-            ttlmap.erase(itr);
-
-        return !expired;
-    }
-
-    /**
- * Encodes provided bytes to hex string.
- * 
- * @param encoded_string String reference to assign the hex encoded output.
- * @param bin Bytes to encode.
- * @param bin_len Bytes length.
- * @return Always returns 0.
- */
+     * Encodes provided bytes to hex string.
+     * 
+     * @param encoded_string String reference to assign the hex encoded output.
+     * @param bin Bytes to encode.
+     * @param bin_len Bytes length.
+     * @return Always returns 0.
+     */
     int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len)
     {
         // Allocate the target string.
@@ -103,12 +28,12 @@ namespace util
     }
 
     /**
- * Decodes provided hex string into bytes.
- * 
- * @param decodedbuf Buffer to assign decoded bytes.
- * @param decodedbuf_len Decoded buffer size.
- * @param hex_str hex string to decode.
- */
+     * Decodes provided hex string into bytes.
+     * 
+     * @param decodedbuf Buffer to assign decoded bytes.
+     * @param decodedbuf_len Decoded buffer size.
+     * @param hex_str hex string to decode.
+     */
     int hex2bin(unsigned char *decodedbuf, const size_t decodedbuf_len, std::string_view hex_str)
     {
         const char *hex_end;
@@ -134,35 +59,35 @@ namespace util
     }
 
     /**
- * Returns current time in UNIX epoch milliseconds.
- */
-    int64_t get_epoch_milliseconds()
+    * Returns current time in UNIX epoch milliseconds.
+    */
+    uint64_t get_epoch_milliseconds()
     {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
+        return std::chrono::duration_cast<std::chrono::duration<std::uint64_t, std::milli>>(
                    std::chrono::system_clock::now().time_since_epoch())
             .count();
     }
 
     /**
- * Sleeps the current thread for specified no. of milliseconds.
- */
+     * Sleeps the current thread for specified no. of milliseconds.
+     */
     void sleep(const uint64_t milliseconds)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
 
     /**
- * Compare two version strings in the format of "1.12.3".
- * v1 <  v2  -> returns -1
- * v1 == v2  -> returns  0
- * v1 >  v2  -> returns +1
- * Error     -> returns -2
- * 
- * Remark on string_view: In other places of the code-base we utilize string_view
- * to pass immutable string references around. However in this function we keep the 'const string&'
- * syntax because istringstream doesn't support string_view. It's not worth optmising
- * this code as it's not being used in high-scale processing.
- */
+     * Compare two version strings in the format of "1.12.3".
+     * v1 <  v2  -> returns -1
+     * v1 == v2  -> returns  0
+     * v1 >  v2  -> returns +1
+     * Error     -> returns -2
+     * 
+     * Remark on string_view: In other places of the code-base we utilize string_view
+     * to pass immutable string references around. However in this function we keep the 'const string&'
+     * syntax because istringstream doesn't support string_view. It's not worth optmising
+     * this code as it's not being used in high-scale processing.
+     */
     int version_compare(const std::string &x, const std::string &y)
     {
         std::istringstream ix(x), iy(y);
@@ -423,13 +348,12 @@ namespace util
         {
             result = std::stoull(str);
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
             // Return -1 if any exceptions are captured.
             return -1;
         }
         return 0;
-        
     }
 
 } // namespace util

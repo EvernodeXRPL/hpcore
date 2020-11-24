@@ -2,11 +2,12 @@
 #include "../msg/json/usrmsg_json.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
 #include "../ledger.hpp"
+#include "../util/buffer_store.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_comm_session.hpp"
@@ -20,7 +21,8 @@ namespace usr
     // Holds global connected-users and related objects.
     connected_context ctx;
 
-    uint64_t metric_thresholds[4];
+    util::buffer_store input_store;
+    uint64_t metric_thresholds[5];
     bool init_success = false;
 
     /**
@@ -30,9 +32,13 @@ namespace usr
     int init()
     {
         metric_thresholds[0] = conf::cfg.pubmaxcpm;
-        metric_thresholds[1] = 0;
-        metric_thresholds[2] = 0;
+        metric_thresholds[1] = 0; // This metric doesn't apply to user context.
+        metric_thresholds[2] = 0; // This metric doesn't apply to user context.
         metric_thresholds[3] = conf::cfg.pubmaxbadmpm;
+        metric_thresholds[4] = conf::cfg.pubidletimeout;
+
+        if (input_store.init() == -1)
+            return -1;
 
         // Start listening for incoming user connections.
         if (start_listening() == -1)
@@ -48,7 +54,10 @@ namespace usr
     void deinit()
     {
         if (init_success)
+        {
             ctx.server->stop();
+            input_store.deinit();
+        }
     }
 
     /**
@@ -219,8 +228,8 @@ namespace usr
 
             const util::PROTOCOL protocol = (protocol_code == "json" ? util::PROTOCOL::JSON : util::PROTOCOL::BSON);
 
-            session.challenge_status = comm::CHALLENGE_VERIFIED; // Set as challenge verified
-            session.issued_challenge.clear();                    // Remove the stored challenge
+            session.mark_as_verified();       // Mark connection as a verified connection.
+            session.issued_challenge.clear(); // Remove the stored challenge
             session.uniqueid = pubkey;
 
             // Add the user to the global authed user list
@@ -256,7 +265,7 @@ namespace usr
     const char *validate_user_input_submission(const std::string_view user_pubkey, const usr::user_input &umsg,
                                                const uint64_t lcl_seq_no, size_t &total_input_len,
                                                util::rollover_hashset &recent_user_input_hashes,
-                                               std::string &hash, std::string &input, uint64_t &max_lcl_seqno)
+                                               std::string &hash, util::buffer_view &input, uint64_t &max_lcl_seqno)
     {
         const std::string sig_hash = crypto::get_hash(umsg.sig);
 
@@ -276,7 +285,9 @@ namespace usr
 
         std::string nonce;
         msg::usrmsg::usrmsg_parser parser(umsg.protocol);
-        parser.extract_input_container(input, nonce, max_lcl_seqno, umsg.input_container);
+
+        std::string input_data;
+        parser.extract_input_container(input_data, nonce, max_lcl_seqno, umsg.input_container);
 
         // Ignore the input if our ledger has passed the input TTL.
         if (max_lcl_seqno <= lcl_seq_no)
@@ -286,7 +297,7 @@ namespace usr
         }
 
         // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
-        total_input_len += input.length();
+        total_input_len += input_data.length();
         if (!verify_appbill_check(user_pubkey, total_input_len))
         {
             LOG_DEBUG << "User message app bill balance exceeded.";
@@ -297,6 +308,10 @@ namespace usr
         hash = std::move(nonce);
         // Append the hash of the message signature to get the final hash.
         hash.append(sig_hash);
+
+        // Copy the input data into the input store.
+        std::string_view s();
+        input = input_store.write_buf(input_data.data(), input_data.size());
 
         return NULL; // Success. No reject reason.
     }

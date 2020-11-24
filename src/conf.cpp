@@ -1,7 +1,7 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
 
 namespace conf
 {
@@ -87,6 +87,8 @@ namespace conf
         cfg.roundtime = 1000;
         cfg.pubport = 8080;
         cfg.peerdiscoverytime = 30000;
+        cfg.pubidletimeout = 0;
+        cfg.peeridletimeout = 120;
 
         cfg.msgforwarding = false;
         cfg.dynamicpeerdiscovery = false;
@@ -279,10 +281,13 @@ namespace conf
             cfg.unl.emplace(bin_pubkey);
         }
 
-        cfg.peerport = d["peerport"].as<int>();
-        cfg.pubport = d["pubport"].as<int>();
-        cfg.roundtime = d["roundtime"].as<int>();
-        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<int>();
+        cfg.peerport = d["peerport"].as<uint16_t>();
+        cfg.pubport = d["pubport"].as<uint16_t>();
+        cfg.roundtime = d["roundtime"].as<uint16_t>();
+        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<uint16_t>();
+
+        cfg.peeridletimeout = d["peeridletimeout"].as<uint16_t>();
+        cfg.pubidletimeout = d["pubidletimeout"].as<uint16_t>();
 
         cfg.pubmaxsize = d["pubmaxsize"].as<uint64_t>();
         cfg.pubmaxcpm = d["pubmaxcpm"].as<uint64_t>();
@@ -363,6 +368,9 @@ namespace conf
         d.insert_or_assign("pubport", cfg.pubport);
         d.insert_or_assign("roundtime", cfg.roundtime);
         d.insert_or_assign("peerdiscoverytime", cfg.peerdiscoverytime);
+
+        d.insert_or_assign("peeridletimeout", cfg.peeridletimeout);
+        d.insert_or_assign("pubidletimeout", cfg.pubidletimeout);
 
         d.insert_or_assign("pubmaxsize", cfg.pubmaxsize);
         d.insert_or_assign("pubmaxcpm", cfg.pubmaxcpm);

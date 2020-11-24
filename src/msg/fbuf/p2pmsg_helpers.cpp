@@ -1,7 +1,7 @@
 #include "../../pchheader.hpp"
 #include "../../conf.hpp"
 #include "../../crypto.hpp"
-#include "../../util.hpp"
+#include "../../util/util.hpp"
 #include "../../hplog.hpp"
 #include "../../hpfs/h32.hpp"
 #include "../../hpfs/hpfs.hpp"
@@ -74,7 +74,7 @@ namespace msg::fbuf::p2pmsg
         //check message timestamp (ignore this for large messages).
         if (container_buf_size <= MAX_SIZE_FOR_TIME_CHECK)
         {
-            const int64_t time_now = util::get_epoch_milliseconds();
+            const uint64_t time_now = util::get_epoch_milliseconds();
             if (container->timestamp() < (time_now - conf::cfg.roundtime * 4))
             {
                 LOG_DEBUG << "Peer message is too old.";
@@ -224,6 +224,7 @@ namespace msg::fbuf::p2pmsg
         p.pubkey = flatbuff_bytes_to_sv(pubkey);
         p.sent_timestamp = timestamp;
         p.time = msg.time();
+        p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
         p.state = flatbuff_bytes_to_sv(msg.state());
@@ -368,6 +369,7 @@ namespace msg::fbuf::p2pmsg
                 builder,
                 p.stage,
                 p.time,
+                sv_to_flatbuff_bytes(builder, p.nonce),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
@@ -581,19 +583,19 @@ namespace msg::fbuf::p2pmsg
     /**
      * Create connected status announcement message.
      * @param container_builder Flatbuffer builder for the container message.
-     * @param is_weakly_connected True if number of connections are below threshold and false otherwise.
+     * @param need_consensus_msg_forwarding True if number of connections are below threshold and false otherwise.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_connected_status_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool is_weakly_connected, std::string_view lcl)
+    void create_msg_from_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool need_consensus_msg_forwarding, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
-        const flatbuffers::Offset<Connected_Status_Announcement_Message> announcement =
-            CreateConnected_Status_Announcement_Message(
+        const flatbuffers::Offset<Peer_Requirement_Announcement_Message> announcement =
+            CreatePeer_Requirement_Announcement_Message(
                 builder,
-                is_weakly_connected);
+                need_consensus_msg_forwarding);
 
-        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Connected_Status_Announcement_Message, announcement.Union());
+        const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Requirement_Announcement_Message, announcement.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message,

@@ -1,4 +1,3 @@
-const fs = require('fs');
 const readline = require('readline');
 const { exit } = require('process');
 const { HotPocketClient, HotPocketKeyGenerator, HotPocketEvents } = require('./hp-client-lib');

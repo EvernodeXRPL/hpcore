@@ -1,6 +1,6 @@
 #include "pchheader.hpp"
 #include "crypto.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
 
 namespace crypto
 {
@@ -129,6 +129,15 @@ namespace crypto
             reinterpret_cast<const unsigned char *>(msg.data()),
             msg.length(),
             decoded_pubkey + 1); // +1 to skip prefix byte.
+    }
+
+    /**
+     * Generate random bytes of specified length.
+     */
+    void random_bytes(std::string &result, const size_t len)
+    {
+        result.resize(len);
+        randombytes_buf(result.data(), len);
     }
 
     /**

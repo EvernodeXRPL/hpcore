@@ -2,7 +2,8 @@
 #define _HP_CONS_
 
 #include "pchheader.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
+#include "util/buffer_store.hpp"
 #include "sc.hpp"
 #include "p2p/p2p.hpp"
 #include "usr/user_input.hpp"
@@ -18,10 +19,10 @@ namespace consensus
     {
         const std::string userpubkey;
         const uint64_t maxledgerseqno = 0;
-        std::string input;
+        const util::buffer_view input;
 
-        candidate_user_input(const std::string userpubkey, const std::string input, const uint64_t maxledgerseqno)
-            : userpubkey(std::move(userpubkey)), input(std::move(input)), maxledgerseqno(maxledgerseqno)
+        candidate_user_input(const std::string userpubkey, const util::buffer_view input, const uint64_t maxledgerseqno)
+            : userpubkey(std::move(userpubkey)), input(input), maxledgerseqno(maxledgerseqno)
         {
         }
     };
@@ -78,6 +79,7 @@ namespace consensus
     struct vote_counter
     {
         std::map<uint64_t, uint32_t> time;
+        std::map<std::string, uint32_t> nonce;
         std::map<std::string, uint32_t> lcl;
         std::map<std::string, uint32_t> users;
         std::map<std::string, uint32_t> inputs;
@@ -105,11 +107,11 @@ namespace consensus
 
     bool push_npl_message(p2p::npl_message &npl_message);
 
-    void verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
+    int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_new_round_proposal(std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 
-    p2p::proposal create_stage_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
 
     void broadcast_proposal(const p2p::proposal &p);
 
@@ -127,7 +129,7 @@ namespace consensus
 
     void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 
-    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
+    int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 

@@ -34,7 +34,7 @@ union Message {
     State_Response_Message,
     History_Request_Message,
     History_Response_Message,
-    Connected_Status_Announcement_Message,
+    Peer_Requirement_Announcement_Message,
     Peer_List_Request_Message,
     Peer_List_Response_Message,
     Available_Capacity_Announcement_Message
@@ -51,6 +51,7 @@ table NonUnl_Proposal_Message {
 table Proposal_Message { //Proposal type message schema
     stage:uint8;
     time:uint64;
+    nonce: [ubyte];
     users:[ByteArray];
     hash_inputs:[ByteArray];
     hash_outputs:[ByteArray];
@@ -124,8 +125,8 @@ table State_FS_Hash_Entry{
     hash: [ubyte];
 }
 
-table Connected_Status_Announcement_Message{
-    is_weakly_connected: bool;
+table Peer_Requirement_Announcement_Message{
+    need_consensus_msg_forwarding: bool;
 }
 
 table Available_Capacity_Announcement_Message{

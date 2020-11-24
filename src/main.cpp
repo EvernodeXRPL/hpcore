@@ -3,7 +3,7 @@
 **/
 
 #include "pchheader.hpp"
-#include "util.hpp"
+#include "util/util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "sc.hpp"

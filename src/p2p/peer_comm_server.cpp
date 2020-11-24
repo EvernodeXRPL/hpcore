@@ -1,5 +1,5 @@
 #include "../comm/comm_server.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../ledger.hpp"
 #include "peer_comm_server.hpp"
@@ -8,7 +8,11 @@
 
 namespace p2p
 {
-    peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[4],
+    constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
+    // Globally exposed weakly connected status variable.
+    bool is_weakly_connected = false;
+
+    peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5],
                                        const uint64_t max_msg_size, std::vector<conf::peer_properties> &req_known_remotes)
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size),
           req_known_remotes(req_known_remotes)
@@ -74,7 +78,7 @@ namespace p2p
             if (conf::cfg.peermaxcons != 0)
                 p2p::send_available_capacity_announcement(p2p::get_available_capacity());
 
-            // Start peer list request loop is dynamic peer discovery is enabled.
+            // Start peer list request loop if dynamic peer discovery is enabled.
             if (conf::cfg.dynamicpeerdiscovery && known_remote_count > 0)
             {
                 // If max known peer connection cap is reached then periodically request peer list from random known peer.
@@ -94,6 +98,10 @@ namespace p2p
                     peer_managing_counter = 0;
                 }
             }
+
+            // Check connected status of the node and sends the announcment
+            // about the consensus message forwarding requirement.
+            detect_if_weakly_connected();
 
             util::sleep(100);
         }
@@ -166,6 +174,14 @@ namespace p2p
                 {
                     const std::string &host_address = std::get<std::string>(host_result);
                     p2p::peer_comm_session session(host_address, std::move(client), false, metric_thresholds);
+
+                    // Skip if this peer is banned due to corebill violations.
+                    if (corebill::is_banned(host_address))
+                    {
+                        LOG_DEBUG << "Skipping peer " << host_address << " from connecting. This peer is banned.";
+                        continue;
+                    }
+
                     session.known_ipport.emplace(peer.ip_port);
                     known_remote_count++;
 
@@ -175,5 +191,22 @@ namespace p2p
             }
         }
     }
-
+    /**
+     * Check whether the node is weakly connected or strongly connected in every 60 seconds.
+    */
+    void peer_comm_server::detect_if_weakly_connected()
+    {
+        if (connected_status_check_counter == 600)
+        {
+            // One is added to session list size to reflect the loop back connection.
+            const bool current_state = (sessions.size() + 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
+            if (is_weakly_connected != current_state)
+            {
+                is_weakly_connected = !is_weakly_connected;
+                send_peer_requirement_announcement(is_weakly_connected);
+            }
+            connected_status_check_counter = 0;
+        }
+        connected_status_check_counter++;
+    }
 } // namespace p2p

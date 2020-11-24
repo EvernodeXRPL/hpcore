@@ -1,7 +1,7 @@
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../hplog.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../ledger.hpp"
@@ -14,7 +14,7 @@ namespace p2p
     // Holds global connected-peers and related objects.
     connected_context ctx;
 
-    uint64_t metric_thresholds[4];
+    uint64_t metric_thresholds[5];
     bool init_success = false;
 
     /**
@@ -27,6 +27,7 @@ namespace p2p
         metric_thresholds[1] = conf::cfg.peermaxdupmpm;
         metric_thresholds[2] = conf::cfg.peermaxbadsigpm;
         metric_thresholds[3] = conf::cfg.peermaxbadmpm;
+        metric_thresholds[4] = conf::cfg.peeridletimeout;
 
         //Entry point for p2p which will start peer connections to other nodes
         if (start_peer_connections() == -1)
@@ -97,7 +98,8 @@ namespace p2p
         {
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
-            session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
+            // Mark the connection as a verified connection.
+            session.mark_as_verified();
             ctx.peer_connections.try_emplace(session.uniqueid, &session);
 
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
@@ -117,13 +119,14 @@ namespace p2p
                     if (!session.known_ipport.has_value())
                         session.known_ipport.swap(ex_session.known_ipport);
                     session.uniqueid.swap(pubkeyhex);
-                    session.challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED;
+                    // Mark the connection as a verified connection.
+                    session.mark_as_verified();
 
                     ex_session.mark_for_closure();
                     ctx.peer_connections.erase(iter); // remove existing session.
-                    // We have to keep the weekly connected status of the removed session object.
-                    // If not, connected status received prior to connection dropping will be lost.
-                    session.is_weakly_connected = ex_session.is_weakly_connected;
+                    // We have to keep the peer requirements of the removed session object.
+                    // If not, requirements received prior to connection dropping will be lost.
+                    session.need_consensus_msg_forwarding = ex_session.need_consensus_msg_forwarding;
                     ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
@@ -174,9 +177,9 @@ namespace p2p
         for (const auto &[k, session] : ctx.peer_connections)
         {
             // Exclude given session if provided.
-            // Messages are forwarded only to the weakly connected nodes only in the message forwarding mode.
+            // Messages are forwarded only to the requested nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
-                (is_msg_forwarding && !session->is_weakly_connected))
+                (is_msg_forwarding && !session->need_consensus_msg_forwarding))
                 continue;
 
             session->send(message);
@@ -197,7 +200,7 @@ namespace p2p
             return false;
         }
 
-        const int64_t time_now = util::get_epoch_milliseconds();
+        const uint64_t time_now = util::get_epoch_milliseconds();
         // Checking the time to live of the container. The time to live for forwarding is three times the round time.
         if (container->timestamp() < (time_now - (conf::cfg.roundtime * 3)))
         {
@@ -261,14 +264,24 @@ namespace p2p
     }
 
     /**
-     * Sends the connected status broadcast announcement to all the connected peers.
-     * @param fbuf Peer outbound message to be sent to peer.
-     * @param is_weakly_connected True if the number of connections are below the threshold value.
+     * Sends the peer requirement to the given peer session. If a session is not given, broadcast to all the connected peers.
+     * @param need_consensus_msg_forwarding True if the number of connections are below the threshold value.
+     * @param session The destination peer node.
      */
-    void send_connected_status_announcement(flatbuffers::FlatBufferBuilder &fbuf, const bool is_weakly_connected)
+    void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session)
     {
-        msg::fbuf::p2pmsg::create_msg_from_connected_status_announcement(fbuf, is_weakly_connected, ledger::ctx.get_lcl());
-        broadcast_message(fbuf, false);
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding, ledger::ctx.get_lcl());
+        if (session)
+        {
+            std::string_view msg = std::string_view(
+                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
+            session->send(msg);
+        }
+        else
+        {
+            broadcast_message(fbuf, false);
+        }
     }
 
     /**

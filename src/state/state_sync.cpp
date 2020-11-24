@@ -5,7 +5,7 @@
 #include "../pchheader.hpp"
 #include "../ledger.hpp"
 #include "../hplog.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "../hpfs/h32.hpp"
 #include "state_sync.hpp"

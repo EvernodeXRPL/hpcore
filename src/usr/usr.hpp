@@ -2,7 +2,9 @@
 #define _HP_USR_
 
 #include "../pchheader.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
+#include "../util/rollover_hashset.hpp"
+#include "../util/buffer_store.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "user_comm_session.hpp"
 #include "user_comm_server.hpp"
@@ -58,6 +60,7 @@ namespace usr
         std::optional<usr::user_comm_server> server;
     };
     extern connected_context ctx;
+    extern util::buffer_store input_store;
 
     int init();
 
@@ -79,7 +82,7 @@ namespace usr
     const char *validate_user_input_submission(const std::string_view user_pubkey, const usr::user_input &umsg,
                                                const uint64_t lcl_seq_no, size_t &total_input_len,
                                                util::rollover_hashset &recent_user_input_hashes,
-                                               std::string &hash, std::string &input, uint64_t &max_lcl_seqno);
+                                               std::string &hash, util::buffer_view &input, uint64_t &max_lcl_seqno);
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 

@@ -2,8 +2,8 @@ const { HotPocketContract } = require("./hp-contract-lib");
 const fs = require('fs');
 const bson = require('bson');
 
-const fileContract = (ctx) => {
-    ctx.users.onMessage(async (user, buf) => {
+const fileContract = async (ctx) => {
+    await ctx.users.onMessage(async (user, buf) => {
         const msg = bson.deserialize(buf);
 
         if (msg.type == "upload") {

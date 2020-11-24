@@ -1,20 +1,19 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
-#include "../util.hpp"
+#include "../util/util.hpp"
 #include "../conf.hpp"
 #include "../bill/corebill.h"
-#include "../hpws/hpws.hpp"
+#include "hpws.hpp"
 #include "comm_session.hpp"
 
 namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
-    constexpr uint16_t INACTIVE_TIMEOUT = 120;          // Time threshold for verified inactive connections in seconds.
     constexpr uint16_t UNVERIFIED_INACTIVE_TIMEOUT = 5; // Time threshold for unverified inactive connections in seconds.
     constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 63;      // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
     comm_session::comm_session(
-        std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[4])
+        std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
         : uniqueid(host_address),
           host_address(host_address),
           hpws_client(std::move(hpws_client)),
@@ -24,8 +23,8 @@ namespace comm
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
         // since enum's value is used as index in the vector to update vector values.
-        thresholds.reserve(4);
-        for (size_t i = 0; i < 4; i++)
+        thresholds.reserve(5);
+        for (size_t i = 0; i < 5; i++)
             thresholds.push_back(session_threshold(metric_thresholds[i], INTERVALMS));
     }
 
@@ -276,12 +275,12 @@ namespace comm
             const uint64_t elapsed_time = time_now - t.timestamp;
             if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
             {
-                close();
+                mark_for_closure();
 
                 t.timestamp = 0;
                 t.counter_value = 0;
 
-                LOG_INFO << "Session " << uniqueid << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+                LOG_INFO << "Session " << display_name() << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
                 corebill::report_violation(host_address);
             }
             else if (elapsed_time > t.intervalms)
@@ -297,13 +296,26 @@ namespace comm
     */
     void comm_session::check_last_activity_rules()
     {
-        const uint16_t timeout_seconds = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? INACTIVE_TIMEOUT : UNVERIFIED_INACTIVE_TIMEOUT);
+        const uint16_t timeout_seconds = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? thresholds[SESSION_THRESHOLDS::IDLE_CONNECTION_TIMEOUT].threshold_limit : UNVERIFIED_INACTIVE_TIMEOUT);
+
+        // Timeout zero means unlimited.
+        if (timeout_seconds == 0)
+            return;
 
         if (util::get_epoch_milliseconds() - last_activity_timestamp >= (timeout_seconds * 1000))
         {
             LOG_DEBUG << "Closing " << display_name() << " connection due to inactivity.";
             mark_for_closure();
         }
+    }
+
+    /**
+     * Mark the connection as a verified connection.
+    */
+    void comm_session::mark_as_verified()
+    {
+        challenge_status = CHALLENGE_STATUS::CHALLENGE_VERIFIED;
+        handle_on_verified();
     }
 
     int comm_session::handle_connect()
@@ -317,6 +329,10 @@ namespace comm
     }
 
     void comm_session::handle_close()
+    {
+    }
+
+    void comm_session::handle_on_verified()
     {
     }
 
