@@ -16,7 +16,7 @@
  */
 namespace usr
 {
-    constexpr uint16_t MAX_USER_COUNT = 100;      // Maximum number of user.
+    constexpr uint16_t MAX_USER_COUNT = 64; // Maximum number of user.
 
     /**
      * Holds information about an authenticated (challenge-verified) user
