@@ -321,7 +321,7 @@ namespace p2p
     int handle_nonunl_proposal_message(const p2pmsg::Container *container, const p2pmsg::Content *content)
     {
         // Check the cap and insert proposal with lock.
-        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex); // Insert non-unl proposal with lock.
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex);
 
         // If max number of nonunl proposals reached skip the rest.
         if (ctx.collected_msgs.nonunl_proposals.size() == p2p::NONUNL_PROPOSAL_LIST_CAP)
