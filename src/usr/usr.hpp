@@ -16,6 +16,8 @@
  */
 namespace usr
 {
+    constexpr uint16_t MAX_USER_COUNT = 64; // Maximum number of user.
+
     /**
      * Holds information about an authenticated (challenge-verified) user
      * connected to the HotPocket node.
@@ -27,9 +29,6 @@ namespace usr
 
         // Holds the unprocessed user inputs collected from websocket.
         std::list<user_input> submitted_inputs;
-
-        // Holds the unprocessed read requests collected from websocket.
-        std::list<std::string> read_requests;
 
         // Holds the websocket session of this user.
         // We don't need to own the session object since the lifetime of user and session are coupled.
