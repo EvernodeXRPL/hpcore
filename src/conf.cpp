@@ -299,8 +299,8 @@ namespace conf
         cfg.peermaxdupmpm = d["peermaxdupmpm"].as<uint64_t>();
         cfg.peermaxbadmpm = d["peermaxbadmpm"].as<uint64_t>();
         cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
-        cfg.peermaxcons = d["peermaxcons"].as<unsigned int>();
-        cfg.peermaxknowncons = d["peermaxknowncons"].as<unsigned int>();
+        cfg.peermaxcons = d["peermaxcons"].as<uint16_t>();
+        cfg.peermaxknowncons = d["peermaxknowncons"].as<uint16_t>();
 
         // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
         if (cfg.peermaxknowncons > cfg.peermaxcons)

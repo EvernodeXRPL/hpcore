@@ -10,6 +10,7 @@ namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
     constexpr uint16_t UNVERIFIED_INACTIVE_TIMEOUT = 5; // Time threshold for unverified inactive connections in seconds.
+    constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 64;      // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
     comm_session::comm_session(
         std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
@@ -17,7 +18,7 @@ namespace comm
           host_address(host_address),
           hpws_client(std::move(hpws_client)),
           is_inbound(is_inbound),
-          in_msg_queue(32)
+          in_msg_queue(MAX_IN_MSG_QUEUE_SIZE)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -76,7 +77,7 @@ namespace comm
                 std::string_view data = std::get<std::string_view>(read_result);
                 std::vector<char> msg(data.size());
                 memcpy(msg.data(), data.data(), data.size());
-                in_msg_queue.enqueue(std::move(msg));
+                in_msg_queue.try_enqueue(std::move(msg));
 
                 // Signal the hpws client that we are ready for next message.
                 std::optional<hpws::error> error = hpws_client->ack(data);
@@ -130,7 +131,7 @@ namespace comm
     /**
      * Adds the given message to the outbound message queue.
      * @param message Message to be added to the outbound queue.
-     * @return 0 on successful addition and -1 if the session is already closed.
+     * @return 0 on successful addition and -1 if the session is already closed or there's no space in the queue.
     */
     int comm_session::send(std::string_view message)
     {

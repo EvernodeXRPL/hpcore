@@ -201,6 +201,13 @@ namespace usr
      */
     int add_user(usr::user_comm_session &session, const std::string &pubkey_hex, std::string_view protocol_code)
     {
+        // If max number of user connections reached skip the rest.
+        if (ctx.users.size() == MAX_USER_COUNT)
+        {
+            LOG_DEBUG << "Rejecting " + session.display_name() << ". Maximum user count reached.";
+            return -1;
+        }
+
         // Decode hex pubkey and get binary pubkey. We are only going to keep
         // the binary pubkey due to reduced memory footprint.
         std::string pubkey;

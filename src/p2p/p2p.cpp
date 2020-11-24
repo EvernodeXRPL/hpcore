@@ -359,14 +359,22 @@ namespace p2p
             // Otherwise if new peer is recently updated (timestamp >) replace with the current one.
             if (itr == ctx.server->req_known_remotes.end())
             {
-                ctx.server->req_known_remotes.push_back(peer);
-                LOG_DEBUG << "Adding " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " to the known peer list";
+                // If maximum number of peer list reached skip the rest of peers.
+                if (ctx.server->req_known_remotes.size() < p2p::PEER_LIST_CAP)
+                {
+                    ctx.server->req_known_remotes.push_back(peer);
+                    LOG_DEBUG << "Adding " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " to the known peer list.";
+                }
+                else
+                {
+                    LOG_DEBUG << "Rejecting " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + ". Maximum peer count reached.";
+                }
             }
             else if (itr->timestamp < peer.timestamp)
             {
                 itr->available_capacity = peer.available_capacity;
                 itr->timestamp = peer.timestamp;
-                LOG_DEBUG << "Replacing " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " to the known peer list";
+                LOG_DEBUG << "Replacing " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " in the known peer list.";
             }
         }
 

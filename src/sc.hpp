@@ -13,6 +13,8 @@
  */
 namespace sc
 {
+    constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 64;     // Maximum npl message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
+    constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 64; // Maximum out message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
     // Enum used to differenciate socket fds maintained for SC socket.
     enum SOCKETFDTYPE
@@ -86,7 +88,10 @@ namespace sc
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
 
-        contract_execution_args(util::buffer_store &user_input_store) : user_input_store(user_input_store)
+        contract_execution_args(util::buffer_store &user_input_store)
+            : user_input_store(user_input_store),
+              npl_messages(MAX_NPL_MSG_QUEUE_SIZE),
+              control_messages(MAX_CONTROL_MSG_QUEUE_SIZE)
         {
         }
     };

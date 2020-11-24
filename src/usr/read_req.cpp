@@ -12,9 +12,9 @@
  */
 namespace read_req
 {
-    constexpr uint16_t LOOP_WAIT = 100;      // Milliseconds.
-    constexpr uint16_t MAX_QUEUE_SIZE = 100; // Maximum read request queue size.
-    constexpr uint16_t MAX_THREAD_CAP = 5;   // Maximum number of read request processing threads.
+    constexpr uint16_t LOOP_WAIT = 100;     // Milliseconds.
+    constexpr uint16_t MAX_QUEUE_SIZE = 64; // Maximum read request queue size, The size passed is rounded up to the next multiple of the block size (32).
+    constexpr uint16_t MAX_THREAD_CAP = 5;  // Maximum number of read request processing threads.
 
     bool is_shutting_down = false;
     bool init_success = false;
@@ -22,7 +22,7 @@ namespace read_req
     util::buffer_store read_req_store;
     std::thread thread_pool_executor; // Thread which spawns new threads for the read requests is the queue.
     std::vector<std::thread> read_req_threads;
-    moodycamel::ConcurrentQueue<user_read_req> read_req_queue(MAX_QUEUE_SIZE);
+    moodycamel::ConcurrentQueue<user_read_req> read_req_queue(MAX_QUEUE_SIZE, 0, MAX_THREAD_CAP);
     std::mutex execution_contexts_mutex;
     std::list<sc::execution_context> execution_contexts;
     std::mutex completed_threads_mutex;
