@@ -12,7 +12,7 @@
 namespace read_req
 {
     constexpr uint16_t LOOP_WAIT = 100;      // Milliseconds.
-    constexpr uint16_t MAX_QUEUE_SIZE = 100; // Maximum read request queue size.
+    constexpr uint16_t MAX_QUEUE_SIZE = 96; // Maximum read request queue size, The size passed is rounded up to the next multiple of the block size (32).
     constexpr uint16_t MAX_THREAD_CAP = 5;   // Maximum number of read request processing threads.
 
     bool is_shutting_down = false;

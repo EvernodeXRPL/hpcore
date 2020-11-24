@@ -3,7 +3,7 @@
 
 namespace p2p::self
 {
-    constexpr uint16_t MAX_MSG_QUEUE_SIZE = 100;    // Maximum message queue size.
+    constexpr uint16_t MAX_MSG_QUEUE_SIZE = 96;    // Maximum message queue size, The size passed is rounded up to the next multiple of the block size (32).
     
     // Holds self messages waiting to be processed.
     moodycamel::ConcurrentQueue<std::string> msg_queue(MAX_MSG_QUEUE_SIZE);
