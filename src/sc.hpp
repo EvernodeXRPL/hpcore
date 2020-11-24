@@ -61,12 +61,6 @@ namespace sc
  */
     struct contract_execution_args
     {
-        contract_execution_args()
-            : npl_messages(MAX_NPL_MSG_QUEUE_SIZE),
-              control_messages(MAX_CONTROL_MSG_QUEUE_SIZE)
-        {
-        }
-
         // Whether the contract should execute in read only mode (to serve read requests).
         bool readonly = false;
 
@@ -94,7 +88,10 @@ namespace sc
         // State hash after execution will be copied to this (not applicable to read only mode).
         hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
 
-        contract_execution_args(util::buffer_store &user_input_store) : user_input_store(user_input_store)
+        contract_execution_args(util::buffer_store &user_input_store)
+            : user_input_store(user_input_store),
+              npl_messages(MAX_NPL_MSG_QUEUE_SIZE),
+              control_messages(MAX_CONTROL_MSG_QUEUE_SIZE)
         {
         }
     };
