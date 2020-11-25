@@ -63,7 +63,6 @@ table Npl_Message { //NPL type message schema
 }
 
 table History_Request_Message { //Ledger History request type message schema
-    minimum_lcl:[ubyte];
     required_lcl:[ubyte];
 }
 
