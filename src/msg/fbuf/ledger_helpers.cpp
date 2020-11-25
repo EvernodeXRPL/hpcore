@@ -11,7 +11,7 @@ namespace msg::fbuf::ledger
      * Create ledger block from the given proposal struct.
      * @param p The proposal struct to be placed in ledger.
      */
-    void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no)
+    void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no, bool include_raw_input)
     {
         flatbuffers::Offset<ledger::LedgerBlock> ledger =
             ledger::CreateLedgerBlock(
@@ -22,9 +22,33 @@ namespace msg::fbuf::ledger
                 hash_to_flatbuff_bytes(builder, p.state),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
+                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
+                include_raw_input ? create_raw_input_list_from_raw_input_map(builder, p.raw_inputs) : 0);
 
         builder.Finish(ledger); // Finished building message content to get serialised content.
+    }
+
+    /**
+ * Returns Flatbuffer vector of raw inputs from given map.
+ */
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>>>
+    create_raw_input_list_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map)
+    {
+        std::vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>> fbvec;
+        fbvec.reserve(map.size());
+        for (auto const &[key, value] : map)
+        {
+            fbvec.push_back(ledger::CreateRawInput(
+                builder,
+                sv_to_flatbuff_bytes(builder, key),
+                CreateInput(
+                    builder,
+                    sv_to_flatbuff_bytes(builder, value.pubkey),
+                    sv_to_flatbuff_bytes(builder, value.user_input.input_container),
+                    sv_to_flatbuff_bytes(builder, value.user_input.sig),
+                    (Input_Protocol)value.user_input.protocol)));
+        }
+        return builder.CreateVector(fbvec);
     }
 
     p2p::proposal create_proposal_from_ledger_block(const std::vector<uint8_t> &ledger_buf)

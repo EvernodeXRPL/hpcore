@@ -122,5 +122,5 @@ namespace msg::fbuf
         }
         return builder.CreateVector(fbvec);
     }
-
+    
 } // namespace msg::fbuf

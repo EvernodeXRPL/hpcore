@@ -92,6 +92,7 @@ namespace conf
 
         cfg.msgforwarding = false;
         cfg.dynamicpeerdiscovery = false;
+        cfg.fullhistorymode = false;
 
 #ifndef NDEBUG
         cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -311,6 +312,7 @@ namespace conf
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
         cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
+        cfg.fullhistorymode = d["fullhistorymode"].as<bool>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
@@ -387,6 +389,7 @@ namespace conf
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
         d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
+        d.insert_or_assign("fullhistorymode", cfg.fullhistorymode);
 
         d.insert_or_assign("loglevel", cfg.loglevel);
 

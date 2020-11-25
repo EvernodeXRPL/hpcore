@@ -99,8 +99,8 @@ namespace conf
         uint16_t pubport = 0;                                   // Listening port for public user connections
         uint16_t peerdiscoverytime = 0;                         // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
 
-        uint16_t peeridletimeout = 0;   // Idle connection timeout for peer connections in seconds.
-        uint16_t pubidletimeout = 0;    // Idle connection timeout for user connections in seconds.
+        uint16_t peeridletimeout = 0; // Idle connection timeout for peer connections in seconds.
+        uint16_t pubidletimeout = 0;  // Idle connection timeout for user connections in seconds.
 
         uint64_t pubmaxsize = 0;   // User message max size in bytes
         uint64_t pubmaxcpm = 0;    // User message rate (characters(bytes) per minute)
@@ -117,6 +117,7 @@ namespace conf
 
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
+        bool fullhistorymode = false;      // Whether full history mode is on/off.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)

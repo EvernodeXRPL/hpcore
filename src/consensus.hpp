@@ -20,9 +20,10 @@ namespace consensus
         const std::string userpubkey;
         const uint64_t maxledgerseqno = 0;
         const util::buffer_view input;
+        const usr::user_input userinput;
 
-        candidate_user_input(const std::string userpubkey, const util::buffer_view input, const uint64_t maxledgerseqno)
-            : userpubkey(std::move(userpubkey)), input(input), maxledgerseqno(maxledgerseqno)
+        candidate_user_input(const std::string userpubkey, const util::buffer_view input, const usr::user_input userinput, const uint64_t maxledgerseqno)
+            : userpubkey(std::move(userpubkey)), input(input), userinput(userinput), maxledgerseqno(maxledgerseqno)
         {
         }
     };

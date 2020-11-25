@@ -160,7 +160,21 @@ namespace consensus
             {
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
-                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, state);
+                p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, state);
+
+                // Add raw_inputs to the proposal if full history mode is on.
+                if (conf::cfg.fullhistorymode)
+                {
+                    for (const auto &hash : p.hash_inputs)
+                    {
+                        const auto itr = ctx.candidate_user_inputs.find(hash);
+                        if (itr != ctx.candidate_user_inputs.end())
+                        {
+                            candidate_user_input &cand_input = itr->second;
+                            p.raw_inputs.emplace(hash, usr::raw_user_input(cand_input.userpubkey, cand_input.userinput));
+                        }
+                    }
+                }
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -447,7 +461,7 @@ namespace consensus
                         // No reject reason means we should go ahead and subject the input to consensus.
                         ctx.candidate_user_inputs.try_emplace(
                             hash,
-                            candidate_user_input(pubkey, input, max_lcl_seqno));
+                            candidate_user_input(pubkey, input, umsg, max_lcl_seqno));
                     }
                     else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
                     {

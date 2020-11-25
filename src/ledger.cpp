@@ -293,7 +293,7 @@ namespace ledger
 
         // Serialize lcl using flatbuffer ledger block schema.
         flatbuffers::FlatBufferBuilder builder(1024);
-        msg::fbuf::ledger::create_ledger_block_from_proposal(builder, proposal, seq_no);
+        msg::fbuf::ledger::create_ledger_block_from_proposal(builder, proposal, seq_no, conf::cfg.fullhistorymode);
 
         // Get binary hash of the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
