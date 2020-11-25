@@ -152,8 +152,7 @@ namespace ledger
         }
 
         // Request history from a random peer if needed.
-        // If target is genesis ledger, we simply clear our ledger history without sending a
-        // history request.
+        // We do not send a request if the target is GENESIS block (nothing to request).
         if (target_lcl != GENESIS_LEDGER)
         {
             std::string_view min_lcl = (current_lcl == GENESIS_LEDGER) ? target_lcl : current_lcl;
@@ -201,20 +200,21 @@ namespace ledger
                 {
                     if (sync_ctx.target_lcl == GENESIS_LEDGER)
                     {
+                        LOG_INFO << "lcl sync: Target is GENESIS. Clearing our history.";
                         clear_ledger();
                         sync_ctx.target_lcl.clear();
                         sync_ctx.target_lcl_seq_no = 0;
                         sync_ctx.is_syncing = false;
                     }
+                    // Check the target lcl seq no. to see whether it's too far ahead. That means no one probably has our
+                    // lcl in their ledgers. So we should clear our entire ledger history before requesting from peers.
+                    else if (current_lcl != GENESIS_LEDGER && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
+                    {
+                        LOG_INFO << "lcl sync: Target " << sync_ctx.target_lcl.substr(0, 15) << " is too far ahead. Clearing our history.";
+                        clear_ledger();
+                    }
                     else
                     {
-                        // Check the target lcl seq no. to see whether it's too far ahead. That means no one probably has our
-                        // lcl in their ledgers. So we should clear our entire ledger history before requesting from peers.
-                        if (sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
-                        {
-                            clear_ledger();
-                        }
-
                         // Scan any queued lcl history responses.
                         // Only process the first successful item which matches with our current lcl.
                         for (const p2p::history_response &hr : history_responses)
