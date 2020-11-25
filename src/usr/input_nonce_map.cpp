@@ -7,7 +7,11 @@ namespace usr
     constexpr uint64_t TTL = 300000; // 5 minutes.
     constexpr uint16_t CLEANUP_THRESHOLD = 256;
 
-    bool input_nonce_map::is_valid(const std::string &pubkey, const std::string &nonce)
+    /**
+     * Checks whether the given nonce is valid for the given user pubkey. If it is valid, remembers this nonce
+     * to be checked for future checks. (If no_add is true, this nonce will not be remembered)
+     */
+    bool input_nonce_map::is_valid(const std::string &pubkey, const std::string &nonce, const bool no_add)
     {
         bool valid = false;
 
@@ -16,7 +20,8 @@ namespace usr
         if (itr == nonce_map.end())
         {
             valid = true;
-            nonce_map.emplace(pubkey, std::pair<std::string, uint64_t>(nonce, util::get_epoch_milliseconds() + TTL));
+            if (!no_add)
+                nonce_map.emplace(pubkey, std::pair<std::string, uint64_t>(nonce, util::get_epoch_milliseconds() + TTL));
         }
         else
         {
@@ -24,7 +29,7 @@ namespace usr
             const uint64_t expire_on = itr->second.second;
             valid = (expire_on <= now || existing_nonce < nonce);
 
-            if (valid)
+            if (valid && !no_add)
             {
                 itr->second.first = nonce;
                 itr->second.second = now + TTL;
