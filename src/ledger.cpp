@@ -14,7 +14,7 @@ namespace ledger
 {
     constexpr int FILE_PERMS = 0644;
     constexpr uint64_t MAX_LEDGER_SEQUENCE = 256; // Max ledger block count to keep.
-    constexpr uint16_t SYNCER_IDLE_WAIT = 20;     // lcl syncer loop sleep time  (milliseconds).
+    constexpr uint16_t SYNCER_IDLE_WAIT = 20;     // lcl syncer loop sleep time (milliseconds).
 
     ledger_context ctx;
     sync_context sync_ctx;
@@ -124,21 +124,31 @@ namespace ledger
         }
     }
 
-    void set_sync_target(std::string_view target_lcl)
+    void set_sync_target(const std::string &target_lcl)
     {
         if (sync_ctx.is_shutting_down)
             return;
 
-        const std::string lcl = ctx.get_lcl();
+        // Validate target lcl format.
+        uint64_t target_seq_no;
+        std::string target_hash;
+        if (extract_lcl(target_lcl, target_seq_no, target_hash) == -1)
+        {
+            LOG_ERROR << "lcl sync: Invalid target lcl " << target_seq_no;
+            return;
+        }
+
+        const std::string current_lcl = ctx.get_lcl();
 
         {
             std::scoped_lock<std::mutex> lock(sync_ctx.target_lcl_mutex);
             if (sync_ctx.target_lcl == target_lcl)
                 return;
             sync_ctx.target_lcl = target_lcl;
+            sync_ctx.target_lcl_seq_no = target_seq_no;
             sync_ctx.is_syncing = true;
 
-            LOG_INFO << "lcl sync: Syncing for target:" << sync_ctx.target_lcl.substr(0, 15) << " (current:" << lcl.substr(0, 15) << ")";
+            LOG_INFO << "lcl sync: Syncing for target:" << sync_ctx.target_lcl.substr(0, 15) << " (current:" << current_lcl.substr(0, 15) << ")";
         }
 
         // Request history from a random peer if needed.
@@ -146,9 +156,8 @@ namespace ledger
         // history request.
         if (target_lcl != GENESIS_LEDGER)
         {
-            // Check the target lcl seq no.
-
-            send_ledger_history_request(lcl, target_lcl);
+            std::string_view min_lcl = (current_lcl == GENESIS_LEDGER) ? target_lcl : current_lcl;
+            send_ledger_history_request(min_lcl, target_lcl);
         }
     }
 
@@ -194,10 +203,19 @@ namespace ledger
                     {
                         clear_ledger();
                         sync_ctx.target_lcl.clear();
+                        sync_ctx.target_lcl_seq_no = 0;
                         sync_ctx.is_syncing = false;
                     }
                     else
                     {
+                        // Check the target lcl seq no. to see whether it's too far ahead. That means no one probably has our
+                        // lcl in their ledgers. So we should clear our entire ledger history before requesting from peers.
+                        if (sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
+                        {
+                            clear_ledger();
+                        }
+
+                        // Scan any queued lcl history responses.
                         // Only process the first successful item which matches with our current lcl.
                         for (const p2p::history_response &hr : history_responses)
                         {
@@ -208,6 +226,7 @@ namespace ledger
                                 {
                                     LOG_INFO << "lcl sync: Sync complete. New lcl:" << new_lcl.substr(0, 15);
                                     sync_ctx.target_lcl.clear();
+                                    sync_ctx.target_lcl_seq_no = 0;
                                     sync_ctx.is_syncing = false;
                                     break;
                                 }
@@ -283,6 +302,8 @@ namespace ledger
             LOG_ERROR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
             return -1;
         }
+
+        seq_no++; // New lcl sequence number.
 
         // Serialize lcl using flatbuffer ledger block schema.
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -601,7 +622,7 @@ namespace ledger
 
             if (!contains_requested_lcl)
             {
-                LOG_DEBUG << "lcl sync: Peer sent us a history response but not containing the lcl we asked for.";
+                LOG_INFO << "lcl sync: Peer sent us a history response but not containing the lcl we asked for.";
                 return -1;
             }
 
@@ -616,13 +637,13 @@ namespace ledger
                 std::string lcl_hash;
                 if (extract_lcl(ledger.lcl, lcl_seq_no, lcl_hash) == -1)
                 {
-                    LOG_DEBUG << "lcl sync: Error when parsing lcl " << ledger.lcl;
+                    LOG_INFO << "lcl sync: Error when parsing lcl " << ledger.lcl;
                     return -1;
                 }
 
                 if (!check_block_integrity(lcl_hash, ledger.block_buffer))
                 {
-                    LOG_DEBUG << "lcl sync: Peer sent us a history response but the ledger data does not match the hashes.";
+                    LOG_INFO << "lcl sync: Peer sent us a history response but the ledger data does not match the hashes.";
                     // todo: we should penalize peer who sent this.
                     return -1;
                 }
@@ -633,7 +654,7 @@ namespace ledger
                     const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(ledger.block_buffer);
                     if ((seq_no - previous_history_block_seq_no != 1) && (previous_history_block_lcl != proposal.lcl))
                     {
-                        LOG_ERROR << "Ledger block chain-link verification failed. " << ledger.lcl;
+                        LOG_INFO << "Ledger block chain-link verification failed. " << ledger.lcl;
                         return -1;
                     }
                 }
@@ -749,11 +770,18 @@ namespace ledger
 
     int extract_lcl(const std::string &lcl, uint64_t &seq_no, std::string &hash)
     {
+        if (lcl == GENESIS_LEDGER)
+        {
+            seq_no = 0;
+            hash = lcl.substr(2);
+            return 0;
+        }
+
         const size_t pos = lcl.find("-");
         if (pos == std::string::npos)
             return -1;
 
-        if (util::stoull(lcl.substr(0, pos), seq_no))
+        if (util::stoull(lcl.substr(0, pos), seq_no) == -1)
             return -1;
 
         hash = lcl.substr(pos + 1);

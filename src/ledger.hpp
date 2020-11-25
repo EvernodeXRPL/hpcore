@@ -14,6 +14,7 @@ namespace ledger
     {
         // The current target lcl that we are syncing towards.
         std::string target_lcl;
+        uint64_t target_lcl_seq_no;
         std::mutex target_lcl_mutex;
 
         // Lists holding history requests and responses collected from incoming p2p messages.
@@ -71,7 +72,7 @@ namespace ledger
 
     void lcl_syncer_loop();
 
-    void set_sync_target(std::string_view target_lcl);
+    void set_sync_target(const std::string &target_lcl);
 
     const std::pair<uint64_t, std::string> get_ledger_cache_top();
 
