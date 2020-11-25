@@ -88,7 +88,7 @@ namespace ledger
 
     void remove_ledger(const std::string &file_name);
 
-    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl);
+    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl, std::string_view current_lcl);
 
     bool check_required_lcl_availability(const std::string &required_lcl);
 

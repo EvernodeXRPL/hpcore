@@ -157,7 +157,7 @@ namespace ledger
         if (target_lcl != GENESIS_LEDGER)
         {
             std::string_view min_lcl = (current_lcl == GENESIS_LEDGER) ? target_lcl : current_lcl;
-            send_ledger_history_request(min_lcl, target_lcl);
+            send_ledger_history_request(min_lcl, target_lcl, current_lcl);
         }
     }
 
@@ -182,7 +182,7 @@ namespace ledger
             if (!prev_processed)
                 util::sleep(SYNCER_IDLE_WAIT);
 
-            const std::string lcl = ctx.get_lcl();
+            const std::string current_lcl = ctx.get_lcl();
 
             // Move over the collected sync items to the local lists.
             {
@@ -219,7 +219,7 @@ namespace ledger
                         // Only process the first successful item which matches with our current lcl.
                         for (const p2p::history_response &hr : history_responses)
                         {
-                            if (hr.requester_lcl == lcl)
+                            if (hr.requester_lcl == current_lcl)
                             {
                                 std::string new_lcl;
                                 if (handle_ledger_history_response(hr, new_lcl) != -1)
@@ -458,9 +458,10 @@ namespace ledger
      * @param minimum_lcl hash of the minimum lcl from which node need lcl history.
      * @param required_lcl hash of the required lcl.
      */
-    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl)
+    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl, std::string_view current_lcl)
     {
         p2p::history_request hr;
+        hr.requester_lcl = current_lcl;
         hr.required_lcl = required_lcl;
         hr.minimum_lcl = minimum_lcl;
 
@@ -525,12 +526,12 @@ namespace ledger
         std::string hash;
         if (extract_lcl(hr.minimum_lcl, min_seq_no, hash) == -1)
         {
-            LOG_DEBUG << "lcl serve: Invalid lcl history request. Requested:" << hr.minimum_lcl;
+            LOG_DEBUG << "lcl serve: Invalid request. Min lcl unavailable:" << hr.minimum_lcl;
             return -1;
         }
 
         // We put the requester's own lcl back in the response so they can validate the liveliness of the response.
-        history_response.requester_lcl = hr.minimum_lcl;
+        history_response.requester_lcl = hr.requester_lcl;
 
         const auto itr = ctx.cache.find(min_seq_no);
         if (itr != ctx.cache.end()) // Requested minimum lcl is not in our lcl history cache
