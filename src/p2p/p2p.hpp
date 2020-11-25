@@ -41,7 +41,6 @@ namespace p2p
     struct history_request
     {
         std::string requester_lcl;
-        std::string minimum_lcl;
         std::string required_lcl;
     };
 

@@ -155,8 +155,7 @@ namespace ledger
         // We do not send a request if the target is GENESIS block (nothing to request).
         if (target_lcl != GENESIS_LEDGER)
         {
-            std::string_view min_lcl = (current_lcl == GENESIS_LEDGER) ? target_lcl : current_lcl;
-            send_ledger_history_request(min_lcl, target_lcl, current_lcl);
+            send_ledger_history_request(current_lcl, target_lcl);
         }
     }
 
@@ -455,15 +454,14 @@ namespace ledger
 
     /**
      * Create and send ledger history request to random node from unl list.
-     * @param minimum_lcl hash of the minimum lcl from which node need lcl history.
-     * @param required_lcl hash of the required lcl.
+     * @param current_lcl Current lcl.
+     * @param required_lcl Required lcl.
      */
-    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl, std::string_view current_lcl)
+    void send_ledger_history_request(std::string_view current_lcl, std::string_view required_lcl)
     {
         p2p::history_request hr;
-        hr.requester_lcl = current_lcl;
         hr.required_lcl = required_lcl;
-        hr.minimum_lcl = minimum_lcl;
+        hr.requester_lcl = current_lcl;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_history_request(fbuf, hr);
@@ -522,40 +520,48 @@ namespace ledger
      */
     int retrieve_ledger_history(const p2p::history_request &hr, p2p::history_response &history_response)
     {
-        uint64_t min_seq_no;
+        uint64_t min_seq_no = 0;
         std::string hash;
-        if (extract_lcl(hr.minimum_lcl, min_seq_no, hash) == -1)
+        if (extract_lcl(hr.requester_lcl, min_seq_no, hash) == -1)
         {
-            LOG_DEBUG << "lcl serve: Invalid request. Min lcl unavailable:" << hr.minimum_lcl;
+            LOG_DEBUG << "lcl serve: Invalid request. Requester lcl invalid:" << hr.requester_lcl;
             return -1;
         }
 
         // We put the requester's own lcl back in the response so they can validate the liveliness of the response.
         history_response.requester_lcl = hr.requester_lcl;
 
-        const auto itr = ctx.cache.find(min_seq_no);
-        if (itr != ctx.cache.end()) // Requested minimum lcl is not in our lcl history cache
+        if (min_seq_no > 0)
         {
-            min_seq_no = itr->first;
-
-            // Check whether minimum lcl requested is same as this node's.
-            // Evenhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
-            if (hr.minimum_lcl != itr->second)
+            const auto itr = ctx.cache.find(min_seq_no);
+            if (itr != ctx.cache.end()) // Requested minimum lcl was found in our lcl history cache
             {
-                LOG_DEBUG << "lcl serve: Invalid minimum ledger. Requested min lcl:" << hr.minimum_lcl << " Node lcl:" << itr->second;
+                // Check whether requested minimum lcl hash is same as this node's.
+                // Evenhough sequence number are same, lcl hash can be changed if one of node is in a fork condition.
+                if (hr.requester_lcl != itr->second)
+                {
+                    LOG_DEBUG << "lcl serve: Invalid minimum ledger. Requester lcl:" << hr.requester_lcl << " Node lcl:" << itr->second;
+                    history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
+                    return 0;
+                }
+
+                min_seq_no = itr->first;
+            }
+            else if (min_seq_no > ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
+            {
+                LOG_DEBUG << "lcl serve: Invalid minimum ledger. Requester lcl " << hr.requester_lcl << " is ahead of us.";
                 history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
                 return 0;
             }
-        }
-        else if (min_seq_no > ctx.cache.rbegin()->first) //Recieved minimum lcl sequence is ahead of node's lcl sequence.
-        {
-            LOG_DEBUG << "lcl serve: Invalid minimum ledger. Recieved minimum seq no is ahead of node current seq no. Requested lcl:" << hr.minimum_lcl;
-            history_response.error = p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER;
-            return 0;
+            else
+            {
+                LOG_DEBUG << "lcl serve: Requester lcl is not in our lcl cache. Sending our entire history.";
+                min_seq_no = ctx.cache.begin()->first;
+            }
         }
         else
         {
-            LOG_DEBUG << "lcl serve: Minimum lcl peer asked for is not in our lcl cache. Therefore sending from node minimum lcl.";
+            LOG_DEBUG << "lcl serve: Requester lcl is GENSIS. Sending our entire history.";
             min_seq_no = ctx.cache.begin()->first;
         }
 

@@ -253,9 +253,6 @@ namespace msg::fbuf::p2pmsg
         if (lcl)
             hr.requester_lcl = flatbuff_bytes_to_sv(lcl);
 
-        if (msg.minimum_lcl())
-            hr.minimum_lcl = flatbuff_bytes_to_sv(msg.minimum_lcl());
-
         if (msg.required_lcl())
             hr.required_lcl = flatbuff_bytes_to_sv(msg.required_lcl());
 
@@ -421,7 +418,6 @@ namespace msg::fbuf::p2pmsg
         flatbuffers::Offset<History_Request_Message> hrmsg =
             CreateHistory_Request_Message(
                 builder,
-                sv_to_flatbuff_bytes(builder, hr.minimum_lcl),
                 sv_to_flatbuff_bytes(builder, hr.required_lcl));
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Request_Message, hrmsg.Union());
