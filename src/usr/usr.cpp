@@ -14,6 +14,7 @@
 #include "user_comm_server.hpp"
 #include "user_input.hpp"
 #include "read_req.hpp"
+#include "input_nonce_map.hpp"
 
 namespace usr
 {
@@ -22,6 +23,7 @@ namespace usr
     connected_context ctx;
 
     util::buffer_store input_store;
+    input_nonce_map nonce_map;
     uint64_t metric_thresholds[5];
     bool init_success = false;
 
@@ -144,12 +146,25 @@ namespace usr
                 {
                     std::scoped_lock<std::mutex> lock(ctx.users_mutex);
 
-                    //Add to the submitted input list.
-                    user.submitted_inputs.push_back(user_input(
-                        std::move(input_container),
-                        std::move(sig),
-                        user.protocol));
-                    return 0;
+                    std::string input_data;
+                    std::string nonce;
+                    uint64_t max_lcl_seqno;
+                    parser.extract_input_container(input_data, nonce, max_lcl_seqno, input_container);
+
+                    if (nonce_map.is_valid(user.pubkey, nonce, true))
+                    {
+                        //Add to the submitted input list.
+                        user.submitted_inputs.push_back(user_input(
+                            std::move(input_container),
+                            std::move(sig),
+                            user.protocol));
+                        return 0;
+                    }
+                    else
+                    {
+                        send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_EXPIRED, sig);
+                        return -1;
+                    }
                 }
                 else
                 {
@@ -262,20 +277,10 @@ namespace usr
      * Validates the provided user input message against all the required criteria.
      * @return The rejection reason if input rejected. NULL if the input can be accepted.
      */
-    const char *validate_user_input_submission(const std::string_view user_pubkey, const usr::user_input &umsg,
+    const char *validate_user_input_submission(const std::string &user_pubkey, const usr::user_input &umsg,
                                                const uint64_t lcl_seq_no, size_t &total_input_len,
-                                               util::rollover_hashset &recent_user_input_hashes,
                                                std::string &hash, util::buffer_view &input, uint64_t &max_lcl_seqno)
     {
-        const std::string sig_hash = crypto::get_hash(umsg.sig);
-
-        // Check for duplicate messages using hash of the signature.
-        if (!recent_user_input_hashes.try_emplace(sig_hash))
-        {
-            LOG_DEBUG << "Duplicate user message.";
-            return msg::usrmsg::REASON_DUPLICATE_MSG;
-        }
-
         // Verify the signature of the input_container.
         if (crypto::verify(umsg.input_container, umsg.sig, user_pubkey) == -1)
         {
@@ -296,6 +301,12 @@ namespace usr
             return msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
         }
 
+        if (!nonce_map.is_valid(user_pubkey, nonce))
+        {
+            LOG_DEBUG << "User message nonce expired.";
+            return msg::usrmsg::REASON_NONCE_EXPIRED;
+        }
+
         // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
         total_input_len += input_data.length();
         if (!verify_appbill_check(user_pubkey, total_input_len))
@@ -307,7 +318,7 @@ namespace usr
         // Hash is prefixed with the nonce to support user-defined sort order.
         hash = std::move(nonce);
         // Append the hash of the message signature to get the final hash.
-        hash.append(sig_hash);
+        hash.append(crypto::get_hash(umsg.sig));
 
         // Copy the input data into the input store.
         std::string_view s();

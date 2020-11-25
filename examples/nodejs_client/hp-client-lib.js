@@ -185,6 +185,8 @@ function HotPocketClient(server, keys, protocol = protocols.BSON) {
 
         if (!nonce)
             nonce = (new Date()).getTime().toString();
+        else
+            nonce = nonce.toString();
 
         // Acquire the current lcl and add the specified offset.
         const stat = await this.getStatus();
