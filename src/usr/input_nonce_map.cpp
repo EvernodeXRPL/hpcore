@@ -11,7 +11,7 @@ namespace usr
      * Checks whether the given nonce is valid for the given user pubkey. If it is valid, remembers this nonce
      * to be checked for future checks. (If no_add is true, this nonce will not be remembered)
      */
-    bool input_nonce_map::is_valid(const std::string &pubkey, const std::string &nonce, const bool no_add)
+    bool input_nonce_map::is_valid(const std::string &pubkey, const std::string &nonce, const std::string sig, const bool no_add)
     {
         bool valid = false;
 
@@ -21,18 +21,18 @@ namespace usr
         {
             valid = true;
             if (!no_add)
-                nonce_map.emplace(pubkey, std::pair<std::string, uint64_t>(nonce, util::get_epoch_milliseconds() + TTL));
+                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, (util::get_epoch_milliseconds() + TTL)));
         }
         else
         {
-            const std::string &existing_nonce = itr->second.first;
-            const uint64_t expire_on = itr->second.second;
+            const std::string &existing_nonce = std::get<0>(itr->second);
+            const uint64_t expire_on = std::get<2>(itr->second);
             valid = (expire_on <= now || existing_nonce < nonce);
 
             if (valid && !no_add)
             {
-                itr->second.first = nonce;
-                itr->second.second = now + TTL;
+                std::get<0>(itr->second) = nonce;
+                std::get<2>(itr->second) = now + TTL;
             }
         }
 
@@ -48,7 +48,7 @@ namespace usr
 
         for (auto itr = nonce_map.begin(); itr != nonce_map.end();)
         {
-            const uint64_t expire_on = itr->second.second;
+            const uint64_t expire_on = std::get<2>(itr->second);
             if (expire_on <= now)
                 itr = nonce_map.erase(itr);
             else

@@ -151,7 +151,7 @@ namespace usr
                     uint64_t max_lcl_seqno;
                     parser.extract_input_container(input_data, nonce, max_lcl_seqno, input_container);
 
-                    if (nonce_map.is_valid(user.pubkey, nonce, true))
+                    if (nonce_map.is_valid(user.pubkey, nonce, sig, true))
                     {
                         //Add to the submitted input list.
                         user.submitted_inputs.push_back(user_input(
@@ -301,7 +301,7 @@ namespace usr
             return msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
         }
 
-        if (!nonce_map.is_valid(user_pubkey, nonce))
+        if (!nonce_map.is_valid(user_pubkey, nonce, umsg.sig))
         {
             LOG_DEBUG << "User message nonce expired.";
             return msg::usrmsg::REASON_NONCE_EXPIRED;
