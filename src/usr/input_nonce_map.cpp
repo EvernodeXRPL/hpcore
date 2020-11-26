@@ -10,36 +10,49 @@ namespace usr
     /**
      * Checks whether the given nonce is valid for the given user pubkey. If it is valid, remembers this nonce
      * to be checked for future checks. (If no_add is true, this nonce will not be remembered)
+     * @return 0 if nonce is valid to be submitted.
+     *         1 if nonce has expired.
+     *         2 if message with same nonce/sig has already been submitted.
      */
-    bool input_nonce_map::is_valid(const std::string &pubkey, const std::string &nonce, const bool no_add)
+    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const bool no_add)
     {
-        bool valid = false;
+        int result = 0;
 
         const uint64_t now = util::get_epoch_milliseconds();
         auto itr = nonce_map.find(pubkey);
         if (itr == nonce_map.end())
         {
-            valid = true;
+            result = 0;
             if (!no_add)
-                nonce_map.emplace(pubkey, std::pair<std::string, uint64_t>(nonce, util::get_epoch_milliseconds() + TTL));
+                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, (util::get_epoch_milliseconds() + TTL)));
         }
         else
         {
-            const std::string &existing_nonce = itr->second.first;
-            const uint64_t expire_on = itr->second.second;
-            valid = (expire_on <= now || existing_nonce < nonce);
+            const std::string &existing_nonce = std::get<0>(itr->second);
+            const uint64_t expire_on = std::get<2>(itr->second);
 
-            if (valid && !no_add)
+            // Check if previous nonce has already expired or it is less than new nonce.
+            if (expire_on <= now || existing_nonce < nonce)
             {
-                itr->second.first = nonce;
-                itr->second.second = now + TTL;
+                if (!no_add)
+                {
+                    std::get<0>(itr->second) = nonce;
+                    std::get<2>(itr->second) = now + TTL;
+                }
+                result = 0;
+            }
+            else
+            {
+                // If new nonce is deemed invalid, check if new nonce/sig is same as old nonce/sig.
+                const std::string &existing_sig = std::get<1>(itr->second);
+                result = (existing_nonce == nonce && existing_sig == sig) ? 2 : 1;
             }
         }
 
         if (nonce_map.size() > CLEANUP_THRESHOLD)
             cleanup();
 
-        return valid;
+        return result;
     }
 
     void input_nonce_map::cleanup()
@@ -48,7 +61,7 @@ namespace usr
 
         for (auto itr = nonce_map.begin(); itr != nonce_map.end();)
         {
-            const uint64_t expire_on = itr->second.second;
+            const uint64_t expire_on = std::get<2>(itr->second);
             if (expire_on <= now)
                 itr = nonce_map.erase(itr);
             else
