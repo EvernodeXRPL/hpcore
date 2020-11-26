@@ -2,6 +2,7 @@
 #include "../util/util.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../ledger.hpp"
+#include "../unl.hpp"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
 #include "self_node.hpp"
@@ -199,7 +200,7 @@ namespace p2p
         if (connected_status_check_counter == 600)
         {
             // One is added to session list size to reflect the loop back connection.
-            const bool current_state = (sessions.size() + 1) < (conf::cfg.unl.size() * WEAKLY_CONNECTED_THRESHOLD);
+            const bool current_state = (sessions.size() + 1) < (unl::count() * WEAKLY_CONNECTED_THRESHOLD);
             if (is_weakly_connected != current_state)
             {
                 is_weakly_connected = !is_weakly_connected;

@@ -1,3 +1,4 @@
+#include "util/util.hpp"
 #include "unl.hpp"
 
 /**
@@ -6,6 +7,7 @@
 namespace unl
 {
     std::unordered_set<std::string> list; // List of binary pubkeys of UNL.
+    std::string json_list;                // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
 
     size_t count()
@@ -18,6 +20,12 @@ namespace unl
     {
         std::shared_lock lock(unl_mutex);
         return list;
+    }
+
+    std::string get_json()
+    {
+        std::shared_lock lock(unl_mutex);
+        return json_list;
     }
 
     bool exists(const std::string &bin_pubkey)
@@ -35,6 +43,8 @@ namespace unl
 
         for (const std::string &pubkey : additions)
             list.emplace(pubkey);
+
+        update_json_list();
     }
 
     void update(const std::vector<std::string> &additions, const std::vector<std::string> &removals)
@@ -49,6 +59,30 @@ namespace unl
 
         for (const std::string &pubkey : removals)
             list.erase(pubkey);
+
+        update_json_list();
+    }
+
+    void update_json_list()
+    {
+        std::ostringstream os;
+        os << "[";
+        for (auto pk = list.begin(); pk != list.end(); pk++)
+        {
+            if (pk != list.begin())
+                os << ","; // Trailing comma separator for previous element.
+
+            // Convert binary pubkey into hex.
+            std::string pubkeyhex;
+            util::bin2hex(
+                pubkeyhex,
+                reinterpret_cast<const unsigned char *>(pk->data()) + 1,
+                pk->length() - 1);
+
+            os << "\"" << pubkeyhex << "\"";
+        }
+        os << "]";
+        json_list = os.str();
     }
 
 } // namespace unl
