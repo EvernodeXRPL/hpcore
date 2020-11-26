@@ -196,7 +196,7 @@ int hp_init(hp_contract_func contract_func)
             __hp_free_contract_context(&ctx);
 
             // Send termination control message.
-            write(gctx.control_fd, "Terminated", 10);
+            write(gctx.control_fd, "{\"type\":\"contract_end\"}", 10);
             close(gctx.control_fd);
             return 0;
         }
