@@ -49,33 +49,33 @@ namespace msg::usrmsg
     int usrmsg_parser::parse(std::string_view message)
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::parse_user_message(jsonDoc, message);
+            return jusrmsg::parse_user_message(jdoc, message);
         else
-            return busrmsg::parse_user_message(bsonDoc, message);
+            return busrmsg::parse_user_message(bdoc, message);
     }
 
     int usrmsg_parser::extract_type(std::string &extracted_type) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_type(extracted_type, jsonDoc);
+            return jusrmsg::extract_type(extracted_type, jdoc);
         else
-            return busrmsg::extract_type(extracted_type, bsonDoc);
+            return busrmsg::extract_type(extracted_type, bdoc);
     }
 
     int usrmsg_parser::extract_read_request(std::string &extracted_content) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_read_request(extracted_content, jsonDoc);
+            return jusrmsg::extract_read_request(extracted_content, jdoc);
         else
-            return busrmsg::extract_read_request(extracted_content, bsonDoc);
+            return busrmsg::extract_read_request(extracted_content, bdoc);
     }
 
     int usrmsg_parser::extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_signed_input_container(extracted_input_container, extracted_sig, jsonDoc);
+            return jusrmsg::extract_signed_input_container(extracted_input_container, extracted_sig, jdoc);
         else
-            return busrmsg::extract_signed_input_container(extracted_input_container, extracted_sig, bsonDoc);
+            return busrmsg::extract_signed_input_container(extracted_input_container, extracted_sig, bdoc);
     }
 
     int usrmsg_parser::extract_input_container(std::string &input, std::string &nonce,

@@ -97,7 +97,7 @@ namespace consensus
 
     int consensus();
 
-    bool is_in_sync(std::string_view lcl, vote_counter &votes);
+    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes);
 
     void revise_candidate_proposals();
 
@@ -111,11 +111,11 @@ namespace consensus
 
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 
-    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state);
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl);
+    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count);
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 

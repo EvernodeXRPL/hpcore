@@ -93,14 +93,14 @@ namespace conf
         std::string appbill;                                    // binary to execute for appbill
         std::string appbillargs;                                // any arguments to supply to appbill binary by default
         std::vector<peer_properties> peers;                     // Vector of peers with ip_port, timestamp, capacity
-        std::unordered_set<std::string> unl;                    // Unique node list (list of binary public keys)
+        std::vector<std::string> unl;                           // Unique node list (list of binary public keys)
         uint16_t peerport = 0;                                  // Listening port for peer connections
         uint16_t roundtime = 0;                                 // Consensus round time in ms
         uint16_t pubport = 0;                                   // Listening port for public user connections
         uint16_t peerdiscoverytime = 0;                         // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
 
-        uint16_t peeridletimeout = 0;   // Idle connection timeout for peer connections in seconds.
-        uint16_t pubidletimeout = 0;    // Idle connection timeout for user connections in seconds.
+        uint16_t peeridletimeout = 0; // Idle connection timeout for peer connections in seconds.
+        uint16_t pubidletimeout = 0;  // Idle connection timeout for user connections in seconds.
 
         uint64_t pubmaxsize = 0;   // User message max size in bytes
         uint64_t pubmaxcpm = 0;    // User message rate (characters(bytes) per minute)

@@ -131,12 +131,15 @@ int hp_user_writev(const struct hp_user *user, const struct iovec *bufs, const i
 int hp_peer_write(const struct hp_contract_context *ctx, const uint8_t *buf, const uint32_t len);
 int hp_peer_writev(const struct hp_contract_context *ctx, const struct iovec *bufs, const int buf_count);
 
-void __hp_parse_args_json(struct __hp_global_context *gctx, struct hp_contract_context *ctx, const struct json_object_s *object);
+int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count);
+
+void __hp_parse_args_json(struct hp_contract_context *ctx, const struct json_object_s *object);
 void __hp_free_contract_context(struct hp_contract_context *ctx);
 
 static void *__hp_peer_message_thread_func(void *arg);
 
 static void *__hp_control_message_thread_func(void *arg);
+int __hp_control_write(const uint8_t *buf, const uint32_t len);
 void __hp_on_control_message(const void *buf, const uint32_t len);
 
 static struct __hp_global_context gctx = {};
@@ -162,7 +165,7 @@ int hp_init(hp_contract_func contract_func)
         {
             // Create and populate hotpocket context.
             struct hp_contract_context ctx = {};
-            __hp_parse_args_json(&gctx, &ctx, object);
+            __hp_parse_args_json(&ctx, object);
             free(root);
 
             // Start control channel listener.
@@ -196,7 +199,7 @@ int hp_init(hp_contract_func contract_func)
             __hp_free_contract_context(&ctx);
 
             // Send termination control message.
-            write(gctx.control_fd, "{\"type\":\"contract_end\"}", 24);
+            __hp_control_write("{\"type\":\"contract_end\"}", 23);
             close(gctx.control_fd);
             return 0;
         }
@@ -323,7 +326,46 @@ int hp_peer_writev(const struct hp_contract_context *ctx, const struct iovec *bu
     return writev(ctx->peers.fd, bufs, buf_count);
 }
 
-void __hp_parse_args_json(struct __hp_global_context *gctx, struct hp_contract_context *ctx, const struct json_object_s *object)
+int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count)
+{
+    // We assume 'add' and 'remove' are pointing to a char buffer containing 'count' no. of char[64] buffers.
+
+    // Calculate total json message length and prepare the json buf.
+    // Format: {"type":"unl_changeset","add":["pubkey1",...],"remove":["pubkey2",...]}
+
+    const size_t json_size = 45 + (67 * add_count - (add_count ? 1 : 0)) + (67 * remove_count - (remove_count ? 1 : 0));
+    char json_buf[json_size];
+
+    strncpy(json_buf, "{\"type\":\"unl_changeset\",\"add\":[", 31);
+    size_t pos = 31;
+    for (int i = 0; i < add_count; i++)
+    {
+        if (i > 0)
+            json_buf[pos++] = ',';
+        json_buf[pos++] = '"';
+        strncpy(json_buf + pos, add + (i * 64), 64);
+        pos += 64;
+        json_buf[pos++] = '"';
+    }
+
+    strncpy(json_buf + pos, "],\"remove\":[", 12);
+    pos += 12;
+    for (int i = 0; i < remove_count; i++)
+    {
+        if (i > 0)
+            json_buf[pos++] = ',';
+        json_buf[pos++] = '"';
+        strncpy(json_buf + pos, remove + (i * 64), 64);
+        pos += 64;
+        json_buf[pos++] = '"';
+    }
+
+    strncpy(json_buf + pos, "]}", 2);
+
+    return __hp_control_write(json_buf, json_size);
+}
+
+void __hp_parse_args_json(struct hp_contract_context *ctx, const struct json_object_s *object)
 {
     const struct json_object_element_s *elem = object->start;
     do
@@ -438,7 +480,7 @@ void __hp_parse_args_json(struct __hp_global_context *gctx, struct hp_contract_c
         }
         else if (strcmp(k->string, "hpfd") == 0)
         {
-            __HP_ASSIGN_INT(gctx->control_fd, elem);
+            __HP_ASSIGN_INT(gctx.control_fd, elem);
         }
 
         elem = elem->next;
@@ -591,6 +633,17 @@ void __hp_free_contract_context(struct hp_contract_context *ctx)
 
     if (ctx->peers.list)
         free(ctx->peers.list);
+}
+
+int __hp_control_write(const uint8_t *buf, const uint32_t len)
+{
+    if (len > __HP_SEQPKT_BUF_SIZE)
+    {
+        fprintf(stderr, "Control message exceeds max length %d.", __HP_SEQPKT_BUF_SIZE);
+        return -1;
+    }
+
+    return write(gctx.control_fd, buf, len);
 }
 
 #endif

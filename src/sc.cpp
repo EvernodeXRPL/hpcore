@@ -8,6 +8,7 @@
 #include "msg/fbuf/p2pmsg_helpers.hpp"
 #include "msg/controlmsg_common.hpp"
 #include "msg/controlmsg_parser.hpp"
+#include "unl.hpp"
 
 namespace sc
 {
@@ -276,26 +277,9 @@ namespace sc
 
         user_json_to_stream(ctx.userfds, ctx.args.userbufs, os);
 
-        os << "},\"unl\":[";
+        os << "},\"unl\":" << unl::get_json() << "}";
 
-        for (auto nodepk = conf::cfg.unl.begin(); nodepk != conf::cfg.unl.end(); nodepk++)
-        {
-            if (nodepk != conf::cfg.unl.begin())
-                os << ","; // Trailing comma separator for previous element.
-
-            // Convert binary nodepk into hex.
-            std::string pubkeyhex;
-            util::bin2hex(
-                pubkeyhex,
-                reinterpret_cast<const unsigned char *>((*nodepk).data()) + 1,
-                (*nodepk).length() - 1);
-
-            os << "\"" << pubkeyhex << "\"";
-        }
-
-        os << "]}";
-
-        // Get the json string that should be written to contract input pipe.
+        // Get the final json string that should be written to contract input pipe.
         const std::string json = os.str();
 
         // Establish contract input pipe.
@@ -735,6 +719,7 @@ namespace sc
                 const size_t bytes_to_read = is_stream_socket ? available_bytes : MIN(MAX_SEQ_PACKET_SIZE, available_bytes);
                 output.resize(bytes_to_read);
                 const int read_res = read(readfd, output.data(), bytes_to_read);
+                output.resize(read_res);
 
                 if (read_res >= 0)
                 {
@@ -837,6 +822,12 @@ namespace sc
         if (type == msg::controlmsg::MSGTYPE_CONTRACT_END)
         {
             ctx.termination_signaled = true;
+        }
+        else if (type == msg::controlmsg::MSGTYPE_UNL_CHANGESET && !ctx.args.readonly)
+        {
+            std::vector<std::string> additions, removals;
+            parser.extract_unl_changeset(additions, removals);
+            unl::update(additions, removals);
         }
     }
 
