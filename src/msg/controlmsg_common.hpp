@@ -7,9 +7,12 @@ namespace msg::controlmsg
 {
     // Message field names
     constexpr const char *FLD_TYPE = "type";
+    constexpr const char *FLD_ADD = "add";
+    constexpr const char *FLD_REMOVE = "remove";
 
     // Message types
     constexpr const char *MSGTYPE_CONTRACT_END = "contract_end";
+    constexpr const char *MSGTYPE_UNL_CHANGESET = "unl_changeset";
 
 } // namespace msg::controlmsg
 

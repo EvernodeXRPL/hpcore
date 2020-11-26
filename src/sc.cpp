@@ -838,6 +838,11 @@ namespace sc
         {
             ctx.termination_signaled = true;
         }
+        else if (type == msg::controlmsg::MSGTYPE_UNL_CHANGESET)
+        {
+            std::vector<std::string> additions, removals;
+            parser.extract_unl_changeset(additions, removals);
+        }
     }
 
 } // namespace sc
