@@ -13,7 +13,7 @@ namespace usr
         void cleanup();
 
     public:
-        bool is_valid(const std::string &pubkey, const std::string &nonce, const std::string sig, const bool no_add = false);
+        int check(const std::string &pubkey, const std::string &nonce, const std::string sig, const bool no_add = false);
     };
 
 } // namespace usr
