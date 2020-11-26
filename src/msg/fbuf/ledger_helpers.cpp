@@ -1,11 +1,13 @@
 #include "../../pchheader.hpp"
 #include "../../p2p/p2p.hpp"
 #include "ledger_schema_generated.h"
+#include "fullhistory_schema_generated.h"
 #include "common_helpers.hpp"
 #include "ledger_helpers.hpp"
 
 namespace msg::fbuf::ledger
-{    /**
+{
+    /**
      * Create ledger block from the given proposal struct.
      * @param p The proposal struct to be placed in ledger.
      */
@@ -66,5 +68,21 @@ namespace msg::fbuf::ledger
                 builder.CreateVector(fbvec));
 
         builder.Finish(fullhistory); // Finished building message content to get serialised content.
+    }
+
+    std::unordered_map<std::string, usr::raw_user_input> create_raw_input_map_from_full_history_block(const std::vector<uint8_t> &fullhist_buf)
+    {
+        const auto fullhistory = msg::fbuf::ledger::GetFullHistoryBlock(fullhist_buf.data());
+        const auto fbvec = fullhistory->raw_inputs();
+
+        std::unordered_map<std::string, usr::raw_user_input> map;
+        map.reserve(fbvec->size());
+        for (auto el : *fbvec)
+        {
+            usr::user_input user_input(flatbuff_bytes_to_sv(el->input_container()), flatbuff_bytes_to_sv(el->sig()), (util::PROTOCOL)el->protocol());
+            usr::raw_user_input raw_user_input(flatbuff_bytes_to_sv(el->input_container()), user_input);
+            map.emplace(flatbuff_bytes_to_sv(el->hash()), raw_user_input);
+        }
+        return map;
     }
 } // namespace msg::fbuf::ledger

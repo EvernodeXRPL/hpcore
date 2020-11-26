@@ -32,7 +32,7 @@ namespace usr
         const std::string pubkey;
         const usr::user_input user_input;
 
-        raw_user_input(const std::string pubkey, const usr::user_input user_input)
+        raw_user_input(std::string_view pubkey, const usr::user_input user_input)
             : pubkey(pubkey), user_input(user_input)
         {
         }
