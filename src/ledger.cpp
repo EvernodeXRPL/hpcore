@@ -332,6 +332,7 @@ namespace ledger
 
         ctx.cache.emplace(seq_no, std::move(file_name));
 
+        // Write full history to the full history directory if full history mode is on.
         if (conf::cfg.fullhistorymode)
         {
             builder.Clear();
@@ -384,7 +385,7 @@ namespace ledger
         ctx.cache.clear();
         ctx.set_lcl(0, GENESIS_LEDGER);
 
-        // Clear full history if exists.
+        // Clear full history.
         util::clear_directory(conf::ctx.full_hist_dir);
     }
 

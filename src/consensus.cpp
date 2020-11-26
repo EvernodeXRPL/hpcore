@@ -160,7 +160,7 @@ namespace consensus
             {
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
-                p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, state);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -721,7 +721,7 @@ namespace consensus
      */
     int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, hpfs::h32 &new_state)
     {
-        // Map to temporarly store the raw inputs along with the hash.
+        // Map to temporarily store the raw inputs along with the hash.
         std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
 
         // Add raw_inputs to the proposal if full history mode is on.
