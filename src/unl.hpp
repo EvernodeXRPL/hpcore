@@ -12,7 +12,7 @@ namespace unl
     std::set<std::string> get();
     std::string get_json();
     bool exists(const std::string &bin_pubkey);
-    void add(const std::vector<std::string> &additions);
+    void init(const std::vector<std::string> &additions);
     void update(const std::vector<std::string> &additions, const std::vector<std::string> &removals);
     void update_json_list();
 

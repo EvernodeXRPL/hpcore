@@ -164,14 +164,27 @@ namespace conf
         ctx.log_dir = basedir + "/log";
     }
 
+    int persist_unl_update(std::vector<std::string> &&updated_unl)
+    {
+        contract_config cfg;
+        if (read_config(cfg) == -1)
+            return -1;
+
+        cfg.unl.swap(updated_unl);
+
+        if (write_config(cfg) == -1)
+            return -1;
+
+        return 0;
+    }
+
     /**
      * Reads the config file on disk and populates the in-memory 'cfg' struct.
-     *
      * @return 0 for successful loading of config. -1 for failure.
      */
     int read_config(contract_config &cfg)
     {
-        // Read the file into json document object.
+        // Read the config file into json document object.
 
         std::ifstream ifs(ctx.config_file);
         jsoncons::json d;
@@ -430,7 +443,7 @@ namespace conf
 
         // Populate unl.
         cfg.unl.push_back(cfg.pubkey); // Add self pubkey to unl.
-        unl::add(cfg.unl);
+        unl::init(cfg.unl);
 
         // Populate runtime contract execution args.
         if (!cfg.binargs.empty())

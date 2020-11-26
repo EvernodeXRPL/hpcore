@@ -136,6 +136,8 @@ namespace conf
 
     void set_contract_dir_paths(std::string exepath, std::string basedir);
 
+    int persist_unl_update(std::vector<std::string> &&updated_unl);
+
     //------Internal-use functions for this namespace.
 
     int read_config(contract_config &cfg);
