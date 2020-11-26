@@ -10,7 +10,8 @@ namespace unl
 {
     size_t count();
     std::unordered_set<std::string> get();
-    bool exists(std::string bin_pubkey);
+    bool exists(const std::string &bin_pubkey);
+    void add(const std::vector<std::string> &additions);
     void update(const std::vector<std::string> &additions, const std::vector<std::string> &removals);
 
 } // namespace unl

@@ -2,6 +2,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util/util.hpp"
+#include "unl.hpp"
 
 namespace conf
 {
@@ -28,9 +29,6 @@ namespace conf
 
         if (validate_contract_dir_paths() != 0 || load_config() != 0 || validate_config() != 0)
             return -1;
-
-        // Append self pubkey to unl list.
-        cfg.unl.emplace(cfg.pubkey);
 
         return 0;
     }
@@ -278,8 +276,13 @@ namespace conf
                 std::cerr << "Error decoding unl list.\n";
                 return -1;
             }
-            cfg.unl.emplace(bin_pubkey);
+            cfg.unl.push_back(bin_pubkey);
         }
+
+        cfg.unl.push_back(cfg.pubkey); // Add self pubkey.
+        unl::add(cfg.unl);
+        // Remove self pubkey after sending to unl list. This is so that it doesn't get saved in the config in "rekey" mode.
+        cfg.unl.pop_back();
 
         cfg.peerport = d["peerport"].as<uint16_t>();
         cfg.pubport = d["pubport"].as<uint16_t>();

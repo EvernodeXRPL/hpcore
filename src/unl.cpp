@@ -20,10 +20,21 @@ namespace unl
         return list;
     }
 
-    bool exists(std::string bin_pubkey)
+    bool exists(const std::string &bin_pubkey)
     {
         std::shared_lock lock(unl_mutex);
         return list.find(bin_pubkey) != list.end();
+    }
+
+    void add(const std::vector<std::string> &additions)
+    {
+        if (additions.empty())
+            return;
+
+        std::unique_lock lock(unl_mutex);
+
+        for (const std::string &pubkey : additions)
+            list.emplace(pubkey);
     }
 
     void update(const std::vector<std::string> &additions, const std::vector<std::string> &removals)
