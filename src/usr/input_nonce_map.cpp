@@ -14,7 +14,7 @@ namespace usr
      *         1 if nonce has expired.
      *         2 if message with same nonce/sig has already been submitted.
      */
-    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string sig, const bool no_add)
+    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const bool no_add)
     {
         int result = 0;
 
