@@ -1,4 +1,5 @@
 #include "util/util.hpp"
+#include "hplog.hpp"
 #include "unl.hpp"
 
 /**
@@ -7,7 +8,7 @@
 namespace unl
 {
     std::set<std::string> list; // List of binary pubkeys of UNL.
-    std::string json_list;                // Stringified json array of UNL. (To be fed into the contract args)
+    std::string json_list;      // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
 
     size_t count()
@@ -61,6 +62,9 @@ namespace unl
             list.erase(pubkey);
 
         update_json_list();
+
+        LOG_INFO << "UNL updated. Count:" << list.size();
+        ;
     }
 
     void update_json_list()

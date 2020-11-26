@@ -303,7 +303,7 @@ namespace msg::usrmsg::json
         }
         catch (const std::exception &e)
         {
-            LOG_DEBUG << "User json message parsing failed.";
+            LOG_DEBUG << "User json message parsing failed. " << e.what();;
             return -1;
         }
 

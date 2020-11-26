@@ -34,14 +34,14 @@ namespace msg::controlmsg::json
         }
         catch (const std::exception &e)
         {
-            LOG_DEBUG << "User json message parsing failed.";
+            LOG_ERROR << "Control json message parsing failed. " << e.what();
             return -1;
         }
 
         // Check existence of msg type field.
         if (!d.contains(msg::controlmsg::FLD_TYPE) || !d[msg::controlmsg::FLD_TYPE].is<std::string>())
         {
-            LOG_DEBUG << "User json message 'type' missing or invalid.";
+            LOG_ERROR << "Control json message 'type' missing or invalid.";
             return -1;
         }
 
@@ -69,7 +69,7 @@ namespace msg::controlmsg::json
     int extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals, const jsoncons::json &d)
     {
         extract_string_array(additions, d, FLD_ADD);
-        extract_string_array(additions, d, FLD_REMOVE);
+        extract_string_array(removals, d, FLD_REMOVE);
         return 0;
     }
 
@@ -86,7 +86,7 @@ namespace msg::controlmsg::json
             if (util::hex2bin(
                     reinterpret_cast<unsigned char *>(bin_pubkey.data()),
                     bin_pubkey.length(),
-                    hex_pubkey) != 0)
+                    hex_pubkey) != -1)
             {
                 vec.push_back(bin_pubkey);
             }

@@ -719,6 +719,7 @@ namespace sc
                 const size_t bytes_to_read = is_stream_socket ? available_bytes : MIN(MAX_SEQ_PACKET_SIZE, available_bytes);
                 output.resize(bytes_to_read);
                 const int read_res = read(readfd, output.data(), bytes_to_read);
+                output.resize(read_res);
 
                 if (read_res >= 0)
                 {
@@ -822,7 +823,7 @@ namespace sc
         {
             ctx.termination_signaled = true;
         }
-        else if (type == msg::controlmsg::MSGTYPE_UNL_CHANGESET)
+        else if (type == msg::controlmsg::MSGTYPE_UNL_CHANGESET && !ctx.args.readonly)
         {
             std::vector<std::string> additions, removals;
             parser.extract_unl_changeset(additions, removals);
