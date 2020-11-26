@@ -474,15 +474,20 @@ namespace consensus
                     for (auto &resp : user_responses)
                     {
                         // resp: 0=protocl, 1=msg sig, 2=reject reason.
-                        msg::usrmsg::usrmsg_parser parser(std::get<0>(resp));
-                        const std::string &msg_sig = std::get<1>(resp);
                         const char *reject_reason = std::get<2>(resp);
 
-                        usr::send_input_status(parser,
-                                               user_itr->second.session,
-                                               reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
-                                               reject_reason == NULL ? "" : reject_reason,
-                                               msg_sig);
+                        // We are not sending any status response for 'already submitted' inputs. This is because the user
+                        // would have gotten the proper status response during first submission.
+                        if (reject_reason != msg::usrmsg::REASON_ALREADY_SUBMITTED)
+                        {
+                            msg::usrmsg::usrmsg_parser parser(std::get<0>(resp));
+                            const std::string &msg_sig = std::get<1>(resp);
+                            usr::send_input_status(parser,
+                                                   user_itr->second.session,
+                                                   reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
+                                                   reject_reason == NULL ? "" : reject_reason,
+                                                   msg_sig);
+                        }
                     }
                 }
             }
@@ -729,7 +734,7 @@ namespace consensus
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state << ")";
+        //LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state << ")";
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
