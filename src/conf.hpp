@@ -61,6 +61,7 @@ namespace conf
         std::string hpfs_exe_path; // hpfs executable file path.
 
         std::string contract_dir;    // Contract base directory full path
+        std::string full_hist_dir;   // Contract full history dir full path
         std::string hist_dir;        // Contract ledger history dir full path
         std::string state_dir;       // Contract state maintenence path (hpfs path)
         std::string state_rw_dir;    // Contract executation read/write state path.

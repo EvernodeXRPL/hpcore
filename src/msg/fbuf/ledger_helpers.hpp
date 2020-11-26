@@ -8,14 +8,13 @@
 namespace msg::fbuf::ledger
 {
 
-    void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no, bool include_raw_input = false);
-
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>>>
-    create_raw_input_list_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map);
+    void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no);
 
     p2p::proposal create_proposal_from_ledger_block(const std::vector<uint8_t> &ledger_buf);
 
     bool verify_ledger_block_buffer(const uint8_t *ledger_buf_ptr, const size_t buf_len);
+
+    void create_full_history_block_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map);
 
 } // namespace msg::fbuf::ledger
 

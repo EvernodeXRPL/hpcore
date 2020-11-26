@@ -5,13 +5,11 @@
 #include "ledger_helpers.hpp"
 
 namespace msg::fbuf::ledger
-{
-
-    /**
+{    /**
      * Create ledger block from the given proposal struct.
      * @param p The proposal struct to be placed in ledger.
      */
-    void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no, bool include_raw_input)
+    void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no)
     {
         flatbuffers::Offset<ledger::LedgerBlock> ledger =
             ledger::CreateLedgerBlock(
@@ -22,33 +20,9 @@ namespace msg::fbuf::ledger
                 hash_to_flatbuff_bytes(builder, p.state),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
-                include_raw_input ? create_raw_input_list_from_raw_input_map(builder, p.raw_inputs) : 0);
+                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
 
         builder.Finish(ledger); // Finished building message content to get serialised content.
-    }
-
-    /**
- * Returns Flatbuffer vector of raw inputs from given map.
- */
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>>>
-    create_raw_input_list_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map)
-    {
-        std::vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>> fbvec;
-        fbvec.reserve(map.size());
-        for (auto const &[key, value] : map)
-        {
-            fbvec.push_back(ledger::CreateRawInput(
-                builder,
-                sv_to_flatbuff_bytes(builder, key),
-                CreateInput(
-                    builder,
-                    sv_to_flatbuff_bytes(builder, value.pubkey),
-                    sv_to_flatbuff_bytes(builder, value.user_input.input_container),
-                    sv_to_flatbuff_bytes(builder, value.user_input.sig),
-                    (Input_Protocol)value.user_input.protocol)));
-        }
-        return builder.CreateVector(fbvec);
     }
 
     p2p::proposal create_proposal_from_ledger_block(const std::vector<uint8_t> &ledger_buf)
@@ -67,4 +41,30 @@ namespace msg::fbuf::ledger
         return VerifyLedgerBlockBuffer(ledger_verifier);
     }
 
+    /**
+     * Create full history block from the given raw input map.
+     * @param map The raw input map to be placed in full history.
+     */
+    void create_full_history_block_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map)
+    {
+        std::vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>> fbvec;
+        fbvec.reserve(map.size());
+        for (auto const &[key, value] : map)
+        {
+            fbvec.push_back(ledger::CreateRawInput(
+                builder,
+                sv_to_flatbuff_bytes(builder, key),
+                sv_to_flatbuff_bytes(builder, value.pubkey),
+                sv_to_flatbuff_bytes(builder, value.user_input.input_container),
+                sv_to_flatbuff_bytes(builder, value.user_input.sig),
+                value.user_input.protocol));
+        }
+
+        flatbuffers::Offset<ledger::FullHistoryBlock> fullhistory =
+            ledger::CreateFullHistoryBlock(
+                builder,
+                builder.CreateVector(fbvec));
+
+        builder.Finish(fullhistory); // Finished building message content to get serialised content.
+    }
 } // namespace msg::fbuf::ledger

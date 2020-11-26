@@ -2,12 +2,6 @@ include "common_schema.fbs";
 
 namespace msg.fbuf.ledger;
 
-enum Input_Protocol : ubyte
-{
-    JSON = 0,
-    BSON = 1
-}
-
 table LedgerBlock {
     seq_no:uint64;
     time:uint64;
@@ -16,19 +10,18 @@ table LedgerBlock {
     users: [ByteArray];
     inputs: [ByteArray]; 
     outputs: [ByteArray];
+}
+
+table FullHistoryBlock {
     raw_inputs: [RawInput];
 }
 
 table RawInput {
     hash:[ubyte];
-    input:Input;
-}
-
-table Input {
     pubkey:[ubyte];
     input_container:[ubyte];
     sig:[ubyte];
-    protocol:Input_Protocol;
+    protocol:uint8;
 }
 
 root_type LedgerBlock;

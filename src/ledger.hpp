@@ -85,6 +85,8 @@ namespace ledger
 
     int write_ledger(const std::string &file_name, const uint8_t *ledger_raw, const size_t ledger_size);
 
+    int write_full_history(const std::string &file_name, const uint8_t *full_history_raw, const size_t full_history_size);
+
     void remove_ledger(const std::string &file_name);
 
     void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl);

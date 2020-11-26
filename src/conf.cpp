@@ -72,6 +72,7 @@ namespace conf
         // Recursivly create contract directories.
         util::create_dir_tree_recursive(ctx.config_dir);
         util::create_dir_tree_recursive(ctx.hist_dir);
+        util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
         util::create_dir_tree_recursive(ctx.state_dir);
 
@@ -151,6 +152,7 @@ namespace conf
         ctx.tls_key_file = ctx.config_dir + "/tlskey.pem";
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
         ctx.hist_dir = basedir + "/hist";
+        ctx.full_hist_dir = basedir + "/fullhist";
         ctx.state_dir = basedir + "/state";
         ctx.state_rw_dir = ctx.state_dir + "/rw";
         ctx.state_serve_dir = ctx.state_dir + "/ss";
@@ -537,10 +539,11 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[6] = {
+        const std::string paths[7] = {
             ctx.contract_dir,
             ctx.config_file,
             ctx.hist_dir,
+            ctx.full_hist_dir,
             ctx.state_dir,
             ctx.tls_key_file,
             ctx.tls_cert_file};
