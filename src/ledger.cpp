@@ -290,8 +290,9 @@ namespace ledger
     /**
      * Create and save ledger from the given proposal message. Called by consensus.
      * @param proposal Consensus-reached Stage 3 proposal.
+     * @param raw_inputs Raw inputs that are going to store.
      */
-    int save_ledger(const p2p::proposal &proposal)
+    int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> raw_inputs)
     {
         uint64_t seq_no = 0;
         std::string hash;
@@ -334,7 +335,7 @@ namespace ledger
         if (conf::cfg.fullhistorymode)
         {
             builder.Clear();
-            msg::fbuf::ledger::create_full_history_block_from_raw_input_map(builder, proposal.raw_inputs);
+            msg::fbuf::ledger::create_full_history_block_from_raw_input_map(builder, raw_inputs);
             if (write_full_history(file_name, builder.GetBufferPointer(), builder.GetSize()) == -1)
                 return -1;
         }

@@ -162,20 +162,6 @@ namespace consensus
                 // This is the consensus proposal which makes it into the ledger and contract execution
                 p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, state);
 
-                // Add raw_inputs to the proposal if full history mode is on.
-                if (conf::cfg.fullhistorymode)
-                {
-                    for (const auto &hash : p.hash_inputs)
-                    {
-                        const auto itr = ctx.candidate_user_inputs.find(hash);
-                        if (itr != ctx.candidate_user_inputs.end())
-                        {
-                            candidate_user_input &cand_input = itr->second;
-                            p.raw_inputs.emplace(hash, usr::raw_user_input(cand_input.userpubkey, cand_input.userinput));
-                        }
-                    }
-                }
-
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
@@ -735,7 +721,26 @@ namespace consensus
      */
     int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, hpfs::h32 &new_state)
     {
-        if (ledger::save_ledger(cons_prop) == -1)
+        // Map to temporarly store the raw inputs along with the hash.
+        std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
+
+        // Add raw_inputs to the proposal if full history mode is on.
+        if (conf::cfg.fullhistorymode)
+        {
+            for (const auto &hash : cons_prop.hash_inputs)
+            {
+                const auto itr = ctx.candidate_user_inputs.find(hash);
+                if (itr != ctx.candidate_user_inputs.end())
+                {
+                    // Add raw_input to the map along with the input hash.
+                    candidate_user_input &cand_input = itr->second;
+                    usr::raw_user_input raw_input(cand_input.userpubkey, cand_input.userinput);
+                    raw_inputs.emplace(hash, std::move(raw_input));
+                }
+            }
+        }
+
+        if (ledger::save_ledger(cons_prop, std::move(raw_inputs)) == -1)
             return -1;
 
         new_lcl = ledger::ctx.get_lcl();

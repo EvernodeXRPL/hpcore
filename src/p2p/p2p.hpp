@@ -31,7 +31,6 @@ namespace p2p
         std::set<std::string> users;
         std::set<std::string> hash_inputs;
         std::set<std::string> hash_outputs;
-        std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
     };
 
     struct nonunl_proposal
