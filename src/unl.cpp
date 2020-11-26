@@ -6,7 +6,7 @@
  */
 namespace unl
 {
-    std::unordered_set<std::string> list; // List of binary pubkeys of UNL.
+    std::set<std::string> list; // List of binary pubkeys of UNL.
     std::string json_list;                // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
 
@@ -16,7 +16,7 @@ namespace unl
         return list.size();
     }
 
-    std::unordered_set<std::string> get()
+    std::set<std::string> get()
     {
         std::shared_lock lock(unl_mutex);
         return list;

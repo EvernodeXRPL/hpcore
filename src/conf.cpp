@@ -214,6 +214,9 @@ namespace conf
 
         cfg.pubkeyhex = d["pubkeyhex"].as<std::string>();
         cfg.seckeyhex = d["seckeyhex"].as<std::string>();
+        // Convert the hex keys to binary and keep for later use.
+        if (hexpair_to_bin() != 0)
+            return -1;
 
         cfg.binary = d["binary"].as<std::string>();
         cfg.binargs = d["binargs"].as<std::string>();
@@ -320,10 +323,6 @@ namespace conf
         cfg.loggers.clear();
         for (auto &v : d["loggers"].array_range())
             cfg.loggers.emplace(v.as<std::string>());
-
-        // Convert the hex keys to binary and keep for later use.
-        if (hexpair_to_bin() != 0)
-            return -1;
 
         return 0;
     }

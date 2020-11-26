@@ -9,7 +9,7 @@
 namespace unl
 {
     size_t count();
-    std::unordered_set<std::string> get();
+    std::set<std::string> get();
     std::string get_json();
     bool exists(const std::string &bin_pubkey);
     void add(const std::vector<std::string> &additions);
