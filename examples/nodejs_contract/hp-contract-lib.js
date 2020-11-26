@@ -40,7 +40,7 @@ class HotPocketContract {
     }
 
     #terminate = () => {
-        this.#controlChannel.send(JSON.stringify({ type: "contract_1end" }));
+        this.#controlChannel.send(JSON.stringify({ type: "contract_end" }));
         this.#controlChannel.close();
     }
 }
