@@ -246,12 +246,12 @@ namespace msg::fbuf::p2pmsg
  * @param msg Flatbuffer History request message received from the peer.
  * @return A History request struct representing the message.
  */
-    const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg)
+    const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg, const flatbuffers::Vector<uint8_t> *lcl)
     {
         p2p::history_request hr;
 
-        if (msg.minimum_lcl())
-            hr.minimum_lcl = flatbuff_bytes_to_sv(msg.minimum_lcl());
+        if (lcl)
+            hr.requester_lcl = flatbuff_bytes_to_sv(lcl);
 
         if (msg.required_lcl())
             hr.required_lcl = flatbuff_bytes_to_sv(msg.required_lcl());
@@ -418,7 +418,6 @@ namespace msg::fbuf::p2pmsg
         flatbuffers::Offset<History_Request_Message> hrmsg =
             CreateHistory_Request_Message(
                 builder,
-                sv_to_flatbuff_bytes(builder, hr.minimum_lcl),
                 sv_to_flatbuff_bytes(builder, hr.required_lcl));
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Request_Message, hrmsg.Union());
@@ -426,7 +425,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, false);
+        create_containermsg_from_content(container_builder, builder, hr.requester_lcl, false);
     }
 
     /**

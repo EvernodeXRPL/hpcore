@@ -151,11 +151,11 @@ namespace sc
 
     void contract_monitor_loop(execution_context &ctx);
 
-    int write_contract_hp_inputs(execution_context &ctx);
+    int write_control_inputs(execution_context &ctx);
 
     int write_npl_messages(execution_context &ctx);
 
-    int read_contract_hp_outputs(execution_context &ctx);
+    int read_control_outputs(execution_context &ctx);
 
     int read_contract_npl_outputs(execution_context &ctx);
 
@@ -183,7 +183,7 @@ namespace sc
 
     void stop(execution_context &ctx);
 
-    void handle_control_msgs(execution_context &ctx, std::string &msg);
+    void handle_control_msg(execution_context &ctx, std::string_view msg);
 
 } // namespace sc
 

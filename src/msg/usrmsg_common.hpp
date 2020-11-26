@@ -42,10 +42,10 @@ namespace msg::usrmsg
     constexpr const char *STATUS_REJECTED = "rejected";
     constexpr const char *REASON_BAD_MSG_FORMAT = "bad_msg_format";
     constexpr const char *REASON_INVALID_MSG_TYPE = "invalid_msg_type";
-    constexpr const char *REASON_DUPLICATE_MSG = "dup_msg";
     constexpr const char *REASON_BAD_SIG = "bad_sig";
     constexpr const char *REASON_APPBILL_BALANCE_EXCEEDED = "appbill_balance_exceeded";
     constexpr const char *REASON_MAX_LEDGER_EXPIRED = "max_ledger_expired";
+    constexpr const char *REASON_NONCE_EXPIRED = "nonce_expired";
 
 } // namespace msg::usrmsg
 

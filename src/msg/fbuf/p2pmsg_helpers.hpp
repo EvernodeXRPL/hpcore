@@ -32,7 +32,7 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const flatbuffers::Vector<uint8_t> *lcl);
 
-    const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg);
+    const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg, const flatbuffers::Vector<uint8_t> *lcl);
 
     const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg);
 

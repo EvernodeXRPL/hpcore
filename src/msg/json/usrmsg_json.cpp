@@ -21,18 +21,18 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Constructs user challenge message json and the challenge string required for
- * initial user challenge handshake. This gets called when a user establishes
- * a web socket connection to HP.
- * 
- * @param msg String reference to copy the generated json message string into.
- *            Message format:
- *            {
- *              "type": "handshake_challenge",
- *              "challenge": "<hex challenge string>"
- *            }
- * @param challengehex String reference to copy the generated hex challenge string into.
- */
+     * Constructs user challenge message json and the challenge string required for
+     * initial user challenge handshake. This gets called when a user establishes
+     * a web socket connection to HP.
+     * 
+     * @param msg String reference to copy the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "handshake_challenge",
+     *              "challenge": "<hex challenge string>"
+     *            }
+     * @param challengehex String reference to copy the generated hex challenge string into.
+     */
     void create_user_challenge(std::vector<uint8_t> &msg, std::string &challengehex)
     {
         // Use libsodium to generate the random challenge bytes.
@@ -63,15 +63,15 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Constructs a status response message.
- * @param msg String reference to copy the generated json message string into.
- *            Message format:
- *            {
- *              "type": "stat_response",
- *              "lcl": "<lcl id>",
- *              "lcl_seqno": <integer>
- *            }
- */
+     * Constructs a status response message.
+     * @param msg String reference to copy the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "stat_response",
+     *              "lcl": "<lcl id>",
+     *              "lcl_seqno": <integer>
+     *            }
+     */
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         msg.reserve(128);
@@ -91,19 +91,19 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Constructs a contract input status message.
- * @param msg String reference to copy the generated json message string into.
- *            Message format:
- *            {
- *              "type": "contract_input_status",
- *              "status": "<accepted|rejected>",
- *              "reason": "<reson>",
- *              "input_sig": "<hex sig of original input message>"
- *            }
- * @param is_accepted Whether the original message was accepted or not.
- * @param reason Rejected reason. Empty if accepted.
- * @param input_sig Binary signature of the original input message which generated this result.
- */
+     * Constructs a contract input status message.
+     * @param msg String reference to copy the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "contract_input_status",
+     *              "status": "<accepted|rejected>",
+     *              "reason": "<reson>",
+     *              "input_sig": "<hex sig of original input message>"
+     *            }
+     * @param is_accepted Whether the original message was accepted or not.
+     * @param reason Rejected reason. Empty if accepted.
+     * @param input_sig Binary signature of the original input message which generated this result.
+     */
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
     {
         std::string sighex;
@@ -130,15 +130,15 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Constructs a contract read response message.
- * @param msg String reference to copy the generated json message string into.
- *            Message format:
- *            {
- *              "type": "contract_read_response",
- *              "content": "<hex encoded contract output>"
- *            }
- * @param content The contract binary output content to be put in the message.
- */
+     * Constructs a contract read response message.
+     * @param msg String reference to copy the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "contract_read_response",
+     *              "content": "<hex encoded contract output>"
+     *            }
+     * @param content The contract binary output content to be put in the message.
+     */
     void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content)
     {
         std::string contenthex;
@@ -160,17 +160,17 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Constructs a contract output container message.
- * @param msg String reference to copy the generated json message string into.
- *            Message format:
- *            {
- *              "type": "contract_output",
- *              "lcl": "<lcl id>"
- *              "lcl_seqno": <integer>,
- *              "content": "<hex encoded contract output>"
- *            }
- * @param content The contract binary output content to be put in the message.
- */
+     * Constructs a contract output container message.
+     * @param msg String reference to copy the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "contract_output",
+     *              "lcl": "<lcl id>"
+     *              "lcl_seqno": <integer>,
+     *              "content": "<hex encoded contract output>"
+     *            }
+     * @param content The contract binary output content to be put in the message.
+     */
     void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         std::string contenthex;
@@ -200,23 +200,23 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Verifies the user handshake response with the original challenge issued to the user
- * and the user public key contained in the response.
- * 
- * @param extracted_pubkeyhex The hex public key extracted from the response.
- * @param extracted_protocol The protocol code extracted from the response.
- * @param response The response bytes to verify. This will be parsed as json.
- *                 Accepted response format:
- *                 {
- *                   "type": "handshake_response",
- *                   "challenge": "<original hex challenge the user received>",
- *                   "sig": "<hex signature of the challenge>",
- *                   "pubkey": "<hex public key of the user>",
- *                   "protocol": "<json | bson>"
- *                 }
- * @param original_challenge The original hex challenge string issued to the user.
- * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
- */
+     * Verifies the user handshake response with the original challenge issued to the user
+     * and the user public key contained in the response.
+     * 
+     * @param extracted_pubkeyhex The hex public key extracted from the response.
+     * @param extracted_protocol The protocol code extracted from the response.
+     * @param response The response bytes to verify. This will be parsed as json.
+     *                 Accepted response format:
+     *                 {
+     *                   "type": "handshake_response",
+     *                   "challenge": "<original hex challenge the user received>",
+     *                   "sig": "<hex signature of the challenge>",
+     *                   "pubkey": "<hex public key of the user>",
+     *                   "protocol": "<json | bson>"
+     *                 }
+     * @param original_challenge The original hex challenge string issued to the user.
+     * @return 0 if challenge response is verified. -1 if challenge not met or an error occurs.
+     */
     int verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
                                        std::string_view response, std::string_view original_challenge)
     {
@@ -268,7 +268,7 @@ namespace msg::usrmsg::json
         }
 
         // Verify the challenge signature. We do this last due to signature verification cost.
-        std::string_view pubkeysv = d[msg::usrmsg::FLD_PUBKEY].as<std::string_view >();
+        std::string_view pubkeysv = d[msg::usrmsg::FLD_PUBKEY].as<std::string_view>();
         if (crypto::verify_hex(
                 original_challenge,
                 d[msg::usrmsg::FLD_SIG].as<std::string_view>(),
@@ -285,23 +285,23 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Parses a json message sent by a user.
- * @param d Jsoncons document to which the parsed json should be loaded.
- * @param message The message to parse.
- *                Accepted message format:
- *                {
- *                  'type': '<message type>'
- *                  ...
- *                }
- * @return 0 on successful parsing. -1 for failure.
- */
+     * Parses a json message sent by a user.
+     * @param d Jsoncons document to which the parsed json should be loaded.
+     * @param message The message to parse.
+     *                Accepted message format:
+     *                {
+     *                  'type': '<message type>'
+     *                  ...
+     *                }
+     * @return 0 on successful parsing. -1 for failure.
+     */
     int parse_user_message(jsoncons::json &d, std::string_view message)
     {
         try
         {
             d = jsoncons::json::parse(message, jsoncons::strict_json_parsing());
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
             LOG_DEBUG << "User json message parsing failed.";
             return -1;
@@ -318,8 +318,8 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Extracts the message 'type' value from the json document.
- */
+     * Extracts the message 'type' value from the json document.
+     */
     int extract_type(std::string &extracted_type, const jsoncons::json &d)
     {
         extracted_type = d[msg::usrmsg::FLD_TYPE].as<std::string>();
@@ -327,17 +327,17 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Extracts a contract read request message sent by user.
- * 
- * @param extracted_content The content to be passed to the contract, extracted from the message.
-* @param d The json document holding the read request message.
- *          Accepted signed input container format:
- *          {
- *            "type": "contract_read_request",
- *            "content": "<hex encoded content to be passed to the contract>"
- *          }
- * @return 0 on successful extraction. -1 for failure.
- */
+     * Extracts a contract read request message sent by user.
+     * 
+     * @param extracted_content The content to be passed to the contract, extracted from the message.
+     * @param d The json document holding the read request message.
+     *          Accepted signed input container format:
+     *          {
+     *            "type": "contract_read_request",
+     *            "content": "<hex encoded content to be passed to the contract>"
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
     int extract_read_request(std::string &extracted_content, const jsoncons::json &d)
     {
         if (!d.contains(msg::usrmsg::FLD_CONTENT))
@@ -370,19 +370,19 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Extracts a signed input container message sent by user.
- * 
- * @param extracted_input_container The input container extracted from the message.
- * @param extracted_sig The binary signature extracted from the message. 
- * @param d The json document holding the input container.
- *          Accepted signed input container format:
- *          {
- *            "type": "contract_input",
- *            "input_container": "<hex encoded stringified json input container message>",
- *            "sig": "<hex encoded signature of the content>"
- *          }
- * @return 0 on successful extraction. -1 for failure.
- */
+     * Extracts a signed input container message sent by user.
+     * 
+     * @param extracted_input_container The input container extracted from the message.
+     * @param extracted_sig The binary signature extracted from the message. 
+     * @param d The json document holding the input container.
+     *          Accepted signed input container format:
+     *          {
+     *            "type": "contract_input",
+     *            "input_container": "<hex encoded stringified json input container message>",
+     *            "sig": "<hex encoded signature of the content>"
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
     int extract_signed_input_container(
         std::string &extracted_input_container, std::string &extracted_sig, const jsoncons::json &d)
     {
@@ -417,18 +417,18 @@ namespace msg::usrmsg::json
     }
 
     /**
- * Extract the individual components of a given input container json.
- * @param input The extracted input.
- * @param nonce The extracted nonce.
- * @param max_lcl_seqno The extracted max ledger sequence no.
- * @param contentjson The json string containing the input container message.
- *                    {
- *                      "input": "<hex encoded contract input content>",
- *                      "nonce": "<random string with optional sorted order>",
- *                      "max_lcl_seqno": <integer>
- *                    }
- * @return 0 on succesful extraction. -1 on failure.
- */
+     * Extract the individual components of a given input container json.
+     * @param input The extracted input.
+     * @param nonce The extracted nonce.
+     * @param max_lcl_seqno The extracted max ledger sequence no.
+     * @param contentjson The json string containing the input container message.
+     *                    {
+     *                      "input": "<hex encoded contract input content>",
+     *                      "nonce": "<random string with optional sorted order>",
+     *                      "max_lcl_seqno": <integer>
+     *                    }
+     * @return 0 on succesful extraction. -1 on failure.
+     */
     int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seqno, std::string_view contentjson)
     {
         jsoncons::json d;
@@ -436,7 +436,7 @@ namespace msg::usrmsg::json
         {
             d = jsoncons::json::parse(contentjson, jsoncons::strict_json_parsing());
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
             LOG_DEBUG << "User input container json parsing failed.";
             return -1;

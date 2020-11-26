@@ -6,6 +6,8 @@
 #include "sc.hpp"
 #include "hpfs/hpfs.hpp"
 #include "msg/fbuf/p2pmsg_helpers.hpp"
+#include "msg/controlmsg_common.hpp"
+#include "msg/controlmsg_parser.hpp"
 
 namespace sc
 {
@@ -332,7 +334,7 @@ namespace sc
         while (!ctx.is_shutting_down)
         {
             // Atempt to read messages from contract (regardless of contract terminated or not).
-            const int hpsc_read_res = read_contract_hp_outputs(ctx);
+            const int hpsc_read_res = read_control_outputs(ctx);
             const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
             const int user_read_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
 
@@ -351,13 +353,13 @@ namespace sc
                 if (npl_write_res == -1)
                     break;
 
-                const int hpsc_write_res = write_contract_hp_inputs(ctx);
-                if (hpsc_write_res == -1)
+                const int control_write_res = write_control_inputs(ctx);
+                if (control_write_res == -1)
                     break;
 
                 // If no operation was performed during this iteration, wait for a small delay until the next iteration.
                 // This means there were no queued messages from either side.
-                if ((hpsc_read_res + npl_read_res + user_read_res + hpsc_write_res + hpsc_write_res) == 0)
+                if ((hpsc_read_res + npl_read_res + user_read_res + control_write_res + control_write_res) == 0)
                     util::sleep(20);
             }
 
@@ -398,7 +400,7 @@ namespace sc
     /**
      * Writes any hp input messages to the contract.
      */
-    int write_contract_hp_inputs(execution_context &ctx)
+    int write_control_inputs(execution_context &ctx)
     {
         std::string control_msg;
 
@@ -474,20 +476,20 @@ namespace sc
      * 
      * @return 0 if no bytes were read. 1 if bytes were read..
      */
-    int read_contract_hp_outputs(execution_context &ctx)
+    int read_control_outputs(execution_context &ctx)
     {
         std::string output;
-        const int hpsc_res = read_iosocket(false, ctx.hpscfds, output);
-        if (hpsc_res == -1)
+        const int res = read_iosocket(false, ctx.hpscfds, output);
+        if (res == -1)
         {
-            LOG_ERROR << "Error reading HP output from the contract.";
+            LOG_ERROR << "Error reading control message from the contract.";
         }
-        else if (hpsc_res > 0)
+        else if (res > 0)
         {
-            handle_control_msgs(ctx, output);
+            handle_control_msg(ctx, output);
         }
 
-        return (hpsc_res > 0) ? 1 : 0;
+        return (res > 0) ? 1 : 0;
     }
 
     /**
@@ -498,19 +500,19 @@ namespace sc
     int read_contract_npl_outputs(execution_context &ctx)
     {
         std::string output;
-        const int npl_res = read_iosocket(false, ctx.nplfds, output);
+        const int res = read_iosocket(false, ctx.nplfds, output);
 
-        if (npl_res == -1)
+        if (res == -1)
         {
             LOG_ERROR << "Error reading NPL output from the contract.";
         }
-        else if (npl_res > 0)
+        else if (res > 0)
         {
             // Broadcast npl messages once contract npl output is collected.
             broadcast_npl_output(output);
         }
 
-        return (npl_res > 0) ? 1 : 0;
+        return (res > 0) ? 1 : 0;
     }
 
     /**
@@ -825,13 +827,17 @@ namespace sc
         ctx.is_shutting_down = true;
     }
 
-    void handle_control_msgs(execution_context &ctx, std::string &msg)
+    void handle_control_msg(execution_context &ctx, std::string_view msg)
     {
-        if (msg == "Terminated")
+        msg::controlmsg::controlmsg_parser parser;
+        std::string type;
+        if (parser.parse(msg) == -1 || parser.extract_type(type) == -1)
+            return;
+
+        if (type == msg::controlmsg::MSGTYPE_CONTRACT_END)
         {
             ctx.termination_signaled = true;
         }
-        msg.clear();
     }
 
 } // namespace sc

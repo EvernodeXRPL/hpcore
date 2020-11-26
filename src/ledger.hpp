@@ -14,6 +14,7 @@ namespace ledger
     {
         // The current target lcl that we are syncing towards.
         std::string target_lcl;
+        uint64_t target_lcl_seq_no;
         std::mutex target_lcl_mutex;
 
         // Lists holding history requests and responses collected from incoming p2p messages.
@@ -71,7 +72,7 @@ namespace ledger
 
     void lcl_syncer_loop();
 
-    void set_sync_target(std::string_view target_lcl);
+    void set_sync_target(const std::string &target_lcl);
 
     const std::pair<uint64_t, std::string> get_ledger_cache_top();
 
@@ -89,7 +90,7 @@ namespace ledger
 
     void remove_ledger(const std::string &file_name);
 
-    void send_ledger_history_request(std::string_view minimum_lcl, std::string_view required_lcl);
+    void send_ledger_history_request(std::string_view current_lcl, std::string_view required_lcl);
 
     bool check_required_lcl_availability(const std::string &required_lcl);
 
@@ -97,9 +98,11 @@ namespace ledger
 
     int handle_ledger_history_response(const p2p::history_response &hr, std::string &new_lcl);
 
-    bool check_block_integrity(std::string_view lcl, const std::vector<uint8_t> &block_buffer);
+    bool check_block_integrity(std::string_view hash, const std::vector<uint8_t> &block_buffer);
 
     int sort_lcl_filenames_and_validate(std::list<std::string> &list);
+
+    int extract_lcl(const std::string &lcl, uint64_t &seq_no, std::string &hash);
 
 } // namespace ledger
 

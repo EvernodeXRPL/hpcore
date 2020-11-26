@@ -435,7 +435,6 @@ namespace consensus
             // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
             size_t total_input_len = 0;
             bool appbill_balance_exceeded = false;
-            util::rollover_hashset recent_user_input_hashes(200);
 
             for (const usr::user_input &umsg : umsgs)
             {
@@ -450,13 +449,9 @@ namespace consensus
                     util::buffer_view input;
                     std::string hash;
                     uint64_t max_lcl_seqno;
-                    reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, recent_user_input_hashes,
-                                                                        hash, input, max_lcl_seqno);
+                    reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, hash, input, max_lcl_seqno);
 
-                    if (input.is_null())
-                        return -1;
-
-                    if (reject_reason == NULL)
+                    if (reject_reason == NULL && !input.is_null())
                     {
                         // No reject reason means we should go ahead and subject the input to consensus.
                         ctx.candidate_user_inputs.try_emplace(
