@@ -79,15 +79,17 @@ namespace p2p
         // Check whether the message is qualified for message forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
+            // Npl messages are forwarded only to trusted peers.
+            const bool only_to_trusted_peers = content_message_type == p2pmsg::Message_Npl_Message;
             if (session.need_consensus_msg_forwarding)
             {
                 // Forward messages received by weakly connected nodes to other peers.
-                p2p::broadcast_message(message, false, false, &session);
+                p2p::broadcast_message(message, false, false, only_to_trusted_peers, &session);
             }
             else
             {
                 // Forward message received from other nodes to weakly connected peers.
-                p2p::broadcast_message(message, false, true, &session);
+                p2p::broadcast_message(message, false, true, only_to_trusted_peers, &session);
             }
         }
 

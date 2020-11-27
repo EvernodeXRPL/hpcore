@@ -7,6 +7,7 @@
 #include "../ledger.hpp"
 #include "p2p.hpp"
 #include "self_node.hpp"
+#include "../unl.hpp"
 
 namespace p2p
 {
@@ -151,22 +152,24 @@ namespace p2p
      * @param fbuf Peer outbound message to be broadcasted.
      * @param send_to_self Whether to also send the message to self (this node).
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
+     * @param only_to_trusted_peers Whether this broadcast is only for the trusted nodes.
      */
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding)
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool only_to_trusted_peers)
     {
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
-        broadcast_message(msg, send_to_self, is_msg_forwarding);
+        broadcast_message(msg, send_to_self, is_msg_forwarding, only_to_trusted_peers);
     }
 
     /**
      * Broadcast the given message to all connected outbound peers.
      * @param message Message to be forwarded.
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
+     * @param only_to_trusted_peers Whether this broadcast is only for the trusted nodes.
      * @param skipping_session Session to be skipped in message forwarding(optional).
      */
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const peer_comm_session *skipping_session)
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool only_to_trusted_peers, const peer_comm_session *skipping_session)
     {
         if (send_to_self)
             self::send(message);
@@ -179,7 +182,8 @@ namespace p2p
             // Exclude given session if provided.
             // Messages are forwarded only to the requested nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
-                (is_msg_forwarding && !session->need_consensus_msg_forwarding))
+                (is_msg_forwarding && !session->need_consensus_msg_forwarding) ||
+                (only_to_trusted_peers && !unl::exists(session->uniqueid, true)))
                 continue;
 
             session->send(message);

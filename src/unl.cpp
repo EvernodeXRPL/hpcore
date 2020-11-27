@@ -2,6 +2,7 @@
 #include "hplog.hpp"
 #include "conf.hpp"
 #include "unl.hpp"
+#include "crypto.hpp"
 
 /**
  * Manages the UNL public keys of this node.
@@ -43,10 +44,31 @@ namespace unl
         return json_list;
     }
 
-    bool exists(const std::string &bin_pubkey)
+    /**
+     * Check whether the given pubkey is in the unl list.
+     * @param pubkey Pubkey to check for existence.
+     * @param is_in_hex Whether the given pubkey is in hex format.
+     * @return Return true if the given pubkey is in the unl list.
+    */
+    bool exists(std::string pubkey, const bool is_in_hex)
     {
+        if (is_in_hex)
+        {
+            // If the given pubkey is in hex format, convert the public key to binary.
+            std::string bin_pubkey;
+            bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
+            if (util::hex2bin(
+                    reinterpret_cast<unsigned char *>(bin_pubkey.data()),
+                    bin_pubkey.length(),
+                    pubkey) != 0)
+            {
+                LOG_ERROR << "Error decoding hex pubkey.\n";
+                return false;
+            }
+            pubkey.swap(bin_pubkey);
+        }
         std::shared_lock lock(unl_mutex);
-        return list.find(bin_pubkey) != list.end();
+        return list.find(pubkey) != list.end();
     }
 
     /**
