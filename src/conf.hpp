@@ -76,28 +76,25 @@ namespace conf
     struct contract_config
     {
         // Config elements which are initialized in memory (these are not directly loaded from the config file)
-
-        std::string pubkey;                                     // Contract public key bytes
-        std::string seckey;                                     // Contract secret key bytes
-        std::vector<std::string> runtime_binexec_args;          // Contract binary execution args used during runtime.
-        std::vector<std::string> runtime_appbill_args;          // Appbill execution args used during runtime.
-        OPERATING_MODE current_mode = OPERATING_MODE::OBSERVER; // Current operating mode of the contract (Observer/Proposer)
+        std::string pubkey;                            // Contract public key bytes
+        std::string seckey;                            // Contract secret key bytes
+        std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.
+        std::vector<std::string> runtime_appbill_args; // Appbill execution args used during runtime.
 
         // Config elements which are loaded from the config file.
-
-        OPERATING_MODE startup_mode = OPERATING_MODE::OBSERVER; // Configured startup operating mode of the contract (Observer/Proposer).
-        std::string pubkeyhex;                                  // Contract hex public key
-        std::string seckeyhex;                                  // Contract hex secret key
-        std::string binary;                                     // Full path to the contract binary
-        std::string binargs;                                    // CLI arguments to pass to the contract binary
-        std::string appbill;                                    // binary to execute for appbill
-        std::string appbillargs;                                // any arguments to supply to appbill binary by default
-        std::vector<peer_properties> peers;                     // Vector of peers with ip_port, timestamp, capacity
-        std::vector<std::string> unl;                           // Unique node list (list of binary public keys)
-        uint16_t peerport = 0;                                  // Listening port for peer connections
-        uint16_t roundtime = 0;                                 // Consensus round time in ms
-        uint16_t pubport = 0;                                   // Listening port for public user connections
-        uint16_t peerdiscoverytime = 0;                         // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
+        OPERATING_MODE operating_mode = OPERATING_MODE::OBSERVER; // Configured startup operating mode of the contract (Observer/Proposer).
+        std::string pubkeyhex;                                    // Contract hex public key
+        std::string seckeyhex;                                    // Contract hex secret key
+        std::string binary;                                       // Full path to the contract binary
+        std::string binargs;                                      // CLI arguments to pass to the contract binary
+        std::string appbill;                                      // binary to execute for appbill
+        std::string appbillargs;                                  // any arguments to supply to appbill binary by default
+        std::vector<peer_properties> peers;                       // Vector of peers with ip_port, timestamp, capacity
+        std::set<std::string> unl;                                // Unique node list (list of binary public keys)
+        uint16_t peerport = 0;                                    // Listening port for peer connections
+        uint16_t roundtime = 0;                                   // Consensus round time in ms
+        uint16_t pubport = 0;                                     // Listening port for public user connections
+        uint16_t peerdiscoverytime = 0;                           // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
 
         uint16_t peeridletimeout = 0; // Idle connection timeout for peer connections in seconds.
         uint16_t pubidletimeout = 0;  // Idle connection timeout for user connections in seconds.
@@ -139,19 +136,21 @@ namespace conf
 
     void set_contract_dir_paths(std::string exepath, std::string basedir);
 
+    int persist_unl_update(const std::set<std::string> &updated_unl);
+
     //------Internal-use functions for this namespace.
 
-    int load_config();
+    int read_config(contract_config &cfg);
 
-    int save_config();
+    int write_config(const contract_config &cfg);
 
-    int validate_config();
+    int populate_runtime_config(contract_config &parsed_cfg);
+
+    int validate_config(const contract_config &cfg);
 
     int validate_contract_dir_paths();
 
-    int binpair_to_hex();
-
-    int hexpair_to_bin();
+    int binpair_to_hex(contract_config &cfg);
 
     void change_operating_mode(const OPERATING_MODE mode);
 

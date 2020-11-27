@@ -623,7 +623,7 @@ namespace consensus
         p2pmsg::create_msg_from_proposal(fbuf, p);
 
         // In observer mode, we only send out the proposal to ourselves.
-        if (conf::cfg.current_mode == conf::OPERATING_MODE::OBSERVER)
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
             p2p::send_message_to_self(fbuf);
         else
             p2p::broadcast_message(fbuf, true);

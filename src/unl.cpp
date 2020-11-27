@@ -1,5 +1,6 @@
 #include "util/util.hpp"
 #include "hplog.hpp"
+#include "conf.hpp"
 #include "unl.hpp"
 
 /**
@@ -10,6 +11,19 @@ namespace unl
     std::set<std::string> list; // List of binary pubkeys of UNL.
     std::string json_list;      // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
+
+    /**
+     * Called by conf during startup to populate configured unl list.
+     */
+    void init(const std::set<std::string> &init_list)
+    {
+        if (init_list.empty())
+            return;
+
+        std::unique_lock lock(unl_mutex);
+        list = init_list;
+        update_json_list();
+    }
 
     size_t count()
     {
@@ -35,19 +49,9 @@ namespace unl
         return list.find(bin_pubkey) != list.end();
     }
 
-    void add(const std::vector<std::string> &additions)
-    {
-        if (additions.empty())
-            return;
-
-        std::unique_lock lock(unl_mutex);
-
-        for (const std::string &pubkey : additions)
-            list.emplace(pubkey);
-
-        update_json_list();
-    }
-
+    /**
+     * Called by contract to update unl at runtime.
+     */
     void update(const std::vector<std::string> &additions, const std::vector<std::string> &removals)
     {
         if (additions.empty() && removals.empty())
@@ -62,9 +66,9 @@ namespace unl
             list.erase(pubkey);
 
         update_json_list();
+        conf::persist_unl_update(list);
 
         LOG_INFO << "UNL updated. Count:" << list.size();
-        ;
     }
 
     void update_json_list()
