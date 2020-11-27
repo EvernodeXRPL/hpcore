@@ -478,7 +478,7 @@ void __hp_parse_args_json(struct hp_contract_context *ctx, const struct json_obj
                 }
             }
         }
-        else if (strcmp(k->string, "hpfd") == 0)
+        else if (strcmp(k->string, "controlfd") == 0)
         {
             __HP_ASSIGN_INT(gctx.control_fd, elem);
         }

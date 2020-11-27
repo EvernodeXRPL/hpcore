@@ -22,7 +22,7 @@ class HotPocketContract {
         const argsJson = fs.readFileSync(0, 'utf8');
         const hpargs = JSON.parse(argsJson);
 
-        this.#controlChannel = new ControlChannel(hpargs.hpfd);
+        this.#controlChannel = new ControlChannel(hpargs.controlfd);
         this.#executeContract(hpargs, contractFunc);
     }
 
