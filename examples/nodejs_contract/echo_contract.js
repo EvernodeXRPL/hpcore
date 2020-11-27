@@ -10,18 +10,19 @@ const echoContract = async (ctx) => {
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
 
     // This will return after all user messages are processed.
-    await ctx.users.onMessage(async (user, msg) => {
+    await ctx.users.onMessage(async (user, buf) => {
 
         // This user's pubkey can be accessed from 'user.pubKey'
         // A reply message can be sent to the user by 'user.send(msg)'
-        
+
+        const msg = buf.toString();
         if (msg == "ts") {
             await user.send(fs.readFileSync("exects.txt"));
         }
         else {
             await user.send("Echoing: " + msg);
         }
-    });    
+    });
 
     // Get list of all users who are connected.
     // ctx.users.get();

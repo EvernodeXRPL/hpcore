@@ -7,8 +7,8 @@ const bson = require('bson');
 const isNodeJS = (typeof window === 'undefined');
 
 const protocols = {
-    JSON: "json",
-    BSON: "bson"
+    json: "json",
+    bson: "bson"
 }
 Object.freeze(protocols);
 
@@ -40,7 +40,7 @@ const HotPocketKeyGenerator = {
     },
 }
 
-function HotPocketClient(server, keys, protocol = protocols.BSON) {
+function HotPocketClient(server, keys, protocol = protocols.json) {
 
     let ws = null;
     const msgHelper = new MessageHelper(keys, protocol);
@@ -86,7 +86,7 @@ function HotPocketClient(server, keys, protocol = protocols.BSON) {
                     msg = rcvd.data;
                 }
                 else {
-                    msg = (handshakeResolver || protocol == protocols.JSON) ?
+                    msg = (handshakeResolver || protocol == protocols.json) ?
                         await rcvd.data.text() :
                         Buffer.from(await rcvd.data.arrayBuffer());
                 }
@@ -214,23 +214,25 @@ function MessageHelper(keys, protocol) {
 
     this.binaryEncode = function (data) {
         const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
-        return protocol == protocols.JSON ? buffer.toString("hex") : buffer;
+        return protocol == protocols.json ? buffer.toString("hex") : buffer;
     }
 
     this.binaryDecode = function (content) {
-        return (protocol == protocols.JSON) ? Buffer.from(content, "hex") : content.buffer;
+        return (protocol == protocols.json) ? Buffer.from(content, "hex") : content.buffer;
     }
 
     this.serializeObject = function (obj) {
-        return protocol == protocols.JSON ? JSON.stringify(obj) : bson.serialize(obj);
+        return protocol == protocols.json ? JSON.stringify(obj) : bson.serialize(obj);
     }
 
     this.deserializeMessage = function (m) {
-        return protocol == protocols.JSON ? JSON.parse(m) : bson.deserialize(m);
+        return protocol == protocols.json ? JSON.parse(m) : bson.deserialize(m);
     }
 
     this.serializeInput = function (input) {
-        return protocol == protocols.JSON ? input.toString() : bson.serialize(obj);
+        return protocol == protocols.json ?
+            input.toString() :
+            Buffer.isBuffer(input) ? input : Buffer.from(input);
     }
 
     this.createHandshakeResponse = function (challenge) {
@@ -285,17 +287,16 @@ function MessageHelper(keys, protocol) {
     }
 }
 
+const exportObj = {
+    KeyGenerator: HotPocketKeyGenerator,
+    Client: HotPocketClient,
+    events: events,
+    protocols: protocols
+};
+
 if (isNodeJS) {
-    module.exports = {
-        HotPocketKeyGenerator,
-        HotPocketClient,
-        HotPocketEvents: events
-    };
+    module.exports = exportObj;
 }
 else {
-    window.HotPocket = {
-        KeyGenerator: HotPocketKeyGenerator,
-        Client: HotPocketClient,
-        Events: events
-    }
+    window.HotPocket = exportObj;
 }
