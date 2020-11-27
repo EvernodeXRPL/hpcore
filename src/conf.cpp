@@ -164,13 +164,13 @@ namespace conf
         ctx.log_dir = basedir + "/log";
     }
 
-    int persist_unl_update(std::vector<std::string> &&updated_unl)
+    int persist_unl_update(const std::set<std::string> &updated_unl)
     {
-        contract_config cfg;
+        contract_config cfg = {};
         if (read_config(cfg) == -1)
             return -1;
 
-        cfg.unl.swap(updated_unl);
+        cfg.unl = updated_unl;
 
         if (write_config(cfg) == -1)
             return -1;
@@ -281,7 +281,7 @@ namespace conf
                 std::cerr << "Error decoding unl list.\n";
                 return -1;
             }
-            cfg.unl.push_back(bin_pubkey);
+            cfg.unl.emplace(bin_pubkey);
         }
 
         cfg.peerport = d["peerport"].as<uint16_t>();
@@ -331,7 +331,7 @@ namespace conf
     int write_config(const contract_config &cfg)
     {
         // Popualte json document with 'cfg' values.
-        // ojson is used instead of json to preserve insertion order
+        // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
         d.insert_or_assign("version", util::HP_VERSION);
         d.insert_or_assign("mode", cfg.operating_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER);
@@ -359,7 +359,9 @@ namespace conf
                 hex_pubkey,
                 reinterpret_cast<const unsigned char *>(nodepk.data()),
                 nodepk.length());
-            unl.push_back(hex_pubkey);
+
+            if (hex_pubkey != cfg.pubkeyhex)
+                unl.push_back(hex_pubkey); // We do not save our own pubkey in config file.
         }
         d.insert_or_assign("unl", unl);
 
@@ -401,11 +403,13 @@ namespace conf
         std::ofstream ofs(ctx.config_file);
         try
         {
-            ofs << jsoncons::pretty_print(d);
+            jsoncons::json_options options;
+            options.object_array_line_splits(jsoncons::line_split_kind::multi_line);
+            ofs << jsoncons::pretty_print(d, options);
         }
         catch (const std::exception &e)
         {
-            std::cout << "Writing to config file failed. " << ctx.config_file << std::endl;
+            std::cerr << "Writing to config file failed. " << ctx.config_file << std::endl;
             ofs.close();
             return -1;
         }
@@ -442,7 +446,7 @@ namespace conf
         }
 
         // Populate unl.
-        cfg.unl.push_back(cfg.pubkey); // Add self pubkey to unl.
+        cfg.unl.emplace(cfg.pubkey); // Add self pubkey to unl.
         unl::init(cfg.unl);
 
         // Populate runtime contract execution args.

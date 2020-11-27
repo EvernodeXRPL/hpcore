@@ -90,7 +90,7 @@ namespace conf
         std::string appbill;                                      // binary to execute for appbill
         std::string appbillargs;                                  // any arguments to supply to appbill binary by default
         std::vector<peer_properties> peers;                       // Vector of peers with ip_port, timestamp, capacity
-        std::vector<std::string> unl;                             // Unique node list (list of binary public keys)
+        std::set<std::string> unl;                                // Unique node list (list of binary public keys)
         uint16_t peerport = 0;                                    // Listening port for peer connections
         uint16_t roundtime = 0;                                   // Consensus round time in ms
         uint16_t pubport = 0;                                     // Listening port for public user connections
@@ -136,7 +136,7 @@ namespace conf
 
     void set_contract_dir_paths(std::string exepath, std::string basedir);
 
-    int persist_unl_update(std::vector<std::string> &&updated_unl);
+    int persist_unl_update(const std::set<std::string> &updated_unl);
 
     //------Internal-use functions for this namespace.
 

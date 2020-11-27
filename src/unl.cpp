@@ -15,13 +15,13 @@ namespace unl
     /**
      * Called by conf during startup to populate configured unl list.
      */
-    void init(const std::vector<std::string> &init_list)
+    void init(const std::set<std::string> &init_list)
     {
         if (init_list.empty())
             return;
 
         std::unique_lock lock(unl_mutex);
-        list = std::set<std::string>(init_list.begin(), init_list.end());
+        list = init_list;
         update_json_list();
     }
 
@@ -66,7 +66,7 @@ namespace unl
             list.erase(pubkey);
 
         update_json_list();
-        conf::persist_unl_update(std::vector<std::string>(list.begin(), list.end()));
+        conf::persist_unl_update(list);
 
         LOG_INFO << "UNL updated. Count:" << list.size();
     }
