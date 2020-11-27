@@ -18,8 +18,8 @@ namespace sc
 
     struct fd_pair
     {
-        int hpfd = 0;
-        int scfd = 0;
+        int hpfd = -1;
+        int scfd = -1;
     };
 
     /**
@@ -106,7 +106,7 @@ namespace sc
         fd_pair nplfds;
 
         // Socket fds for control messages.
-        fd_pair hpscfds;
+        fd_pair controlfds;
 
         // Holds the contract process id (if currently executing).
         pid_t contract_pid = 0;

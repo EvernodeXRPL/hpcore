@@ -66,7 +66,7 @@ namespace sc
             return -1;
 
         create_iosockets_for_fdmap(ctx.userfds, ctx.args.userbufs); // User output socket.
-        create_iosockets(ctx.hpscfds, SOCK_SEQPACKET);              // Control socket.
+        create_iosockets(ctx.controlfds, SOCK_SEQPACKET);           // Control socket.
         if (!ctx.args.readonly)
             create_iosockets(ctx.nplfds, SOCK_SEQPACKET); // NPL socket.
 
@@ -245,7 +245,7 @@ namespace sc
      *   "ts": <this node's timestamp (unix milliseconds)>,
      *   "readonly": <true|false>,
      *   "lcl": "<this node's last closed ledger seq no. and hash in hex>", (eg: 169-a1d82eb4c9ed005ec2c4f4f82b6f0c2fd7543d66b1a0f6b8e58ae670b3e2bcfb)
-     *   "hpfd": fd,
+     *   "controlfd": fd,
      *   "nplfd":fd,
      *   "userinfd":fd, // User inputs fd.
      *   "users":{ "<pkhex>":[outfd, [msg1_off, msg1_len], ...], ... },
@@ -270,7 +270,7 @@ namespace sc
                << "\",\"nplfd\":" << ctx.nplfds.scfd;
         }
 
-        os << ",\"hpfd\":" << ctx.hpscfds.scfd;
+        os << ",\"controlfd\":" << ctx.controlfds.scfd;
 
         os << ",\"userinfd\":" << user_inputs_fd
            << ",\"users\":{";
@@ -318,7 +318,7 @@ namespace sc
         while (!ctx.is_shutting_down)
         {
             // Atempt to read messages from contract (regardless of contract terminated or not).
-            const int hpsc_read_res = read_control_outputs(ctx);
+            const int control_read_res = read_control_outputs(ctx);
             const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
             const int user_read_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
 
@@ -326,7 +326,7 @@ namespace sc
             {
                 // If no bytes were read after contract finished execution, exit the loop.
                 // Otherwise keep running the loop becaue there might be further messages to read.
-                if ((hpsc_read_res + npl_read_res + user_read_res) == 0)
+                if ((control_read_res + npl_read_res + user_read_res) == 0)
                     break;
             }
             else
@@ -343,7 +343,7 @@ namespace sc
 
                 // If no operation was performed during this iteration, wait for a small delay until the next iteration.
                 // This means there were no queued messages from either side.
-                if ((hpsc_read_res + npl_read_res + user_read_res + control_write_res + control_write_res) == 0)
+                if ((control_read_res + npl_read_res + user_read_res + control_write_res + control_write_res) == 0)
                     util::sleep(20);
             }
 
@@ -353,7 +353,7 @@ namespace sc
         }
 
         // Close all fds.
-        cleanup_fd_pair(ctx.hpscfds);
+        cleanup_fd_pair(ctx.controlfds);
         cleanup_fd_pair(ctx.nplfds);
         for (auto &[pubkey, fds] : ctx.userfds)
             cleanup_fd_pair(fds);
@@ -390,7 +390,7 @@ namespace sc
 
         if (ctx.args.control_messages.try_dequeue(control_msg))
         {
-            if (write_iosocket_seq_packet(ctx.hpscfds, control_msg) == -1)
+            if (write_iosocket_seq_packet(ctx.controlfds, control_msg) == -1)
             {
                 LOG_ERROR << "Error writing HP inputs to SC";
                 return -1;
@@ -463,7 +463,7 @@ namespace sc
     int read_control_outputs(execution_context &ctx)
     {
         std::string output;
-        const int res = read_iosocket(false, ctx.hpscfds, output);
+        const int res = read_iosocket(false, ctx.controlfds, output);
         if (res == -1)
         {
             LOG_ERROR << "Error reading control message from the contract.";
@@ -748,7 +748,7 @@ namespace sc
             close_unused_socket_fds(is_hp, ctx.nplfds);
         }
 
-        close_unused_socket_fds(is_hp, ctx.hpscfds);
+        close_unused_socket_fds(is_hp, ctx.controlfds);
 
         // Loop through user fds.
         for (auto &[pubkey, fds] : ctx.userfds)
@@ -765,19 +765,28 @@ namespace sc
     {
         if (is_hp)
         {
-            close(fds.scfd);
-            fds.scfd = -1;
+            if (fds.scfd != -1)
+            {
+                close(fds.scfd);
+                fds.scfd = -1;
+            }
 
             // The hp fd must be kept open in HP process. But we must
             // mark it to close on exec in a potential forked process.
-            int flags = fcntl(fds.hpfd, F_GETFD, NULL);
-            flags |= FD_CLOEXEC;
-            fcntl(fds.hpfd, F_SETFD, flags);
+            if (fds.hpfd != -1)
+            {
+                int flags = fcntl(fds.hpfd, F_GETFD, NULL);
+                flags |= FD_CLOEXEC;
+                fcntl(fds.hpfd, F_SETFD, flags);
+            }
         }
         else
         {
-            close(fds.hpfd);
-            fds.hpfd = -1;
+            if (fds.hpfd != -1)
+            {
+                close(fds.hpfd);
+                fds.hpfd = -1;
+            }
         }
     }
 
@@ -786,8 +795,10 @@ namespace sc
      */
     void cleanup_fd_pair(fd_pair &fds)
     {
-        close(fds.hpfd);
-        close(fds.scfd);
+        if (fds.hpfd != -1)
+            close(fds.hpfd);
+        if (fds.scfd != -1)
+            close(fds.scfd);
         fds.hpfd = -1;
         fds.scfd = -1;
     }
