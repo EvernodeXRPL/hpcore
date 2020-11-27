@@ -105,7 +105,7 @@ function HotPocketClient(server, keys, protocol = protocols.BSON) {
                     // sign the challenge and send back the response
                     const response = msgHelper.createHandshakeResponse(m.challenge);
                     ws.send(JSON.stringify(response));
-                    
+
                     setTimeout(() => {
                         // If we are still connected, report handshaking as successful.
                         // (If websocket disconnects, handshakeResolver will be null)
@@ -222,11 +222,15 @@ function MessageHelper(keys, protocol) {
     }
 
     this.serializeObject = function (obj) {
-        return protocol == protocols.JSON ? Buffer.from(JSON.stringify(obj)) : bson.serialize(obj);
+        return protocol == protocols.JSON ? JSON.stringify(obj) : bson.serialize(obj);
     }
 
     this.deserializeMessage = function (m) {
         return protocol == protocols.JSON ? JSON.parse(m) : bson.deserialize(m);
+    }
+
+    this.serializeInput = function (input) {
+        return protocol == protocols.JSON ? input.toString() : bson.serialize(obj);
     }
 
     this.createHandshakeResponse = function (challenge) {
@@ -248,17 +252,17 @@ function MessageHelper(keys, protocol) {
             return null;
 
         const inpContainer = {
-            input: this.binaryEncode(input),
+            input: this.serializeInput(input),
             nonce: nonce,
             max_lcl_seqno: maxLclSeqNo
         }
 
-        const inpContainerBytes = this.serializeObject(inpContainer);
-        const sigBytes = sodium.crypto_sign_detached(Buffer.from(inpContainerBytes), keys.privateKey);
+        const serlializedInpContainer = this.serializeObject(inpContainer);
+        const sigBytes = sodium.crypto_sign_detached(Buffer.from(serlializedInpContainer), keys.privateKey);
 
         const signedInpContainer = {
             type: "contract_input",
-            input_container: this.binaryEncode(inpContainerBytes),
+            input_container: serlializedInpContainer,
             sig: this.binaryEncode(sigBytes)
         }
 
@@ -272,7 +276,7 @@ function MessageHelper(keys, protocol) {
 
         return {
             type: "contract_read_request",
-            content: this.binaryEncode(request)
+            content: this.serializeInput(request)
         }
     }
 

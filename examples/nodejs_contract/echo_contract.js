@@ -10,12 +10,11 @@ const echoContract = async (ctx) => {
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
 
     // This will return after all user messages are processed.
-    await ctx.users.onMessage(async (user, buf) => {
+    await ctx.users.onMessage(async (user, msg) => {
 
         // This user's pubkey can be accessed from 'user.pubKey'
         // A reply message can be sent to the user by 'user.send(msg)'
-
-        const msg = buf.toString("utf8");
+        
         if (msg == "ts") {
             await user.send(fs.readFileSync("exects.txt"));
         }
