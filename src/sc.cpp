@@ -267,10 +267,10 @@ namespace sc
         if (!ctx.args.readonly)
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
-               << "\",\"nplfd\":" << ctx.nplfds[SOCKETFDTYPE::SCREADWRITE];
+               << "\",\"nplfd\":" << ctx.nplfds.scfd;
         }
 
-        os << ",\"hpfd\":" << ctx.hpscfds[SOCKETFDTYPE::SCREADWRITE];
+        os << ",\"hpfd\":" << ctx.hpscfds.scfd;
 
         os << ",\"userinfd\":" << user_inputs_fd
            << ",\"users\":{";
@@ -353,10 +353,10 @@ namespace sc
         }
 
         // Close all fds.
-        cleanup_vectorfds(ctx.hpscfds);
-        cleanup_vectorfds(ctx.nplfds);
+        cleanup_fd_pair(ctx.hpscfds);
+        cleanup_fd_pair(ctx.nplfds);
         for (auto &[pubkey, fds] : ctx.userfds)
-            cleanup_vectorfds(fds);
+            cleanup_fd_pair(fds);
         ctx.userfds.clear();
 
         // Purge any inputs we passed to the contract.
@@ -411,7 +411,7 @@ namespace sc
          * npl inputs are feed into the contract as sequence packets. It first sends the pubkey and then
          * the data.
          */
-        const int writefd = ctx.nplfds[SOCKETFDTYPE::HPREADWRITE];
+        const int writefd = ctx.nplfds.hpfd;
 
         if (writefd == -1)
             return 0;
@@ -532,7 +532,7 @@ namespace sc
 
             // Write hex pubkey as key and output fd as first element of array.
             os << "\"" << pubkeyhex << "\":["
-               << itr->second[SOCKETFDTYPE::SCREADWRITE];
+               << itr->second.scfd;
 
             // Write input offsets into the same array.
             for (auto inp_itr = user_inputs.begin(); inp_itr != user_inputs.end(); inp_itr++)
@@ -544,7 +544,7 @@ namespace sc
 
     /**
      * Creates io sockets for all pubkeys specified in bufmap.
-     * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
+     * @param fdmap A map which has public key and fd pair for that public key.
      * @param bufmap A map which has a public key and input/output buffer lists for that public key.
      * @return 0 on success. -1 on failure.
      */
@@ -552,7 +552,7 @@ namespace sc
     {
         for (auto &[pubkey, buflist] : bufmap)
         {
-            std::vector<int> fds = std::vector<int>();
+            fd_pair fds = {};
             if (create_iosockets(fds, SOCK_STREAM) == -1)
                 return -1;
 
@@ -566,7 +566,7 @@ namespace sc
      * Common function to read all outputs produced by the contract process and store them in
      * output buffers for later processing.
      * 
-     * @param fdmap A map which has public key and a vector<int> as fd list for that public key.
+     * @param fdmap A map which has public key and fd pair for that public key.
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
      * @return 0 if no bytes were read. 1 if bytes were read.
      */
@@ -577,7 +577,7 @@ namespace sc
         {
             // Get fds for the pubkey.
             std::string output;
-            std::vector<int> &fds = fdmap[pubkey];
+            fd_pair &fds = fdmap[pubkey];
 
             // This returns the total bytes read from the socket.
             const int total_bytes_read = read_iosocket(true, fds, output);
@@ -644,11 +644,11 @@ namespace sc
 
     /**
      * Common function to create a socket (Hp->SC, SC->HP).
-     * @param fds Vector to populate fd list.
+     * @param fds fd pair to populate.
      * @param socket_type Type of the socket. (SOCK_STREAM, SOCK_DGRAM, SOCK_SEQPACKET)
      * @return Returns -1 if socket creation fails otherwise 0.
      */
-    int create_iosockets(std::vector<int> &fds, const int socket_type)
+    int create_iosockets(fd_pair &fds, const int socket_type)
     {
         int socket[2] = {-1, -1};
         // Create the socket of given type.
@@ -658,23 +658,22 @@ namespace sc
             return -1;
         }
 
-        // If socket got created, assign them to the fd vector.
-        fds.clear();
-        fds.push_back(socket[0]); //SCREADWRITE
-        fds.push_back(socket[1]); //HPREADWRITE
+        // If socket got created, assign them to the fd pair.
+        fds.scfd = socket[0];
+        fds.hpfd = socket[1];
 
         return 0;
     }
 
     /**
      * Common function to write the given input into the write fd from the HP side socket.
-     * @param fds Vector of fd list.
+     * @param fds fd pair.
      * @param input Input to write into the HP write fd.
      */
-    int write_iosocket_seq_packet(std::vector<int> &fds, std::string_view input)
+    int write_iosocket_seq_packet(fd_pair &fds, std::string_view input)
     {
         // Write the inputs (if any) into the contract.
-        const int writefd = fds[SOCKETFDTYPE::HPREADWRITE];
+        const int writefd = fds.hpfd;
         if (writefd == -1)
             return 0;
 
@@ -690,17 +689,17 @@ namespace sc
     /**
      * Common function to read buffered output from the socket and populate the output.
      * @param is_stream_socket Indicates whether socket is steam socket or not
-     * @param fds Vector representing the socket fd list.
+     * @param fds fd pair representing the socket fd list.
      * @param output The buffer to place the read output.
      * @return -1 on error. Otherwise no. of bytes read.
      */
-    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output)
+    int read_iosocket(const bool is_stream_socket, fd_pair &fds, std::string &output)
     {
         // Read any available data that have been written by the contract process
         // from the output socket and store in the output buffer.
         // Outputs will be read by the consensus process later when it wishes so.
 
-        const int readfd = fds[SOCKETFDTYPE::HPREADWRITE];
+        const int readfd = fds.hpfd;
         int res = 0;
 
         if (readfd == -1)
@@ -746,62 +745,51 @@ namespace sc
     {
         if (!ctx.args.readonly)
         {
-            close_unused_socket_vectorfds(is_hp, ctx.nplfds);
+            close_unused_socket_fds(is_hp, ctx.nplfds);
         }
 
-        close_unused_socket_vectorfds(is_hp, ctx.hpscfds);
+        close_unused_socket_fds(is_hp, ctx.hpscfds);
 
         // Loop through user fds.
         for (auto &[pubkey, fds] : ctx.userfds)
-            close_unused_socket_vectorfds(is_hp, fds);
+            close_unused_socket_fds(is_hp, fds);
     }
 
     /**
      * Common function for closing unused fds based on which process this gets called from.
      * This also marks active fds with O_CLOEXEC for close-on-exec behaviour.
      * @param is_hp Specify 'true' when calling from HP process. 'false' from SC process.
-     * @param fds Vector of fds to close.
+     * @param fds fd pair to close.
      */
-    void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds)
+    void close_unused_socket_fds(const bool is_hp, fd_pair &fds)
     {
-        for (int fd_type = 0; fd_type <= 1; fd_type++)
+        if (is_hp)
         {
-            const int fd = fds[fd_type];
-            if (fd != -1)
-            {
-                if ((is_hp && fd_type == SOCKETFDTYPE::SCREADWRITE) ||
-                    (!is_hp && fd_type == SOCKETFDTYPE::HPREADWRITE))
-                {
-                    close(fd);
-                    fds[fd_type] = -1;
-                }
-                else if (is_hp && (fd_type == SOCKETFDTYPE::HPREADWRITE))
-                {
-                    // The fd must be kept open in HP process. But we must
-                    // mark it to close on exec in a potential forked process.
-                    int flags = fcntl(fd, F_GETFD, NULL);
-                    flags |= FD_CLOEXEC;
-                    fcntl(fd, F_SETFD, flags);
-                }
-            }
+            close(fds.scfd);
+            fds.scfd = -1;
+
+            // The hp fd must be kept open in HP process. But we must
+            // mark it to close on exec in a potential forked process.
+            int flags = fcntl(fds.hpfd, F_GETFD, NULL);
+            flags |= FD_CLOEXEC;
+            fcntl(fds.hpfd, F_SETFD, flags);
+        }
+        else
+        {
+            close(fds.hpfd);
+            fds.hpfd = -1;
         }
     }
 
     /**
-     * Closes all fds in a vector fd set.
+     * Closes fds in a fd pair.
      */
-    void cleanup_vectorfds(std::vector<int> &fds)
+    void cleanup_fd_pair(fd_pair &fds)
     {
-        for (int i = 0; i < fds.size(); i++)
-        {
-            if (fds[i] != -1)
-            {
-                close(fds[i]);
-                fds[i] = -1;
-            }
-        }
-
-        fds.clear();
+        close(fds.hpfd);
+        close(fds.scfd);
+        fds.hpfd = -1;
+        fds.scfd = -1;
     }
 
     /**

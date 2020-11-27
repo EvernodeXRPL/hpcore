@@ -16,15 +16,10 @@ namespace sc
     constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 64;     // Maximum npl message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
     constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 64; // Maximum out message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
-    // Enum used to differenciate socket fds maintained for SC socket.
-    enum SOCKETFDTYPE
+    struct fd_pair
     {
-        // Used by Smart Contract to read input sent by Hot Pocket.
-        // Used by Smart Contract to write output back to Hot Pocket.
-        SCREADWRITE = 0,
-        // Used by Hot Pocket to write input to the smart contract.
-        // Used by Hot Pocket to read output from the smart contract.
-        HPREADWRITE = 1
+        int hpfd = 0;
+        int scfd = 0;
     };
 
     /**
@@ -48,9 +43,9 @@ namespace sc
         std::list<contract_output> outputs;
     };
 
-    // Common typedef for a map of pubkey->fdlist.
-    // This is used to keep track of fdlist quadruplet with a public key (eg. user, npl).
-    typedef std::unordered_map<std::string, std::vector<int>> contract_fdmap_t;
+    // Common typedef for a map of pubkey->fdpair.
+    // This is used to keep track of fdpair with a public key (eg. user, npl).
+    typedef std::unordered_map<std::string, fd_pair> contract_fdmap_t;
 
     // Common typedef for a map of pubkey->I/O list pair (input list and output list).
     // This is used to keep track of input/output buffers for a given public key (eg. user, npl)
@@ -107,11 +102,11 @@ namespace sc
         // Map of user socket fds (map key: user public key)
         contract_fdmap_t userfds;
 
-        // Socket fds for NPL <--> messages.
-        std::vector<int> nplfds;
+        // Socket fds for NPL messages.
+        fd_pair nplfds;
 
-        // Socket fds for HP <--> messages.
-        std::vector<int> hpscfds;
+        // Socket fds for control messages.
+        fd_pair hpscfds;
 
         // Holds the contract process id (if currently executing).
         pid_t contract_pid = 0;
@@ -169,17 +164,17 @@ namespace sc
 
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int create_iosockets(std::vector<int> &fds, const int socket_type);
+    int create_iosockets(fd_pair &fds, const int socket_type);
 
-    int write_iosocket_seq_packet(std::vector<int> &fds, std::string_view input);
+    int write_iosocket_seq_packet(fd_pair &fds, std::string_view input);
 
-    int read_iosocket(const bool is_stream_socket, std::vector<int> &fds, std::string &output);
+    int read_iosocket(const bool is_stream_socket, fd_pair &fds, std::string &output);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
 
-    void close_unused_socket_vectorfds(const bool is_hp, std::vector<int> &fds);
+    void close_unused_socket_fds(const bool is_hp, fd_pair &fds);
 
-    void cleanup_vectorfds(std::vector<int> &fds);
+    void cleanup_fd_pair(fd_pair &fds);
 
     void stop(execution_context &ctx);
 
