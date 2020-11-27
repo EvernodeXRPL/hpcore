@@ -12,7 +12,7 @@
 
 namespace sc
 {
-    const uint32_t MAX_SEQ_PACKET_SIZE = 128 * 1024;
+    const uint32_t READ_BUFFER_SIZE = 128 * 1024; // This has to be minimum 128KB to support sequence packets.
     bool init_success = false;
 
     // We maintain two hpfs global processes for merging and rw sessions.
@@ -315,12 +315,37 @@ namespace sc
     {
         util::mask_signal();
 
+        // Prepare output poll fd list.
+        // User out fds + control fd + NPL fd (NPL fd not available in readonly mode)
+        const size_t out_fd_count = ctx.userfds.size() + (ctx.args.readonly ? 1 : 2);
+        const size_t control_fd_idx = ctx.userfds.size();
+        const size_t npl_fd_idx = control_fd_idx + 1;
+        struct pollfd out_fds[out_fd_count];
+
+        auto user_itr = ctx.userfds.begin();
+        for (int i = 0; i < out_fd_count; i++)
+        {
+            const int fd = (user_itr != ctx.userfds.end()) ? (user_itr++)->second.hpfd
+                                                           : (i == control_fd_idx ? ctx.controlfds.hpfd : ctx.nplfds.hpfd);
+            out_fds[i] = {fd, POLLIN, 0};
+        }
+
         while (!ctx.is_shutting_down)
         {
+            // Reset the revents because we are reusing same pollfd list.
+            for (int i = 0; i < out_fd_count; i++)
+                out_fds[i].revents = 0;
+
+            if (poll(out_fds, out_fd_count, 20) == -1)
+            {
+                LOG_ERROR << errno << ": Poll error in contract outputs.";
+                break;
+            }
+
             // Atempt to read messages from contract (regardless of contract terminated or not).
-            const int control_read_res = read_control_outputs(ctx);
-            const int npl_read_res = ctx.args.readonly ? 0 : read_contract_npl_outputs(ctx);
-            const int user_read_res = read_contract_fdmap_outputs(ctx.userfds, ctx.args.userbufs);
+            const int control_read_res = read_control_outputs(ctx, out_fds[control_fd_idx]);
+            const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, out_fds[npl_fd_idx]);
+            const int user_read_res = read_contract_fdmap_outputs(ctx.userfds, out_fds, ctx.args.userbufs);
 
             if (ctx.termination_signaled || ctx.contract_pid == 0)
             {
@@ -340,11 +365,6 @@ namespace sc
                 const int control_write_res = write_control_inputs(ctx);
                 if (control_write_res == -1)
                     break;
-
-                // If no operation was performed during this iteration, wait for a small delay until the next iteration.
-                // This means there were no queued messages from either side.
-                if ((control_read_res + npl_read_res + user_read_res + control_write_res + control_write_res) == 0)
-                    util::sleep(20);
             }
 
             // Check if contract process has exited on its own during the loop.
@@ -460,10 +480,10 @@ namespace sc
      * 
      * @return 0 if no bytes were read. 1 if bytes were read..
      */
-    int read_control_outputs(execution_context &ctx)
+    int read_control_outputs(execution_context &ctx, const pollfd pfd)
     {
         std::string output;
-        const int res = read_iosocket(false, ctx.controlfds, output);
+        const int res = read_iosocket(false, pfd, output);
         if (res == -1)
         {
             LOG_ERROR << "Error reading control message from the contract.";
@@ -481,10 +501,10 @@ namespace sc
      * @param ctx contract execution context.
      * @return 0 if no bytes were read. 1 if bytes were read.
      */
-    int read_contract_npl_outputs(execution_context &ctx)
+    int read_npl_outputs(execution_context &ctx, const pollfd pfd)
     {
         std::string output;
-        const int res = read_iosocket(false, ctx.nplfds, output);
+        const int res = read_iosocket(false, pfd, output);
 
         if (res == -1)
         {
@@ -567,12 +587,14 @@ namespace sc
      * output buffers for later processing.
      * 
      * @param fdmap A map which has public key and fd pair for that public key.
+     * @param pfds Poll fd set for users (must be in same order as user fdmap).
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
      * @return 0 if no bytes were read. 1 if bytes were read.
      */
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap)
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap)
     {
         bool bytes_read = false;
+        int i = 0;
         for (auto &[pubkey, bufs] : bufmap)
         {
             // Get fds for the pubkey.
@@ -580,7 +602,7 @@ namespace sc
             fd_pair &fds = fdmap[pubkey];
 
             // This returns the total bytes read from the socket.
-            const int total_bytes_read = read_iosocket(true, fds, output);
+            const int total_bytes_read = read_iosocket(true, pfds[i++], output);
 
             if (total_bytes_read == -1)
             {
@@ -688,57 +710,27 @@ namespace sc
 
     /**
      * Common function to read buffered output from the socket and populate the output.
-     * @param is_stream_socket Indicates whether socket is steam socket or not
-     * @param fds fd pair representing the socket fd list.
+     * @param is_stream_socket Indicates whether socket is steam socket or not.
+     * @param pfd The pollfd struct containing poll status.
      * @param output The buffer to place the read output.
      * @return -1 on error. Otherwise no. of bytes read.
      */
-    int read_iosocket(const bool is_stream_socket, fd_pair &fds, std::string &output)
+    int read_iosocket(const bool is_stream_socket, const pollfd pfd, std::string &output)
     {
         // Read any available data that have been written by the contract process
         // from the output socket and store in the output buffer.
-        // Outputs will be read by the consensus process later when it wishes so.
-
-        const int readfd = fds.hpfd;
-        int res = 0;
-
-        if (readfd == -1)
-            return 0;
-
-        // Available bytes returns the total number of bytes to read of multiple messages.
-        size_t available_bytes = 0;
-        if (ioctl(readfd, FIONREAD, &available_bytes) != -1)
+        if (pfd.revents & POLLIN)
         {
-            if (available_bytes == 0)
-            {
-                res = 0;
-            }
-            else
-            {
-                const size_t bytes_to_read = is_stream_socket ? available_bytes : MIN(MAX_SEQ_PACKET_SIZE, available_bytes);
-                output.resize(bytes_to_read);
-                const int read_res = read(readfd, output.data(), bytes_to_read);
-                output.resize(read_res);
+            output.resize(READ_BUFFER_SIZE);
+            const int res = read(pfd.fd, output.data(), READ_BUFFER_SIZE);
+            output.resize(res); // Resize back to the actual bytes read.
 
-                if (read_res >= 0)
-                {
-                    res = read_res;
-                    if (is_stream_socket)
-                        output.resize(read_res);
-                }
-                else
-                {
-                    res = -1;
-                    LOG_ERROR << errno << ": Error reading from contract socket.";
-                }
-            }
-        }
-        else
-        {
-            res = -1;
-        }
+            if (res == -1)
+                LOG_ERROR << errno << ": Error reading from contract socket. stream:" << is_stream_socket;
 
-        return res;
+            return res;
+        }
+        return 0;
     }
 
     void close_unused_fds(execution_context &ctx, const bool is_hp)

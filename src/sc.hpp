@@ -30,10 +30,10 @@ namespace sc
         uint32_t message_len = 0;
         std::string message;
     };
-    /**
- * Represents list of inputs to the contract and the accumulated contract output for those inputs.
- */
 
+    /**
+     * Represents list of inputs to the contract and the accumulated contract output for those inputs.
+     */
     struct contract_iobufs
     {
         // List of inputs to be fed into the contract.
@@ -44,16 +44,16 @@ namespace sc
     };
 
     // Common typedef for a map of pubkey->fdpair.
-    // This is used to keep track of fdpair with a public key (eg. user, npl).
-    typedef std::unordered_map<std::string, fd_pair> contract_fdmap_t;
+    // This is used to keep track of fdpair with a public key (eg. user).
+    typedef std::map<std::string, fd_pair> contract_fdmap_t;
 
     // Common typedef for a map of pubkey->I/O list pair (input list and output list).
-    // This is used to keep track of input/output buffers for a given public key (eg. user, npl)
-    typedef std::unordered_map<std::string, contract_iobufs> contract_bufmap_t;
+    // This is used to keep track of input/output buffers for a given public key (eg. user)
+    typedef std::map<std::string, contract_iobufs> contract_bufmap_t;
 
     /**
- * Holds information that should be passed into the contract process.
- */
+     * Holds information that should be passed into the contract process.
+     */
     struct contract_execution_args
     {
         // Whether the contract should execute in read only mode (to serve read requests).
@@ -92,8 +92,8 @@ namespace sc
     };
 
     /**
- * Holds context information relating to contract execution environment.
- */
+     * Holds context information relating to contract execution environment.
+     */
     struct execution_context
     {
         // The arguments that was used to initiate this execution.
@@ -150,9 +150,9 @@ namespace sc
 
     int write_npl_messages(execution_context &ctx);
 
-    int read_control_outputs(execution_context &ctx);
+    int read_control_outputs(execution_context &ctx, const pollfd pfd);
 
-    int read_contract_npl_outputs(execution_context &ctx);
+    int read_npl_outputs(execution_context &ctx, const pollfd pfd);
 
     void broadcast_npl_output(std::string_view output);
 
@@ -162,13 +162,13 @@ namespace sc
 
     int create_iosockets_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap);
 
     int create_iosockets(fd_pair &fds, const int socket_type);
 
     int write_iosocket_seq_packet(fd_pair &fds, std::string_view input);
 
-    int read_iosocket(const bool is_stream_socket, fd_pair &fds, std::string &output);
+    int read_iosocket(const bool is_stream_socket, const pollfd pfd, std::string &output);
 
     void close_unused_fds(execution_context &ctx, const bool is_hp);
 
