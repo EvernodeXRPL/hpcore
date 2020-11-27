@@ -65,17 +65,19 @@ namespace sc
         if (start_hpfs_session(ctx) == -1)
             return -1;
 
-        create_iosockets_for_fdmap(ctx.userfds, ctx.args.userbufs); // User output socket.
-        create_iosockets(ctx.controlfds, SOCK_SEQPACKET);           // Control socket.
-        if (!ctx.args.readonly)
-            create_iosockets(ctx.nplfds, SOCK_SEQPACKET); // NPL socket.
-
-        // Clone the user inputs fd to be passed on to the contract.
-        const int user_inputs_fd = dup(ctx.args.user_input_store.fd);
-
-        int ret = 0;
+        // Create the IO sockets for users, control channel and npl.
+        // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
+        if (create_iosockets_for_fdmap(ctx.userfds, ctx.args.userbufs) == -1 ||
+            create_iosockets(ctx.controlfds, SOCK_SEQPACKET) == -1 ||
+            (!ctx.args.readonly && create_iosockets(ctx.nplfds, SOCK_SEQPACKET) == -1))
+        {
+            cleanup_fds(ctx);
+            stop_hpfs_session(ctx);
+            return -1;
+        }
 
         LOG_DEBUG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
+        int ret = 0;
 
         const pid_t pid = fork();
         if (pid > 0)
@@ -85,7 +87,6 @@ namespace sc
 
             // Close all fds unused by HP process.
             close_unused_fds(ctx, true);
-            close(user_inputs_fd);
 
             // Start the contract monitor thread.
             ctx.contract_monitor_thread = std::thread(contract_monitor_loop, std::ref(ctx));
@@ -104,10 +105,11 @@ namespace sc
             // Close all fds unused by SC process.
             close_unused_fds(ctx, false);
 
-            // Reset the seek position for the contract's copy of user inputs fd.
-            lseek(user_inputs_fd, 0, SEEK_SET);
+            // Clone the user inputs fd to be passed on to the contract.
+            const int user_inputs_fd = dup(ctx.args.user_input_store.fd);
+            lseek(user_inputs_fd, 0, SEEK_SET); // Reset seek position.
 
-            // Write the contract input message from HotPocket to the stdin (0) of the contract process.
+            // Write the contract execution args from HotPocket to the stdin (0) of the contract process.
             write_contract_args(ctx, user_inputs_fd);
 
             const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
@@ -137,14 +139,10 @@ namespace sc
         else
         {
             LOG_ERROR << errno << ": fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
-            goto failure;
+            ret = -1;
         }
 
-        goto success;
-    failure:
-        ret = -1;
-
-    success:
+        cleanup_fds(ctx);
         if (stop_hpfs_session(ctx) == -1)
             ret = -1;
 
@@ -373,11 +371,7 @@ namespace sc
         }
 
         // Close all fds.
-        cleanup_fd_pair(ctx.controlfds);
-        cleanup_fd_pair(ctx.nplfds);
-        for (auto &[pubkey, fds] : ctx.userfds)
-            cleanup_fd_pair(fds);
-        ctx.userfds.clear();
+        cleanup_fds(ctx);
 
         // Purge any inputs we passed to the contract.
         for (const auto &[pubkey, bufs] : ctx.args.userbufs)
@@ -780,6 +774,15 @@ namespace sc
                 fds.hpfd = -1;
             }
         }
+    }
+
+    void cleanup_fds(execution_context &ctx)
+    {
+        cleanup_fd_pair(ctx.controlfds);
+        cleanup_fd_pair(ctx.nplfds);
+        for (auto &[pubkey, fds] : ctx.userfds)
+            cleanup_fd_pair(fds);
+        ctx.userfds.clear();
     }
 
     /**

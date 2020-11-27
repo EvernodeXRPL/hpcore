@@ -174,6 +174,8 @@ namespace sc
 
     void close_unused_socket_fds(const bool is_hp, fd_pair &fds);
 
+    void cleanup_fds(execution_context &ctx);
+
     void cleanup_fd_pair(fd_pair &fds);
 
     void stop(execution_context &ctx);
