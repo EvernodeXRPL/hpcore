@@ -159,7 +159,7 @@ namespace msg::usrmsg::bson
      *          Accepted signed input container format:
      *          {
      *            "type": "contract_read_request",
-     *            "content": <bson serialized input content>
+     *            "content": <binary buffer>
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
@@ -185,8 +185,8 @@ namespace msg::usrmsg::bson
      *          Accepted signed input container format:
      *          {
      *            "type": "contract_input",
-     *            "input_container": <bson input container message>,
-     *            "sig": <signature of the content>
+     *            "input_container": <bson serialized input container>,
+     *            "sig": <binary signature buffer of the bson serialized content>
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
@@ -216,7 +216,7 @@ namespace msg::usrmsg::bson
      * @param max_lcl_seqno The extracted max ledger sequence no.
      * @param contentjson The bson input container message.
      *                    {
-     *                      "input": <bson serialized input content>,
+     *                      "input": <binary buffer>,
      *                      "nonce": "<random string with optional sorted order>",
      *                      "max_lcl_seqno": <integer>
      *                    }
