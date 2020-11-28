@@ -1,7 +1,7 @@
 #!/bin/bash
-
-# Generate contract sub-directories within this script directory for the given no. of cluster nodes.
-# Usage (to generate 8-node cluster): ./cluster-create.sh 8
+# Script to generate docker container clusters for local development testing.
+# Generate contract sub-directories within "hpcluster" directory for the given no. of cluster nodes.
+# Usage (to generate 5-node cluster): ./cluster-create.sh 5
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
@@ -21,6 +21,7 @@ if [ "$CONTRACT" = "cecho" ]; then # C echo contract
     gcc echo_contract.c -o echo_contract -pthread
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/c_contract/echo_contract"
+    binary="/contract/bin/echo_contract"
 
 elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protocol)
     echo "Using nodejs file contract."
@@ -28,10 +29,14 @@ elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protoc
     npm install
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/nodejs_contract/{node_modules,package.json,hp-contract-lib.js,file_contract.js}"
+    binary="/usr/local/bin/node"
+    binargs="/contract/bin/file_contract.js"
 
-else # nodejs echo contract
+else # nodejs echo contract (default)
     echo "Using nodejs echo contract."
     copyfiles="$hpcore/examples/nodejs_contract/{package.json,hp-contract-lib.js,echo_contract.js}"
+    binary="/usr/local/bin/node"
+    binargs="/contract/bin/echo_contract.js"
 fi
 
 # Delete and recreate 'hpcluster' directory.
@@ -68,8 +73,8 @@ do
     
     # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
-            binary: '/usr/local/bin/node', \
-            binargs: '/contract/bin/echo_contract.js', \
+            binary: '$binary', \
+            binargs: '$binargs', \
             appbill: '', \
             appbillargs: '', \
             peerport: ${peerport}, \
