@@ -1,7 +1,7 @@
 #!/bin/bash
-
-# Generate contract sub-directories within this script directory for the given no. of cluster nodes.
-# Usage (to generate 8-node cluster): ./cluster-create.sh 8
+# Script to generate docker container clusters for local development testing.
+# Generate contract sub-directories within "hpcluster" directory for the given no. of cluster nodes.
+# Usage (to generate 5-node cluster): ./cluster-create.sh 5
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
@@ -9,6 +9,34 @@ if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
 else
   echo "Error: Please provide number of nodes."
   exit 1
+fi
+
+ncount=$1
+hpcore=$(realpath ../..)
+
+# Contract can be set with 'export CONTRACT=<name>'. Defaults to nodejs echo contract.
+if [ "$CONTRACT" = "cecho" ]; then # C echo contract
+    echo "Using C echo contract."
+    pushd $hpcore/examples/c_contract/ > /dev/null 2>&1
+    gcc echo_contract.c -o echo_contract -pthread
+    popd > /dev/null 2>&1
+    copyfiles="$hpcore/examples/c_contract/echo_contract"
+    binary="/contract/bin/echo_contract"
+
+elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protocol)
+    echo "Using nodejs file contract."
+    pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
+    npm install
+    popd > /dev/null 2>&1
+    copyfiles="$hpcore/examples/nodejs_contract/{node_modules,package.json,hp-contract-lib.js,file_contract.js}"
+    binary="/usr/local/bin/node"
+    binargs="/contract/bin/file_contract.js"
+
+else # nodejs echo contract (default)
+    echo "Using nodejs echo contract."
+    copyfiles="$hpcore/examples/nodejs_contract/{package.json,hp-contract-lib.js,echo_contract.js}"
+    binary="/usr/local/bin/node"
+    binargs="/contract/bin/echo_contract.js"
 fi
 
 # Delete and recreate 'hpcluster' directory.
@@ -19,7 +47,6 @@ clusterloc="./hpcluster"
 pushd $clusterloc > /dev/null 2>&1
 
 # Create contract directories for all nodes in the cluster.
-ncount=$1
 for (( i=0; i<$ncount; i++ ))
 do
 
@@ -46,8 +73,8 @@ do
     
     # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
-            binary: '/usr/local/bin/node', \
-            binargs: '/contract/bin/echo_contract.js', \
+            binary: '$binary', \
+            binargs: '$binargs', \
             appbill: '', \
             appbillargs: '', \
             peerport: ${peerport}, \
@@ -63,15 +90,10 @@ do
         -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hpnode${n}@example" > /dev/null 2>&1
     popd > /dev/null 2>&1
 
-    # Copy the contract executable and appbill.
+    # Copy the contract files and appbill.
     mkdir ./node$n/bin
-    cp ../../../examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} ./node$n/bin/
+    eval "cp -r $copyfiles ./node$n/bin/"
     cp ../bin/appbill ./node$n/bin/
-
-    pushd ./node$n/bin > /dev/null 2>&1
-    # Uncomment this if the contract needs npm install.
-    # npm install
-    popd
 done
 
 # Function to generate JSON array string while skiping a given index.

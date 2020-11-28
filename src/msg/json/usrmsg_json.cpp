@@ -303,7 +303,7 @@ namespace msg::usrmsg::json
         }
         catch (const std::exception &e)
         {
-            LOG_DEBUG << "User json message parsing failed. " << e.what();;
+            LOG_DEBUG << "User json message parsing failed. " << e.what();
             return -1;
         }
 
@@ -334,7 +334,7 @@ namespace msg::usrmsg::json
      *          Accepted signed input container format:
      *          {
      *            "type": "contract_read_request",
-     *            "content": "<hex encoded content to be passed to the contract>"
+     *            "content": "<any string>"
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
@@ -352,20 +352,7 @@ namespace msg::usrmsg::json
             return -1;
         }
 
-        std::string_view contenthex = d[msg::usrmsg::FLD_CONTENT].as<std::string_view>();
-
-        std::string content;
-        content.resize(contenthex.length() / 2);
-        if (util::hex2bin(
-                reinterpret_cast<unsigned char *>(content.data()),
-                content.length(),
-                contenthex) != 0)
-        {
-            LOG_DEBUG << "Read request format invalid.";
-            return -1;
-        }
-
-        extracted_content = std::move(content);
+        extracted_content = d[msg::usrmsg::FLD_CONTENT].as<std::string>();
         return 0;
     }
 
@@ -378,8 +365,8 @@ namespace msg::usrmsg::json
      *          Accepted signed input container format:
      *          {
      *            "type": "contract_input",
-     *            "input_container": "<hex encoded stringified json input container message>",
-     *            "sig": "<hex encoded signature of the content>"
+     *            "input_container": "<stringified json input container>",
+     *            "sig": "<hex encoded signature of stringified input container>"
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
@@ -401,18 +388,13 @@ namespace msg::usrmsg::json
         // We do not verify the signature of the content here since we need to let each node
         // (including self) to verify that individually after we broadcast the NUP proposal.
 
-        const std::string_view input_container_hex = d[msg::usrmsg::FLD_INPUT_CONTAINER].as<std::string_view>();
-        std::string input_container;
-        input_container.resize(input_container_hex.size() / 2);
-        util::hex2bin(reinterpret_cast<unsigned char *>(input_container.data()), input_container.length(), input_container_hex);
+        extracted_input_container = d[msg::usrmsg::FLD_INPUT_CONTAINER].as<std::string>();
 
+        // Extract the hex signature and convert to binary.
         const std::string_view sig_hex = d[msg::usrmsg::FLD_SIG].as<std::string_view>();
-        std::string sig;
-        sig.resize(crypto_sign_ed25519_BYTES);
-        util::hex2bin(reinterpret_cast<unsigned char *>(sig.data()), sig.length(), sig_hex);
+        extracted_sig.resize(crypto_sign_ed25519_BYTES);
+        util::hex2bin(reinterpret_cast<unsigned char *>(extracted_sig.data()), extracted_sig.length(), sig_hex);
 
-        extracted_input_container = std::move(input_container);
-        extracted_sig = std::move(sig);
         return 0;
     }
 
@@ -423,7 +405,7 @@ namespace msg::usrmsg::json
      * @param max_lcl_seqno The extracted max ledger sequence no.
      * @param contentjson The json string containing the input container message.
      *                    {
-     *                      "input": "<hex encoded contract input content>",
+     *                      "input": "<any string>",
      *                      "nonce": "<random string with optional sorted order>",
      *                      "max_lcl_seqno": <integer>
      *                    }
@@ -454,19 +436,7 @@ namespace msg::usrmsg::json
             return -1;
         }
 
-        std::string_view inputhex = d[msg::usrmsg::FLD_INPUT].as<std::string_view>();
-
-        // Convert hex input to binary.
-        input.resize(inputhex.length() / 2);
-        if (util::hex2bin(
-                reinterpret_cast<unsigned char *>(input.data()),
-                input.length(),
-                inputhex) != 0)
-        {
-            LOG_DEBUG << "Contract input format invalid.";
-            return -1;
-        }
-
+        input = d[msg::usrmsg::FLD_INPUT].as<std::string>();
         nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
         max_lcl_seqno = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
 
