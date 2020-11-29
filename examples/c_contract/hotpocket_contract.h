@@ -110,6 +110,8 @@ struct __hp_contract
 int hp_init_contract();
 int hp_deinit_contract();
 const struct hp_contract_context *hp_get_context();
+const void *hp_init_user_input_mmap();
+void hp_deinit_user_input_mmap();
 
 void __hp_parse_args_json(const struct json_object_s *object);
 int __hp_write_control(const uint8_t *buf, const uint32_t len);
@@ -157,6 +159,9 @@ int hp_deinit_contract()
     if (!cctx)
         return -1; // Not initialized.
 
+    // Cleanup user input mmap (if mapped).
+    hp_deinit_user_input_mmap();
+
     // Cleanup user and peer fds.
     close(cctx->users.in_fd);
     for (int i = 0; i < cctx->users.count; i++)
@@ -184,6 +189,41 @@ int hp_deinit_contract()
 const struct hp_contract_context *hp_get_context()
 {
     return __hpc.cctx;
+}
+
+const void *hp_init_user_input_mmap()
+{
+    if (__hpc.user_inmap)
+        return __hpc.user_inmap;
+
+    struct hp_contract_context *cctx = __hpc.cctx;
+    struct stat st;
+    if (fstat(cctx->users.in_fd, &st) == -1)
+    {
+        perror("Error in user input fd stat");
+        return NULL;
+    }
+
+    if (st.st_size == 0)
+        return NULL;
+
+    const size_t mmap_size = __HP_MMAP_BLOCK_ALIGN(st.st_size);
+    void *mmap_ptr = mmap(NULL, mmap_size, PROT_READ, MAP_PRIVATE, cctx->users.in_fd, 0);
+    if (mmap_ptr == MAP_FAILED)
+    {
+        perror("Error in user input fd mmap");
+        return NULL;
+    }
+
+    __hpc.user_inmap = mmap_ptr;
+    __hpc.user_inmap_size = mmap_size;
+    return __hpc.user_inmap;
+}
+
+void hp_deinit_user_input_mmap()
+{
+    if (__hpc.user_inmap)
+        munmap(__hpc.user_inmap, __hpc.user_inmap_size);
 }
 
 void __hp_parse_args_json(const struct json_object_s *object)
@@ -244,7 +284,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
 
                             // Subsequent elements are tupels of [offset, size] of input messages for this user.
                             user->inputs_count = arr->length - 1;
-                            user->inputs = user->inputs_count ? malloc(user->inputs_count * sizeof(struct hp_user_input)) : NULL;
+                            user->inputs = user->inputs_count ? (struct hp_user_input *)malloc(user->inputs_count * sizeof(struct hp_user_input)) : NULL;
                             for (int i = 0; i < user->inputs_count; i++)
                             {
                                 if (arr_elem->value->type == json_type_array)
