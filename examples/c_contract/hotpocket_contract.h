@@ -62,12 +62,17 @@ struct hp_user_input
     uint32_t size;
 };
 
+struct hp_user_inputs_collection
+{
+    struct hp_user_input *list;
+    size_t count;
+};
+
 struct hp_user
 {
     char pubkey[__HP_KEY_SIZE + 1];
     int outfd;
-    struct hp_user_input *inputs;
-    uint32_t inputs_count;
+    struct hp_user_inputs_collection inputs;
 };
 
 struct hp_peer
@@ -112,6 +117,10 @@ int hp_deinit_contract();
 const struct hp_contract_context *hp_get_context();
 const void *hp_init_user_input_mmap();
 void hp_deinit_user_input_mmap();
+int hp_write_user(const struct hp_user *user, const uint8_t *buf, const uint32_t len);
+int hp_writev_user(const struct hp_user *user, const struct iovec *bufs, const int buf_count);
+int hp_write_peer(const uint8_t *buf, const uint32_t len);
+int hp_writev_peer(const struct iovec *bufs, const int buf_count);
 
 void __hp_parse_args_json(const struct json_object_s *object);
 int __hp_write_control(const uint8_t *buf, const uint32_t len);
@@ -172,7 +181,7 @@ int hp_deinit_contract()
     if (cctx->users.list)
     {
         for (int i = 0; i < cctx->users.count; i++)
-            __hp_free(cctx->users.list[i].inputs);
+            __hp_free(cctx->users.list[i].inputs.list);
 
         __hp_free(cctx->users.list);
     }
@@ -224,6 +233,60 @@ void hp_deinit_user_input_mmap()
 {
     if (__hpc.user_inmap)
         munmap(__hpc.user_inmap, __hpc.user_inmap_size);
+}
+
+int hp_write_user(const struct hp_user *user, const uint8_t *buf, const uint32_t len)
+{
+    const struct iovec vec = {(void *)buf, len};
+    return hp_writev_user(user, &vec, 1);
+}
+
+int hp_writev_user(const struct hp_user *user, const struct iovec *bufs, const int buf_count)
+{
+    const int total_buf_count = buf_count + 1;
+    struct iovec all_bufs[total_buf_count]; // We need to prepend the length header buf to indicate user message length.
+
+    uint32_t msg_len = 0;
+    for (int i = 0; i < buf_count; i++)
+    {
+        all_bufs[i + 1].iov_base = bufs[i].iov_base;
+        all_bufs[i + 1].iov_len = bufs[i].iov_len;
+        msg_len += bufs[i].iov_len;
+    }
+
+    uint8_t header_buf[__HP_MSG_HEADER_LEN];
+    __HP_TO_BE(msg_len, header_buf, 0);
+
+    all_bufs[0].iov_base = header_buf;
+    all_bufs[0].iov_len = __HP_MSG_HEADER_LEN;
+
+    return writev(user->outfd, all_bufs, total_buf_count);
+}
+
+int hp_write_peer(const uint8_t *buf, const uint32_t len)
+{
+    if (len > __HP_SEQPKT_BUF_SIZE)
+    {
+        fprintf(stderr, "Peer message exceeds max length %d.", __HP_SEQPKT_BUF_SIZE);
+        return -1;
+    }
+
+    return write(__hpc.cctx->peers.fd, buf, len);
+}
+
+int hp_writev_peer(const struct iovec *bufs, const int buf_count)
+{
+    uint32_t len = 0;
+    for (int i = 0; i < buf_count; i++)
+        len += bufs[i].iov_len;
+
+    if (len > __HP_SEQPKT_BUF_SIZE)
+    {
+        fprintf(stderr, "Peer message exceeds max length %d.", __HP_SEQPKT_BUF_SIZE);
+        return -1;
+    }
+
+    return writev(__hpc.cctx->peers.fd, bufs, buf_count);
 }
 
 void __hp_parse_args_json(const struct json_object_s *object)
@@ -283,17 +346,17 @@ void __hp_parse_args_json(const struct json_object_s *object)
                             arr_elem = arr_elem->next;
 
                             // Subsequent elements are tupels of [offset, size] of input messages for this user.
-                            user->inputs_count = arr->length - 1;
-                            user->inputs = user->inputs_count ? (struct hp_user_input *)malloc(user->inputs_count * sizeof(struct hp_user_input)) : NULL;
-                            for (int i = 0; i < user->inputs_count; i++)
+                            user->inputs.count = arr->length - 1;
+                            user->inputs.list = user->inputs.count ? (struct hp_user_input *)malloc(user->inputs.count * sizeof(struct hp_user_input)) : NULL;
+                            for (int i = 0; i < user->inputs.count; i++)
                             {
                                 if (arr_elem->value->type == json_type_array)
                                 {
                                     const struct json_array_s *input_info = (struct json_array_s *)arr_elem->value->payload;
                                     if (input_info->length == 2)
                                     {
-                                        __HP_ASSIGN_UINT64(user->inputs[i].offset, input_info->start);
-                                        __HP_ASSIGN_UINT64(user->inputs[i].size, input_info->start->next);
+                                        __HP_ASSIGN_UINT64(user->inputs.list[i].offset, input_info->start);
+                                        __HP_ASSIGN_UINT64(user->inputs.list[i].size, input_info->start->next);
                                     }
                                 }
                                 arr_elem = arr_elem->next;
