@@ -92,13 +92,9 @@ struct hp_peers_collection
 struct hp_contract_context
 {
     bool readonly;
-
     uint64_t timestamp;
     char pubkey[__HP_KEY_SIZE + 1];
-
-    char lcl_hash[__HP_HASH_SIZE + 1];
-    uint64_t lcl_seq_no;
-
+    char lcl[__HP_HASH_SIZE + 22]; // uint64(20 chars) + "-" + hash + nullchar
     struct hp_users_collection users;
     struct hp_peers_collection peers;
 };
@@ -386,19 +382,7 @@ void __hp_parse_args_json(struct hp_contract_context *ctx, const struct json_obj
         }
         else if (strcmp(k->string, "lcl") == 0)
         {
-            if (elem->value->type == json_type_string)
-            {
-                const struct json_string_s *value = (struct json_string_s *)elem->value->payload;
-                const char *delim = "-";
-                char *tok_ptr;
-                char *tok_str = strdup(value->string);
-                const char *seq_str = strtok_r(tok_str, delim, &tok_ptr);
-                const char *hash_str = strtok_r(NULL, delim, &tok_ptr);
-
-                ctx->lcl_seq_no = strtoull(seq_str, NULL, 0);
-                memcpy(ctx->lcl_hash, hash_str, __HP_HASH_SIZE);
-                free(tok_str);
-            }
+            __HP_ASSIGN_STRING(ctx->lcl, elem);
         }
         else if (strcmp(k->string, "userinfd") == 0)
         {
