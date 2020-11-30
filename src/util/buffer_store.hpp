@@ -26,6 +26,7 @@ namespace util
         int fd;
         int init();
         const buffer_view write_buf(const void *buf, const uint32_t size);
+        std::string read_buf(const buffer_view &view);
         int purge(const buffer_view &buf);
         void deinit();
     };

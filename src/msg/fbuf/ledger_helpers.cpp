@@ -57,9 +57,7 @@ namespace msg::fbuf::ledger
                 builder,
                 sv_to_flatbuff_bytes(builder, key),
                 sv_to_flatbuff_bytes(builder, value.pubkey),
-                sv_to_flatbuff_bytes(builder, value.user_input.input_container),
-                sv_to_flatbuff_bytes(builder, value.user_input.sig),
-                value.user_input.protocol));
+                sv_to_flatbuff_bytes(builder, value.input)));
         }
 
         flatbuffers::Offset<ledger::FullHistoryBlock> fullhistory =
@@ -79,8 +77,7 @@ namespace msg::fbuf::ledger
         map.reserve(fbvec->size());
         for (auto el : *fbvec)
         {
-            usr::user_input user_input(flatbuff_bytes_to_sv(el->input_container()), flatbuff_bytes_to_sv(el->sig()), (util::PROTOCOL)el->protocol());
-            usr::raw_user_input raw_user_input(flatbuff_bytes_to_sv(el->input_container()), user_input);
+            usr::raw_user_input raw_user_input(flatbuff_bytes_to_sv(el->pubkey()), flatbuff_bytes_to_sv(el->input()));
             map.emplace(flatbuff_bytes_to_sv(el->hash()), raw_user_input);
         }
         return map;

@@ -76,9 +76,7 @@ struct RawInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HASH = 4,
     VT_PUBKEY = 6,
-    VT_INPUT_CONTAINER = 8,
-    VT_SIG = 10,
-    VT_PROTOCOL = 12
+    VT_INPUT = 8
   };
   const flatbuffers::Vector<uint8_t> *hash() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH);
@@ -92,23 +90,11 @@ struct RawInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_pubkey() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
   }
-  const flatbuffers::Vector<uint8_t> *input_container() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_INPUT_CONTAINER);
+  const flatbuffers::Vector<uint8_t> *input() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_INPUT);
   }
-  flatbuffers::Vector<uint8_t> *mutable_input_container() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_INPUT_CONTAINER);
-  }
-  const flatbuffers::Vector<uint8_t> *sig() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIG);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_sig() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SIG);
-  }
-  uint8_t protocol() const {
-    return GetField<uint8_t>(VT_PROTOCOL, 0);
-  }
-  bool mutate_protocol(uint8_t _protocol) {
-    return SetField<uint8_t>(VT_PROTOCOL, _protocol, 0);
+  flatbuffers::Vector<uint8_t> *mutable_input() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_INPUT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -116,11 +102,8 @@ struct RawInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(hash()) &&
            VerifyOffset(verifier, VT_PUBKEY) &&
            verifier.VerifyVector(pubkey()) &&
-           VerifyOffset(verifier, VT_INPUT_CONTAINER) &&
-           verifier.VerifyVector(input_container()) &&
-           VerifyOffset(verifier, VT_SIG) &&
-           verifier.VerifyVector(sig()) &&
-           VerifyField<uint8_t>(verifier, VT_PROTOCOL) &&
+           VerifyOffset(verifier, VT_INPUT) &&
+           verifier.VerifyVector(input()) &&
            verifier.EndTable();
   }
 };
@@ -135,14 +118,8 @@ struct RawInputBuilder {
   void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
     fbb_.AddOffset(RawInput::VT_PUBKEY, pubkey);
   }
-  void add_input_container(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> input_container) {
-    fbb_.AddOffset(RawInput::VT_INPUT_CONTAINER, input_container);
-  }
-  void add_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig) {
-    fbb_.AddOffset(RawInput::VT_SIG, sig);
-  }
-  void add_protocol(uint8_t protocol) {
-    fbb_.AddElement<uint8_t>(RawInput::VT_PROTOCOL, protocol, 0);
+  void add_input(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> input) {
+    fbb_.AddOffset(RawInput::VT_INPUT, input);
   }
   explicit RawInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -159,15 +136,11 @@ inline flatbuffers::Offset<RawInput> CreateRawInput(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> input_container = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0,
-    uint8_t protocol = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> input = 0) {
   RawInputBuilder builder_(_fbb);
-  builder_.add_sig(sig);
-  builder_.add_input_container(input_container);
+  builder_.add_input(input);
   builder_.add_pubkey(pubkey);
   builder_.add_hash(hash);
-  builder_.add_protocol(protocol);
   return builder_.Finish();
 }
 
@@ -175,20 +148,15 @@ inline flatbuffers::Offset<RawInput> CreateRawInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *hash = nullptr,
     const std::vector<uint8_t> *pubkey = nullptr,
-    const std::vector<uint8_t> *input_container = nullptr,
-    const std::vector<uint8_t> *sig = nullptr,
-    uint8_t protocol = 0) {
+    const std::vector<uint8_t> *input = nullptr) {
   auto hash__ = hash ? _fbb.CreateVector<uint8_t>(*hash) : 0;
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
-  auto input_container__ = input_container ? _fbb.CreateVector<uint8_t>(*input_container) : 0;
-  auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
+  auto input__ = input ? _fbb.CreateVector<uint8_t>(*input) : 0;
   return msg::fbuf::ledger::CreateRawInput(
       _fbb,
       hash__,
       pubkey__,
-      input_container__,
-      sig__,
-      protocol);
+      input__);
 }
 
 inline const msg::fbuf::ledger::FullHistoryBlock *GetFullHistoryBlock(const void *buf) {

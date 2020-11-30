@@ -442,7 +442,7 @@ namespace consensus
                         // No reject reason means we should go ahead and subject the input to consensus.
                         ctx.candidate_user_inputs.try_emplace(
                             hash,
-                            candidate_user_input(pubkey, input, umsg, max_lcl_seqno));
+                            candidate_user_input(pubkey, input, max_lcl_seqno));
                     }
                     else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
                     {
@@ -734,7 +734,9 @@ namespace consensus
                 {
                     // Add raw_input to the map along with the input hash.
                     candidate_user_input &cand_input = itr->second;
-                    usr::raw_user_input raw_input(cand_input.userpubkey, cand_input.userinput);
+                    // Taking the raw input string ftom the buffer_view.
+                    std::string input = usr::input_store.read_buf(cand_input.input);
+                    usr::raw_user_input raw_input(cand_input.userpubkey, std::move(input));
                     raw_inputs.emplace(hash, std::move(raw_input));
                 }
             }
