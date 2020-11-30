@@ -50,25 +50,26 @@ namespace unl
      * @param is_in_hex Whether the given pubkey is in hex format.
      * @return Return true if the given pubkey is in the unl list.
     */
-    bool exists(std::string pubkey, const bool is_in_hex)
+    bool exists(const std::string &pubkey, const bool is_in_hex)
     {
+        std::string bin_pubkey = pubkey;
         if (is_in_hex)
         {
             // If the given pubkey is in hex format, convert the public key to binary.
-            std::string bin_pubkey;
-            bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
+            std::string temp_bin_pubkey;
+            temp_bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
             if (util::hex2bin(
-                    reinterpret_cast<unsigned char *>(bin_pubkey.data()),
-                    bin_pubkey.length(),
+                    reinterpret_cast<unsigned char *>(temp_bin_pubkey.data()),
+                    temp_bin_pubkey.length(),
                     pubkey) != 0)
             {
                 LOG_ERROR << "Error decoding hex pubkey.\n";
                 return false;
             }
-            pubkey.swap(bin_pubkey);
+            bin_pubkey.swap(temp_bin_pubkey);
         }
         std::shared_lock lock(unl_mutex);
-        return list.find(pubkey) != list.end();
+        return list.find(bin_pubkey) != list.end();
     }
 
     /**
