@@ -333,7 +333,7 @@ namespace ledger
         ctx.cache.emplace(seq_no, std::move(file_name));
 
         // Write full history to the full history directory if full history mode is on.
-        if (conf::cfg.fullhistorymode)
+        if (conf::cfg.fullhistory)
         {
             builder.Clear();
             msg::fbuf::ledger::create_full_history_block_from_raw_input_map(builder, raw_inputs);
@@ -360,13 +360,7 @@ namespace ledger
              itr != ctx.cache.lower_bound(led_seq_no + 1);
              itr++)
         {
-            std::string file_path = conf::ctx.hist_dir + "/" + itr->second + ".lcl";
-
-            if (util::is_file_exists(file_path))
-                util::remove_file(file_path);
-
-            // Removing full history if exists.
-            file_path = conf::ctx.full_hist_dir + "/" + itr->second + ".flcl";
+            const std::string file_path = conf::ctx.hist_dir + "/" + itr->second + ".lcl";
 
             if (util::is_file_exists(file_path))
                 util::remove_file(file_path);
@@ -384,9 +378,6 @@ namespace ledger
         util::clear_directory(conf::ctx.hist_dir);
         ctx.cache.clear();
         ctx.set_lcl(0, GENESIS_LEDGER);
-
-        // Clear full history.
-        util::clear_directory(conf::ctx.full_hist_dir);
     }
 
     /**

@@ -732,7 +732,7 @@ namespace consensus
         std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
 
         // Add raw_inputs to the proposal if full history mode is on.
-        if (conf::cfg.fullhistorymode)
+        if (conf::cfg.fullhistory)
         {
             for (const auto &hash : cons_prop.hash_inputs)
             {

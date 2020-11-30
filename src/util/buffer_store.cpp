@@ -55,12 +55,8 @@ namespace util
         if (res < view.size)
         {
             LOG_ERROR << errno << ": Error reading from buffer store fd " << fd;
-            return res;
         }
-        else
-        {
-            return res;
-        }
+        return res;
     }
 
     int buffer_store::purge(const buffer_view &buf)

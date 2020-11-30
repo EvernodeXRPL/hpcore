@@ -115,7 +115,7 @@ namespace conf
 
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
-        bool fullhistorymode = false;      // Whether full history mode is on/off.
+        bool fullhistory = false;      // Whether full history mode is on/off.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
