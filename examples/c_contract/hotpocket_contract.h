@@ -117,13 +117,13 @@ int hp_deinit_contract();
 const struct hp_contract_context *hp_get_context();
 const void *hp_init_user_input_mmap();
 void hp_deinit_user_input_mmap();
-int hp_write_user(const struct hp_user *user, const uint8_t *buf, const uint32_t len);
-int hp_writev_user(const struct hp_user *user, const struct iovec *bufs, const int buf_count);
-int hp_write_peer(const uint8_t *buf, const uint32_t len);
-int hp_writev_peer(const struct iovec *bufs, const int buf_count);
+int hp_write_user_msg(const struct hp_user *user, const uint8_t *buf, const uint32_t len);
+int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, const int buf_count);
+int hp_write_peer_msg(const uint8_t *buf, const uint32_t len);
+int hp_writev_peer_msg(const struct iovec *bufs, const int buf_count);
 
 void __hp_parse_args_json(const struct json_object_s *object);
-int __hp_write_control(const uint8_t *buf, const uint32_t len);
+int __hp_write_control_msg(const uint8_t *buf, const uint32_t len);
 void __hp_free(void *ptr);
 
 static struct __hp_contract __hpc = {};
@@ -191,7 +191,7 @@ int hp_deinit_contract()
     __hp_free(cctx);
 
     // Send termination control message.
-    __hp_write_control("{\"type\":\"contract_end\"}", 23);
+    __hp_write_control_msg("{\"type\":\"contract_end\"}", 23);
     close(__hpc.control_fd);
 }
 
@@ -235,13 +235,13 @@ void hp_deinit_user_input_mmap()
         munmap(__hpc.user_inmap, __hpc.user_inmap_size);
 }
 
-int hp_write_user(const struct hp_user *user, const uint8_t *buf, const uint32_t len)
+int hp_write_user_msg(const struct hp_user *user, const uint8_t *buf, const uint32_t len)
 {
     const struct iovec vec = {(void *)buf, len};
-    return hp_writev_user(user, &vec, 1);
+    return hp_writev_user_msg(user, &vec, 1);
 }
 
-int hp_writev_user(const struct hp_user *user, const struct iovec *bufs, const int buf_count)
+int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, const int buf_count)
 {
     const int total_buf_count = buf_count + 1;
     struct iovec all_bufs[total_buf_count]; // We need to prepend the length header buf to indicate user message length.
@@ -263,7 +263,7 @@ int hp_writev_user(const struct hp_user *user, const struct iovec *bufs, const i
     return writev(user->outfd, all_bufs, total_buf_count);
 }
 
-int hp_write_peer(const uint8_t *buf, const uint32_t len)
+int hp_write_peer_msg(const uint8_t *buf, const uint32_t len)
 {
     if (len > __HP_SEQPKT_BUF_SIZE)
     {
@@ -274,7 +274,7 @@ int hp_write_peer(const uint8_t *buf, const uint32_t len)
     return write(__hpc.cctx->peers.fd, buf, len);
 }
 
-int hp_writev_peer(const struct iovec *bufs, const int buf_count)
+int hp_writev_peer_msg(const struct iovec *bufs, const int buf_count)
 {
     uint32_t len = 0;
     for (int i = 0; i < buf_count; i++)
@@ -288,6 +288,8 @@ int hp_writev_peer(const struct iovec *bufs, const int buf_count)
 
     return writev(__hpc.cctx->peers.fd, bufs, buf_count);
 }
+
+
 
 void __hp_parse_args_json(const struct json_object_s *object)
 {
@@ -401,7 +403,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
     } while (elem);
 }
 
-int __hp_write_control(const uint8_t *buf, const uint32_t len)
+int __hp_write_control_msg(const uint8_t *buf, const uint32_t len)
 {
     if (len > __HP_SEQPKT_BUF_SIZE)
     {
