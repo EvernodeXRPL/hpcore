@@ -205,6 +205,9 @@ namespace ledger
                         sync_ctx.target_lcl_seq_no = 0;
                         sync_ctx.is_syncing = false;
                     }
+                    // After changing the logic to full history node requesting history only from full history node, 
+                    // clearing history should be skipped for full history mode enabled nodes.
+                    // Otherwise ledger intergrity check for joining point would fail for current implementation.
                     // Check the target lcl seq no. to see whether it's too far ahead. That means no one probably has our
                     // lcl in their ledgers. So we should clear our entire ledger history before requesting from peers.
                     else if (current_lcl != GENESIS_LEDGER && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
@@ -354,20 +357,24 @@ namespace ledger
      */
     void remove_old_ledgers(const uint64_t led_seq_no)
     {
-        std::map<uint64_t, const std::string>::iterator itr;
-
-        for (itr = ctx.cache.begin();
-             itr != ctx.cache.lower_bound(led_seq_no + 1);
-             itr++)
+        // Remove old ledgers if full history mode is not enabled.
+        if (!conf::cfg.fullhistory)
         {
-            const std::string file_path = conf::ctx.hist_dir + "/" + itr->second + ".lcl";
+            std::map<uint64_t, const std::string>::iterator itr;
 
-            if (util::is_file_exists(file_path))
-                util::remove_file(file_path);
+            for (itr = ctx.cache.begin();
+                 itr != ctx.cache.lower_bound(led_seq_no + 1);
+                 itr++)
+            {
+                const std::string file_path = conf::ctx.hist_dir + "/" + itr->second + ".lcl";
+
+                if (util::is_file_exists(file_path))
+                    util::remove_file(file_path);
+            }
+
+            if (!ctx.cache.empty())
+                ctx.cache.erase(ctx.cache.begin(), ctx.cache.lower_bound(led_seq_no + 1));
         }
-
-        if (!ctx.cache.empty())
-            ctx.cache.erase(ctx.cache.begin(), ctx.cache.lower_bound(led_seq_no + 1));
     }
 
     /**
