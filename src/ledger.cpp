@@ -197,6 +197,7 @@ namespace ledger
 
                 if (!sync_ctx.target_lcl.empty())
                 {
+                    // If target lcl is genesis lcl, Clear the ledger history and reset target sequence number.
                     if (sync_ctx.target_lcl == GENESIS_LEDGER)
                     {
                         LOG_INFO << "lcl sync: Target is GENESIS. Clearing our history.";
@@ -205,12 +206,10 @@ namespace ledger
                         sync_ctx.target_lcl_seq_no = 0;
                         sync_ctx.is_syncing = false;
                     }
-                    // After changing the logic to full history node requesting history only from full history node, 
-                    // clearing history should be skipped for full history mode enabled nodes.
-                    // Otherwise ledger intergrity check for joining point would fail for current implementation.
-                    // Check the target lcl seq no. to see whether it's too far ahead. That means no one probably has our
+                    // If full history mode is not enabled check the target lcl seq no
+                    // to see whether it's too far ahead. That means no one probably has our
                     // lcl in their ledgers. So we should clear our entire ledger history before requesting from peers.
-                    else if (current_lcl != GENESIS_LEDGER && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
+                    else if (!conf::cfg.fullhistory && current_lcl != GENESIS_LEDGER && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
                     {
                         LOG_INFO << "lcl sync: Target " << sync_ctx.target_lcl.substr(0, 15) << " is too far ahead. Clearing our history.";
                         clear_ledger();
