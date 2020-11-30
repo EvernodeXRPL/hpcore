@@ -116,13 +116,15 @@ int hp_deinit_contract();
 const struct hp_contract_context *hp_get_context();
 const void *hp_init_user_input_mmap();
 void hp_deinit_user_input_mmap();
-int hp_write_user_msg(const struct hp_user *user, const uint8_t *buf, const uint32_t len);
+int hp_write_user_msg(const struct hp_user *user, const void *buf, const uint32_t len);
 int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, const int buf_count);
-int hp_write_peer_msg(const uint8_t *buf, const uint32_t len);
+int hp_write_peer_msg(const void *buf, const uint32_t len);
 int hp_writev_peer_msg(const struct iovec *bufs, const int buf_count);
+int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout);
+int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count);
 
 void __hp_parse_args_json(const struct json_object_s *object);
-int __hp_write_control_msg(const uint8_t *buf, const uint32_t len);
+int __hp_write_control_msg(const void *buf, const uint32_t len);
 void __hp_free(void *ptr);
 
 static struct __hp_contract __hpc = {};
@@ -236,7 +238,7 @@ void hp_deinit_user_input_mmap()
     __hpc.user_inmap_size = 0;
 }
 
-int hp_write_user_msg(const struct hp_user *user, const uint8_t *buf, const uint32_t len)
+int hp_write_user_msg(const struct hp_user *user, const void *buf, const uint32_t len)
 {
     const struct iovec vec = {(void *)buf, len};
     return hp_writev_user_msg(user, &vec, 1);
@@ -264,7 +266,7 @@ int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, con
     return writev(user->outfd, all_bufs, total_buf_count);
 }
 
-int hp_write_peer_msg(const uint8_t *buf, const uint32_t len)
+int hp_write_peer_msg(const void *buf, const uint32_t len)
 {
     if (len > HP_PEER_MSG_MAX_SIZE)
     {
@@ -351,6 +353,53 @@ int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout)
     }
 
     return 0;
+}
+
+/**
+ * Updates the UNL of this node with specified 'add' and 'remove' changesets.
+ * @param add Array of hex pubkeys of 'HP_KEY_SIZE' to add.
+ * @param add_count Number of elements in 'add' array.
+ * @param remove Array of hex pubkeys of 'HP_KEY_SIZE' to remove.
+ * @param remove_count Number of elements in 'add' remove.
+ * @return 0 on success. -1 on error.
+ */
+int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count)
+{
+    // We assume 'add' and 'remove' are pointing to a char buffer containing 'count' no. of char[64] buffers.
+
+    // Calculate total json message length and prepare the json buf.
+    // Format: {"type":"unl_changeset","add":["pubkey1",...],"remove":["pubkey2",...]}
+
+    const size_t json_size = 45 + (67 * add_count - (add_count ? 1 : 0)) + (67 * remove_count - (remove_count ? 1 : 0));
+    char json_buf[json_size];
+
+    strncpy(json_buf, "{\"type\":\"unl_changeset\",\"add\":[", 31);
+    size_t pos = 31;
+    for (int i = 0; i < add_count; i++)
+    {
+        if (i > 0)
+            json_buf[pos++] = ',';
+        json_buf[pos++] = '"';
+        strncpy(json_buf + pos, add + (i * 64), 64);
+        pos += 64;
+        json_buf[pos++] = '"';
+    }
+
+    strncpy(json_buf + pos, "],\"remove\":[", 12);
+    pos += 12;
+    for (int i = 0; i < remove_count; i++)
+    {
+        if (i > 0)
+            json_buf[pos++] = ',';
+        json_buf[pos++] = '"';
+        strncpy(json_buf + pos, remove + (i * 64), 64);
+        pos += 64;
+        json_buf[pos++] = '"';
+    }
+
+    strncpy(json_buf + pos, "]}", 2);
+
+    return __hp_write_control_msg(json_buf, json_size);
 }
 
 void __hp_parse_args_json(const struct json_object_s *object)
@@ -465,7 +514,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
     } while (elem);
 }
 
-int __hp_write_control_msg(const uint8_t *buf, const uint32_t len)
+int __hp_write_control_msg(const void *buf, const uint32_t len)
 {
     if (len > __HP_SEQPKT_MAX_SIZE)
     {
