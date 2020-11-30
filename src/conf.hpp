@@ -61,6 +61,7 @@ namespace conf
         std::string hpfs_exe_path; // hpfs executable file path.
 
         std::string contract_dir;    // Contract base directory full path
+        std::string full_hist_dir;   // Contract full history dir full path
         std::string hist_dir;        // Contract ledger history dir full path
         std::string state_dir;       // Contract state maintenence path (hpfs path)
         std::string state_rw_dir;    // Contract executation read/write state path.
@@ -114,6 +115,7 @@ namespace conf
 
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
+        bool fullhistory = false;      // Whether full history mode is on/off.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
