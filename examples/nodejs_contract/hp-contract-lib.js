@@ -1,4 +1,6 @@
 const fs = require('fs');
+const tty = require('tty');
+require('process');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 const CONTROL_MESSAGE = {
@@ -14,14 +16,20 @@ class HotPocketContract {
     init(contractFunc) {
 
         if (this.#controlChannel) // Already initialized.
-            return;
+            return false;
+
+        if (tty.isatty(process.stdin.fd)) {
+            console.error("Error: Hot Pocket smart contracts must be executed via Hot Pocket.");
+            return false;
+        }
 
         // Parse HotPocket args.
-        const argsJson = fs.readFileSync(0, 'utf8');
+        const argsJson = fs.readFileSync(process.stdin.fd, 'utf8');
         const hpargs = JSON.parse(argsJson);
 
         this.#controlChannel = new ControlChannel(hpargs.controlfd);
         this.#executeContract(hpargs, contractFunc);
+        return true;
     }
 
     #executeContract = (hpargs, contractFunc) => {
