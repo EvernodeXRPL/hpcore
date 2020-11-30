@@ -822,9 +822,13 @@ namespace sc
         }
         else if (type == msg::controlmsg::MSGTYPE_UNL_CHANGESET && !ctx.args.readonly)
         {
-            std::vector<std::string> additions, removals;
-            parser.extract_unl_changeset(additions, removals);
-            unl::update(additions, removals);
+            std::vector<std::string> additions_bin, removals_bin;
+            parser.extract_unl_changeset(additions_bin, removals_bin);
+            unl::update(additions_bin, removals_bin);
+
+            std::vector<std::string> additions_hex, removals_hex;
+            parser.extract_unl_changeset(additions_hex, removals_hex, false);
+            p2p::update_unl_status(additions_hex, removals_hex);
         }
     }
 

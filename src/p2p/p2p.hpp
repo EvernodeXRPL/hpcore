@@ -172,6 +172,8 @@ namespace p2p
     void sort_known_remotes();
 
     int16_t get_available_capacity();
+
+    void update_unl_status(const std::vector<std::string> &additions, const std::vector<std::string> &removals);
 } // namespace p2p
 
 #endif

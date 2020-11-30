@@ -99,6 +99,8 @@ namespace p2p
         {
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
+            session.pubkey = challenge_resp.pubkey;
+            session.is_unl = unl::exists(session.pubkey);
             // Mark the connection as a verified connection.
             session.mark_as_verified();
             ctx.peer_connections.try_emplace(session.uniqueid, &session);
@@ -120,6 +122,8 @@ namespace p2p
                     if (!session.known_ipport.has_value())
                         session.known_ipport.swap(ex_session.known_ipport);
                     session.uniqueid.swap(pubkeyhex);
+                    session.pubkey = challenge_resp.pubkey;
+                    session.is_unl = unl::exists(session.pubkey);
                     // Mark the connection as a verified connection.
                     session.mark_as_verified();
 
@@ -183,7 +187,7 @@ namespace p2p
             // Messages are forwarded only to the requested nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
                 (is_msg_forwarding && !session->need_consensus_msg_forwarding) ||
-                (only_to_trusted_peers && !unl::exists(session->uniqueid, true)))
+                (only_to_trusted_peers && !session->is_unl))
                 continue;
 
             session->send(message);
@@ -427,6 +431,36 @@ namespace p2p
         else if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons == 0)
             return conf::cfg.peermaxcons - ctx.peer_connections.size();
         return -1;
+    }
+
+    /**
+     * Update the peer trusted status on unl list updates.
+     * @param additions New additions to the unl list (pubkeys in hex format).
+     * @param removals Removals to the unl list (pubkeys in hex format).
+    */
+    void update_unl_status(const std::vector<std::string> &additions, const std::vector<std::string> &removals)
+    {
+        if (additions.empty() && removals.empty())
+            return;
+
+        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
+        for (const std::string &pubkey : additions)
+        {
+            const auto peer_itr = ctx.peer_connections.find(pubkey);
+            if (peer_itr != ctx.peer_connections.end())
+            {
+                peer_itr->second->is_unl = true;
+            }
+        }
+
+        for (const std::string &pubkey : removals)
+        {
+            const auto peer_itr = ctx.peer_connections.find(pubkey);
+            if (peer_itr != ctx.peer_connections.end())
+            {
+                peer_itr->second->is_unl = false;
+            }
+        }
     }
 
 } // namespace p2p
