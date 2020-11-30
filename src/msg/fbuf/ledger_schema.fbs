@@ -12,9 +12,4 @@ table LedgerBlock {
     outputs: [ByteArray];
 }
 
-table RawInputList {
-    hash:[ubyte];
-    inputs:[ByteArray];
-}
-
 root_type LedgerBlock;

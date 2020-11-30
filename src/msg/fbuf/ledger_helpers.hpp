@@ -14,6 +14,9 @@ namespace msg::fbuf::ledger
 
     bool verify_ledger_block_buffer(const uint8_t *ledger_buf_ptr, const size_t buf_len);
 
+    void create_full_history_block_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map);
+
+    const std::unordered_map<std::string, usr::raw_user_input> create_raw_input_map_from_full_history_block(const std::vector<uint8_t> &fullhist_buf);
 } // namespace msg::fbuf::ledger
 
 #endif

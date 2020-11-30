@@ -1,0 +1,13 @@
+namespace msg.fbuf.ledger;
+
+table FullHistoryBlock {
+    raw_inputs: [RawInput];
+}
+
+table RawInput {
+    hash:[ubyte];
+    pubkey:[ubyte];
+    input:[ubyte];
+}
+
+root_type FullHistoryBlock;
