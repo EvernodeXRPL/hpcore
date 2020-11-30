@@ -38,7 +38,7 @@ namespace ledger
         // Map of closed ledgers (lcl string) with sequence number as map key.
         // Contains closed ledgers from oldest to latest - MAX_LEDGER_SEQUENCE.
         // This is loaded when node started and updated throughout consensus.
-        // Deletes ledgers that falls behind MAX_LEDGER_SEQUENCE range.
+        // If full history mode is not enabled, deletes ledgers that falls behind MAX_LEDGER_SEQUENCE range.
         std::map<uint64_t, const std::string> cache;
 
         std::mutex ledger_mutex;
