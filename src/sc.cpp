@@ -719,7 +719,8 @@ namespace sc
         {
             output.resize(READ_BUFFER_SIZE);
             const int res = read(pfd.fd, output.data(), READ_BUFFER_SIZE);
-            output.resize(res); // Resize back to the actual bytes read.
+            if (res > 0)
+                output.resize(res); // Resize back to the actual bytes read.
 
             if (res == -1)
                 LOG_ERROR << errno << ": Error reading from contract socket. stream:" << is_stream_socket;
