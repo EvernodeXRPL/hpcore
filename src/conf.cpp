@@ -2,6 +2,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util/util.hpp"
+#include "unl.hpp"
 
 namespace conf
 {
@@ -11,6 +12,9 @@ namespace conf
 
     // Global configuration struct exposed to the application.
     contract_config cfg;
+
+    // Stores the initial startup mode of the node.
+    OPERATING_MODE startup_mode;
 
     const static char *MODE_OBSERVER = "observer";
     const static char *MODE_PROPOSER = "proposer";
@@ -26,11 +30,14 @@ namespace conf
         // 2. Read and load the contract config into memory
         // 3. Validate the loaded config values
 
-        if (validate_contract_dir_paths() != 0 || load_config() != 0 || validate_config() != 0)
+        contract_config cfg = {};
+        if (validate_contract_dir_paths() == -1 ||
+            read_config(cfg) == -1 ||
+            validate_config(cfg) == -1 ||
+            populate_runtime_config(cfg) == -1)
+        {
             return -1;
-
-        // Append self pubkey to unl list.
-        cfg.unl.emplace(cfg.pubkey);
+        }
 
         return 0;
     }
@@ -41,14 +48,14 @@ namespace conf
     int rekey()
     {
         // Load the contract config and re-save with the newly generated keys.
-
-        if (load_config() != 0)
+        contract_config cfg = {};
+        if (read_config(cfg) != 0)
             return -1;
 
         crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-        binpair_to_hex();
+        binpair_to_hex(cfg);
 
-        if (save_config() != 0)
+        if (write_config(cfg) != 0)
             return -1;
 
         std::cout << "New signing keys generated at " << ctx.config_file << std::endl;
@@ -80,10 +87,11 @@ namespace conf
 
         //We populate the in-memory struct with default settings and then save it to the file.
 
+        contract_config cfg = {};
         crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-        binpair_to_hex();
+        binpair_to_hex(cfg);
 
-        cfg.startup_mode = OPERATING_MODE::PROPOSER;
+        cfg.operating_mode = OPERATING_MODE::PROPOSER;
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
         cfg.pubport = 8080;
@@ -100,7 +108,7 @@ namespace conf
         cfg.loglevel = "dbg";
 #else
         cfg.loglevel_type = conf::LOG_SEVERITY::WARN;
-        cfg.loglevel = "wrn";
+        cfg.loglevel = "inf";
 #endif
 
         cfg.loggers.emplace("console");
@@ -108,7 +116,7 @@ namespace conf
         cfg.binary = "<your contract binary here>";
 
         //Save the default settings into the config file.
-        if (save_config() != 0)
+        if (write_config(cfg) != 0)
             return -1;
 
         std::cout << "Contract directory created at " << ctx.contract_dir << std::endl;
@@ -159,14 +167,27 @@ namespace conf
         ctx.log_dir = basedir + "/log";
     }
 
+    int persist_unl_update(const std::set<std::string> &updated_unl)
+    {
+        contract_config cfg = {};
+        if (read_config(cfg) == -1)
+            return -1;
+
+        cfg.unl = updated_unl;
+
+        if (write_config(cfg) == -1)
+            return -1;
+
+        return 0;
+    }
+
     /**
      * Reads the config file on disk and populates the in-memory 'cfg' struct.
-     *
      * @return 0 for successful loading of config. -1 for failure.
      */
-    int load_config()
+    int read_config(contract_config &cfg)
     {
-        // Read the file into json document object.
+        // Read the config file into json document object.
 
         std::ifstream ifs(ctx.config_file);
         jsoncons::json d;
@@ -207,15 +228,14 @@ namespace conf
         // Load up the values into the struct.
 
         if (d["mode"] == MODE_OBSERVER)
-            cfg.startup_mode = OPERATING_MODE::OBSERVER;
+            cfg.operating_mode = OPERATING_MODE::OBSERVER;
         else if (d["mode"] == MODE_PROPOSER)
-            cfg.startup_mode = OPERATING_MODE::PROPOSER;
+            cfg.operating_mode = OPERATING_MODE::PROPOSER;
         else
         {
             std::cout << "Invalid mode. 'observer' or 'proposer' expected.\n";
             return -1;
         }
-        cfg.current_mode = cfg.startup_mode;
 
         cfg.pubkeyhex = d["pubkeyhex"].as<std::string>();
         cfg.seckeyhex = d["seckeyhex"].as<std::string>();
@@ -224,23 +244,6 @@ namespace conf
         cfg.binargs = d["binargs"].as<std::string>();
         cfg.appbill = d["appbill"].as<std::string>();
         cfg.appbillargs = d["appbillargs"].as<std::string>();
-
-        // Populate runtime contract execution args.
-        if (!cfg.binargs.empty())
-            util::split_string(cfg.runtime_binexec_args, cfg.binargs, " ");
-        cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.binary[0] == '/' ? cfg.binary : util::realpath(ctx.contract_dir + "/bin/" + cfg.binary)));
-
-        // Populate runtime app bill args.
-        if (!cfg.appbillargs.empty())
-            util::split_string(cfg.runtime_appbill_args, cfg.appbillargs, " ");
-
-        cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.appbill[0] == '/' ? cfg.appbill : util::realpath(ctx.contract_dir + "/bin/" + cfg.appbill)));
-
-        // Uncomment for docker-based execution.
-        // std::string volumearg;
-        // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
-        // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.binary.data()};
-        // cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
 
         // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
         // seperately to retrieve easily when handling peer connections.
@@ -322,24 +325,20 @@ namespace conf
         for (auto &v : d["loggers"].array_range())
             cfg.loggers.emplace(v.as<std::string>());
 
-        // Convert the hex keys to binary and keep for later use.
-        if (hexpair_to_bin() != 0)
-            return -1;
-
         return 0;
     }
+
     /**
-     * Saves the current values of the 'cfg' struct into the config file.
-     *
+     * Saves the provided 'cfg' struct into the config file.
      * @return 0 for successful save. -1 for failure.
      */
-    int save_config()
+    int write_config(const contract_config &cfg)
     {
         // Popualte json document with 'cfg' values.
-        // ojson is used instead of json to preserve insertion order
+        // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
         d.insert_or_assign("version", util::HP_VERSION);
-        d.insert_or_assign("mode", cfg.startup_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER);
+        d.insert_or_assign("mode", cfg.operating_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER);
 
         d.insert_or_assign("pubkeyhex", cfg.pubkeyhex.data());
         d.insert_or_assign("seckeyhex", cfg.seckeyhex.data());
@@ -364,7 +363,9 @@ namespace conf
                 hex_pubkey,
                 reinterpret_cast<const unsigned char *>(nodepk.data()),
                 nodepk.length());
-            unl.push_back(hex_pubkey);
+
+            if (hex_pubkey != cfg.pubkeyhex)
+                unl.push_back(hex_pubkey); // We do not save our own pubkey in config file.
         }
         d.insert_or_assign("unl", unl);
 
@@ -407,11 +408,13 @@ namespace conf
         std::ofstream ofs(ctx.config_file);
         try
         {
-            ofs << jsoncons::pretty_print(d);
+            jsoncons::json_options options;
+            options.object_array_line_splits(jsoncons::line_split_kind::multi_line);
+            ofs << jsoncons::pretty_print(d, options);
         }
         catch (const std::exception &e)
         {
-            std::cout << "Writing to config file failed. " << ctx.config_file << std::endl;
+            std::cerr << "Writing to config file failed. " << ctx.config_file << std::endl;
             ofs.close();
             return -1;
         }
@@ -420,33 +423,13 @@ namespace conf
         return 0;
     }
 
-    /**
-     * Decode current binary keys in 'cfg' and populate the it with hex keys.
-     *
-     * @return Always returns 0.
-     */
-    int binpair_to_hex()
+    int populate_runtime_config(contract_config &parsed_cfg)
     {
-        util::bin2hex(
-            cfg.pubkeyhex,
-            reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
-            cfg.pubkey.length());
+        cfg = parsed_cfg;
+        startup_mode = cfg.operating_mode;
 
-        util::bin2hex(
-            cfg.seckeyhex,
-            reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
-            cfg.seckey.length());
+        // Convert the hex keys to binary.
 
-        return 0;
-    }
-
-    /**
-     * Decode current hex keys in 'cfg' and populate the it with binary keys.
-     *
-     * @return 0 for successful conversion. -1 for failure.
-     */
-    int hexpair_to_bin()
-    {
         cfg.pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
         if (util::hex2bin(
                 reinterpret_cast<unsigned char *>(cfg.pubkey.data()),
@@ -467,6 +450,47 @@ namespace conf
             return -1;
         }
 
+        // Populate unl.
+        cfg.unl.emplace(cfg.pubkey); // Add self pubkey to unl.
+        unl::init(cfg.unl);
+
+        // Populate runtime contract execution args.
+        if (!cfg.binargs.empty())
+            util::split_string(cfg.runtime_binexec_args, cfg.binargs, " ");
+        cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.binary[0] == '/' ? cfg.binary : util::realpath(ctx.contract_dir + "/bin/" + cfg.binary)));
+
+        // Populate runtime app bill args.
+        if (!cfg.appbillargs.empty())
+            util::split_string(cfg.runtime_appbill_args, cfg.appbillargs, " ");
+
+        cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.appbill[0] == '/' ? cfg.appbill : util::realpath(ctx.contract_dir + "/bin/" + cfg.appbill)));
+
+        // Uncomment for docker-based execution.
+        // std::string volumearg;
+        // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
+        // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.binary.data()};
+        // cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
+
+        return 0;
+    }
+
+    /**
+     * Decode current binary keys in 'cfg' and populate the it with hex keys.
+     *
+     * @return Always returns 0.
+     */
+    int binpair_to_hex(contract_config &cfg)
+    {
+        util::bin2hex(
+            cfg.pubkeyhex,
+            reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
+            cfg.pubkey.length());
+
+        util::bin2hex(
+            cfg.seckeyhex,
+            reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
+            cfg.seckey.length());
+
         return 0;
     }
 
@@ -475,7 +499,7 @@ namespace conf
      *
      * @return 0 for successful validation. -1 for failure.
      */
-    int validate_config()
+    int validate_config(const contract_config &cfg)
     {
         // Check for non-empty signing keys.
         // We also check for key pair validity as well in the below code.
@@ -573,10 +597,10 @@ namespace conf
     void change_operating_mode(const OPERATING_MODE mode)
     {
         // Do not allow to change the mode if the node was started as an observer.
-        if (cfg.startup_mode == OPERATING_MODE::OBSERVER || cfg.current_mode == mode)
+        if (startup_mode == OPERATING_MODE::OBSERVER || cfg.operating_mode == mode)
             return;
 
-        cfg.current_mode = mode;
+        cfg.operating_mode = mode;
 
         if (mode == OPERATING_MODE::OBSERVER)
             LOG_INFO << "Switched to OBSERVER mode.";

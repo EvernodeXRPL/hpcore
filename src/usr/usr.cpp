@@ -125,7 +125,7 @@ namespace usr
             if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_READ_REQUEST)
             {
                 std::string content;
-                if (parser.extract_read_request(content) == 0)
+                if (parser.extract_read_request(content) != -1)
                 {
                     read_req::populate_read_req_queue(user.pubkey, std::move(content));
                     return 0;
@@ -142,27 +142,35 @@ namespace usr
 
                 std::string input_container;
                 std::string sig;
-                if (parser.extract_signed_input_container(input_container, sig) == 0)
+                if (parser.extract_signed_input_container(input_container, sig) != -1)
                 {
                     std::scoped_lock<std::mutex> lock(ctx.users_mutex);
 
                     std::string input_data;
                     std::string nonce;
                     uint64_t max_lcl_seqno;
-                    parser.extract_input_container(input_data, nonce, max_lcl_seqno, input_container);
-
-                    if (nonce_map.is_valid(user.pubkey, nonce, true))
+                    if (parser.extract_input_container(input_data, nonce, max_lcl_seqno, input_container) != -1)
                     {
-                        //Add to the submitted input list.
-                        user.submitted_inputs.push_back(user_input(
-                            std::move(input_container),
-                            std::move(sig),
-                            user.protocol));
-                        return 0;
+                        const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, true);
+                        if (nonce_status == 0)
+                        {
+                            //Add to the submitted input list.
+                            user.submitted_inputs.push_back(user_input(
+                                std::move(input_container),
+                                std::move(sig),
+                                user.protocol));
+                            return 0;
+                        }
+                        else
+                        {
+                            const char *reason = nonce_status == 1 ? msg::usrmsg::REASON_NONCE_EXPIRED : msg::usrmsg::REASON_ALREADY_SUBMITTED;
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, reason, sig);
+                            return -1;
+                        }
                     }
                     else
                     {
-                        send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_EXPIRED, sig);
+                        send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, sig);
                         return -1;
                     }
                 }
@@ -292,7 +300,11 @@ namespace usr
         msg::usrmsg::usrmsg_parser parser(umsg.protocol);
 
         std::string input_data;
-        parser.extract_input_container(input_data, nonce, max_lcl_seqno, umsg.input_container);
+        if (parser.extract_input_container(input_data, nonce, max_lcl_seqno, umsg.input_container) == -1)
+        {
+            LOG_DEBUG << "User message bad input format.";
+            return msg::usrmsg::REASON_BAD_MSG_FORMAT;
+        }
 
         // Ignore the input if our ledger has passed the input TTL.
         if (max_lcl_seqno <= lcl_seq_no)
@@ -301,10 +313,11 @@ namespace usr
             return msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
         }
 
-        if (!nonce_map.is_valid(user_pubkey, nonce))
+        const int nonce_status = nonce_map.check(user_pubkey, nonce, umsg.sig);
+        if (nonce_status > 0)
         {
-            LOG_DEBUG << "User message nonce expired.";
-            return msg::usrmsg::REASON_NONCE_EXPIRED;
+            LOG_DEBUG << (nonce_status == 1 ? "User message nonce expired." : "User message with same nonce/sig already submitted.");
+            return (nonce_status == 1 ? msg::usrmsg::REASON_NONCE_EXPIRED : msg::usrmsg::REASON_ALREADY_SUBMITTED);
         }
 
         // Keep checking the subtotal of inputs extracted so far with the appbill account balance.

@@ -15,14 +15,14 @@ const echoContract = async (ctx) => {
         // This user's pubkey can be accessed from 'user.pubKey'
         // A reply message can be sent to the user by 'user.send(msg)'
 
-        const msg = buf.toString("utf8");
+        const msg = buf.toString();
         if (msg == "ts") {
             await user.send(fs.readFileSync("exects.txt"));
         }
         else {
             await user.send("Echoing: " + msg);
         }
-    });    
+    });
 
     // Get list of all users who are connected.
     // ctx.users.get();

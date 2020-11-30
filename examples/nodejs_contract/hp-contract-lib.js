@@ -2,6 +2,11 @@ const { EventEmitter } = require('events');
 const fs = require('fs');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
+const CONTROL_MESSAGE = {
+    CONTRACT_END: "contract_end",
+    UNL_CHANGESET: "unl_changeset"
+}
+Object.freeze(CONTROL_MESSAGE);
 
 class HotPocketContract {
 
@@ -17,7 +22,7 @@ class HotPocketContract {
         const argsJson = fs.readFileSync(0, 'utf8');
         const hpargs = JSON.parse(argsJson);
 
-        this.#controlChannel = new ControlChannel(hpargs.hpfd);
+        this.#controlChannel = new ControlChannel(hpargs.controlfd);
         this.#executeContract(hpargs, contractFunc);
     }
 
@@ -27,7 +32,7 @@ class HotPocketContract {
 
         const users = new UsersCollection(hpargs.userinfd, hpargs.users);
         const peers = new PeersCollection(hpargs.readonly, hpargs.unl, hpargs.nplfd, pendingTasks, this.events);
-        const executionContext = new ContractExecutionContext(hpargs, users, peers);
+        const executionContext = new ContractExecutionContext(hpargs, users, peers, this.#controlChannel);
 
         this.events.emit("session_start");
         invokeCallback(contractFunc, executionContext).catch(errHandler).finally(() => {
@@ -40,26 +45,28 @@ class HotPocketContract {
     }
 
     #terminate = () => {
-        this.#controlChannel.send(JSON.stringify({ type: "contract_end" }));
+        this.#controlChannel.send({ type: CONTROL_MESSAGE.CONTRACT_END });
         this.#controlChannel.close();
     }
 }
 
 class ContractExecutionContext {
 
-    constructor(hpargs, users, peers) {
+    #controlChannel = null;
+
+    constructor(hpargs, users, peers, controlChannel) {
+        this.#controlChannel = controlChannel;
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
         this.users = users;
-        this.peers = peers;
+        this.peers = peers; // Not available in readonly mode.
+        this.lcl = hpargs.lcl; // Not available in readonly mode.
+    }
 
-        if (!hpargs.readonly) {
-            const lclParts = hpargs.lcl.split("-");
-            this.lcl = {
-                seqNo: parseInt(lclParts[0]),
-                hash: lclParts[1]
-            };
-        }
+    async updateUnl(addArray, removeArray) {
+        if (this.readonly)
+            throw "UNL update not allowed in readonly mode."
+        await this.#controlChannel.send({ type: CONTROL_MESSAGE.UNL_CHANGESET, add: addArray, remove: removeArray });
     }
 }
 
@@ -307,8 +314,8 @@ class ControlChannel {
         this.#readStream.on("error", (err) => { });
     }
 
-    send(msg) {
-        const buf = Buffer.from(msg);
+    send(obj) {
+        const buf = Buffer.from(JSON.stringify(obj));
         if (buf.length > MAX_SEQ_PACKET_SIZE)
             throw ("Control message exceeds max size " + MAX_SEQ_PACKET_SIZE);
         return writeAsync(this.#fd, buf);

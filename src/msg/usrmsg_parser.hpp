@@ -12,8 +12,8 @@ namespace msg::usrmsg
     class usrmsg_parser
     {
         const util::PROTOCOL protocol;
-        jsoncons::json jsonDoc;
-        jsoncons::ojson bsonDoc;
+        jsoncons::json jdoc;
+        jsoncons::ojson bdoc;
 
     public:
         usrmsg_parser(const util::PROTOCOL protocol);

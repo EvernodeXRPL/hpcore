@@ -5,6 +5,7 @@
 #include "../../hplog.hpp"
 #include "../../hpfs/h32.hpp"
 #include "../../hpfs/hpfs.hpp"
+#include "../../unl.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
 #include "common_helpers.hpp"
@@ -102,8 +103,8 @@ namespace msg::fbuf::p2pmsg
             return -1;
         }
 
-        //validate if the message is not from a node of current node's unl list.
-        if (!conf::cfg.unl.count(std::string(msg_pubkey)))
+        //validate if the message is not from a node listed in this node's unl list.
+        if (!unl::exists(std::string(msg_pubkey)))
         {
             LOG_DEBUG << "Peer message pubkey verification failed. Not in UNL.";
             return -1;

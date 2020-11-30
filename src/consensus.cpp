@@ -15,6 +15,7 @@
 #include "hpfs/hpfs.hpp"
 #include "state/state_common.hpp"
 #include "state/state_sync.hpp"
+#include "unl.hpp"
 #include "ledger.hpp"
 #include "consensus.hpp"
 
@@ -117,7 +118,8 @@ namespace consensus
 
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
-        uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
+        const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
+        const size_t unl_count = unl::count();
         hpfs::h32 state = state_common::ctx.get_state();
         vote_counter votes;
 
@@ -133,19 +135,19 @@ namespace consensus
         }
         else if (ctx.stage == 1)
         {
-            if (is_in_sync(lcl, votes))
+            if (is_in_sync(lcl, unl_count, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, unl_count, state);
                 broadcast_proposal(p);
             }
         }
         else if (ctx.stage == 2)
         {
-            if (is_in_sync(lcl, votes))
+            if (is_in_sync(lcl, unl_count, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, unl_count, state);
                 broadcast_proposal(p);
             }
 
@@ -156,11 +158,11 @@ namespace consensus
         }
         else if (ctx.stage == 3)
         {
-            if (is_in_sync(lcl, votes))
+            if (is_in_sync(lcl, unl_count, votes))
             {
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
-                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -173,12 +175,12 @@ namespace consensus
         return 0;
     }
 
-    bool is_in_sync(std::string_view lcl, vote_counter &votes)
+    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes)
     {
         // Check if we're ahead/behind of consensus lcl.
         bool is_lcl_desync = false;
         std::string majority_lcl;
-        if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl))
+        if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl, unl_count))
         {
             // We proceed further only if lcl check was success (meaning lcl check could be reliably performed).
 
@@ -472,15 +474,20 @@ namespace consensus
                     for (auto &resp : user_responses)
                     {
                         // resp: 0=protocl, 1=msg sig, 2=reject reason.
-                        msg::usrmsg::usrmsg_parser parser(std::get<0>(resp));
-                        const std::string &msg_sig = std::get<1>(resp);
                         const char *reject_reason = std::get<2>(resp);
 
-                        usr::send_input_status(parser,
-                                               user_itr->second.session,
-                                               reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
-                                               reject_reason == NULL ? "" : reject_reason,
-                                               msg_sig);
+                        // We are not sending any status response for 'already submitted' inputs. This is because the user
+                        // would have gotten the proper status response during first submission.
+                        if (reject_reason != msg::usrmsg::REASON_ALREADY_SUBMITTED)
+                        {
+                            msg::usrmsg::usrmsg_parser parser(std::get<0>(resp));
+                            const std::string &msg_sig = std::get<1>(resp);
+                            usr::send_input_status(parser,
+                                                   user_itr->second.session,
+                                                   reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
+                                                   reject_reason == NULL ? "" : reject_reason,
+                                                   msg_sig);
+                        }
                     }
                 }
             }
@@ -514,7 +521,7 @@ namespace consensus
         return stg_prop;
     }
 
-    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, hpfs::h32 state)
+    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal stg_prop;
@@ -552,7 +559,7 @@ namespace consensus
                     increment(votes.outputs, hash);
         }
 
-        const uint32_t required_votes = ceil(vote_threshold * conf::cfg.unl.size());
+        const uint32_t required_votes = ceil(vote_threshold * unl_count);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -616,7 +623,7 @@ namespace consensus
         p2pmsg::create_msg_from_proposal(fbuf, p);
 
         // In observer mode, we only send out the proposal to ourselves.
-        if (conf::cfg.current_mode == conf::OPERATING_MODE::OBSERVER)
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
             p2p::send_message_to_self(fbuf);
         else
             p2p::broadcast_message(fbuf, true);
@@ -637,7 +644,7 @@ namespace consensus
      * @param lcl Our lcl.
      * @return True if majority lcl could be calculated reliably. False if lcl check failed due to unreliable votes.
      */
-    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl)
+    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count)
     {
         uint32_t total_lcl_votes = 0;
 
@@ -648,7 +655,7 @@ namespace consensus
         }
 
         // Check whether we have received enough votes in total.
-        const uint32_t min_required = ceil(MAJORITY_THRESHOLD * conf::cfg.unl.size());
+        const uint32_t min_required = ceil(MAJORITY_THRESHOLD * unl_count);
         if (total_lcl_votes < min_required)
         {
             LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << min_required;
