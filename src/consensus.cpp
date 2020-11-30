@@ -741,10 +741,13 @@ namespace consensus
                 {
                     // Add raw_input to the map along with the input hash.
                     candidate_user_input &cand_input = itr->second;
-                    // Taking the raw input string ftom the buffer_view.
-                    std::string input = usr::input_store.read_buf(cand_input.input);
-                    usr::raw_user_input raw_input(cand_input.userpubkey, std::move(input));
-                    raw_inputs.emplace(hash, std::move(raw_input));
+                    // Taking the raw input string from the buffer_view.
+                    std::string input;
+                    if (usr::input_store.read_buf(cand_input.input, input) != -1)
+                    {
+                        usr::raw_user_input raw_input(cand_input.userpubkey, std::move(input));
+                        raw_inputs.emplace(hash, std::move(raw_input));
+                    }
                 }
             }
         }

@@ -42,20 +42,24 @@ namespace util
         }
     }
 
-    std::string buffer_store::read_buf(const buffer_view &view)
+    /**
+     * Reads the string content from the given buffer_view.
+     * @param view The buffer_view that should be read.
+     * @param buf output string buffer.
+     * @return Returns number of bytes read. -1 on error.
+     */
+    int buffer_store::read_buf(const buffer_view &view, std::string &buf)
     {
-        std::string buf;
         buf.resize(view.size);
         const int res = pread(fd, buf.data(), view.size, view.offset);
         if (res < view.size)
         {
             LOG_ERROR << errno << ": Error reading from buffer store fd " << fd;
-            buf.resize(res);
-            return buf;
+            return res;
         }
         else
         {
-            return buf;
+            return res;
         }
     }
 
