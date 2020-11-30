@@ -861,6 +861,7 @@ namespace consensus
             else
             {
                 // Populate the input content into the bufmap.
+                // It's VERY important that we preserve the proposal input hash order when feeding to the contract as well.
                 candidate_user_input &cand_input = itr->second;
                 sc::contract_iobufs &contract_user = bufmap[cand_input.userpubkey];
                 contract_user.inputs.push_back(cand_input.input);
