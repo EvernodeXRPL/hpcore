@@ -506,8 +506,10 @@ namespace sc
         }
         else if (res > 0)
         {
-            // Broadcast npl messages once contract npl output is collected.
-            broadcast_npl_output(output);
+            // Broadcast npl messages once contract npl output is collected
+            // if the node is in the unl list.
+            if (unl::exists(conf::cfg.pubkey))
+                broadcast_npl_output(output);
         }
 
         return (res > 0) ? 1 : 0;
@@ -523,7 +525,7 @@ namespace sc
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
             msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl());
-            p2p::broadcast_message(fbuf, true);
+            p2p::broadcast_message(fbuf, true, false, true);
         }
     }
 
@@ -717,7 +719,8 @@ namespace sc
         {
             output.resize(READ_BUFFER_SIZE);
             const int res = read(pfd.fd, output.data(), READ_BUFFER_SIZE);
-            output.resize(res); // Resize back to the actual bytes read.
+            if (res > 0)
+                output.resize(res); // Resize back to the actual bytes read.
 
             if (res == -1)
                 LOG_ERROR << errno << ": Error reading from contract socket. stream:" << is_stream_socket;

@@ -145,9 +145,9 @@ namespace p2p
 
     int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp);
 
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false);
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false, const bool only_to_trusted_peers = false);
 
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const peer_comm_session *skipping_session = NULL);
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const bool only_to_trusted_peers = false, const peer_comm_session *skipping_session = NULL);
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
