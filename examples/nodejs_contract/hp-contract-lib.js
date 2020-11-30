@@ -55,19 +55,12 @@ class ContractExecutionContext {
     #controlChannel = null;
 
     constructor(hpargs, users, peers, controlChannel) {
+        this.#controlChannel = controlChannel;
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
         this.users = users;
-        this.peers = peers;
-        this.#controlChannel = controlChannel;
-
-        if (!hpargs.readonly) {
-            const lclParts = hpargs.lcl.split("-");
-            this.lcl = {
-                seqNo: parseInt(lclParts[0]),
-                hash: lclParts[1]
-            };
-        }
+        this.peers = peers; // Not available in readonly mode.
+        this.lcl = hpargs.lcl; // Not available in readonly mode.
     }
 
     async updateUnl(addArray, removeArray) {

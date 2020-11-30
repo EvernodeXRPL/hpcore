@@ -3,11 +3,11 @@ const readline = require('readline');
 const { exit } = require('process');
 const bson = require('bson');
 var path = require("path");
-const { HotPocketClient, HotPocketKeyGenerator, HotPocketEvents } = require('./hp-client-lib');
+const HotPocket = require('./hp-client-lib');
 
 async function main() {
 
-    const keys = await HotPocketKeyGenerator.generate();
+    const keys = await HotPocket.KeyGenerator.generate();
 
     const pkhex = Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
@@ -15,7 +15,7 @@ async function main() {
     let server = 'wss://localhost:8080'
     if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
     if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-    const hpc = new HotPocketClient(server, keys);
+    const hpc = new HotPocket.Client(server, keys, HotPocket.protocols.bson);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
@@ -25,13 +25,13 @@ async function main() {
     console.log('HotPocket Connected.');
 
     // This will get fired if HP server disconnects unexpectedly.
-    hpc.on(HotPocketEvents.disconnect, () => {
+    hpc.on(HotPocket.events.disconnect, () => {
         console.log('Server diconnected');
         exit();
     })
 
     // This will get fired when contract sends an output.
-    hpc.on(HotPocketEvents.contractOutput, (output) => {
+    hpc.on(HotPocket.events.contractOutput, (output) => {
         const result = bson.deserialize(output);
         if (result.type == "uploadResult") {
             if (result.status == "ok")
@@ -51,7 +51,7 @@ async function main() {
     })
 
     // This will get fired when contract sends a read response.
-    hpc.on(HotPocketEvents.contractReadResponse, (response) => {
+    hpc.on(HotPocket.events.contractReadResponse, (response) => {
         const result = bson.deserialize(response);
         if (result.type == "downloadResult") {
             if (result.status == "ok") {
