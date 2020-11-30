@@ -18,7 +18,7 @@ hpcore=$(realpath ../..)
 if [ "$CONTRACT" = "cecho" ]; then # C echo contract
     echo "Using C echo contract."
     pushd $hpcore/examples/c_contract/ > /dev/null 2>&1
-    gcc echo_contract.c -o echo_contract -pthread
+    gcc echo_contract.c -o echo_contract
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/c_contract/echo_contract"
     binary="/contract/bin/echo_contract"
