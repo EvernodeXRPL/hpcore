@@ -35,10 +35,26 @@ int main(int argc, char **argv)
             // Instead of mmap, we can also read the inputs from 'ctx->users.in_fd' using file I/O.
             // However, using mmap is recommended because user inputs already reside in memory.
             const void *buf = input_mmap + input.offset;
-            
+
             process_user_message(user, buf, input.size);
         }
     }
+
+    // Peer message send example:
+    // hp_write_peer_msg("Hello!", 6);
+
+    // Peer message receive example:
+    // // Allocate buffers for received message.
+    // char sender[HP_KEY_SIZE];
+    // char *msg = malloc(HP_PEER_MSG_MAX_SIZE);
+    // // Wait for 200ms for incoming message. We will receive our own message as well.
+    // const int len = hp_read_peer_msg(msg, sender, 200);
+    // if (len > 0)
+    //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
+    // free(msg);
+
+    // Update UNL example:
+    // hp_update_unl("<64 char hex to add>", 1, "<64 char hex to remove>", 1);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();
