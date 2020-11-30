@@ -11,14 +11,13 @@
 #include <sys/stat.h>
 #include "json.h"
 
-#define __HP_KEY_SIZE 64
-#define __HP_HASH_SIZE 64
-#define __HP_MSG_HEADER_LEN 4
-#define __HP_SEQPKT_BUF_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
-#define __HP_POLL_TIMEOUT 20
-
 #define __HP_MMAP_BLOCK_SIZE 4096
 #define __HP_MMAP_BLOCK_ALIGN(x) (((x) + ((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1)) & ~((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1))
+#define __HP_STREAM_MSG_HEADER_SIZE 4
+#define __HP_SEQPKT_MAX_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
+#define HP_PEER_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
+#define HP_KEY_SIZE 64
+#define HP_HASH_SIZE 64
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                    \
     if (elem->value->type == json_type_string)                                            \
@@ -70,14 +69,14 @@ struct hp_user_inputs_collection
 
 struct hp_user
 {
-    char pubkey[__HP_KEY_SIZE + 1];
+    char pubkey[HP_KEY_SIZE + 1];
     int outfd;
     struct hp_user_inputs_collection inputs;
 };
 
 struct hp_peer
 {
-    char pubkey[__HP_KEY_SIZE + 1];
+    char pubkey[HP_KEY_SIZE + 1];
 };
 
 struct hp_users_collection
@@ -98,8 +97,8 @@ struct hp_contract_context
 {
     bool readonly;
     uint64_t timestamp;
-    char pubkey[__HP_KEY_SIZE + 1];
-    char lcl[__HP_HASH_SIZE + 22]; // uint64(20 chars) + "-" + hash + nullchar
+    char pubkey[HP_KEY_SIZE + 1];
+    char lcl[HP_HASH_SIZE + 22]; // uint64(20 chars) + "-" + hash + nullchar
     struct hp_users_collection users;
     struct hp_peers_collection peers;
 };
@@ -233,6 +232,8 @@ void hp_deinit_user_input_mmap()
 {
     if (__hpc.user_inmap)
         munmap(__hpc.user_inmap, __hpc.user_inmap_size);
+    __hpc.user_inmap = NULL;
+    __hpc.user_inmap_size = 0;
 }
 
 int hp_write_user_msg(const struct hp_user *user, const uint8_t *buf, const uint32_t len)
@@ -254,20 +255,20 @@ int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, con
         msg_len += bufs[i].iov_len;
     }
 
-    uint8_t header_buf[__HP_MSG_HEADER_LEN];
+    uint8_t header_buf[__HP_STREAM_MSG_HEADER_SIZE];
     __HP_TO_BE(msg_len, header_buf, 0);
 
     all_bufs[0].iov_base = header_buf;
-    all_bufs[0].iov_len = __HP_MSG_HEADER_LEN;
+    all_bufs[0].iov_len = __HP_STREAM_MSG_HEADER_SIZE;
 
     return writev(user->outfd, all_bufs, total_buf_count);
 }
 
 int hp_write_peer_msg(const uint8_t *buf, const uint32_t len)
 {
-    if (len > __HP_SEQPKT_BUF_SIZE)
+    if (len > HP_PEER_MSG_MAX_SIZE)
     {
-        fprintf(stderr, "Peer message exceeds max length %d.", __HP_SEQPKT_BUF_SIZE);
+        fprintf(stderr, "Peer message exceeds max length %d.", HP_PEER_MSG_MAX_SIZE);
         return -1;
     }
 
@@ -280,16 +281,77 @@ int hp_writev_peer_msg(const struct iovec *bufs, const int buf_count)
     for (int i = 0; i < buf_count; i++)
         len += bufs[i].iov_len;
 
-    if (len > __HP_SEQPKT_BUF_SIZE)
+    if (len > HP_PEER_MSG_MAX_SIZE)
     {
-        fprintf(stderr, "Peer message exceeds max length %d.", __HP_SEQPKT_BUF_SIZE);
+        fprintf(stderr, "Peer message exceeds max length %d.", HP_PEER_MSG_MAX_SIZE);
         return -1;
     }
 
     return writev(__hpc.cctx->peers.fd, bufs, buf_count);
 }
 
+/**
+ * Reads a peer message (NPL) while waiting for 'timeout' milliseconds.
+ * @param msg_buf The buffer to place the incoming message. Must be of at least 'HP_PEER_MSG_MAX_SIZE' length.
+ * @param pubkey_buf The buffer to place the sender pubkey (hex). Must be of at least 'HP_KEY_SIZE' length.
+ * @param timeout Maximum milliseoncds to wait until a message arrives. If 0, returns immediately.
+ *                If -1, waits forever until message arrives.
+ * @return Message length on success. 0 if no message arrived within timeout. -1 on error.
+ */
+int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout)
+{
+    struct pollfd pfd = {__hpc.cctx->peers.fd, POLLIN, 0};
 
+    // Peer messages consist of alternating SEQ packets of pubkey and data.
+    // So we need to wait for both pubkey and data packets to form a complete peer message.
+
+    // Wait for the pubkey.
+    if (poll(&pfd, 1, timeout) == -1)
+    {
+        perror("Peer channel pubkey poll error");
+        return -1;
+    }
+    else if (pfd.revents & (POLLHUP | POLLERR | POLLNVAL))
+    {
+        fprintf(stderr, "Peer channel pubkey poll returned error: %d\n", pfd.revents);
+        return -1;
+    }
+    else if (pfd.revents & POLLIN)
+    {
+        // Read pubkey.
+        if (read(pfd.fd, pubkey_buf, HP_KEY_SIZE) == -1)
+        {
+            perror("Error reading pubkey from peer channel");
+            return -1;
+        }
+
+        // Wait for data. (data should be available immediately because we have received the pubkey)
+        pfd.revents = 0;
+        if (poll(&pfd, 1, 100) == -1)
+        {
+            perror("Peer channel data poll error");
+            return -1;
+        }
+        else if (pfd.revents & (POLLHUP | POLLERR | POLLNVAL))
+        {
+            fprintf(stderr, "Peer channel data poll returned error: %d\n", pfd.revents);
+            return -1;
+        }
+        else if (pfd.revents & POLLIN)
+        {
+            // Read data.
+            const int readres = read(pfd.fd, msg_buf, HP_PEER_MSG_MAX_SIZE);
+            if (readres == -1)
+            {
+                perror("Error reading pubkey from peer channel");
+                return -1;
+            }
+            return readres;
+        }
+    }
+
+    return 0;
+}
 
 void __hp_parse_args_json(const struct json_object_s *object)
 {
@@ -336,7 +398,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                     for (int i = 0; i < user_count; i++)
                     {
                         struct hp_user *user = &cctx->users.list[i];
-                        memcpy(user->pubkey, user_elem->name->string, __HP_KEY_SIZE);
+                        memcpy(user->pubkey, user_elem->name->string, HP_KEY_SIZE);
 
                         if (user_elem->value->type == json_type_array)
                         {
@@ -405,9 +467,9 @@ void __hp_parse_args_json(const struct json_object_s *object)
 
 int __hp_write_control_msg(const uint8_t *buf, const uint32_t len)
 {
-    if (len > __HP_SEQPKT_BUF_SIZE)
+    if (len > __HP_SEQPKT_MAX_SIZE)
     {
-        fprintf(stderr, "Control message exceeds max length %d.", __HP_SEQPKT_BUF_SIZE);
+        fprintf(stderr, "Control message exceeds max length %d.", __HP_SEQPKT_MAX_SIZE);
         return -1;
     }
 
