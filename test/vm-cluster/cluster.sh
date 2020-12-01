@@ -339,6 +339,7 @@ do
 
     # Merge json contents to produce final contract config.
     echo "$(cat ./cfg/node$n.cfg)" \
+        '{"contractid":"dummy"}' \
         '{"binary":"/usr/bin/node"}' \
         '{"binargs":"'$basedir'/hpfiles/nodejs_contract/echo_contract.js"}' \
         '{"peers":'${mypeers}'}' \
