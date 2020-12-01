@@ -10,6 +10,7 @@ namespace msg::usrmsg
 
     // Message field names
     constexpr const char *FLD_TYPE = "type";
+    constexpr const char *FLD_CONTRACT_ID = "contract_id";
     constexpr const char *FLD_CHALLENGE = "challenge";
     constexpr const char *FLD_SIG = "sig";
     constexpr const char *FLD_PUBKEY = "pubkey";

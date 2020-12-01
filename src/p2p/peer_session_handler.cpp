@@ -45,8 +45,10 @@ namespace p2p
         return 0;
     }
 
-    // peer session on message callback method.
-    // validate and handle each type of peer messages.
+    /**
+     * Peer session on message callback method. Validate and handle each type of peer messages.
+     * @return 0 on normal execution. -1 when session needs to be closed as a result of message handling.
+     */
     int handle_peer_message(p2p::peer_comm_session &session, std::string_view message)
     {
         // Adding message size to peer message characters(bytes) per minute counter.
@@ -95,10 +97,15 @@ namespace p2p
 
         if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
         {
-            // Sending the challenge response to the respected peer.
-            const std::string challenge = std::string(p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message()));
+            const p2p::peer_challenge chall = p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message());
+
+            // Check whether contract ids match.
+            if (chall.contract_id != conf::cfg.contractid)
+                return -1;
+            
+            // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_peer_challenge_response_from_challenge(fbuf, challenge);
+            p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);
             std::string_view msg = std::string_view(
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
             return session.send(msg);
@@ -216,7 +223,7 @@ namespace p2p
         {
             // Check the cap and insert request with lock.
             std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
-            
+
             // If max number of history requests reached skip the rest.
             if (ledger::sync_ctx.collected_history_requests.size() < ledger::HISTORY_REQ_LIST_CAP)
             {
@@ -303,7 +310,7 @@ namespace p2p
     {
         // Check the cap and insert proposal with lock.
         std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex);
-        
+
         // If max number of proposals reached skip the rest.
         if (ctx.collected_msgs.proposals.size() == p2p::PROPOSAL_LIST_CAP)
             return -1;
@@ -331,7 +338,7 @@ namespace p2p
 
         ctx.collected_msgs.nonunl_proposals.push_back(
             p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
-        
+
         return 0;
     }
 
