@@ -50,6 +50,12 @@ namespace p2p
         std::vector<uint8_t> block_buffer;
     };
 
+    struct peer_challenge
+    {
+        std::string contract_id;
+        std::string challenge;
+    };
+
     struct peer_challenge_response
     {
         std::string challenge;

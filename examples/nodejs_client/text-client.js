@@ -11,7 +11,7 @@ async function main() {
     let server = 'wss://localhost:8080'
     if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
     if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-    const hpc = new HotPocket.Client(server, keys, HotPocket.protocols.json);
+    const hpc = new HotPocket.Client(null, server, keys, HotPocket.protocols.json);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {

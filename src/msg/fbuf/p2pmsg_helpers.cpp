@@ -154,11 +154,13 @@ namespace msg::fbuf::p2pmsg
     /**
  * Returns challenge from the peer challenge message.
  * @param The Flatbuffer peer challenge message received from the peer.
- * @return binary challenge.
+ * @return Peer challenge struct.
  */
-    const std::string_view get_peer_challenge_from_msg(const Peer_Challenge_Message &msg)
+    const p2p::peer_challenge get_peer_challenge_from_msg(const Peer_Challenge_Message &msg)
     {
-        return flatbuff_bytes_to_sv(msg.challenge());
+        return {
+            std::string(flatbuff_str_to_sv(msg.contract_id())),
+            std::string(flatbuff_str_to_sv(msg.challenge()))};
     }
 
     /**
@@ -170,7 +172,7 @@ namespace msg::fbuf::p2pmsg
     {
         p2p::peer_challenge_response pchalresp;
 
-        pchalresp.challenge = flatbuff_bytes_to_sv(msg.challenge());
+        pchalresp.challenge = flatbuff_str_to_sv(msg.challenge());
         pchalresp.signature = flatbuff_bytes_to_sv(msg.sig());
         pchalresp.pubkey = flatbuff_bytes_to_sv(pubkey);
 
@@ -306,7 +308,8 @@ namespace msg::fbuf::p2pmsg
         const flatbuffers::Offset<Peer_Challenge_Message> peer_challenge_msg =
             CreatePeer_Challenge_Message(
                 builder,
-                sv_to_flatbuff_bytes(builder, challenge));
+                sv_to_flatbuff_str(builder, conf::cfg.contractid),
+                sv_to_flatbuff_str(builder, challenge));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Message, peer_challenge_msg.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -327,7 +330,7 @@ namespace msg::fbuf::p2pmsg
         const flatbuffers::Offset<Peer_Challenge_Response_Message> challenge_resp_msg =
             CreatePeer_Challenge_Response_Message(
                 builder,
-                sv_to_flatbuff_bytes(builder, challenge),
+                sv_to_flatbuff_str(builder, challenge),
                 sv_to_flatbuff_bytes(builder, crypto::sign(challenge, conf::cfg.seckey)));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Response_Message, challenge_resp_msg.Union());

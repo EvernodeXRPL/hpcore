@@ -83,6 +83,7 @@ namespace conf
         std::vector<std::string> runtime_appbill_args; // Appbill execution args used during runtime.
 
         // Config elements which are loaded from the config file.
+        std::string contractid;                                   // Contract guid.
         OPERATING_MODE operating_mode = OPERATING_MODE::OBSERVER; // Configured startup operating mode of the contract (Observer/Proposer).
         std::string pubkeyhex;                                    // Contract hex public key
         std::string seckeyhex;                                    // Contract hex secret key
@@ -115,7 +116,7 @@ namespace conf
 
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
-        bool fullhistory = false;      // Whether full history mode is on/off.
+        bool fullhistory = false;          // Whether full history mode is on/off.
 
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)

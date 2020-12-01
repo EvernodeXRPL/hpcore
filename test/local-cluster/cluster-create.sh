@@ -73,6 +73,7 @@ do
     
     # Update contract config.
     node -p "JSON.stringify({...require('./tmp.json'), \
+            contractid: 'dummy', \
             binary: '$binary', \
             binargs: '$binargs', \
             appbill: '', \

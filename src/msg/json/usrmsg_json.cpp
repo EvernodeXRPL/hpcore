@@ -2,6 +2,7 @@
 #include "../../util/util.hpp"
 #include "../../crypto.hpp"
 #include "../../hplog.hpp"
+#include "../../conf.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
 
@@ -29,6 +30,7 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "handshake_challenge",
+     *              "contract_id": "<contract id>",
      *              "challenge": "<hex challenge string>"
      *            }
      * @param challengehex String reference to copy the generated hex challenge string into.
@@ -48,13 +50,16 @@ namespace msg::usrmsg::json
         // We do not use jasoncons library here in favour of performance because this is a simple json message.
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
-        // Only Hot Pocket version number is variable length. Therefore message size is roughly 90 bytes
-        // so allocating 128bytes for heap padding.
-        msg.reserve(128);
+        // Only Hot Pocket version number is variable length.
+        msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_HANDSHAKE_CHALLENGE;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_CONTRACT_ID;
+        msg += SEP_COLON;
+        msg += conf::cfg.contractid;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CHALLENGE;
         msg += SEP_COLON;
@@ -74,7 +79,7 @@ namespace msg::usrmsg::json
      */
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl)
     {
-        msg.reserve(128);
+        msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -109,7 +114,7 @@ namespace msg::usrmsg::json
         std::string sighex;
         util::bin2hex(sighex, reinterpret_cast<const unsigned char *>(input_sig.data()), input_sig.length());
 
-        msg.reserve(128);
+        msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
