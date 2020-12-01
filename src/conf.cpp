@@ -91,6 +91,14 @@ namespace conf
         crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
         binpair_to_hex(cfg);
 
+        // Generate contract id hex.
+        std::string rand_string;
+        crypto::random_bytes(rand_string, 16);
+        util::bin2hex(
+            cfg.contractid,
+            reinterpret_cast<const unsigned char *>(rand_string.data()),
+            rand_string.length());
+
         cfg.operating_mode = OPERATING_MODE::PROPOSER;
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
@@ -227,6 +235,8 @@ namespace conf
 
         // Load up the values into the struct.
 
+        cfg.contractid = d["contractid"].as<std::string>();
+
         if (d["mode"] == MODE_OBSERVER)
             cfg.operating_mode = OPERATING_MODE::OBSERVER;
         else if (d["mode"] == MODE_PROPOSER)
@@ -317,7 +327,7 @@ namespace conf
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
         cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
-        cfg.fullhistory = d["fullhistory"].as<bool>();
+        // cfg.fullhistory = d["fullhistory"].as<bool>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
@@ -338,14 +348,15 @@ namespace conf
         // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
         d.insert_or_assign("version", util::HP_VERSION);
+        d.insert_or_assign("contractid", cfg.contractid);
         d.insert_or_assign("mode", cfg.operating_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER);
 
-        d.insert_or_assign("pubkeyhex", cfg.pubkeyhex.data());
-        d.insert_or_assign("seckeyhex", cfg.seckeyhex.data());
-        d.insert_or_assign("binary", cfg.binary.data());
-        d.insert_or_assign("binargs", cfg.binargs.data());
-        d.insert_or_assign("appbill", cfg.appbill.data());
-        d.insert_or_assign("appbillargs", cfg.appbillargs.data());
+        d.insert_or_assign("pubkeyhex", cfg.pubkeyhex);
+        d.insert_or_assign("seckeyhex", cfg.seckeyhex);
+        d.insert_or_assign("binary", cfg.binary);
+        d.insert_or_assign("binargs", cfg.binargs);
+        d.insert_or_assign("appbill", cfg.appbill);
+        d.insert_or_assign("appbillargs", cfg.appbillargs);
 
         jsoncons::ojson peers(jsoncons::json_array_arg);
         for (const auto &peer : cfg.peers)
@@ -392,14 +403,14 @@ namespace conf
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
         d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
-        d.insert_or_assign("fullhistory", cfg.fullhistory);
+        // d.insert_or_assign("fullhistory", cfg.fullhistory);
 
         d.insert_or_assign("loglevel", cfg.loglevel);
 
         jsoncons::ojson loggers(jsoncons::json_array_arg);
         for (std::string_view logger : cfg.loggers)
         {
-            loggers.push_back(logger.data());
+            loggers.push_back(logger);
         }
         d.insert_or_assign("loggers", loggers);
 
