@@ -98,6 +98,9 @@ namespace conf
             cfg.contractid,
             reinterpret_cast<const unsigned char *>(rand_string.data()),
             rand_string.length());
+            
+        //Add self pubkey to the unl.
+        cfg.unl.emplace(cfg.pubkey);
 
         cfg.operating_mode = OPERATING_MODE::PROPOSER;
         cfg.peerport = 22860;
@@ -375,8 +378,7 @@ namespace conf
                 reinterpret_cast<const unsigned char *>(nodepk.data()),
                 nodepk.length());
 
-            if (hex_pubkey != cfg.pubkeyhex)
-                unl.push_back(hex_pubkey); // We do not save our own pubkey in config file.
+            unl.push_back(hex_pubkey);
         }
         d.insert_or_assign("unl", unl);
 
@@ -461,8 +463,7 @@ namespace conf
             return -1;
         }
 
-        // Populate unl.
-        cfg.unl.emplace(cfg.pubkey); // Add self pubkey to unl.
+        // Populate unl.        
         unl::init(cfg.unl);
 
         // Populate runtime contract execution args.
@@ -574,14 +575,16 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[7] = {
+        const std::string paths[9] = {
             ctx.contract_dir,
             ctx.config_file,
             ctx.hist_dir,
             ctx.full_hist_dir,
             ctx.state_dir,
             ctx.tls_key_file,
-            ctx.tls_cert_file};
+            ctx.tls_cert_file,
+            ctx.hpfs_exe_path,
+            ctx.hpws_exe_path};
 
         for (const std::string &path : paths)
         {
@@ -592,6 +595,10 @@ namespace conf
                     std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
                               << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
                               << "and add it to " + ctx.config_dir << std::endl;
+                }
+                else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path)
+                {
+                    std::cout << path << " binary does not exist.\n";
                 }
                 else
                 {

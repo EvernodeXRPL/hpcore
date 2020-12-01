@@ -103,11 +103,17 @@ function joinarr {
     arr=("${!arrname}")
     skip=$2
 
+    let prevlast=$ncount-2
+    # Resetting prevlast if nothing is given to skip.
+    if [ $skip -lt 0 ]
+    then
+        let prevlast=prevlast+1
+    fi
+
     j=0
     str="["
     for (( i=0; i<$ncount; i++ ))
     do
-        let prevlast=$ncount-2
         if [ "$i" != "$skip" ]
         then
             str="$str'${arr[i]}'"
@@ -124,12 +130,13 @@ function joinarr {
     echo $str
 }
 
-# Loop through all nodes hp.cfg and inject peer and unl lists (skip self node).
+# Loop through all nodes hp.cfg and inject peer and unl lists (skip self node for peers).
 for (( j=0; j<$ncount; j++ ))
 do
     let n=$j+1
     mypeers=$(joinarr peers $j)
-    myunl=$(joinarr pubkeys $j)
+    # Skip param is passed as -1 to stop skipping self pubkey.
+    myunl=$(joinarr pubkeys -1)
 
     pushd ./node$n/cfg > /dev/null 2>&1
     mv hp.cfg tmp.json  # nodejs needs file extension to be .json
