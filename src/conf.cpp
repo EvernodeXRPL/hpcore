@@ -91,6 +91,9 @@ namespace conf
         crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
         binpair_to_hex(cfg);
 
+        //Add self pubkey to the unl.
+        cfg.unl.emplace(cfg.pubkey);
+
         cfg.operating_mode = OPERATING_MODE::PROPOSER;
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
@@ -364,8 +367,7 @@ namespace conf
                 reinterpret_cast<const unsigned char *>(nodepk.data()),
                 nodepk.length());
 
-            if (hex_pubkey != cfg.pubkeyhex)
-                unl.push_back(hex_pubkey); // We do not save our own pubkey in config file.
+            unl.push_back(hex_pubkey);
         }
         d.insert_or_assign("unl", unl);
 
@@ -450,8 +452,7 @@ namespace conf
             return -1;
         }
 
-        // Populate unl.
-        cfg.unl.emplace(cfg.pubkey); // Add self pubkey to unl.
+        // Populate unl.        
         unl::init(cfg.unl);
 
         // Populate runtime contract execution args.
