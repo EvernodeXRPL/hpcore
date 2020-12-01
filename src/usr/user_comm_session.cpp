@@ -20,22 +20,5 @@ namespace usr
         usr::handle_user_close(*this);
     }
 
-    /**
-     * Returns printable name for the session based on uniqueid (used for logging).
-     */
-    const std::string user_comm_session::display_name()
-    {
-        if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
-        {
-            // User sessions use binary pubkey as unique id. So we need to convert to hex.
-            std::string hex;
-            util::bin2hex(hex,
-                          reinterpret_cast<const unsigned char *>(uniqueid.data()),
-                          uniqueid.length());
-            return hex.substr(2, 10) + (is_inbound ? ":in" : ":out"); // Skipping first 2 bytes key type prefix.
-        }
-
-        return comm_session::display_name();
-    }
 
 } // namespace usr

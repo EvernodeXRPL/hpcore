@@ -24,18 +24,4 @@ namespace p2p
         p2p::handle_peer_on_verified(*this);
     }
 
-    /**
-     * Returns printable name for the session based on uniqueid (used for logging).
-     */
-    const std::string peer_comm_session::display_name()
-    {
-        if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
-        {
-            // Peer sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
-            return uniqueid.substr(2, 10) + (is_inbound ? ":in" : ":out");
-        }
-
-        return comm_session::display_name();
-    }
-
 } // namespace p2p

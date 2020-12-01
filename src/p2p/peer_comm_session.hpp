@@ -24,7 +24,6 @@ namespace p2p
         std::optional<conf::ip_port_prop> known_ipport; // A known ip/port information that matches with our peer list configuration.
         bool need_consensus_msg_forwarding = false;     // Holds whether this node requires consensus message forwarding.
         bool is_unl = false;                            // Whether this session's pubkey is in unl list.
-        const std::string display_name();
     };
 
 } // namespace p2p
