@@ -5,11 +5,12 @@ include "common_schema.fbs";
 namespace msg.fbuf.p2pmsg;
 
 table Peer_Challenge_Message {
-    challenge:[ubyte];
+    contract_id:string;
+    challenge:string;
 }
 
 table Peer_Challenge_Response_Message {
-    challenge:[ubyte];
+    challenge:string;
     sig:[ubyte];
 }
 

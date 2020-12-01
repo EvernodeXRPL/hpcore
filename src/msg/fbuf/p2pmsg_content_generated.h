@@ -297,18 +297,27 @@ bool VerifyState_ResponseVector(flatbuffers::Verifier &verifier, const flatbuffe
 struct Peer_Challenge_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Peer_Challenge_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_CHALLENGE = 4
+    VT_CONTRACT_ID = 4,
+    VT_CHALLENGE = 6
   };
-  const flatbuffers::Vector<uint8_t> *challenge() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
+  const flatbuffers::String *contract_id() const {
+    return GetPointer<const flatbuffers::String *>(VT_CONTRACT_ID);
   }
-  flatbuffers::Vector<uint8_t> *mutable_challenge() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
+  flatbuffers::String *mutable_contract_id() {
+    return GetPointer<flatbuffers::String *>(VT_CONTRACT_ID);
+  }
+  const flatbuffers::String *challenge() const {
+    return GetPointer<const flatbuffers::String *>(VT_CHALLENGE);
+  }
+  flatbuffers::String *mutable_challenge() {
+    return GetPointer<flatbuffers::String *>(VT_CHALLENGE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_CONTRACT_ID) &&
+           verifier.VerifyString(contract_id()) &&
            VerifyOffset(verifier, VT_CHALLENGE) &&
-           verifier.VerifyVector(challenge()) &&
+           verifier.VerifyString(challenge()) &&
            verifier.EndTable();
   }
 };
@@ -317,7 +326,10 @@ struct Peer_Challenge_MessageBuilder {
   typedef Peer_Challenge_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_challenge(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge) {
+  void add_contract_id(flatbuffers::Offset<flatbuffers::String> contract_id) {
+    fbb_.AddOffset(Peer_Challenge_Message::VT_CONTRACT_ID, contract_id);
+  }
+  void add_challenge(flatbuffers::Offset<flatbuffers::String> challenge) {
     fbb_.AddOffset(Peer_Challenge_Message::VT_CHALLENGE, challenge);
   }
   explicit Peer_Challenge_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -334,18 +346,23 @@ struct Peer_Challenge_MessageBuilder {
 
 inline flatbuffers::Offset<Peer_Challenge_Message> CreatePeer_Challenge_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge = 0) {
+    flatbuffers::Offset<flatbuffers::String> contract_id = 0,
+    flatbuffers::Offset<flatbuffers::String> challenge = 0) {
   Peer_Challenge_MessageBuilder builder_(_fbb);
   builder_.add_challenge(challenge);
+  builder_.add_contract_id(contract_id);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Peer_Challenge_Message> CreatePeer_Challenge_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *challenge = nullptr) {
-  auto challenge__ = challenge ? _fbb.CreateVector<uint8_t>(*challenge) : 0;
+    const char *contract_id = nullptr,
+    const char *challenge = nullptr) {
+  auto contract_id__ = contract_id ? _fbb.CreateString(contract_id) : 0;
+  auto challenge__ = challenge ? _fbb.CreateString(challenge) : 0;
   return msg::fbuf::p2pmsg::CreatePeer_Challenge_Message(
       _fbb,
+      contract_id__,
       challenge__);
 }
 
@@ -355,11 +372,11 @@ struct Peer_Challenge_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuf
     VT_CHALLENGE = 4,
     VT_SIG = 6
   };
-  const flatbuffers::Vector<uint8_t> *challenge() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
+  const flatbuffers::String *challenge() const {
+    return GetPointer<const flatbuffers::String *>(VT_CHALLENGE);
   }
-  flatbuffers::Vector<uint8_t> *mutable_challenge() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CHALLENGE);
+  flatbuffers::String *mutable_challenge() {
+    return GetPointer<flatbuffers::String *>(VT_CHALLENGE);
   }
   const flatbuffers::Vector<uint8_t> *sig() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIG);
@@ -370,7 +387,7 @@ struct Peer_Challenge_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuf
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_CHALLENGE) &&
-           verifier.VerifyVector(challenge()) &&
+           verifier.VerifyString(challenge()) &&
            VerifyOffset(verifier, VT_SIG) &&
            verifier.VerifyVector(sig()) &&
            verifier.EndTable();
@@ -381,7 +398,7 @@ struct Peer_Challenge_Response_MessageBuilder {
   typedef Peer_Challenge_Response_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_challenge(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge) {
+  void add_challenge(flatbuffers::Offset<flatbuffers::String> challenge) {
     fbb_.AddOffset(Peer_Challenge_Response_Message::VT_CHALLENGE, challenge);
   }
   void add_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig) {
@@ -401,7 +418,7 @@ struct Peer_Challenge_Response_MessageBuilder {
 
 inline flatbuffers::Offset<Peer_Challenge_Response_Message> CreatePeer_Challenge_Response_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge = 0,
+    flatbuffers::Offset<flatbuffers::String> challenge = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0) {
   Peer_Challenge_Response_MessageBuilder builder_(_fbb);
   builder_.add_sig(sig);
@@ -411,9 +428,9 @@ inline flatbuffers::Offset<Peer_Challenge_Response_Message> CreatePeer_Challenge
 
 inline flatbuffers::Offset<Peer_Challenge_Response_Message> CreatePeer_Challenge_Response_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *challenge = nullptr,
+    const char *challenge = nullptr,
     const std::vector<uint8_t> *sig = nullptr) {
-  auto challenge__ = challenge ? _fbb.CreateVector<uint8_t>(*challenge) : 0;
+  auto challenge__ = challenge ? _fbb.CreateString(challenge) : 0;
   auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
   return msg::fbuf::p2pmsg::CreatePeer_Challenge_Response_Message(
       _fbb,

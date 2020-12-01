@@ -197,6 +197,7 @@ namespace ledger
 
                 if (!sync_ctx.target_lcl.empty())
                 {
+                    // If target lcl is genesis lcl, Clear the ledger history and reset target sequence number.
                     if (sync_ctx.target_lcl == GENESIS_LEDGER)
                     {
                         LOG_INFO << "lcl sync: Target is GENESIS. Clearing our history.";
@@ -205,9 +206,10 @@ namespace ledger
                         sync_ctx.target_lcl_seq_no = 0;
                         sync_ctx.is_syncing = false;
                     }
-                    // Check the target lcl seq no. to see whether it's too far ahead. That means no one probably has our
+                    // If full history mode is not enabled check the target lcl seq no
+                    // to see whether it's too far ahead. That means no one probably has our
                     // lcl in their ledgers. So we should clear our entire ledger history before requesting from peers.
-                    else if (current_lcl != GENESIS_LEDGER && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
+                    else if (!conf::cfg.fullhistory && current_lcl != GENESIS_LEDGER && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
                     {
                         LOG_INFO << "lcl sync: Target " << sync_ctx.target_lcl.substr(0, 15) << " is too far ahead. Clearing our history.";
                         clear_ledger();
@@ -290,8 +292,9 @@ namespace ledger
     /**
      * Create and save ledger from the given proposal message. Called by consensus.
      * @param proposal Consensus-reached Stage 3 proposal.
+     * @param raw_inputs Raw inputs that are going to store.
      */
-    int save_ledger(const p2p::proposal &proposal)
+    int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> raw_inputs)
     {
         uint64_t seq_no = 0;
         std::string hash;
@@ -331,6 +334,15 @@ namespace ledger
 
         ctx.cache.emplace(seq_no, std::move(file_name));
 
+        // Write full history to the full history directory if full history mode is on.
+        if (conf::cfg.fullhistory)
+        {
+            builder.Clear();
+            msg::fbuf::ledger::create_full_history_block_from_raw_input_map(builder, raw_inputs);
+            if (write_full_history(file_name, builder.GetBufferPointer(), builder.GetSize()) == -1)
+                return -1;
+        }
+
         //Remove old ledgers that exceeds max sequence range.
         if (seq_no > MAX_LEDGER_SEQUENCE)
             remove_old_ledgers(seq_no - MAX_LEDGER_SEQUENCE);
@@ -344,20 +356,24 @@ namespace ledger
      */
     void remove_old_ledgers(const uint64_t led_seq_no)
     {
-        std::map<uint64_t, const std::string>::iterator itr;
-
-        for (itr = ctx.cache.begin();
-             itr != ctx.cache.lower_bound(led_seq_no + 1);
-             itr++)
+        // Remove old ledgers if full history mode is not enabled.
+        if (!conf::cfg.fullhistory)
         {
-            const std::string file_path = conf::ctx.hist_dir + "/" + itr->second + ".lcl";
+            std::map<uint64_t, const std::string>::iterator itr;
 
-            if (util::is_file_exists(file_path))
-                util::remove_file(file_path);
+            for (itr = ctx.cache.begin();
+                 itr != ctx.cache.lower_bound(led_seq_no + 1);
+                 itr++)
+            {
+                const std::string file_path = conf::ctx.hist_dir + "/" + itr->second + ".lcl";
+
+                if (util::is_file_exists(file_path))
+                    util::remove_file(file_path);
+            }
+
+            if (!ctx.cache.empty())
+                ctx.cache.erase(ctx.cache.begin(), ctx.cache.lower_bound(led_seq_no + 1));
         }
-
-        if (!ctx.cache.empty())
-            ctx.cache.erase(ctx.cache.begin(), ctx.cache.lower_bound(led_seq_no + 1));
     }
 
     /**
@@ -438,6 +454,38 @@ namespace ledger
     }
 
     /**
+     * Write full history to file system.
+     * @param file_name current ledger sequence number.
+     * @param full_history_raw raw full history data.
+     * @param full_history_size size of the raw full history data.
+     */
+    int write_full_history(const std::string &file_name, const uint8_t *full_history_raw, const size_t full_history_size)
+    {
+        // Create file path to save full history.
+        // file name -> [ledger sequnce numer]-[lcl hex]
+
+        const std::string file_path = conf::ctx.full_hist_dir + "/" + file_name + ".flcl";
+
+        // Write full history to file system
+        const int fd = open(file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error creating full history file. " << file_path;
+            return -1;
+        }
+
+        if (write(fd, full_history_raw, full_history_size) == -1)
+        {
+            LOG_ERROR << errno << ": Error writing to new full history file. " << file_path;
+            close(fd);
+            return -1;
+        }
+
+        close(fd);
+        return 0;
+    }
+
+    /**
      * Delete ledger from file system.
      * @param file_name name of ledger to be deleted.
      */
@@ -450,6 +498,16 @@ namespace ledger
             .append(file_name)
             .append(".lcl");
         util::remove_file(file_path);
+
+        // Removing full history if exists.
+        file_path.clear();
+        file_path.reserve(conf::ctx.full_hist_dir.size() + file_name.size() + 6);
+        file_path.append(conf::ctx.full_hist_dir)
+            .append("/")
+            .append(file_name)
+            .append(".flcl");
+        if (util::is_file_exists(file_path))
+            util::remove_file(file_path);
     }
 
     /**

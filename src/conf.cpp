@@ -79,6 +79,7 @@ namespace conf
         // Recursivly create contract directories.
         util::create_dir_tree_recursive(ctx.config_dir);
         util::create_dir_tree_recursive(ctx.hist_dir);
+        util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
         util::create_dir_tree_recursive(ctx.state_dir);
 
@@ -90,6 +91,17 @@ namespace conf
         crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
         binpair_to_hex(cfg);
 
+        // Generate contract id hex.
+        std::string rand_string;
+        crypto::random_bytes(rand_string, 16);
+        util::bin2hex(
+            cfg.contractid,
+            reinterpret_cast<const unsigned char *>(rand_string.data()),
+            rand_string.length());
+            
+        //Add self pubkey to the unl.
+        cfg.unl.emplace(cfg.pubkey);
+
         cfg.operating_mode = OPERATING_MODE::PROPOSER;
         cfg.peerport = 22860;
         cfg.roundtime = 1000;
@@ -100,6 +112,7 @@ namespace conf
 
         cfg.msgforwarding = false;
         cfg.dynamicpeerdiscovery = false;
+        cfg.fullhistory = false;
 
 #ifndef NDEBUG
         cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -158,6 +171,7 @@ namespace conf
         ctx.tls_key_file = ctx.config_dir + "/tlskey.pem";
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
         ctx.hist_dir = basedir + "/hist";
+        ctx.full_hist_dir = basedir + "/fullhist";
         ctx.state_dir = basedir + "/state";
         ctx.state_rw_dir = ctx.state_dir + "/rw";
         ctx.state_serve_dir = ctx.state_dir + "/ss";
@@ -223,6 +237,8 @@ namespace conf
         }
 
         // Load up the values into the struct.
+
+        cfg.contractid = d["contractid"].as<std::string>();
 
         if (d["mode"] == MODE_OBSERVER)
             cfg.operating_mode = OPERATING_MODE::OBSERVER;
@@ -314,6 +330,7 @@ namespace conf
 
         cfg.msgforwarding = d["msgforwarding"].as<bool>();
         cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
+        // cfg.fullhistory = d["fullhistory"].as<bool>();
 
         cfg.loglevel = d["loglevel"].as<std::string>();
         cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
@@ -334,14 +351,15 @@ namespace conf
         // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
         d.insert_or_assign("version", util::HP_VERSION);
+        d.insert_or_assign("contractid", cfg.contractid);
         d.insert_or_assign("mode", cfg.operating_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER);
 
-        d.insert_or_assign("pubkeyhex", cfg.pubkeyhex.data());
-        d.insert_or_assign("seckeyhex", cfg.seckeyhex.data());
-        d.insert_or_assign("binary", cfg.binary.data());
-        d.insert_or_assign("binargs", cfg.binargs.data());
-        d.insert_or_assign("appbill", cfg.appbill.data());
-        d.insert_or_assign("appbillargs", cfg.appbillargs.data());
+        d.insert_or_assign("pubkeyhex", cfg.pubkeyhex);
+        d.insert_or_assign("seckeyhex", cfg.seckeyhex);
+        d.insert_or_assign("binary", cfg.binary);
+        d.insert_or_assign("binargs", cfg.binargs);
+        d.insert_or_assign("appbill", cfg.appbill);
+        d.insert_or_assign("appbillargs", cfg.appbillargs);
 
         jsoncons::ojson peers(jsoncons::json_array_arg);
         for (const auto &peer : cfg.peers)
@@ -360,8 +378,7 @@ namespace conf
                 reinterpret_cast<const unsigned char *>(nodepk.data()),
                 nodepk.length());
 
-            if (hex_pubkey != cfg.pubkeyhex)
-                unl.push_back(hex_pubkey); // We do not save our own pubkey in config file.
+            unl.push_back(hex_pubkey);
         }
         d.insert_or_assign("unl", unl);
 
@@ -388,13 +405,14 @@ namespace conf
 
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
         d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
+        // d.insert_or_assign("fullhistory", cfg.fullhistory);
 
         d.insert_or_assign("loglevel", cfg.loglevel);
 
         jsoncons::ojson loggers(jsoncons::json_array_arg);
         for (std::string_view logger : cfg.loggers)
         {
-            loggers.push_back(logger.data());
+            loggers.push_back(logger);
         }
         d.insert_or_assign("loggers", loggers);
 
@@ -445,8 +463,7 @@ namespace conf
             return -1;
         }
 
-        // Populate unl.
-        cfg.unl.emplace(cfg.pubkey); // Add self pubkey to unl.
+        // Populate unl.        
         unl::init(cfg.unl);
 
         // Populate runtime contract execution args.
@@ -558,13 +575,16 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[6] = {
+        const std::string paths[9] = {
             ctx.contract_dir,
             ctx.config_file,
             ctx.hist_dir,
+            ctx.full_hist_dir,
             ctx.state_dir,
             ctx.tls_key_file,
-            ctx.tls_cert_file};
+            ctx.tls_cert_file,
+            ctx.hpfs_exe_path,
+            ctx.hpws_exe_path};
 
         for (const std::string &path : paths)
         {
@@ -575,6 +595,10 @@ namespace conf
                     std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
                               << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
                               << "and add it to " + ctx.config_dir << std::endl;
+                }
+                else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path)
+                {
+                    std::cout << path << " binary does not exist.\n";
                 }
                 else
                 {
