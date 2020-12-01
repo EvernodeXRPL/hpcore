@@ -74,7 +74,6 @@ namespace p2p
         }
 
         // Converting the binary pub key into hexadecimal string.
-        // This will be used as the lookup key in storing peer sessions.
         std::string pubkeyhex;
         util::bin2hex(pubkeyhex, reinterpret_cast<const unsigned char *>(challenge_resp.pubkey.data()), challenge_resp.pubkey.length());
 
@@ -94,7 +93,7 @@ namespace p2p
 
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
-        const auto iter = ctx.peer_connections.find(pubkeyhex);
+        const auto iter = ctx.peer_connections.find(challenge_resp.pubkey);
         if (iter == ctx.peer_connections.end())
         {
             // Add the new connection straight away, if we haven't seen it before.
@@ -103,7 +102,8 @@ namespace p2p
             session.is_unl = unl::exists(session.pubkey);
             // Mark the connection as a verified connection.
             session.mark_as_verified();
-            ctx.peer_connections.try_emplace(session.uniqueid, &session);
+            // Public key in binary format will be used as the lookup key in storing peer sessions.
+            ctx.peer_connections.try_emplace(session.pubkey, &session);
 
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
             return 0;
@@ -132,7 +132,8 @@ namespace p2p
                     // We have to keep the peer requirements of the removed session object.
                     // If not, requirements received prior to connection dropping will be lost.
                     session.need_consensus_msg_forwarding = ex_session.need_consensus_msg_forwarding;
-                    ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
+                    // Public key in binary format will be used as the lookup key in storing peer sessions.
+                    ctx.peer_connections.try_emplace(session.pubkey, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
                     return 0;

@@ -186,7 +186,7 @@ namespace p2p
             if (ctx.collected_msgs.state_requests.size() < p2p::STATE_REQ_LIST_CAP)
             {
                 std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.state_requests.push_back(std::make_pair(session.uniqueid, std::move(state_request_msg)));
+                ctx.collected_msgs.state_requests.push_back(std::make_pair(session.pubkey, std::move(state_request_msg)));
             }
             else
             {
@@ -204,7 +204,7 @@ namespace p2p
                 if (ctx.collected_msgs.state_responses.size() < p2p::STATE_RES_LIST_CAP)
                 {
                     std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
+                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.pubkey, std::move(response)));
                 }
                 else
                 {
@@ -221,7 +221,7 @@ namespace p2p
             if (ledger::sync_ctx.collected_history_requests.size() < ledger::HISTORY_REQ_LIST_CAP)
             {
                 const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message(), container->lcl());
-                ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.uniqueid, std::move(hr)));
+                ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.pubkey, std::move(hr)));
             }
             else
             {
@@ -353,9 +353,9 @@ namespace p2p
     int handle_peer_close(const p2p::peer_comm_session &session)
     {
         {
-            // Erase the corresponding uniqueid peer connection if it's this session.
+            // Erase the corresponding pubkey peer connection if it's this session.
             std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
-            const auto itr = ctx.peer_connections.find(session.uniqueid);
+            const auto itr = ctx.peer_connections.find(session.pubkey);
             if (itr != ctx.peer_connections.end() && itr->second == &session)
             {
                 ctx.peer_connections.erase(itr);

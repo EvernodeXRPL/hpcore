@@ -127,7 +127,7 @@ namespace p2p
         // Holds all the messages until they are processed by consensus.
         message_collection collected_msgs;
 
-        // Set of currently connected peer connections mapped by the uniqueid of socket session.
+        // Set of currently connected peer connections mapped by the pubkey of socket session.
         std::unordered_map<std::string, peer_comm_session *> peer_connections;
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.

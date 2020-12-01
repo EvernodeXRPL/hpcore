@@ -66,14 +66,14 @@ namespace msg::controlmsg::json
      *   "remove": ["pk1","pk2",...]
      * }
      */
-    int extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals, const jsoncons::json &d, const bool convert_to_bin)
+    int extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals, const jsoncons::json &d)
     {
-        extract_string_array(additions, d, FLD_ADD, convert_to_bin);
-        extract_string_array(removals, d, FLD_REMOVE, convert_to_bin);
+        extract_string_array(additions, d, FLD_ADD);
+        extract_string_array(removals, d, FLD_REMOVE);
         return 0;
     }
 
-    void extract_string_array(std::vector<std::string> &vec, const jsoncons::json &d, const char *field_name, const bool convert_to_bin)
+    void extract_string_array(std::vector<std::string> &vec, const jsoncons::json &d, const char *field_name)
     {
         if (!d.contains(field_name) || !d[field_name].is_array())
             return;
@@ -81,19 +81,15 @@ namespace msg::controlmsg::json
         for (const auto &v : d[field_name].array_range())
         {
             std::string hex_pubkey = "ed" + v.as<std::string>();
-            if (convert_to_bin)
+
+            std::string bin_pubkey;
+            bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
+            if (util::hex2bin(
+                    reinterpret_cast<unsigned char *>(bin_pubkey.data()),
+                    bin_pubkey.length(),
+                    hex_pubkey) != -1)
             {
-                std::string bin_pubkey;
-                bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
-                if (util::hex2bin(
-                        reinterpret_cast<unsigned char *>(bin_pubkey.data()),
-                        bin_pubkey.length(),
-                        hex_pubkey) != -1)
-                {
-                    vec.push_back(bin_pubkey);
-                }
-            } else {
-                vec.push_back(hex_pubkey);
+                vec.push_back(bin_pubkey);
             }
         }
     }

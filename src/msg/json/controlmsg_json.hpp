@@ -12,9 +12,9 @@ namespace msg::controlmsg::json
 
     int extract_type(std::string &extracted_type, const jsoncons::json &d);
 
-    int extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals, const jsoncons::json &d, const bool convert_to_bin);
+    int extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals, const jsoncons::json &d);
 
-    void extract_string_array(std::vector<std::string> &vec, const jsoncons::json &d, const char *field_name, const bool convert_to_bin);
+    void extract_string_array(std::vector<std::string> &vec, const jsoncons::json &d, const char *field_name);
 
 } // namespace msg::controlmsg::json
 

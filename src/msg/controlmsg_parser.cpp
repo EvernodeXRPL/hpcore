@@ -16,9 +16,9 @@ namespace msg::controlmsg
         return jctlmsg::extract_type(extracted_type, jdoc);
     }
 
-    int controlmsg_parser::extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals, const bool convert_to_bin)
+    int controlmsg_parser::extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals)
     {
-        return jctlmsg::extract_unl_changeset(additions, removals, jdoc, convert_to_bin);
+        return jctlmsg::extract_unl_changeset(additions, removals, jdoc);
     }
 
 } // namespace msg::controlmsg
