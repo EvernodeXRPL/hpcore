@@ -825,8 +825,6 @@ namespace sc
             std::vector<std::string> additions, removals;
             parser.extract_unl_changeset(additions, removals);
             unl::update(additions, removals);
-            // Update the is_unl flag of peer sessions.
-            p2p::update_unl_status(additions, removals);
         }
     }
 

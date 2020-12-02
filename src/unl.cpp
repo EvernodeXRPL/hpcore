@@ -3,6 +3,7 @@
 #include "conf.hpp"
 #include "unl.hpp"
 #include "crypto.hpp"
+#include "p2p/p2p.hpp"
 
 /**
  * Manages the UNL public keys of this node.
@@ -64,6 +65,7 @@ namespace unl
             return;
 
         std::unique_lock lock(unl_mutex);
+        const size_t initial_count = list.size();
 
         for (const std::string &pubkey : additions)
             list.emplace(pubkey);
@@ -74,7 +76,13 @@ namespace unl
         update_json_list();
         conf::persist_unl_update(list);
 
-        LOG_INFO << "UNL updated. Count:" << list.size();
+        const size_t updated_count = list.size();
+
+        // Update the is_unl flag of peer sessions.
+        if (initial_count != updated_count)
+            p2p::update_unl_connections(list);
+
+        LOG_INFO << "UNL updated. Count:" << updated_count;
     }
 
     void update_json_list()

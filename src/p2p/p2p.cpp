@@ -157,24 +157,24 @@ namespace p2p
      * @param fbuf Peer outbound message to be broadcasted.
      * @param send_to_self Whether to also send the message to self (this node).
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
-     * @param only_to_trusted_peers Whether this broadcast is only for the trusted nodes.
+     * @param unl_only Whether this broadcast is only for the trusted nodes.
      */
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool only_to_trusted_peers)
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only)
     {
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
-        broadcast_message(msg, send_to_self, is_msg_forwarding, only_to_trusted_peers);
+        broadcast_message(msg, send_to_self, is_msg_forwarding, unl_only);
     }
 
     /**
      * Broadcast the given message to all connected outbound peers.
      * @param message Message to be forwarded.
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
-     * @param only_to_trusted_peers Whether this broadcast is only for the trusted nodes.
+     * @param unl_only Whether this broadcast is only for the trusted nodes.
      * @param skipping_session Session to be skipped in message forwarding(optional).
      */
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool only_to_trusted_peers, const peer_comm_session *skipping_session)
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only, const peer_comm_session *skipping_session)
     {
         if (send_to_self)
             self::send(message);
@@ -188,7 +188,7 @@ namespace p2p
             // Messages are forwarded only to the requested nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
                 (is_msg_forwarding && !session->need_consensus_msg_forwarding) ||
-                (only_to_trusted_peers && !session->is_unl))
+                (unl_only && !session->is_unl))
                 continue;
 
             session->send(message);
@@ -436,31 +436,18 @@ namespace p2p
 
     /**
      * Update the peer trusted status on unl list updates.
-     * @param additions New additions to the unl list (pubkeys in hex format).
-     * @param removals Removals to the unl list (pubkeys in hex format).
+     * @param list The updated UNL list.
     */
-    void update_unl_status(const std::vector<std::string> &additions, const std::vector<std::string> &removals)
+    void update_unl_connections(const std::set<std::string> &list)
     {
-        if (additions.empty() && removals.empty())
+        if (list.empty())
             return;
 
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
-        for (const std::string &pubkey : additions)
-        {
-            const auto peer_itr = ctx.peer_connections.find(pubkey);
-            if (peer_itr != ctx.peer_connections.end())
-            {
-                peer_itr->second->is_unl = true;
-            }
-        }
 
-        for (const std::string &pubkey : removals)
+        for (const auto &[k, session] : ctx.peer_connections)
         {
-            const auto peer_itr = ctx.peer_connections.find(pubkey);
-            if (peer_itr != ctx.peer_connections.end())
-            {
-                peer_itr->second->is_unl = false;
-            }
+            session->is_unl = (list.find(session->pubkey) != list.end());
         }
     }
 

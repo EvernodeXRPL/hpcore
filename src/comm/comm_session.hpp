@@ -47,7 +47,7 @@ namespace comm
         virtual void handle_on_verified();
 
     public:
-        std::string uniqueid; // Pubkey in hex format.
+        std::string uniqueid; // Verified session: Pubkey in hex format, Unverified session: IP address.
         std::string pubkey;   // Pubkey in binary format.
         const bool is_inbound;
         const std::string host_address; // Connection host address of the remote party.

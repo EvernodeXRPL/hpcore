@@ -151,9 +151,9 @@ namespace p2p
 
     int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp);
 
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false, const bool only_to_trusted_peers = false);
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false, const bool unl_only = false);
 
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const bool only_to_trusted_peers = false, const peer_comm_session *skipping_session = NULL);
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const bool unl_only = false, const peer_comm_session *skipping_session = NULL);
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
@@ -179,7 +179,7 @@ namespace p2p
 
     int16_t get_available_capacity();
 
-    void update_unl_status(const std::vector<std::string> &additions, const std::vector<std::string> &removals);
+    void update_unl_connections(const std::set<std::string> &list);
 } // namespace p2p
 
 #endif
