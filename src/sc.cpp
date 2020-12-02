@@ -506,9 +506,10 @@ namespace sc
         }
         else if (res > 0)
         {
-            // Broadcast npl messages once contract npl output is collected
-            // if the node is in the unl list.
-            if (unl::exists(conf::cfg.pubkey))
+            // Broadcast npl messages once contract npl output is collected.
+            // If the npl messages are set to private, broadcast only to the trusted peers.
+            // If it is public, broadcast to all the connected peers.
+            if (conf::cfg.is_npl_public || unl::exists(conf::cfg.pubkey))
                 broadcast_npl_output(output);
         }
 
@@ -525,7 +526,7 @@ namespace sc
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
             msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl());
-            p2p::broadcast_message(fbuf, true, false, true);
+            p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_npl_public);
         }
     }
 
