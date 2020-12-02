@@ -74,7 +74,6 @@ namespace p2p
         }
 
         // Converting the binary pub key into hexadecimal string.
-        // This will be used as the lookup key in storing peer sessions.
         std::string pubkeyhex;
         util::bin2hex(pubkeyhex, reinterpret_cast<const unsigned char *>(challenge_resp.pubkey.data()), challenge_resp.pubkey.length());
 
@@ -94,14 +93,17 @@ namespace p2p
 
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
-        const auto iter = ctx.peer_connections.find(pubkeyhex);
+        const auto iter = ctx.peer_connections.find(challenge_resp.pubkey);
         if (iter == ctx.peer_connections.end())
         {
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
+            session.pubkey = challenge_resp.pubkey;
+            session.is_unl = unl::exists(session.pubkey);
             // Mark the connection as a verified connection.
             session.mark_as_verified();
-            ctx.peer_connections.try_emplace(session.uniqueid, &session);
+            // Public key in binary format will be used as the lookup key in storing peer sessions.
+            ctx.peer_connections.try_emplace(session.pubkey, &session);
 
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
             return 0;
@@ -120,6 +122,8 @@ namespace p2p
                     if (!session.known_ipport.has_value())
                         session.known_ipport.swap(ex_session.known_ipport);
                     session.uniqueid.swap(pubkeyhex);
+                    session.pubkey = challenge_resp.pubkey;
+                    session.is_unl = unl::exists(session.pubkey);
                     // Mark the connection as a verified connection.
                     session.mark_as_verified();
 
@@ -128,7 +132,8 @@ namespace p2p
                     // We have to keep the peer requirements of the removed session object.
                     // If not, requirements received prior to connection dropping will be lost.
                     session.need_consensus_msg_forwarding = ex_session.need_consensus_msg_forwarding;
-                    ctx.peer_connections.try_emplace(session.uniqueid, &session); // add new session.
+                    // Public key in binary format will be used as the lookup key in storing peer sessions.
+                    ctx.peer_connections.try_emplace(session.pubkey, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
                     return 0;
@@ -152,24 +157,24 @@ namespace p2p
      * @param fbuf Peer outbound message to be broadcasted.
      * @param send_to_self Whether to also send the message to self (this node).
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
-     * @param only_to_trusted_peers Whether this broadcast is only for the trusted nodes.
+     * @param unl_only Whether this broadcast is only for the trusted nodes.
      */
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool only_to_trusted_peers)
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only)
     {
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
-        broadcast_message(msg, send_to_self, is_msg_forwarding, only_to_trusted_peers);
+        broadcast_message(msg, send_to_self, is_msg_forwarding, unl_only);
     }
 
     /**
      * Broadcast the given message to all connected outbound peers.
      * @param message Message to be forwarded.
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
-     * @param only_to_trusted_peers Whether this broadcast is only for the trusted nodes.
+     * @param unl_only Whether this broadcast is only for the trusted nodes.
      * @param skipping_session Session to be skipped in message forwarding(optional).
      */
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool only_to_trusted_peers, const peer_comm_session *skipping_session)
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only, const peer_comm_session *skipping_session)
     {
         if (send_to_self)
             self::send(message);
@@ -183,7 +188,7 @@ namespace p2p
             // Messages are forwarded only to the requested nodes only in the message forwarding mode.
             if ((skipping_session && skipping_session == session) ||
                 (is_msg_forwarding && !session->need_consensus_msg_forwarding) ||
-                (only_to_trusted_peers && !unl::exists(session->uniqueid, true)))
+                (unl_only && !session->is_unl))
                 continue;
 
             session->send(message);
@@ -427,6 +432,19 @@ namespace p2p
         else if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons == 0)
             return conf::cfg.peermaxcons - ctx.peer_connections.size();
         return -1;
+    }
+
+    /**
+     * Update the peer trusted status on unl list updates.
+    */
+    void update_unl_connections()
+    {
+        std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
+
+        for (const auto &[k, session] : ctx.peer_connections)
+        {
+            session->is_unl = unl::exists(session->pubkey);
+        }
     }
 
 } // namespace p2p

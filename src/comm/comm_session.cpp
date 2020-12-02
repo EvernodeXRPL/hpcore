@@ -235,6 +235,12 @@ namespace comm
      */
     const std::string comm_session::display_name()
     {
+        if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
+        {
+            // Sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
+            return uniqueid.substr(2, 10) + (is_inbound ? ":in" : ":out");
+        }
+    
         return uniqueid + (is_inbound ? ":in" : ":out");
     }
 

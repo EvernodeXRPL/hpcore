@@ -3,6 +3,7 @@
 #include "conf.hpp"
 #include "unl.hpp"
 #include "crypto.hpp"
+#include "p2p/p2p.hpp"
 
 /**
  * Manages the UNL public keys of this node.
@@ -46,28 +47,11 @@ namespace unl
 
     /**
      * Check whether the given pubkey is in the unl list.
-     * @param pubkey Pubkey to check for existence.
-     * @param is_in_hex Whether the given pubkey is in hex format.
+     * @param bin_pubkey Pubkey to check for existence.
      * @return Return true if the given pubkey is in the unl list.
     */
-    bool exists(const std::string &pubkey, const bool is_in_hex)
+    bool exists(const std::string &bin_pubkey)
     {
-        std::string bin_pubkey = pubkey;
-        if (is_in_hex)
-        {
-            // If the given pubkey is in hex format, convert the public key to binary.
-            std::string temp_bin_pubkey;
-            temp_bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
-            if (util::hex2bin(
-                    reinterpret_cast<unsigned char *>(temp_bin_pubkey.data()),
-                    temp_bin_pubkey.length(),
-                    pubkey) != 0)
-            {
-                LOG_ERROR << "Error decoding hex pubkey.\n";
-                return false;
-            }
-            bin_pubkey.swap(temp_bin_pubkey);
-        }
         std::shared_lock lock(unl_mutex);
         return list.find(bin_pubkey) != list.end();
     }
@@ -81,6 +65,7 @@ namespace unl
             return;
 
         std::unique_lock lock(unl_mutex);
+        const size_t initial_count = list.size();
 
         for (const std::string &pubkey : additions)
             list.emplace(pubkey);
@@ -91,7 +76,17 @@ namespace unl
         update_json_list();
         conf::persist_unl_update(list);
 
-        LOG_INFO << "UNL updated. Count:" << list.size();
+        const size_t updated_count = list.size();
+
+        // Unlock unique lock. A shared lock is applied to the list inside the update unl connection function
+        // because it use unl::exists function call.
+        lock.unlock();
+
+        // Update the is_unl flag of peer sessions.
+        if (initial_count != updated_count)
+            p2p::update_unl_connections();
+
+        LOG_INFO << "UNL updated. Count:" << updated_count;
     }
 
     void update_json_list()

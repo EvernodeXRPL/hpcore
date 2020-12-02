@@ -61,7 +61,7 @@ namespace usr
             // Check whether this user is among authenticated users
             // and perform authenticated msg processing.
 
-            const auto itr = ctx.users.find(session.uniqueid);
+            const auto itr = ctx.users.find(session.pubkey);
             if (itr != ctx.users.end())
             {
                 // This is an authed user.
@@ -95,7 +95,7 @@ namespace usr
     {
         // Session belongs to an authed user.
         if (session.challenge_status == comm::CHALLENGE_VERIFIED)
-            remove_user(session.uniqueid);
+            remove_user(session.pubkey);
 
         return 0;
     }
