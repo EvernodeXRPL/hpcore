@@ -78,7 +78,7 @@ namespace unl
 
         const size_t updated_count = list.size();
 
-        // Unlock unique lock. A shared lock is applied to the list inside the update unl connection function.
+        // Unlock unique lock. A shared lock is applied to the list inside the update unl connection function
         // because it use unl::exists function call.
         lock.unlock();
 
