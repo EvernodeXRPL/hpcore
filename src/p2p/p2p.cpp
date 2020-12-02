@@ -436,18 +436,14 @@ namespace p2p
 
     /**
      * Update the peer trusted status on unl list updates.
-     * @param list The updated UNL list.
     */
-    void update_unl_connections(const std::set<std::string> &list)
+    void update_unl_connections()
     {
-        if (list.empty())
-            return;
-
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         for (const auto &[k, session] : ctx.peer_connections)
         {
-            session->is_unl = (list.find(session->pubkey) != list.end());
+            session->is_unl = unl::exists(session->pubkey);
         }
     }
 

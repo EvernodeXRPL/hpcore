@@ -107,7 +107,7 @@ namespace state_serve
                         reinterpret_cast<const unsigned char *>(session_id.data()),
                         session_id.length());
 
-                    LOG_DEBUG << "Serving state request from [" << session_id_hex.substr(0, 10) << "]";
+                    LOG_DEBUG << "Serving state request from [" << session_id_hex.substr(2, 10) << "]";
 
                     const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
 

@@ -78,9 +78,13 @@ namespace unl
 
         const size_t updated_count = list.size();
 
+        // Unlock unique lock. A shared lock is applied to the list inside the update unl connection function.
+        // because it use unl::exists function call.
+        lock.unlock();
+
         // Update the is_unl flag of peer sessions.
         if (initial_count != updated_count)
-            p2p::update_unl_connections(list);
+            p2p::update_unl_connections();
 
         LOG_INFO << "UNL updated. Count:" << updated_count;
     }

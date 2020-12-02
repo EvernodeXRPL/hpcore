@@ -179,7 +179,7 @@ namespace p2p
 
     int16_t get_available_capacity();
 
-    void update_unl_connections(const std::set<std::string> &list);
+    void update_unl_connections();
 } // namespace p2p
 
 #endif
