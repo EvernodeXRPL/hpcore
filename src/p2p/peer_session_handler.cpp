@@ -81,8 +81,10 @@ namespace p2p
         // Check whether the message is qualified for message forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
-            // Npl messages are forwarded only to trusted peers.
-            const bool unl_only = content_message_type == p2pmsg::Message_Npl_Message;
+            // Npl messages and consensus proposals are forwarded only to trusted peers if relavent flags (npl and consensus) are set to private.
+            // If consensus and npl flags are public, these messages are forward to all the connected peers.
+            const bool unl_only = (!conf::cfg.is_npl_public && content_message_type == p2pmsg::Message_Npl_Message) ||
+                                  (!conf::cfg.is_consensus_public && content_message_type == p2pmsg::Message_Proposal_Message);
             if (session.need_consensus_msg_forwarding)
             {
                 // Forward messages received by weakly connected nodes to other peers.
@@ -102,7 +104,7 @@ namespace p2p
             // Check whether contract ids match.
             if (chall.contract_id != conf::cfg.contractid)
                 return -1;
-            
+
             // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf(1024);
             p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);

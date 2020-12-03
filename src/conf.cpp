@@ -19,6 +19,9 @@ namespace conf
     const static char *MODE_OBSERVER = "observer";
     const static char *MODE_PROPOSER = "proposer";
 
+    const static char *PUBLIC = "public";
+    const static char *PRIVATE = "private";
+
     /**
      * Loads and initializes the contract config for execution. Must be called once during application startup.
      * @return 0 for success. -1 for failure.
@@ -98,7 +101,7 @@ namespace conf
             cfg.contractid,
             reinterpret_cast<const unsigned char *>(rand_string.data()),
             rand_string.length());
-            
+
         //Add self pubkey to the unl.
         cfg.unl.emplace(cfg.pubkey);
 
@@ -109,6 +112,9 @@ namespace conf
         cfg.peerdiscoverytime = 30000;
         cfg.pubidletimeout = 0;
         cfg.peeridletimeout = 120;
+
+        cfg.is_consensus_public = true;
+        cfg.is_npl_public = false;
 
         cfg.msgforwarding = false;
         cfg.dynamicpeerdiscovery = false;
@@ -321,6 +327,20 @@ namespace conf
         cfg.peermaxcons = d["peermaxcons"].as<uint16_t>();
         cfg.peermaxknowncons = d["peermaxknowncons"].as<uint16_t>();
 
+        if (d["consensus"] != PUBLIC && d["consensus"] != PRIVATE)
+        {
+            std::cout << "Invalid consensus flag configured. Valid values: public|private\n";
+            return -1;
+        }
+        cfg.is_consensus_public = d["consensus"] == PUBLIC;
+        
+        if (d["npl"] != PUBLIC && d["npl"] != PRIVATE)
+        {
+            std::cout << "Invalid npl flag configured. Valid values: public|private\n";
+            return -1;
+        }
+        cfg.is_npl_public = d["npl"] == PUBLIC;
+
         // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
         if (cfg.peermaxknowncons > cfg.peermaxcons)
         {
@@ -403,6 +423,9 @@ namespace conf
         d.insert_or_assign("peermaxcons", cfg.peermaxcons);
         d.insert_or_assign("peermaxknowncons", cfg.peermaxknowncons);
 
+        d.insert_or_assign("consensus", cfg.is_consensus_public ? PUBLIC : PRIVATE);
+        d.insert_or_assign("npl", cfg.is_npl_public ? PUBLIC : PRIVATE);
+
         d.insert_or_assign("msgforwarding", cfg.msgforwarding);
         d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
         // d.insert_or_assign("fullhistory", cfg.fullhistory);
@@ -463,7 +486,7 @@ namespace conf
             return -1;
         }
 
-        // Populate unl.        
+        // Populate unl.
         unl::init(cfg.unl);
 
         // Populate runtime contract execution args.
