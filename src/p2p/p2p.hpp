@@ -18,6 +18,12 @@ namespace p2p
     constexpr uint16_t STATE_RES_LIST_CAP = 64;       // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
+    struct peer_unl_changeset
+    {
+        std::set<std::string> additions; // Pubkeys of the peers that need to be added to the unl.
+        std::set<std::string> removals;  // Pubkeys of the peers that need to be removed from the unl.
+    };
+
     struct proposal
     {
         std::string pubkey;
@@ -31,6 +37,7 @@ namespace p2p
         std::set<std::string> users;
         std::set<std::string> hash_inputs;
         std::set<std::string> hash_outputs;
+        peer_unl_changeset unl_changeset; // Additions and removals of the unl.
     };
 
     struct nonunl_proposal
@@ -126,6 +133,10 @@ namespace p2p
         // List of pairs indicating the session pubkey hex and the state responses.
         std::list<std::pair<std::string, std::string>> state_responses;
         std::mutex state_responses_mutex; // Mutex for state responses access race conditions.
+
+        // Struct of collected unl addition and removal change sets.
+        peer_unl_changeset unl_changeset;
+        std::mutex unl_changeset_mutex; // Mutex for unl changeset access race conditions.
     };
 
     struct connected_context

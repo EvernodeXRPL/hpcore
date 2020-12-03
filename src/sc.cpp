@@ -825,7 +825,23 @@ namespace sc
         {
             std::vector<std::string> additions, removals;
             parser.extract_unl_changeset(additions, removals);
-            unl::update(additions, removals);
+
+            // Populate the received change set with a mutex. Changeset will be affected after going through the consensus.
+            {
+                std::scoped_lock lock(p2p::ctx.collected_msgs.unl_changeset_mutex);
+
+                for (const std::string pubkey : additions)
+                    if (!unl::exists(pubkey))
+                        p2p::ctx.collected_msgs.unl_changeset.additions.emplace(pubkey);
+
+                for (const std::string pubkey : removals)
+                    if (unl::exists(pubkey))
+                        p2p::ctx.collected_msgs.unl_changeset.removals.emplace(pubkey);
+            }
+
+            // Clear the tempory lists.
+            additions.clear();
+            removals.clear();
         }
     }
 

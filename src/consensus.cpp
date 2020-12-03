@@ -130,6 +130,11 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
+            // Prepare the consensus candidate unl changeset that we have acumulated so far.
+            // The candidate unl changeset will be included in the stage 0 proposal.
+            if (verify_and_populate_candidate_unl_changeset() == -1)
+                return -1;
+
             const p2p::proposal new_round_prop = create_stage0_proposal(lcl, state);
             broadcast_proposal(new_round_prop);
         }
@@ -163,6 +168,9 @@ namespace consensus
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
                 const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state);
+
+                // Update the unl with the unl changeset that subjected to the consensus.
+                unl::update(p.unl_changeset.additions, p.unl_changeset.removals);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -496,6 +504,15 @@ namespace consensus
         return 0;
     }
 
+    int verify_and_populate_candidate_unl_changeset()
+    {
+        {
+            std::scoped_lock lock(p2p::ctx.collected_msgs.unl_changeset_mutex);
+            std::swap(ctx.candidate_unl_changeset, p2p::ctx.collected_msgs.unl_changeset);
+        }
+        return 0;
+    }
+
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
     {
         // This is the proposal that stage 0 votes on.
@@ -517,6 +534,9 @@ namespace consensus
         // Populate the proposal with hashes of user outputs.
         for (const auto &[hash, cand_output] : ctx.candidate_user_outputs)
             stg_prop.hash_outputs.emplace(hash);
+
+        // Populate the unl changeset.
+        std::swap(stg_prop.unl_changeset, ctx.candidate_unl_changeset);
 
         return stg_prop;
     }
@@ -557,6 +577,14 @@ namespace consensus
             for (const std::string &hash : cp.hash_outputs)
                 if (ctx.candidate_user_outputs.count(hash) > 0)
                     increment(votes.outputs, hash);
+
+            // Vote for unl additions.
+            for (const std::string &pubkey : cp.unl_changeset.additions)
+                increment(votes.unl_additions, pubkey);
+
+            // Vote for unl removals.
+            for (const std::string &pubkey : cp.unl_changeset.removals)
+                increment(votes.unl_removals, pubkey);
         }
 
         const uint32_t required_votes = ceil(vote_threshold * unl_count);
@@ -580,6 +608,16 @@ namespace consensus
         for (const auto &[hash, numvotes] : votes.outputs)
             if (numvotes >= required_votes)
                 stg_prop.hash_outputs.emplace(hash);
+
+        // Add unl additions which have votes over stage threshold to proposal.
+        for (const auto &[pubkey, numvotes] : votes.unl_additions)
+            if (numvotes >= required_votes)
+                stg_prop.unl_changeset.additions.emplace(pubkey);
+
+        // Add unl removals which have votes over stage threshold to proposal.
+        for (const auto &[pubkey, numvotes] : votes.unl_removals)
+            if (numvotes >= required_votes)
+                stg_prop.unl_changeset.removals.emplace(pubkey);
 
         // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
         uint32_t highest_time_vote = 0;

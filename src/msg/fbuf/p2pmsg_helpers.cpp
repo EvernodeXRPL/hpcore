@@ -232,6 +232,10 @@ namespace msg::fbuf::p2pmsg
         p.lcl = flatbuff_bytes_to_sv(lcl);
         p.state = flatbuff_bytes_to_sv(msg.state());
 
+        const auto unl_changeset = msg.unl_changeset();
+        p.unl_changeset.additions = flatbuf_bytearrayvector_to_stringlist(unl_changeset->additions());
+        p.unl_changeset.removals = flatbuf_bytearrayvector_to_stringlist(unl_changeset->removals());
+
         if (msg.users())
             p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
 
@@ -368,6 +372,12 @@ namespace msg::fbuf::p2pmsg
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);
 
+        const flatbuffers::Offset<Unl_Changeset> unl_changeset = CreateUnl_Changeset(
+            builder,
+            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.additions),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.removals)
+        );
+
         const flatbuffers::Offset<Proposal_Message> proposal =
             CreateProposal_Message(
                 builder,
@@ -377,7 +387,8 @@ namespace msg::fbuf::p2pmsg
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
-                hash_to_flatbuff_bytes(builder, p.state));
+                hash_to_flatbuff_bytes(builder, p.state),
+                unl_changeset);
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
