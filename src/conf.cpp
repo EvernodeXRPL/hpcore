@@ -327,20 +327,19 @@ namespace conf
         cfg.peermaxcons = d["peermaxcons"].as<uint16_t>();
         cfg.peermaxknowncons = d["peermaxknowncons"].as<uint16_t>();
 
-        const std::unordered_set<std::string> valid_consensus_npl_public_private({PUBLIC, PRIVATE});
-        if (valid_consensus_npl_public_private.count(d["consensus"].as<std::string>()) != 1)
+        if (d["consensus"] != PUBLIC && d["consensus"] != PRIVATE)
         {
             std::cout << "Invalid consensus flag configured. Valid values: public|private\n";
             return -1;
         }
-        cfg.is_consensus_public = d["consensus"].as<std::string>() == PUBLIC;
+        cfg.is_consensus_public = d["consensus"] == PUBLIC;
         
-        if (valid_consensus_npl_public_private.count(d["npl"].as<std::string>()) != 1)
+        if (d["npl"] != PUBLIC && d["npl"] != PRIVATE)
         {
             std::cout << "Invalid npl flag configured. Valid values: public|private\n";
             return -1;
         }
-        cfg.is_npl_public = d["npl"].as<std::string>() == PUBLIC;
+        cfg.is_npl_public = d["npl"] == PUBLIC;
 
         // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
         if (cfg.peermaxknowncons > cfg.peermaxcons)
