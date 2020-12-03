@@ -8,6 +8,16 @@
  */
 namespace unl
 {
+    struct unl_changeset
+    {
+        std::set<std::string> additions; // Pubkeys of the peers that need to be added to the unl.
+        std::set<std::string> removals;  // Pubkeys of the peers that need to be removed from the unl.
+    };
+
+    // Struct of collected unl addition and removal change sets. Holds the changeset until they are processed by consensus.
+    extern unl_changeset changeset;
+    extern std::mutex changeset_mutex; // Mutex for unl changeset access race conditions.
+
     size_t count();
     std::set<std::string> get();
     std::string get_json();

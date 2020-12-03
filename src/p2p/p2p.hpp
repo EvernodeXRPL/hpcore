@@ -133,10 +133,6 @@ namespace p2p
         // List of pairs indicating the session pubkey hex and the state responses.
         std::list<std::pair<std::string, std::string>> state_responses;
         std::mutex state_responses_mutex; // Mutex for state responses access race conditions.
-
-        // Struct of collected unl addition and removal change sets.
-        peer_unl_changeset unl_changeset;
-        std::mutex unl_changeset_mutex; // Mutex for unl changeset access race conditions.
     };
 
     struct connected_context

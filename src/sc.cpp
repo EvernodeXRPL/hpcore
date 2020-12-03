@@ -828,15 +828,15 @@ namespace sc
 
             // Populate the received change set with a mutex. Changeset will be affected after going through the consensus.
             {
-                std::scoped_lock lock(p2p::ctx.collected_msgs.unl_changeset_mutex);
+                std::scoped_lock lock(unl::changeset_mutex);
 
                 for (const std::string pubkey : additions)
                     if (!unl::exists(pubkey))
-                        p2p::ctx.collected_msgs.unl_changeset.additions.emplace(pubkey);
+                        unl::changeset.additions.emplace(pubkey);
 
                 for (const std::string pubkey : removals)
                     if (unl::exists(pubkey))
-                        p2p::ctx.collected_msgs.unl_changeset.removals.emplace(pubkey);
+                        unl::changeset.removals.emplace(pubkey);
             }
 
             // Clear the tempory lists.

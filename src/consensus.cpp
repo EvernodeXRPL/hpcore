@@ -507,8 +507,9 @@ namespace consensus
     int verify_and_populate_candidate_unl_changeset()
     {
         {
-            std::scoped_lock lock(p2p::ctx.collected_msgs.unl_changeset_mutex);
-            std::swap(ctx.candidate_unl_changeset, p2p::ctx.collected_msgs.unl_changeset);
+            std::scoped_lock lock(unl::changeset_mutex);
+            ctx.candidate_unl_changeset.additions.swap(unl::changeset.additions);
+            ctx.candidate_unl_changeset.removals.swap(unl::changeset.removals);
         }
         return 0;
     }
@@ -536,7 +537,7 @@ namespace consensus
             stg_prop.hash_outputs.emplace(hash);
 
         // Populate the unl changeset.
-        std::swap(stg_prop.unl_changeset, ctx.candidate_unl_changeset);
+        stg_prop.unl_changeset = ctx.candidate_unl_changeset;
 
         return stg_prop;
     }
@@ -578,13 +579,15 @@ namespace consensus
                 if (ctx.candidate_user_outputs.count(hash) > 0)
                     increment(votes.outputs, hash);
 
-            // Vote for unl additions.
+            // Vote for unl additions. Only vote for the unl additions that are in our candidate_unl_changeset set.
             for (const std::string &pubkey : cp.unl_changeset.additions)
-                increment(votes.unl_additions, pubkey);
+                if (ctx.candidate_unl_changeset.additions.count(pubkey) > 0)
+                    increment(votes.unl_additions, pubkey);
 
-            // Vote for unl removals.
+            // Vote for unl removals. Only vote for the unl additions that are in our candidate_unl_changeset set.
             for (const std::string &pubkey : cp.unl_changeset.removals)
-                increment(votes.unl_removals, pubkey);
+                if (ctx.candidate_unl_changeset.removals.count(pubkey) > 0)
+                    increment(votes.unl_removals, pubkey);
         }
 
         const uint32_t required_votes = ceil(vote_threshold * unl_count);
@@ -809,6 +812,10 @@ namespace consensus
                     ++itr;
             }
         }
+
+        // Clear candidate unl changset after executing the contract.
+        ctx.candidate_unl_changeset.additions.clear();
+        ctx.candidate_unl_changeset.removals.clear();
 
         // Send any output from the previous consensus round to locally connected users.
         dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl);
