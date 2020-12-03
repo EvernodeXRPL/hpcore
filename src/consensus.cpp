@@ -120,6 +120,7 @@ namespace consensus
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         const size_t unl_count = unl::count();
+        std::string unl_hash = unl::get_hash();
         hpfs::h32 state = state_common::ctx.get_state();
         vote_counter votes;
 
@@ -130,7 +131,7 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
-            const p2p::proposal new_round_prop = create_stage0_proposal(lcl, state);
+            const p2p::proposal new_round_prop = create_stage0_proposal(lcl, state, unl_hash);
             broadcast_proposal(new_round_prop);
         }
         else if (ctx.stage == 1)
@@ -138,7 +139,7 @@ namespace consensus
             if (is_in_sync(lcl, unl_count, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, unl_count, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
                 broadcast_proposal(p);
             }
         }
@@ -147,7 +148,7 @@ namespace consensus
             if (is_in_sync(lcl, unl_count, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, unl_count, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
                 broadcast_proposal(p);
             }
 
@@ -162,7 +163,7 @@ namespace consensus
             {
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
-                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state);
+                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -203,8 +204,20 @@ namespace consensus
                 state_sync::set_target(majority_state);
             }
 
+            // Check unl hash with the majority unl hash.
+            bool is_unl_desync = false;
+            std::string majority_unl;
+            check_unl_votes(is_unl_desync, majority_unl, votes);
+            // Start unl sync if we are out-of-sync with majority unl.
+            if (is_unl_desync)
+            {
+                // conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                is_unl_desync = false;
+                LOG_INFO << "UNL list outof sync";
+            }
+
             // Proceed further only if both lcl and state are in sync with majority.
-            if (!is_lcl_desync && !is_state_desync)
+            if (!is_lcl_desync && !is_state_desync && !is_unl_desync)
             {
                 conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
                 return true;
@@ -496,7 +509,7 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state, std::string_view unl_hash)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -505,6 +518,7 @@ namespace consensus
         stg_prop.stage = 0;
         stg_prop.lcl = lcl;
         stg_prop.state = state;
+        stg_prop.unl_hash = unl_hash;
         crypto::random_bytes(stg_prop.nonce, ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
@@ -521,7 +535,7 @@ namespace consensus
         return stg_prop;
     }
 
-    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state)
+    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal stg_prop;
@@ -532,6 +546,8 @@ namespace consensus
         // if there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork.
         stg_prop.lcl = lcl;
+
+        stg_prop.unl_hash = unl_hash;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -720,6 +736,32 @@ namespace consensus
         }
 
         is_desync = (state_common::ctx.get_state() != majority_state);
+    }
+
+    /**
+     * Check unl against the winning and canonical unl
+     * @param is_desync Is unl is in desync.
+     * @param majority_unl The majority unl.
+     * @param votes The voting table.
+     */
+    void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes)
+    {
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            increment(votes.unl, cp.unl_hash);
+        }
+
+        uint32_t winning_votes = 0;
+        for (const auto [unl_hash, votes] : votes.unl)
+        {
+            if (votes > winning_votes)
+            {
+                winning_votes = votes;
+                majority_unl = unl_hash;
+            }
+        }
+
+        is_desync = (unl::get_hash() != majority_unl);
     }
 
     /**

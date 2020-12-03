@@ -13,6 +13,7 @@ namespace unl
     std::set<std::string> list; // List of binary pubkeys of UNL.
     std::string json_list;      // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
+    std::string hash;
 
     /**
      * Called by conf during startup to populate configured unl list.
@@ -25,6 +26,7 @@ namespace unl
         std::unique_lock lock(unl_mutex);
         list = init_list;
         update_json_list();
+        calculate_hash();
     }
 
     size_t count()
@@ -109,6 +111,24 @@ namespace unl
         }
         os << "]";
         json_list = os.str();
+    }
+
+    std::string get_hash()
+    {
+        std::shared_lock lock(unl_mutex);
+        return hash;
+    }
+
+    void calculate_hash()
+    {
+        const std::vector<std::string_view> unl_vector(list.begin(), list.end());
+        hash = crypto::get_hash(unl_vector);
+        // Get hex from binary hash.
+        std::string unl_hash_hex;
+        util::bin2hex(unl_hash_hex,
+                      reinterpret_cast<const unsigned char *>(hash.data()),
+                      hash.size());
+        std::cout << "UNL hash: " << unl_hash_hex << std::endl;
     }
 
 } // namespace unl

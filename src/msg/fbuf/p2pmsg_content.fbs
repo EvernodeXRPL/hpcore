@@ -57,6 +57,7 @@ table Proposal_Message { //Proposal type message schema
     hash_inputs:[ByteArray];
     hash_outputs:[ByteArray];
     state: [ubyte];
+    unl_hash: [ubyte]; // Hash of the current unl list.
 }
 
 table Npl_Message { //NPL type message schema

@@ -336,7 +336,6 @@ struct Peer_Challenge_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Peer_Challenge_MessageBuilder &operator=(const Peer_Challenge_MessageBuilder &);
   flatbuffers::Offset<Peer_Challenge_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Peer_Challenge_Message>(end);
@@ -408,7 +407,6 @@ struct Peer_Challenge_Response_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Peer_Challenge_Response_MessageBuilder &operator=(const Peer_Challenge_Response_MessageBuilder &);
   flatbuffers::Offset<Peer_Challenge_Response_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Peer_Challenge_Response_Message>(end);
@@ -491,7 +489,6 @@ struct UserInputBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  UserInputBuilder &operator=(const UserInputBuilder &);
   flatbuffers::Offset<UserInput> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<UserInput>(end);
@@ -568,7 +565,6 @@ struct UserInputGroupBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  UserInputGroupBuilder &operator=(const UserInputGroupBuilder &);
   flatbuffers::Offset<UserInputGroup> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<UserInputGroup>(end);
@@ -728,7 +724,6 @@ struct ContentBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ContentBuilder &operator=(const ContentBuilder &);
   flatbuffers::Offset<Content> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Content>(end);
@@ -777,7 +772,6 @@ struct NonUnl_Proposal_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  NonUnl_Proposal_MessageBuilder &operator=(const NonUnl_Proposal_MessageBuilder &);
   flatbuffers::Offset<NonUnl_Proposal_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<NonUnl_Proposal_Message>(end);
@@ -811,7 +805,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_USERS = 10,
     VT_HASH_INPUTS = 12,
     VT_HASH_OUTPUTS = 14,
-    VT_STATE = 16
+    VT_STATE = 16,
+    VT_UNL_HASH = 18
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -855,6 +850,12 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_state() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE);
   }
+  const flatbuffers::Vector<uint8_t> *unl_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_UNL_HASH);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_unl_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_UNL_HASH);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
@@ -872,6 +873,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(hash_outputs()) &&
            VerifyOffset(verifier, VT_STATE) &&
            verifier.VerifyVector(state()) &&
+           VerifyOffset(verifier, VT_UNL_HASH) &&
+           verifier.VerifyVector(unl_hash()) &&
            verifier.EndTable();
   }
 };
@@ -901,11 +904,13 @@ struct Proposal_MessageBuilder {
   void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
     fbb_.AddOffset(Proposal_Message::VT_STATE, state);
   }
+  void add_unl_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl_hash) {
+    fbb_.AddOffset(Proposal_Message::VT_UNL_HASH, unl_hash);
+  }
   explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Proposal_MessageBuilder &operator=(const Proposal_MessageBuilder &);
   flatbuffers::Offset<Proposal_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Proposal_Message>(end);
@@ -921,9 +926,11 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> hash_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> hash_outputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl_hash = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
+  builder_.add_unl_hash(unl_hash);
   builder_.add_state(state);
   builder_.add_hash_outputs(hash_outputs);
   builder_.add_hash_inputs(hash_inputs);
@@ -941,12 +948,14 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *hash_inputs = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *hash_outputs = nullptr,
-    const std::vector<uint8_t> *state = nullptr) {
+    const std::vector<uint8_t> *state = nullptr,
+    const std::vector<uint8_t> *unl_hash = nullptr) {
   auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*hash_inputs) : 0;
   auto hash_outputs__ = hash_outputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*hash_outputs) : 0;
   auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
+  auto unl_hash__ = unl_hash ? _fbb.CreateVector<uint8_t>(*unl_hash) : 0;
   return msg::fbuf::p2pmsg::CreateProposal_Message(
       _fbb,
       stage,
@@ -955,7 +964,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       users__,
       hash_inputs__,
       hash_outputs__,
-      state__);
+      state__,
+      unl_hash__);
 }
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -988,7 +998,6 @@ struct Npl_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Npl_MessageBuilder &operator=(const Npl_MessageBuilder &);
   flatbuffers::Offset<Npl_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Npl_Message>(end);
@@ -1043,7 +1052,6 @@ struct History_Request_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  History_Request_MessageBuilder &operator=(const History_Request_MessageBuilder &);
   flatbuffers::Offset<History_Request_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<History_Request_Message>(end);
@@ -1122,7 +1130,6 @@ struct History_Response_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  History_Response_MessageBuilder &operator=(const History_Response_MessageBuilder &);
   flatbuffers::Offset<History_Response_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<History_Response_Message>(end);
@@ -1197,7 +1204,6 @@ struct HistoryLedgerBlockPairBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  HistoryLedgerBlockPairBuilder &operator=(const HistoryLedgerBlockPairBuilder &);
   flatbuffers::Offset<HistoryLedgerBlockPair> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HistoryLedgerBlockPair>(end);
@@ -1257,7 +1263,6 @@ struct HistoryLedgerBlockBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  HistoryLedgerBlockBuilder &operator=(const HistoryLedgerBlockBuilder &);
   flatbuffers::Offset<HistoryLedgerBlock> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HistoryLedgerBlock>(end);
@@ -1351,7 +1356,6 @@ struct State_Request_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  State_Request_MessageBuilder &operator=(const State_Request_MessageBuilder &);
   flatbuffers::Offset<State_Request_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<State_Request_Message>(end);
@@ -1473,7 +1477,6 @@ struct State_Response_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  State_Response_MessageBuilder &operator=(const State_Response_MessageBuilder &);
   flatbuffers::Offset<State_Response_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<State_Response_Message>(end);
@@ -1542,7 +1545,6 @@ struct Fs_Entry_ResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Fs_Entry_ResponseBuilder &operator=(const Fs_Entry_ResponseBuilder &);
   flatbuffers::Offset<Fs_Entry_Response> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Fs_Entry_Response>(end);
@@ -1608,7 +1610,6 @@ struct File_HashMap_ResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  File_HashMap_ResponseBuilder &operator=(const File_HashMap_ResponseBuilder &);
   flatbuffers::Offset<File_HashMap_Response> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<File_HashMap_Response>(end);
@@ -1678,7 +1679,6 @@ struct Block_ResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Block_ResponseBuilder &operator=(const Block_ResponseBuilder &);
   flatbuffers::Offset<Block_Response> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Block_Response>(end);
@@ -1760,7 +1760,6 @@ struct State_FS_Hash_EntryBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  State_FS_Hash_EntryBuilder &operator=(const State_FS_Hash_EntryBuilder &);
   flatbuffers::Offset<State_FS_Hash_Entry> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<State_FS_Hash_Entry>(end);
@@ -1823,7 +1822,6 @@ struct Peer_Requirement_Announcement_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Peer_Requirement_Announcement_MessageBuilder &operator=(const Peer_Requirement_Announcement_MessageBuilder &);
   flatbuffers::Offset<Peer_Requirement_Announcement_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Peer_Requirement_Announcement_Message>(end);
@@ -1879,7 +1877,6 @@ struct Available_Capacity_Announcement_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Available_Capacity_Announcement_MessageBuilder &operator=(const Available_Capacity_Announcement_MessageBuilder &);
   flatbuffers::Offset<Available_Capacity_Announcement_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Available_Capacity_Announcement_Message>(end);
@@ -1913,7 +1910,6 @@ struct Peer_List_Request_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Peer_List_Request_MessageBuilder &operator=(const Peer_List_Request_MessageBuilder &);
   flatbuffers::Offset<Peer_List_Request_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Peer_List_Request_Message>(end);
@@ -1958,7 +1954,6 @@ struct Peer_List_Response_MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Peer_List_Response_MessageBuilder &operator=(const Peer_List_Response_MessageBuilder &);
   flatbuffers::Offset<Peer_List_Response_Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Peer_List_Response_Message>(end);
@@ -2046,7 +2041,6 @@ struct Peer_PropertiesBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Peer_PropertiesBuilder &operator=(const Peer_PropertiesBuilder &);
   flatbuffers::Offset<Peer_Properties> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Peer_Properties>(end);

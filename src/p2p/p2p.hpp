@@ -27,6 +27,7 @@ namespace p2p
         uint8_t stage = 0;
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
+        std::string unl_hash; // Hash of the current unl list.
         hpfs::h32 state;
         std::set<std::string> users;
         std::set<std::string> hash_inputs;

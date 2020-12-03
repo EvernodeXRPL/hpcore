@@ -15,6 +15,8 @@ namespace unl
     void init(const std::set<std::string> &init_list);
     void update(const std::vector<std::string> &additions, const std::vector<std::string> &removals);
     void update_json_list();
+    std::string get_hash();
+    void calculate_hash();
 
 } // namespace unl
 

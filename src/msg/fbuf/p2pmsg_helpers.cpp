@@ -230,6 +230,7 @@ namespace msg::fbuf::p2pmsg
         p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
+        p.unl_hash = flatbuff_bytes_to_sv(msg.unl_hash());
         p.state = flatbuff_bytes_to_sv(msg.state());
 
         if (msg.users())
@@ -377,7 +378,8 @@ namespace msg::fbuf::p2pmsg
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
-                hash_to_flatbuff_bytes(builder, p.state));
+                hash_to_flatbuff_bytes(builder, p.state),
+                sv_to_flatbuff_bytes(builder, p.unl_hash));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
