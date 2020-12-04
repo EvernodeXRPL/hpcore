@@ -14,8 +14,9 @@ namespace unl
     std::string json_list;      // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
 
+    // Struct of collected unl addition and removal change sets. Holds the changeset until they are subjected to the consensus.
     unl_changeset changeset;
-    std::mutex changeset_mutex;
+    std::mutex changeset_mutex; // Mutex for unl changeset access race conditions.
 
     /**
      * Called by conf during startup to populate configured unl list.

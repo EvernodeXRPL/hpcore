@@ -15,6 +15,9 @@ namespace ledger {
 struct LedgerBlock;
 struct LedgerBlockBuilder;
 
+struct Unl_Changeset;
+struct Unl_ChangesetBuilder;
+
 struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LedgerBlockBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -24,7 +27,8 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_STATE = 10,
     VT_USERS = 12,
     VT_INPUTS = 14,
-    VT_OUTPUTS = 16
+    VT_OUTPUTS = 16,
+    VT_UNL_CHANGESET = 18
   };
   uint64_t seq_no() const {
     return GetField<uint64_t>(VT_SEQ_NO, 0);
@@ -68,6 +72,12 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *mutable_outputs() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_OUTPUTS);
   }
+  const msg::fbuf::ledger::Unl_Changeset *unl_changeset() const {
+    return GetPointer<const msg::fbuf::ledger::Unl_Changeset *>(VT_UNL_CHANGESET);
+  }
+  msg::fbuf::ledger::Unl_Changeset *mutable_unl_changeset() {
+    return GetPointer<msg::fbuf::ledger::Unl_Changeset *>(VT_UNL_CHANGESET);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_SEQ_NO) &&
@@ -85,6 +95,8 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_OUTPUTS) &&
            verifier.VerifyVector(outputs()) &&
            verifier.VerifyVectorOfTables(outputs()) &&
+           VerifyOffset(verifier, VT_UNL_CHANGESET) &&
+           verifier.VerifyTable(unl_changeset()) &&
            verifier.EndTable();
   }
 };
@@ -114,6 +126,9 @@ struct LedgerBlockBuilder {
   void add_outputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> outputs) {
     fbb_.AddOffset(LedgerBlock::VT_OUTPUTS, outputs);
   }
+  void add_unl_changeset(flatbuffers::Offset<msg::fbuf::ledger::Unl_Changeset> unl_changeset) {
+    fbb_.AddOffset(LedgerBlock::VT_UNL_CHANGESET, unl_changeset);
+  }
   explicit LedgerBlockBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -133,10 +148,12 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> inputs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> outputs = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> outputs = 0,
+    flatbuffers::Offset<msg::fbuf::ledger::Unl_Changeset> unl_changeset = 0) {
   LedgerBlockBuilder builder_(_fbb);
   builder_.add_time(time);
   builder_.add_seq_no(seq_no);
+  builder_.add_unl_changeset(unl_changeset);
   builder_.add_outputs(outputs);
   builder_.add_inputs(inputs);
   builder_.add_users(users);
@@ -153,7 +170,8 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
     const std::vector<uint8_t> *state = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *inputs = nullptr,
-    const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *outputs = nullptr) {
+    const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *outputs = nullptr,
+    flatbuffers::Offset<msg::fbuf::ledger::Unl_Changeset> unl_changeset = 0) {
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
@@ -167,7 +185,81 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
       state__,
       users__,
       inputs__,
-      outputs__);
+      outputs__,
+      unl_changeset);
+}
+
+struct Unl_Changeset FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Unl_ChangesetBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ADDITIONS = 4,
+    VT_REMOVALS = 6
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *additions() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_ADDITIONS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *mutable_additions() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_ADDITIONS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *removals() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_REMOVALS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *mutable_removals() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_REMOVALS);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ADDITIONS) &&
+           verifier.VerifyVector(additions()) &&
+           verifier.VerifyVectorOfTables(additions()) &&
+           VerifyOffset(verifier, VT_REMOVALS) &&
+           verifier.VerifyVector(removals()) &&
+           verifier.VerifyVectorOfTables(removals()) &&
+           verifier.EndTable();
+  }
+};
+
+struct Unl_ChangesetBuilder {
+  typedef Unl_Changeset Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_additions(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> additions) {
+    fbb_.AddOffset(Unl_Changeset::VT_ADDITIONS, additions);
+  }
+  void add_removals(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> removals) {
+    fbb_.AddOffset(Unl_Changeset::VT_REMOVALS, removals);
+  }
+  explicit Unl_ChangesetBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Unl_Changeset> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Unl_Changeset>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Unl_Changeset> CreateUnl_Changeset(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> additions = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> removals = 0) {
+  Unl_ChangesetBuilder builder_(_fbb);
+  builder_.add_removals(removals);
+  builder_.add_additions(additions);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Unl_Changeset> CreateUnl_ChangesetDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *additions = nullptr,
+    const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *removals = nullptr) {
+  auto additions__ = additions ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*additions) : 0;
+  auto removals__ = removals ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*removals) : 0;
+  return msg::fbuf::ledger::CreateUnl_Changeset(
+      _fbb,
+      additions__,
+      removals__);
 }
 
 inline const msg::fbuf::ledger::LedgerBlock *GetLedgerBlock(const void *buf) {

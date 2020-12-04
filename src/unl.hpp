@@ -14,9 +14,8 @@ namespace unl
         std::set<std::string> removals;  // Pubkeys of the peers that need to be removed from the unl.
     };
 
-    // Struct of collected unl addition and removal change sets. Holds the changeset until they are processed by consensus.
     extern unl_changeset changeset;
-    extern std::mutex changeset_mutex; // Mutex for unl changeset access race conditions.
+    extern std::mutex changeset_mutex;
 
     size_t count();
     std::set<std::string> get();

@@ -125,12 +125,12 @@ namespace consensus
 
         if (ctx.stage == 0)
         {
-            // Prepare the consensus candidate user inputs that we have acumulated so far. (We receive them periodically via NUPs)
+            // Prepare the consensus candidate user inputs that we have accumulated so far. (We receive them periodically via NUPs)
             // The candidate inputs will be included in the stage 0 proposal.
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
-            // Prepare the consensus candidate unl changeset that we have acumulated so far.
+            // Prepare the consensus candidate unl changeset that we have accumulated so far. (We receive them as control inputs)
             // The candidate unl changeset will be included in the stage 0 proposal.
             if (verify_and_populate_candidate_unl_changeset() == -1)
                 return -1;
@@ -504,8 +504,13 @@ namespace consensus
         return 0;
     }
 
+    /**
+     * This will populate the collected changeset (in any) to the consensus candidates and clear the collected changeset.
+     * @return returns 0.
+     * */
     int verify_and_populate_candidate_unl_changeset()
     {
+        // Lock the collected changeset and populate.
         {
             std::scoped_lock lock(unl::changeset_mutex);
             ctx.candidate_unl_changeset.additions.swap(unl::changeset.additions);
@@ -536,7 +541,7 @@ namespace consensus
         for (const auto &[hash, cand_output] : ctx.candidate_user_outputs)
             stg_prop.hash_outputs.emplace(hash);
 
-        // Populate the unl changeset.
+        // Populate the proposal wil unl changeset.
         stg_prop.unl_changeset = ctx.candidate_unl_changeset;
 
         return stg_prop;
@@ -579,12 +584,12 @@ namespace consensus
                 if (ctx.candidate_user_outputs.count(hash) > 0)
                     increment(votes.outputs, hash);
 
-            // Vote for unl additions. Only vote for the unl additions that are in our candidate_unl_changeset set.
+            // Vote for unl additions. Only vote for the unl additions that are in our candidate_unl_changeset.
             for (const std::string &pubkey : cp.unl_changeset.additions)
                 if (ctx.candidate_unl_changeset.additions.count(pubkey) > 0)
                     increment(votes.unl_additions, pubkey);
 
-            // Vote for unl removals. Only vote for the unl additions that are in our candidate_unl_changeset set.
+            // Vote for unl removals. Only vote for the unl additions that are in our candidate_unl_changeset.
             for (const std::string &pubkey : cp.unl_changeset.removals)
                 if (ctx.candidate_unl_changeset.removals.count(pubkey) > 0)
                     increment(votes.unl_removals, pubkey);
@@ -813,7 +818,7 @@ namespace consensus
             }
         }
 
-        // Clear candidate unl changset after executing the contract.
+        // Clear candidate unl changset after consensus rounds are completed.
         ctx.candidate_unl_changeset.additions.clear();
         ctx.candidate_unl_changeset.removals.clear();
 

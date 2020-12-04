@@ -839,7 +839,7 @@ namespace sc
                         unl::changeset.removals.emplace(pubkey);
             }
 
-            // Clear the tempory lists.
+            // Clear the local lists.
             additions.clear();
             removals.clear();
         }
