@@ -827,6 +827,7 @@ namespace sc
             parser.extract_unl_changeset(additions, removals);
 
             // Populate the received change set with a mutex. Changeset will be affected after going through the consensus.
+            // Since changesets are std::set objects. It'll maintain a sorted set.
             {
                 std::scoped_lock lock(unl::changeset_mutex);
 
