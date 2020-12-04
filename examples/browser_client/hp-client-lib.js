@@ -12,13 +12,6 @@ window.HotPocket = (() => {
     }
     Object.freeze(events);
 
-    const eventsObjects = {
-        disconnect: new Event("disconnect"),
-        contractOutput: new Event("contractOutput"),
-        contractReadResponse: new Event("contractReadResponse")
-    }
-    Object.freeze(eventsObjects);
-
     const fromHexString = hexString =>
         new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 
@@ -46,12 +39,27 @@ window.HotPocket = (() => {
         },
     }
 
+    function EventEmitter() {
+        const registrations = {};
+
+        this.on = (eventName, listener) => {
+            if (!registrations[eventName])
+                registrations[eventName] = [];
+            registrations[eventName].push(listener);
+        }
+
+        this.emit = (eventName, value) => {
+            if (registrations[eventName])
+                registrations[eventName].forEach(listener => listener(value));
+        }
+    }
+
     HotPocketClient = function HotPocketClient(server, keys) {
 
         let ws = null;
         const protocol = protocols.json; // We only support json in browser.
         const msgHelper = new MessageHelper(keys, protocol);
-        const emitter = new EventTarget();
+        const emitter = new EventEmitter();
 
         let handshakeResolver = null;
         let statResponseResolvers = [];
@@ -76,7 +84,7 @@ window.HotPocket = (() => {
                     Object.values(contractInputResolvers).forEach(resolver => resolver(null));
                     contractInputResolvers = {};
 
-                    emitter.dispatchEvent(eventsObjects.disconnect);
+                    emitter.emit(events.disconnect);
                 });
 
                 ws.onmessage = async (rcvd) => {
@@ -107,7 +115,7 @@ window.HotPocket = (() => {
                     }
                     else if (m.type == 'contract_read_response') {
                         const decoded = msgHelper.binaryDecode(m.content);
-                        emitter.dispatchEvent(eventsObjects.contractReadResponse, decoded);
+                        emitter.emit(events.contractReadResponse, decoded);
                     }
                     else if (m.type == 'contract_input_status') {
                         const sigKey = (typeof m.input_sig === "string") ? m.input_sig : m.input_sig.toString("hex");
@@ -122,7 +130,7 @@ window.HotPocket = (() => {
                     }
                     else if (m.type == 'contract_output') {
                         const decoded = msgHelper.binaryDecode(m.content);
-                        emitter.dispatchEvent(eventsObjects.contractOutput, decoded);
+                        emitter.emit(events.contractOutput, decoded);
                     }
                     else if (m.type == "stat_response") {
                         statResponseResolvers.forEach(resolver => {
@@ -141,7 +149,7 @@ window.HotPocket = (() => {
         };
 
         this.on = function (event, listener) {
-            emitter.addEventListener(event, listener);
+            emitter.on(event, listener);
         }
 
         this.close = function () {

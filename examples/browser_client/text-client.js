@@ -1,5 +1,3 @@
-const timeout = ms => new Promise(res => setTimeout(res, ms));
-window.hpc = null;
 window.sodium = {
     onload: async function (sodium) {
         const keys = HotPocket.KeyGenerator.generate(); // Can provide existing hex private key as parameter as well.
@@ -10,7 +8,15 @@ window.sodium = {
             return;
         }
         console.log('HotPocket Connected.');
-        await timeout(2000);
-        window.hpc.close();
+
+        // This will get fired when contract sends a read response.
+        hpc.on(HotPocket.events.contractReadResponse, (bytes) => {
+            const response = new TextDecoder().decode(bytes);
+            console.log("Contract read response>> " + response);
+        })
+
+        hpc.sendContractReadRequest("Hello");
+
+        //window.hpc.close();
     }
 };
