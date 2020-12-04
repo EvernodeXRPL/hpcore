@@ -1,6 +1,6 @@
 const readline = require('readline');
 const { exit } = require('process');
-const HotPocket = require('./hp-client-lib');
+const HotPocket = require('./hp-node-client-lib');
 
 async function main() {
     const keys = await HotPocket.KeyGenerator.generate();

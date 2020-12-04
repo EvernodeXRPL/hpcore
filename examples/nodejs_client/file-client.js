@@ -3,7 +3,7 @@ const readline = require('readline');
 const { exit } = require('process');
 const bson = require('bson');
 var path = require("path");
-const HotPocket = require('./hp-client-lib');
+const HotPocket = require('./hp-node-client-lib');
 
 async function main() {
 
