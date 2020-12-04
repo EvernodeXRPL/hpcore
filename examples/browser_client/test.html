@@ -1,0 +1,26 @@
+<html>
+
+<head>
+    <script src="hp-client-lib.js"></script>
+</head>
+
+<body>
+    Hello!
+</body>
+<script>
+    window.sodium = {
+        onload: async function (sodium) {
+            const keys = HotPocket.KeyGenerator.generate();
+            const hpc = new HotPocket.Client("wss://localhost:8081", keys);
+
+            if (!await hpc.connect()) {
+                console.log('Connection failed.');
+                return;
+            }
+            console.log('HotPocket Connected.');
+        }
+    };
+</script>
+<script src="sodium.js"></script>
+
+</html>
