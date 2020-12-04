@@ -595,7 +595,7 @@ namespace consensus
                     increment(votes.unl_removals, pubkey);
         }
 
-        const uint32_t required_votes = ceil(vote_threshold * unl_count);
+        uint32_t required_votes = ceil(vote_threshold * unl_count);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -617,12 +617,15 @@ namespace consensus
             if (numvotes >= required_votes)
                 stg_prop.hash_outputs.emplace(hash);
 
-        // Add unl additions which have votes over stage threshold to proposal.
+        // For the unl changeset reset required votes for majority votes.
+        required_votes = ceil(MAJORITY_THRESHOLD * unl_count);
+
+        // Add unl additions which have votes over majority threshold to proposal.
         for (const auto &[pubkey, numvotes] : votes.unl_additions)
             if (numvotes >= required_votes)
                 stg_prop.unl_changeset.additions.emplace(pubkey);
 
-        // Add unl removals which have votes over stage threshold to proposal.
+        // Add unl removals which have votes over majority threshold to proposal.
         for (const auto &[pubkey, numvotes] : votes.unl_removals)
             if (numvotes >= required_votes)
                 stg_prop.unl_changeset.removals.emplace(pubkey);
