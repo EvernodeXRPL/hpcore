@@ -167,7 +167,7 @@ namespace state_sync
                 if (should_stop_request_loop(current_target))
                     return;
 
-                LOG_DEBUG << "State sync: Processing state response from [" << response.first.substr(0, 10) << "]";
+                LOG_DEBUG << "State sync: Processing state response from [" << response.first.substr(2, 10) << "]";
 
                 const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
                 const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
@@ -299,9 +299,10 @@ namespace state_sync
         std::string target_pubkey;
         request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, target_pubkey);
 
-        LOG_DEBUG << "State sync: Requesting from [" << target_pubkey.substr(0, 10) << "]. type:" << request.type
-                  << " path:" << request.path << " block_id:" << request.block_id
-                  << " hash:" << request.expected_hash;
+        if (!target_pubkey.empty())
+            LOG_DEBUG << "State sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
+                      << " path:" << request.path << " block_id:" << request.block_id
+                      << " hash:" << request.expected_hash;
     }
 
     /**

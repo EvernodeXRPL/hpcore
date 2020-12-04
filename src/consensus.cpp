@@ -103,14 +103,10 @@ namespace consensus
         // A consensus round consists of 4 stages (0,1,2,3).
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
-        uint64_t stage_start = 0;
-        if (!wait_and_proceed_stage(stage_start))
+        if (!wait_and_proceed_stage())
             return 0; // This means the stage has been reset.
 
         LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
-
-        // We consider stage start time as the current discreet time throughout the stage.
-        ctx.time_now = stage_start;
 
         // Throughout consensus, we continously update and prune the candidate proposals for newly
         // arived ones and expired ones.
@@ -163,6 +159,7 @@ namespace consensus
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
                 const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state);
+                broadcast_proposal(p);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -246,10 +243,11 @@ namespace consensus
 
         // Prune any outdated proposals.
         auto itr = ctx.candidate_proposals.begin();
+        const uint64_t time_now = util::get_epoch_milliseconds();
         while (itr != ctx.candidate_proposals.end())
         {
             const p2p::proposal &cp = itr->second;
-            const uint64_t time_diff = (ctx.time_now > cp.sent_timestamp) ? (ctx.time_now - cp.sent_timestamp) : 0;
+            const uint64_t time_diff = (time_now > cp.sent_timestamp) ? (time_now - cp.sent_timestamp) : 0;
             const int8_t stage_diff = ctx.stage - cp.stage;
 
             // only consider recent proposals and proposals from previous stage and current stage.
@@ -275,7 +273,7 @@ namespace consensus
      * Syncrhonise the stage/round time for fixed intervals and reset the stage.
      * @return True if consensus can proceed in the current round. False if stage is reset.
      */
-    bool wait_and_proceed_stage(uint64_t &stage_start)
+    bool wait_and_proceed_stage()
     {
         // Here, nodes try to synchronise nodes stages using network clock.
         // We devide universal time to windows of equal size of roundtime. Each round must be synced with the
@@ -284,23 +282,24 @@ namespace consensus
         const uint64_t now = util::get_epoch_milliseconds();
 
         // Rrounds are discreet windows of roundtime.
-        // This gets the start time of current round window. Stage 0 must start in the next round window.
-        const uint64_t current_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
 
         if (ctx.stage == 0)
         {
+            // This gets the start time of current round window. Stage 0 must start in the window after that.
+            const uint64_t previous_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
+
             // Stage 0 must start in the next round window.
             // (This makes sure stage 3 gets whichever the remaining time in the round after stages 0,1,2)
-            stage_start = current_round_start + conf::cfg.roundtime;
-            const uint64_t to_wait = stage_start - now;
+            ctx.round_start_time = previous_round_start + conf::cfg.roundtime;
+            const uint64_t to_wait = ctx.round_start_time - now;
 
-            LOG_DEBUG << "Waiting " << to_wait << "ms for next round stage 0";
+            LOG_DEBUG << "Waiting " << to_wait << "ms for next round stage 0.";
             util::sleep(to_wait);
             return true;
         }
         else
         {
-            stage_start = current_round_start + (ctx.stage * ctx.stage_time);
+            const uint64_t stage_start = ctx.round_start_time + (ctx.stage * ctx.stage_time);
 
             // Compute stage time wait.
             // Node wait between stages to collect enough proposals from previous stages from other nodes.
@@ -310,7 +309,7 @@ namespace consensus
             // it will join in next round. Otherwise it will continue particapating in this round.
             if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
             {
-                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0";
+                LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0.";
                 ctx.stage = 1;
                 return false;
             }
@@ -501,7 +500,7 @@ namespace consensus
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
         p2p::proposal stg_prop;
-        stg_prop.time = ctx.time_now;
+        stg_prop.time = ctx.round_start_time;
         stg_prop.stage = 0;
         stg_prop.lcl = lcl;
         stg_prop.state = state;
@@ -533,12 +532,14 @@ namespace consensus
         // our peers or we will halt depending on level of consensus on the sides of the fork.
         stg_prop.lcl = lcl;
 
+        const uint64_t time_now = util::get_epoch_milliseconds();
+
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
             // Vote for times.
-            // Everyone votes on an arbitrary time, as long as it's not in the future and within the round time.
-            if (ctx.time_now > cp.time && (ctx.time_now - cp.time) <= conf::cfg.roundtime)
+            // Everyone votes on the discreet time, as long as it's not in the future and within 2 round times.
+            if (time_now > cp.time && (time_now - cp.time) <= (conf::cfg.roundtime * 2))
                 increment(votes.time, cp.time);
 
             // Vote for round nonce.
@@ -581,7 +582,7 @@ namespace consensus
             if (numvotes >= required_votes)
                 stg_prop.hash_outputs.emplace(hash);
 
-        // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
+        // time is voted on a simple sorted (highest to lowest) and majority basis.
         uint32_t highest_time_vote = 0;
         for (auto itr = votes.time.rbegin(); itr != votes.time.rend(); ++itr)
         {
@@ -594,6 +595,9 @@ namespace consensus
                 stg_prop.time = time;
             }
         }
+        // If final time happens to be 0 (this can happen if there were no proposals to vote for), we set the time manually.
+        if (stg_prop.time == 0)
+            stg_prop.time = ctx.round_start_time;
 
         // Round nonce is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
         uint32_t highest_nonce_vote = 0;
@@ -604,7 +608,7 @@ namespace consensus
 
             if (numvotes > highest_nonce_vote)
             {
-                highest_time_vote = numvotes;
+                highest_nonce_vote = numvotes;
                 stg_prop.nonce = nonce;
             }
         }
@@ -628,9 +632,8 @@ namespace consensus
         else
             p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
 
-        LOG_DEBUG << "Proposed u/i/o:" << p.users.size()
-                  << "/" << p.hash_inputs.size()
-                  << "/" << p.hash_outputs.size()
+        LOG_DEBUG << "Proposed <s" << std::to_string(p.stage)
+                  << "> u/i/o:" << p.users.size() << "/" << p.hash_inputs.size() << "/" << p.hash_outputs.size()
                   << " ts:" << std::to_string(p.time)
                   << " lcl:" << p.lcl.substr(0, 15)
                   << " state:" << p.state;

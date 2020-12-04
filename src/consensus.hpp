@@ -65,7 +65,7 @@ namespace consensus
         std::unordered_map<std::string, candidate_user_output> candidate_user_outputs;
 
         uint8_t stage = 1;
-        uint64_t time_now = 0;
+        uint64_t round_start_time = 0;
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
 
@@ -101,7 +101,7 @@ namespace consensus
 
     void revise_candidate_proposals();
 
-    bool wait_and_proceed_stage(uint64_t &stage_start);
+    bool wait_and_proceed_stage();
 
     void broadcast_nonunl_proposal();
 
