@@ -307,7 +307,7 @@ function joinarr {
     arr=("${!arrname}")
     skip=$2
 
-    let prevlast=$ncount-2
+    let prevlast=$vmcount-2
     # Resetting prevlast if nothing is given to skip.
     if [ $skip -lt 0 ]
     then
@@ -331,7 +331,7 @@ function joinarr {
     done
     str="$str]"
 
-    echo $str
+    echo $str # This returns the result.
 }
 
 # Loop through all nodes hp.cfg.
