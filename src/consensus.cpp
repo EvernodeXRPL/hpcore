@@ -618,19 +618,17 @@ namespace consensus
 
     /**
      * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Otherwise
-     * only send to self in OBSERVER mode.
+     * do not send to anyone in OBSERVER mode.
      * @return 0 on success. -1 if no peers to broadcast.
      */
     void broadcast_proposal(const p2p::proposal &p)
     {
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
+            return;
+
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_proposal(fbuf, p);
-
-        // In observer mode, we only send out the proposal to ourselves.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
-            p2p::send_message_to_self(fbuf);
-        else
-            p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
+        p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
 
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage)
                   << "> u/i/o:" << p.users.size() << "/" << p.hash_inputs.size() << "/" << p.hash_outputs.size()
