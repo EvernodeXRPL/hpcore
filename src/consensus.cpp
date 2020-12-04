@@ -626,7 +626,7 @@ namespace consensus
         if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
             p2p::send_message_to_self(fbuf);
         else
-            p2p::broadcast_message(fbuf, true);
+            p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
 
         LOG_DEBUG << "Proposed u/i/o:" << p.users.size()
                   << "/" << p.hash_inputs.size()

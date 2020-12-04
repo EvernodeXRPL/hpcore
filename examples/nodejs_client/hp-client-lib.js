@@ -40,7 +40,7 @@ const HotPocketKeyGenerator = {
     },
 }
 
-function HotPocketClient(server, keys, protocol = protocols.json) {
+function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
 
     let ws = null;
     const msgHelper = new MessageHelper(keys, protocol);
@@ -102,7 +102,14 @@ function HotPocketClient(server, keys, protocol = protocols.json) {
                 }
 
                 if (m.type == 'handshake_challenge') {
-                    // sign the challenge and send back the response
+                    // Check whether contract id is matching if specified.
+                    if (contractId && m.contract_id != contractId)
+                    {
+                        console.error("Contract id mismatch.")
+                        ws.close();
+                    }
+
+                    // Sign the challenge and send back the response
                     const response = msgHelper.createHandshakeResponse(m.challenge);
                     ws.send(JSON.stringify(response));
 

@@ -24,7 +24,7 @@ namespace msg::fbuf::p2pmsg
 
     //---Message reading helpers---/
 
-    const std::string_view get_peer_challenge_from_msg(const Peer_Challenge_Message &msg);
+    const p2p::peer_challenge get_peer_challenge_from_msg(const Peer_Challenge_Message &msg);
 
     const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const Peer_Challenge_Response_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey);
 

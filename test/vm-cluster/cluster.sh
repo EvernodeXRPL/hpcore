@@ -307,11 +307,17 @@ function joinarr {
     arr=("${!arrname}")
     skip=$2
 
+    let prevlast=$ncount-2
+    # Resetting prevlast if nothing is given to skip.
+    if [ $skip -lt 0 ]
+    then
+        let prevlast=prevlast+1
+    fi
+
     j=0
     str="["
     for (( i=0; i<$vmcount; i++ ))
     do
-        let prevlast=$vmcount-2
         if [ "$i" != "$skip" ]
         then
             str="$str\"${arr[i]}\""
@@ -333,12 +339,14 @@ for (( j=0; j<$vmcount; j++ ))
 do
     let n=$j+1
 
-    # Prepare peer and unl lists (skip self node).
+    # Prepare peer and unl lists (skip self node for peers).
     mypeers=$(joinarr peers $j)
-    myunl=$(joinarr pubkeys $j)
+    # Skip param is passed as -1 to stop skipping self pubkey.
+    myunl=$(joinarr pubkeys -1)
 
     # Merge json contents to produce final contract config.
     echo "$(cat ./cfg/node$n.cfg)" \
+        '{"contractid":"dummy"}' \
         '{"binary":"/usr/bin/node"}' \
         '{"binargs":"'$basedir'/hpfiles/nodejs_contract/echo_contract.js"}' \
         '{"peers":'${mypeers}'}' \

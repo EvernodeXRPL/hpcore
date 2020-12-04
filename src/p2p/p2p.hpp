@@ -50,6 +50,12 @@ namespace p2p
         std::vector<uint8_t> block_buffer;
     };
 
+    struct peer_challenge
+    {
+        std::string contract_id;
+        std::string challenge;
+    };
+
     struct peer_challenge_response
     {
         std::string challenge;
@@ -127,7 +133,7 @@ namespace p2p
         // Holds all the messages until they are processed by consensus.
         message_collection collected_msgs;
 
-        // Set of currently connected peer connections mapped by the uniqueid of socket session.
+        // Set of currently connected peer connections mapped by the pubkey of socket session.
         std::unordered_map<std::string, peer_comm_session *> peer_connections;
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
@@ -145,9 +151,9 @@ namespace p2p
 
     int resolve_peer_challenge(peer_comm_session &session, const peer_challenge_response &challenge_resp);
 
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false, const bool only_to_trusted_peers = false);
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding = false, const bool unl_only = false);
 
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const bool only_to_trusted_peers = false, const peer_comm_session *skipping_session = NULL);
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding = false, const bool unl_only = false, const peer_comm_session *skipping_session = NULL);
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
@@ -172,6 +178,8 @@ namespace p2p
     void sort_known_remotes();
 
     int16_t get_available_capacity();
+
+    void update_unl_connections();
 } // namespace p2p
 
 #endif

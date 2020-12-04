@@ -22,7 +22,7 @@ function RoboClient(server, port, clientId) {
 
     this.connect = async () => {
         this.keys = await HotPocketKeyGenerator.generate();
-        this.hpclient = new HotPocketClient(server + port, this.keys);
+        this.hpclient = new HotPocketClient(null, server + port, this.keys);
 
 
         if (!await this.hpclient.connect()) {

@@ -45,8 +45,10 @@ namespace p2p
         return 0;
     }
 
-    // peer session on message callback method.
-    // validate and handle each type of peer messages.
+    /**
+     * Peer session on message callback method. Validate and handle each type of peer messages.
+     * @return 0 on normal execution. -1 when session needs to be closed as a result of message handling.
+     */
     int handle_peer_message(p2p::peer_comm_session &session, std::string_view message)
     {
         // Adding message size to peer message characters(bytes) per minute counter.
@@ -79,26 +81,33 @@ namespace p2p
         // Check whether the message is qualified for message forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
-            // Npl messages are forwarded only to trusted peers.
-            const bool only_to_trusted_peers = content_message_type == p2pmsg::Message_Npl_Message;
+            // Npl messages and consensus proposals are forwarded only to trusted peers if relavent flags (npl and consensus) are set to private.
+            // If consensus and npl flags are public, these messages are forward to all the connected peers.
+            const bool unl_only = (!conf::cfg.is_npl_public && content_message_type == p2pmsg::Message_Npl_Message) ||
+                                  (!conf::cfg.is_consensus_public && content_message_type == p2pmsg::Message_Proposal_Message);
             if (session.need_consensus_msg_forwarding)
             {
                 // Forward messages received by weakly connected nodes to other peers.
-                p2p::broadcast_message(message, false, false, only_to_trusted_peers, &session);
+                p2p::broadcast_message(message, false, false, unl_only, &session);
             }
             else
             {
                 // Forward message received from other nodes to weakly connected peers.
-                p2p::broadcast_message(message, false, true, only_to_trusted_peers, &session);
+                p2p::broadcast_message(message, false, true, unl_only, &session);
             }
         }
 
         if (content_message_type == p2pmsg::Message_Peer_Challenge_Message) // message is a peer challenge announcement
         {
-            // Sending the challenge response to the respected peer.
-            const std::string challenge = std::string(p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message()));
+            const p2p::peer_challenge chall = p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message());
+
+            // Check whether contract ids match.
+            if (chall.contract_id != conf::cfg.contractid)
+                return -1;
+
+            // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2pmsg::create_peer_challenge_response_from_challenge(fbuf, challenge);
+            p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);
             std::string_view msg = std::string_view(
                 reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
             return session.send(msg);
@@ -186,7 +195,7 @@ namespace p2p
             if (ctx.collected_msgs.state_requests.size() < p2p::STATE_REQ_LIST_CAP)
             {
                 std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.state_requests.push_back(std::make_pair(session.uniqueid, std::move(state_request_msg)));
+                ctx.collected_msgs.state_requests.push_back(std::make_pair(session.pubkey, std::move(state_request_msg)));
             }
             else
             {
@@ -204,7 +213,7 @@ namespace p2p
                 if (ctx.collected_msgs.state_responses.size() < p2p::STATE_RES_LIST_CAP)
                 {
                     std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
+                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.pubkey, std::move(response)));
                 }
                 else
                 {
@@ -216,12 +225,12 @@ namespace p2p
         {
             // Check the cap and insert request with lock.
             std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
-            
+
             // If max number of history requests reached skip the rest.
             if (ledger::sync_ctx.collected_history_requests.size() < ledger::HISTORY_REQ_LIST_CAP)
             {
                 const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message(), container->lcl());
-                ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.uniqueid, std::move(hr)));
+                ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.pubkey, std::move(hr)));
             }
             else
             {
@@ -303,7 +312,7 @@ namespace p2p
     {
         // Check the cap and insert proposal with lock.
         std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex);
-        
+
         // If max number of proposals reached skip the rest.
         if (ctx.collected_msgs.proposals.size() == p2p::PROPOSAL_LIST_CAP)
             return -1;
@@ -331,7 +340,7 @@ namespace p2p
 
         ctx.collected_msgs.nonunl_proposals.push_back(
             p2pmsg::create_nonunl_proposal_from_msg(*content->message_as_NonUnl_Proposal_Message(), container->timestamp()));
-        
+
         return 0;
     }
 
@@ -353,9 +362,9 @@ namespace p2p
     int handle_peer_close(const p2p::peer_comm_session &session)
     {
         {
-            // Erase the corresponding uniqueid peer connection if it's this session.
+            // Erase the corresponding pubkey peer connection if it's this session.
             std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
-            const auto itr = ctx.peer_connections.find(session.uniqueid);
+            const auto itr = ctx.peer_connections.find(session.pubkey);
             if (itr != ctx.peer_connections.end() && itr->second == &session)
             {
                 ctx.peer_connections.erase(itr);

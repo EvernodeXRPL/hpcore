@@ -253,7 +253,8 @@ namespace usr
 
             session.mark_as_verified();       // Mark connection as a verified connection.
             session.issued_challenge.clear(); // Remove the stored challenge
-            session.uniqueid = pubkey;
+            session.uniqueid = pubkey_hex;
+            session.pubkey = pubkey;
 
             // Add the user to the global authed user list
             ctx.users.emplace(pubkey, usr::connected_user(session, pubkey, protocol));
