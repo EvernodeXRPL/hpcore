@@ -19,6 +19,13 @@ window.HotPocket = (() => {
     }
     Object.freeze(eventsObjects);
 
+    const fromHexString = hexString =>
+        new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+
+    const toHexString = bytes =>
+        bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+
+
     const KeyGenerator = {
         generate: function (privateKeyHex = null) {
 
@@ -30,7 +37,7 @@ window.HotPocket = (() => {
                 }
             }
             else {
-                const binPrivateKey = Buffer.from(privateKeyHex, "hex");
+                const binPrivateKey = fromHexString(privateKeyHex);
                 return {
                     privateKey: Uint8Array.from(binPrivateKey),
                     publicKey: Uint8Array.from(binPrivateKey.slice(32))
@@ -58,7 +65,6 @@ window.HotPocket = (() => {
                 ws = new WebSocket(server);
 
                 ws.addEventListener("close", () => {
-
                     // If there are any ongoing resolvers resolve them with error output.
 
                     handshakeResolver && handshakeResolver(false);
@@ -75,12 +81,7 @@ window.HotPocket = (() => {
 
                 ws.onmessage = async (rcvd) => {
 
-                    console.log(rcvd);
-                    return;
-
-                    msg = (handshakeResolver || protocol == protocols.json) ?
-                        await rcvd.data.text() :
-                        Buffer.from(await rcvd.data.arrayBuffer());
+                    msg = await rcvd.data.text();
 
                     try {
                         // Use JSON if we are still in handshake phase.
@@ -203,37 +204,35 @@ window.HotPocket = (() => {
     function MessageHelper(keys, protocol) {
 
         this.binaryEncode = function (data) {
-            const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
-            return protocol == protocols.json ? buffer.toString("hex") : buffer;
+            return toHexString(data);
         }
 
         this.binaryDecode = function (content) {
-            return (protocol == protocols.json) ? Buffer.from(content, "hex") : content.buffer;
+            return fromHexString(content);
         }
 
         this.serializeObject = function (obj) {
-            return protocol == protocols.json ? JSON.stringify(obj) : null;
+            return JSON.stringify(obj);
         }
 
         this.deserializeMessage = function (m) {
-            return protocol == protocols.json ? JSON.parse(m) : null;
+            return JSON.parse(m);
         }
 
         this.serializeInput = function (input) {
-            return protocol == protocols.json ?
-                input.toString() :
-                Buffer.isBuffer(input) ? input : Buffer.from(input);
+            return (typeof input === 'string' || input instanceof String) ? input : input.toString();
         }
 
         this.createHandshakeResponse = function (challenge) {
             // For handshake response encoding Hot Pocket always uses json.
             // Handshake response will specify the protocol to use for subsequent messages.
             const sigBytes = sodium.crypto_sign_detached(challenge, keys.privateKey);
+
             return {
                 type: "handshake_response",
                 challenge: challenge,
-                sig: Buffer.from(sigBytes).toString("hex"),
-                pubkey: "ed" + Buffer.from(keys.publicKey).toString("hex"),
+                sig: toHexString(sigBytes),
+                pubkey: "ed" + toHexString(keys.publicKey),
                 protocol: protocol
             }
         }
@@ -250,7 +249,7 @@ window.HotPocket = (() => {
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);
-            const sigBytes = sodium.crypto_sign_detached(Buffer.from(serlializedInpContainer), keys.privateKey);
+            const sigBytes = sodium.crypto_sign_detached(serlializedInpContainer, keys.privateKey);
 
             const signedInpContainer = {
                 type: "contract_input",
