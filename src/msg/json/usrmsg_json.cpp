@@ -140,18 +140,12 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "contract_read_response",
-     *              "content": "<hex encoded contract output>"
+     *              "content": "<response string>"
      *            }
      * @param content The contract binary output content to be put in the message.
      */
     void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content)
     {
-        std::string contenthex;
-        util::bin2hex(
-            contenthex,
-            reinterpret_cast<const unsigned char *>(content.data()),
-            content.length());
-
         msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
@@ -160,7 +154,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CONTENT;
         msg += SEP_COLON;
-        msg += contenthex;
+        msg += content;
         msg += "\"}";
     }
 
@@ -172,18 +166,12 @@ namespace msg::usrmsg::json
      *              "type": "contract_output",
      *              "lcl": "<lcl id>"
      *              "lcl_seqno": <integer>,
-     *              "content": "<hex encoded contract output>"
+     *              "content": "<contract output string>"
      *            }
      * @param content The contract binary output content to be put in the message.
      */
     void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
     {
-        std::string contenthex;
-        util::bin2hex(
-            contenthex,
-            reinterpret_cast<const unsigned char *>(content.data()),
-            content.length());
-
         msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
@@ -200,7 +188,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTENT;
         msg += SEP_COLON;
-        msg += contenthex;
+        msg += content;
         msg += "\"}";
     }
 
