@@ -91,12 +91,11 @@ window.HotPocket = (() => {
                     msg = await rcvd.data.text();
 
                     try {
-                        // Use JSON if we are still in handshake phase.
-                        m = handshakeResolver ? JSON.parse(msg) : msgHelper.deserializeMessage(msg);
+                        m = msgHelper.deserializeMessage(msg);
                     } catch (e) {
                         console.log(e);
                         console.log("Exception deserializing: ");
-                        console.log(msg)
+                        console.log(msg);
                         return;
                     }
 
