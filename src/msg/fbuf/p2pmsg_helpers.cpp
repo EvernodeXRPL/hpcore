@@ -226,6 +226,7 @@ namespace msg::fbuf::p2pmsg
 
         p.pubkey = flatbuff_bytes_to_sv(pubkey);
         p.sent_timestamp = timestamp;
+        p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
         p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();

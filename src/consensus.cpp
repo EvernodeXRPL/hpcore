@@ -229,16 +229,8 @@ namespace consensus
         // Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
         for (const auto &proposal : collected_proposals)
         {
-            auto prop_itr = ctx.candidate_proposals.find(proposal.pubkey);
-            if (prop_itr != ctx.candidate_proposals.end())
-            {
-                ctx.candidate_proposals.erase(prop_itr);
-                ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
-            }
-            else
-            {
-                ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
-            }
+            ctx.candidate_proposals.erase(proposal.pubkey); // Erase if already exists.
+            ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
         }
 
         // Prune any outdated proposals.
@@ -260,7 +252,8 @@ namespace consensus
                       << " ts:" << std::to_string(cp.time)
                       << " lcl:" << cp.lcl.substr(0, 15)
                       << " state:" << cp.state
-                      << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]";
+                      << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]"
+                      << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
 
             if (keep_candidate)
                 ++itr;
@@ -632,7 +625,7 @@ namespace consensus
         else
             p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
 
-        LOG_DEBUG << "Proposed u/i/o:" << p.users.size()
+        LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i/o:" << p.users.size()
                   << "/" << p.hash_inputs.size()
                   << "/" << p.hash_outputs.size()
                   << " ts:" << std::to_string(p.time)

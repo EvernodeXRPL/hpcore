@@ -113,7 +113,7 @@ namespace conf
         cfg.pubidletimeout = 0;
         cfg.peeridletimeout = 120;
 
-        cfg.is_consensus_public = true;
+        cfg.is_consensus_public = false;
         cfg.is_npl_public = false;
 
         cfg.msgforwarding = false;

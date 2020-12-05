@@ -23,6 +23,7 @@ namespace p2p
         std::string pubkey;
 
         uint64_t sent_timestamp = 0; // The timestamp of the sender when this proposal was sent.
+        uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for statsitics)
         uint64_t time = 0;           // The time value that is voted on.
         uint8_t stage = 0;
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
