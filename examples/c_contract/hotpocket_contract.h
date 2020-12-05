@@ -19,41 +19,51 @@
 #define HP_KEY_SIZE 64
 #define HP_HASH_SIZE 64
 
-#define __HP_ASSIGN_STRING(dest, elem)                                                    \
-    if (elem->value->type == json_type_string)                                            \
-    {                                                                                     \
-        const struct json_string_s *value = (struct json_string_s *)elem->value->payload; \
-        memcpy(dest, value->string, sizeof(dest));                                        \
+#define __HP_ASSIGN_STRING(dest, elem)                                                        \
+    {                                                                                         \
+        if (elem->value->type == json_type_string)                                            \
+        {                                                                                     \
+            const struct json_string_s *value = (struct json_string_s *)elem->value->payload; \
+            memcpy(dest, value->string, sizeof(dest));                                        \
+        }                                                                                     \
     }
 
-#define __HP_ASSIGN_UINT64(dest, elem)                                                    \
-    if (elem->value->type == json_type_number)                                            \
-    {                                                                                     \
-        const struct json_number_s *value = (struct json_number_s *)elem->value->payload; \
-        dest = strtoull(value->number, NULL, 0);                                          \
+#define __HP_ASSIGN_UINT64(dest, elem)                                                        \
+    {                                                                                         \
+        if (elem->value->type == json_type_number)                                            \
+        {                                                                                     \
+            const struct json_number_s *value = (struct json_number_s *)elem->value->payload; \
+            dest = strtoull(value->number, NULL, 0);                                          \
+        }                                                                                     \
     }
 
-#define __HP_ASSIGN_INT(dest, elem)                                                       \
-    if (elem->value->type == json_type_number)                                            \
-    {                                                                                     \
-        const struct json_number_s *value = (struct json_number_s *)elem->value->payload; \
-        dest = atoi(value->number);                                                       \
+#define __HP_ASSIGN_INT(dest, elem)                                                           \
+    {                                                                                         \
+        if (elem->value->type == json_type_number)                                            \
+        {                                                                                     \
+            const struct json_number_s *value = (struct json_number_s *)elem->value->payload; \
+            dest = atoi(value->number);                                                       \
+        }                                                                                     \
     }
 
-#define __HP_ASSIGN_BOOL(dest, elem)               \
-    if (elem->value->type == json_type_true)       \
-        dest = true;                               \
-    else if (elem->value->type == json_type_false) \
-        dest = false;
+#define __HP_ASSIGN_BOOL(dest, elem)                   \
+    {                                                  \
+        if (elem->value->type == json_type_true)       \
+            dest = true;                               \
+        else if (elem->value->type == json_type_false) \
+            dest = false;                              \
+    }
 
 #define __HP_FROM_BE(buf, pos) \
     ((uint8_t)buf[pos + 0] << 24 | (uint8_t)buf[pos + 1] << 16 | (uint8_t)buf[pos + 2] << 8 | (uint8_t)buf[pos + 3])
 
 #define __HP_TO_BE(num, buf, pos) \
-    buf[pos] = num >> 24;         \
-    buf[1 + pos] = num >> 16;     \
-    buf[2 + pos] = num >> 8;      \
-    buf[3 + pos] = num;
+    {                             \
+        buf[pos] = num >> 24;     \
+        buf[1 + pos] = num >> 16; \
+        buf[2 + pos] = num >> 8;  \
+        buf[3 + pos] = num;       \
+    }
 
 struct hp_user_input
 {
@@ -133,6 +143,13 @@ int hp_init_contract()
 {
     if (__hpc.cctx)
         return -1; // Already initialized.
+
+    // Check whether we are running from terminal and produce warning.
+    if (isatty(STDIN_FILENO) == 1)
+    {
+        fprintf(stderr, "Error: Hot Pocket smart contracts must be executed via Hot Pocket.\n");
+        return -1;
+    }
 
     char buf[4096];
     const size_t len = read(STDIN_FILENO, buf, sizeof(buf));
