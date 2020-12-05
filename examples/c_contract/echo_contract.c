@@ -88,7 +88,12 @@ void process_user_message(const struct hp_user *user, const void *buf, const uin
                 char tsbuf[st.st_size];
                 if (read(fd, tsbuf, st.st_size) > 0)
                 {
-                    hp_write_user_msg(user, tsbuf, st.st_size);
+                    for (int i = 0; i < st.st_size; i++)
+                    {
+                        if (tsbuf[i] == '\n' || tsbuf[i] == 0)
+                            tsbuf[i] = ' ';
+                    }
+                    hp_write_user_msg(user, tsbuf, st.st_size - 1);
                 }
             }
             close(fd);
