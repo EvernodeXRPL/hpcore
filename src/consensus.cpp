@@ -86,12 +86,31 @@ namespace consensus
 
         LOG_INFO << "Consensus processor started.";
 
+        std::string lcl;
+        int counter = 0;
+
         while (!ctx.is_shutting_down)
         {
             if (consensus() == -1)
             {
                 LOG_ERROR << "Consensus thread exited due to an error.";
                 break;
+            }
+            std::string new_lcl = ledger::ctx.get_lcl();
+
+            if (new_lcl == lcl)
+            {
+                counter++;
+                if (counter == 480) //2 minutes
+                {
+                    LOG_ERROR << "========== LCL stagnation ==========";
+                    break;
+                }
+            }
+            else
+            {
+                lcl = new_lcl;
+                counter = 0;
             }
         }
 
