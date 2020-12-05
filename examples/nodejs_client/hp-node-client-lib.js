@@ -103,8 +103,7 @@ function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
 
                 if (m.type == 'handshake_challenge') {
                     // Check whether contract id is matching if specified.
-                    if (contractId && m.contract_id != contractId)
-                    {
+                    if (contractId && m.contract_id != contractId) {
                         console.error("Contract id mismatch.")
                         ws.close();
                     }
@@ -121,7 +120,7 @@ function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
                     }, 100);
                 }
                 else if (m.type == 'contract_read_response') {
-                    const decoded = msgHelper.binaryDecode(m.content);
+                    const decoded = msgHelper.deserializeOutput(msgHelper.binaryDecode(m.content));
                     emitter.emit(events.contractReadResponse, decoded);
                 }
                 else if (m.type == 'contract_input_status') {
@@ -136,7 +135,7 @@ function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
                     }
                 }
                 else if (m.type == 'contract_output') {
-                    const decoded = msgHelper.binaryDecode(m.content);
+                    const decoded = msgHelper.deserializeOutput(msgHelper.binaryDecode(m.content));
                     emitter.emit(events.contractOutput, decoded);
                 }
                 else if (m.type == "stat_response") {
@@ -240,6 +239,10 @@ function MessageHelper(keys, protocol) {
         return protocol == protocols.json ?
             input.toString() :
             Buffer.isBuffer(input) ? input : Buffer.from(input);
+    }
+
+    this.deserializeOutput = function (buffer) {
+        return protocol == protocols.json ? buffer.toString() : buffer;
     }
 
     this.createHandshakeResponse = function (challenge) {

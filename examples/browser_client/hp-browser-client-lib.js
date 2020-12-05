@@ -53,7 +53,7 @@ window.HotPocket = (() => {
         }
     }
 
-    HotPocketClient = function HotPocketClient(server, keys) {
+    HotPocketClient = function HotPocketClient(contractId, server, keys) {
 
         let ws = null;
         const protocol = protocols.json; // We only support json in browser.
@@ -101,6 +101,12 @@ window.HotPocket = (() => {
                     }
 
                     if (m.type == 'handshake_challenge') {
+                        // Check whether contract id is matching if specified.
+                        if (contractId && m.contract_id != contractId) {
+                            console.error("Contract id mismatch.")
+                            ws.close();
+                        }
+
                         // sign the challenge and send back the response
                         const response = msgHelper.createHandshakeResponse(m.challenge);
                         ws.send(JSON.stringify(response));
@@ -113,7 +119,7 @@ window.HotPocket = (() => {
                         }, 100);
                     }
                     else if (m.type == 'contract_read_response') {
-                        const decoded = msgHelper.binaryDecode(m.content);
+                        const decoded = msgHelper.deserializeOutput(msgHelper.binaryDecode(m.content));
                         emitter.emit(events.contractReadResponse, decoded);
                     }
                     else if (m.type == 'contract_input_status') {
@@ -128,7 +134,7 @@ window.HotPocket = (() => {
                         }
                     }
                     else if (m.type == 'contract_output') {
-                        const decoded = msgHelper.binaryDecode(m.content);
+                        const decoded = msgHelper.deserializeOutput(msgHelper.binaryDecode(m.content));
                         emitter.emit(events.contractOutput, decoded);
                     }
                     else if (m.type == "stat_response") {
@@ -228,6 +234,10 @@ window.HotPocket = (() => {
 
         this.serializeInput = function (input) {
             return (typeof input === 'string' || input instanceof String) ? input : input.toString();
+        }
+
+        this.deserializeOutput = function (bytes) {
+            return new TextDecoder().decode(bytes);
         }
 
         this.createHandshakeResponse = function (challenge) {
