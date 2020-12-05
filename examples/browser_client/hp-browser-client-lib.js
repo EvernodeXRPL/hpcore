@@ -119,7 +119,7 @@ window.HotPocket = (() => {
                         }, 100);
                     }
                     else if (m.type == 'contract_read_response') {
-                        emitter.emit(events.contractReadResponse, m.content);
+                        emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
                     }
                     else if (m.type == 'contract_input_status') {
                         const sigKey = (typeof m.input_sig === "string") ? m.input_sig : m.input_sig.toString("hex");
@@ -133,7 +133,7 @@ window.HotPocket = (() => {
                         }
                     }
                     else if (m.type == 'contract_output') {
-                        emitter.emit(events.contractOutput, m.content);
+                        emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
                     }
                     else if (m.type == "stat_response") {
                         statResponseResolvers.forEach(resolver => {
@@ -218,10 +218,6 @@ window.HotPocket = (() => {
             return toHexString(data);
         }
 
-        this.binaryDecode = function (content) {
-            return fromHexString(content);
-        }
-
         this.serializeObject = function (obj) {
             return JSON.stringify(obj);
         }
@@ -232,6 +228,10 @@ window.HotPocket = (() => {
 
         this.serializeInput = function (input) {
             return (typeof input === 'string' || input instanceof String) ? input : input.toString();
+        }
+
+        this.deserializeOutput = function (content) {
+            return content;
         }
 
         this.createHandshakeResponse = function (challenge) {

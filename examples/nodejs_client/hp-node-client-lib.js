@@ -120,7 +120,7 @@ function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
                     }, 100);
                 }
                 else if (m.type == 'contract_read_response') {
-                    emitter.emit(events.contractReadResponse, m.content);
+                    emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
                 }
                 else if (m.type == 'contract_input_status') {
                     const sigKey = (typeof m.input_sig === "string") ? m.input_sig : m.input_sig.toString("hex");
@@ -134,7 +134,7 @@ function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
                     }
                 }
                 else if (m.type == 'contract_output') {
-                    emitter.emit(events.contractOutput, m.content);
+                    emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
                 }
                 else if (m.type == "stat_response") {
                     statResponseResolvers.forEach(resolver => {
@@ -221,10 +221,6 @@ function MessageHelper(keys, protocol) {
         return protocol == protocols.json ? buffer.toString("hex") : buffer;
     }
 
-    this.binaryDecode = function (content) {
-        return (protocol == protocols.json) ? Buffer.from(content, "hex") : content.buffer;
-    }
-
     this.serializeObject = function (obj) {
         return protocol == protocols.json ? JSON.stringify(obj) : bson.serialize(obj);
     }
@@ -237,6 +233,10 @@ function MessageHelper(keys, protocol) {
         return protocol == protocols.json ?
             input.toString() :
             Buffer.isBuffer(input) ? input : Buffer.from(input);
+    }
+
+    this.deserializeOutput = function (content) {
+        return (protocol == protocols.json) ? content : content.buffer;
     }
 
     this.createHandshakeResponse = function (challenge) {
