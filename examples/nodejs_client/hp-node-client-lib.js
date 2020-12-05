@@ -120,8 +120,7 @@ function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
                     }, 100);
                 }
                 else if (m.type == 'contract_read_response') {
-                    const decoded = msgHelper.deserializeOutput(msgHelper.binaryDecode(m.content));
-                    emitter.emit(events.contractReadResponse, decoded);
+                    emitter.emit(events.contractReadResponse, m.content);
                 }
                 else if (m.type == 'contract_input_status') {
                     const sigKey = (typeof m.input_sig === "string") ? m.input_sig : m.input_sig.toString("hex");
@@ -135,8 +134,7 @@ function HotPocketClient(contractId, server, keys, protocol = protocols.json) {
                     }
                 }
                 else if (m.type == 'contract_output') {
-                    const decoded = msgHelper.deserializeOutput(msgHelper.binaryDecode(m.content));
-                    emitter.emit(events.contractOutput, decoded);
+                    emitter.emit(events.contractOutput, m.content);
                 }
                 else if (m.type == "stat_response") {
                     statResponseResolvers.forEach(resolver => {
@@ -239,10 +237,6 @@ function MessageHelper(keys, protocol) {
         return protocol == protocols.json ?
             input.toString() :
             Buffer.isBuffer(input) ? input : Buffer.from(input);
-    }
-
-    this.deserializeOutput = function (buffer) {
-        return protocol == protocols.json ? buffer.toString() : buffer;
     }
 
     this.createHandshakeResponse = function (challenge) {
