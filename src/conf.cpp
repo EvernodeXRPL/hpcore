@@ -75,7 +75,7 @@ namespace conf
     {
         if (util::is_dir_exists(ctx.contract_dir))
         {
-            std::cout << "Contract dir already exists. Cannot create contract at the same location.\n";
+            std::cerr << "Contract dir already exists. Cannot create contract at the same location.\n";
             return -1;
         }
 
@@ -85,6 +85,9 @@ namespace conf
         util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
         util::create_dir_tree_recursive(ctx.state_dir);
+
+        // Creating state seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
+        util::create_dir_tree_recursive(ctx.state_dir + "/seed");
 
         //Create config file with default settings.
 
@@ -214,7 +217,7 @@ namespace conf
         }
         catch (const std::exception &e)
         {
-            std::cout << "Invalid config file format. " << e.what() << '\n';
+            std::cerr << "Invalid config file format. " << e.what() << '\n';
             return -1;
         }
         ifs.close();
@@ -223,7 +226,7 @@ namespace conf
         std::string_view cfgversion = d["version"].as<std::string_view>();
         if (cfgversion.empty())
         {
-            std::cout << "Contract config version missing.\n";
+            std::cerr << "Contract config version missing.\n";
             return -1;
         }
 
@@ -231,14 +234,14 @@ namespace conf
         int verresult = util::version_compare(std::string(cfgversion), std::string(util::MIN_CONTRACT_VERSION));
         if (verresult == -1)
         {
-            std::cout << "Contract version too old. Minimum "
+            std::cerr << "Contract version too old. Minimum "
                       << util::MIN_CONTRACT_VERSION << " required. "
                       << cfgversion << " found.\n";
             return -1;
         }
         else if (verresult == -2)
         {
-            std::cout << "Malformed version string.\n";
+            std::cerr << "Malformed version string.\n";
             return -1;
         }
 
@@ -252,7 +255,7 @@ namespace conf
             cfg.operating_mode = OPERATING_MODE::PROPOSER;
         else
         {
-            std::cout << "Invalid mode. 'observer' or 'proposer' expected.\n";
+            std::cerr << "Invalid mode. 'observer' or 'proposer' expected.\n";
             return -1;
         }
 
@@ -277,7 +280,7 @@ namespace conf
             // Push the peer address and the port to peers set
             if (splitted_peers.size() != 2)
             {
-                std::cout << "Invalid peer: " << ipport_concat << "\n";
+                std::cerr << "Invalid peer: " << ipport_concat << "\n";
                 return -1;
             }
 
@@ -329,14 +332,14 @@ namespace conf
 
         if (d["consensus"] != PUBLIC && d["consensus"] != PRIVATE)
         {
-            std::cout << "Invalid consensus flag configured. Valid values: public|private\n";
+            std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
             return -1;
         }
         cfg.is_consensus_public = d["consensus"] == PUBLIC;
-        
+
         if (d["npl"] != PUBLIC && d["npl"] != PRIVATE)
         {
-            std::cout << "Invalid npl flag configured. Valid values: public|private\n";
+            std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
             return -1;
         }
         cfg.is_npl_public = d["npl"] == PUBLIC;
@@ -344,7 +347,7 @@ namespace conf
         // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
         if (cfg.peermaxknowncons > cfg.peermaxcons)
         {
-            std::cout << "Invalid configuration values: peermaxknowncons count should not exceed peermaxcons." << '\n';
+            std::cerr << "Invalid configuration values: peermaxknowncons count should not exceed peermaxcons." << '\n';
             return -1;
         }
 
@@ -472,7 +475,7 @@ namespace conf
                 cfg.pubkey.length(),
                 cfg.pubkeyhex) != 0)
         {
-            std::cout << "Error decoding hex public key.\n";
+            std::cerr << "Error decoding hex public key.\n";
             return -1;
         }
 
@@ -482,7 +485,7 @@ namespace conf
                 cfg.seckey.length(),
                 cfg.seckeyhex) != 0)
         {
-            std::cout << "Error decoding hex secret key.\n";
+            std::cerr << "Error decoding hex secret key.\n";
             return -1;
         }
 
@@ -540,7 +543,7 @@ namespace conf
         // We also check for key pair validity as well in the below code.
         if (cfg.pubkeyhex.empty() || cfg.seckeyhex.empty())
         {
-            std::cout << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
+            std::cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
             return -1;
         }
 
@@ -548,16 +551,16 @@ namespace conf
 
         bool fields_missing = false;
 
-        fields_missing |= cfg.binary.empty() && std::cout << "Missing cfg field: binary\n";
-        fields_missing |= cfg.peerport == 0 && std::cout << "Missing cfg field: peerport\n";
-        fields_missing |= cfg.roundtime == 0 && std::cout << "Missing cfg field: roundtime\n";
-        fields_missing |= cfg.pubport == 0 && std::cout << "Missing cfg field: pubport\n";
-        fields_missing |= cfg.loglevel.empty() && std::cout << "Missing cfg field: loglevel\n";
-        fields_missing |= cfg.loggers.empty() && std::cout << "Missing cfg field: loggers\n";
+        fields_missing |= cfg.binary.empty() && std::cerr << "Missing cfg field: binary\n";
+        fields_missing |= cfg.peerport == 0 && std::cerr << "Missing cfg field: peerport\n";
+        fields_missing |= cfg.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
+        fields_missing |= cfg.pubport == 0 && std::cerr << "Missing cfg field: pubport\n";
+        fields_missing |= cfg.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
+        fields_missing |= cfg.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";
 
         if (fields_missing)
         {
-            std::cout << "Required configuration fields missing at " << ctx.config_file << std::endl;
+            std::cerr << "Required configuration fields missing at " << ctx.config_file << std::endl;
             return -1;
         }
 
@@ -565,7 +568,7 @@ namespace conf
         const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err"});
         if (valid_loglevels.count(cfg.loglevel) != 1)
         {
-            std::cout << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err\n";
+            std::cerr << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err\n";
             return -1;
         }
 
@@ -574,7 +577,7 @@ namespace conf
         {
             if (valid_loggers.count(logger) != 1)
             {
-                std::cout << "Invalid logger. Valid values: console|file\n";
+                std::cerr << "Invalid logger. Valid values: console|file\n";
                 return -1;
             }
         }
@@ -584,7 +587,7 @@ namespace conf
         const std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
         if (crypto::verify_hex(msg, sighex, cfg.pubkeyhex) != 0)
         {
-            std::cout << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
+            std::cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
             return -1;
         }
 
@@ -615,17 +618,17 @@ namespace conf
             {
                 if (path == ctx.tls_key_file || path == ctx.tls_cert_file)
                 {
-                    std::cout << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
+                    std::cerr << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
                               << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
                               << "and add it to " + ctx.config_dir << std::endl;
                 }
                 else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path)
                 {
-                    std::cout << path << " binary does not exist.\n";
+                    std::cerr << path << " binary does not exist.\n";
                 }
                 else
                 {
-                    std::cout << path << " does not exist.\n";
+                    std::cerr << path << " does not exist.\n";
                 }
 
                 return -1;
