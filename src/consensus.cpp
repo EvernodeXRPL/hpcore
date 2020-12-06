@@ -112,6 +112,9 @@ namespace consensus
         // arived ones and expired ones.
         revise_candidate_proposals();
 
+        // If possible, switch back to proposer mode before stage processing.
+        check_sync_completion();
+
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
@@ -209,6 +212,16 @@ namespace consensus
         }
 
         return false;
+    }
+
+    /**
+     * Checks whether we can switch back from currently ongoing observer-mode sync operation
+     * that has been completed.
+     */
+    void check_sync_completion()
+    {
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+            conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
     }
 
     /**
@@ -610,20 +623,18 @@ namespace consensus
     }
 
     /**
-     * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Otherwise
-     * only send to self in OBSERVER mode.
+     * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Does not send in OBSERVER mode.
      * @return 0 on success. -1 if no peers to broadcast.
      */
     void broadcast_proposal(const p2p::proposal &p)
     {
+        // In observer mode, we do not send out proposals.
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
+            return;
+
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_proposal(fbuf, p);
-
-        // In observer mode, we only send out the proposal to ourselves.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
-            p2p::send_message_to_self(fbuf);
-        else
-            p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
+        p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
 
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i/o:" << p.users.size()
                   << "/" << p.hash_inputs.size()

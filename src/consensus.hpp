@@ -99,6 +99,8 @@ namespace consensus
 
     bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes);
 
+    void check_sync_completion();
+
     void revise_candidate_proposals();
 
     bool wait_and_proceed_stage();
