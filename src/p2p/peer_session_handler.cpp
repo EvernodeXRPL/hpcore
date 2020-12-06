@@ -169,8 +169,6 @@ namespace p2p
 
             if (handle_proposal_message(container, content) != 0)
                 LOG_DEBUG << "Proposal rejected. Maximum proposal count reached. " << session.display_name();
-            else
-                LOG_DEBUG << "Proposal received from [" << session.display_name() << "]";
         }
         else if (content_message_type == p2pmsg::Message_NonUnl_Proposal_Message) //message is a non-unl proposal message
         {

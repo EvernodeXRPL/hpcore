@@ -192,7 +192,6 @@ namespace p2p
                 continue;
 
             session->send(message);
-            LOG_DEBUG << "Bcast msg to [" << session->display_name() << "]";
         }
     }
 
