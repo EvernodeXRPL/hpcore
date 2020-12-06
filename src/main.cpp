@@ -81,9 +81,9 @@ void deinit()
 
 void sig_exit_handler(int signum)
 {
-    LOG_WARNING<< "Interrupt signal (" << signum << ") received.";
+    LOG_WARNING << "Interrupt signal (" << signum << ") received.";
     deinit();
-    std::cout << "hpcore exiting\n";
+    LOG_WARNING << "hpcore exited due to signal.";
     exit(signum);
 }
 
@@ -225,6 +225,6 @@ int main(int argc, char **argv)
         }
     }
 
-    std::cout << "exited normally\n";
+    std::cout << "hpcore exited normally.\n";
     return 0;
 }
