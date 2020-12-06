@@ -86,6 +86,9 @@ namespace conf
         util::create_dir_tree_recursive(ctx.log_dir);
         util::create_dir_tree_recursive(ctx.state_dir);
 
+        // Creating state seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
+        util::create_dir_tree_recursive(ctx.state_dir + "/seed");
+
         //Create config file with default settings.
 
         //We populate the in-memory struct with default settings and then save it to the file.
@@ -333,7 +336,7 @@ namespace conf
             return -1;
         }
         cfg.is_consensus_public = d["consensus"] == PUBLIC;
-        
+
         if (d["npl"] != PUBLIC && d["npl"] != PRIVATE)
         {
             std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
