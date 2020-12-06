@@ -79,9 +79,9 @@ void deinit()
     ledger::deinit();
 }
 
-void sigint_handler(int signum)
+void sig_exit_handler(int signum)
 {
-    LOG_WARNING << "Interrupt signal (" << signum << ") received.";
+    LOG_WARNING<< "Interrupt signal (" << signum << ") received.";
     deinit();
     std::cout << "hpcore exiting\n";
     exit(signum);
@@ -211,8 +211,9 @@ int main(int argc, char **argv)
                     return -1;
                 }
 
-                // After initializing primary subsystems, register the SIGINT handler.
-                signal(SIGINT, &sigint_handler);
+                // After initializing primary subsystems, register the exit handler.
+                signal(SIGINT, &sig_exit_handler);
+                signal(SIGTERM, &sig_exit_handler);
 
                 // Wait until consensus thread finishes.
                 consensus::wait();
