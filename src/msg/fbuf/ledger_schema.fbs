@@ -7,6 +7,7 @@ table LedgerBlock {
     time:uint64;
     lcl:[ubyte];
     state:[ubyte];
+    unl:[ubyte];
     users: [ByteArray];
     inputs: [ByteArray]; 
     outputs: [ByteArray];
