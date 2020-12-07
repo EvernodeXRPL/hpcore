@@ -1,4 +1,4 @@
-const { HotPocketClient, HotPocketKeyGenerator, HotPocketEvents } = require('./hp-client-lib');
+const { HotPocketClient, HotPocketKeyGenerator, HotPocketEvents } = require('./hp-node-client-lib');
 
 async function main() {
 

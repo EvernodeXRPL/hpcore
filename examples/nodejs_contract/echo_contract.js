@@ -15,7 +15,7 @@ const echoContract = async (ctx) => {
     for (const user of ctx.users.list()) {
 
         // This user's pubkey can be accessed from 'user.pubKey'
-        
+
         for (const input of user.inputs) {
 
             inputHandlers.push(new Promise(async (resolve) => {
@@ -23,10 +23,11 @@ const echoContract = async (ctx) => {
                 const buf = await ctx.users.read(input);
                 const msg = buf.toString();
 
-                if (msg == "ts")
-                    await user.send(fs.readFileSync("exects.txt"));
-                else
-                    await user.send("Echoing: " + msg);
+                const output = (msg == "ts") ? fs.readFileSync("exects.txt").toString() : ("Echoing: " + msg);
+
+                // Stringify to escape JSON characters and remove surrounding double quotes.
+                const stringified = JSON.stringify(output);
+                await user.send(stringified.substr(1, stringified.length - 2));
 
                 resolve();
             }));
