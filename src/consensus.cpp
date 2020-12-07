@@ -220,11 +220,6 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        std::scoped_lock lock(state_sync::ctx.target_state_mutex, ledger::sync_ctx.target_lcl_mutex);
-        LOG_DEBUG << "op:" << (int)conf::cfg.operating_mode
-                  << " ss:" << state_sync::ctx.is_syncing << "(" << state_sync::ctx.target_state << ")"
-                  << " ls:" << ledger::sync_ctx.is_syncing << "(" << ledger::sync_ctx.target_lcl << ")";
-
         if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
             conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
     }
