@@ -34,10 +34,10 @@ namespace p2p
         {
             std::set<std::string> intersect;
             std::set_intersection(additions.begin(), additions.end(), removals.begin(), removals.end(), std::inserter(intersect, intersect.begin()));
-            for (const auto i : intersect)
+            for (const auto &item : intersect)
             {
-                additions.erase(i);
-                removals.erase(i);
+                additions.erase(item);
+                removals.erase(item);
             }
         }
     };
