@@ -17,7 +17,13 @@ namespace unl
     std::string hash;
     sync_context sync_ctx;
     bool init_success = false;
-    constexpr uint16_t SYNCER_IDLE_WAIT = 20;     // unl syncer loop sleep time (milliseconds).
+    constexpr uint16_t SYNCER_IDLE_WAIT = 20; // unl syncer loop sleep time (milliseconds).
+
+    // Max no. of repetitive reqeust resubmissions before abandoning the sync.
+    constexpr uint16_t ABANDON_THRESHOLD = 10;
+
+    // No. of milliseconds to wait before resubmitting a request.
+    uint16_t REQUEST_RESUBMIT_TIMEOUT;
 
     /**
      * Called by conf during startup to populate configured unl list.
@@ -32,6 +38,7 @@ namespace unl
         update_json_list();
         hash = calculate_hash(list);
         sync_ctx.unl_sync_thread = std::thread(unl_syncer_loop);
+        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime;
         init_success = true;
     }
 
@@ -177,12 +184,17 @@ namespace unl
     */
     void set_sync_target(std::string_view target_unl_hash)
     {
-        if (get_hash() != target_unl_hash)
+        if (sync_ctx.is_shutting_down)
+            return;
+
+        std::scoped_lock<std::mutex> lock(sync_ctx.target_unl_mutex);
+        if (sync_ctx.target_unl != target_unl_hash)
         {
-            std::scoped_lock<std::mutex> lock(sync_ctx.target_unl_mutex);
             sync_ctx.is_syncing = true;
             sync_ctx.target_unl = target_unl_hash;
-            send_unl_sync_request(target_unl_hash);
+            sync_ctx.target_requested_on = 0;
+            sync_ctx.request_submissions = 0;
+            LOG_INFO << "unl sync: Syncing for target:" << hash_bin2hex(sync_ctx.target_unl).substr(0, 15) << " (current:" << hash_bin2hex(get_hash()).substr(0, 15) << ")";
         }
     }
 
@@ -201,7 +213,7 @@ namespace unl
         std::string target_pubkey;
         p2p::send_message_to_random_peer(fbuf, target_pubkey);
 
-        LOG_INFO << "UNL list requested from [" << target_pubkey.substr(0, 10) << "]. Required unl hash:" << hash_bin2hex(required_unl).substr(0, 15);
+        LOG_DEBUG << "UNL list requested from [" << target_pubkey.substr(0, 10) << "]. Required unl hash:" << hash_bin2hex(required_unl).substr(0, 15);
     }
 
     /**
@@ -224,6 +236,24 @@ namespace unl
             // Wait a small delay if there were no requests/responses processed during previous iteration.
             if (!prev_processed)
                 util::sleep(SYNCER_IDLE_WAIT);
+
+            // Check whether we need to send any requests or abandon the sync due to timeout.
+            const uint64_t time_now = util::get_epoch_milliseconds();
+            if (sync_ctx.is_syncing && ((sync_ctx.target_requested_on == 0) ||                                 // Initial request.
+                                        (time_now - sync_ctx.target_requested_on) > REQUEST_RESUBMIT_TIMEOUT)) // Request resubmission.
+            {
+                if (sync_ctx.request_submissions < ABANDON_THRESHOLD)
+                {
+                    send_unl_sync_request(sync_ctx.target_unl);
+                    sync_ctx.target_requested_on = time_now;
+                    sync_ctx.request_submissions++;
+                }
+                else
+                {
+                    LOG_INFO << "unl sync: Resubmission threshold exceeded. Abandoning sync.";
+                    sync_ctx.clear_target();
+                }
+            }
 
             const std::string current_unl = get_hash();
 
@@ -250,8 +280,7 @@ namespace unl
                         if (unl.requester_unl == sync_ctx.target_unl && verify_and_replace(unl.unl_list) != -1)
                         {
                             LOG_INFO << "unl sync: Sync complete. New unl:" << hash_bin2hex(sync_ctx.target_unl).substr(0, 15);
-                            sync_ctx.target_unl.clear();
-                            sync_ctx.is_syncing = false;
+                            sync_ctx.clear_target();
                             break;
                         }
                     }

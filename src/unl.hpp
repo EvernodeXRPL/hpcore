@@ -20,9 +20,20 @@ namespace unl
         std::list<p2p::unl_sync_response> collected_unl_sync_responses;
         std::mutex list_mutex;
 
+        uint64_t target_requested_on = 0;
+        uint64_t request_submissions = 0;
+
         std::thread unl_sync_thread;
         std::atomic<bool> is_syncing = false;
         std::atomic<bool> is_shutting_down = false;
+
+        void clear_target()
+        {
+            target_unl.clear();
+            target_requested_on = 0;
+            request_submissions = 0;
+            is_syncing = false;
+        }
     };
     extern sync_context sync_ctx;
     constexpr uint16_t UNL_REQ_LIST_CAP = 64; // Maximum unl request count.
