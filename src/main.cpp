@@ -17,6 +17,7 @@
 #include "state/state_common.hpp"
 #include "state/state_sync.hpp"
 #include "state/state_serve.hpp"
+#include "unl.hpp"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -77,6 +78,7 @@ void deinit()
     state_serve::deinit();
     sc::deinit();
     ledger::deinit();
+    unl::deinit();
 }
 
 void sigint_handler(int signum)

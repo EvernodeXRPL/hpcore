@@ -45,6 +45,17 @@ namespace p2p
         std::string required_lcl;
     };
 
+    struct unl_sync_request
+    {
+        std::string required_unl;
+    };
+
+    struct unl_sync_response
+    {
+        std::string requester_unl; // Unl hash of the sender.
+        std::set<std::string> unl_list;
+    };
+
     struct history_ledger_block
     {
         std::string lcl;

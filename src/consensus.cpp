@@ -211,9 +211,8 @@ namespace consensus
             // Start unl sync if we are out-of-sync with majority unl.
             if (is_unl_desync)
             {
-                // conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
-                is_unl_desync = false;
-                LOG_INFO << "UNL list outof sync";
+                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER); 
+                unl::set_sync_target(majority_unl);
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
