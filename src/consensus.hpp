@@ -65,7 +65,7 @@ namespace consensus
         std::unordered_map<std::string, candidate_user_output> candidate_user_outputs;
 
         // Collected unl changset to be subjected to the consensus. This will stay here until end of the current consensus round.
-        p2p::peer_unl_changeset candidate_unl_changeset;
+        p2p::contract_unl_changeset candidate_unl_changeset;
 
         uint8_t stage = 1;
         uint64_t time_now = 0;
@@ -113,8 +113,6 @@ namespace consensus
     bool push_npl_message(p2p::npl_message &npl_message);
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
-
-    int verify_and_populate_candidate_unl_changeset();
 
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
 

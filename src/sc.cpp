@@ -823,26 +823,9 @@ namespace sc
         }
         else if (type == msg::controlmsg::MSGTYPE_UNL_CHANGESET && !ctx.args.readonly)
         {
-            std::vector<std::string> additions, removals;
-            parser.extract_unl_changeset(additions, removals);
-
-            // Populate the received change set with a mutex. Changeset will be affected after going through the consensus.
+            // Populate the received change set. Changeset will be affected after going through the consensus.
             // Since changesets are std::set objects. It'll maintain a sorted set.
-            {
-                std::scoped_lock lock(unl::changeset_mutex);
-
-                for (const std::string pubkey : additions)
-                    if (!unl::exists(pubkey))
-                        unl::changeset.additions.emplace(pubkey);
-
-                for (const std::string pubkey : removals)
-                    if (unl::exists(pubkey))
-                        unl::changeset.removals.emplace(pubkey);
-            }
-
-            // Clear the local lists.
-            additions.clear();
-            removals.clear();
+            parser.extract_unl_changeset(ctx.args.unl_changeset.additions, ctx.args.unl_changeset.removals);
         }
     }
 

@@ -66,14 +66,14 @@ namespace msg::controlmsg::json
      *   "remove": ["pk1","pk2",...]
      * }
      */
-    int extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals, const jsoncons::json &d)
+    int extract_unl_changeset(std::set<std::string> &additions, std::set<std::string> &removals, const jsoncons::json &d)
     {
-        extract_string_array(additions, d, FLD_ADD);
-        extract_string_array(removals, d, FLD_REMOVE);
+        extract_string_set(additions, d, FLD_ADD);
+        extract_string_set(removals, d, FLD_REMOVE);
         return 0;
     }
 
-    void extract_string_array(std::vector<std::string> &vec, const jsoncons::json &d, const char *field_name)
+    void extract_string_set(std::set<std::string> &vec, const jsoncons::json &d, const char *field_name)
     {
         if (!d.contains(field_name) || !d[field_name].is_array())
             return;
@@ -88,7 +88,7 @@ namespace msg::controlmsg::json
                     bin_pubkey.length(),
                     hex_pubkey) != -1)
             {
-                vec.push_back(bin_pubkey);
+                vec.emplace(bin_pubkey);
             }
         }
     }
