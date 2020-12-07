@@ -81,11 +81,11 @@ void deinit()
     unl::deinit();
 }
 
-void sigint_handler(int signum)
+void sig_exit_handler(int signum)
 {
     LOG_WARNING << "Interrupt signal (" << signum << ") received.";
     deinit();
-    std::cout << "hpcore exiting\n";
+    LOG_WARNING << "hpcore exited due to signal.";
     exit(signum);
 }
 
@@ -213,8 +213,9 @@ int main(int argc, char **argv)
                     return -1;
                 }
 
-                // After initializing primary subsystems, register the SIGINT handler.
-                signal(SIGINT, &sigint_handler);
+                // After initializing primary subsystems, register the exit handler.
+                signal(SIGINT, &sig_exit_handler);
+                signal(SIGTERM, &sig_exit_handler);
 
                 // Wait until consensus thread finishes.
                 consensus::wait();
@@ -226,6 +227,6 @@ int main(int argc, char **argv)
         }
     }
 
-    std::cout << "exited normally\n";
+    std::cout << "hpcore exited normally.\n";
     return 0;
 }

@@ -13,7 +13,7 @@ namespace crypto
     {
         if (sodium_init() < 0)
         {
-            std::cout << "sodium_init failed.\n";
+            std::cerr << "sodium_init failed.\n";
             return -1;
         }
 
