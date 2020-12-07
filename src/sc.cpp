@@ -823,9 +823,10 @@ namespace sc
         }
         else if (type == msg::controlmsg::MSGTYPE_UNL_CHANGESET && !ctx.args.readonly)
         {
-            std::vector<std::string> additions, removals;
-            parser.extract_unl_changeset(additions, removals);
-            unl::update(additions, removals);
+            // Populate the received change set. Changeset will be affected after going through the consensus.
+            // Since changesets are std::set objects. It'll maintain a sorted set.
+            parser.extract_unl_changeset(ctx.args.unl_changeset.additions, ctx.args.unl_changeset.removals);
+            ctx.args.unl_changeset.purify();
         }
     }
 

@@ -16,7 +16,7 @@ namespace msg::controlmsg
         return jctlmsg::extract_type(extracted_type, jdoc);
     }
 
-    int controlmsg_parser::extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals)
+    int controlmsg_parser::extract_unl_changeset(std::set<std::string> &additions, std::set<std::string> &removals)
     {
         return jctlmsg::extract_unl_changeset(additions, removals, jdoc);
     }
