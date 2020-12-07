@@ -18,6 +18,30 @@ namespace p2p
     constexpr uint16_t STATE_RES_LIST_CAP = 64;       // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
+    struct contract_unl_changeset
+    {
+        std::set<std::string> additions; // Pubkeys of the peers that need to be added to the unl.
+        std::set<std::string> removals;  // Pubkeys of the peers that need to be removed from the unl.
+
+        void clear()
+        {
+            additions.clear();
+            removals.clear();
+        }
+
+        // If there are items which are in both additions and removals. Remove them from the both sets.
+        void purify()
+        {
+            std::set<std::string> intersect;
+            std::set_intersection(additions.begin(), additions.end(), removals.begin(), removals.end(), std::inserter(intersect, intersect.begin()));
+            for (const auto &item : intersect)
+            {
+                additions.erase(item);
+                removals.erase(item);
+            }
+        }
+    };
+
     struct proposal
     {
         std::string pubkey;
@@ -32,6 +56,7 @@ namespace p2p
         std::set<std::string> users;
         std::set<std::string> hash_inputs;
         std::set<std::string> hash_outputs;
+        contract_unl_changeset unl_changeset; // Additions and removals of the unl.
     };
 
     struct nonunl_proposal

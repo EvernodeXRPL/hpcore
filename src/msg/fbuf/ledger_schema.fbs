@@ -11,6 +11,12 @@ table LedgerBlock {
     users: [ByteArray];
     inputs: [ByteArray]; 
     outputs: [ByteArray];
+    unl_changeset: Unl_Changeset;
+}
+
+table Unl_Changeset {
+    additions:[ByteArray];
+    removals:[ByteArray];
 }
 
 root_type LedgerBlock;

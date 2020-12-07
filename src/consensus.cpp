@@ -126,7 +126,7 @@ namespace consensus
 
         if (ctx.stage == 0)
         {
-            // Prepare the consensus candidate user inputs that we have acumulated so far. (We receive them periodically via NUPs)
+            // Prepare the consensus candidate user inputs that we have accumulated so far. (We receive them periodically via NUPs)
             // The candidate inputs will be included in the stage 0 proposal.
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
@@ -164,6 +164,9 @@ namespace consensus
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
                 const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
+
+                // Update the unl with the unl changeset that subjected to the consensus.
+                unl::update(p.unl_changeset.additions, p.unl_changeset.removals);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -531,6 +534,9 @@ namespace consensus
         for (const auto &[hash, cand_output] : ctx.candidate_user_outputs)
             stg_prop.hash_outputs.emplace(hash);
 
+        // Populate the proposal wil unl changeset.
+        stg_prop.unl_changeset = ctx.candidate_unl_changeset;
+
         return stg_prop;
     }
 
@@ -572,9 +578,19 @@ namespace consensus
             for (const std::string &hash : cp.hash_outputs)
                 if (ctx.candidate_user_outputs.count(hash) > 0)
                     increment(votes.outputs, hash);
+
+            // Vote for unl additions. Only vote for the unl additions that are in our candidate_unl_changeset.
+            for (const std::string &pubkey : cp.unl_changeset.additions)
+                if (ctx.candidate_unl_changeset.additions.count(pubkey) > 0)
+                    increment(votes.unl_additions, pubkey);
+
+            // Vote for unl removals. Only vote for the unl removals that are in our candidate_unl_changeset.
+            for (const std::string &pubkey : cp.unl_changeset.removals)
+                if (ctx.candidate_unl_changeset.removals.count(pubkey) > 0)
+                    increment(votes.unl_removals, pubkey);
         }
 
-        const uint32_t required_votes = ceil(vote_threshold * unl_count);
+        uint32_t required_votes = ceil(vote_threshold * unl_count);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -595,6 +611,19 @@ namespace consensus
         for (const auto &[hash, numvotes] : votes.outputs)
             if (numvotes >= required_votes)
                 stg_prop.hash_outputs.emplace(hash);
+
+        // For the unl changeset reset required votes for majority votes.
+        required_votes = ceil(MAJORITY_THRESHOLD * unl_count);
+
+        // Add unl additions which have votes over majority threshold to proposal.
+        for (const auto &[pubkey, numvotes] : votes.unl_additions)
+            if (numvotes >= required_votes)
+                stg_prop.unl_changeset.additions.emplace(pubkey);
+
+        // Add unl removals which have votes over majority threshold to proposal.
+        for (const auto &[pubkey, numvotes] : votes.unl_removals)
+            if (numvotes >= required_votes)
+                stg_prop.unl_changeset.removals.emplace(pubkey);
 
         // time is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
         uint32_t highest_time_vote = 0;
@@ -813,6 +842,9 @@ namespace consensus
             }
         }
 
+        // Clear candidate unl changset after consensus rounds are completed.
+        ctx.candidate_unl_changeset.clear();
+
         // Send any output from the previous consensus round to locally connected users.
         dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl);
 
@@ -844,6 +876,10 @@ namespace consensus
             new_state = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);
+
+            // Prepare the consensus candidate unl changeset that we have accumulated so far. (We receive them as control inputs)
+            // The candidate unl changeset will be included in the stage 0 proposal.
+            std::swap(ctx.candidate_unl_changeset, ctx.contract_ctx->args.unl_changeset);
 
             {
                 std::scoped_lock lock(ctx.contract_ctx_mutex);

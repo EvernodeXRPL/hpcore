@@ -30,6 +30,9 @@ struct ContentBuilder;
 struct NonUnl_Proposal_Message;
 struct NonUnl_Proposal_MessageBuilder;
 
+struct Unl_Changeset;
+struct Unl_ChangesetBuilder;
+
 struct Proposal_Message;
 struct Proposal_MessageBuilder;
 
@@ -830,6 +833,79 @@ inline flatbuffers::Offset<NonUnl_Proposal_Message> CreateNonUnl_Proposal_Messag
       user_inputs__);
 }
 
+struct Unl_Changeset FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Unl_ChangesetBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ADDITIONS = 4,
+    VT_REMOVALS = 6
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *additions() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_ADDITIONS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *mutable_additions() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_ADDITIONS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *removals() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_REMOVALS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *mutable_removals() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_REMOVALS);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ADDITIONS) &&
+           verifier.VerifyVector(additions()) &&
+           verifier.VerifyVectorOfTables(additions()) &&
+           VerifyOffset(verifier, VT_REMOVALS) &&
+           verifier.VerifyVector(removals()) &&
+           verifier.VerifyVectorOfTables(removals()) &&
+           verifier.EndTable();
+  }
+};
+
+struct Unl_ChangesetBuilder {
+  typedef Unl_Changeset Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_additions(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> additions) {
+    fbb_.AddOffset(Unl_Changeset::VT_ADDITIONS, additions);
+  }
+  void add_removals(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> removals) {
+    fbb_.AddOffset(Unl_Changeset::VT_REMOVALS, removals);
+  }
+  explicit Unl_ChangesetBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Unl_Changeset> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Unl_Changeset>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Unl_Changeset> CreateUnl_Changeset(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> additions = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> removals = 0) {
+  Unl_ChangesetBuilder builder_(_fbb);
+  builder_.add_removals(removals);
+  builder_.add_additions(additions);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Unl_Changeset> CreateUnl_ChangesetDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *additions = nullptr,
+    const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *removals = nullptr) {
+  auto additions__ = additions ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*additions) : 0;
+  auto removals__ = removals ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*removals) : 0;
+  return msg::fbuf::p2pmsg::CreateUnl_Changeset(
+      _fbb,
+      additions__,
+      removals__);
+}
+
 struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Proposal_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -840,7 +916,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_HASH_INPUTS = 12,
     VT_HASH_OUTPUTS = 14,
     VT_STATE = 16,
-    VT_UNL_HASH = 18
+    VT_UNL_HASH = 18,
+    VT_UNL_CHANGESET = 20
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -890,6 +967,12 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_unl_hash() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_UNL_HASH);
   }
+  const msg::fbuf::p2pmsg::Unl_Changeset *unl_changeset() const {
+    return GetPointer<const msg::fbuf::p2pmsg::Unl_Changeset *>(VT_UNL_CHANGESET);
+  }
+  msg::fbuf::p2pmsg::Unl_Changeset *mutable_unl_changeset() {
+    return GetPointer<msg::fbuf::p2pmsg::Unl_Changeset *>(VT_UNL_CHANGESET);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
@@ -909,6 +992,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(state()) &&
            VerifyOffset(verifier, VT_UNL_HASH) &&
            verifier.VerifyVector(unl_hash()) &&
+           VerifyOffset(verifier, VT_UNL_CHANGESET) &&
+           verifier.VerifyTable(unl_changeset()) &&
            verifier.EndTable();
   }
 };
@@ -941,6 +1026,9 @@ struct Proposal_MessageBuilder {
   void add_unl_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl_hash) {
     fbb_.AddOffset(Proposal_Message::VT_UNL_HASH, unl_hash);
   }
+  void add_unl_changeset(flatbuffers::Offset<msg::fbuf::p2pmsg::Unl_Changeset> unl_changeset) {
+    fbb_.AddOffset(Proposal_Message::VT_UNL_CHANGESET, unl_changeset);
+  }
   explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -961,9 +1049,11 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> hash_inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> hash_outputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl_hash = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl_hash = 0,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::Unl_Changeset> unl_changeset = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
+  builder_.add_unl_changeset(unl_changeset);
   builder_.add_unl_hash(unl_hash);
   builder_.add_state(state);
   builder_.add_hash_outputs(hash_outputs);
@@ -983,7 +1073,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *hash_inputs = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *hash_outputs = nullptr,
     const std::vector<uint8_t> *state = nullptr,
-    const std::vector<uint8_t> *unl_hash = nullptr) {
+    const std::vector<uint8_t> *unl_hash = nullptr,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::Unl_Changeset> unl_changeset = 0) {
   auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
   auto hash_inputs__ = hash_inputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*hash_inputs) : 0;
@@ -999,7 +1090,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       hash_inputs__,
       hash_outputs__,
       state__,
-      unl_hash__);
+      unl_hash__,
+      unl_changeset);
 }
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
