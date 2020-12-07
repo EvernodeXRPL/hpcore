@@ -802,8 +802,7 @@ namespace consensus
         }
 
         // Clear candidate unl changset after consensus rounds are completed.
-        ctx.candidate_unl_changeset.additions.clear();
-        ctx.candidate_unl_changeset.removals.clear();
+        ctx.candidate_unl_changeset.clear();
 
         // Send any output from the previous consensus round to locally connected users.
         dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl);

@@ -22,6 +22,24 @@ namespace p2p
     {
         std::set<std::string> additions; // Pubkeys of the peers that need to be added to the unl.
         std::set<std::string> removals;  // Pubkeys of the peers that need to be removed from the unl.
+
+        void clear()
+        {
+            additions.clear();
+            removals.clear();
+        }
+
+        // If there are items which are in both additions and removals. Remove them from the both sets.
+        void purify()
+        {
+            std::set<std::string> intersect;
+            std::set_intersection(additions.begin(), additions.end(), removals.begin(), removals.end(), std::inserter(intersect, intersect.begin()));
+            for (const auto i : intersect)
+            {
+                additions.erase(i);
+                removals.erase(i);
+            }
+        }
     };
 
     struct proposal

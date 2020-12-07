@@ -826,6 +826,7 @@ namespace sc
             // Populate the received change set. Changeset will be affected after going through the consensus.
             // Since changesets are std::set objects. It'll maintain a sorted set.
             parser.extract_unl_changeset(ctx.args.unl_changeset.additions, ctx.args.unl_changeset.removals);
+            ctx.args.unl_changeset.purify();
         }
     }
 
