@@ -15,93 +15,124 @@ window.HotPocket = (() => {
     }
     Object.freeze(events);
 
-    function HotPocketClient(contractId, clientKeys, servers, validServerKeys, requiredConnectionCount = 1, connectionTimeoutMs = 5000) {
+    function HotPocketClient(contractId, clientKeys, servers, serverKeys, requiredConnectionCount = 1, connectionTimeoutMs = 5000) {
 
         if (!contractId || contractId == "")
             throw "contractId not spefified.";
-        else if (!clientKeys)
+        if (!clientKeys)
             throw "clientKeys not specified.";
-        else if (!validServerKeys || validServerKeys.length == 0)
-            throw "validServerKeys not specified.";
-        else if (!servers || servers.length == 0)
-            throw "Servers not specified.";
-        else if (requiredConnectionCount > servers)
-            throw "connectionCount is higher than servers";
+        if (!serverKeys || serverKeys.length == 0)
+            throw "serverKeys not specified.";
+        if (!servers || servers.length == 0)
+            throw "servers not specified.";
+
+        // Load servers and serverKeys to object keys to avoid duplciates.
+        const serversLookup = {};
+        const serverKeysLookup = {};
+        servers.forEach(s => serversLookup[s] = true);
+        serverKeys.forEach(s => serverKeysLookup[s] = true);
+
+        if (requiredConnectionCount == 0)
+            throw "requiredConnectionCount must be greater than 0.";
+        if (requiredConnectionCount > Object.keys(serversLookup).length)
+            throw "requiredConnectionCount is higher than no. of servers.";
 
         const protocol = protocols.json;
-        const nodes = servers.map(s => {
+        const emitter = new EventEmitter();
+
+        const nodes = Object.keys(serversLookup).map(s => {
             return {
                 server: s, // Server address.
-                connection: null // Hot Pocket connection (if any).
+                connection: null, // Hot Pocket connection (if any).
+                lastActivity: 0 // Last connection activity timestamp.
             }
         });
 
-        let currentConnectionCount = 0;
-
         // This will get fired whenever the required connection count gets fullfilled.
-        let connectionFullfilledResolver = null;
+        let initialConnectSuccess = null;
 
         // Tracks when was the earliest time that we were missing some required connections.
         // 0 indicates we are no missing any connections.
         let connectionsMissingFrom = new Date().getTime();
 
         const reviewConnections = () => {
-            if (requiredConnectionCount == currentConnectionCount) {
+
+            // Check whether we have fullfilled all required connections.
+            if (nodes.filter(n => n.connection && n.connection.isConnected()).length == requiredConnectionCount) {
                 connectionsMissingFrom = 0;
-                connectionFullfilledResolver && connectionFullfilledResolver(true);
+                initialConnectSuccess && initialConnectSuccess(true);
+                initialConnectSuccess = null;
                 return;
             }
 
             if (connectionsMissingFrom == 0) {
+                // Reaching here means we moved from connections-fullfilled state to missing-connections state.
                 connectionsMissingFrom = new Date().getTime();
             }
             else if ((new Date().getTime() - connectionsMissingFrom) > connectionTimeoutMs) {
                 // Close and cleanup all connections if we hit the timeout.
                 this.close().then(() => {
-                    connectionFullfilledResolver && connectionFullfilledResolver(false);
+                    if (initialConnectSuccess) {
+                        initialConnectSuccess(false);
+                        initialConnectSuccess = null;
+                    }
+                    else {
+                        emitter.emit(events.disconnect);
+                    }
                 })
                 return;
             }
 
             // Reaching here means we should attempt to establish more connections if we have available slots.
+            let currentConnectionCount = nodes.filter(n => n.connection).length;
+            if (currentConnectionCount == requiredConnectionCount)
+                return;
 
-            // required connections minus no. of connections that are active or being established.
-            const missingSlots = requiredConnectionCount - nodes.filter(n => n.connection).length;
+            // Find out available slots.
+            // Skip nodes that are already connected or is currently establishing connection.
+            // Skip nodes that we have recently attempted connecting.
+            // Give priority to nodes that we have connected lesser no. of times.
+            const freeNodes = nodes.filter(n => !n.connection && (new Date().getTime() - n.lastActivity) > 3000);
+            freeNodes.sort((a, b) => a.lastActivity - b.lastActivity);
 
-            for (let i = 0; i < missingSlots; i++) {
-                const n = nodes.find(n => !n.connection);
-                if (!n)
-                    break; // Break if no more empty slots.
+            while (currentConnectionCount < requiredConnectionCount && freeNodes.length > 0) {
 
-                n.connection = new HotPocketConnection(contractId, clientKeys, n.server, validServerKeys, protocol, connectionTimeoutMs);
+                // Get the next available node.
+                const n = freeNodes.shift();
+                n.connection = new HotPocketConnection(contractId, clientKeys, n.server, serverKeysLookup, protocol, connectionTimeoutMs, emitter);
+                n.lastActivity = new Date().getTime();
 
                 n.connection.connect().then(success => {
-                    if (success)
-                        currentConnectionCount++;
-                    else
+                    if (!success)
                         n.connection = null;
 
-                    //reviewConnections();
+                    reviewConnections();
                 });
 
-                n.connection.on(events.disconnect, () => {
-                    currentConnectionCount--;
-                    //reviewConnections();
-                });
+                n.connection.onClose = () => {
+                    n.connection = null;
+                    reviewConnections();
+                };
+
+                currentConnectionCount++;
             }
         }
 
         this.connect = () => {
             reviewConnections();
             return new Promise(resolve => {
-                connectionFullfilledResolver = resolve;
+                initialConnectSuccess = resolve;
             })
         }
 
         this.close = async () => {
             // Close all nodes connections.
-            await Promise.all(nodes.filter(n => n.connection).map(n => n.connection.close()))
+            await Promise.all(nodes.filter(n => n.connection).map(n => n.connection.close()));
             nodes.forEach(n => n.connection = null);
+        }
+
+        this.on = (event, listener) => {
+            emitter.on(event, listener);
         }
     }
 
@@ -125,17 +156,17 @@ window.HotPocket = (() => {
         },
     }
 
-    function HotPocketConnection(contractId, clientKeys, server, validServerKeys, protocol, connectionTimeoutMs) {
+    function HotPocketConnection(contractId, clientKeys, server, serverKeysLookup, protocol, connectionTimeoutMs, emitter) {
         const msgHelper = new MessageHelper(clientKeys, protocol);
-        const emitter = new EventEmitter();
 
-        let connectionStatus = 0; // 0:none, 1:server challenge sent, 2:handshake compelete
+        let connectionStatus = 0; // 0:none, 1:server challenge sent, 2:handshake complete.
         let serverChallenge = null; // The hex challenge we have issued to the server.
 
         let ws = null;
         let isVoluntaryClose = false; // Indicates whether the web socket is being closed by ourselves.
         let handshakeTimer = null; // Timer to track connection handshake timeout.
         let handshakeResolver = null;
+        let closeResolver = null;
         let statResponseResolvers = [];
         let contractInputResolvers = {};
 
@@ -165,7 +196,7 @@ window.HotPocket = (() => {
             }
             else if (connectionStatus == 1 && serverChallenge && m.type == 'server_challenge_response' && m.sig && m.pubkey) {
 
-                if (!validServerKeys.find(k => k == m.pubkey)) {
+                if (!serverKeysLookup[m.pubkey]) {
                     console.log("Server key not among the valid keys.");
                     return false;
                 }
@@ -179,6 +210,7 @@ window.HotPocket = (() => {
                 }
 
                 clearTimeout(handshakeTimer); // Cancel the handshake timeout monitor.
+                handshakeTimer = null;
                 serverChallenge = null; // Clear the sent challenge as we no longer need it.
                 connectionStatus = 2; // Handshake complete.
 
@@ -195,7 +227,7 @@ window.HotPocket = (() => {
         const contractMessageHandler = (m) => {
 
             if (m.type == 'contract_read_response') {
-                emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
+                emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == 'contract_input_status') {
                 const sigKey = msgHelper.serializeSignature(m.input_sig);
@@ -209,7 +241,7 @@ window.HotPocket = (() => {
                 }
             }
             else if (m.type == 'contract_output') {
-                emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
+                emitter && emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "stat_response") {
                 statResponseResolvers.forEach(resolver => {
@@ -264,6 +296,12 @@ window.HotPocket = (() => {
         }
 
         const closeHandler = () => {
+
+            emitter = null;
+
+            if (handshakeTimer)
+                clearTimeout(handshakeTimer);
+
             // If there are any ongoing resolvers resolve them with error output.
 
             handshakeResolver && handshakeResolver(false);
@@ -275,39 +313,41 @@ window.HotPocket = (() => {
             Object.values(contractInputResolvers).forEach(resolver => resolver(null));
             contractInputResolvers = {};
 
-            // Fire the disconnect even if this is an abrupt closure.
-            if (!isVoluntaryClose)
-                emitter.emit(events.disconnect);
+            this.onClose && this.onClose();
+            closeResolver && closeResolver();
         }
 
-        this.on = (event, listener) => {
-            emitter.on(event, listener);
+        const errorHandler = (e) => {
+            handshakeResolver && handshakeResolver(false);
         }
+
+        this.isConnected = () => {
+            return connectionStatus == 2;
+        };
 
         this.connect = () => {
             return new Promise(resolve => {
-                handshakeResolver = resolve;
+
                 ws = new WebSocket(server);
+
+                handshakeResolver = resolve;
+                ws.addEventListener("error", errorHandler);
                 ws.addEventListener("message", messageHandler);
                 ws.addEventListener("close", closeHandler);
 
                 handshakeTimer = setTimeout(() => {
                     // If handshake does not complete within timeout, close the connection.
                     this.close();
+                    handshakeTimer = null;
                 }, connectionTimeoutMs);
             });
         }
 
         this.close = () => {
-            isVoluntaryClose = true;
             return new Promise(resolve => {
-                try {
-                    ws.addEventListener("close", resolve);
-                    ws.close();
-                } catch (error) {
-                    resolve();
-                }
-            })
+                closeResolver = resolve;
+                ws.close();
+            });
         }
 
         this.getStatus = () => {
@@ -466,6 +506,10 @@ window.HotPocket = (() => {
         this.emit = (eventName, value) => {
             if (registrations[eventName])
                 registrations[eventName].forEach(listener => listener(value));
+        }
+
+        this.clear = () => {
+            Object.keys(registrations).forEach(k => delete registrations[k]);
         }
     }
 
