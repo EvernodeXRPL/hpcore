@@ -114,8 +114,8 @@ namespace conf
         uint16_t peermaxcons = 0;      // Max peer connections
         uint16_t peermaxknowncons = 0; // Max known peer connections
 
-        bool is_consensus_public = false; // If true, consensus are broadcasted to untrusted nodes as well.
-        bool is_npl_public = false;       // If true, npl messages are broadcasted to untrusted nodes as well.
+        bool is_consensus_public = false; // If true, consensus are broadcasted to non-unl nodes as well.
+        bool is_npl_public = false;       // If true, npl messages are broadcasted to non-unl nodes as well.
 
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.

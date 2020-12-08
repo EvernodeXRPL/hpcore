@@ -89,9 +89,9 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Validates the container message signing keys to see if the message is from a trusted source (UNL).
- * @return 0 on successful verification. -1 for failure.
- */
+     * Validates the container message signing keys to see if the message is from a trusted source (UNL).
+     * @return 0 on successful verification. -1 for failure.
+     */
     int validate_container_trust(const Container *container)
     {
         std::string_view msg_pubkey = flatbuff_bytes_to_sv(container->pubkey());

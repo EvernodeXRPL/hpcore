@@ -157,7 +157,7 @@ namespace p2p
      * @param fbuf Peer outbound message to be broadcasted.
      * @param send_to_self Whether to also send the message to self (this node).
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
-     * @param unl_only Whether this broadcast is only for the trusted nodes.
+     * @param unl_only Whether this broadcast is only for the unl nodes.
      */
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only)
     {
@@ -171,7 +171,7 @@ namespace p2p
      * Broadcast the given message to all connected outbound peers.
      * @param message Message to be forwarded.
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
-     * @param unl_only Whether this broadcast is only for the trusted nodes.
+     * @param unl_only Whether this broadcast is only for the unl nodes.
      * @param skipping_session Session to be skipped in message forwarding(optional).
      */
     void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only, const peer_comm_session *skipping_session)
