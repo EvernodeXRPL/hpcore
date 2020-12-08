@@ -214,7 +214,7 @@ namespace p2p
                 if (ctx.collected_msgs.state_responses.size() < p2p::STATE_RES_LIST_CAP)
                 {
                     std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.pubkey, std::move(response)));
+                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
                 }
                 else
                 {

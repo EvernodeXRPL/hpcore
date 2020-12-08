@@ -22,6 +22,9 @@ namespace state_sync
     // Request loop sleep time (milliseconds).
     constexpr uint16_t REQUEST_LOOP_WAIT = 10;
 
+    // Max no. of repetitive reqeust resubmissions before abandoning the sync.
+    constexpr uint16_t ABANDON_THRESHOLD = 20;
+
     constexpr int FILE_PERMS = 0644;
 
     // No. of milliseconds to wait before resubmitting a request.
@@ -93,9 +96,9 @@ namespace state_sync
                 while (!ctx.is_shutting_down)
                 {
                     hpfs::h32 new_state = hpfs::h32_empty;
-                    request_loop(ctx.target_state, new_state);
+                    const int result = request_loop(ctx.target_state, new_state);
 
-                    if (ctx.is_shutting_down)
+                    if (result == -1 || ctx.is_shutting_down)
                         break;
 
                     ctx.pending_requests.clear();
@@ -133,12 +136,15 @@ namespace state_sync
         LOG_INFO << "State sync: Worker stopped.";
     }
 
-    void request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state)
+    int request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state)
     {
         std::string lcl = ledger::ctx.get_lcl();
 
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
+
+        // No. of repetitive resubmissions so far. (This is reset whenever we receive a state response)
+        uint16_t resubmissions_count = 0;
 
         // Send the initial root state request.
         submit_request(backlog_item{BACKLOG_ITEM_TYPE::DIR, "/", -1, current_target}, lcl);
@@ -162,12 +168,16 @@ namespace state_sync
 
             prev_responses_processed = !ctx.candidate_state_responses.empty();
 
+            // Reset resubmissions counter whenever we have a resposne.
+            if (!ctx.candidate_state_responses.empty())
+                resubmissions_count = 0;
+
             for (auto &response : ctx.candidate_state_responses)
             {
                 if (should_stop_request_loop(current_target))
-                    return;
+                    return 0;
 
-                LOG_DEBUG << "State sync: Processing state response from [" << response.first.substr(0, 10) << "]";
+                LOG_DEBUG << "State sync: Processing state response from [" << response.first.substr(2, 10) << "]";
 
                 const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
                 const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
@@ -201,7 +211,7 @@ namespace state_sync
                 if (hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/") < 1)
                 {
                     LOG_ERROR << "State sync: exiting due to hash check error.";
-                    return;
+                    return -1;
                 }
 
                 // Update the central state tracker.
@@ -209,7 +219,7 @@ namespace state_sync
 
                 LOG_DEBUG << "State sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
-                    return;
+                    return 0;
             }
 
             ctx.candidate_state_responses.clear();
@@ -218,7 +228,7 @@ namespace state_sync
             for (auto &[hash, request] : ctx.submitted_requests)
             {
                 if (should_stop_request_loop(current_target))
-                    return;
+                    return 0;
 
                 if (request.waiting_time < REQUEST_RESUBMIT_TIMEOUT)
                 {
@@ -227,6 +237,12 @@ namespace state_sync
                 }
                 else
                 {
+                    if (++resubmissions_count > ABANDON_THRESHOLD)
+                    {
+                        LOG_INFO << "State sync: Resubmission threshold exceeded. Abandoning sync.";
+                        return -1;
+                    }
+
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
                     LOG_DEBUG << "State sync: Resubmitting request...";
@@ -241,7 +257,7 @@ namespace state_sync
                 for (int i = 0; i < available_slots && !ctx.pending_requests.empty(); i++)
                 {
                     if (should_stop_request_loop(current_target))
-                        return;
+                        return 0;
 
                     const backlog_item &request = ctx.pending_requests.front();
                     submit_request(request, lcl);
@@ -249,6 +265,8 @@ namespace state_sync
                 }
             }
         }
+
+        return 0;
     }
 
     /**
@@ -299,9 +317,10 @@ namespace state_sync
         std::string target_pubkey;
         request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, target_pubkey);
 
-        LOG_DEBUG << "State sync: Requesting from [" << target_pubkey.substr(0, 10) << "]. type:" << request.type
-                  << " path:" << request.path << " block_id:" << request.block_id
-                  << " hash:" << request.expected_hash;
+        if (!target_pubkey.empty())
+            LOG_DEBUG << "State sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
+                      << " path:" << request.path << " block_id:" << request.block_id
+                      << " hash:" << request.expected_hash;
     }
 
     /**

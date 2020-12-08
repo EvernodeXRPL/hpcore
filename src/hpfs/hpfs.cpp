@@ -7,7 +7,7 @@
 namespace hpfs
 {
     constexpr const char *HPFS_TRACE_ARG_ERROR = "trace=error";
-    constexpr const char *HPFS_TRACE_ARG_DEBUG = "trace=debug";
+    constexpr const char *HPFS_TRACE_ARG_DEBUG = "trace=error";
     constexpr const char *HPFS_HMAP_HASH = "::hpfs.hmap.hash";
     constexpr const char *HPFS_HMAP_CHILDREN = "::hpfs.hmap.children";
     constexpr const char *HPFS_SESSION = "::hpfs.session";

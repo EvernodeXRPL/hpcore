@@ -16,6 +16,12 @@ namespace ledger
     constexpr uint64_t MAX_LEDGER_SEQUENCE = 256; // Max ledger block count to keep.
     constexpr uint16_t SYNCER_IDLE_WAIT = 20;     // lcl syncer loop sleep time (milliseconds).
 
+    // Max no. of repetitive reqeust resubmissions before abandoning the sync.
+    constexpr uint16_t ABANDON_THRESHOLD = 10;
+
+    // No. of milliseconds to wait before resubmitting a request.
+    uint16_t REQUEST_RESUBMIT_TIMEOUT;
+
     ledger_context ctx;
     sync_context sync_ctx;
     bool init_success = false;
@@ -25,6 +31,8 @@ namespace ledger
      */
     int init()
     {
+        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime;
+
         // Filename list of the history folder.
         std::list<std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);
         // Sorting to make filenames in seq_no order.
@@ -138,24 +146,17 @@ namespace ledger
             return;
         }
 
-        const std::string current_lcl = ctx.get_lcl();
-
         {
             std::scoped_lock<std::mutex> lock(sync_ctx.target_lcl_mutex);
             if (sync_ctx.target_lcl == target_lcl)
                 return;
             sync_ctx.target_lcl = target_lcl;
             sync_ctx.target_lcl_seq_no = target_seq_no;
+            sync_ctx.target_requested_on = 0;
+            sync_ctx.request_submissions = 0;
             sync_ctx.is_syncing = true;
 
-            LOG_INFO << "lcl sync: Syncing for target:" << sync_ctx.target_lcl.substr(0, 15) << " (current:" << current_lcl.substr(0, 15) << ")";
-        }
-
-        // Request history from a random peer if needed.
-        // We do not send a request if the target is GENESIS block (nothing to request).
-        if (target_lcl != GENESIS_LEDGER)
-        {
-            send_ledger_history_request(current_lcl, target_lcl);
+            LOG_INFO << "lcl sync: Syncing for target:" << sync_ctx.target_lcl.substr(0, 15) << " (current:" << ctx.get_lcl().substr(0, 15) << ")";
         }
     }
 
@@ -168,112 +169,154 @@ namespace ledger
 
         LOG_INFO << "lcl sync: Worker started.";
 
-        std::list<std::pair<std::string, p2p::history_request>> history_requests;
-        std::list<p2p::history_response> history_responses;
-
-        // Indicates whether any requests/responses were processed in the previous loop iteration.
-        bool prev_processed = false;
-
         while (!sync_ctx.is_shutting_down)
         {
-            // Wait a small delay if there were no requests/responses processed during previous iteration.
-            if (!prev_processed)
-                util::sleep(SYNCER_IDLE_WAIT);
+            // Indicates whether any requests/responses were processed in the loop iteration.
+            bool processed = false;
 
-            const std::string current_lcl = ctx.get_lcl();
-
-            // Move over the collected sync items to the local lists.
-            {
-                std::scoped_lock<std::mutex>(sync_ctx.list_mutex);
-                history_requests.splice(history_requests.end(), sync_ctx.collected_history_requests);
-                history_responses.splice(history_responses.end(), sync_ctx.collected_history_responses);
-            }
-
-            prev_processed = !history_requests.empty() || !history_responses.empty();
-
-            // Process any target lcl sync activities.
+            // Perform lcl sync activities.
             {
                 std::scoped_lock<std::mutex> lock(sync_ctx.target_lcl_mutex);
-
                 if (!sync_ctx.target_lcl.empty())
+                    send_lcl_sync_request(); // Send lcl requests if needed (or abandon if sync timeout).
+
+                // Process any history responses from other nodes.
+                if (!sync_ctx.target_lcl.empty() && check_lcl_sync_responses() == 1)
+                    processed = true;
+            }
+
+            // Serve any history requests from other nodes.
+            if (check_lcl_sync_requests() == 1)
+                processed = true;
+
+            // Wait a small delay if there were no requests/responses processed during previous iteration.
+            if (!processed)
+                util::sleep(SYNCER_IDLE_WAIT);
+        }
+
+        LOG_INFO << "lcl sync: Worker stopped.";
+    }
+
+    /**
+     * Submits/resubmits lcl history requests as needed. Abandons sync if threshold reached.
+     */
+    void send_lcl_sync_request()
+    {
+        // If target lcl is genesis lcl, Clear the ledger history and reset target sequence number.
+        if (sync_ctx.target_lcl == GENESIS_LEDGER)
+        {
+            LOG_INFO << "lcl sync: Target is GENESIS. Clearing our history.";
+            clear_ledger();
+            sync_ctx.clear_target();
+        }
+        else
+        {
+            // Check whether we need to send any requests or abandon the sync due to timeout.
+            const uint64_t time_now = util::get_epoch_milliseconds();
+            if ((sync_ctx.target_requested_on == 0) ||                                // Initial request.
+                (time_now - sync_ctx.target_requested_on) > REQUEST_RESUBMIT_TIMEOUT) // Request resubmission.
+            {
+                if (sync_ctx.request_submissions < ABANDON_THRESHOLD)
                 {
-                    // If target lcl is genesis lcl, Clear the ledger history and reset target sequence number.
-                    if (sync_ctx.target_lcl == GENESIS_LEDGER)
-                    {
-                        LOG_INFO << "lcl sync: Target is GENESIS. Clearing our history.";
-                        clear_ledger();
-                        sync_ctx.target_lcl.clear();
-                        sync_ctx.target_lcl_seq_no = 0;
-                        sync_ctx.is_syncing = false;
-                    }
-                    // If full history mode is not enabled check the target lcl seq no
-                    // to see whether it's too far ahead. That means no one probably has our
-                    // lcl in their ledgers. So we should clear our entire ledger history before requesting from peers.
-                    else if (!conf::cfg.fullhistory && current_lcl != GENESIS_LEDGER && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
+                    // Before first request, if full history mode is not enabled check the target lcl seq no to see whether
+                    // it's too far ahead. That means no one probably has our lcl in their ledgers. So we should clear our
+                    // entire ledger history before requesting from peers.
+                    if (sync_ctx.target_requested_on == 0 && !conf::cfg.fullhistory && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
                     {
                         LOG_INFO << "lcl sync: Target " << sync_ctx.target_lcl.substr(0, 15) << " is too far ahead. Clearing our history.";
                         clear_ledger();
                     }
-                    else
-                    {
-                        // Scan any queued lcl history responses.
-                        // Only process the first successful item which matches with our current lcl.
-                        for (const p2p::history_response &hr : history_responses)
-                        {
-                            if (hr.requester_lcl == current_lcl)
-                            {
-                                std::string new_lcl;
-                                if (handle_ledger_history_response(hr, new_lcl) != -1)
-                                {
-                                    LOG_INFO << "lcl sync: Sync complete. New lcl:" << new_lcl.substr(0, 15);
-                                    sync_ctx.target_lcl.clear();
-                                    sync_ctx.target_lcl_seq_no = 0;
-                                    sync_ctx.is_syncing = false;
-                                    break;
-                                }
-                            }
-                        }
-                    }
+
+                    send_ledger_history_request(ctx.get_lcl(), sync_ctx.target_lcl);
+                    sync_ctx.target_requested_on = time_now;
+                    sync_ctx.request_submissions++;
                 }
-
-                history_responses.clear();
-            }
-
-            // Serve any history requests from other nodes.
-            {
-                // Acquire lock so consensus does not update the ledger while we are reading the ledger.
-                std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
-
-                for (const auto &[session_id, hr] : history_requests)
+                else
                 {
-                    // First check whether we have the required lcl available.
-                    if (!check_required_lcl_availability(hr.required_lcl))
-                        continue;
-
-                    p2p::history_response resp;
-                    if (ledger::retrieve_ledger_history(hr, resp) != -1)
-                    {
-                        flatbuffers::FlatBufferBuilder fbuf(1024);
-                        p2pmsg::create_msg_from_history_response(fbuf, resp);
-                        std::string_view msg = msg::fbuf::flatbuff_bytes_to_sv(fbuf.GetBufferPointer(), fbuf.GetSize());
-
-                        // Find the peer that we should send the state response to.
-                        std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-                        const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
-
-                        if (peer_itr != p2p::ctx.peer_connections.end())
-                        {
-                            comm::comm_session *session = peer_itr->second;
-                            session->send(msg);
-                        }
-                    }
+                    LOG_INFO << "lcl sync: Resubmission threshold exceeded. Abandoning sync.";
+                    sync_ctx.clear_target();
                 }
+            }
+        }
+    }
 
-                history_requests.clear();
+    /**
+     * Processes any lcl responses we have received from other peers.
+     * @return 0 if no respones were processed. 1 if at least one response was processed.
+     */
+    int check_lcl_sync_responses()
+    {
+        // Move over the collected responses to the local list.
+        std::list<p2p::history_response> history_responses;
+        {
+            std::scoped_lock<std::mutex>(sync_ctx.list_mutex);
+            history_responses.splice(history_responses.end(), sync_ctx.collected_history_responses);
+        }
+
+        const std::string current_lcl = ctx.get_lcl();
+
+        // Scan any queued lcl history responses.
+        // Only process the first successful item which matches with our current lcl.
+        for (const p2p::history_response &hr : history_responses)
+        {
+            if (hr.requester_lcl == current_lcl)
+            {
+                std::string new_lcl;
+                if (handle_ledger_history_response(hr, new_lcl) != -1)
+                {
+                    LOG_INFO << "lcl sync: Sync complete. New lcl:" << new_lcl.substr(0, 15);
+                    sync_ctx.clear_target();
+
+                    break;
+                }
             }
         }
 
-        LOG_INFO << "lcl sync: Worker stopped.";
+        return history_responses.empty() ? 0 : 1;
+    }
+
+    /**
+     * Serves any lcl requests we have received from other peers.
+     * @return 0 if no requests were served. 1 if at least one request was served.
+     */
+    int check_lcl_sync_requests()
+    {
+        // Move over the collected requests to the local list.
+        std::list<std::pair<std::string, p2p::history_request>> history_requests;
+        {
+            std::scoped_lock<std::mutex>(sync_ctx.list_mutex);
+            history_requests.splice(history_requests.end(), sync_ctx.collected_history_requests);
+        }
+
+        // Acquire lock so consensus does not update the ledger while we are reading the ledger.
+        std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
+
+        for (const auto &[session_id, hr] : history_requests)
+        {
+            // First check whether we have the required lcl available.
+            if (!check_required_lcl_availability(hr.required_lcl))
+                continue;
+
+            p2p::history_response resp;
+            if (ledger::retrieve_ledger_history(hr, resp) != -1)
+            {
+                flatbuffers::FlatBufferBuilder fbuf(1024);
+                p2pmsg::create_msg_from_history_response(fbuf, resp);
+                std::string_view msg = msg::fbuf::flatbuff_bytes_to_sv(fbuf.GetBufferPointer(), fbuf.GetSize());
+
+                // Find the peer that we should send the state response to.
+                std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+                const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
+
+                if (peer_itr != p2p::ctx.peer_connections.end())
+                {
+                    comm::comm_session *session = peer_itr->second;
+                    session->send(msg);
+                }
+            }
+        }
+
+        return history_requests.empty() ? 0 : 1;
     }
 
     /**
