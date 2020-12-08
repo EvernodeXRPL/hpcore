@@ -29,13 +29,13 @@ namespace unl
      * Performs startup activitites related to unl list.
      * @return 0 for successful initialization. -1 for failure.
      */
-    int init(const std::set<std::string> &init_list)
+    int init()
     {
-        if (init_list.empty())
+        if (conf::cfg.unl.empty())
             return -1;
 
         std::unique_lock lock(unl_mutex);
-        list = init_list;
+        list = conf::cfg.unl;
         update_json_list();
         hash = calculate_hash(list);
         sync_ctx.unl_sync_thread = std::thread(unl_syncer_loop);
@@ -243,7 +243,7 @@ namespace unl
     {
         util::mask_signal();
 
-        LOG_INFO << "unl sync: Worker started.\n";
+        LOG_INFO << "unl sync: Worker started.";
 
         while (!sync_ctx.is_shutting_down)
         {

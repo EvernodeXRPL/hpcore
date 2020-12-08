@@ -199,16 +199,16 @@ int main(int argc, char **argv)
                          << (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
                 LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
 
-                if (ledger::init() ||
-                    unl::init(conf::cfg.unl) != 0 ||
-                    sc::init() ||
-                    state_common::init() != 0 ||
-                    state_serve::init() != 0 ||
-                    state_sync::init() != 0 ||
-                    consensus::init() != 0 ||
-                    read_req::init() != 0 ||
-                    p2p::init() != 0 ||
-                    usr::init() != 0)
+                if (ledger::init() == -1 ||
+                    unl::init() == -1 ||
+                    sc::init() == -1 ||
+                    state_common::init() == -1 ||
+                    state_serve::init() == -1 ||
+                    state_sync::init() == -1 ||
+                    consensus::init() == -1 ||
+                    read_req::init() == -1 ||
+                    p2p::init() == -1 ||
+                    usr::init() == -1)
                 {
                     deinit();
                     return -1;

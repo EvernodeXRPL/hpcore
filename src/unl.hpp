@@ -43,7 +43,7 @@ namespace unl
     std::set<std::string> get();
     std::string get_json();
     bool exists(const std::string &bin_pubkey);
-    int init(const std::set<std::string> &init_list);
+    int init();
     void deinit();
     void apply_changeset(const std::set<std::string> &additions, const std::set<std::string> &removals);
     void update_json_list();
