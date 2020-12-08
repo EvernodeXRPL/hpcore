@@ -284,7 +284,7 @@ namespace msg::usrmsg::json
 
             if (d[msg::usrmsg::FLD_SERVER_CHALLENGE].is<std::string>())
             {
-                std::string_view challenge = d[msg::usrmsg::FLD_PUBKEY].as<std::string_view>();
+                std::string_view challenge = d[msg::usrmsg::FLD_SERVER_CHALLENGE].as<std::string_view>();
 
                 if (!challenge.empty() && challenge.size() <= 32)
                 {

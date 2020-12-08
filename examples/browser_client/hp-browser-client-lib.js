@@ -29,13 +29,14 @@ window.HotPocket = (() => {
             throw "connectionCount is higher than servers";
 
         const protocol = protocols.json;
-        const currentConnectionCount = 0;
         const nodes = servers.map(s => {
             return {
                 server: s, // Server address.
                 connection: null // Hot Pocket connection (if any).
             }
         });
+
+        let currentConnectionCount = 0;
 
         // This will get fired whenever the required connection count gets fullfilled.
         let connectionFullfilledResolver = null;
@@ -74,18 +75,18 @@ window.HotPocket = (() => {
 
                 n.connection = new HotPocketConnection(contractId, clientKeys, n.server, validServerKeys, protocol, connectionTimeoutMs);
 
-                n.connection.connect.then(success => {
+                n.connection.connect().then(success => {
                     if (success)
                         currentConnectionCount++;
                     else
                         n.connection = null;
 
-                    reviewConnections();
+                    //reviewConnections();
                 });
 
                 n.connection.on(events.disconnect, () => {
                     currentConnectionCount--;
-                    reviewConnections();
+                    //reviewConnections();
                 });
             }
         }
@@ -129,7 +130,7 @@ window.HotPocket = (() => {
         const emitter = new EventEmitter();
 
         let connectionStatus = 0; // 0:none, 1:server challenge sent, 2:handshake compelete
-        let serverChallengeHex = null; // The hex challenge we have issued to the server.
+        let serverChallenge = null; // The hex challenge we have issued to the server.
 
         let ws = null;
         let isVoluntaryClose = false; // Indicates whether the web socket is being closed by ourselves.
@@ -152,18 +153,17 @@ window.HotPocket = (() => {
                     return false;
                 }
 
+                // Generate the challenge we are sending to server.
+                serverChallenge = toHexString(sodium.randombytes_buf(server_challenge_size));
+
                 // Sign the challenge and send back the response
-                const response = msgHelper.createUserChallengeResponse(m.challenge);
+                const response = msgHelper.createUserChallengeResponse(m.challenge, serverChallenge);
                 ws.send(msgHelper.serializeObject(response));
 
-                // Send our challenge to server.
-                const serverChallenge = msgHelper.createServerChallenge();
-                serverChallengeHex = serverChallenge.challenge;
-                ws.send(msgHelper.serializeObject(serverChallenge));
                 connectionStatus = 1;
                 return true;
             }
-            else if (connectionStatus == 1 && serverChallengeHex && m.type == 'server_challenge_response' && m.sig && m.pubkey) {
+            else if (connectionStatus == 1 && serverChallenge && m.type == 'server_challenge_response' && m.sig && m.pubkey) {
 
                 if (!validServerKeys.find(k => k == m.pubkey)) {
                     console.log("Server key not among the valid keys.");
@@ -171,15 +171,15 @@ window.HotPocket = (() => {
                 }
 
                 // Verify server challenge response.
-                const stringToVerify = serverChallengeHex + contractId;
+                const stringToVerify = serverChallenge + contractId;
                 const serverPubkeyHex = m.pubkey.substring(2); // Skip 'ed' prefix;
-                if (!sodium.crypto_sign_verify_detached(fromHexString(m.sig), fromHexString(stringToVerify), fromHexString(serverPubkeyHex))) {
+                if (!sodium.crypto_sign_verify_detached(fromHexString(m.sig), stringToVerify, fromHexString(serverPubkeyHex))) {
                     console.log("Server challenge response verification failed.");
                     return false;
                 }
 
                 clearTimeout(handshakeTimer); // Cancel the handshake timeout monitor.
-                serverChallengeHex = null; // Clear the sent challenge as we no longer need it.
+                serverChallenge = null; // Clear the sent challenge as we no longer need it.
                 connectionStatus = 2; // Handshake complete.
 
                 // If we are still connected, report handshaking as successful.
@@ -247,9 +247,13 @@ window.HotPocket = (() => {
                 return;
             }
 
-            if (!(connectionStatus < 2 && handshakeMessageHandler(m)) ||
-                (connectionStatus == 2 && contractMessageHandler(m))) {
+            let isValid = false;
+            if (connectionStatus < 2)
+                isValid = handshakeMessageHandler(m);
+            else if (connectionStatus == 2)
+                isValid = contractMessageHandler(m);
 
+            if (!isValid) {
                 console.log("Invalid message. Connection status: " + connectionStatus);
                 console.log(m);
 
@@ -389,23 +393,17 @@ window.HotPocket = (() => {
             return content;
         }
 
-        this.createUserChallengeResponse = (challenge) => {
-            // For handshake response encoding Hot Pocket always uses json.
-            // Handshake response will specify the protocol to use for contract messages.
-            const sigBytes = sodium.crypto_sign_detached(challenge, keys.privateKey);
+        this.createUserChallengeResponse = (userChallenge, serverChallenge) => {
+            // For challenge response encoding Hot Pocket always uses json.
+            // Challenge response will specify the protocol to use for contract messages.
+            const sigBytes = sodium.crypto_sign_detached(userChallenge, keys.privateKey);
 
             return {
                 type: "user_challenge_response",
                 sig: toHexString(sigBytes),
                 pubkey: "ed" + toHexString(keys.publicKey),
+                server_challenge: serverChallenge,
                 protocol: protocol
-            }
-        }
-
-        this.createServerChallenge = () => {
-            return {
-                type: "server_challenge",
-                challenge: toHexString(sodium.randombytes_buf(server_challenge_size))
             }
         }
 
@@ -449,11 +447,11 @@ window.HotPocket = (() => {
     }
 
     function fromHexString(hexString) {
-        new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+        return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
     }
 
     function toHexString(bytes) {
-        bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+        return bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
     }
 
     function EventEmitter() {

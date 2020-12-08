@@ -1,7 +1,7 @@
 window.sodium = {
     onload: async function () {
         const keys = HotPocket.KeyGenerator.generate(); // Can provide existing hex private key as parameter as well.
-        const hpc = new HotPocket.Client(null, "wss://localhost:8081", keys);
+        const hpc = new HotPocket.Client("dummy", keys, ["wss://localhost:8081"], ["edd50494a0573f9eaf0febeb7109baedb1573690dac310f2dd86ceeed96d2f4739"]);
 
         if (!await hpc.connect()) {
             console.log('Connection failed.');
