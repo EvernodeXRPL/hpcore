@@ -7,9 +7,12 @@ namespace msg::usrmsg
 {
     // Length of user random challenge bytes.
     constexpr size_t CHALLENGE_LEN = 16;
+    constexpr const char *USER_PROTOCOL_VERSION = "0.0";
 
     // Message field names
+    constexpr const char *FLD_HP_VERSION = "hp_version";
     constexpr const char *FLD_TYPE = "type";
+    constexpr const char *FLD_SERVER_CHALLENGE = "server_challenge";
     constexpr const char *FLD_CONTRACT_ID = "contract_id";
     constexpr const char *FLD_CHALLENGE = "challenge";
     constexpr const char *FLD_SIG = "sig";
@@ -27,8 +30,9 @@ namespace msg::usrmsg
     constexpr const char *FLD_REASON = "reason";
 
     // Message types
-    constexpr const char *MSGTYPE_HANDSHAKE_CHALLENGE = "handshake_challenge";
-    constexpr const char *MSGTYPE_HANDSHAKE_RESPONSE = "handshake_response";
+    constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
+    constexpr const char *MSGTYPE_USER_CHALLENGE_RESPONSE = "user_challenge_response";
+    constexpr const char *MSGTYPE_SERVER_CHALLENGE_RESPONSE = "server_challenge_response";
     constexpr const char *MSGTYPE_CONTRACT_READ_REQUEST = "contract_read_request";
     constexpr const char *MSGTYPE_CONTRACT_READ_RESPONSE = "contract_read_response";
     constexpr const char *MSGTYPE_CONTRACT_INPUT = "contract_input";

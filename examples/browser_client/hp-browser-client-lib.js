@@ -70,7 +70,7 @@ window.HotPocket = (() => {
             for (let i = 0; i < missingSlots; i++) {
                 const n = nodes.find(n => !n.connection);
                 if (!n)
-                    break;
+                    break; // Break if no more empty slots.
 
                 n.connection = new HotPocketConnection(contractId, clientKeys, n.server, validServerKeys, protocol, connectionTimeoutMs);
 
