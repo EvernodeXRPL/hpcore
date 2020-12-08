@@ -230,6 +230,7 @@ namespace msg::fbuf::p2pmsg
         p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
+        p.unl_hash = flatbuff_bytes_to_sv(msg.unl_hash());
         p.state = flatbuff_bytes_to_sv(msg.state());
 
         const auto unl_changeset = msg.unl_changeset();
@@ -388,6 +389,7 @@ namespace msg::fbuf::p2pmsg
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
                 hash_to_flatbuff_bytes(builder, p.state),
+                sv_to_flatbuff_bytes(builder, p.unl_hash),
                 unl_changeset);
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
@@ -681,6 +683,79 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         create_containermsg_from_content(container_builder, builder, lcl, false);
+    }
+
+    /**
+     * Create unl request message from the given unl sync request struct.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param unl_sync_message The Unl sync request struct to be placed in the container message.
+     */
+    void create_msg_from_unl_sync_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::unl_sync_request &unl_sync_message)
+    {
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        flatbuffers::Offset<Unl_Request_Message> unl_req_msg =
+            CreateUnl_Request_Message(
+                builder,
+                sv_to_flatbuff_bytes(builder, unl_sync_message.required_unl));
+
+        flatbuffers::Offset<Content> message = CreateContent(builder, Message_Unl_Request_Message, unl_req_msg.Union());
+        builder.Finish(message); // Finished building message content to get serialised content.
+
+        // Now that we have built the content message,
+        // we need to place it inside a container message.
+        create_containermsg_from_content(container_builder, builder, {}, false);
+    }
+
+    /**
+     * Creates a unl sync request struct from the given unl request message.
+     * @param unl_req_message Flatbuffer unl request message received from the peer.
+     * @return A unl sync request struct representing the message.
+     */
+    const p2p::unl_sync_request create_unl_sync_request_from_msg(const Unl_Request_Message &unl_req_message)
+    {
+        p2p::unl_sync_request unl_sync;
+        unl_sync.required_unl = flatbuff_bytes_to_sv(unl_req_message.required_unl());
+
+        return unl_sync;
+    }
+
+    /**
+     * Create unl response message from the given unl sync response struct.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param unl_response The unl sync response struct to be placed in the container message.
+     */
+    void create_msg_from_unl_sync_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::unl_sync_response &unl_response)
+    {
+        flatbuffers::FlatBufferBuilder builder(1024);
+
+        flatbuffers::Offset<Unl_Response_Message> unl_res_msg =
+            CreateUnl_Response_Message(
+                builder,
+                sv_to_flatbuff_bytes(builder, unl_response.requester_unl),
+                stringlist_to_flatbuf_bytearrayvector(builder, unl_response.unl_list));
+
+        flatbuffers::Offset<Content> message = CreateContent(builder, Message_Unl_Response_Message, unl_res_msg.Union());
+        builder.Finish(message); // Finished building message content to get serialised content.
+
+        // Now that we have built the content message,
+        // we need to place it inside a container message.
+        create_containermsg_from_content(container_builder, builder, {}, false);
+    }
+
+    /**
+     * Creates a unl sync response struct from the given unl response message.
+     * @param unl_response_message Flatbuffer unl response message received from the peer.
+     * @return A unl sync response struct representing the message.
+     */
+    const p2p::unl_sync_response create_unl_sync_response_from_msg(const Unl_Response_Message &unl_response_message)
+    {
+        p2p::unl_sync_response unl_sync_response;
+
+        unl_sync_response.requester_unl = flatbuff_bytes_to_sv(unl_response_message.requester_unl());
+        unl_sync_response.unl_list = flatbuf_bytearrayvector_to_stringlist(unl_response_message.unl_list());
+
+        return unl_sync_response;
     }
 
     /**
