@@ -136,7 +136,7 @@ namespace consensus
         }
         else if (ctx.stage == 1)
         {
-            if (is_in_sync(lcl, unl_count, votes))
+            if (is_in_sync(lcl, unl_count, votes, unl_hash))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
                 const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
@@ -145,7 +145,7 @@ namespace consensus
         }
         else if (ctx.stage == 2)
         {
-            if (is_in_sync(lcl, unl_count, votes))
+            if (is_in_sync(lcl, unl_count, votes, unl_hash))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
                 const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
@@ -159,7 +159,7 @@ namespace consensus
         }
         else if (ctx.stage == 3)
         {
-            if (is_in_sync(lcl, unl_count, votes))
+            if (is_in_sync(lcl, unl_count, votes, unl_hash))
             {
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
@@ -179,7 +179,7 @@ namespace consensus
         return 0;
     }
 
-    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes)
+    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes, std::string_view unl_hash)
     {
         // Check if we're ahead/behind of consensus lcl.
         bool is_lcl_desync = false;
@@ -210,7 +210,7 @@ namespace consensus
             // Check unl hash with the majority unl hash.
             bool is_unl_desync = false;
             std::string majority_unl;
-            check_unl_votes(is_unl_desync, majority_unl, votes);
+            check_unl_votes(is_unl_desync, majority_unl, votes, unl_hash);
             // Start unl sync if we are out-of-sync with majority unl.
             if (is_unl_desync)
             {
@@ -771,8 +771,9 @@ namespace consensus
      * @param is_desync Is unl is in desync.
      * @param majority_unl The majority unl.
      * @param votes The voting table.
+     * @param unl_hash Hash of the current unl list.
      */
-    void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes)
+    void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes, std::string_view unl_hash)
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
@@ -780,16 +781,16 @@ namespace consensus
         }
 
         uint32_t winning_votes = 0;
-        for (const auto [unl_hash, votes] : votes.unl)
+        for (const auto [unl, votes] : votes.unl)
         {
             if (votes > winning_votes)
             {
                 winning_votes = votes;
-                majority_unl = unl_hash;
+                majority_unl = unl;
             }
         }
 
-        is_desync = (unl::get_hash() != majority_unl);
+        is_desync = (unl_hash != majority_unl);
     }
 
     /**

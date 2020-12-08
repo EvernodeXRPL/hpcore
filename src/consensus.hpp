@@ -103,7 +103,7 @@ namespace consensus
 
     int consensus();
 
-    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes);
+    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes, std::string_view unl_hash);
 
     void revise_candidate_proposals();
 
@@ -125,7 +125,7 @@ namespace consensus
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
 
-    void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes);
+    void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes, std::string_view unl_hash);
 
     void timewait_stage(const bool reset, const uint64_t time);
 

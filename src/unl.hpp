@@ -50,10 +50,12 @@ namespace unl
     std::string get_hash();
     std::string calculate_hash(const std::set<std::string> &new_list);
     void set_sync_target(std::string_view target_unl_hash);
-    void send_unl_sync_request(std::string_view required_unl);
+    void send_unl_sync_request();
     void unl_syncer_loop();
     std::string hash_bin2hex(std::string_view hash);
     int verify_and_replace(const std::set<std::string> &new_list);
+    int check_unl_sync_requests();
+    int check_unl_sync_responses();
 
 } // namespace unl
 
