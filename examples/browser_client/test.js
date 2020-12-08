@@ -23,6 +23,11 @@ window.sodium = {
             console.log('Disconnected');
         })
 
+        // This will get fired as servers connects/disconnects after the initial connection establishment.
+        hpc.on(HotPocket.events.connectionChange, (server, action) => {
+            console.log(server + " " + action);
+        })
+
         // This will get fired when contract sends an output.
         hpc.on(HotPocket.events.contractOutput, (output) => {
             console.log("Contract output>> " + output);

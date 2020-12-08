@@ -13,7 +13,8 @@ window.HotPocket = (() => {
     const events = {
         disconnect: "disconnect",
         contractOutput: "contractOutput",
-        contractReadResponse: "contractReadResponse"
+        contractReadResponse: "contractReadResponse",
+        connectionChange: "connectionChange"
     }
     Object.freeze(events);
 
@@ -98,7 +99,7 @@ window.HotPocket = (() => {
                     else {
                         emitter.emit(events.disconnect);
                     }
-                })
+                });
                 return;
             }
 
@@ -124,10 +125,13 @@ window.HotPocket = (() => {
                 n.connection.connect().then(success => {
                     if (!success)
                         n.connection = null;
+                    else
+                        emitter.emit(events.connectionChange, n.server, "add");
                 });
 
                 n.connection.onClose = () => {
                     n.connection = null;
+                    emitter.emit(events.connectionChange, n.server, "remove");
                 };
 
                 currentConnectionCount++;
@@ -555,9 +559,9 @@ window.HotPocket = (() => {
             registrations[eventName].push(listener);
         }
 
-        this.emit = (eventName, value) => {
+        this.emit = (eventName, ...value) => {
             if (registrations[eventName])
-                registrations[eventName].forEach(listener => listener(value));
+                registrations[eventName].forEach(listener => listener(...value));
         }
 
         this.clear = () => {
