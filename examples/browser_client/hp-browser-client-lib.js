@@ -159,6 +159,24 @@ window.HotPocket = (() => {
         this.on = (event, listener) => {
             emitter.on(event, listener);
         }
+
+        this.sendContractInput = async (input, nonce = null, maxLclOffset = null) => {
+            if (status == 2)
+                return;
+
+            await Promise.all(
+                nodes.filter(n => n.connection && n.connection.isConnected())
+                    .map(n => n.connection.sendContractInput(input, nonce, maxLclOffset)));
+        }
+
+        this.sendContractReadRequest = (request) => {
+            if (status == 2)
+                return;
+
+            nodes.filter(n => n.connection && n.connection.isConnected()).forEach(n => {
+                n.connection.sendContractReadRequest(request);
+            });
+        }
     }
 
     const KeyGenerator = {
