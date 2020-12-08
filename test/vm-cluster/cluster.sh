@@ -51,12 +51,12 @@ let nodeid=$2-1
 
 if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
-   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ]; then
+   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
     echo "mode: $mode ($contdir)"
 else
     echo "Invalid command. [ info | new | update | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
-        " | dns <N> <zerossl file> | ssl <N> | lcl ] expected."
+        " | dns <N> <zerossl file> | ssl <N> | lcl | pubkey <N> ] expected."
     exit 1
 fi
 
@@ -75,6 +75,7 @@ fi
 # dns - Uploads given zerossl domain verification file to vm and starts http server for DNS check.
 # ssl - Uploads matching zerossl certificate bundle from ~/Downloads/ to the contract.
 # lcl - Displays the lcls of all nodes.
+# pubkey - Displays the pubkey on specified vm node or entire cluster.
 
 if [ $mode = "info" ]; then
     echo "${vmaddrs[*]}" | tr ' ' '\n'
@@ -246,6 +247,23 @@ if [ $mode = "lcl" ]; then
     exit 0
 fi
 
+if [ $mode = "pubkey" ]; then
+    command="cat $contdir/cfg/hp.cfg | grep pubkeyhex | cut -d '\"' -f4"
+    if [ $nodeid = -1 ]; then
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            vmaddr=${vmaddrs[i]}
+            let nodeid=$i+1
+            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+        done
+        wait
+    else
+        vmaddr=${vmaddrs[$nodeid]}
+        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+    fi
+    exit 0
+fi
+
 # All code below this will only execute in 'new', 'update' or 'reconfig' mode.
 # Run setup/configuration of entire cluster.
 
@@ -307,7 +325,7 @@ function joinarr {
     arr=("${!arrname}")
     skip=$2
 
-    let prevlast=$ncount-2
+    let prevlast=$vmcount-2
     # Resetting prevlast if nothing is given to skip.
     if [ $skip -lt 0 ]
     then
@@ -331,7 +349,7 @@ function joinarr {
     done
     str="$str]"
 
-    echo $str
+    echo $str # This returns the result.
 }
 
 # Loop through all nodes hp.cfg.

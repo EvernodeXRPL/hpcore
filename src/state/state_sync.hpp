@@ -62,7 +62,7 @@ namespace state_sync
 
     void state_syncer_loop();
 
-    void request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state);
+    int request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state);
 
     bool should_stop_request_loop(const hpfs::h32 current_target);
 

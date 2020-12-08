@@ -13,6 +13,7 @@
 #include "../ledger.hpp"
 #include "peer_comm_session.hpp"
 #include "p2p.hpp"
+#include "../unl.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -213,7 +214,7 @@ namespace p2p
                 if (ctx.collected_msgs.state_responses.size() < p2p::STATE_RES_LIST_CAP)
                 {
                     std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.pubkey, std::move(response)));
+                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
                 }
                 else
                 {
@@ -253,6 +254,41 @@ namespace p2p
                 else
                 {
                     LOG_DEBUG << "History response rejected. Maximum history response count reached. " << session.display_name();
+                }
+            }
+        }
+        else if (content_message_type == p2pmsg::Message_Unl_Request_Message) //message is a unl request message.
+        {
+            // Check the cap and insert request with lock.
+            std::scoped_lock<std::mutex> lock(unl::sync_ctx.list_mutex);
+
+            // If max number of unl requests reached skip the rest.
+            if (unl::sync_ctx.collected_unl_sync_requests.size() < unl::UNL_REQ_LIST_CAP)
+            {
+                const p2p::unl_sync_request unl_request = p2pmsg::create_unl_sync_request_from_msg(*content->message_as_Unl_Request_Message());
+                unl::sync_ctx.collected_unl_sync_requests.push_back(std::make_pair(session.pubkey, std::move(unl_request)));
+            }
+            else
+            {
+                LOG_DEBUG << "Unl request rejected. Maximum unl request count reached. " << session.display_name();
+            }
+        }
+        else if (content_message_type == p2pmsg::Message_Unl_Response_Message) //message is a unl response message.
+        {
+            if (unl::sync_ctx.is_syncing) // Only accept history responses if ledger is syncing.
+            {
+                // Check the cap and insert response with lock.
+                std::scoped_lock<std::mutex> lock(unl::sync_ctx.list_mutex);
+
+                // If max number of unl responses reached skip the rest.
+                if (unl::sync_ctx.collected_unl_sync_responses.size() < unl::UNL_RES_LIST_CAP)
+                {
+                    const p2p::unl_sync_response unl_response = p2pmsg::create_unl_sync_response_from_msg(*content->message_as_Unl_Response_Message());
+                    unl::sync_ctx.collected_unl_sync_responses.push_back(std::move(unl_response));
+                }
+                else
+                {
+                    LOG_DEBUG << "Unl response rejected. Maximum unl response count reached. " << session.display_name();
                 }
             }
         }

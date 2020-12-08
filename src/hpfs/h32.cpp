@@ -52,14 +52,14 @@ namespace hpfs
     std::ostream &operator<<(std::ostream &output, const h32 &h)
     {
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(&h);
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 5; i++) // Only print first 5 bytes in hex.
             output << std::hex << std::setfill('0') << std::setw(2) << (int)buf[i];
 
         return output;
     }
 
-    // Helper class to support std::map/std::unordered_map custom hashing function.
-    // This is needed to use B2H as the std map container key.
+    // Helper func to support std::map/std::unordered_map custom hashing function.
+    // This is needed to use h32 as the std map container key.
     size_t h32_std_key_hasher::operator()(const h32 h) const
     {
         // Compute individual hash values. http://stackoverflow.com/a/1646913/126995

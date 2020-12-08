@@ -1,7 +1,9 @@
 #!/bin/bash
 # Script to generate docker container clusters for local development testing.
 # Generate contract sub-directories within "hpcluster" directory for the given no. of cluster nodes.
-# Usage (to generate 5-node cluster): ./cluster-create.sh 5
+# Usage: To generate 5-node cluster:         ./cluster-create.sh 5
+#        Specify log level (default: inf):   ./cluster-create.sh 5 dbg
+#        Specify round time (default: 1000): ./cluster-create.sh 5 inf 2000
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
@@ -12,6 +14,8 @@ else
 fi
 
 ncount=$1
+loglevel=$2
+roundtime=$3
 hpcore=$(realpath ../..)
 
 # Contract can be set with 'export CONTRACT=<name>'. Defaults to nodejs echo contract.
@@ -37,6 +41,13 @@ else # nodejs echo contract (default)
     copyfiles="$hpcore/examples/nodejs_contract/{package.json,hp-contract-lib.js,echo_contract.js}"
     binary="/usr/local/bin/node"
     binargs="/contract/bin/echo_contract.js"
+fi
+
+if [ "$loglevel" = "" ]; then
+    loglevel=inf
+fi
+if [ "$roundtime" = "" ]; then
+    roundtime=1000
 fi
 
 # Delete and recreate 'hpcluster' directory.
@@ -80,8 +91,8 @@ do
             appbillargs: '', \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: 1000, \
-            loglevel: 'inf', \
+            roundtime: $roundtime, \
+            loglevel: '$loglevel', \
             loggers:['console', 'file'] \
             }, null, 2)" > hp.cfg
     rm tmp.json

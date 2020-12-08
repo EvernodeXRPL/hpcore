@@ -2,7 +2,6 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "util/util.hpp"
-#include "unl.hpp"
 
 namespace conf
 {
@@ -116,7 +115,7 @@ namespace conf
         cfg.pubidletimeout = 0;
         cfg.peeridletimeout = 120;
 
-        cfg.is_consensus_public = true;
+        cfg.is_consensus_public = false;
         cfg.is_npl_public = false;
 
         cfg.msgforwarding = false;
@@ -488,9 +487,6 @@ namespace conf
             std::cerr << "Error decoding hex secret key.\n";
             return -1;
         }
-
-        // Populate unl.
-        unl::init(cfg.unl);
 
         // Populate runtime contract execution args.
         if (!cfg.binargs.empty())
