@@ -271,6 +271,8 @@ namespace ledger
                 }
             }
         }
+
+        return history_responses.empty() ? 0 : 1;
     }
 
     /**
