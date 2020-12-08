@@ -59,7 +59,7 @@ namespace unl
     /**
      * Called by contract to update unl at runtime.
      */
-    void update(const std::vector<std::string> &additions, const std::vector<std::string> &removals)
+    void update(const std::set<std::string> &additions, const std::set<std::string> &removals)
     {
         if (additions.empty() && removals.empty())
             return;

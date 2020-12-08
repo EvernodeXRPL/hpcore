@@ -13,6 +13,11 @@ namespace msg::fbuf::ledger
      */
     void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no)
     {
+        const flatbuffers::Offset<Unl_Changeset> unl_changeset = CreateUnl_Changeset(
+            builder,
+            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.additions),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.removals));
+
         flatbuffers::Offset<ledger::LedgerBlock> ledger =
             ledger::CreateLedgerBlock(
                 builder,
@@ -22,7 +27,8 @@ namespace msg::fbuf::ledger
                 hash_to_flatbuff_bytes(builder, p.state),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs));
+                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
+                unl_changeset);
 
         builder.Finish(ledger); // Finished building message content to get serialised content.
     }

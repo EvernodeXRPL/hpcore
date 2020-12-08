@@ -12,7 +12,7 @@ namespace msg::controlmsg
     public:
         int parse(std::string_view message);
         int extract_type(std::string &extracted_type) const;
-        int extract_unl_changeset(std::vector<std::string> &additions, std::vector<std::string> &removals);
+        int extract_unl_changeset(std::set<std::string> &additions, std::set<std::string> &removals);
     };
 
 } // namespace msg::controlmsg
