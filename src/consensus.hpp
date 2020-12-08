@@ -103,7 +103,7 @@ namespace consensus
 
     int consensus();
 
-    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes, std::string_view unl_hash);
+    bool is_in_sync(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes);
 
     void revise_candidate_proposals();
 

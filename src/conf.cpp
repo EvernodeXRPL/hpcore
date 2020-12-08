@@ -489,9 +489,6 @@ namespace conf
             return -1;
         }
 
-        // Populate unl.
-        unl::init(cfg.unl);
-
         // Populate runtime contract execution args.
         if (!cfg.binargs.empty())
             util::split_string(cfg.runtime_binexec_args, cfg.binargs, " ");

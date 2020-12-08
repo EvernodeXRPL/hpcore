@@ -26,12 +26,13 @@ namespace unl
     uint16_t REQUEST_RESUBMIT_TIMEOUT;
 
     /**
-     * Called by conf during startup to populate configured unl list.
+     * Performs startup activitites related to unl list.
+     * @return 0 for successful initialization. -1 for failure.
      */
-    void init(const std::set<std::string> &init_list)
+    int init(const std::set<std::string> &init_list)
     {
         if (init_list.empty())
-            return;
+            return -1;
 
         std::unique_lock lock(unl_mutex);
         list = init_list;
@@ -40,6 +41,7 @@ namespace unl
         sync_ctx.unl_sync_thread = std::thread(unl_syncer_loop);
         REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime;
         init_success = true;
+        return 0;
     }
 
     void deinit()
@@ -81,9 +83,9 @@ namespace unl
     }
 
     /**
-     * Called by contract to update unl at runtime.
+     * Called by consensus to apply unl changesets that reached consensus.
      */
-    void update(const std::set<std::string> &additions, const std::set<std::string> &removals)
+    void apply_changeset(const std::set<std::string> &additions, const std::set<std::string> &removals)
     {
         if (additions.empty() && removals.empty())
             return;
@@ -93,28 +95,26 @@ namespace unl
             std::unique_lock lock(unl_mutex);
             for (const std::string &pubkey : additions)
             {
-                auto [ele, is_success] = list.emplace(pubkey);
+                const auto [ele, is_success] = list.emplace(pubkey);
                 if (is_success)
                     is_updated = true;
             }
 
             for (const std::string &pubkey : removals)
             {
-                const size_t res = list.erase(pubkey);
-                if (res > 0)
+                if (list.erase(pubkey))
                     is_updated = true;
             }
 
             update_json_list();
             conf::persist_unl_update(list);
             hash = calculate_hash(list);
+            LOG_INFO << "UNL updated. Count:" << list.size();
         }
 
         // Update the is_unl flag of peer sessions.
         if (is_updated)
             p2p::update_unl_connections();
-
-        LOG_INFO << "UNL updated. Count:" << count();
     }
 
     /**
@@ -243,7 +243,7 @@ namespace unl
     {
         util::mask_signal();
 
-        std::cout << "unl sync: Worker started.\n";
+        LOG_INFO << "unl sync: Worker started.\n";
 
         while (!sync_ctx.is_shutting_down)
         {

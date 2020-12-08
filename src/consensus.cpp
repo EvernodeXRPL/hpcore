@@ -136,7 +136,7 @@ namespace consensus
         }
         else if (ctx.stage == 1)
         {
-            if (is_in_sync(lcl, unl_count, votes, unl_hash))
+            if (is_in_sync(lcl, unl_hash, unl_count, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
                 const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
@@ -145,7 +145,7 @@ namespace consensus
         }
         else if (ctx.stage == 2)
         {
-            if (is_in_sync(lcl, unl_count, votes, unl_hash))
+            if (is_in_sync(lcl, unl_hash, unl_count, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
                 const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
@@ -159,14 +159,14 @@ namespace consensus
         }
         else if (ctx.stage == 3)
         {
-            if (is_in_sync(lcl, unl_count, votes, unl_hash))
+            if (is_in_sync(lcl, unl_hash, unl_count, votes))
             {
                 // If we are in sync, vote and get the final winning votes.
                 // This is the consensus proposal which makes it into the ledger and contract execution
                 const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
 
                 // Update the unl with the unl changeset that subjected to the consensus.
-                unl::update(p.unl_changeset.additions, p.unl_changeset.removals);
+                unl::apply_changeset(p.unl_changeset.additions, p.unl_changeset.removals);
 
                 // Update the ledger and execute the contract using the consensus proposal.
                 if (update_ledger_and_execute_contract(p, lcl, state) == -1)
@@ -179,7 +179,7 @@ namespace consensus
         return 0;
     }
 
-    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes, std::string_view unl_hash)
+    bool is_in_sync(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes)
     {
         // Check if we're ahead/behind of consensus lcl.
         bool is_lcl_desync = false;

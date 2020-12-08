@@ -77,8 +77,8 @@ void deinit()
     state_sync::deinit();
     state_serve::deinit();
     sc::deinit();
-    ledger::deinit();
     unl::deinit();
+    ledger::deinit();
 }
 
 void sig_exit_handler(int signum)
@@ -200,6 +200,7 @@ int main(int argc, char **argv)
                 LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
 
                 if (ledger::init() ||
+                    unl::init(conf::cfg.unl) != 0 ||
                     sc::init() ||
                     state_common::init() != 0 ||
                     state_serve::init() != 0 ||
