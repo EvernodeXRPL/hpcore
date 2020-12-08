@@ -517,45 +517,45 @@ namespace consensus
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
-        p2p::proposal stg_prop;
-        stg_prop.time = ctx.round_start_time;
-        stg_prop.stage = 0;
-        stg_prop.lcl = lcl;
-        stg_prop.state = state;
-        stg_prop.unl_hash = unl_hash;
-        crypto::random_bytes(stg_prop.nonce, ROUND_NONCE_SIZE);
+        p2p::proposal p;
+        p.time = ctx.round_start_time;
+        p.stage = 0;
+        p.lcl = lcl;
+        p.state = state;
+        p.unl_hash = unl_hash;
+        crypto::random_bytes(p.nonce, ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
-        stg_prop.users.swap(ctx.candidate_users);
+        p.users.swap(ctx.candidate_users);
 
         // Populate the proposal with hashes of user inputs.
         for (const auto &[hash, cand_input] : ctx.candidate_user_inputs)
-            stg_prop.hash_inputs.emplace(hash);
+            p.hash_inputs.emplace(hash);
 
         // Populate the proposal with hashes of user outputs.
         for (const auto &[hash, cand_output] : ctx.candidate_user_outputs)
-            stg_prop.hash_outputs.emplace(hash);
+            p.hash_outputs.emplace(hash);
 
         // Populate the proposal with unl changeset.
-        stg_prop.unl_changeset = ctx.candidate_unl_changeset;
+        p.unl_changeset = ctx.candidate_unl_changeset;
 
-        return stg_prop;
+        return p;
     }
 
     p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash)
     {
         // The proposal to be emited at the end of this stage.
-        p2p::proposal stg_prop;
-        stg_prop.stage = ctx.stage;
-        stg_prop.state = state;
+        p2p::proposal p;
+        p.stage = ctx.stage;
+        p.state = state;
 
         // We always vote for our current lcl and state regardless of what other peers are saying.
         // If there's a fork condition we will either request history and state from
         // our peers or we will halt depending on level of consensus on the sides of the fork.
-        stg_prop.lcl = lcl;
+        p.lcl = lcl;
 
         // We always votr for our current unl hash.
-        stg_prop.unl_hash = unl_hash;
+        p.unl_hash = unl_hash;
 
         const uint64_t time_now = util::get_epoch_milliseconds();
 
@@ -605,17 +605,17 @@ namespace consensus
         // Add user pubkeys which have votes over stage threshold to proposal.
         for (const auto &[pubkey, numvotes] : votes.users)
             if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
-                stg_prop.users.emplace(pubkey);
+                p.users.emplace(pubkey);
 
         // Add inputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.inputs)
             if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
-                stg_prop.hash_inputs.emplace(hash);
+                p.hash_inputs.emplace(hash);
 
         // Add outputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.outputs)
             if (numvotes >= required_votes)
-                stg_prop.hash_outputs.emplace(hash);
+                p.hash_outputs.emplace(hash);
 
         // For the unl changeset, reset required votes for majority votes.
         required_votes = ceil(MAJORITY_THRESHOLD * unl_count);
@@ -623,12 +623,12 @@ namespace consensus
         // Add unl additions which have votes over majority threshold to proposal.
         for (const auto &[pubkey, numvotes] : votes.unl_additions)
             if (numvotes >= required_votes)
-                stg_prop.unl_changeset.additions.emplace(pubkey);
+                p.unl_changeset.additions.emplace(pubkey);
 
         // Add unl removals which have votes over majority threshold to proposal.
         for (const auto &[pubkey, numvotes] : votes.unl_removals)
             if (numvotes >= required_votes)
-                stg_prop.unl_changeset.removals.emplace(pubkey);
+                p.unl_changeset.removals.emplace(pubkey);
 
         // time is voted on a simple sorted (highest to lowest) and majority basis.
         uint32_t highest_time_vote = 0;
@@ -640,12 +640,12 @@ namespace consensus
             if (numvotes > highest_time_vote)
             {
                 highest_time_vote = numvotes;
-                stg_prop.time = time;
+                p.time = time;
             }
         }
         // If final time happens to be 0 (this can happen if there were no proposals to vote for), we set the time manually.
-        if (stg_prop.time == 0)
-            stg_prop.time = ctx.round_start_time;
+        if (p.time == 0)
+            p.time = ctx.round_start_time;
 
         // Round nonce is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
         uint32_t highest_nonce_vote = 0;
@@ -657,11 +657,11 @@ namespace consensus
             if (numvotes > highest_nonce_vote)
             {
                 highest_nonce_vote = numvotes;
-                stg_prop.nonce = nonce;
+                p.nonce = nonce;
             }
         }
 
-        return stg_prop;
+        return p;
     }
 
     /**
