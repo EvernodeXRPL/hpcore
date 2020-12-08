@@ -275,7 +275,7 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_Unl_Response_Message) //message is a unl response message.
         {
-            if (unl::sync_ctx.is_syncing) // Only accept unl responses if unl is syncing.
+            if (unl::sync_ctx.is_syncing) // Only accept unl responses if unl list is syncing.
             {
                 // Check the cap and insert response with lock.
                 std::scoped_lock<std::mutex> lock(unl::sync_ctx.list_mutex);
