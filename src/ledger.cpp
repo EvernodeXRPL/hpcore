@@ -304,7 +304,7 @@ namespace ledger
                 p2pmsg::create_msg_from_history_response(fbuf, resp);
                 std::string_view msg = msg::fbuf::flatbuff_bytes_to_sv(fbuf.GetBufferPointer(), fbuf.GetSize());
 
-                // Find the peer that we should send the state response to.
+                // Find the peer that we should send the history response to.
                 std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
                 const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
 

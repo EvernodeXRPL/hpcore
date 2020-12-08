@@ -211,7 +211,7 @@ namespace consensus
             // Start unl sync if we are out-of-sync with majority unl.
             if (is_unl_desync)
             {
-                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER); 
+                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
                 unl::set_sync_target(majority_unl);
             }
 
@@ -671,7 +671,8 @@ namespace consensus
     void broadcast_proposal(const p2p::proposal &p)
     {
         // In observer mode, we do not send out proposals.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER)
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER ||
+            !unl::exists(conf::cfg.pubkey)) // If we are a non-unl node, do not broadcast proposals.
             return;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);

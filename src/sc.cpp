@@ -507,21 +507,24 @@ namespace sc
         else if (res > 0)
         {
             // Broadcast npl messages once contract npl output is collected.
-            // If the npl messages are set to private, broadcast only to the trusted peers.
-            // If it is public, broadcast to all the connected peers.
-            if (conf::cfg.is_npl_public || unl::exists(conf::cfg.pubkey))
-                broadcast_npl_output(output);
+            broadcast_npl_output(output);
         }
 
         return (res > 0) ? 1 : 0;
     }
 
     /**
-     * Broadcast npl messages to peers.
+     * Broadcast npl messages to peers. If the npl messages are set to private, broadcast only to the unl nodes. 
+     * If it is public, broadcast to all the connected nodes. Npl messages are not sent in observer mode.
      * @param output Npl message to be broadcasted.
     */
     void broadcast_npl_output(std::string_view output)
     {
+        // In observer mode, we do not send out npl messages.
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER ||
+            !unl::exists(conf::cfg.pubkey)) // If we are a non-unl node, do not broadcast npl messages.
+            return;
+
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
