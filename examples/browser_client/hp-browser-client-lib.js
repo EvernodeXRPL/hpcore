@@ -1,5 +1,8 @@
 window.HotPocket = (() => {
 
+    const supported_hp_version = "0.0";
+    const server_challenge_size = 16;
+
     const protocols = {
         json: "json"
     }
@@ -53,108 +56,167 @@ window.HotPocket = (() => {
         }
     }
 
-    HotPocketClient = function HotPocketClient(contractId, server, keys) {
-
-        let ws = null;
-        const protocol = protocols.json; // We only support json in browser.
-        const msgHelper = new MessageHelper(keys, protocol);
+    function HotPocketConnection(contractId, clientKeys, server, validServerKeys, protocol) {
+        const msgHelper = new MessageHelper(clientKeys, protocol);
         const emitter = new EventEmitter();
 
+        let connectionStatus = 0; // 0:none, 1:server challenge sent, 2:handshake compelete
+        let serverChallengeHex = null; // The hex challenge we have issued to the server.
+
+        let ws = null;
         let handshakeResolver = null;
         let statResponseResolvers = [];
         let contractInputResolvers = {};
 
-        this.connect = function () {
-            return new Promise(resolve => {
+        const handshakeMessageHandler = (m) => {
 
-                handshakeResolver = resolve;
+            if (connectionStatus == 0 && m.type == 'user_challenge' && m.hp_version && m.contract_id) {
 
-                ws = new WebSocket(server);
-
-                ws.addEventListener("close", () => {
-                    // If there are any ongoing resolvers resolve them with error output.
-
-                    handshakeResolver && handshakeResolver(false);
-                    handshakeResolver = null;
-
-                    statResponseResolvers.forEach(resolver => resolver(null));
-                    statResponseResolvers = [];
-
-                    Object.values(contractInputResolvers).forEach(resolver => resolver(null));
-                    contractInputResolvers = {};
-
-                    emitter.emit(events.disconnect);
-                });
-
-                ws.onmessage = async (rcvd) => {
-
-                    msg = await rcvd.data.text();
-
-                    try {
-                        m = msgHelper.deserializeMessage(msg);
-                    } catch (e) {
-                        console.log(e);
-                        console.log("Exception deserializing: ");
-                        console.log(msg);
-                        return;
-                    }
-
-                    if (m.type == 'handshake_challenge') {
-                        // Check whether contract id is matching if specified.
-                        if (contractId && m.contract_id != contractId) {
-                            console.error("Contract id mismatch.")
-                            ws.close();
-                        }
-
-                        // sign the challenge and send back the response
-                        const response = msgHelper.createHandshakeResponse(m.challenge);
-                        ws.send(JSON.stringify(response));
-
-                        setTimeout(() => {
-                            // If we are still connected, report handshaking as successful.
-                            // (If websocket disconnects, handshakeResolver will be null)
-                            handshakeResolver && handshakeResolver(true);
-                            handshakeResolver = null;
-                        }, 100);
-                    }
-                    else if (m.type == 'contract_read_response') {
-                        emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
-                    }
-                    else if (m.type == 'contract_input_status') {
-                        const sigKey = (typeof m.input_sig === "string") ? m.input_sig : m.input_sig.toString("hex");
-                        const resolver = contractInputResolvers[sigKey];
-                        if (resolver) {
-                            if (m.status == "accepted")
-                                resolver("ok");
-                            else
-                                resolver(m.reason);
-                            delete contractInputResolvers[sigKey];
-                        }
-                    }
-                    else if (m.type == 'contract_output') {
-                        emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
-                    }
-                    else if (m.type == "stat_response") {
-                        statResponseResolvers.forEach(resolver => {
-                            resolver({
-                                lcl: m.lcl,
-                                lclSeqNo: m.lcl_seqno
-                            });
-                        })
-                        statResponseResolvers = [];
-                    }
-                    else {
-                        console.log("Received unrecognized message: type:" + m.type);
-                    }
+                if (m.hp_version != supported_hp_version) {
+                    console.log("Incompatible Hot Pocket server version.");
+                    return false;
                 }
-            });
-        };
 
-        this.on = function (event, listener) {
+                if (m.contract_id != contractId) {
+                    console.log("Contract id mismatch.");
+                    return false;
+                }
+
+                // Sign the challenge and send back the response
+                const response = msgHelper.createUserChallengeResponse(m.challenge);
+                ws.send(msgHelper.serializeObject(response));
+
+                // Send our challenge to server.
+                const serverChallenge = msgHelper.createServerChallenge();
+                serverChallengeHex = serverChallenge.challenge;
+                ws.send(msgHelper.serializeObject(serverChallenge));
+                connectionStatus = 1;
+                return true;
+            }
+            else if (connectionStatus == 1 && serverChallengeHex && m.type == 'server_challenge_response' && m.sig && m.pubkey) {
+
+                if (!validServerKeys.find(k => k == m.pubkey)) {
+                    console.log("Server key not among the valid keys.");
+                    return false;
+                }
+
+                // Verify server challenge response.
+                const stringToVerify = serverChallengeHex + contractId;
+                const serverPubkeyHex = m.pubkey.substring(2); // Skip 'ed' prefix;
+                if (!sodium.crypto_sign_verify_detached(fromHexString(m.sig), fromHexString(stringToVerify), fromHexString(serverPubkeyHex))) {
+                    console.log("Server challenge response verification failed.");
+                    return false;
+                }
+
+                serverChallengeHex = null; // Clear the sent challenge as we no longer need it.
+                connectionStatus = 2; // Handshake complete.
+
+                // If we are still connected, report handshaking as successful.
+                // (If websocket disconnects, handshakeResolver will be already null)
+                handshakeResolver && handshakeResolver(true);
+                return true;
+            }
+
+            console.log("Invalid message during handshake");
+            return false;
+        }
+
+        const contractMessageHandler = (m) => {
+
+            if (m.type == 'contract_read_response') {
+                emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
+            }
+            else if (m.type == 'contract_input_status') {
+                const sigKey = msgHelper.serializeSignature(m.input_sig);
+                const resolver = contractInputResolvers[sigKey];
+                if (resolver) {
+                    if (m.status == "accepted")
+                        resolver("ok");
+                    else
+                        resolver(m.reason);
+                    delete contractInputResolvers[sigKey];
+                }
+            }
+            else if (m.type == 'contract_output') {
+                emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
+            }
+            else if (m.type == "stat_response") {
+                statResponseResolvers.forEach(resolver => {
+                    resolver({
+                        lcl: m.lcl,
+                        lclSeqNo: m.lcl_seqno
+                    });
+                })
+                statResponseResolvers = [];
+            }
+            else {
+                console.log("Received unrecognized message: type:" + m.type);
+                return false;
+            }
+
+            return true;
+        }
+
+        const messageHandler = async (rcvd) => {
+
+            let data = null;
+
+            try {
+                data = await rcvd.data.text();
+                m = msgHelper.deserializeMessage(data);
+            } catch (e) {
+                console.log(e);
+                console.log("Exception deserializing: ");
+                console.log(data || rcvd);
+
+                // If we get invalid message during handshake, close the socket.
+                if (connectionStatus < 2)
+                    ws.close();
+
+                return;
+            }
+
+            if (!(connectionStatus < 2 && handshakeMessageHandler(m)) ||
+                (connectionStatus == 2 && contractMessageHandler(m))) {
+
+                console.log("Invalid message. Connection status: " + connectionStatus);
+                console.log(m);
+
+                // If we get invalid message during handshake, close the socket.
+                if (connectionStatus < 2)
+                    ws.close();
+            }
+        }
+
+        const closeHandler = () => {
+            // If there are any ongoing resolvers resolve them with error output.
+
+            handshakeResolver && handshakeResolver(false);
+            handshakeResolver = null;
+
+            statResponseResolvers.forEach(resolver => resolver(null));
+            statResponseResolvers = [];
+
+            Object.values(contractInputResolvers).forEach(resolver => resolver(null));
+            contractInputResolvers = {};
+
+            emitter.emit(events.disconnect);
+        }
+
+        this.on = (event, listener) => {
             emitter.on(event, listener);
         }
 
-        this.close = function () {
+        this.connect = () => {
+            return new Promise(resolve => {
+                handshakeResolver = resolve;
+                ws = new WebSocket(server);
+                ws.addEventListener("message", messageHandler);
+                ws.addEventListener("close", closeHandler);
+            });
+        }
+
+        this.close = () => {
             return new Promise(resolve => {
                 try {
                     ws.addEventListener("close", resolve);
@@ -165,7 +227,7 @@ window.HotPocket = (() => {
             })
         }
 
-        this.getStatus = function () {
+        this.getStatus = () => {
             const p = new Promise(resolve => {
                 statResponseResolvers.push(resolve);
             });
@@ -179,7 +241,7 @@ window.HotPocket = (() => {
             return p;
         }
 
-        this.sendContractInput = async function (input, nonce = null, maxLclOffset = null) {
+        this.sendContractInput = async (input, nonce = null, maxLclOffset = null) => {
 
             if (!maxLclOffset)
                 maxLclOffset = 10;
@@ -196,7 +258,7 @@ window.HotPocket = (() => {
             const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
 
             const msg = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
-            const sigKey = (typeof msg.sig === "string") ? msg.sig : msg.sig.toString("hex");
+            const sigKey = msgHelper.serializeSignature(msg.sig);
             const p = new Promise(resolve => {
                 contractInputResolvers[sigKey] = resolve;
             });
@@ -205,49 +267,63 @@ window.HotPocket = (() => {
             return p;
         }
 
-        this.sendContractReadRequest = function (request) {
+        this.sendContractReadRequest = (request) => {
             const msg = msgHelper.createReadRequest(request);
             ws.send(msgHelper.serializeObject(msg));
         }
     }
 
+    function HotPocketClient(contractId, clientKeys, servers, validServerKeys) {
+
+    }
+
     function MessageHelper(keys, protocol) {
 
-        this.binaryEncode = function (data) {
+        this.binaryEncode = (data) => {
             return toHexString(data);
         }
 
-        this.serializeObject = function (obj) {
+        this.serializeObject = (obj) => {
             return JSON.stringify(obj);
         }
 
-        this.deserializeMessage = function (m) {
+        this.deserializeMessage = (m) => {
             return JSON.parse(m);
         }
 
-        this.serializeInput = function (input) {
+        this.serializeInput = (input) => {
             return (typeof input === 'string' || input instanceof String) ? input : input.toString();
         }
 
-        this.deserializeOutput = function (content) {
+        this.serializeSignature = (sig) => {
+            return (typeof sig === 'string' || input instanceof String) ? sig : toHexString(sig);
+        }
+
+        this.deserializeOutput = (content) => {
             return content;
         }
 
-        this.createHandshakeResponse = function (challenge) {
+        this.createUserChallengeResponse = (challenge) => {
             // For handshake response encoding Hot Pocket always uses json.
-            // Handshake response will specify the protocol to use for subsequent messages.
+            // Handshake response will specify the protocol to use for contract messages.
             const sigBytes = sodium.crypto_sign_detached(challenge, keys.privateKey);
 
             return {
-                type: "handshake_response",
-                challenge: challenge,
+                type: "user_challenge_response",
                 sig: toHexString(sigBytes),
                 pubkey: "ed" + toHexString(keys.publicKey),
                 protocol: protocol
             }
         }
 
-        this.createContractInput = function (input, nonce, maxLclSeqNo) {
+        this.createServerChallenge = () => {
+            return {
+                type: "server_challenge",
+                challenge: toHexString(sodium.randombytes_buf(server_challenge_size))
+            }
+        }
+
+        this.createContractInput = (input, nonce, maxLclSeqNo) => {
 
             if (input.length == 0)
                 return null;
@@ -270,7 +346,7 @@ window.HotPocket = (() => {
             return signedInpContainer;
         }
 
-        this.createReadRequest = function (request) {
+        this.createReadRequest = (request) => {
 
             if (request.length == 0)
                 return null;
@@ -281,7 +357,7 @@ window.HotPocket = (() => {
             }
         }
 
-        this.createStatusRequest = function () {
+        this.createStatusRequest = () => {
             return { type: 'stat' };
         }
     }
