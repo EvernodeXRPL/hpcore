@@ -88,6 +88,7 @@ namespace consensus
         std::map<std::string, uint32_t> inputs;
         std::map<std::string, uint32_t> outputs;
         std::map<hpfs::h32, uint32_t> state;
+        std::map<std::string, uint32_t> unl;
         std::map<std::string, uint32_t> unl_additions;
         std::map<std::string, uint32_t> unl_removals;
     };
@@ -102,7 +103,7 @@ namespace consensus
 
     int consensus();
 
-    bool is_in_sync(std::string_view lcl, const size_t unl_count, vote_counter &votes);
+    bool is_in_sync(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes);
 
     void check_sync_completion();
 
@@ -116,15 +117,17 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state, std::string_view unl_hash);
 
-    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state);
+    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash);
 
     void broadcast_proposal(const p2p::proposal &p);
 
     bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count);
 
     void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes);
+
+    void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes, std::string_view unl_hash);
 
     void timewait_stage(const bool reset, const uint64_t time);
 
