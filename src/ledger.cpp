@@ -16,7 +16,7 @@ namespace ledger
     constexpr uint64_t MAX_LEDGER_SEQUENCE = 256; // Max ledger block count to keep.
     constexpr uint16_t SYNCER_IDLE_WAIT = 20;     // lcl syncer loop sleep time (milliseconds).
 
-    // Max np. of repetitive reqeust resubmissions before abandoning the sync.
+    // Max no. of repetitive reqeust resubmissions before abandoning the sync.
     constexpr uint16_t ABANDON_THRESHOLD = 10;
 
     // No. of milliseconds to wait before resubmitting a request.

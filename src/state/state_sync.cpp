@@ -22,7 +22,7 @@ namespace state_sync
     // Request loop sleep time (milliseconds).
     constexpr uint16_t REQUEST_LOOP_WAIT = 10;
 
-    // Max np. of repetitive reqeust resubmissions before abandoning the sync.
+    // Max no. of repetitive reqeust resubmissions before abandoning the sync.
     constexpr uint16_t ABANDON_THRESHOLD = 20;
 
     constexpr int FILE_PERMS = 0644;
