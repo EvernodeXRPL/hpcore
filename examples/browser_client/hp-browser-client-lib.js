@@ -1,7 +1,9 @@
 window.HotPocket = (() => {
 
-    const supported_hp_version = "0.0";
-    const server_challenge_size = 16;
+    const supportedHpVersion = "0.0";
+    const serverChallengeSize = 16;
+    const connectionCheckIntervalMs = 1000;
+    const recentActivityThresholdMs = 3000;
 
     const protocols = {
         json: "json"
@@ -15,7 +17,7 @@ window.HotPocket = (() => {
     }
     Object.freeze(events);
 
-    function HotPocketClient(contractId, clientKeys, servers, serverKeys, requiredConnectionCount = 1, connectionTimeoutMs = 5000) {
+    function HotPocketClient(contractId, clientKeys, servers, serverKeys, requiredConnectionCount = 1, connectionTimeoutMs = 30000) {
 
         if (!contractId || contractId == "")
             throw "contractId not spefified.";
@@ -48,6 +50,8 @@ window.HotPocket = (() => {
             }
         });
 
+        let status = 0; //0:none, 1:connected, 2:closed
+
         // This will get fired whenever the required connection count gets fullfilled.
         let initialConnectSuccess = null;
 
@@ -55,13 +59,23 @@ window.HotPocket = (() => {
         // 0 indicates we are no missing any connections.
         let connectionsMissingFrom = new Date().getTime();
 
+        // Checks for missing connections and attempts to establish them.
         const reviewConnections = () => {
+
+            if (status == 2)
+                return;
+
+            // Check for connection changes periodically.
+            setTimeout(() => {
+                reviewConnections();
+            }, connectionCheckIntervalMs);
 
             // Check whether we have fullfilled all required connections.
             if (nodes.filter(n => n.connection && n.connection.isConnected()).length == requiredConnectionCount) {
                 connectionsMissingFrom = 0;
                 initialConnectSuccess && initialConnectSuccess(true);
                 initialConnectSuccess = null;
+                status = 1;
                 return;
             }
 
@@ -70,6 +84,11 @@ window.HotPocket = (() => {
                 connectionsMissingFrom = new Date().getTime();
             }
             else if ((new Date().getTime() - connectionsMissingFrom) > connectionTimeoutMs) {
+
+                // This means we were not able to maintain required connection count for the entire timeout period.
+
+                console.log("Missing-connections timeout reached.");
+
                 // Close and cleanup all connections if we hit the timeout.
                 this.close().then(() => {
                     if (initialConnectSuccess) {
@@ -90,10 +109,10 @@ window.HotPocket = (() => {
 
             // Find out available slots.
             // Skip nodes that are already connected or is currently establishing connection.
-            // Skip nodes that we have recently attempted connecting.
-            // Give priority to nodes that we have connected lesser no. of times.
-            const freeNodes = nodes.filter(n => !n.connection && (new Date().getTime() - n.lastActivity) > 3000);
-            freeNodes.sort((a, b) => a.lastActivity - b.lastActivity);
+            // Skip nodes that have recently shown some connection activity.
+            // Give priority to nodes that have not shown any activity recently.
+            const freeNodes = nodes.filter(n => !n.connection && (new Date().getTime() - n.lastActivity) > recentActivityThresholdMs);
+            freeNodes.sort((a, b) => a.lastActivity - b.lastActivity); // Oldest activity comes first.
 
             while (currentConnectionCount < requiredConnectionCount && freeNodes.length > 0) {
 
@@ -105,13 +124,10 @@ window.HotPocket = (() => {
                 n.connection.connect().then(success => {
                     if (!success)
                         n.connection = null;
-
-                    reviewConnections();
                 });
 
                 n.connection.onClose = () => {
                     n.connection = null;
-                    reviewConnections();
                 };
 
                 currentConnectionCount++;
@@ -119,6 +135,10 @@ window.HotPocket = (() => {
         }
 
         this.connect = () => {
+
+            if (status > 0)
+                return;
+
             reviewConnections();
             return new Promise(resolve => {
                 initialConnectSuccess = resolve;
@@ -126,9 +146,14 @@ window.HotPocket = (() => {
         }
 
         this.close = async () => {
+
+            if (status == 2)
+                return;
+
             // Close all nodes connections.
             await Promise.all(nodes.filter(n => n.connection).map(n => n.connection.close()));
             nodes.forEach(n => n.connection = null);
+            status = 2;
         }
 
         this.on = (event, listener) => {
@@ -163,7 +188,6 @@ window.HotPocket = (() => {
         let serverChallenge = null; // The hex challenge we have issued to the server.
 
         let ws = null;
-        let isVoluntaryClose = false; // Indicates whether the web socket is being closed by ourselves.
         let handshakeTimer = null; // Timer to track connection handshake timeout.
         let handshakeResolver = null;
         let closeResolver = null;
@@ -174,7 +198,7 @@ window.HotPocket = (() => {
 
             if (connectionStatus == 0 && m.type == 'user_challenge' && m.hp_version && m.contract_id) {
 
-                if (m.hp_version != supported_hp_version) {
+                if (m.hp_version != supportedHpVersion) {
                     console.log("Incompatible Hot Pocket server version.");
                     return false;
                 }
@@ -185,7 +209,7 @@ window.HotPocket = (() => {
                 }
 
                 // Generate the challenge we are sending to server.
-                serverChallenge = toHexString(sodium.randombytes_buf(server_challenge_size));
+                serverChallenge = toHexString(sodium.randombytes_buf(serverChallengeSize));
 
                 // Sign the challenge and send back the response
                 const response = msgHelper.createUserChallengeResponse(m.challenge, serverChallenge);
@@ -217,6 +241,7 @@ window.HotPocket = (() => {
                 // If we are still connected, report handshaking as successful.
                 // (If websocket disconnects, handshakeResolver will be already null)
                 handshakeResolver && handshakeResolver(true);
+                console.log("Connected to " + server);
                 return true;
             }
 
@@ -295,7 +320,23 @@ window.HotPocket = (() => {
             }
         }
 
+        const openHandler = () => {
+            ws.addEventListener("message", messageHandler);
+            ws.addEventListener("close", closeHandler);
+
+            handshakeTimer = setTimeout(() => {
+                // If handshake does not complete within timeout, close the connection.
+                this.close();
+                handshakeTimer = null;
+            }, connectionTimeoutMs);
+        }
+
         const closeHandler = () => {
+
+            if (closeResolver)
+                console.log("Closing connection to " + server);
+            else
+                console.log("Disconnected from " + server);
 
             emitter = null;
 
@@ -326,20 +367,13 @@ window.HotPocket = (() => {
         };
 
         this.connect = () => {
+            console.log("Connecting to " + server);
             return new Promise(resolve => {
 
                 ws = new WebSocket(server);
-
                 handshakeResolver = resolve;
                 ws.addEventListener("error", errorHandler);
-                ws.addEventListener("message", messageHandler);
-                ws.addEventListener("close", closeHandler);
-
-                handshakeTimer = setTimeout(() => {
-                    // If handshake does not complete within timeout, close the connection.
-                    this.close();
-                    handshakeTimer = null;
-                }, connectionTimeoutMs);
+                ws.addEventListener("open", openHandler);
             });
         }
 
