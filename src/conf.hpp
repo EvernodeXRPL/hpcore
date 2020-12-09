@@ -81,6 +81,7 @@ namespace conf
         std::string seckey;                            // Contract secret key bytes
         std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.
         std::vector<std::string> runtime_appbill_args; // Appbill execution args used during runtime.
+        bool is_unl = false;                           // Indicate whether we are a unl node or not.
 
         // Config elements which are loaded from the config file.
         std::string contractid;                                   // Contract guid.
@@ -114,8 +115,8 @@ namespace conf
         uint16_t peermaxcons = 0;      // Max peer connections
         uint16_t peermaxknowncons = 0; // Max known peer connections
 
-        bool is_consensus_public = false; // If true, consensus are broadcasted to untrusted nodes as well.
-        bool is_npl_public = false;       // If true, npl messages are broadcasted to untrusted nodes as well.
+        bool is_consensus_public = false; // If true, consensus are broadcasted to non-unl nodes as well.
+        bool is_npl_public = false;       // If true, npl messages are broadcasted to non-unl nodes as well.
 
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
