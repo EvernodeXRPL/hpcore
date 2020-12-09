@@ -6,7 +6,7 @@ window.sodium = {
         const hpc = new HotPocket.Client(null, null, keys, ["wss://localhost:8081"], null);
 
         // Maintain multiple connections with contract id/version and server key validation.
-        // const hpc = new HotPocket.Client("c0406549f766286eb85dc4835423feda", "1.0", keys,
+        // const hpc = new HotPocket.Client("3c349abe-4d70-4f50-9fa6-018f1f2530ab", "1.0", keys,
         //     [
         //         "wss://localhost:8081",
         //         "wss://localhost:8082",

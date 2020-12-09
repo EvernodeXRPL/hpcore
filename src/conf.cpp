@@ -98,14 +98,7 @@ namespace conf
 
         cfg.hpversion = util::HP_VERSION;
         cfg.contractversion = "1.0";
-
-        // Generate contract id hex.
-        std::string rand_string;
-        crypto::random_bytes(rand_string, 16);
-        util::bin2hex(
-            cfg.contractid,
-            reinterpret_cast<const unsigned char *>(rand_string.data()),
-            rand_string.length());
+        cfg.contractid = crypto::generate_uuid();
 
         //Add self pubkey to the unl.
         cfg.unl.emplace(cfg.pubkey);
