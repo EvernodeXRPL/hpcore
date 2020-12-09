@@ -20,10 +20,12 @@ window.HotPocket = (() => {
 
     function HotPocketClient(contractId, contractVersion, clientKeys, servers, serverKeys, requiredConnectionCount = 1, connectionTimeoutMs = 30000) {
 
+        if (window.sodium == undefined)
+            throw "HotPocketClient: Sodium not found.";
         if (contractId == "")
-            throw "contractId not spefified. Specify null to bypass contract id validation.";
+            throw "contractId not specified. Specify null to bypass contract id validation.";
         if (contractVersion == "")
-            throw "contractVersion not spefified. Specify null to bypass contract version validation.";
+            throw "contractVersion not specified. Specify null to bypass contract version validation.";
         if (!clientKeys)
             throw "clientKeys not specified.";
         if (!requiredConnectionCount || requiredConnectionCount == 0)
@@ -57,7 +59,7 @@ window.HotPocket = (() => {
             throw "serverKeys must contain at least one key. Specify null to bypass key validation.";
 
         const protocol = protocols.json;
-        const emitter = new EventEmitter();
+        let emitter = new EventEmitter();
 
         const nodes = Object.keys(serversLookup).map(s => {
             return {
@@ -203,6 +205,9 @@ window.HotPocket = (() => {
 
     const KeyGenerator = {
         generate: function (privateKeyHex = null) {
+
+            if (window.sodium == undefined)
+                throw "KeyGenerator: Sodium not found.";
 
             if (!privateKeyHex) {
                 const keys = sodium.crypto_sign_keypair();
