@@ -521,8 +521,7 @@ namespace sc
     void broadcast_npl_output(std::string_view output)
     {
         // In observer mode, we do not send out npl messages.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER ||
-            !unl::exists(conf::cfg.pubkey)) // If we are a non-unl node, do not broadcast npl messages.
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast npl messages.
             return;
 
         if (!output.empty())

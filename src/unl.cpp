@@ -36,6 +36,8 @@ namespace unl
 
         std::unique_lock lock(unl_mutex);
         list = conf::cfg.unl;
+        // Update the own node's unl status.
+        conf::cfg.is_unl = (list.find(conf::cfg.pubkey) != list.end());
         update_json_list();
         hash = calculate_hash(list);
         sync_ctx.unl_sync_thread = std::thread(unl_syncer_loop);
@@ -106,10 +108,15 @@ namespace unl
                     is_updated = true;
             }
 
-            update_json_list();
-            conf::persist_unl_update(list);
-            hash = calculate_hash(list);
-            LOG_INFO << "UNL updated. Count:" << list.size();
+            if (is_updated)
+            {
+                update_json_list();
+                conf::persist_unl_update(list);
+                hash = calculate_hash(list);
+                LOG_INFO << "UNL updated. Count:" << list.size();
+                // Update the own node's unl status.
+                conf::cfg.is_unl = (list.find(conf::cfg.pubkey) != list.end());
+            }
         }
 
         // Update the is_unl flag of peer sessions.
@@ -137,6 +144,8 @@ namespace unl
             update_json_list();
             conf::persist_unl_update(list);
             hash = new_unl_hash;
+            // Update the own node's unl status.
+            conf::cfg.is_unl = (list.find(conf::cfg.pubkey) != list.end());
         }
 
         // Update the is_unl flag of peer sessions.

@@ -671,8 +671,7 @@ namespace consensus
     void broadcast_proposal(const p2p::proposal &p)
     {
         // In observer mode, we do not send out proposals.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER ||
-            !unl::exists(conf::cfg.pubkey)) // If we are a non-unl node, do not broadcast proposals.
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast proposals.
             return;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
