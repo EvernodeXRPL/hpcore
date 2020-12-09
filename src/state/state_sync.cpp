@@ -374,7 +374,7 @@ namespace state_sync
                 std::string child_physical_path = std::string(ctx.hpfs_mount_dir).append(child_vpath);
 
                 if ((ex_entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
-                    !ex_entry.is_file && rmdir(child_physical_path.c_str()) == -1)
+                    !ex_entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
                     return -1;
 
                 LOG_DEBUG << "State sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
