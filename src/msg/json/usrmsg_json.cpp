@@ -32,6 +32,7 @@ namespace msg::usrmsg::json
      *              "hp_version": "<hp protocol version>",
      *              "type": "user_challenge",
      *              "contract_id": "<contract id>",
+     *              "contract_version": "<contract version string>",
      *              "challenge": "<challenge string>"
      *            }
      * @param challenge_bytes String reference to copy the generated challenge bytes into.
@@ -63,6 +64,10 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += conf::cfg.contractid;
         msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_CONTRACT_VERSION;
+        msg += SEP_COLON;
+        msg += conf::cfg.contractversion;
+        msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CHALLENGE;
         msg += SEP_COLON;
         msg += challenge;
@@ -84,8 +89,8 @@ namespace msg::usrmsg::json
      */
     void create_server_challenge_response(std::vector<uint8_t> &msg, const std::string &original_challenge)
     {
-        // Generate signature of challenge + contract id.
-        const std::string content = original_challenge + conf::cfg.contractid;
+        // Generate signature of challenge + contract id + contract version.
+        const std::string content = original_challenge + conf::cfg.contractid + conf::cfg.contractversion;
         const std::string sig_hex = crypto::sign_hex(content, conf::cfg.seckeyhex);
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.

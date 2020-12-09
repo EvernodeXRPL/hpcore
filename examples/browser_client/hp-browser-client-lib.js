@@ -18,27 +18,43 @@ window.HotPocket = (() => {
     }
     Object.freeze(events);
 
-    function HotPocketClient(contractId, clientKeys, servers, serverKeys, requiredConnectionCount = 1, connectionTimeoutMs = 30000) {
+    function HotPocketClient(contractId, contractVersion, clientKeys, servers, serverKeys, requiredConnectionCount = 1, connectionTimeoutMs = 30000) {
 
-        if (!contractId || contractId == "")
-            throw "contractId not spefified.";
+        if (contractId == "")
+            throw "contractId not spefified. Specify null to bypass contract id validation.";
+        if (contractVersion == "")
+            throw "contractVersion not spefified. Specify null to bypass contract version validation.";
         if (!clientKeys)
             throw "clientKeys not specified.";
-        if (!serverKeys || serverKeys.length == 0)
-            throw "serverKeys not specified.";
-        if (!servers || servers.length == 0)
-            throw "servers not specified.";
-
-        // Load servers and serverKeys to object keys to avoid duplciates.
-        const serversLookup = {};
-        const serverKeysLookup = {};
-        servers.forEach(s => serversLookup[s] = true);
-        serverKeys.forEach(s => serverKeysLookup[s] = true);
-
-        if (requiredConnectionCount == 0)
+        if (!requiredConnectionCount || requiredConnectionCount == 0)
             throw "requiredConnectionCount must be greater than 0.";
+        if (!connectionTimeoutMs || connectionTimeoutMs == 0)
+            throw "Connection timeout must be greater than 0.";
+
+        // Load servers and serverKeys to object keys to avoid duplicates.
+
+        const serversLookup = {};
+        servers && servers.forEach(s => {
+            const url = s.trim();
+            if (url.length > 0)
+                serversLookup[url] = true
+        });
+        if (Object.keys(serversLookup).length == 0)
+            throw "servers not specified.";
         if (requiredConnectionCount > Object.keys(serversLookup).length)
             throw "requiredConnectionCount is higher than no. of servers.";
+
+        let serverKeysLookup = null;
+        if (serverKeys) {
+            serverKeysLookup = {};
+            serverKeys.forEach(k => {
+                const key = k.trim();
+                if (key.length > 0)
+                    serverKeysLookup[key] = true
+            });
+        }
+        if (serverKeysLookup && Object.keys(serverKeysLookup.length) == 0)
+            throw "serverKeys must contain at least one key. Specify null to bypass key validation.";
 
         const protocol = protocols.json;
         const emitter = new EventEmitter();
@@ -97,7 +113,7 @@ window.HotPocket = (() => {
                         initialConnectSuccess = null;
                     }
                     else {
-                        emitter.emit(events.disconnect);
+                        emitter && emitter.emit(events.disconnect);
                     }
                 });
                 return;
@@ -119,19 +135,19 @@ window.HotPocket = (() => {
 
                 // Get the next available node.
                 const n = freeNodes.shift();
-                n.connection = new HotPocketConnection(contractId, clientKeys, n.server, serverKeysLookup, protocol, connectionTimeoutMs, emitter);
+                n.connection = new HotPocketConnection(contractId, contractVersion, clientKeys, n.server, serverKeysLookup, protocol, connectionTimeoutMs, emitter);
                 n.lastActivity = new Date().getTime();
 
                 n.connection.connect().then(success => {
                     if (!success)
                         n.connection = null;
                     else
-                        emitter.emit(events.connectionChange, n.server, "add");
+                        emitter && emitter.emit(events.connectionChange, n.server, "add");
                 });
 
                 n.connection.onClose = () => {
                     n.connection = null;
-                    emitter.emit(events.connectionChange, n.server, "remove");
+                    emitter && emitter.emit(events.connectionChange, n.server, "remove");
                 };
 
                 currentConnectionCount++;
@@ -154,10 +170,12 @@ window.HotPocket = (() => {
             if (status == 2)
                 return;
 
+            status = 2;
+            emitter = null;
+
             // Close all nodes connections.
             await Promise.all(nodes.filter(n => n.connection).map(n => n.connection.close()));
             nodes.forEach(n => n.connection = null);
-            status = 2;
         }
 
         this.on = (event, listener) => {
@@ -203,11 +221,13 @@ window.HotPocket = (() => {
         },
     }
 
-    function HotPocketConnection(contractId, clientKeys, server, serverKeysLookup, protocol, connectionTimeoutMs, emitter) {
+    function HotPocketConnection(contractId, contractVersion, clientKeys, server, serverKeysLookup, protocol, connectionTimeoutMs, emitter) {
         const msgHelper = new MessageHelper(clientKeys, protocol);
 
         let connectionStatus = 0; // 0:none, 1:server challenge sent, 2:handshake complete.
         let serverChallenge = null; // The hex challenge we have issued to the server.
+        let reportedContractId = null;
+        let reportedContractVersion = null;
 
         let ws = null;
         let handshakeTimer = null; // Timer to track connection handshake timeout.
@@ -218,17 +238,31 @@ window.HotPocket = (() => {
 
         const handshakeMessageHandler = (m) => {
 
-            if (connectionStatus == 0 && m.type == 'user_challenge' && m.hp_version && m.contract_id) {
+            if (connectionStatus == 0 && m.type == "user_challenge" && m.hp_version && m.contract_id) {
 
                 if (m.hp_version != supportedHpVersion) {
-                    console.log("Incompatible Hot Pocket server version.");
+                    console.log(`Incompatible Hot Pocket server version. Expected:${supportedHpVersion} Got:${m.hp_version}`);
+                    return false;
+                }
+                else if (!m.contract_id) {
+                    console.log("Server did not specify contract id.");
+                    return false;
+                }
+                else if (contractId && m.contract_id != contractId) {
+                    console.log(`Contract id mismatch. Expected:${contractId} Got:${m.contract_id}`);
+                    return false;
+                }
+                else if (!m.contract_version) {
+                    console.log("Server did not specify contract version.");
+                    return false;
+                }
+                else if (contractVersion && m.contract_version != contractVersion) {
+                    console.log(`Contract version mismatch. Expected:${contractVersion} Got:${m.contract_version}`);
                     return false;
                 }
 
-                if (m.contract_id != contractId) {
-                    console.log("Contract id mismatch.");
-                    return false;
-                }
+                reportedContractId = m.contract_id;
+                reportedContractVersion = m.contract_version;
 
                 // Generate the challenge we are sending to server.
                 serverChallenge = toHexString(sodium.randombytes_buf(serverChallengeSize));
@@ -240,18 +274,19 @@ window.HotPocket = (() => {
                 connectionStatus = 1;
                 return true;
             }
-            else if (connectionStatus == 1 && serverChallenge && m.type == 'server_challenge_response' && m.sig && m.pubkey) {
+            else if (connectionStatus == 1 && serverChallenge && m.type == "server_challenge_response" && m.sig && m.pubkey) {
 
-                if (!serverKeysLookup[m.pubkey]) {
-                    console.log("Server key not among the valid keys.");
+                // If server keys has been specified, validate whether this server's pubkey is among the valid list.
+                if (serverKeysLookup && !serverKeysLookup[m.pubkey]) {
+                    console.log(`${server} key '${m.pubkey}' not among the valid keys.`);
                     return false;
                 }
 
                 // Verify server challenge response.
-                const stringToVerify = serverChallenge + contractId;
+                const stringToVerify = serverChallenge + reportedContractId + reportedContractVersion;
                 const serverPubkeyHex = m.pubkey.substring(2); // Skip 'ed' prefix;
                 if (!sodium.crypto_sign_verify_detached(fromHexString(m.sig), stringToVerify, fromHexString(serverPubkeyHex))) {
-                    console.log("Server challenge response verification failed.");
+                    console.log(`${server} challenge response verification failed.`);
                     return false;
                 }
 
@@ -263,20 +298,21 @@ window.HotPocket = (() => {
                 // If we are still connected, report handshaking as successful.
                 // (If websocket disconnects, handshakeResolver will be already null)
                 handshakeResolver && handshakeResolver(true);
-                console.log("Connected to " + server);
+                console.log(`Connected to ${server}`);
                 return true;
             }
 
-            console.log("Invalid message during handshake");
+            console.log(`${server} invalid message during handshake. Connection status:${connectionStatus}`);
+            console.log(m);
             return false;
         }
 
         const contractMessageHandler = (m) => {
 
-            if (m.type == 'contract_read_response') {
+            if (m.type == "contract_read_response") {
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
             }
-            else if (m.type == 'contract_input_status') {
+            else if (m.type == "contract_input_status") {
                 const sigKey = msgHelper.serializeSignature(m.input_sig);
                 const resolver = contractInputResolvers[sigKey];
                 if (resolver) {
@@ -287,7 +323,7 @@ window.HotPocket = (() => {
                     delete contractInputResolvers[sigKey];
                 }
             }
-            else if (m.type == 'contract_output') {
+            else if (m.type == "contract_output") {
                 emitter && emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "stat_response") {
@@ -300,7 +336,7 @@ window.HotPocket = (() => {
                 statResponseResolvers = [];
             }
             else {
-                console.log("Received unrecognized message: type:" + m.type);
+                console.log("Received unrecognized contract message: type:" + m.type);
                 return false;
             }
 
@@ -333,9 +369,6 @@ window.HotPocket = (() => {
                 isValid = contractMessageHandler(m);
 
             if (!isValid) {
-                console.log("Invalid message. Connection status: " + connectionStatus);
-                console.log(m);
-
                 // If we get invalid message during handshake, close the socket.
                 if (connectionStatus < 2)
                     this.close();

@@ -96,6 +96,9 @@ namespace conf
         crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
         binpair_to_hex(cfg);
 
+        cfg.hpversion = util::HP_VERSION;
+        cfg.contractversion = "1.0";
+
         // Generate contract id hex.
         std::string rand_string;
         crypto::random_bytes(rand_string, 16);
@@ -221,21 +224,21 @@ namespace conf
         }
         ifs.close();
 
-        // Check whether the contract version is specified.
-        std::string_view cfgversion = d["version"].as<std::string_view>();
-        if (cfgversion.empty())
+        // Check whether the hp version is specified.
+        cfg.hpversion = d["hpversion"].as<std::string>();
+        if (cfg.hpversion.empty())
         {
-            std::cerr << "Contract config version missing.\n";
+            std::cerr << "Contract config HP version missing.\n";
             return -1;
         }
 
-        // Check whether this contract complies with the min version requirement.
-        int verresult = util::version_compare(std::string(cfgversion), std::string(util::MIN_CONTRACT_VERSION));
+        // Check whether this config complies with the min version requirement.
+        int verresult = util::version_compare(cfg.hpversion, std::string(util::MIN_CONFIG_VERSION));
         if (verresult == -1)
         {
-            std::cerr << "Contract version too old. Minimum "
-                      << util::MIN_CONTRACT_VERSION << " required. "
-                      << cfgversion << " found.\n";
+            std::cerr << "Config version too old. Minimum "
+                      << util::MIN_CONFIG_VERSION << " required. "
+                      << cfg.hpversion << " found.\n";
             return -1;
         }
         else if (verresult == -2)
@@ -244,9 +247,18 @@ namespace conf
             return -1;
         }
 
-        // Load up the values into the struct.
-
         cfg.contractid = d["contractid"].as<std::string>();
+        cfg.contractversion = d["contractversion"].as<std::string>();
+        if (cfg.contractid.empty())
+        {
+            std::cerr << "Contract id not specified.\n";
+            return -1;
+        }
+        else if (cfg.contractversion.empty())
+        {
+            std::cerr << "Contract version not specified.\n";
+            return -1;
+        }
 
         if (d["mode"] == MODE_OBSERVER)
             cfg.operating_mode = OPERATING_MODE::OBSERVER;
@@ -372,8 +384,9 @@ namespace conf
         // Popualte json document with 'cfg' values.
         // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
-        d.insert_or_assign("version", util::HP_VERSION);
+        d.insert_or_assign("hpversion", cfg.hpversion);
         d.insert_or_assign("contractid", cfg.contractid);
+        d.insert_or_assign("contractversion", cfg.contractversion);
         d.insert_or_assign("mode", cfg.operating_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER);
 
         d.insert_or_assign("pubkeyhex", cfg.pubkeyhex);
