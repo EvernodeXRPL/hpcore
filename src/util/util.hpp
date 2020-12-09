@@ -74,6 +74,8 @@ namespace util
 
     int clear_directory(std::string_view dir_path);
 
+    int remove_directory_recursively(std::string_view dir_path);
+
     void split_string(std::vector<std::string> &collection, std::string_view str, std::string_view delimeter);
 
     int stoull(const std::string &str, uint64_t &result);

@@ -82,8 +82,8 @@ namespace p2p
         // Check whether the message is qualified for message forwarding.
         if (p2p::validate_for_peer_msg_forwarding(session, container, content_message_type))
         {
-            // Npl messages and consensus proposals are forwarded only to trusted peers if relavent flags (npl and consensus) are set to private.
-            // If consensus and npl flags are public, these messages are forward to all the connected peers.
+            // Npl messages and consensus proposals are forwarded only to unl nodes if relavent flags (npl and consensus) are set to private.
+            // If consensus and npl flags are public, these messages are forward to all the connected nodes.
             const bool unl_only = (!conf::cfg.is_npl_public && content_message_type == p2pmsg::Message_Npl_Message) ||
                                   (!conf::cfg.is_consensus_public && content_message_type == p2pmsg::Message_Proposal_Message);
             if (session.need_consensus_msg_forwarding)
@@ -160,7 +160,7 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
         {
-            // We only trust proposals coming from trusted peers.
+            // We only trust proposals coming from UNL peers.
             if (p2pmsg::validate_container_trust(container) != 0)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
@@ -275,7 +275,7 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_Unl_Response_Message) //message is a unl response message.
         {
-            if (unl::sync_ctx.is_syncing) // Only accept history responses if ledger is syncing.
+            if (unl::sync_ctx.is_syncing) // Only accept unl responses if unl list is syncing.
             {
                 // Check the cap and insert response with lock.
                 std::scoped_lock<std::mutex> lock(unl::sync_ctx.list_mutex);
