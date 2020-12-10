@@ -1,12 +1,15 @@
-module.exports = (() => {
+(() => {
+
+    // Whether we are in Browser or NodeJs.
+    const isBrowser = !(typeof window === 'undefined');
+
+    if (isBrowser && window.HotPocket)
+        return;
 
     const supportedHpVersion = "0.0";
     const serverChallengeSize = 16;
     const connectionCheckIntervalMs = 1000;
     const recentActivityThresholdMs = 3000;
-
-    // Whether we are in Browser or NodeJs.
-    const isBrowser = !(typeof window === 'undefined');
 
     const protocols = {
         json: "json",
@@ -29,7 +32,7 @@ module.exports = (() => {
             return;
         else if (sodiumRef)
             sodium = sodiumRef;
-        else if (window && window.sodium) // If no parameter specified, try to get from window.sodium.
+        else if (isBrowser && window.sodium) // If no parameter specified, try to get from window.sodium.
             sodium = window.sodium;
         else
             throw "HotPocket: Sodium reference not set.";
@@ -42,7 +45,7 @@ module.exports = (() => {
             return;
         else if (bsonRef)
             bson = bsonRef;
-        else if (window && window.BSON) // If no parameter specified, try to get from window.BSON.
+        else if (isBrowser && window.BSON) // If no parameter specified, try to get from window.BSON.
             bson = window.BSON;
         else
             throw "HotPocket: BSON reference not set.";
@@ -55,7 +58,7 @@ module.exports = (() => {
             return;
         else if (wsRef)
             WebSocket = wsRef;
-        else if (window && window.WebSocket) // If no parameter specified, try to get from window.WebSocket.
+        else if (isBrowser && window.WebSocket) // If no parameter specified, try to get from window.WebSocket.
             WebSocket = window.WebSocket;
         else
             throw "HotPocket: WebSocket reference not set.";
@@ -65,20 +68,23 @@ module.exports = (() => {
         contractId, contractVersion, clientKeys, servers, serverKeys,
         protocol = protocols.json, requiredConnectionCount = 1, connectionTimeoutMs = 30000) {
 
-        initSodium();
-        if (protocol == protocols.BSON)
-            initBson();
-
         if (contractId == "")
             throw "contractId not specified. Specify null to bypass contract id validation.";
         if (contractVersion == "")
             throw "contractVersion not specified. Specify null to bypass contract version validation.";
         if (!clientKeys)
             throw "clientKeys not specified.";
+        if (!protocol || (protocol != protocols.json && protocol != protocols.bson))
+            throw "Valid protocol not specified.";
         if (!requiredConnectionCount || requiredConnectionCount == 0)
             throw "requiredConnectionCount must be greater than 0.";
         if (!connectionTimeoutMs || connectionTimeoutMs == 0)
             throw "Connection timeout must be greater than 0.";
+
+        initWebSocket();
+        initSodium();
+        if (protocol == protocols.BSON)
+            initBson();
 
         // Load servers and serverKeys to object keys to avoid duplicates.
 
@@ -395,11 +401,11 @@ module.exports = (() => {
 
         const messageHandler = async (rcvd) => {
 
-            let data = null;
+            const data = (connectionStatus < 2 || protocol == protocols.json) ?
+                (rcvd.data.text ? await rcvd.data.text() : rcvd.data) :
+                (rcvd.data.arrayBuffer ? await rcvd.data.arrayBuffer() : rcvd.data);
 
             try {
-                data = isBrowser ? await rcvd.data.text() : rcvd.data;
-
                 // During handshake stage, always using JSON format.
                 m = msgHelper.deserializeMessage(data, (connectionStatus < 2 ? protocols.json : protocol));
 
@@ -655,12 +661,18 @@ module.exports = (() => {
         }
     }
 
-    return {
+    const hotPocketLib = {
         KeyGenerator: KeyGenerator,
         Client: HotPocketClient,
         events: events,
+        protocols: protocols,
         initSodium: initSodium,
         initBson: initBson,
         initWebSocket: initWebSocket
     }
+
+    if (isBrowser)
+        window.HotPocket = hotPocketLib;
+    else
+        module.exports = hotPocketLib;
 })();
