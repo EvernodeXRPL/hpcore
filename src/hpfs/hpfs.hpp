@@ -18,6 +18,7 @@ namespace hpfs
         }
     };
 
+    // File block size;
     constexpr size_t BLOCK_SIZE = 4194304; // 4MB
 
     int start_merge_process(pid_t &hpfs_pid);
