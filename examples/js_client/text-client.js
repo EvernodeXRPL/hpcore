@@ -1,14 +1,10 @@
 const readline = require('readline');
 const { exit } = require('process');
-const sodium = require('libsodium-wrappers');
 const HotPocket = require('./hp-client-lib');
 
 async function main() {
 
-    await sodium.ready;
-    HotPocket.initSodium(sodium);
-
-    const keys = await HotPocket.KeyGenerator.generate();
+    const keys = await HotPocket.generateKeys();
 
     const pkhex = Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
@@ -16,7 +12,7 @@ async function main() {
     let server = 'wss://localhost:8080'
     if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
     if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-    const hpc = new HotPocket.Client(null, null, keys, [server]);
+    const hpc = await HotPocket.createClient(null, null, keys, [server]);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {

@@ -3,6 +3,7 @@
     // Whether we are in Browser or NodeJs.
     const isBrowser = !(typeof window === 'undefined');
 
+    // In browser, avoid duplicate initializations.
     if (isBrowser && window.HotPocket)
         return;
 
@@ -29,10 +30,28 @@
     let sodium = null;
     let bson = null;
 
-    function HotPocketClient(
-        contractId, contractVersion, clientKeys, servers, serverKeys,
-        protocol = protocols.json, requiredConnectionCount = 1, connectionTimeoutMs = 30000) {
+    const generateKeys = async (privateKeyHex = null) => {
 
+        await initSodium();
+
+        if (!privateKeyHex) {
+            const keys = sodium.crypto_sign_keypair();
+            return {
+                privateKey: keys.privateKey,
+                publicKey: keys.publicKey
+            }
+        }
+        else {
+            const binPrivateKey = fromHexString(privateKeyHex);
+            return {
+                privateKey: Uint8Array.from(binPrivateKey),
+                publicKey: Uint8Array.from(binPrivateKey.slice(32))
+            }
+        }
+    }
+
+    const createClient = async (contractId, contractVersion, clientKeys, servers, serverKeys, protocol = protocols.json,
+        requiredConnectionCount = 1, connectionTimeoutMs = 5000) => {
         if (contractId == "")
             throw "contractId not specified. Specify null to bypass contract id validation.";
         if (contractVersion == "")
@@ -46,8 +65,8 @@
         if (!connectionTimeoutMs || connectionTimeoutMs == 0)
             throw "Connection timeout must be greater than 0.";
 
+        await initSodium();
         initWebSocket();
-        initSodium();
         if (protocol == protocols.BSON)
             initBson();
 
@@ -75,6 +94,11 @@
         }
         if (serverKeysLookup && Object.keys(serverKeysLookup.length) == 0)
             throw "serverKeys must contain at least one key. Specify null to bypass key validation.";
+
+        return new HotPocketClient(contractId, contractVersion, clientKeys, serversLookup, serverKeysLookup, protocol, requiredConnectionCount, connectionTimeoutMs);
+    }
+
+    function HotPocketClient(contractId, contractVersion, clientKeys, serversLookup, serverKeysLookup, protocol, requiredConnectionCount, connectionTimeoutMs) {
 
         let emitter = new EventEmitter();
 
@@ -218,28 +242,6 @@
                 n.connection.sendContractReadRequest(request);
             });
         }
-    }
-
-    const KeyGenerator = {
-        generate: function (privateKeyHex = null) {
-
-            initSodium();
-
-            if (!privateKeyHex) {
-                const keys = sodium.crypto_sign_keypair();
-                return {
-                    privateKey: keys.privateKey,
-                    publicKey: keys.publicKey
-                }
-            }
-            else {
-                const binPrivateKey = fromHexString(privateKeyHex);
-                return {
-                    privateKey: Uint8Array.from(binPrivateKey),
-                    publicKey: Uint8Array.from(binPrivateKey.slice(32))
-                }
-            }
-        },
     }
 
     function HotPocketConnection(contractId, contractVersion, clientKeys, server, serverKeysLookup, protocol, connectionTimeoutMs, emitter) {
@@ -627,26 +629,35 @@
     }
 
     // Set sodium reference.
-    function initSodium(sodiumRef) {
+    async function initSodium() {
         if (sodium) // If already set, do nothing.
             return;
-        if (sodiumRef)
-            sodium = sodiumRef;
-        else if (isBrowser && window.sodium) // If no parameter specified, try to get from window.sodium.
+        else if (isBrowser && window.sodium) { // If no parameter specified, try to get from window.sodium.
             sodium = window.sodium;
-        else
-            throw "Sodium reference not set.";
+        }
+        else if (isBrowser && !window.sodium) { // If sodium not yet loaded in browser, wait for sodium ready.
+            await new Promise(resolve => {
+                window.sodium = {
+                    onload: async function (sodiumRef) {
+                        sodium = sodiumRef;
+                        resolve();
+                    }
+                }
+            })
+        }
+        else if (!isBrowser) { // nodejs
+            sodium = require('libsodium-wrappers');
+            await sodium.ready;
+        }
     }
 
     // Set bson reference.
     function initBson() {
         if (bson) // If already set, do nothing.
             return;
-        else if (bsonRef)
-            bson = bsonRef;
         else if (isBrowser && window.BSON) // If no parameter specified, try to get from window.BSON.
             bson = window.BSON;
-        else if (!isBrowser)
+        else if (!isBrowser) // nodejs
             bson = require('bson');
     }
 
@@ -656,16 +667,15 @@
             return;
         else if (isBrowser && window.WebSocket) // If no parameter specified, try to get from window.WebSocket.
             WebSocket = window.WebSocket;
-        else if (!isBrowser)
+        else if (!isBrowser) // nodejs
             WebSocket = require('ws');
     }
 
     const hotPocketLib = {
-        KeyGenerator: KeyGenerator,
-        Client: HotPocketClient,
-        events: events,
-        protocols: protocols,
-        initSodium: initSodium
+        generateKeys,
+        createClient,
+        events,
+        protocols
     }
 
     if (isBrowser)
