@@ -321,7 +321,7 @@ namespace state_sync
      * @param fs_entry_map Received fs entry map.
      * @returns true if hash is valid, otherwise false.
     */
-    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entry_map)
+    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map)
     {
         hpfs::h32 content_hash;
 
@@ -372,7 +372,8 @@ namespace state_sync
     {
         // Calculate block offset of this block.
         const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
-        return crypto::get_hash(&block_offset, sizeof(off_t), buf.data(), buf.size()) == hash;
+        std::string_view offset = std::string_view(reinterpret_cast<const char *>(&block_offset), sizeof(off_t));
+        return crypto::get_hash(offset, buf) == hash;
     }
 
     /**
@@ -435,7 +436,7 @@ namespace state_sync
      * @param fs_entry_map Received fs entry map.
      * @returns 0 on success, otherwise -1.
      */
-    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entry_map)
+    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map)
     {
         // Get the parent path of the fs entries we have received.
         LOG_DEBUG << "State sync: Processing fs entries response for " << vpath;

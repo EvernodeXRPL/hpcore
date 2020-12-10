@@ -206,33 +206,6 @@ namespace crypto
     }
 
     /**
-     * Generates blake3 hash for the given two buffers using stream hashing.
-     * @param buf1 Starting pointer of the buffer 1.
-     * @param len1 Length of the buffer 1.
-     * @param buf2 Starting pointer of the buffer 2.
-     * @param len2 Length of the buffer 2.
-     * @return The blake3 hash of the pointed buffers.
-     */
-    std::string get_hash(const void *buf1, const size_t len1, const void *buf2, const size_t len2)
-    {
-        std::string hash;
-        hash.resize(BLAKE3_OUT_LEN);
-
-        // Init stream hashing.
-        blake3_hasher hasher;
-        blake3_hasher_init(&hasher);
-
-        // update the hash with two buffers
-        blake3_hasher_update(&hasher, buf1, len1);
-        blake3_hasher_update(&hasher, buf2, len2);
-
-        // Get the final hash.
-        blake3_hasher_finalize(&hasher, reinterpret_cast<unsigned char *>(hash.data()), hash.length());
-
-        return hash;
-    }
-
-    /**
      * Generates blake3 hash for the given string view vector using stream hashing.
      */
     std::string get_hash(const std::vector<std::string_view> &sw_vect)

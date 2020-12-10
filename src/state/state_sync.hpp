@@ -65,7 +65,7 @@ namespace state_sync
 
     int request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state);
 
-    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entry_map);
+    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map);
 
     bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const hpfs::h32 *hashes, const size_t hash_count);
 
@@ -78,7 +78,7 @@ namespace state_sync
 
     void submit_request(const backlog_item &request, std::string_view lcl);
 
-    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entry_map);
+    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map);
 
     int handle_file_hashmap_response(std::string_view vpath, const hpfs::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 
