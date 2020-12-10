@@ -1,8 +1,15 @@
 const readline = require('readline');
 const { exit } = require('process');
-const HotPocket = require('./hp-node-client-lib');
+const sodium = require('libsodium-wrappers');
+const WebSocket = require('ws');
+const HotPocket = require('./hp-node-client-lib2');
 
 async function main() {
+
+    await sodium.ready;
+    HotPocket.initSodium(sodium);
+    HotPocket.initWebSocket(WebSocket);
+
     const keys = await HotPocket.KeyGenerator.generate();
 
     const pkhex = Buffer.from(keys.publicKey).toString('hex');
@@ -11,7 +18,7 @@ async function main() {
     let server = 'wss://localhost:8080'
     if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
     if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-    const hpc = new HotPocket.Client(null, server, keys, HotPocket.protocols.json);
+    const hpc = new HotPocket.Client(null, null, keys, [server]);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
