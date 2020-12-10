@@ -189,16 +189,33 @@ namespace msg::usrmsg::json
      */
     void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content)
     {
-        msg.reserve(256);
+        msg.reserve(content.size() + 256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_CONTRACT_READ_RESPONSE;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CONTENT;
-        msg += SEP_COLON;
-        msg += content;
-        msg += "\"}";
+        msg += SEP_COLON_NOQUOTE;
+
+        if (is_json_string(content))
+        {
+            // Process the final string using jsoncons.
+            jsoncons::json jstring = content;
+            jsoncons::json_options options;
+            options.escape_all_non_ascii(true);
+
+            std::string escaped_content;
+            jstring.dump(escaped_content);
+
+            msg += escaped_content;
+        }
+        else
+        {
+            msg += content;
+        }
+
+        msg += "}";
     }
 
     /**
@@ -215,7 +232,9 @@ namespace msg::usrmsg::json
      */
     void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
     {
-        msg.reserve(256);
+        const bool is_string = is_json_string(content);
+
+        msg.reserve(content.size() + 256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -230,9 +249,26 @@ namespace msg::usrmsg::json
         msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTENT;
-        msg += SEP_COLON;
-        msg += content;
-        msg += "\"}";
+        msg += SEP_COLON_NOQUOTE;
+
+        if (is_json_string(content))
+        {
+            // Process the final string using jsoncons.
+            jsoncons::json jstring = content;
+            jsoncons::json_options options;
+            options.escape_all_non_ascii(true);
+
+            std::string escaped_content;
+            jstring.dump(escaped_content);
+
+            msg += escaped_content;
+        }
+        else
+        {
+            msg += content;
+        }
+
+        msg += "}";
     }
 
     /**
@@ -504,6 +540,33 @@ namespace msg::usrmsg::json
         max_lcl_seqno = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
 
         return 0;
+    }
+
+    bool is_json_string(std::string_view content)
+    {
+        if (content.empty())
+            return true;
+
+        const char first = content[0];
+        const char last = content[content.size() - 1];
+
+        if ((first == '\"' && last == '\"') ||
+            (first == '{' && last == '}') ||
+            (first == '[' && last == ']') ||
+            content == "true" || content == "false")
+            return false;
+
+        // Check whether all characters are digits.
+        bool decimal_found = false;
+        for (const char c : content)
+        {
+            if ((c != '.' && (c < '0' || c > '9')) || (c == '.' && decimal_found)) // Not a number.
+                return true;
+            else if (c == '.') // There can only be one decimal in a proper number.
+                decimal_found = true;
+        }
+
+        return false; // Is a number.
     }
 
 } // namespace msg::usrmsg::json

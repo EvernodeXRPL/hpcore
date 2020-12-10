@@ -516,11 +516,11 @@ window.HotPocket = (() => {
         }
 
         this.serializeInput = (input) => {
-            return (typeof input === 'string' || input instanceof String) ? input : input.toString();
+            return (typeof input === "string" || input instanceof String) ? input : input.toString();
         }
 
         this.serializeSignature = (sig) => {
-            return (typeof sig === 'string' || input instanceof String) ? sig : toHexString(sig);
+            return (typeof sig === "string" || input instanceof String) ? sig : toHexString(sig);
         }
 
         this.deserializeOutput = (content) => {
@@ -576,7 +576,7 @@ window.HotPocket = (() => {
         }
 
         this.createStatusRequest = () => {
-            return { type: 'stat' };
+            return { type: "stat" };
         }
     }
 
@@ -585,7 +585,7 @@ window.HotPocket = (() => {
     }
 
     function toHexString(bytes) {
-        return bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+        return bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, "0"), "");
     }
 
     function EventEmitter() {
