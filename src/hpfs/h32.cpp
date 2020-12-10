@@ -40,7 +40,7 @@ namespace hpfs
         return *this;
     }
 
-    h32 &h32::operator=(std::string s)
+    h32 &h32::operator=(const std::string s)
     {
         memcpy(this->data, s.data(), sizeof(h32));
         return *this;
