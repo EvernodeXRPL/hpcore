@@ -1,14 +1,12 @@
 const readline = require('readline');
 const { exit } = require('process');
 const sodium = require('libsodium-wrappers');
-const WebSocket = require('ws');
-const HotPocket = require('../hp-client-lib');
+const HotPocket = require('./hp-client-lib');
 
 async function main() {
 
     await sodium.ready;
     HotPocket.initSodium(sodium);
-    HotPocket.initWebSocket(WebSocket);
 
     const keys = await HotPocket.KeyGenerator.generate();
 

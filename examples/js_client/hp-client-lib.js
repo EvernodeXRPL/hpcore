@@ -25,44 +25,9 @@
     }
     Object.freeze(events);
 
-    // Set sodium reference (https://github.com/jedisct1/libsodium.js)
-    let sodium = null;
-    const initSodium = (sodiumRef) => {
-        if (sodium) // If already set, do nothing.
-            return;
-        else if (sodiumRef)
-            sodium = sodiumRef;
-        else if (isBrowser && window.sodium) // If no parameter specified, try to get from window.sodium.
-            sodium = window.sodium;
-        else
-            throw "HotPocket: Sodium reference not set.";
-    }
-
-    // Set bson reference (https://github.com/mongodb/js-bson)
-    let bson = null;
-    const initBson = (bsonRef) => {
-        if (bson) // If already set, do nothing.
-            return;
-        else if (bsonRef)
-            bson = bsonRef;
-        else if (isBrowser && window.BSON) // If no parameter specified, try to get from window.BSON.
-            bson = window.BSON;
-        else
-            throw "HotPocket: BSON reference not set.";
-    }
-
-    // Set WebSocket reference
     let WebSocket = null;
-    const initWebSocket = (wsRef) => {
-        if (WebSocket) // If already set, do nothing.
-            return;
-        else if (wsRef)
-            WebSocket = wsRef;
-        else if (isBrowser && window.WebSocket) // If no parameter specified, try to get from window.WebSocket.
-            WebSocket = window.WebSocket;
-        else
-            throw "HotPocket: WebSocket reference not set.";
-    }
+    let sodium = null;
+    let bson = null;
 
     function HotPocketClient(
         contractId, contractVersion, clientKeys, servers, serverKeys,
@@ -402,8 +367,8 @@
         const messageHandler = async (rcvd) => {
 
             const data = (connectionStatus < 2 || protocol == protocols.json) ?
-                (rcvd.data.text ? await rcvd.data.text() : rcvd.data) :
-                (rcvd.data.arrayBuffer ? await rcvd.data.arrayBuffer() : rcvd.data);
+                (isBrowser ? await rcvd.data.text() : rcvd.data) :
+                (isBrowser ? await rcvd.data.arrayBuffer() : rcvd.data);
 
             try {
                 // During handshake stage, always using JSON format.
@@ -661,14 +626,46 @@
         }
     }
 
+    // Set sodium reference.
+    function initSodium(sodiumRef) {
+        if (sodium) // If already set, do nothing.
+            return;
+        if (sodiumRef)
+            sodium = sodiumRef;
+        else if (isBrowser && window.sodium) // If no parameter specified, try to get from window.sodium.
+            sodium = window.sodium;
+        else
+            throw "Sodium reference not set.";
+    }
+
+    // Set bson reference.
+    function initBson() {
+        if (bson) // If already set, do nothing.
+            return;
+        else if (bsonRef)
+            bson = bsonRef;
+        else if (isBrowser && window.BSON) // If no parameter specified, try to get from window.BSON.
+            bson = window.BSON;
+        else if (!isBrowser)
+            bson = require('bson');
+    }
+
+    // Set WebSocket reference.
+    function initWebSocket() {
+        if (WebSocket) // If already set, do nothing.
+            return;
+        else if (isBrowser && window.WebSocket) // If no parameter specified, try to get from window.WebSocket.
+            WebSocket = window.WebSocket;
+        else if (!isBrowser)
+            WebSocket = require('ws');
+    }
+
     const hotPocketLib = {
         KeyGenerator: KeyGenerator,
         Client: HotPocketClient,
         events: events,
         protocols: protocols,
-        initSodium: initSodium,
-        initBson: initBson,
-        initWebSocket: initWebSocket
+        initSodium: initSodium
     }
 
     if (isBrowser)
