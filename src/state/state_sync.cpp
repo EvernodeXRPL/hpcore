@@ -237,7 +237,7 @@ namespace state_sync
                     const uint32_t block_id = block_resp->block_id();
                     std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_resp->data());
 
-                    if (!validate_file_block_hash(vpath, hash, block_id, buf))
+                    if (!validate_file_block_hash(hash, block_id, buf))
                     {
                         LOG_INFO << "State sync: Skipping state response due to file block hash mismatch.";
                         continue;
@@ -311,7 +311,14 @@ namespace state_sync
         return 0;
     }
 
-    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> peer_fs_entry_map)
+    /**
+     * Vadidated the received hash against the received fs entry map.
+     * @param vpath Virtual path of the fs.
+     * @param hash Received hash.
+     * @param fs_entry_map Received fs entry map.
+     * @returns true if hash is valid, otherwise false.
+    */
+    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entry_map)
     {
         hpfs::h32 content_hash;
 
@@ -319,7 +326,7 @@ namespace state_sync
         content_hash = crypto::get_hash(vpath);
 
         // Then XOR the file hashes to the initial hash.
-        for (const auto &[name, fs_entry] : peer_fs_entry_map)
+        for (const auto &[name, fs_entry] : fs_entry_map)
         {
             content_hash ^= fs_entry.hash;
         }
@@ -327,7 +334,15 @@ namespace state_sync
         return content_hash.to_string_view() == hash;
     }
 
-    bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const hpfs::h32 *peer_hashes, const size_t peer_hash_count)
+    /**
+     * Vadidated the received hash against the received file hash map.
+     * @param vpath Virtual path of the file.
+     * @param hash Received hash.
+     * @param hashes Received block hashes.
+     * @param hash_count Size of the hash list.
+     * @returns true if hash is valid, otherwise false.
+    */
+    bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const hpfs::h32 *hashes, const size_t hash_count)
     {
         hpfs::h32 content_hash = hpfs::h32_empty;
 
@@ -335,18 +350,25 @@ namespace state_sync
         content_hash = crypto::get_hash(vpath);
 
         // Then XOR the block hashes to the initial hash.
-        for (int32_t block_id = 0; block_id < peer_hash_count; block_id++)
+        for (int32_t block_id = 0; block_id < hash_count; block_id++)
         {
-            content_hash ^= peer_hashes[block_id];
+            content_hash ^= hashes[block_id];
         }
 
         return content_hash.to_string_view() == hash;
     }
 
-    bool validate_file_block_hash(std::string_view vpath, std::string_view hash, const uint32_t block_id, std::string_view buf)
+    /**
+     * Vadidated the received hash against the received block.
+     * @param hash Received hash.
+     * @param block_id Id of the block.
+     * @param buf Block buffer.
+     * @returns true if hash is valid, otherwise false.
+    */
+    bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf)
     {
+        // Calculate block offset of this block.
         const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
-        const int buf_len = MIN(hpfs::BLOCK_SIZE, buf.size());
         return crypto::get_hash(&block_offset, sizeof(off_t), buf.data(), buf.size()) == hash;
     }
 

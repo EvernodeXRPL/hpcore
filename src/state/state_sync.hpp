@@ -69,7 +69,7 @@ namespace state_sync
 
     bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const hpfs::h32 *peer_hashes, const size_t peer_hash_count);
 
-    bool validate_file_block_hash(std::string_view vpath, std::string_view hash, const uint32_t block_id, std::string_view buf);
+    bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
 
     bool should_stop_request_loop(const hpfs::h32 current_target);
 
@@ -78,11 +78,11 @@ namespace state_sync
 
     void submit_request(const backlog_item &request, std::string_view lcl);
 
-    int handle_fs_entry_response(std::string_view parent_vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> peer_fs_entry_map);
+    int handle_fs_entry_response(std::string_view parent_vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> fs_entry_map);
 
-    int handle_file_hashmap_response(std::string_view file_vpath, const hpfs::h32 *peer_hashes, const size_t peer_hash_count, const uint64_t file_length);
+    int handle_file_hashmap_response(std::string_view file_vpath, const hpfs::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 
-    int handle_file_block_response(std::string_view file_vpath, const uint32_t block_id, std::string_view buf);
+    int handle_file_block_response(const uint32_t block_id, std::string_view buf);
 
 } // namespace state_sync
 

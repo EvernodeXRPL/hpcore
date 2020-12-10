@@ -205,6 +205,14 @@ namespace crypto
         return hash;
     }
 
+    /**
+     * Generates blake3 hash for the given two buffers using stream hashing.
+     * @param buf1 Starting pointer of the buffer 1.
+     * @param len1 Length of the buffer 1.
+     * @param buf1 Starting pointer of the buffer 2.
+     * @param len1 Length of the buffer 2.
+     * @return The blake3 hash of the pointed buffers.
+     */
     std::string get_hash(const void *buf1, const size_t len1, const void *buf2, const size_t len2)
     {
         std::string hash;
