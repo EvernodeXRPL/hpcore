@@ -40,6 +40,12 @@ namespace hpfs
         return *this;
     }
 
+    h32 &h32::operator=(std::string s)
+    {
+        memcpy(this->data, s.data(), sizeof(h32));
+        return *this;
+    }
+
     // Comparison operator for std::map key support.
     bool h32::operator<(const h32 rhs) const
     {

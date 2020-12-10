@@ -205,6 +205,25 @@ namespace crypto
         return hash;
     }
 
+    std::string get_hash(const void *buf1, const size_t len1, const void *buf2, const size_t len2)
+    {
+        std::string hash;
+        hash.resize(BLAKE3_OUT_LEN);
+
+        // Init stream hashing.
+        blake3_hasher hasher;
+        blake3_hasher_init(&hasher);
+
+        // update the hash with two buffers
+        blake3_hasher_update(&hasher, buf1, len1);
+        blake3_hasher_update(&hasher, buf2, len2);
+
+        // Get the final hash.
+        blake3_hasher_finalize(&hasher, reinterpret_cast<unsigned char *>(hash.data()), hash.length());
+
+        return hash;
+    }
+
     /**
      * Generates blake3 hash for the given string view vector using stream hashing.
      */
