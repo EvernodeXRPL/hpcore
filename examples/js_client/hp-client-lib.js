@@ -12,12 +12,19 @@
     const connectionCheckIntervalMs = 1000;
     const recentActivityThresholdMs = 3000;
 
+    // External dependency references.
+    let WebSocket = null;
+    let sodium = null;
+    let bson = null;
+
+    /*--- Included in public interface. ---*/
     const protocols = {
         json: "json",
         bson: "bson" // Needs bson reference with initBson().
     }
     Object.freeze(protocols);
 
+    /*--- Included in public interface. ---*/
     const events = {
         disconnect: "disconnect",
         contractOutput: "contractOutput",
@@ -26,10 +33,7 @@
     }
     Object.freeze(events);
 
-    let WebSocket = null;
-    let sodium = null;
-    let bson = null;
-
+    /*--- Included in public interface. ---*/
     const generateKeys = async (privateKeyHex = null) => {
 
         await initSodium();
@@ -50,6 +54,7 @@
         }
     }
 
+    /*--- Included in public interface. ---*/
     const createClient = async (contractId, contractVersion, clientKeys, servers, serverKeys, protocol = protocols.json,
         requiredConnectionCount = 1, connectionTimeoutMs = 5000) => {
         if (contractId == "")
