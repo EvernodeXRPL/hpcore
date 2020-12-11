@@ -55,24 +55,34 @@
     }
 
     /*--- Included in public interface. ---*/
-    const createClient = async (contractId, contractVersion, clientKeys, servers, serverKeys, protocol = protocols.json,
-        requiredConnectionCount = 1, connectionTimeoutMs = 5000) => {
-        if (contractId == "")
-            throw "contractId not specified. Specify null to bypass contract id validation.";
-        if (contractVersion == "")
-            throw "contractVersion not specified. Specify null to bypass contract version validation.";
+    const createClient = async (servers, clientKeys, options) => {
+
+        const defaultOptions = {
+            contractId: null,
+            contractVersion: null,
+            validServerKeys: null,
+            protocol: protocols.json,
+            requiredConnectionCount: 1,
+            connectionTimeoutMs: 5000
+        };
+        const opt = options ? { ...defaultOptions, ...options } : defaultOptions;
+        
         if (!clientKeys)
             throw "clientKeys not specified.";
-        if (!protocol || (protocol != protocols.json && protocol != protocols.bson))
+        if (opt.contractId == "")
+            throw "contractId not specified. Specify null to bypass contract id validation.";
+        if (opt.contractVersion == "")
+            throw "contractVersion not specified. Specify null to bypass contract version validation.";
+        if (!opt.protocol || (opt.protocol != protocols.json && opt.protocol != protocols.bson))
             throw "Valid protocol not specified.";
-        if (!requiredConnectionCount || requiredConnectionCount == 0)
+        if (!opt.requiredConnectionCount || opt.requiredConnectionCount == 0)
             throw "requiredConnectionCount must be greater than 0.";
-        if (!connectionTimeoutMs || connectionTimeoutMs == 0)
+        if (!opt.connectionTimeoutMs || opt.connectionTimeoutMs == 0)
             throw "Connection timeout must be greater than 0.";
 
         await initSodium();
         initWebSocket();
-        if (protocol == protocols.bson)
+        if (opt.protocol == protocols.bson)
             initBson();
 
         // Load servers and serverKeys to object keys to avoid duplicates.
@@ -85,22 +95,23 @@
         });
         if (Object.keys(serversLookup).length == 0)
             throw "servers not specified.";
-        if (requiredConnectionCount > Object.keys(serversLookup).length)
+        if (opt.requiredConnectionCount > Object.keys(serversLookup).length)
             throw "requiredConnectionCount is higher than no. of servers.";
 
         let serverKeysLookup = null;
-        if (serverKeys) {
+        if (opt.validServerKeys) {
             serverKeysLookup = {};
-            serverKeys.forEach(k => {
+            opt.validServerKeys.forEach(k => {
                 const key = k.trim();
                 if (key.length > 0)
                     serverKeysLookup[key] = true
             });
         }
-        if (serverKeysLookup && Object.keys(serverKeysLookup.length) == 0)
+        
+        if (serverKeysLookup && Object.keys(serverKeysLookup).length == 0)
             throw "serverKeys must contain at least one key. Specify null to bypass key validation.";
 
-        return new HotPocketClient(contractId, contractVersion, clientKeys, serversLookup, serverKeysLookup, protocol, requiredConnectionCount, connectionTimeoutMs);
+        return new HotPocketClient(opt.contractId, opt.contractVersion, clientKeys, serversLookup, serverKeysLookup, opt.protocol, opt.requiredConnectionCount, opt.connectionTimeoutMs);
     }
 
     function HotPocketClient(contractId, contractVersion, clientKeys, serversLookup, serverKeysLookup, protocol, requiredConnectionCount, connectionTimeoutMs) {

@@ -14,19 +14,27 @@
             const keys = await HotPocket.generateKeys(); // Can provide existing hex private key as parameter as well.
 
             // Simple connection to single server without any validations.
-            const hpc = await HotPocket.createClient(null, null, keys, ["wss://localhost:8081"]);
+            const hpc = await HotPocket.createClient(["wss://localhost:8081"], keys);
 
             // Maintain multiple connections with contract id/version and server key validation.
-            // const hpc = new HotPocket.Client("3c349abe-4d70-4f50-9fa6-018f1f2530ab", "1.0", keys,
+            // const options = {
+            //     contractId: "3c349abe-4d70-4f50-9fa6-018f1f2530ab",
+            //     contractVersion: "1.0",
+            //     validServerKeys: [
+            //         "ed5597c207bbd251997b7133d5d83a2c6ab9600810edf0bdb43f4004852b8c9e17",
+            //         "ed0b2ffd75b67c3979d3c362d8350ec190f053fa27d3dfcb2eced426efd1d3affc",
+            //         "edd2e1a817387d68adf8adb1d0b339e3f04868c3c81bf6a7472647f10657e31aa1"
+            //     ],
+            //     protocol: HotPocket.protocols.json,
+            //     requiredConnectionCount: 2,
+            //     connectionTimeoutMs: 5000
+            // };
+            // const hpc = await HotPocket.createClient(
             //     [
             //         "wss://localhost:8081",
             //         "wss://localhost:8082",
-            //         "wss://localhost:8083"],
-            //     [
-            //         "ed7e538ac55cf6347a0bd6f83f77426fb0c0406549f766286eb85dc4835423feda",
-            //         "ede1e0710d3e500b96616a1f0e8c96379d9a638d92c04a1a64a842aca511fb6760",
-            //         "ed9c39ce5c1e861b54cc5060cee80d4a487add19636a16cc328526ec9783ee721f"
-            //     ], 2);
+            //         "wss://localhost:8083"
+            //     ], keys, options);
 
             if (!await hpc.connect()) {
                 console.log('Connection failed.');
