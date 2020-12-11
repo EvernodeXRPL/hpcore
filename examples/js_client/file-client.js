@@ -3,11 +3,11 @@ const readline = require('readline');
 const { exit } = require('process');
 const bson = require('bson');
 var path = require("path");
-const HotPocket = require('./hp-node-client-lib');
+const HotPocket = require('./hp-client-lib');
 
 async function main() {
 
-    const keys = await HotPocket.KeyGenerator.generate();
+    const keys = await HotPocket.generateKeys();
 
     const pkhex = Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
@@ -15,7 +15,7 @@ async function main() {
     let server = 'wss://localhost:8080'
     if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
     if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-    const hpc = new HotPocket.Client(null, server, keys, HotPocket.protocols.bson);
+    const hpc = await HotPocket.createClient(null, null, keys, [server], null, HotPocket.protocols.bson);
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {

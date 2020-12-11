@@ -20,7 +20,7 @@
     /*--- Included in public interface. ---*/
     const protocols = {
         json: "json",
-        bson: "bson" // Needs bson reference with initBson().
+        bson: "bson" // (Requires nodejs or browserified hp client library on Browser)
     }
     Object.freeze(protocols);
 
@@ -46,7 +46,7 @@
             }
         }
         else {
-            const binPrivateKey = fromHexString(privateKeyHex);
+            const binPrivateKey = hexToUint8Array(privateKeyHex);
             return {
                 privateKey: Uint8Array.from(binPrivateKey),
                 publicKey: Uint8Array.from(binPrivateKey.slice(32))
@@ -72,7 +72,7 @@
 
         await initSodium();
         initWebSocket();
-        if (protocol == protocols.BSON)
+        if (protocol == protocols.bson)
             initBson();
 
         // Load servers and serverKeys to object keys to avoid duplicates.
@@ -250,7 +250,10 @@
     }
 
     function HotPocketConnection(contractId, contractVersion, clientKeys, server, serverKeysLookup, protocol, connectionTimeoutMs, emitter) {
-        const msgHelper = new MessageHelper(clientKeys, protocol);
+
+        // Create message helper with JSON protocol initially.
+        // After challenge handshake, we will change this to use the protocol specified by user.
+        const msgHelper = new MessageHelper(clientKeys, protocols.json);
 
         let connectionStatus = 0; // 0:none, 1:server challenge sent, 2:handshake complete.
         let serverChallenge = null; // The hex challenge we have issued to the server.
@@ -293,10 +296,10 @@
                 reportedContractVersion = m.contract_version;
 
                 // Generate the challenge we are sending to server.
-                serverChallenge = toHexString(sodium.randombytes_buf(serverChallengeSize));
+                serverChallenge = uint8ArrayToHex(sodium.randombytes_buf(serverChallengeSize));
 
                 // Sign the challenge and send back the response
-                const response = msgHelper.createUserChallengeResponse(m.challenge, serverChallenge);
+                const response = msgHelper.createUserChallengeResponse(m.challenge, serverChallenge, protocol);
                 ws.send(msgHelper.serializeObject(response));
 
                 connectionStatus = 1;
@@ -313,7 +316,7 @@
                 // Verify server challenge response.
                 const stringToVerify = serverChallenge + reportedContractId + reportedContractVersion;
                 const serverPubkeyHex = m.pubkey.substring(2); // Skip 'ed' prefix;
-                if (!sodium.crypto_sign_verify_detached(fromHexString(m.sig), stringToVerify, fromHexString(serverPubkeyHex))) {
+                if (!sodium.crypto_sign_verify_detached(hexToUint8Array(m.sig), stringToVerify, hexToUint8Array(serverPubkeyHex))) {
                     console.log(`${server} challenge response verification failed.`);
                     return false;
                 }
@@ -321,6 +324,7 @@
                 clearTimeout(handshakeTimer); // Cancel the handshake timeout monitor.
                 handshakeTimer = null;
                 serverChallenge = null; // Clear the sent challenge as we no longer need it.
+                msgHelper.useProtocol(protocol); // Here onwards, use the message protocol specified by user.
                 connectionStatus = 2; // Handshake complete.
 
                 // If we are still connected, report handshaking as successful.
@@ -341,7 +345,7 @@
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "contract_input_status") {
-                const sigKey = msgHelper.serializeSignature(m.input_sig);
+                const sigKey = msgHelper.stringifySignature(m.input_sig);
                 const resolver = contractInputResolvers[sigKey];
                 if (resolver) {
                     if (m.status == "accepted")
@@ -378,10 +382,9 @@
                 (isBrowser ? await rcvd.data.arrayBuffer() : rcvd.data);
 
             try {
-                // During handshake stage, always using JSON format.
-                m = msgHelper.deserializeMessage(data, (connectionStatus < 2 ? protocols.json : protocol));
-
-            } catch (e) {
+                m = msgHelper.deserializeMessage(data);
+            }
+            catch (e) {
                 console.log(e);
                 console.log("Exception deserializing: ");
                 console.log(data || rcvd);
@@ -508,7 +511,7 @@
             const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
 
             const msg = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
-            const sigKey = msgHelper.serializeSignature(msg.sig);
+            const sigKey = msgHelper.stringifySignature(msg.sig);
             const p = new Promise(resolve => {
                 contractInputResolvers[sigKey] = resolve;
             });
@@ -529,41 +532,57 @@
 
     function MessageHelper(keys, protocol) {
 
+        this.useProtocol = (p) => {
+            protocol = p;
+        }
+
         this.binaryEncode = (data) => {
-            return toHexString(data);
+            return protocol == protocols.json ?
+                uint8ArrayToHex(data) :
+                (Buffer.isBuffer(data) ? data : Buffer.from(data));
         }
 
         this.serializeObject = (obj) => {
-            return JSON.stringify(obj);
+            return protocol == protocols.json ? JSON.stringify(obj) : bson.serialize(obj);
         }
 
-        this.deserializeMessage = (m, protocol = protocols.json) => {
-            return JSON.parse(m);
+        this.deserializeMessage = (m) => {
+            return protocol == protocols.json ? JSON.parse(m) : bson.deserialize(m);
         }
 
         this.serializeInput = (input) => {
-            return (typeof input === "string" || input instanceof String) ? input : input.toString();
-        }
-
-        this.serializeSignature = (sig) => {
-            return (typeof sig === "string" || input instanceof String) ? sig : toHexString(sig);
+            return protocol == protocols.json ?
+                ((typeof input === "string" || input instanceof String) ? input : input.toString()) :
+                (Buffer.isBuffer(input) ? input : Buffer.from(input));
         }
 
         this.deserializeOutput = (content) => {
-            return content;
+            return protocol == protocols.json ? content : content.buffer;
         }
 
-        this.createUserChallengeResponse = (userChallenge, serverChallenge) => {
+        // Used for generating strings to hold signature as js object keys.
+        this.stringifySignature = (sig) => {
+            if (typeof sig === 'string' || sig instanceof String)
+                return sig;
+            else if (sig instanceof Uint8Array)
+                return uint8ArrayToHex(sig);
+            else if (sig.buffer) // BSON binary.
+                return uint8ArrayToHex(new Uint8Array(sig.buffer));
+            else
+                throw "Cannot stringify signature.";
+        }
+
+        this.createUserChallengeResponse = (userChallenge, serverChallenge, msgProtocol) => {
             // For challenge response encoding Hot Pocket always uses json.
             // Challenge response will specify the protocol to use for contract messages.
             const sigBytes = sodium.crypto_sign_detached(userChallenge, keys.privateKey);
 
             return {
                 type: "user_challenge_response",
-                sig: toHexString(sigBytes),
-                pubkey: "ed" + toHexString(keys.publicKey),
+                sig: this.binaryEncode(sigBytes),
+                pubkey: "ed" + this.binaryEncode(keys.publicKey),
                 server_challenge: serverChallenge,
-                protocol: protocol
+                protocol: msgProtocol
             }
         }
 
@@ -591,7 +610,6 @@
         }
 
         this.createReadRequest = (request) => {
-
             if (request.length == 0)
                 return null;
 
@@ -606,11 +624,11 @@
         }
     }
 
-    function fromHexString(hexString) {
+    function hexToUint8Array(hexString) {
         return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
     }
 
-    function toHexString(bytes) {
+    function uint8ArrayToHex(bytes) {
         return bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, "0"), "");
     }
 
