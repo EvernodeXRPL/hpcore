@@ -1,4 +1,4 @@
-const { HotPocketContract } = require("./hp-contract-lib");
+const HotPocket = require("./hp-contract-lib");
 const fs = require('fs');
 
 // HP smart contract is defined as a function which takes HP ExecutionContext as an argument.
@@ -24,10 +24,7 @@ const echoContract = async (ctx) => {
                 const msg = buf.toString();
 
                 const output = (msg == "ts") ? fs.readFileSync("exects.txt").toString() : ("Echoing: " + msg);
-
-                // Stringify to escape JSON characters and remove surrounding double quotes.
-                const stringified = JSON.stringify(output);
-                await user.send(stringified.substr(1, stringified.length - 2));
+                await user.send(output);
 
                 resolve();
             }));
@@ -53,5 +50,5 @@ const echoContract = async (ctx) => {
     // }
 }
 
-const hpc = new HotPocketContract();
+const hpc = new HotPocket.Contract();
 hpc.init(echoContract);

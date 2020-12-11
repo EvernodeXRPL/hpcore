@@ -39,6 +39,8 @@ namespace crypto
 
     std::string get_hash(const std::vector<std::string_view> &sw_vect);
 
+    std::string generate_uuid();
+
 } // namespace crypto
 
 #endif

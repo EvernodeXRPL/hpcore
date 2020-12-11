@@ -6,8 +6,6 @@
 namespace msg::usrmsg::bson
 {
 
-    void create_user_challenge(std::vector<uint8_t> &msg, std::string &challengehex);
-
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl);
 
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,

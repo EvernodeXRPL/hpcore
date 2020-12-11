@@ -227,4 +227,23 @@ namespace crypto
         return hash;
     }
 
+    std::string generate_uuid()
+    {
+        std::string rand_bytes;
+        random_bytes(rand_bytes, 16);
+
+        // Set bits for UUID v4 variant 1.
+        uint8_t *uuid = (uint8_t *)rand_bytes.data();
+        uuid[6] = (uuid[8] & 0x0F) | 0x40;
+        uuid[8] = (uuid[8] & 0xBF) | 0x80;
+
+        std::string hex;
+        util::bin2hex(
+            hex,
+            reinterpret_cast<const unsigned char *>(rand_bytes.data()),
+            rand_bytes.length());
+
+        return hex.substr(0, 8) + "-" + hex.substr(8, 4) + "-" + hex.substr(12, 4) + "-" + hex.substr(16, 4) + "-" + hex.substr(20);
+    }
+
 } // namespace crypto
