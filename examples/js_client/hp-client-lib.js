@@ -693,6 +693,9 @@
             sodium = require('libsodium-wrappers');
             await sodium.ready;
         }
+        else {
+            throw "Sodium reference not found. Please include sodium js lib in browser scripts.";
+        }
     }
 
     // Set bson reference.
@@ -703,6 +706,8 @@
             bson = window.BSON;
         else if (!isBrowser) // nodejs
             bson = require('bson');
+        else
+            throw "BSON reference not found.";
     }
 
     // Set WebSocket reference.
@@ -713,6 +718,8 @@
             WebSocket = window.WebSocket;
         else if (!isBrowser) // nodejs
             WebSocket = require('ws');
+        else
+            throw "WebSocket reference not found.";
     }
 
     const hotPocketLib = {
