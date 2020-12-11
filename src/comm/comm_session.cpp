@@ -212,7 +212,7 @@ namespace comm
         if (state == SESSION_STATE::CLOSED)
             return;
 
-        // Invoking the handler to derived class for cleanups.
+        // Invoking the handler of the derived class for cleanups.
         handle_close();
 
         state = SESSION_STATE::CLOSED;
