@@ -480,10 +480,15 @@
         }
 
         this.close = () => {
-            return new Promise(resolve => {
-                closeResolver = resolve;
-                ws.close();
-            });
+            if (ws.readyState == WebSocket.OPEN) {
+                return new Promise(resolve => {
+                    closeResolver = resolve;
+                    ws.close();
+                });
+            }
+            else {
+                return Promise.resolve();
+            }
         }
 
         this.getStatus = () => {
