@@ -88,7 +88,7 @@ namespace comm
                     itr->check_last_activity_rules();
 
                     if (itr->state == SESSION_STATE::MUST_CLOSE)
-                        itr->close(true);
+                        itr->close();
 
                     if (itr->state == SESSION_STATE::CLOSED)
                         itr = sessions.erase(itr);
@@ -101,7 +101,7 @@ namespace comm
 
             // Close and erase all sessions.
             for (T &session : sessions)
-                session.close(false);
+                session.close();
 
             sessions.clear();
 

@@ -207,13 +207,13 @@ namespace comm
      * Close the connection and wrap up any session processing threads.
      * This will be only called by the global comm_server thread.
      */
-    void comm_session::close(const bool invoke_handler)
+    void comm_session::close()
     {
         if (state == SESSION_STATE::CLOSED)
             return;
 
-        if (invoke_handler)
-            handle_close();
+        // Invoking the handler of the derived class for cleanups.
+        handle_close();
 
         state = SESSION_STATE::CLOSED;
 
@@ -240,7 +240,7 @@ namespace comm
             // Sessions use pubkey hex as unique id (skipping first 2 bytes key type prefix).
             return uniqueid.substr(2, 10) + (is_inbound ? ":in" : ":out");
         }
-    
+
         return uniqueid + (is_inbound ? ":in" : ":out");
     }
 
