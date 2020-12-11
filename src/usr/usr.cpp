@@ -92,10 +92,17 @@ namespace usr
 
         std::string user_pubkey_hex;
         std::string protocol_code;
-        std::string_view original_challenge = session.issued_challenge;
-
-        if (msg::usrmsg::json::verify_user_handshake_response(user_pubkey_hex, protocol_code, message, original_challenge) == 0)
+        std::string server_challenge;
+        if (msg::usrmsg::json::verify_user_challenge(user_pubkey_hex, protocol_code, server_challenge, message, session.issued_challenge) == 0)
         {
+            // If user has specified server challange, we need to send a challenge response.
+            if (!server_challenge.empty())
+            {
+                std::vector<uint8_t> msg;
+                msg::usrmsg::json::create_server_challenge_response(msg, server_challenge);
+                session.send(msg);
+            }
+
             // Challenge signature verification successful. Add the user to our global user list.
             add_user(session, user_pubkey_hex, protocol_code);
             return 0;

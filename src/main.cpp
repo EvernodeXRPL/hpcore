@@ -195,9 +195,11 @@ int main(int argc, char **argv)
 
                 hplog::init();
 
+                LOG_INFO << "Hot Pocket " << util::HP_VERSION;
                 LOG_INFO << "Operating mode: "
                          << (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
                 LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
+                LOG_INFO << "Contract: " << conf::cfg.contractid << " (" << conf::cfg.contractversion << ")";
 
                 if (ledger::init() == -1 ||
                     unl::init() == -1 ||

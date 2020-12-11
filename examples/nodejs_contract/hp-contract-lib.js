@@ -3,21 +3,31 @@ const tty = require('tty');
 require('process');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
-const CONTROL_MESSAGE = {
-    CONTRACT_END: "contract_end",
-    UNL_CHANGESET: "unl_changeset"
+const controlMessages = {
+    contractEnd: "contract_end",
+    unlChangeset: "unl_changeset"
 }
-Object.freeze(CONTROL_MESSAGE);
+Object.freeze(controlMessages);
+
+const clientProtocols = {
+    json: "json",
+    bson: "bson"
+}
+Object.freeze(clientProtocols);
 
 class HotPocketContract {
 
     #controlChannel = null;
+    #clientProtocol = null;
 
-    init(contractFunc) {
+    init(contractFunc, clientProtocol = clientProtocols.json) {
 
         if (this.#controlChannel) // Already initialized.
             return false;
 
+        this.#clientProtocol = clientProtocol;
+
+        // Check whether we are running on a console and provide error.
         if (tty.isatty(process.stdin.fd)) {
             console.error("Error: Hot Pocket smart contracts must be executed via Hot Pocket.");
             return false;
@@ -37,7 +47,7 @@ class HotPocketContract {
         const pendingTasks = [];
         const nplChannel = new NplChannel(hpargs.nplfd);
 
-        const users = new UsersCollection(hpargs.userinfd, hpargs.users);
+        const users = new UsersCollection(hpargs.userinfd, hpargs.users, this.#clientProtocol);
         const peers = new PeersCollection(hpargs.readonly, hpargs.unl, nplChannel, pendingTasks);
         const executionContext = new ContractExecutionContext(hpargs, users, peers, this.#controlChannel);
 
@@ -51,7 +61,7 @@ class HotPocketContract {
     }
 
     #terminate = () => {
-        this.#controlChannel.send({ type: CONTROL_MESSAGE.CONTRACT_END });
+        this.#controlChannel.send({ type: controlMessages.contractEnd });
         this.#controlChannel.close();
     }
 }
@@ -72,7 +82,7 @@ class ContractExecutionContext {
     async updateUnl(addArray, removeArray) {
         if (this.readonly)
             throw "UNL update not allowed in readonly mode."
-        await this.#controlChannel.send({ type: CONTROL_MESSAGE.UNL_CHANGESET, add: addArray, remove: removeArray });
+        await this.#controlChannel.send({ type: controlMessages.unlChangeset, add: addArray, remove: removeArray });
     }
 }
 
@@ -81,7 +91,7 @@ class UsersCollection {
     #users = {};
     #infd = null;
 
-    constructor(userInputsFd, usersObj) {
+    constructor(userInputsFd, usersObj, clientProtocol) {
         this.#infd = userInputsFd;
 
         Object.entries(usersObj).forEach(([pubKey, arr]) => {
@@ -89,7 +99,7 @@ class UsersCollection {
             const outfd = arr[0]; // First array element is the output fd.
             arr.splice(0, 1); // Remove first element (output fd). The rest are pairs of msg offset/length tuples.
 
-            const channel = new UserChannel(outfd);
+            const channel = new UserChannel(outfd, clientProtocol);
             this.#users[pubKey] = new User(pubKey, channel, arr);
         });
     }
@@ -134,17 +144,40 @@ class User {
 
 class UserChannel {
     #outfd = -1;
+    #clientProtocol = null;
 
-    constructor(outfd) {
+    constructor(outfd, clientProtocol) {
         this.#outfd = outfd;
+        this.#clientProtocol = clientProtocol;
     }
 
     send(msg) {
-        const messageBuf = Buffer.from(msg);
+        const messageBuf = this.serialize(msg);
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
         headerBuf.writeUInt32BE(messageBuf.byteLength)
         return writevAsync(this.#outfd, [headerBuf, messageBuf]);
+    }
+
+    serialize(msg) {
+
+        if (!msg)
+            throw "Cannot serialize null content.";
+
+        if (Buffer.isBuffer(msg))
+            return msg;
+
+        if (this.#clientProtocol == clientProtocols.bson) {
+            return Buffer.from(msg);
+        }
+        else { // json
+
+            // In JSON, we need to ensure that the final buffer contains a string.
+            if (typeof msg === "string" || msg instanceof String)
+                return Buffer.from(msg);
+            else
+                return Buffer.from(JSON.stringify(msg));
+        }
     }
 }
 
@@ -299,5 +332,6 @@ const invokeCallback = async (callback, ...args) => {
 const errHandler = (err) => console.log(err);
 
 module.exports = {
-    HotPocketContract
+    Contract: HotPocketContract,
+    clientProtocols
 }

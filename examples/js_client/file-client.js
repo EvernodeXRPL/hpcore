@@ -1,13 +1,12 @@
 const fs = require('fs');
 const readline = require('readline');
-const { exit } = require('process');
 const bson = require('bson');
 var path = require("path");
-const HotPocket = require('./hp-node-client-lib');
+const HotPocket = require('./hp-client-lib');
 
 async function main() {
 
-    const keys = await HotPocket.KeyGenerator.generate();
+    const keys = await HotPocket.generateKeys();
 
     const pkhex = Buffer.from(keys.publicKey).toString('hex');
     console.log('My public key is: ' + pkhex);
@@ -15,19 +14,32 @@ async function main() {
     let server = 'wss://localhost:8080'
     if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2]
     if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3]
-    const hpc = new HotPocket.Client(null, server, keys, HotPocket.protocols.bson);
+    const hpc = await HotPocket.createClient([server], keys, { protocol: HotPocket.protocols.bson });
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         console.log('Connection failed.');
-        exit();
+        return;
     }
     console.log('HotPocket Connected.');
 
+    // start listening for stdin
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    // On ctrl + c we should close HP connection gracefully.
+    rl.on('SIGINT', () => {
+        console.log('SIGINT received...');
+        rl.close();
+        hpc.close();
+    });
+
     // This will get fired if HP server disconnects unexpectedly.
     hpc.on(HotPocket.events.disconnect, () => {
-        console.log('Server diconnected');
-        exit();
+        console.log('Disconnected');
+        rl.close();
     })
 
     // This will get fired when contract sends an output.
@@ -66,18 +78,7 @@ async function main() {
             console.log("Unknown read request result.");
         }
     })
-
-    // On ctrl + c we should close HP connection gracefully.
-    process.once('SIGINT', function () {
-        console.log('SIGINT received...');
-        hpc.close();
-    });
-
-    // start listening for stdin
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
+    
     console.log("Ready to accept inputs.");
 
     const input_pump = () => {
