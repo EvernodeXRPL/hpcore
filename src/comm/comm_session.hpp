@@ -66,7 +66,7 @@ namespace comm
         void process_outbound_msg_queue();
         void check_last_activity_rules();
         void mark_for_closure();
-        void close(const bool invoke_handler = true);
+        void close();
         void mark_as_verified();
         virtual const std::string display_name();
 
