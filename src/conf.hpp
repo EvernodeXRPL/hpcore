@@ -84,7 +84,9 @@ namespace conf
         bool is_unl = false;                           // Indicate whether we are a unl node or not.
 
         // Config elements which are loaded from the config file.
+        std::string hpversion;                                    // Version of Hot Pocket that generated the config.
         std::string contractid;                                   // Contract guid.
+        std::string contractversion;                              // Contract version string.
         OPERATING_MODE operating_mode = OPERATING_MODE::OBSERVER; // Configured startup operating mode of the contract (Observer/Proposer).
         std::string pubkeyhex;                                    // Contract hex public key
         std::string seckeyhex;                                    // Contract hex secret key

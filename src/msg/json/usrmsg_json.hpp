@@ -6,7 +6,9 @@
 namespace msg::usrmsg::json
 {
 
-    void create_user_challenge(std::vector<uint8_t> &msg, std::string &challengehex);
+    void create_user_challenge(std::vector<uint8_t> &msg, std::string &challenge);
+
+    void create_server_challenge_response(std::vector<uint8_t> &msg, const std::string &original_challenge);
 
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl);
 
@@ -17,8 +19,8 @@ namespace msg::usrmsg::json
 
     void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl);
 
-    int verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
-                                       std::string_view response, std::string_view original_challenge);
+    int verify_user_challenge(std::string &extracted_pubkeyhex, std::string &extracted_protocol, std::string &extracted_server_challenge,
+                              std::string_view response, std::string_view original_challenge);
 
     int parse_user_message(jsoncons::json &d, std::string_view message);
 
@@ -31,6 +33,8 @@ namespace msg::usrmsg::json
 
     int extract_input_container(std::string &input, std::string &nonce,
                                 uint64_t &max_lcl_seqno, std::string_view contentjson);
+
+    bool is_json_string(std::string_view content);
 
 } // namespace msg::usrmsg::json
 

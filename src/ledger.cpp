@@ -855,12 +855,12 @@ namespace ledger
                 {
                     throw "Lcl file parsing error in file " + b + " in " + conf::ctx.hist_dir;
                 }
-                const std::string_view extension_a = util::fetch_file_extension(conf::ctx.hist_dir + a);
+                const std::string_view extension_a = util::fetch_file_extension(a);
                 if (extension_a != ".lcl")
                 {
                     throw "Found invalid file extension: " + std::string(extension_a) + " for lcl file " + a + " in " + conf::ctx.hist_dir;
                 }
-                const std::string_view extension_b = util::fetch_file_extension(conf::ctx.hist_dir + b);
+                const std::string_view extension_b = util::fetch_file_extension(b);
                 if (extension_b != ".lcl")
                 {
                     throw "Found invalid file extension: " + std::string(extension_b) + " for lcl file " + b + " in " + conf::ctx.hist_dir;

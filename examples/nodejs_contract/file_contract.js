@@ -1,4 +1,4 @@
-const { HotPocketContract } = require("./hp-contract-lib");
+const HotPocket = require("./hp-contract-lib");
 const fs = require('fs');
 const bson = require('bson');
 
@@ -76,5 +76,5 @@ const fileContract = async (ctx) => {
     }
 };
 
-const hpc = new HotPocketContract();
-hpc.init(fileContract);
+const hpc = new HotPocket.Contract();
+hpc.init(fileContract, HotPocket.clientProtocols.bson);
