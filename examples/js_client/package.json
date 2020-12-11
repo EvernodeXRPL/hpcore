@@ -1,10 +1,17 @@
 {
     "scripts": {
-        "build": "browserify --node -p tinyify hp-node-client-lib.js -o dist/hp-node-client-lib.js"
+        "build-node": "browserify --node -p tinyify hp-client-lib.js -o dist/hp-node-client-lib.js",
+        "build-browser": "browserify -p tinyify hp-client-lib.js -o dist/hp-browser-client-lib.js"
     },
     "dependencies": {
         "libsodium-wrappers": "0.7.6",
         "ws": "7.1.2",
         "bson": "4.0.4"
+    },
+    "devDependencies": {
+        "tinyify": "3.0.0",
+        "browserify": "16.5.2",
+        "utf-8-validate": "5.0.2",
+        "bufferutil": "4.0.1"
     }
 }
