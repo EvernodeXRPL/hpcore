@@ -66,7 +66,7 @@
             connectionTimeoutMs: 5000
         };
         const opt = options ? { ...defaultOptions, ...options } : defaultOptions;
-        
+
         if (!clientKeys)
             throw "clientKeys not specified.";
         if (opt.contractId == "")
@@ -107,7 +107,7 @@
                     serverKeysLookup[key] = true
             });
         }
-        
+
         if (serverKeysLookup && Object.keys(serverKeysLookup).length == 0)
             throw "serverKeys must contain at least one key. Specify null to bypass key validation.";
 
@@ -230,7 +230,9 @@
                 return;
 
             status = 2;
-            emitter = null;
+            emitter.clear(events.connectionChange);
+            emitter.clear(events.contractOutput);
+            emitter.clear(events.contractReadResponse);
 
             // Close all nodes connections.
             await Promise.all(nodes.filter(n => n.connection).map(n => n.connection.close()));
@@ -657,8 +659,11 @@
                 registrations[eventName].forEach(listener => listener(...value));
         }
 
-        this.clear = () => {
-            Object.keys(registrations).forEach(k => delete registrations[k]);
+        this.clear = (eventName) => {
+            if (eventName)
+                delete registrations[eventName]
+            else
+                Object.keys(registrations).forEach(k => delete registrations[k]);
         }
     }
 

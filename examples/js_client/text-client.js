@@ -1,5 +1,4 @@
 const readline = require('readline');
-const { exit } = require('process');
 const HotPocket = require('./hp-client-lib');
 
 async function main() {
@@ -17,14 +16,27 @@ async function main() {
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         console.log('Connection failed.');
-        exit();
+        return;
     }
     console.log('HotPocket Connected.');
 
+    // start listening for stdin
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    // On ctrl + c we should close HP connection gracefully.
+    rl.on('SIGINT', () => {
+        console.log('SIGINT received...');
+        rl.close();
+        hpc.close();
+    });
+
     // This will get fired if HP server disconnects unexpectedly.
     hpc.on(HotPocket.events.disconnect, () => {
-        console.log('Server disconnected');
-        exit();
+        console.log('Disconnected');
+        rl.close();
     })
 
     // This will get fired when contract sends an output.
@@ -37,17 +49,6 @@ async function main() {
         console.log("Contract read response>> " + response);
     })
 
-    // On ctrl + c we should close HP connection gracefully.
-    process.once('SIGINT', function () {
-        console.log('SIGINT received...');
-        hpc.close();
-    });
-
-    // start listening for stdin
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
     console.log("Ready to accept inputs.");
 
     const input_pump = () => {
