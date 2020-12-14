@@ -124,6 +124,8 @@ namespace consensus
 
             const p2p::proposal p = create_stage0_proposal(lcl, state, unl_hash);
             broadcast_proposal(p);
+
+            ctx.stage = 1; // Transition to next stage.
         }
         else
         {
@@ -131,8 +133,9 @@ namespace consensus
 
             const size_t unl_count = unl::count();
             vote_counter votes;
+            const int sync_status = check_sync_status(lcl, unl_hash, unl_count, votes);
 
-            if (is_in_sync(lcl, unl_hash, unl_count, votes))
+            if (sync_status == 0)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
                 const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state, unl_hash);
@@ -150,14 +153,23 @@ namespace consensus
                 // (We broadcast this at stage 2 in order to give it enough time to reach others before next round stage 0)
                 broadcast_nonunl_proposal();
             }
+
+            // We have finished a consensus stage. Transition or reset stage based on sync status.
+
+            if (sync_status == -2)
+                ctx.stage = 0; // Majority lcl unreliable. Reset to stage 0.
+            else
+                ctx.stage = (ctx.stage + 1) % 4; // Transition to next stage. (if at stage 3 go to next round stage 0)
         }
 
-        // We have finished a consensus stage. Transition to next stage. (if at stage 3 go to next round stage 0)
-        ctx.stage = (ctx.stage + 1) % 4;
         return 0;
     }
 
-    bool is_in_sync(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes)
+    /**
+     * Checks whether we are in sync with the received votes.
+     * @return 0 if we are in sync. -1 on lcl or state desync. -2 if majority lcl unreliable.
+     */
+    int check_sync_status(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes)
     {
         // Check if we're ahead/behind of consensus lcl.
         bool is_lcl_desync = false;
@@ -200,11 +212,15 @@ namespace consensus
             if (!is_lcl_desync && !is_state_desync && !is_unl_desync)
             {
                 conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
-                return true;
+                return 0;
             }
+
+            // lcl or state desync.
+            return -1;
         }
 
-        return false;
+        // Majority lcl couldn't be detected reliably.
+        return -2;
     }
 
     /**
