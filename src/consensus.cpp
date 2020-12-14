@@ -23,13 +23,7 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace consensus
 {
-
-    /**
-     * Voting thresholds for consensus stages.
-     */
-    constexpr float STAGE1_THRESHOLD = 0.5;
-    constexpr float STAGE2_THRESHOLD = 0.65;
-    constexpr float STAGE3_THRESHOLD = 0.8;
+    constexpr float STAGE_THRESHOLDS[] = {0.5, 0.65, 0.8}; // Voting thresholds for stage 1,2,3
     constexpr float MAJORITY_THRESHOLD = 0.8;
     constexpr size_t ROUND_NONCE_SIZE = 64;
 
@@ -112,16 +106,14 @@ namespace consensus
         // arived ones and expired ones.
         revise_candidate_proposals();
 
-        // If possible, switch back to proposer mode before stage processing.
+        // If possible, switch back to proposer mode before stage processing. (if we were syncing before)
         check_sync_completion();
 
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        const size_t unl_count = unl::count();
-        std::string unl_hash = unl::get_hash();
         hpfs::h32 state = state_common::ctx.get_state();
-        vote_counter votes;
+        std::string unl_hash = unl::get_hash();
 
         if (ctx.stage == 0)
         {
@@ -130,44 +122,33 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
-            const p2p::proposal new_round_prop = create_stage0_proposal(lcl, state, unl_hash);
-            broadcast_proposal(new_round_prop);
+            const p2p::proposal p = create_stage0_proposal(lcl, state, unl_hash);
+            broadcast_proposal(p);
         }
-        else if (ctx.stage == 1)
+        else
         {
+            // Stages 1,2,3
+
+            const size_t unl_count = unl::count();
+            vote_counter votes;
+
             if (is_in_sync(lcl, unl_hash, unl_count, votes))
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(STAGE1_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
-                broadcast_proposal(p);
-            }
-        }
-        else if (ctx.stage == 2)
-        {
-            if (is_in_sync(lcl, unl_hash, unl_count, votes))
-            {
-                // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(STAGE2_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
-                broadcast_proposal(p);
-            }
-
-            // During stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
-            // This will be captured and verified during every round stage 0.
-            // (We broadcast this at stage 2 instead of 3 to give it enough time to reach others before next round stage 0)
-            broadcast_nonunl_proposal();
-        }
-        else if (ctx.stage == 3)
-        {
-            if (is_in_sync(lcl, unl_hash, unl_count, votes))
-            {
-                // If we are in sync, vote and get the final winning votes.
-                // This is the consensus proposal which makes it into the ledger and contract execution
-                const p2p::proposal p = create_stage123_proposal(STAGE3_THRESHOLD, votes, lcl, unl_count, state, unl_hash);
+                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state, unl_hash);
                 broadcast_proposal(p);
 
-                // Update the ledger and execute the contract using the consensus proposal.
-                if (update_ledger_and_execute_contract(p, lcl, state) == -1)
+                // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
+                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state) == -1)
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
+            }
+
+            if (ctx.stage == 2)
+            {
+                // At end of stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
+                // This will be captured and verified during every round stage 0.
+                // (We broadcast this at stage 2 in order to give it enough time to reach others before next round stage 0)
+                broadcast_nonunl_proposal();
             }
         }
 
@@ -375,6 +356,28 @@ namespace consensus
     }
 
     /**
+     * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Does not send in OBSERVER mode.
+     * @return 0 on success. -1 if no peers to broadcast.
+     */
+    void broadcast_proposal(const p2p::proposal &p)
+    {
+        // In observer mode, we do not send out proposals.
+        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast proposals.
+            return;
+
+        flatbuffers::FlatBufferBuilder fbuf(1024);
+        p2pmsg::create_msg_from_proposal(fbuf, p);
+        p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
+
+        LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i/o:" << p.users.size()
+                  << "/" << p.hash_inputs.size()
+                  << "/" << p.hash_outputs.size()
+                  << " ts:" << std::to_string(p.time)
+                  << " lcl:" << p.lcl.substr(0, 15)
+                  << " state:" << p.state;
+    }
+
+    /**
      * Enqueue npl messages to the npl messages queue.
      * @param npl_msg Constructed npl message.
      * @return Returns true if enqueue is success otherwise false.
@@ -542,7 +545,7 @@ namespace consensus
         return p;
     }
 
-    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
@@ -595,7 +598,7 @@ namespace consensus
                     increment(votes.unl_removals, pubkey);
         }
 
-        uint32_t required_votes = ceil(vote_threshold * unl_count);
+        uint32_t required_votes = ceil(STAGE_THRESHOLDS[ctx.stage - 1] * unl_count);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -665,28 +668,6 @@ namespace consensus
     }
 
     /**
-     * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Does not send in OBSERVER mode.
-     * @return 0 on success. -1 if no peers to broadcast.
-     */
-    void broadcast_proposal(const p2p::proposal &p)
-    {
-        // In observer mode, we do not send out proposals.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast proposals.
-            return;
-
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        p2pmsg::create_msg_from_proposal(fbuf, p);
-        p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
-
-        LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i/o:" << p.users.size()
-                  << "/" << p.hash_inputs.size()
-                  << "/" << p.hash_outputs.size()
-                  << " ts:" << std::to_string(p.time)
-                  << " lcl:" << p.lcl.substr(0, 15)
-                  << " state:" << p.state;
-    }
-
-    /**
      * Check whether our lcl is consistent with the proposals being made by our UNL peers lcl votes.
      * @param is_desync Indicates whether our lcl is out-of-sync with majority lcl. Only valid if this method returns True.
      * @param majority_lcl The majority lcl based on the votes received. Only valid if this method returns True.
@@ -708,7 +689,7 @@ namespace consensus
         const uint32_t min_required = ceil(MAJORITY_THRESHOLD * unl_count);
         if (total_lcl_votes < min_required)
         {
-            LOG_DEBUG << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << min_required;
+            LOG_INFO << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << min_required;
             return false;
         }
 
@@ -736,7 +717,7 @@ namespace consensus
             const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
             if (winning_votes < min_wins_required)
             {
-                LOG_DEBUG << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
+                LOG_INFO << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
                 return false;
             }
             else

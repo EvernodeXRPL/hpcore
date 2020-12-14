@@ -119,7 +119,7 @@ namespace consensus
 
     p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state, std::string_view unl_hash);
 
-    p2p::proposal create_stage123_proposal(const float_t vote_threshold, vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash);
 
     void broadcast_proposal(const p2p::proposal &p);
 
