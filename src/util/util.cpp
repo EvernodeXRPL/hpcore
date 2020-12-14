@@ -210,11 +210,18 @@ namespace util
             // Check and create parent dir tree first.
             char *path2 = strdup(path.data());
             char *parent_dir_path = dirname(path2);
+            bool error_thrown = false;
+
             if (create_dir_tree_recursive(parent_dir_path) == -1)
-                return -1;
+                error_thrown = true;
+
+            free(path2);
 
             // Create this dir.
-            if (mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
+            if (!error_thrown && mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
+                error_thrown = true;
+
+            if(error_thrown)
                 return -1;
         }
 
