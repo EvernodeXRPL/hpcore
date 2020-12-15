@@ -19,8 +19,15 @@ struct RawInputBuilder;
 struct FullHistoryBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef FullHistoryBlockBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_RAW_INPUTS = 4
+    VT_VERSION = 4,
+    VT_RAW_INPUTS = 6
   };
+  const flatbuffers::String *version() const {
+    return GetPointer<const flatbuffers::String *>(VT_VERSION);
+  }
+  flatbuffers::String *mutable_version() {
+    return GetPointer<flatbuffers::String *>(VT_VERSION);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>> *raw_inputs() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>> *>(VT_RAW_INPUTS);
   }
@@ -29,6 +36,8 @@ struct FullHistoryBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_VERSION) &&
+           verifier.VerifyString(version()) &&
            VerifyOffset(verifier, VT_RAW_INPUTS) &&
            verifier.VerifyVector(raw_inputs()) &&
            verifier.VerifyVectorOfTables(raw_inputs()) &&
@@ -40,6 +49,9 @@ struct FullHistoryBlockBuilder {
   typedef FullHistoryBlock Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_version(flatbuffers::Offset<flatbuffers::String> version) {
+    fbb_.AddOffset(FullHistoryBlock::VT_VERSION, version);
+  }
   void add_raw_inputs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>>> raw_inputs) {
     fbb_.AddOffset(FullHistoryBlock::VT_RAW_INPUTS, raw_inputs);
   }
@@ -56,18 +68,23 @@ struct FullHistoryBlockBuilder {
 
 inline flatbuffers::Offset<FullHistoryBlock> CreateFullHistoryBlock(
     flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> version = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>>> raw_inputs = 0) {
   FullHistoryBlockBuilder builder_(_fbb);
   builder_.add_raw_inputs(raw_inputs);
+  builder_.add_version(version);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<FullHistoryBlock> CreateFullHistoryBlockDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    const char *version = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>> *raw_inputs = nullptr) {
+  auto version__ = version ? _fbb.CreateString(version) : 0;
   auto raw_inputs__ = raw_inputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>>(*raw_inputs) : 0;
   return msg::fbuf::ledger::CreateFullHistoryBlock(
       _fbb,
+      version__,
       raw_inputs__);
 }
 
