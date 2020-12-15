@@ -137,7 +137,7 @@ namespace consensus
 
     int update_ledger_and_execute_contract(const p2p::proposal &proposal, std::string &new_lcl, hpfs::h32 &new_state);
 
-    void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
+    int dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 
     int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 

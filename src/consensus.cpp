@@ -851,7 +851,8 @@ namespace consensus
         ctx.candidate_unl_changeset.clear();
 
         // Send any output from the previous consensus round to locally connected users.
-        dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl);
+        if (dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl) == -1)
+            return -1;
 
         // Execute the contract
         if (!ctx.is_shutting_down)
@@ -899,7 +900,7 @@ namespace consensus
      * Dispatch any consensus-reached outputs to matching users if they are connected to us locally.
      * @param cons_prop The proposal that achieved consensus.
      */
-    void dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
+    int dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
     {
         std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
@@ -909,8 +910,8 @@ namespace consensus
             const bool hashfound = (cu_itr != ctx.candidate_user_outputs.end());
             if (!hashfound)
             {
-                LOG_ERROR << "Output required but wasn't in our candidate outputs map, this will potentially cause desync.";
-                // todo: consider fatal
+                LOG_ERROR << "Output required but wasn't in our candidate outputs map.";
+                return -1;
             }
             else
             {
@@ -938,6 +939,8 @@ namespace consensus
                 ctx.candidate_user_outputs.erase(cu_itr);
             }
         }
+
+        return 0;
     }
 
     /**
