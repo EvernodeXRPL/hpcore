@@ -21,16 +21,23 @@ struct Unl_ChangesetBuilder;
 struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LedgerBlockBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_SEQ_NO = 4,
-    VT_TIME = 6,
-    VT_LCL = 8,
-    VT_STATE = 10,
-    VT_UNL = 12,
-    VT_USERS = 14,
-    VT_INPUTS = 16,
-    VT_OUTPUTS = 18,
-    VT_UNL_CHANGESET = 20
+    VT_VERSION = 4,
+    VT_SEQ_NO = 6,
+    VT_TIME = 8,
+    VT_LCL = 10,
+    VT_STATE = 12,
+    VT_UNL = 14,
+    VT_USERS = 16,
+    VT_INPUTS = 18,
+    VT_OUTPUTS = 20,
+    VT_UNL_CHANGESET = 22
   };
+  const flatbuffers::String *version() const {
+    return GetPointer<const flatbuffers::String *>(VT_VERSION);
+  }
+  flatbuffers::String *mutable_version() {
+    return GetPointer<flatbuffers::String *>(VT_VERSION);
+  }
   uint64_t seq_no() const {
     return GetField<uint64_t>(VT_SEQ_NO, 0);
   }
@@ -87,6 +94,8 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_VERSION) &&
+           verifier.VerifyString(version()) &&
            VerifyField<uint64_t>(verifier, VT_SEQ_NO) &&
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyOffset(verifier, VT_LCL) &&
@@ -114,6 +123,9 @@ struct LedgerBlockBuilder {
   typedef LedgerBlock Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_version(flatbuffers::Offset<flatbuffers::String> version) {
+    fbb_.AddOffset(LedgerBlock::VT_VERSION, version);
+  }
   void add_seq_no(uint64_t seq_no) {
     fbb_.AddElement<uint64_t>(LedgerBlock::VT_SEQ_NO, seq_no, 0);
   }
@@ -154,6 +166,7 @@ struct LedgerBlockBuilder {
 
 inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
     flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> version = 0,
     uint64_t seq_no = 0,
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
@@ -173,11 +186,13 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
   builder_.add_unl(unl);
   builder_.add_state(state);
   builder_.add_lcl(lcl);
+  builder_.add_version(version);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    const char *version = nullptr,
     uint64_t seq_no = 0,
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
@@ -187,6 +202,7 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *inputs = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *outputs = nullptr,
     flatbuffers::Offset<msg::fbuf::ledger::Unl_Changeset> unl_changeset = 0) {
+  auto version__ = version ? _fbb.CreateString(version) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
   auto unl__ = unl ? _fbb.CreateVector<uint8_t>(*unl) : 0;
@@ -195,6 +211,7 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
   auto outputs__ = outputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*outputs) : 0;
   return msg::fbuf::ledger::CreateLedgerBlock(
       _fbb,
+      version__,
       seq_no,
       time,
       lcl__,

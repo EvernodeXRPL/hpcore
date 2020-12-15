@@ -21,6 +21,7 @@ namespace msg::fbuf::ledger
         flatbuffers::Offset<ledger::LedgerBlock> ledger =
             ledger::CreateLedgerBlock(
                 builder,
+                sv_to_flatbuff_str(builder, conf::cfg.hpversion),
                 seq_no,
                 p.time,
                 sv_to_flatbuff_bytes(builder, p.lcl),
