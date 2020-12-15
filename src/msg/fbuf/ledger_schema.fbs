@@ -3,7 +3,7 @@ include "common_schema.fbs";
 namespace msg.fbuf.ledger;
 
 table LedgerBlock {
-    version: string;
+    version:string;
     seq_no:uint64;
     time:uint64;
     lcl:[ubyte];
