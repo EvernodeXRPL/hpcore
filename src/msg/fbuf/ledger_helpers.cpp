@@ -71,6 +71,7 @@ namespace msg::fbuf::ledger
         flatbuffers::Offset<ledger::FullHistoryBlock> fullhistory =
             ledger::CreateFullHistoryBlock(
                 builder,
+                sv_to_flatbuff_str(builder, conf::cfg.hpversion),
                 builder.CreateVector(fbvec));
 
         builder.Finish(fullhistory); // Finished building message content to get serialised content.
