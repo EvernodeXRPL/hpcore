@@ -1,5 +1,6 @@
 #include "../pchheader.hpp"
 #include "../util/util.hpp"
+#include "../ledger.hpp"
 #include "input_nonce_map.hpp"
 
 namespace usr
@@ -14,7 +15,7 @@ namespace usr
      *         1 if nonce has expired.
      *         2 if message with same nonce/sig has already been submitted.
      */
-    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const bool no_add)
+    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const uint64_t &max_lcl_seqno, const bool no_add)
     {
         int result = 0;
 
@@ -24,20 +25,20 @@ namespace usr
         {
             result = 0;
             if (!no_add)
-                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, (util::get_epoch_milliseconds() + TTL)));
+                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, max_lcl_seqno));
         }
         else
         {
             const std::string &existing_nonce = std::get<0>(itr->second);
-            const uint64_t expire_on = std::get<2>(itr->second);
+            const uint64_t expire_lcl_seqno = std::get<2>(itr->second);
 
             // Check if previous nonce has already expired or it is less than new nonce.
-            if (expire_on <= now || existing_nonce < nonce)
+            if (ledger::ctx.get_seq_no() <= expire_lcl_seqno || existing_nonce < nonce)
             {
                 if (!no_add)
                 {
                     std::get<0>(itr->second) = nonce;
-                    std::get<2>(itr->second) = now + TTL;
+                    std::get<2>(itr->second) = max_lcl_seqno;
                 }
                 result = 0;
             }
