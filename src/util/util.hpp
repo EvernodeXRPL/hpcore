@@ -38,6 +38,8 @@ namespace util
         BSON = 1
     };
 
+    const std::string to_hex(const std::string_view bin);
+
     int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len);
 
     int hex2bin(unsigned char *decoded, const size_t decoded_len, std::string_view hex_str);

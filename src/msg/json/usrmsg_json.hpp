@@ -39,6 +39,8 @@ namespace msg::usrmsg::json
 
     bool is_json_string(std::string_view content);
 
+    void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_tree_node &node);
+
 } // namespace msg::usrmsg::json
 
 #endif

@@ -279,8 +279,28 @@ namespace msg::usrmsg::json
                 msg += ",";
         }
 
-        msg += "]";
-        msg += "}";
+        msg += "],\"";
+
+        msg += msg::usrmsg::FLD_HASHES;
+        msg += "\":";
+        populate_output_hash_array(msg, hash_root);
+        msg += ",\"";
+
+        msg += msg::usrmsg::FLD_UNL_SIG;
+        msg += "\":{";
+        for (int i = 0; i < unl_sig.size(); i++)
+        {
+            const auto &sig = unl_sig[i]; //Pubkey and Signature pair.
+            msg += "\"";
+            msg += util::to_hex(sig.first);
+            msg += "\":\"";
+            msg += util::to_hex(sig.second);
+            msg += "\"";
+
+            if (i < unl_sig.size() - 1)
+                msg += ",";
+        }
+        msg += "}}";
     }
 
     /**
@@ -579,6 +599,28 @@ namespace msg::usrmsg::json
         }
 
         return false; // Is a number.
+    }
+
+    void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_tree_node &node)
+    {
+        if (node.children.empty())
+        {
+            msg += "\"";
+            msg += util::to_hex(node.hash);
+            msg += "\"";
+            return;
+        }
+        else
+        {
+            msg += "[";
+            for (int i = 0; i < node.children.size(); i++)
+            {
+                populate_output_hash_array(msg, node.children[i]);
+                if (i < node.children.size() - 1)
+                    msg += ",";
+            }
+            msg += "]";
+        }
     }
 
 } // namespace msg::usrmsg::json
