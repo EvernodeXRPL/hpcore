@@ -268,9 +268,8 @@ namespace consensus
             const bool keep_candidate = (time_diff < (conf::cfg.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
             LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                       << " [s" << std::to_string(cp.stage)
-                      << "] u/i/o:" << cp.users.size()
-                      << "/" << cp.hash_inputs.size()
-                      << "/" << cp.hash_outputs.size()
+                      << "] u/i:" << cp.users.size()
+                      << "/" << cp.input_hashes.size()
                       << " ts:" << std::to_string(cp.time)
                       << " lcl:" << cp.lcl.substr(0, 15)
                       << " state:" << cp.state
@@ -385,9 +384,8 @@ namespace consensus
         p2pmsg::create_msg_from_proposal(fbuf, p);
         p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
 
-        LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i/o:" << p.users.size()
-                  << "/" << p.hash_inputs.size()
-                  << "/" << p.hash_outputs.size()
+        LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i:" << p.users.size()
+                  << "/" << p.input_hashes.size()
                   << " ts:" << std::to_string(p.time)
                   << " lcl:" << p.lcl.substr(0, 15)
                   << " state:" << p.state;
@@ -549,11 +547,11 @@ namespace consensus
 
         // Populate the proposal with hashes of user inputs.
         for (const auto &[hash, cand_input] : ctx.candidate_user_inputs)
-            p.hash_inputs.emplace(hash);
+            p.input_hashes.emplace(hash);
 
-        // Populate the proposal with hashes of user outputs.
-        for (const auto &[hash, cand_output] : ctx.candidate_user_outputs)
-            p.hash_outputs.emplace(hash);
+        // Populate the output hash and our signature. This is the merkle tree root hash of user outputs and state hash.
+        p.output_hash = ctx.user_outputs_hashtree.root();
+        p.output_sig = ctx.user_outputs_hashsig;
 
         // Populate the proposal with unl changeset.
         p.unl_changeset = ctx.candidate_unl_changeset;
@@ -573,7 +571,7 @@ namespace consensus
         // our peers or we will halt depending on level of consensus on the sides of the fork.
         p.lcl = lcl;
 
-        // We always votr for our current unl hash.
+        // We always vote for our current unl hash.
         p.unl_hash = unl_hash;
 
         const uint64_t time_now = util::get_epoch_milliseconds();
@@ -594,14 +592,12 @@ namespace consensus
                 increment(votes.users, pubkey);
 
             // Vote for user inputs (hashes). Only vote for the inputs that are in our candidate_inputs set.
-            for (const std::string &hash : cp.hash_inputs)
+            for (const std::string &hash : cp.input_hashes)
                 if (ctx.candidate_user_inputs.count(hash) > 0)
                     increment(votes.inputs, hash);
 
-            // Vote for contract outputs (hashes). Only vote for the outputs that are in our candidate_outputs set.
-            for (const std::string &hash : cp.hash_outputs)
-                if (ctx.candidate_user_outputs.count(hash) > 0)
-                    increment(votes.outputs, hash);
+            // Vote for contract output hash.
+            increment(votes.output_hash, cp.output_hash);
 
             // Vote for unl additions. Only vote for the unl additions that are in our candidate_unl_changeset.
             for (const std::string &pubkey : cp.unl_changeset.additions)
@@ -629,12 +625,7 @@ namespace consensus
         // Add inputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.inputs)
             if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
-                p.hash_inputs.emplace(hash);
-
-        // Add outputs which have votes over stage threshold to proposal.
-        for (const auto &[hash, numvotes] : votes.outputs)
-            if (numvotes >= required_votes)
-                p.hash_outputs.emplace(hash);
+                p.input_hashes.emplace(hash);
 
         // For the unl changeset, reset required votes for majority votes.
         required_votes = ceil(MAJORITY_THRESHOLD * unl_count);
@@ -649,13 +640,24 @@ namespace consensus
             if (numvotes >= required_votes)
                 p.unl_changeset.removals.emplace(pubkey);
 
+        // Add the output hash which has most votes over stage threshold to proposal.
+        uint32_t highest_output_vote = 0;
+        for (const auto &[hash, numvotes] : votes.output_hash)
+        {
+            if (numvotes >= required_votes && numvotes > highest_output_vote)
+            {
+                highest_output_vote = numvotes;
+                p.output_hash = hash;
+            }
+        }
+        // If the elected hash is our output hash, then place our output signature in the proposal.
+        if (p.output_hash == ctx.user_outputs_hashtree.root())
+            p.output_sig = ctx.user_outputs_hashsig;
+
         // time is voted on a simple sorted (highest to lowest) and majority basis.
         uint32_t highest_time_vote = 0;
-        for (auto itr = votes.time.rbegin(); itr != votes.time.rend(); ++itr)
+        for (const auto &[time, numvotes] : votes.time)
         {
-            const uint64_t time = itr->first;
-            const uint32_t numvotes = itr->second;
-
             if (numvotes > highest_time_vote)
             {
                 highest_time_vote = numvotes;
@@ -668,11 +670,8 @@ namespace consensus
 
         // Round nonce is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
         uint32_t highest_nonce_vote = 0;
-        for (auto itr = votes.nonce.rbegin(); itr != votes.nonce.rend(); ++itr)
+        for (const auto [nonce, numvotes] : votes.nonce)
         {
-            const std::string &nonce = itr->first;
-            const uint32_t numvotes = itr->second;
-
             if (numvotes > highest_nonce_vote)
             {
                 highest_nonce_vote = numvotes;
@@ -808,7 +807,7 @@ namespace consensus
         // Add raw_inputs to the proposal if full history mode is on.
         if (conf::cfg.fullhistory)
         {
-            for (const auto &hash : cons_prop.hash_inputs)
+            for (const auto &hash : cons_prop.input_hashes)
             {
                 const auto itr = ctx.candidate_user_inputs.find(hash);
                 if (itr != ctx.candidate_user_inputs.end())
@@ -883,6 +882,12 @@ namespace consensus
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);
 
+            // Generate user output hash merkle tree and signature with state hash included.
+            for (const auto &[hash, output] : ctx.generated_user_outputs)
+                ctx.user_outputs_hashtree.add(hash);
+            ctx.user_outputs_hashtree.add(new_state.to_string_view());
+            ctx.user_outputs_hashsig = crypto::sign(ctx.user_outputs_hashtree.root(), conf::cfg.seckey);
+
             // Prepare the consensus candidate unl changeset that we have accumulated so far. (We receive them as control inputs)
             // The candidate unl changeset will be included in the stage 0 proposal.
             std::swap(ctx.candidate_unl_changeset, ctx.contract_ctx->args.unl_changeset);
@@ -904,41 +909,41 @@ namespace consensus
     {
         std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
-        for (const std::string &hash : cons_prop.hash_outputs)
+        if (cons_prop.output_hash == ctx.user_outputs_hashtree.root())
         {
-            const auto cu_itr = ctx.candidate_user_outputs.find(hash);
-            const bool hashfound = (cu_itr != ctx.candidate_user_outputs.end());
-            if (!hashfound)
+            // If final elected output hash matches our output hash, distribute the outputs
+            // to locally connected users.
+            for (auto &[hash, user_output] : ctx.generated_user_outputs)
             {
-                LOG_ERROR << "Output required but wasn't in our candidate outputs map.";
-                return -1;
-            }
-            else
-            {
-                // Send matching outputs to locally connected users.
-                candidate_user_output &cand_output = cu_itr->second;
-
                 // Find user to send by pubkey.
-                const auto user_itr = usr::ctx.users.find(cand_output.userpubkey);
+                const auto user_itr = usr::ctx.users.find(user_output.userpubkey);
                 if (user_itr != usr::ctx.users.end()) // match found
                 {
+                    // Get the collapsed hash tree with this user's output hash remaining independently.
+                    util::merkle_hash_tree_node tnode = ctx.user_outputs_hashtree.collapse(hash);
+
                     const usr::connected_user &user = user_itr->second;
                     msg::usrmsg::usrmsg_parser parser(user.protocol);
 
                     // Sending all the outputs to the user.
-                    for (sc::contract_output &output : cand_output.outputs)
+                    for (sc::contract_output &output : user_output.outputs)
                     {
                         std::vector<uint8_t> msg;
                         parser.create_contract_output_container(msg, output.message, lcl_seq_no, lcl);
                         user.session.send(msg);
-                        output.message.clear();
+                        output.message.clear(); // Remove the output from memory.
                     }
                 }
-
-                // now we can safely delete this candidate output.
-                ctx.candidate_user_outputs.erase(cu_itr);
             }
         }
+        else
+        {
+            LOG_INFO << "Output required but didn't match our output hash.";
+        }
+
+        // Clear the output hash tree and signature because we no longer need it.
+        ctx.user_outputs_hashtree.clear();
+        ctx.user_outputs_hashsig.clear();
 
         return 0;
     }
@@ -957,7 +962,7 @@ namespace consensus
             bufmap.try_emplace(pubkey, sc::contract_iobufs());
         }
 
-        for (const std::string &hash : cons_prop.hash_inputs)
+        for (const std::string &hash : cons_prop.input_hashes)
         {
             // For each consensus input hash, we need to find the actual input content to feed the contract.
             const auto itr = ctx.candidate_user_inputs.find(hash);
@@ -984,7 +989,7 @@ namespace consensus
     }
 
     /**
-     * Reads any outputs the contract has produced on the provided buf map and transfers them to candidate outputs
+     * Reads any outputs the contract has produced on the provided buf map and transfers them to generated outputs
      * for the next consensus round.
      * @param bufmap The contract bufmap containing the outputs produced by the contract.
      */
@@ -1002,9 +1007,9 @@ namespace consensus
                     vect.push_back(output.message);
 
                 const std::string hash = crypto::get_hash(vect);
-                ctx.candidate_user_outputs.try_emplace(
+                ctx.generated_user_outputs.try_emplace(
                     std::move(hash),
-                    candidate_user_output(pubkey, std::move(bufs.outputs)));
+                    generated_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
     }

@@ -241,11 +241,14 @@ namespace msg::fbuf::p2pmsg
         if (msg.users())
             p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
 
-        if (msg.hash_inputs())
-            p.hash_inputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_inputs());
+        if (msg.input_hashes())
+            p.input_hashes = flatbuf_bytearrayvector_to_stringlist(msg.input_hashes());
 
-        if (msg.hash_outputs())
-            p.hash_outputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_outputs());
+        if (msg.output_hash())
+            p.output_hash = flatbuff_bytes_to_sv(msg.output_hash());
+
+        if (msg.output_sig())
+            p.output_sig = flatbuff_bytes_to_sv(msg.output_sig());
 
         return p;
     }
@@ -377,8 +380,7 @@ namespace msg::fbuf::p2pmsg
         const flatbuffers::Offset<Unl_Changeset> unl_changeset = CreateUnl_Changeset(
             builder,
             stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.additions),
-            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.removals)
-        );
+            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.removals));
 
         const flatbuffers::Offset<Proposal_Message> proposal =
             CreateProposal_Message(
@@ -387,8 +389,9 @@ namespace msg::fbuf::p2pmsg
                 p.time,
                 sv_to_flatbuff_bytes(builder, p.nonce),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
+                stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
+                sv_to_flatbuff_bytes(builder, p.output_hash),
+                sv_to_flatbuff_bytes(builder, p.output_hash),
                 hash_to_flatbuff_bytes(builder, p.state),
                 sv_to_flatbuff_bytes(builder, p.unl_hash),
                 unl_changeset);
