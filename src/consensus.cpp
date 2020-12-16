@@ -551,7 +551,7 @@ namespace consensus
 
         // Populate the output hash and our signature. This is the merkle tree root hash of user outputs and state hash.
         p.output_hash = ctx.user_outputs_hashtree.root();
-        p.output_sig = ctx.user_outputs_hashsig;
+        p.output_sig = ctx.user_outputs_our_sig;
 
         // Populate the proposal with unl changeset.
         p.unl_changeset = ctx.candidate_unl_changeset;
@@ -650,9 +650,26 @@ namespace consensus
                 p.output_hash = hash;
             }
         }
-        // If the elected hash is our output hash, then place our output signature in the proposal.
-        if (p.output_hash == ctx.user_outputs_hashtree.root())
-            p.output_sig = ctx.user_outputs_hashsig;
+
+        if (!p.output_hash.empty())
+        {
+            if (ctx.stage < 3)
+            {
+                // If the elected hash is our output hash, then place our output signature in the proposal.
+                // We only do this if we are at stage 1 or 2.
+                if (p.output_hash == ctx.user_outputs_hashtree.root())
+                    p.output_sig = ctx.user_outputs_our_sig;
+            }
+            else
+            {
+                // If this is the stage 3 proposal, collect the UNL output signatures matching the elected output hash.
+                for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+                {
+                    if (cp.output_hash == p.output_hash)
+                        ctx.user_outputs_unl_sig.emplace_back(cp.pubkey, cp.output_sig);
+                }
+            }
+        }
 
         // time is voted on a simple sorted (highest to lowest) and majority basis.
         uint32_t highest_time_vote = 0;
@@ -886,7 +903,7 @@ namespace consensus
             for (const auto &[hash, output] : ctx.generated_user_outputs)
                 ctx.user_outputs_hashtree.add(hash);
             ctx.user_outputs_hashtree.add(new_state.to_string_view());
-            ctx.user_outputs_hashsig = crypto::sign(ctx.user_outputs_hashtree.root(), conf::cfg.seckey);
+            ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root(), conf::cfg.seckey);
 
             // Prepare the consensus candidate unl changeset that we have accumulated so far. (We receive them as control inputs)
             // The candidate unl changeset will be included in the stage 0 proposal.
@@ -919,21 +936,24 @@ namespace consensus
                 const auto user_itr = usr::ctx.users.find(user_output.userpubkey);
                 if (user_itr != usr::ctx.users.end()) // match found
                 {
-                    // Get the collapsed hash tree with this user's output hash remaining independently.
-                    util::merkle_hash_tree_node tnode = ctx.user_outputs_hashtree.collapse(hash);
-
                     const usr::connected_user &user = user_itr->second;
                     msg::usrmsg::usrmsg_parser parser(user.protocol);
 
-                    // Sending all the outputs to the user.
-                    for (sc::contract_output &output : user_output.outputs)
-                    {
-                        std::vector<uint8_t> msg;
-                        parser.create_contract_output_container(msg, output.message, lcl_seq_no, lcl);
-                        user.session.send(msg);
-                        output.message.clear(); // Remove the output from memory.
-                    }
+                    // Send the outputs and signatures to the user.
+                    std::vector<uint8_t> msg;
+
+                    // Get the collapsed hash tree with this user's output hash remaining independently.
+                    util::merkle_hash_tree_node tnode = ctx.user_outputs_hashtree.collapse(hash);
+                    std::vector<std::string_view> outputs;
+                    for (const sc::contract_output &output : user_output.outputs)
+                        outputs.emplace_back(output.message);
+
+                    parser.create_contract_output_container(msg, outputs, tnode, ctx.user_outputs_unl_sig, lcl_seq_no, lcl);
+
+                    user.session.send(msg);
                 }
+
+                ctx.generated_user_outputs.erase(hash); // We no longer need this user's outputs.
             }
         }
         else
@@ -943,7 +963,8 @@ namespace consensus
 
         // Clear the output hash tree and signature because we no longer need it.
         ctx.user_outputs_hashtree.clear();
-        ctx.user_outputs_hashsig.clear();
+        ctx.user_outputs_our_sig.clear();
+        ctx.user_outputs_unl_sig.clear();
 
         return 0;
     }

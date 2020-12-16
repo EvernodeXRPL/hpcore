@@ -65,7 +65,8 @@ namespace consensus
         // all users. We will use this map to distribute outputs back to connected users once consensus is achieved.
         std::unordered_map<std::string, generated_user_output> generated_user_outputs;
         util::merkle_hash_tree user_outputs_hashtree;
-        std::string user_outputs_hashsig;
+        std::string user_outputs_our_sig;
+        std::vector<std::pair<std::string, std::string>> user_outputs_unl_sig;
 
         // Collected unl changset to be subjected to the consensus. This will stay here until end of the current consensus round.
         p2p::contract_unl_changeset candidate_unl_changeset;

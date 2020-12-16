@@ -1,5 +1,6 @@
 #include "../../pchheader.hpp"
 #include "../../util/util.hpp"
+#include "../../util/merkle_hash_tree.hpp"
 #include "../../crypto.hpp"
 #include "../../hplog.hpp"
 #include "../../conf.hpp"
@@ -226,15 +227,17 @@ namespace msg::usrmsg::json
      *              "type": "contract_output",
      *              "lcl": "<lcl id>"
      *              "lcl_seqno": <integer>,
-     *              "content": "<contract output string>"
+     *              "outputs": ["<output string 1>", "<output string 2>", ...], // The output order is the hash order.
+     *              "hashes": [<hex merkle hash tree>], // Always includes user's output hash [output hash = hash(pubkey+all outputs for the user)]
+     *              "unl_sig": [["<pubkey hex>", "<sig hex>"], ...] // UNL pubkeys and signatures of root hash.
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
+    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+                                          const util::merkle_hash_tree_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                          const uint64_t lcl_seq_no, std::string_view lcl)
     {
-        const bool is_string = is_json_string(content);
-
-        msg.reserve(content.size() + 256);
+        msg.reserve(1024);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -248,26 +251,35 @@ namespace msg::usrmsg::json
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_CONTENT;
-        msg += SEP_COLON_NOQUOTE;
+        msg += msg::usrmsg::FLD_OUTPUTS;
+        msg += "\":[";
 
-        if (is_json_string(content))
+        for (int i = 0; i < outputs.size(); i++)
         {
-            // Process the final string using jsoncons.
-            jsoncons::json jstring = content;
-            jsoncons::json_options options;
-            options.escape_all_non_ascii(true);
+            std::string_view output = outputs[i];
 
-            std::string escaped_content;
-            jstring.dump(escaped_content);
+            if (is_json_string(output))
+            {
+                // Process the final string using jsoncons.
+                jsoncons::json jstring = output;
+                jsoncons::json_options options;
+                options.escape_all_non_ascii(true);
 
-            msg += escaped_content;
+                std::string escaped_content;
+                jstring.dump(escaped_content);
+
+                msg += escaped_content;
+            }
+            else
+            {
+                msg += output;
+            }
+
+            if (i < outputs.size() - 1)
+                msg += ",";
         }
-        else
-        {
-            msg += content;
-        }
 
+        msg += "]";
         msg += "}";
     }
 

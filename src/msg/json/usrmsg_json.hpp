@@ -2,6 +2,7 @@
 #define _HP_MSG_JSON_USRMSG_JSON_
 
 #include "../../pchheader.hpp"
+#include "../../util/merkle_hash_tree.hpp"
 
 namespace msg::usrmsg::json
 {
@@ -17,7 +18,9 @@ namespace msg::usrmsg::json
 
     void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content);
 
-    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl);
+    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+                                          const util::merkle_hash_tree_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                          const uint64_t lcl_seq_no, std::string_view lcl);
 
     int verify_user_challenge(std::string &extracted_pubkeyhex, std::string &extracted_protocol, std::string &extracted_server_challenge,
                               std::string_view response, std::string_view original_challenge);

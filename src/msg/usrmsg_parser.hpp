@@ -2,6 +2,7 @@
 #define _HP_MSG_USRMSG_PARSER_
 
 #include "../util/util.hpp"
+#include "../util/merkle_hash_tree.hpp"
 #include "../pchheader.hpp"
 
 namespace msg::usrmsg
@@ -25,7 +26,9 @@ namespace msg::usrmsg
 
         void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content) const;
 
-        void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl) const;
+        void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+                                              const util::merkle_hash_tree_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                              const uint64_t lcl_seq_no, std::string_view lcl) const;
 
         int parse(std::string_view message);
 
