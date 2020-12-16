@@ -23,12 +23,12 @@ namespace util
     {
     private:
         const size_t block_size;
-        merkle_hash_tree_node root_node;
+        merkle_hash_tree_node root;
 
     public:
         merkle_hash_tree(const size_t block_size);
         void add(std::string_view hash);
-        const std::string root();
+        const std::string root_hash();
         const merkle_hash_tree_node collapse(std::string_view retain_hash);
         bool empty();
         void clear();

@@ -550,7 +550,7 @@ namespace consensus
             p.input_hashes.emplace(hash);
 
         // Populate the output hash and our signature. This is the merkle tree root hash of user outputs and state hash.
-        p.output_hash = ctx.user_outputs_hashtree.root();
+        p.output_hash = ctx.user_outputs_hashtree.root_hash();
         p.output_sig = ctx.user_outputs_our_sig;
 
         // Populate the proposal with unl changeset.
@@ -657,7 +657,7 @@ namespace consensus
             {
                 // If the elected hash is our output hash, then place our output signature in the proposal.
                 // We only do this if we are at stage 1 or 2.
-                if (p.output_hash == ctx.user_outputs_hashtree.root())
+                if (p.output_hash == ctx.user_outputs_hashtree.root_hash())
                     p.output_sig = ctx.user_outputs_our_sig;
             }
             else
@@ -900,10 +900,13 @@ namespace consensus
             extract_user_outputs_from_contract_bufmap(args.userbufs);
 
             // Generate user output hash merkle tree and signature with state hash included.
-            for (const auto &[hash, output] : ctx.generated_user_outputs)
-                ctx.user_outputs_hashtree.add(hash);
-            ctx.user_outputs_hashtree.add(new_state.to_string_view());
-            ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root(), conf::cfg.seckey);
+            if (!ctx.generated_user_outputs.empty())
+            {
+                for (const auto &[hash, output] : ctx.generated_user_outputs)
+                    ctx.user_outputs_hashtree.add(hash);
+                ctx.user_outputs_hashtree.add(new_state.to_string_view());
+                ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root_hash(), conf::cfg.seckey);
+            }
 
             // Prepare the consensus candidate unl changeset that we have accumulated so far. (We receive them as control inputs)
             // The candidate unl changeset will be included in the stage 0 proposal.
@@ -924,10 +927,10 @@ namespace consensus
      */
     int dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
     {
-        std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
-
-        if (cons_prop.output_hash == ctx.user_outputs_hashtree.root())
+        if (cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
         {
+            std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
+
             // If final elected output hash matches our output hash, distribute the outputs
             // to locally connected users.
             for (auto &[hash, user_output] : ctx.generated_user_outputs)
@@ -945,6 +948,7 @@ namespace consensus
                     // Get the collapsed hash tree with this user's output hash remaining independently.
                     util::merkle_hash_tree_node tnode = ctx.user_outputs_hashtree.collapse(hash);
                     std::vector<std::string_view> outputs;
+
                     for (const sc::contract_output &output : user_output.outputs)
                         outputs.emplace_back(output.message);
 
@@ -953,7 +957,7 @@ namespace consensus
                     user.session.send(msg);
                 }
 
-                ctx.generated_user_outputs.erase(hash); // We no longer need this user's outputs.
+                user_output.outputs.clear(); // We no longer need this user's outputs.
             }
         }
         else
@@ -965,6 +969,7 @@ namespace consensus
         ctx.user_outputs_hashtree.clear();
         ctx.user_outputs_our_sig.clear();
         ctx.user_outputs_unl_sig.clear();
+        ctx.generated_user_outputs.clear();
 
         return 0;
     }
@@ -1025,7 +1030,9 @@ namespace consensus
                 vect.push_back(pubkey);
                 // Only using message to generate hash for output messages. Length is not needed.
                 for (sc::contract_output &output : bufs.outputs)
+                {
                     vect.push_back(output.message);
+                }
 
                 const std::string hash = crypto::get_hash(vect);
                 ctx.generated_user_outputs.try_emplace(
@@ -1033,6 +1040,7 @@ namespace consensus
                     generated_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
+        bufmap.clear();
     }
 
     /**

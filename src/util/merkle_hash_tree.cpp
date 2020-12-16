@@ -10,37 +10,37 @@ namespace util
 
     void merkle_hash_tree::add(std::string_view hash)
     {
-        root_node.children.emplace_back(hash);
+        root.children.emplace_back(hash);
 
-        if (root_node.hash.empty())
+        if (root.hash.empty())
         {
-            root_node.hash = hash;
+            root.hash = hash;
         }
         else
         {
-            root_node.hash = crypto::get_hash(root_node.hash, hash);
+            root.hash = crypto::get_hash(root.hash, hash);
         }
     }
 
-    const std::string merkle_hash_tree::root()
+    const std::string merkle_hash_tree::root_hash()
     {
-        return root_node.hash;
+        return root.hash;
     }
 
     const merkle_hash_tree_node merkle_hash_tree::collapse(std::string_view retain_hash)
     {
-        return root_node;
+        return root;
     }
 
     bool merkle_hash_tree::empty()
     {
-        return root_node.hash.empty();
+        return root.hash.empty();
     }
 
     void merkle_hash_tree::clear()
     {
-        root_node.hash.clear();
-        root_node.children.clear();
+        root.hash.clear();
+        root.children.clear();
     }
 
 } // namespace util
