@@ -391,7 +391,7 @@ namespace msg::fbuf::p2pmsg
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
                 sv_to_flatbuff_bytes(builder, p.output_hash),
-                sv_to_flatbuff_bytes(builder, p.output_hash),
+                sv_to_flatbuff_bytes(builder, p.output_sig),
                 hash_to_flatbuff_bytes(builder, p.state),
                 sv_to_flatbuff_bytes(builder, p.unl_hash),
                 unl_changeset);

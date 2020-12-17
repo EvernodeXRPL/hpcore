@@ -5,31 +5,24 @@
 
 namespace util
 {
-    struct merkle_hash_tree_node
+    struct merkle_hash_node
     {
         std::string hash;
-        std::vector<merkle_hash_tree_node> children;
-
-        merkle_hash_tree_node()
-        {
-        }
-
-        merkle_hash_tree_node(std::string_view hash) : hash(hash)
-        {
-        }
+        std::list<merkle_hash_node> children;
     };
 
     class merkle_hash_tree
     {
     private:
         const size_t block_size;
-        merkle_hash_tree_node root;
+        merkle_hash_node root;
+        void create_groups(std::list<merkle_hash_node> &nodes);
 
     public:
         merkle_hash_tree(const size_t block_size);
-        void add(std::string_view hash);
+        void populate(const std::vector<std::string_view> &hashes);
         const std::string root_hash();
-        const merkle_hash_tree_node collapse(std::string_view retain_hash);
+        const merkle_hash_node collapse(std::string_view retain_hash);
         bool empty();
         void clear();
     };

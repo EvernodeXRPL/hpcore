@@ -902,9 +902,11 @@ namespace consensus
             // Generate user output hash merkle tree and signature with state hash included.
             if (!ctx.generated_user_outputs.empty())
             {
+                std::vector<std::string_view> hashes;
                 for (const auto &[hash, output] : ctx.generated_user_outputs)
-                    ctx.user_outputs_hashtree.add(hash);
-                ctx.user_outputs_hashtree.add(new_state.to_string_view());
+                    hashes.push_back(hash);
+                hashes.push_back(new_state.to_string_view());
+                ctx.user_outputs_hashtree.populate(hashes);
                 ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root_hash(), conf::cfg.seckey);
             }
 
@@ -946,7 +948,7 @@ namespace consensus
                     std::vector<uint8_t> msg;
 
                     // Get the collapsed hash tree with this user's output hash remaining independently.
-                    util::merkle_hash_tree_node tnode = ctx.user_outputs_hashtree.collapse(hash);
+                    util::merkle_hash_node tnode = ctx.user_outputs_hashtree.collapse(hash);
                     std::vector<std::string_view> outputs;
 
                     for (const sc::contract_output &output : user_output.outputs)

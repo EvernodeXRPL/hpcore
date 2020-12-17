@@ -234,7 +234,7 @@ namespace msg::usrmsg::json
      * @param content The contract binary output content to be put in the message.
      */
     void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
-                                          const util::merkle_hash_tree_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                          const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                           const uint64_t lcl_seq_no, std::string_view lcl)
     {
         msg.reserve(1024);
@@ -601,7 +601,7 @@ namespace msg::usrmsg::json
         return false; // Is a number.
     }
 
-    void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_tree_node &node)
+    void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_node &node)
     {
         if (node.children.empty())
         {
@@ -613,10 +613,10 @@ namespace msg::usrmsg::json
         else
         {
             msg += "[";
-            for (int i = 0; i < node.children.size(); i++)
+            for (auto itr = node.children.begin(); itr != node.children.end(); itr++)
             {
-                populate_output_hash_array(msg, node.children[i]);
-                if (i < node.children.size() - 1)
+                populate_output_hash_array(msg, *itr);
+                if (std::next(itr) != node.children.end())
                     msg += ",";
             }
             msg += "]";
