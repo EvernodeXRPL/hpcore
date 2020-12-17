@@ -33,7 +33,7 @@ namespace usr
             const uint64_t expire_lcl_seqno = std::get<2>(itr->second);
 
             // Check if previous nonce has already expired or it is less than new nonce.
-            if (ledger::ctx.get_seq_no() <= expire_lcl_seqno || existing_nonce < nonce)
+            if (expire_lcl_seqno <= ledger::ctx.get_seq_no() || existing_nonce < nonce)
             {
                 if (!no_add)
                 {
