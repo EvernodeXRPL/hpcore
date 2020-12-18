@@ -158,7 +158,7 @@ namespace usr
                     uint64_t max_lcl_seqno;
                     if (parser.extract_input_container(input_data, nonce, max_lcl_seqno, input_container) != -1)
                     {
-                        const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, true);
+                        const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_lcl_seqno, true);
                         if (nonce_status == 0)
                         {
                             //Add to the submitted input list.
@@ -321,7 +321,7 @@ namespace usr
             return msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
         }
 
-        const int nonce_status = nonce_map.check(user_pubkey, nonce, umsg.sig);
+        const int nonce_status = nonce_map.check(user_pubkey, nonce, umsg.sig, max_lcl_seqno);
         if (nonce_status > 0)
         {
             LOG_DEBUG << (nonce_status == 1 ? "User message nonce expired." : "User message with same nonce/sig already submitted.");
