@@ -79,6 +79,8 @@ void deinit()
     sc::deinit();
     unl::deinit();
     ledger::deinit();
+    // Unlock and delete the lock file at the termination.
+    util::unlock_contract_dir();
 }
 
 void sig_exit_handler(int signum)
@@ -194,6 +196,14 @@ int main(int argc, char **argv)
                 chdir(conf::ctx.contract_dir.c_str());
 
                 hplog::init();
+
+                // Checking whether another hotpocket instance is running in the same directory. If so, terminate this instance,
+                // Otherwise create and aquire a lock.
+                if (util::lock_contract_dir() == -1)
+                {
+                    LOG_INFO << "Another hpcore instance is already running in directory " << conf::ctx.contract_dir;
+                    return -1;
+                }
 
                 LOG_INFO << "Hot Pocket " << util::HP_VERSION;
                 LOG_INFO << "Operating mode: "

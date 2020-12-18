@@ -221,7 +221,7 @@ namespace util
             if (!error_thrown && mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
                 error_thrown = true;
 
-            if(error_thrown)
+            if (error_thrown)
                 return -1;
         }
 
@@ -376,4 +376,39 @@ namespace util
         return 0;
     }
 
+    /**
+     * Creates and aquire lock in contract directory if it's not already locked.
+     * If already locked means there's another hpcore instance running in the same directory. 
+     * @return Returns 0 if lock is successfully aquired, -1 on error.
+    */
+    int lock_contract_dir()
+    {
+        const int fd = open(".lock", O_CREAT | O_RDWR, FILE_PERMS);
+        if (fd == -1)
+            return -1;
+
+        struct flock fl;
+        fl.l_type = F_WRLCK;
+        fl.l_whence = SEEK_SET;
+        fl.l_start = 0;
+        fl.l_len = 0;
+        fl.l_pid = getpid();
+
+        // Try to create a file lock.
+        // If failed to create a file lock, meaning it's already locked.
+        if (fcntl(fd, F_SETLK, &fl) == -1)
+            if (errno == EACCES || errno == EAGAIN)
+                return -1;
+
+        return 0;
+    }
+
+    /**
+     * Removes the aquired lock file.
+     * @return Returns 0 on success, -1 on error.
+    */
+    int unlock_contract_dir()
+    {
+        return remove_file(".lock");
+    }
 } // namespace util
