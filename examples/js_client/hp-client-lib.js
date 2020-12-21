@@ -290,14 +290,14 @@
             return new Uint8Array(hash.digest());
         }
 
-        const getMerkleHash = (tree, checkHash) => {
+        const getMerkleHash = (tree, checkHashString) => {
 
             const listToHash = [];
             let checkHashFound = false;
 
             for (node of tree) {
                 if (Array.isArray(node)) {
-                    const result = getMerkleHash(node, checkHashFound ? null : checkHash);
+                    const result = getMerkleHash(node, checkHashFound ? null : checkHashString);
                     if (result[0] == true)
                         checkHashFound = true;
 
@@ -307,11 +307,13 @@
                     let hashBytes = null;
                     if (isString(node))
                         hashBytes = hexToUint8Array(node);
+                    else
+                        hashBytes = node.buffer;
 
                     if (hashBytes) {
                         listToHash.push(hashBytes);
 
-                        if (checkHash && hashBytes.toString() == checkHash.toString())
+                        if (checkHashString && msgHelper.stringifyValue(hashBytes) == checkHashString)
                             checkHashFound = true;
                     }
                 }
@@ -331,9 +333,12 @@
             const passedKeys = {};
 
             for (pair of signatures) {
-                const pubkeyHex = isString(pair[0]) ? pair[0] : uint8ArrayToHex(pair[0]);
-                const pubkey = isString(pair[0]) ? hexToUint8Array(pair[0]) : pair[0];
-                const sig = isString(pair[1]) ? hexToUint8Array(pair[1]) : pair[1];
+                const pubkeyHex = msgHelper.stringifyValue(pair[0]);
+                const pubkey = isString(pair[0]) ? hexToUint8Array(pair[0]) : pair[0].buffer;
+                const sig = isString(pair[1]) ? hexToUint8Array(pair[1]) : pair[1].buffer;
+
+                console.log(pubkey);
+                console.log(sig);
 
                 if (!passedKeys[pubkeyHex] && unlKeysLookup[pubkeyHex] && sodium.crypto_sign_verify_detached(sig, rootHash, pubkey))
                     passedKeys[pubkeyHex] = true;
@@ -347,13 +352,15 @@
         const validateOutput = (msg) => {
 
             // Calculate combined output hash with user's pubkey.
-            const outputHash = getHash([[0xED], clientKeys.publicKey, ...msg.outputs]);
+            const outputHash = getHash([[0xED], clientKeys.publicKey, ...msgHelper.spreadOutputs(msg.outputs)]);
 
-            const result = getMerkleHash(msg.hashes, outputHash);
+            const result = getMerkleHash(msg.hashes, msgHelper.stringifyValue(outputHash));
             if (result[0] == true) {
                 const rootHash = result[1];
-                // Verify the issued signatures against the root hash.
-                return validateHashSignatures(outputHash, msg.unl_sig, serverKeysLookup);
+                
+                return true;
+                // TODO: Verify the issued signatures against the root hash.
+                // return validateHashSignatures(outputHash, msg.unl_sig, <unl keys>);
             }
 
             return false;
@@ -437,7 +444,7 @@
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "contract_input_status") {
-                const sigKey = msgHelper.stringifySignature(m.input_sig);
+                const sigKey = msgHelper.stringifyValue(m.input_sig);
                 const resolver = contractInputResolvers[sigKey];
                 if (resolver) {
                     if (m.status == "accepted")
@@ -613,7 +620,7 @@
             const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
 
             const msg = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
-            const sigKey = msgHelper.stringifySignature(msg.sig);
+            const sigKey = msgHelper.stringifyValue(msg.sig);
             const p = new Promise(resolve => {
                 contractInputResolvers[sigKey] = resolve;
             });
@@ -662,16 +669,20 @@
             return protocol == protocols.json ? content : content.buffer;
         }
 
-        // Used for generating strings to hold signature as js object keys.
-        this.stringifySignature = (sig) => {
-            if (isString(sig))
-                return sig;
-            else if (sig instanceof Uint8Array)
-                return uint8ArrayToHex(sig);
-            else if (sig.buffer) // BSON binary.
-                return uint8ArrayToHex(new Uint8Array(sig.buffer));
+        // Used for generating strings to hold values as js object keys.
+        this.stringifyValue = (val) => {
+            if (isString(val))
+                return val;
+            else if (val instanceof Uint8Array)
+                return uint8ArrayToHex(val);
+            else if (val.buffer) // BSON binary.
+                return uint8ArrayToHex(new Uint8Array(val.buffer));
             else
                 throw "Cannot stringify signature.";
+        }
+
+        this.spreadOutputs = (outputs) => {
+            return protocol == protocols.json ? outputs : outputs.map(o => o.buffer);
         }
 
         this.createUserChallengeResponse = (userChallenge, serverChallenge, msgProtocol) => {

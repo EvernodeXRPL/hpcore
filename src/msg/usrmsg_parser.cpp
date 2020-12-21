@@ -44,8 +44,8 @@ namespace msg::usrmsg
     {
         if (protocol == util::PROTOCOL::JSON)
             jusrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl);
-        // else
-        //     busrmsg::create_contract_output_container(msg, content, lcl_seq_no, lcl);
+        else
+            busrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl);
     }
 
     int usrmsg_parser::parse(std::string_view message)

@@ -290,7 +290,7 @@ namespace msg::usrmsg::json
         msg += "\":[";
         for (int i = 0; i < unl_sig.size(); i++)
         {
-            const auto &sig = unl_sig[i]; //Pubkey and Signature pair.
+            const auto &sig = unl_sig[i]; // Pubkey and Signature pair.
             msg += "[\"";
             msg += util::to_hex(sig.first);
             msg += "\",\"";
