@@ -12,7 +12,7 @@
 #include "json.h"
 
 #define __HP_MMAP_BLOCK_SIZE 4096
-#define __HP_MMAP_BLOCK_ALIGN(x) (((x) + ((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1)) & ~((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1))
+#define __HP_MMAP_BLOCK_ALIGN(x) (((x) + ((off_t)(__HP_MMAP_BLOCK_SIZE)-1)) & ~((off_t)(__HP_MMAP_BLOCK_SIZE)-1))
 #define __HP_STREAM_MSG_HEADER_SIZE 4
 #define __HP_SEQPKT_MAX_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
 #define HP_PEER_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
