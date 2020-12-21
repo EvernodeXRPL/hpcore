@@ -250,7 +250,7 @@
             if (status == 2)
                 return;
 
-            await Promise.all(
+            return await Promise.all(
                 nodes.filter(n => n.connection && n.connection.isConnected())
                     .map(n => n.connection.sendContractInput(input, nonce, maxLclOffset)));
         }
