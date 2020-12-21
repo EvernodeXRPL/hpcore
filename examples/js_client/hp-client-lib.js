@@ -674,9 +674,10 @@
 
     // Set sodium reference.
     async function initSodium() {
-        if (sodium) // If already set, do nothing.
+        if (sodium) { // If already set, do nothing.
             return;
-        else if (isBrowser && window.sodium) { // If no parameter specified, try to get from window.sodium.
+        }
+        else if (isBrowser && window.sodium) { // browser (if sodium already loaded)
             sodium = window.sodium;
         }
         else if (isBrowser && !window.sodium) { // If sodium not yet loaded in browser, wait for sodium ready.
@@ -702,7 +703,7 @@
     function initBson() {
         if (bson) // If already set, do nothing.
             return;
-        else if (isBrowser && window.BSON) // If no parameter specified, try to get from window.BSON.
+        else if (isBrowser && window.BSON) // browser
             bson = window.BSON;
         else if (!isBrowser) // nodejs
             bson = require('bson');
@@ -714,7 +715,7 @@
     function initWebSocket() {
         if (WebSocket) // If already set, do nothing.
             return;
-        else if (isBrowser && window.WebSocket) // If no parameter specified, try to get from window.WebSocket.
+        else if (isBrowser && window.WebSocket) // browser
             WebSocket = window.WebSocket;
         else if (!isBrowser) // nodejs
             WebSocket = require('ws');
