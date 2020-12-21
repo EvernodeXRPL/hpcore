@@ -853,13 +853,13 @@ namespace hpws
                         switch (WEXITSTATUS(status))
                         {
                         case 70:
-                            HPWS_SERVER_ERROR(2, "Could not create listen socket.");
+                            HPWS_SERVER_ERROR(31, "Could not create listen socket.");
 
                         case 72:
-                            HPWS_SERVER_ERROR(2, "Could not bind socket for listen.");
+                            HPWS_SERVER_ERROR(32, "Could not bind socket for listen.");
 
                         case 74:
-                            HPWS_SERVER_ERROR(2, "Listen() failed.");
+                            HPWS_SERVER_ERROR(33, "Listen() failed.");
 
                         default:
                             break;
