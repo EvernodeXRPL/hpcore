@@ -98,12 +98,12 @@ namespace state_sync
                     hpfs::h32 new_state = hpfs::h32_empty;
                     const int result = request_loop(ctx.target_state, new_state);
 
-                    if (result == -1 || ctx.is_shutting_down)
-                        break;
-
                     ctx.pending_requests.clear();
                     ctx.candidate_state_responses.clear();
                     ctx.submitted_requests.clear();
+
+                    if (result == -1 || ctx.is_shutting_down)
+                        break;
 
                     {
                         std::shared_lock lock(ctx.target_state_mutex);

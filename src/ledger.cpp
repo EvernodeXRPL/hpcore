@@ -792,11 +792,12 @@ namespace ledger
                 }
 
                 auto &[cache_seq_no, cache_lcl] = get_ledger_cache_top();
+                ctx.set_lcl(cache_seq_no, cache_lcl);
 
                 // Comparing the sequence number and the lcl to validate the joining point.
-                if ((history_itr->first - cache_seq_no != 1) && (history_first_proposal.lcl != cache_lcl))
+                if ((history_itr->first - cache_seq_no != 1) || (history_first_proposal.lcl != cache_lcl))
                 {
-                    LOG_ERROR << "lcl sync: Ledger integrity check at history joining point failed";
+                    LOG_ERROR << "lcl sync: Ledger integrity check at history joining point failed.";
                     return -1;
                 }
             }
@@ -855,12 +856,12 @@ namespace ledger
                 {
                     throw "Lcl file parsing error in file " + b + " in " + conf::ctx.hist_dir;
                 }
-                const std::string_view extension_a = util::fetch_file_extension(conf::ctx.hist_dir + a);
+                const std::string_view extension_a = util::fetch_file_extension(a);
                 if (extension_a != ".lcl")
                 {
                     throw "Found invalid file extension: " + std::string(extension_a) + " for lcl file " + a + " in " + conf::ctx.hist_dir;
                 }
-                const std::string_view extension_b = util::fetch_file_extension(conf::ctx.hist_dir + b);
+                const std::string_view extension_b = util::fetch_file_extension(b);
                 if (extension_b != ".lcl")
                 {
                     throw "Found invalid file extension: " + std::string(extension_b) + " for lcl file " + b + " in " + conf::ctx.hist_dir;
