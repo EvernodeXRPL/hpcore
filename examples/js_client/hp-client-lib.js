@@ -695,9 +695,10 @@
 
     // Set sodium reference.
     async function initSodium() {
-        if (sodium) // If already set, do nothing.
+        if (sodium) { // If already set, do nothing.
             return;
-        else if (isBrowser && window.sodium) { // If no parameter specified, try to get from window.sodium.
+        }
+        else if (isBrowser && window.sodium) { // browser (if sodium already loaded)
             sodium = window.sodium;
         }
         else if (isBrowser && !window.sodium) { // If sodium not yet loaded in browser, wait for sodium ready.
@@ -714,26 +715,33 @@
             sodium = require('libsodium-wrappers');
             await sodium.ready;
         }
+        else {
+            throw "Sodium reference not found. Please include sodium js lib in browser scripts.";
+        }
     }
 
     // Set bson reference.
     function initBson() {
         if (bson) // If already set, do nothing.
             return;
-        else if (isBrowser && window.BSON) // If no parameter specified, try to get from window.BSON.
+        else if (isBrowser && window.BSON) // browser
             bson = window.BSON;
         else if (!isBrowser) // nodejs
             bson = require('bson');
+        else
+            throw "BSON reference not found.";
     }
 
     // Set WebSocket reference.
     function initWebSocket() {
         if (WebSocket) // If already set, do nothing.
             return;
-        else if (isBrowser && window.WebSocket) // If no parameter specified, try to get from window.WebSocket.
+        else if (isBrowser && window.WebSocket) // browser
             WebSocket = window.WebSocket;
         else if (!isBrowser) // nodejs
             WebSocket = require('ws');
+        else
+            throw "WebSocket reference not found.";
     }
 
     const hotPocketLib = {
