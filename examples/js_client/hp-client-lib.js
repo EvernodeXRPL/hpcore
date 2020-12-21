@@ -9,6 +9,7 @@
 
     const supportedHpVersion = "0.0";
     const serverChallengeSize = 16;
+    const hashSize = 32;
     const connectionCheckIntervalMs = 1000;
     const recentActivityThresholdMs = 3000;
 
@@ -16,6 +17,7 @@
     let WebSocket = null;
     let sodium = null;
     let bson = null;
+    let blake3 = null;
 
     /*--- Included in public interface. ---*/
     const protocols = {
@@ -280,6 +282,24 @@
         let statResponseResolvers = [];
         let contractInputResolvers = {};
 
+        // Calcualtes the blake3
+        const getHash = (arr) => {
+            const state = sodium.crypto_generichash_init(null, hashSize);
+            arr.forEach(item => sodium.crypto_generichash_update(state, item));
+            const combinedHash = sodium.crypto_generichash_final(state, hashSize);
+            return combinedHash;
+        }
+
+        const validateOutput = (msg) => {
+
+            console.log(msg);
+
+            // Calculate combined output hash.
+            const outputHash = getHash(msg.outputs);
+
+            return false;
+        }
+
         const handshakeMessageHandler = (m) => {
 
             if (connectionStatus == 0 && m.type == "user_challenge" && m.hp_version && m.contract_id) {
@@ -369,7 +389,8 @@
                 }
             }
             else if (m.type == "contract_output") {
-                emitter && emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
+                if (validateOutput(m))
+                    emitter && emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "stat_response") {
                 statResponseResolvers.forEach(resolver => {

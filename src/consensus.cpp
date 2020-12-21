@@ -948,13 +948,13 @@ namespace consensus
                     std::vector<uint8_t> msg;
 
                     // Get the collapsed hash tree with this user's output hash remaining independently.
-                    util::merkle_hash_node tnode = ctx.user_outputs_hashtree.collapse(hash);
-                    std::vector<std::string_view> outputs;
+                    util::merkle_hash_node collapsed_hash_root = ctx.user_outputs_hashtree.collapse(hash);
 
+                    std::vector<std::string_view> outputs;
                     for (const sc::contract_output &output : user_output.outputs)
                         outputs.emplace_back(output.message);
 
-                    parser.create_contract_output_container(msg, outputs, tnode, ctx.user_outputs_unl_sig, lcl_seq_no, lcl);
+                    parser.create_contract_output_container(msg, outputs, collapsed_hash_root, ctx.user_outputs_unl_sig, lcl_seq_no, lcl);
 
                     user.session.send(msg);
                 }
