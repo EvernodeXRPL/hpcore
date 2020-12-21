@@ -287,20 +287,20 @@ namespace msg::usrmsg::json
         msg += ",\"";
 
         msg += msg::usrmsg::FLD_UNL_SIG;
-        msg += "\":{";
+        msg += "\":[";
         for (int i = 0; i < unl_sig.size(); i++)
         {
             const auto &sig = unl_sig[i]; //Pubkey and Signature pair.
-            msg += "\"";
+            msg += "[\"";
             msg += util::to_hex(sig.first);
-            msg += "\":\"";
+            msg += "\",\"";
             msg += util::to_hex(sig.second);
-            msg += "\"";
+            msg += "\"]";
 
             if (i < unl_sig.size() - 1)
                 msg += ",";
         }
-        msg += "}}";
+        msg += "]}";
     }
 
     /**

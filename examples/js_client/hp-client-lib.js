@@ -9,7 +9,6 @@
 
     const supportedHpVersion = "0.0";
     const serverChallengeSize = 16;
-    const hashSize = 32;
     const connectionCheckIntervalMs = 1000;
     const recentActivityThresholdMs = 3000;
 
@@ -83,6 +82,7 @@
             throw "Connection timeout must be greater than 0.";
 
         await initSodium();
+        await initBlake3();
         initWebSocket();
         if (opt.protocol == protocols.bson)
             initBson();
@@ -284,18 +284,55 @@
 
         // Calcualtes the blake3
         const getHash = (arr) => {
-            const state = sodium.crypto_generichash_init(null, hashSize);
-            arr.forEach(item => sodium.crypto_generichash_update(state, item));
-            const combinedHash = sodium.crypto_generichash_final(state, hashSize);
-            return combinedHash;
+            const hash = blake3.createHash();
+            arr.forEach(item => hash.update(item));
+            return new Uint8Array(hash.digest());
+        }
+
+        const getMerkleHash = (tree, checkHash) => {
+
+            const listToHash = [];
+            let checkHashFound = false;
+
+            for (node of tree) {
+                if (Array.isArray(node)) {
+                    const result = getMerkleHash(node, checkHashFound ? null : checkHash);
+                    if (result[0] == true)
+                        checkHashFound = true;
+
+                    listToHash.push(result[1]);
+                }
+                else {
+                    let hashBytes = null;
+                    if (isString(node))
+                        hashBytes = hexToUint8Array(node);
+
+                    if (hashBytes) {
+                        listToHash.push(hashBytes);
+
+                        if (checkHash && hashBytes.toString() == checkHash.toString())
+                            checkHashFound = true;
+                    }
+                }
+            }
+
+            return [checkHashFound, getHash(listToHash)];
         }
 
         const validateOutput = (msg) => {
 
-            console.log(msg);
+            // Calculate combined output hash with user's pubkey.
+            const outputHash = getHash([[0xED], clientKeys.publicKey, ...msg.outputs]);
 
-            // Calculate combined output hash.
-            const outputHash = getHash(msg.outputs);
+            const result = getMerkleHash(msg.hashes, outputHash);
+            if (result[0] == true) {
+                const rootHash = result[1];
+                // Verify the issued signatures against the root hash.
+                for (pair of msg.unl_sig) {
+                    // TODO: Verify signatures with the UNL keys.
+                }
+                return true;
+            }
 
             return false;
         }
@@ -389,8 +426,12 @@
                 }
             }
             else if (m.type == "contract_output") {
-                if (validateOutput(m))
-                    emitter && emitter.emit(events.contractOutput, msgHelper.deserializeOutput(m.content));
+                if (emitter) {
+                    if (validateOutput(m))
+                        m.outputs.forEach(output => emitter.emit(events.contractOutput, msgHelper.deserializeOutput(output)));
+                    else
+                        console.log("Output validation failed.");
+                }
             }
             else if (m.type == "stat_response") {
                 statResponseResolvers.forEach(resolver => {
@@ -591,7 +632,7 @@
 
         this.serializeInput = (input) => {
             return protocol == protocols.json ?
-                ((typeof input === "string" || input instanceof String) ? input : input.toString()) :
+                (isString(input) ? input : input.toString()) :
                 (Buffer.isBuffer(input) ? input : Buffer.from(input));
         }
 
@@ -601,7 +642,7 @@
 
         // Used for generating strings to hold signature as js object keys.
         this.stringifySignature = (sig) => {
-            if (typeof sig === 'string' || sig instanceof String)
+            if (isString(sig))
                 return sig;
             else if (sig instanceof Uint8Array)
                 return uint8ArrayToHex(sig);
@@ -671,6 +712,10 @@
         return bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, "0"), "");
     }
 
+    function isString(obj) {
+        return (typeof obj === "string" || obj instanceof String);
+    }
+
     function EventEmitter() {
         const registrations = {};
 
@@ -702,12 +747,9 @@
             sodium = window.sodium;
         }
         else if (isBrowser && !window.sodium) { // If sodium not yet loaded in browser, wait for sodium ready.
-            await new Promise(resolve => {
+            sodium = await new Promise(resolve => {
                 window.sodium = {
-                    onload: async function (sodiumRef) {
-                        sodium = sodiumRef;
-                        resolve();
-                    }
+                    onload: async (sodiumRef) => resolve(sodiumRef)
                 }
             })
         }
@@ -715,9 +757,9 @@
             sodium = require('libsodium-wrappers');
             await sodium.ready;
         }
-        else {
+
+        if (!sodium)
             throw "Sodium reference not found. Please include sodium js lib in browser scripts.";
-        }
     }
 
     // Set bson reference.
@@ -728,7 +770,8 @@
             bson = window.BSON;
         else if (!isBrowser) // nodejs
             bson = require('bson');
-        else
+
+        if (!bson)
             throw "BSON reference not found.";
     }
 
@@ -740,19 +783,52 @@
             WebSocket = window.WebSocket;
         else if (!isBrowser) // nodejs
             WebSocket = require('ws');
-        else
+
+        if (!WebSocket)
             throw "WebSocket reference not found.";
     }
 
-    const hotPocketLib = {
-        generateKeys,
-        createClient,
-        events,
-        protocols
+    let blake3Resolver = null;
+    // Set blake3 reference.
+    async function initBlake3() {
+        if (blake3) // If already set, do nothing.
+            return;
+        else if (isBrowser && window.blake3) // browser (if blake3 already loaded)
+            blake3 = window.blake3;
+        else if (isBrowser && !window.blake3) // If blake3 not yet loaded in browser, wait for it.
+            blake3 = await new Promise(resolve => blake3Resolver = resolve);
+        else if (!isBrowser) // nodejs
+            blake3 = require('blake3');
+
+        if (!blake3)
+            throw "Blake3 reference not found.";
     }
 
-    if (isBrowser)
-        window.HotPocket = hotPocketLib;
-    else
-        module.exports = hotPocketLib;
+    function setBlake3(blake3ref) {
+        if (blake3Resolver) {
+            blake3Resolver(blake3ref)
+            blake3Resolver = null;
+        }
+        else {
+            blake3 = blake3ref;
+        }
+    }
+
+    if (isBrowser) {
+        window.HotPocket = {
+            generateKeys,
+            createClient,
+            events,
+            protocols,
+            setBlake3
+        };
+    }
+    else {
+        module.exports = {
+            generateKeys,
+            createClient,
+            events,
+            protocols
+        };
+    }
 })();
