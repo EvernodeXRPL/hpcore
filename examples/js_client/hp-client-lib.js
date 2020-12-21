@@ -9,6 +9,7 @@
 
     const supportedHpVersion = "0.0";
     const serverChallengeSize = 16;
+    const outputValidationPassThreshold = 0.8;
     const connectionCheckIntervalMs = 1000;
     const recentActivityThresholdMs = 3000;
 
@@ -319,6 +320,30 @@
             return [checkHashFound, getHash(listToHash)];
         }
 
+        const validateHashSignatures = (rootHash, signatures, unlKeysLookup) => {
+
+            const totalUnl = Object.keys(unlKeysLookup).length;
+            if (totalUnl == 0) {
+                console.log("Cannot validate outputs with empty unl.");
+                return false;
+            }
+
+            const passedKeys = {};
+
+            for (pair of signatures) {
+                const pubkeyHex = isString(pair[0]) ? pair[0] : uint8ArrayToHex(pair[0]);
+                const pubkey = isString(pair[0]) ? hexToUint8Array(pair[0]) : pair[0];
+                const sig = isString(pair[1]) ? hexToUint8Array(pair[1]) : pair[1];
+
+                if (!passedKeys[pubkeyHex] && unlKeysLookup[pubkeyHex] && sodium.crypto_sign_verify_detached(sig, rootHash, pubkey))
+                    passedKeys[pubkeyHex] = true;
+            }
+
+            // Check the percentage of unl keys that passed the signature check.
+            const passed = Object.keys(passedKeys).length;
+            return ((passed / totalUnl) >= outputValidationPassThreshold);
+        }
+
         const validateOutput = (msg) => {
 
             // Calculate combined output hash with user's pubkey.
@@ -328,10 +353,7 @@
             if (result[0] == true) {
                 const rootHash = result[1];
                 // Verify the issued signatures against the root hash.
-                for (pair of msg.unl_sig) {
-                    // TODO: Verify signatures with the UNL keys.
-                }
-                return true;
+                return validateHashSignatures(outputHash, msg.unl_sig, serverKeysLookup);
             }
 
             return false;
