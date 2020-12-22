@@ -589,12 +589,12 @@ namespace hpws
 
         std::variant<client, error> accept(const bool no_block = false)
         {
-#define HPWS_ACCEPT_ERROR(code, msg)                      \
-    {                                                     \
+#define HPWS_ACCEPT_ERROR(code, msg)                       \
+    {                                                      \
         accept_cleanup(mapping, child_fd, buffer_fd, pid); \
-        return error{code, msg};                          \
+        return error{code, msg};                           \
     }
-    
+
             int child_fd[2] = {-1, -1};
             int buffer_fd[4] = {-1, -1, -1, -1};
             void *mapping[4] = {NULL, NULL, NULL, NULL};
@@ -845,7 +845,28 @@ namespace hpws
                 char buf[1024];
                 int bytes_read = recv(fd[0], buf, sizeof(buf) - 1, 0);
                 if (bytes_read < 1)
+                {
+                    int status;
+                    // Wait and obtain exit status code of hpws.
+                    if (waitpid(pid, &status, 0) > 0)
+                    {
+                        switch (WEXITSTATUS(status))
+                        {
+                        case 70:
+                            HPWS_SERVER_ERROR(31, "Could not create listen socket.");
+
+                        case 72:
+                            HPWS_SERVER_ERROR(32, "Could not bind socket for listen.");
+
+                        case 74:
+                            HPWS_SERVER_ERROR(33, "Listen() failed.");
+
+                        default:
+                            break;
+                        }
+                    }
                     HPWS_SERVER_ERROR(2, "nil message sent by hpws on startup");
+                }
 
                 buf[bytes_read] = '\0';
                 if (strncmp(buf, "startup", 7) != 0)
