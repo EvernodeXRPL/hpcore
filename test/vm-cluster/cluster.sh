@@ -361,7 +361,7 @@ do
     mypeers=$(joinarr peers $j)
     # Skip param is passed as -1 to stop skipping self pubkey.
     myunl=$(joinarr pubkeys -1)
-    let contract =$(jq -r '.contract' $(cat ./cfg/node$n.cfg))
+    let contract =$(jq -r '.contract' ./cfg/node$n.cfg)
     $contract.id = "3c349abe-4d70-4f50-9fa6-018f1f2530ab"
     $contract.unl = myunl
     $contract.bin_path = "/usr/bin/node"
