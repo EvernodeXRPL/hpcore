@@ -28,8 +28,8 @@ namespace msg::fbuf::ledger
                 hash_to_flatbuff_bytes(builder, p.state),
                 sv_to_flatbuff_bytes(builder, p.unl_hash),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
+                stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
+                sv_to_flatbuff_bytes(builder, p.output_hash),
                 unl_changeset);
 
         builder.Finish(ledger); // Finished building message content to get serialised content.

@@ -4,6 +4,21 @@
 
 namespace util
 {
+    const std::string to_hex(const std::string_view bin)
+    {
+        // Allocate the target string.
+        std::string encoded_string;
+        encoded_string.resize(bin.size() * 2);
+
+        // Get encoded string.
+        sodium_bin2hex(
+            encoded_string.data(),
+            encoded_string.length() + 1, // + 1 because sodium writes ending '\0' character as well.
+            reinterpret_cast<const unsigned char *>(bin.data()),
+            bin.size());
+        return encoded_string;
+    }
+
     /**
      * Encodes provided bytes to hex string.
      * 
@@ -221,7 +236,7 @@ namespace util
             if (!error_thrown && mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
                 error_thrown = true;
 
-            if(error_thrown)
+            if (error_thrown)
                 return -1;
         }
 

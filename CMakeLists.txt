@@ -28,6 +28,7 @@ add_executable(hpcore
     src/util/rollover_hashset.cpp
     src/util/ttl_set.cpp
     src/util/buffer_store.cpp
+    src/util/merkle_hash_tree.cpp
     src/unl.cpp
     src/crypto.cpp
     src/conf.cpp
