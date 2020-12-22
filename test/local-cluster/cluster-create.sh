@@ -84,10 +84,12 @@ do
     
     # Update contract config.
     touch contract.json
+    touch public.json
     node -p "JSON.stringify({...require('./tmp.json').contract}, null, 2)" > contract.json
+    node -p "JSON.stringify({...require('./tmp.json').public}, null, 2)" > public.json
     node -p "JSON.stringify({...require('./tmp.json'), \
             contract: { \
-                ...require('./contract.json'),
+                ...require('./contract.json'), \
                 id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
                 bin_path: '$binary', \
                 bin_args: '$binargs', \
@@ -98,7 +100,10 @@ do
                 }, \
             }, \
             peerport: ${peerport}, \
-            pubport: ${pubport}, \
+            public: {
+                ...require('./public.json'), \
+                port: ${pubport}, \
+            }, \
             log: {\
                 loglevel: '$loglevel', \
                 loggers:['console', 'file'] \
@@ -106,6 +111,7 @@ do
             }, null, 2)" > hp.cfg
     rm tmp.json
     rm contract.json
+    rm public.json
 
     # Generate ssl certs
     openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \

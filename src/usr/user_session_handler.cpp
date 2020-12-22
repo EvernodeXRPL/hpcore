@@ -18,7 +18,7 @@ namespace usr
     int handle_user_connect(usr::user_comm_session &session)
     {
         // Allow connection only if the maximum capacity is not reached. 0 means allowing unlimited connections.
-        if ((conf::cfg.pubmaxcons == 0) || (usr::ctx.users.size() < conf::cfg.pubmaxcons))
+        if ((conf::cfg.public_conf.max_connections == 0) || (usr::ctx.users.size() < conf::cfg.public_conf.max_connections))
         {
             corebill::add_to_whitelist(session.host_address);
             LOG_DEBUG << "User client connected " << session.display_name();
@@ -35,7 +35,7 @@ namespace usr
         }
         else
         {
-            LOG_DEBUG << "Dropping the user connection. Maximum user capacity reached. Session: " << session.display_name() << " (limit: " << conf::cfg.pubmaxcons << ").";
+            LOG_DEBUG << "Dropping the user connection. Maximum user capacity reached. Session: " << session.display_name() << " (limit: " << conf::cfg.public_conf.max_connections << ").";
             return -1;
         }
     }

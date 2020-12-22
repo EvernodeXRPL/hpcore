@@ -88,6 +88,16 @@ namespace conf
         appbill_config appbill;
     };
 
+    struct public_config
+    {
+        uint16_t port = 0;               // Listening port for public user connections
+        uint16_t idle_timeout = 0;  // Idle connection timeout for user connections in seconds.
+        uint64_t max_bytes_per_msg = 0;   // User message max size in bytes
+        uint64_t max_bytes_per_min = 0;    // User message rate (characters(bytes) per minute)
+        uint64_t max_bad_msgs_per_min = 0; // User bad messages per minute
+        uint16_t max_connections = 0;   // Max inbound user connections
+    };
+
     // Holds contextual information about the currently loaded contract.
     struct contract_ctx
     {
@@ -121,19 +131,15 @@ namespace conf
         std::string hp_version; // Version of Hot Pocket that generated the config.
         node_config node;
         contract_params contract;
+        public_config public_conf;
 
         std::vector<peer_properties> peers; // Vector of peers with ip_port, timestamp, capacity
         uint16_t peerport = 0;              // Listening port for peer connections
-        uint16_t pubport = 0;               // Listening port for public user connections
         uint16_t peerdiscoverytime = 0;     // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
 
         uint16_t peeridletimeout = 0; // Idle connection timeout for peer connections in seconds.
-        uint16_t pubidletimeout = 0;  // Idle connection timeout for user connections in seconds.
 
-        uint64_t pubmaxsize = 0;   // User message max size in bytes
-        uint64_t pubmaxcpm = 0;    // User message rate (characters(bytes) per minute)
-        uint64_t pubmaxbadmpm = 0; // User bad messages per minute
-        uint16_t pubmaxcons = 0;   // Max inbound user connections
+        
 
         uint64_t peermaxsize = 0;      // Peer message max size in bytes
         uint64_t peermaxcpm = 0;       // Peer message rate (characters(bytes) per minute)

@@ -38,7 +38,7 @@ fi
 contconfig=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\") | .config" $conf)
 if [ "$contconfig" = "" ]; then
     # Apply default config.
-    contconfig="{'pubport': 8080, peerport: 22860, 'contract': {'roundtime': 2000 }, 'log':{'loglevel': 'dbg', 'loggers':['console','file']}}"
+    contconfig="{public: {'port': 8080 }, peerport: 22860, 'contract': {'roundtime': 2000 }, 'log':{'loglevel': 'dbg', 'loggers':['console','file']}}"
 fi
 
 vmpass=$(jq -r '.vmpass' $conf)

@@ -106,9 +106,9 @@ namespace conf
 
         cfg.node.role = Role::VALIDATOR;
         cfg.peerport = 22860;
-        cfg.pubport = 8080;
+        cfg.public_conf.port = 8080;
         cfg.peerdiscoverytime = 30000;
-        cfg.pubidletimeout = 0;
+        cfg.public_conf.idle_timeout = 0;
         cfg.peeridletimeout = 120;
 
         cfg.contract.is_consensus_public = false;
@@ -317,16 +317,16 @@ namespace conf
 
         cfg.contract.roundtime = d["contract"]["roundtime"].as<uint16_t>();
         cfg.peerport = d["peerport"].as<uint16_t>();
-        cfg.pubport = d["pubport"].as<uint16_t>();
+        cfg.public_conf.port = d["public"]["port"].as<uint16_t>();
         cfg.peerdiscoverytime = d["peerdiscoverytime"].as<uint16_t>();
 
         cfg.peeridletimeout = d["peeridletimeout"].as<uint16_t>();
-        cfg.pubidletimeout = d["pubidletimeout"].as<uint16_t>();
+        cfg.public_conf.idle_timeout = d["public"]["idle_timeout"].as<uint16_t>();
 
-        cfg.pubmaxsize = d["pubmaxsize"].as<uint64_t>();
-        cfg.pubmaxcpm = d["pubmaxcpm"].as<uint64_t>();
-        cfg.pubmaxbadmpm = d["pubmaxbadmpm"].as<uint64_t>();
-        cfg.pubmaxcons = d["pubmaxcons"].as<unsigned int>();
+        cfg.public_conf.max_bytes_per_msg = d["public"]["max_bytes_per_msg"].as<uint64_t>();
+        cfg.public_conf.max_bytes_per_min = d["public"]["max_bytes_per_min"].as<uint64_t>();
+        cfg.public_conf.max_bad_msgs_per_min = d["public"]["max_bad_msgs_per_min"].as<uint64_t>();
+        cfg.public_conf.max_connections = d["public"]["max_connections"].as<unsigned int>();
 
         cfg.peermaxsize = d["peermaxsize"].as<uint64_t>();
         cfg.peermaxcpm = d["peermaxcpm"].as<uint64_t>();
@@ -413,6 +413,14 @@ namespace conf
         node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
         d.insert_or_assign("node", node_config);
 
+        jsoncons::ojson public_config;
+        public_config.insert_or_assign("port", cfg.public_conf.port);
+        public_config.insert_or_assign("idle_timeout", cfg.public_conf.idle_timeout);
+        public_config.insert_or_assign("max_bytes_per_msg", cfg.public_conf.max_bytes_per_msg);
+        public_config.insert_or_assign("max_bytes_per_min", cfg.public_conf.max_bytes_per_min);
+        public_config.insert_or_assign("max_bad_msgs_per_min", cfg.public_conf.max_bad_msgs_per_min);
+        public_config.insert_or_assign("max_connections", cfg.public_conf.max_connections);
+        d.insert_or_assign("public", public_config);
 
         jsoncons::ojson peers(jsoncons::json_array_arg);
         for (const auto &peer : cfg.peers)
@@ -424,16 +432,9 @@ namespace conf
 
 
         d.insert_or_assign("peerport", cfg.peerport);
-        d.insert_or_assign("pubport", cfg.pubport);
         d.insert_or_assign("peerdiscoverytime", cfg.peerdiscoverytime);
 
         d.insert_or_assign("peeridletimeout", cfg.peeridletimeout);
-        d.insert_or_assign("pubidletimeout", cfg.pubidletimeout);
-
-        d.insert_or_assign("pubmaxsize", cfg.pubmaxsize);
-        d.insert_or_assign("pubmaxcpm", cfg.pubmaxcpm);
-        d.insert_or_assign("pubmaxbadmpm", cfg.pubmaxbadmpm);
-        d.insert_or_assign("pubmaxcons", cfg.pubmaxcons);
 
         d.insert_or_assign("peermaxsize", cfg.peermaxsize);
         d.insert_or_assign("peermaxcpm", cfg.peermaxcpm);
@@ -568,7 +569,7 @@ namespace conf
         fields_missing |= cfg.contract.bin_path.empty() && std::cerr << "Missing cfg field: bin_path\n";
         fields_missing |= cfg.contract.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
         fields_missing |= cfg.peerport == 0 && std::cerr << "Missing cfg field: peerport\n";
-        fields_missing |= cfg.pubport == 0 && std::cerr << "Missing cfg field: pubport\n";
+        fields_missing |= cfg.public_conf.port == 0 && std::cerr << "Missing cfg field: public port\n";
         fields_missing |= cfg.log.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
         fields_missing |= cfg.log.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";
 
