@@ -368,10 +368,10 @@ do
     # $contract.bin_args = "'$basedir'/hpfiles/nodejs_contract/echo_contract.js"
 
     cat ./cfg/node$n.cfg | \
-    jq ".contract.id = \"3c349abe-4d70-4f50-9fa6-018f1f2530ab\"" \
-    jq ".contract.unl = ${myunl}" \
-    jq ".contract.bin_path = \"/usr/bin/node\"" \
-    jq ".contract.bin_args = \"'$basedir'/hpfiles/nodejs_contract/echo_contract.js\"" \
+    jq ".contract.id = \"3c349abe-4d70-4f50-9fa6-018f1f2530ab\"" |\
+    jq ".contract.unl = ${myunl}" |\
+    jq ".contract.bin_path = \"/usr/bin/node\"" |\
+    jq ".contract.bin_args = \"'$basedir'/hpfiles/nodejs_contract/echo_contract.js\"" |\
     > ./cfg/node$n.cfg
 
     # Merge json contents to produce final contract config.
