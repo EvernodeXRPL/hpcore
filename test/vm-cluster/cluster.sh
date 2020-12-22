@@ -372,13 +372,13 @@ do
     jq ".contract.unl = ${myunl}" |\
     jq ".contract.bin_path = \"/usr/bin/node\"" |\
     jq ".contract.bin_args = \"'$basedir'/hpfiles/nodejs_contract/echo_contract.js\"" |\
-    > ./cfg/node$n.cfg
+    > ./cfg/node$n-merged.cfg
 
     # Merge json contents to produce final contract config.
-    echo "$(cat ./cfg/node$n.cfg)" \
-        '{"peers":'${mypeers}'}' \
-        $contconfig \
-        | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
+    # echo "$(cat ./cfg/node$n.cfg)" \
+    #     '{"peers":'${mypeers}'}' \
+    #     $contconfig \
+    #     | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
 done
 
 for (( j=0; j<$vmcount; j++ ))
