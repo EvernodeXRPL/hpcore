@@ -119,10 +119,8 @@
         let emitter = new EventEmitter();
 
         // The accessor function passed into connections to query latest trusted key list.
-        // We update the key list whenever we get a unl update.
-        const getTrustedKeys = () => {
-            return trustedKeysLookup;
-        }
+        // We update the returning key list whenever we get a unl update.
+        const getTrustedKeys = () => trustedKeysLookup;
 
         // Whenever unl change is reported, update the trusted key list.
         emitter.on(events.unlChange, (unl) => {
@@ -293,45 +291,48 @@
         let statResponseResolvers = [];
         let contractInputResolvers = {};
 
-        // Calcualtes the blake3
+        // Calcualtes the blake3 hash of all array items.
         const getHash = (arr) => {
             const hash = blake3.createHash();
             arr.forEach(item => hash.update(item));
             return new Uint8Array(hash.digest());
         }
 
+        // Get root hash of the given merkle hash tree. (called recursively)
+        // checkHashString specifies the hash that must be checked for existance.
         const getMerkleHash = (tree, checkHashString) => {
 
-            const listToHash = [];
+            const listToHash = []; // Collects elements to hash.
             let checkHashFound = false;
 
-            for (node of tree) {
-                if (Array.isArray(node)) {
-                    const result = getMerkleHash(node, checkHashFound ? null : checkHashString);
+            for (let elem of tree) {
+
+                if (Array.isArray(elem)) {
+                    // If the 'elem' is an array we should find the root hash of the array.
+                    // Call this func recursively. If checkHash already found, pass null.
+                    const result = getMerkleHash(elem, checkHashFound ? null : checkHashString);
                     if (result[0] == true)
                         checkHashFound = true;
 
                     listToHash.push(result[1]);
                 }
                 else {
-                    let hashBytes = null;
-                    if (isString(node))
-                        hashBytes = hexToUint8Array(node);
-                    else
-                        hashBytes = node.buffer;
+                    // 'elem' is a single hash value. We get the hash bytes depending on the data type.
+                    // (json encoding will use hex string and bson will use buffer)
+                    const hashBytes = isString(elem) ? hexToUint8Array(elem) : elem.buffer;
+                    listToHash.push(hashBytes);
 
-                    if (hashBytes) {
-                        listToHash.push(hashBytes);
-
-                        if (checkHashString && msgHelper.stringifyValue(hashBytes) == checkHashString)
-                            checkHashFound = true;
-                    }
+                    // If checkHash is specified, compare the hashes.
+                    if (checkHashString && msgHelper.stringifyValue(hashBytes) == checkHashString)
+                        checkHashFound = true;
                 }
             }
 
+            // Return a tuple of whether check hash was found and the root hash of the provided merkle tree.
             return [checkHashFound, getHash(listToHash)];
         }
 
+        // Verifies whether the provided root hash has enough signatures from unl.
         const validateHashSignatures = (rootHash, signatures, unlKeysLookup) => {
 
             const totalUnl = Object.keys(unlKeysLookup).length;
@@ -342,11 +343,16 @@
 
             const passedKeys = {};
 
+            // 'signatures' is an array of pairs of [pubkey, signature]
             for (pair of signatures) {
-                const pubkeyHex = msgHelper.stringifyValue(pair[0]);
+                const pubkeyHex = msgHelper.stringifyValue(pair[0]); // Gets the pubkey hex to use for unl lookup key.
+
+                // Get the signature and issuer pubkey bytes based on the data type.
+                // (json encoding will use hex string and bson will use buffer)
                 const pubkey = isString(pair[0]) ? hexToUint8Array(pair[0].substring(2)) : pair[0].buffer.slice(1); // Skip prefix byte.
                 const sig = isString(pair[1]) ? hexToUint8Array(pair[1]) : pair[1].buffer;
 
+                // Check whether the pubkey is in unl and whether signature is valid.
                 if (!passedKeys[pubkeyHex] && unlKeysLookup[pubkeyHex] && sodium.crypto_sign_verify_detached(sig, rootHash, pubkey))
                     passedKeys[pubkeyHex] = true;
             }
@@ -436,7 +442,9 @@
                 const trustedKeys = getTrustedKeys();
                 if (trustedKeys && trustedKeys[pubkey]) {
                     // Prepare sorted new unl lookup object for equality comparison.
-                    const newUnl = m.unl.sort().forEach(k => newUnl[k] = true);
+                    const newUnl = {};
+                    m.unl.sort().forEach(k => newUnl[k] = true);
+
                     // Only emit unl change event if the unl has really changed.
                     if (JSON.stringify(trustedKeys) != JSON.stringify(newUnl))
                         emitter && emitter.emit(events.unlChange, m.unl);

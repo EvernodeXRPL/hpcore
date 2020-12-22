@@ -1,7 +1,7 @@
 <html>
 
 <head>
-    <title>HotPocket test page</title>
+    <title>HotPocket browser example</title>
 
     <script src="hp-client-lib.js"></script>
 
@@ -18,45 +18,48 @@
 
     <script>
         async function testFunc() {
+
             const keys = await HotPocket.generateKeys(); // Can provide existing hex private key as parameter as well.
 
             // Simple connection to single server without any validations.
             const hpc = await HotPocket.createClient(["wss://localhost:8081"], keys);
 
             // Maintain multiple connections with contract id/version and trusted server key validation.
-            // const options = {
-            //     contractId: "3c349abe-4d70-4f50-9fa6-018f1f2530ab",
-            //     contractVersion: "1.0",
-            //     trustedServerKeys: [
-            //         "ed5597c207bbd251997b7133d5d83a2c6ab9600810edf0bdb43f4004852b8c9e17",
-            //         "ed0b2ffd75b67c3979d3c362d8350ec190f053fa27d3dfcb2eced426efd1d3affc",
-            //         "edd2e1a817387d68adf8adb1d0b339e3f04868c3c81bf6a7472647f10657e31aa1"
-            //     ],
-            //     protocol: HotPocket.protocols.json,
-            //     requiredConnectionCount: 2,
-            //     connectionTimeoutMs: 5000
-            // };
             // const hpc = await HotPocket.createClient(
             //     [
             //         "wss://localhost:8081",
             //         "wss://localhost:8082",
             //         "wss://localhost:8083"
-            //     ], keys, options);
+            //     ],
+            //     keys,
+            //     {
+            //         contractId: "3c349abe-4d70-4f50-9fa6-018f1f2530ab",
+            //         contractVersion: "1.0",
+            //         trustedServerKeys: [
+            //             "ed5597c207bbd251997b7133d5d83a2c6ab9600810edf0bdb43f4004852b8c9e17",
+            //             "ed0b2ffd75b67c3979d3c362d8350ec190f053fa27d3dfcb2eced426efd1d3affc",
+            //             "edd2e1a817387d68adf8adb1d0b339e3f04868c3c81bf6a7472647f10657e31aa1"
+            //         ],
+            //         protocol: HotPocket.protocols.json,
+            //         requiredConnectionCount: 2,
+            //         connectionTimeoutMs: 5000
+            //     });
 
-            if (!await hpc.connect()) {
-                console.log('Connection failed.');
-                return;
-            }
-            console.log('HotPocket Connected.');
+            // We'll register for HotPocket events before connecting.
 
             // This will get fired if HP server disconnects unexpectedly.
             hpc.on(HotPocket.events.disconnect, () => {
                 console.log('Disconnected');
             })
 
-            // This will get fired as servers connects/disconnects after the initial connection establishment.
+            // This will get fired as servers connects/disconnects.
             hpc.on(HotPocket.events.connectionChange, (server, action) => {
                 console.log(server + " " + action);
+            })
+
+            // This will get when the unl public key list changes.
+            hpc.on(HotPocket.events.unlChange, (unl) => {
+                console.log("New unl received: " + JSON.stringify(unl)); // unl is an array of hex public keys.
             })
 
             // This will get fired when contract sends an output.
@@ -69,6 +72,13 @@
                 console.log("Contract read response>> " + response);
             })
 
+            // Establish HotPocket connection.
+            if (!await hpc.connect()) {
+                console.log('Connection failed.');
+                return;
+            }
+            console.log('HotPocket Connected.');
+
             hpc.sendContractReadRequest("Hello");
             hpc.sendContractInput("World!")
 
@@ -80,7 +90,7 @@
 </head>
 
 <body>
-    HotPocket browser client test page.
+    HotPocket browser client example page. Use developer tools to see activity.
 </body>
 
 </html>
