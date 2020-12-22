@@ -357,7 +357,7 @@ namespace usr
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
     {
         // If appbill not enabled always green light the input.
-        if (conf::cfg.appbill.empty())
+        if (conf::cfg.contract.appbill.mode.empty())
             return true;
 
         // execute appbill in --check mode to verify this user can submit a packet/connection to the network

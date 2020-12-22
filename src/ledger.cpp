@@ -31,7 +31,7 @@ namespace ledger
      */
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime;
+        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.contract.roundtime;
 
         // Filename list of the history folder.
         std::list<std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);

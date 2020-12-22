@@ -38,7 +38,7 @@ fi
 contconfig=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\") | .config" $conf)
 if [ "$contconfig" = "" ]; then
     # Apply default config.
-    contconfig="{'pubport': 8080, peerport: 22860, 'roundtime': 2000, 'loglevel': 'dbg', loggers:['console','file']}"
+    contconfig="{'pubport': 8080, peerport: 22860, 'contract': {'roundtime': 2000 }, 'log':{'loglevel': 'dbg', 'loggers':['console','file']}}"
 fi
 
 vmpass=$(jq -r '.vmpass' $conf)
@@ -248,7 +248,7 @@ if [ $mode = "lcl" ]; then
 fi
 
 if [ $mode = "pubkey" ]; then
-    command="cat $contdir/cfg/hp.cfg | grep pubkeyhex | cut -d '\"' -f4"
+    command="cat $contdir/cfg/hp.cfg | grep public_key | cut -d '\"' -f4"
     if [ $nodeid = -1 ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
@@ -315,7 +315,7 @@ do
     let n=$i+1
 
     # Collect each node's pub key and peer address.
-    pubkeys[i]=$(jq -r ".pubkeyhex" ./cfg/node$n.cfg)
+    pubkeys[i]=$(jq -r ".node.public_key" ./cfg/node$n.cfg)
     peers[i]="$vmaddr:$peerport"
 done
 

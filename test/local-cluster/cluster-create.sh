@@ -76,26 +76,36 @@ do
 
     # Collect each node pubkey and peer ports for later processing.
 
-    pubkeys[i]=$(node -p "require('./tmp.json').pubkeyhex")
+    pubkeys[i]=$(node -p "require('./tmp.json').node.public_key")
 
     # During hosting we use docker virtual dns instead of IP address.
     # So each node is reachable via 'node<id>' name.
     peers[i]="node${n}:${peerport}"
     
     # Update contract config.
+    touch contract.json
+    node -p "JSON.stringify({...require('./tmp.json').contract}, null, 2)" > contract.json
     node -p "JSON.stringify({...require('./tmp.json'), \
-            contractid: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
-            binary: '$binary', \
-            binargs: '$binargs', \
-            appbill: '', \
-            appbillargs: '', \
+            contract: { \
+                ...require('./contract.json'),
+                id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
+                bin_path: '$binary', \
+                bin_args: '$binargs', \
+                roundtime: $roundtime, \
+                appbill: { \
+                    mode: '', \
+                    bin_args: '' \
+                }, \
+            }, \
             peerport: ${peerport}, \
             pubport: ${pubport}, \
-            roundtime: $roundtime, \
-            loglevel: '$loglevel', \
-            loggers:['console', 'file'] \
+            log: {\
+                loglevel: '$loglevel', \
+                loggers:['console', 'file'] \
+            }\
             }, null, 2)" > hp.cfg
     rm tmp.json
+    rm contract.json
 
     # Generate ssl certs
     openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \
@@ -151,8 +161,11 @@ do
 
     pushd ./node$n/cfg > /dev/null 2>&1
     mv hp.cfg tmp.json  # nodejs needs file extension to be .json
-    node -p "JSON.stringify({...require('./tmp.json'),peers:${mypeers},unl:${myunl}}, null, 2)" > hp.cfg
+    touch contract.json
+    node -p "JSON.stringify({...require('./tmp.json').contract, unl:${myunl}}, null, 2)" > contract.json
+    node -p "JSON.stringify({...require('./tmp.json'), contract:{...require('./contract.json')}, peers:${mypeers}}, null, 2)" > hp.cfg
     rm tmp.json
+    rm contract.json
     popd > /dev/null 2>&1
 done
 

@@ -64,11 +64,11 @@ namespace hplog
     {
         plog::Severity level;
 
-        if (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG)
+        if (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::DEBUG)
             level = plog::Severity::debug;
-        else if (conf::cfg.loglevel_type == conf::LOG_SEVERITY::INFO)
+        else if (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::INFO)
             level = plog::Severity::info;
-        else if (conf::cfg.loglevel_type == conf::LOG_SEVERITY::WARN)
+        else if (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::WARN)
             level = plog::Severity::warning;
         else
             level = plog::Severity::error;
@@ -80,12 +80,12 @@ namespace hplog
         plog::Logger<0> &logger = plog::init(level);
 
         // Take decision to append logger for file / console or both.
-        if (conf::cfg.loggers.count("console") == 1)
+        if (conf::cfg.log.loggers.count("console") == 1)
         {
             logger.addAppender(&consoleAppender);
         }
 
-        if (conf::cfg.loggers.count("file") == 1)
+        if (conf::cfg.log.loggers.count("file") == 1)
         {
             logger.addAppender(&fileAppender);
         }

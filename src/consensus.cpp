@@ -33,8 +33,8 @@ namespace consensus
     int init()
     {
         // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).
-        ctx.stage_time = conf::cfg.roundtime / 4;
-        ctx.stage_reset_wait_threshold = conf::cfg.roundtime / 10;
+        ctx.stage_time = conf::cfg.contract.roundtime / 4;
+        ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
 
         // Starting consensus processing thread.
         ctx.consensus_thread = std::thread(run_consensus);
@@ -106,7 +106,7 @@ namespace consensus
         // arived ones and expired ones.
         revise_candidate_proposals();
 
-        // If possible, switch back to proposer mode before stage processing. (if we were syncing before)
+        // If possible, switch back to validator mode before stage processing. (if we were syncing before)
         check_sync_completion();
 
         // Get current lcl and state.
@@ -181,7 +181,7 @@ namespace consensus
             // State lcl sync if we are out-of-sync with majority lcl.
             if (is_lcl_desync)
             {
-                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                conf::change_operating_mode(conf::Role::OBSERVER);
                 ledger::set_sync_target(majority_lcl);
             }
 
@@ -193,7 +193,7 @@ namespace consensus
             // Start state sync if we are out-of-sync with majority state.
             if (is_state_desync)
             {
-                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                conf::change_operating_mode(conf::Role::OBSERVER);
                 state_sync::set_target(majority_state);
             }
 
@@ -204,14 +204,14 @@ namespace consensus
             // Start unl sync if we are out-of-sync with majority unl.
             if (is_unl_desync)
             {
-                conf::change_operating_mode(conf::OPERATING_MODE::OBSERVER);
+                conf::change_operating_mode(conf::Role::OBSERVER);
                 unl::set_sync_target(majority_unl);
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
             if (!is_lcl_desync && !is_state_desync && !is_unl_desync)
             {
-                conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
+                conf::change_operating_mode(conf::Role::VALIDATOR);
                 return 0;
             }
 
@@ -229,8 +229,8 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
-            conf::change_operating_mode(conf::OPERATING_MODE::PROPOSER);
+        if (conf::cfg.node.role == conf::Role::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+            conf::change_operating_mode(conf::Role::VALIDATOR);
     }
 
     /**
@@ -265,7 +265,7 @@ namespace consensus
             const int8_t stage_diff = ctx.stage - cp.stage;
 
             // only consider recent proposals and proposals from previous stage and current stage.
-            const bool keep_candidate = (time_diff < (conf::cfg.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
+            const bool keep_candidate = (time_diff < (conf::cfg.contract.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
             LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                       << " [s" << std::to_string(cp.stage)
                       << "] u/i/o:" << cp.users.size()
@@ -274,7 +274,7 @@ namespace consensus
                       << " ts:" << std::to_string(cp.time)
                       << " lcl:" << cp.lcl.substr(0, 15)
                       << " state:" << cp.state
-                      << " [from:" << ((cp.pubkey == conf::cfg.pubkey) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]"
+                      << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]"
                       << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
 
             if (keep_candidate)
@@ -301,11 +301,11 @@ namespace consensus
         if (ctx.stage == 0)
         {
             // This gets the start time of current round window. Stage 0 must start in the window after that.
-            const uint64_t previous_round_start = (((uint64_t)(now / conf::cfg.roundtime)) * conf::cfg.roundtime);
+            const uint64_t previous_round_start = (((uint64_t)(now / conf::cfg.contract.roundtime)) * conf::cfg.contract.roundtime);
 
             // Stage 0 must start in the next round window.
             // (This makes sure stage 3 gets whichever the remaining time in the round after stages 0,1,2)
-            ctx.round_start_time = previous_round_start + conf::cfg.roundtime;
+            ctx.round_start_time = previous_round_start + conf::cfg.contract.roundtime;
             const uint64_t to_wait = ctx.round_start_time - now;
 
             LOG_DEBUG << "Waiting " << to_wait << "ms for next round stage 0.";
@@ -372,18 +372,18 @@ namespace consensus
     }
 
     /**
-     * Broadcasts the given proposal to all connected peers if in PROPOSER mode. Does not send in OBSERVER mode.
+     * Broadcasts the given proposal to all connected peers if in VALIDATOR mode. Does not send in OBSERVER mode.
      * @return 0 on success. -1 if no peers to broadcast.
      */
     void broadcast_proposal(const p2p::proposal &p)
     {
         // In observer mode, we do not send out proposals.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast proposals.
+        if (conf::cfg.node.role == conf::Role::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast proposals.
             return;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
         p2pmsg::create_msg_from_proposal(fbuf, p);
-        p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_consensus_public);
+        p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public);
 
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i/o:" << p.users.size()
                   << "/" << p.hash_inputs.size()
@@ -583,7 +583,7 @@ namespace consensus
         {
             // Vote for times.
             // Everyone votes on the discreet time, as long as it's not in the future and within 2 round times.
-            if (time_now > cp.time && (time_now - cp.time) <= (conf::cfg.roundtime * 2))
+            if (time_now > cp.time && (time_now - cp.time) <= (conf::cfg.contract.roundtime * 2))
                 increment(votes.time, cp.time);
 
             // Vote for round nonce.

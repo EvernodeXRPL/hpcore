@@ -11,7 +11,7 @@ namespace state_common
 
     inline uint16_t get_request_resubmit_timeout()
     {
-        return conf::cfg.roundtime;
+        return conf::cfg.contract.roundtime;
     }
 
     struct state_context

@@ -66,15 +66,15 @@ namespace crypto
      * Returns the hex signature string for a message.
      * 
      * @param msg Message bytes to sign.
-     * @param seckeyhex hex secret key string.
+     * @param private_key_hex hex secret key string.
      * @return hex signature string.
      */
-    std::string sign_hex(std::string_view msg, std::string_view seckeyhex)
+    std::string sign_hex(std::string_view msg, std::string_view private_key_hex)
     {
         //Decode hex string and generate the signature using libsodium.
 
         unsigned char seckey[PFXD_SECKEY_BYTES];
-        util::hex2bin(seckey, PFXD_SECKEY_BYTES, seckeyhex);
+        util::hex2bin(seckey, PFXD_SECKEY_BYTES, private_key_hex);
 
         unsigned char sig[crypto_sign_ed25519_BYTES];
         crypto_sign_ed25519_detached(

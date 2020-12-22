@@ -36,11 +36,11 @@ namespace conf
         uint64_t timestamp = 0;
     };
 
-    // The operating mode of the contract node.
-    enum OPERATING_MODE
+    // The role of the contract node.
+    enum Role
     {
         OBSERVER = 0, // Observer mode. Only emits NUPs. Does not participate in voting.
-        PROPOSER = 1  // Consensus participant mode.
+        VALIDATOR = 1 // Consensus participant mode.
     };
 
     // Log severity levels used in Hot Pocket.
@@ -50,6 +50,42 @@ namespace conf
         INFO,
         WARN,
         ERROR
+    };
+
+    struct log_config
+    {
+        std::string loglevel;                    // Log severity level (debug, info, warn, error)
+        LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
+        std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
+    };
+
+    struct node_config
+    {
+        // Config elements which are initialized in memory (these are not directly loaded from the config file)
+        std::string public_key;  // Contract public key bytes
+        std::string private_key; // Contract secret key bytes
+
+        std::string pub_key_hex;     // Contract hex public key
+        std::string private_key_hex; // Contract hex secret key
+        Role role = Role::OBSERVER;  // Configured startup role of the contract (Observer/validator).
+    };
+
+    struct appbill_config
+    {
+        std::string mode;     // binary to execute for appbill
+        std::string bin_args; // any arguments to supply to appbill binary by default
+    };
+    struct contract_params
+    {
+        std::string id;                   // Contract guid.
+        std::string version;              // Contract version string.
+        std::set<std::string> unl;        // Unique node list (list of binary public keys)
+        std::string bin_path;             // Full path to the contract binary
+        std::string bin_args;             // CLI arguments to pass to the contract binary
+        uint16_t roundtime = 0;           // Consensus round time in ms
+        bool is_consensus_public = false; // If true, consensus are broadcasted to non-unl nodes as well.
+        bool is_npl_public = false;       // If true, npl messages are broadcasted to non-unl nodes as well.
+        appbill_config appbill;
     };
 
     // Holds contextual information about the currently loaded contract.
@@ -77,29 +113,19 @@ namespace conf
     struct contract_config
     {
         // Config elements which are initialized in memory (these are not directly loaded from the config file)
-        std::string pubkey;                            // Contract public key bytes
-        std::string seckey;                            // Contract secret key bytes
         std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.
         std::vector<std::string> runtime_appbill_args; // Appbill execution args used during runtime.
         bool is_unl = false;                           // Indicate whether we are a unl node or not.
 
         // Config elements which are loaded from the config file.
-        std::string hpversion;                                    // Version of Hot Pocket that generated the config.
-        std::string contractid;                                   // Contract guid.
-        std::string contractversion;                              // Contract version string.
-        OPERATING_MODE operating_mode = OPERATING_MODE::OBSERVER; // Configured startup operating mode of the contract (Observer/Proposer).
-        std::string pubkeyhex;                                    // Contract hex public key
-        std::string seckeyhex;                                    // Contract hex secret key
-        std::string binary;                                       // Full path to the contract binary
-        std::string binargs;                                      // CLI arguments to pass to the contract binary
-        std::string appbill;                                      // binary to execute for appbill
-        std::string appbillargs;                                  // any arguments to supply to appbill binary by default
-        std::vector<peer_properties> peers;                       // Vector of peers with ip_port, timestamp, capacity
-        std::set<std::string> unl;                                // Unique node list (list of binary public keys)
-        uint16_t peerport = 0;                                    // Listening port for peer connections
-        uint16_t roundtime = 0;                                   // Consensus round time in ms
-        uint16_t pubport = 0;                                     // Listening port for public user connections
-        uint16_t peerdiscoverytime = 0;                           // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
+        std::string hp_version; // Version of Hot Pocket that generated the config.
+        node_config node;
+        contract_params contract;
+
+        std::vector<peer_properties> peers; // Vector of peers with ip_port, timestamp, capacity
+        uint16_t peerport = 0;              // Listening port for peer connections
+        uint16_t pubport = 0;               // Listening port for public user connections
+        uint16_t peerdiscoverytime = 0;     // Time interval in ms to find for peers dynamicpeerdiscovery should be on for this
 
         uint16_t peeridletimeout = 0; // Idle connection timeout for peer connections in seconds.
         uint16_t pubidletimeout = 0;  // Idle connection timeout for user connections in seconds.
@@ -117,16 +143,11 @@ namespace conf
         uint16_t peermaxcons = 0;      // Max peer connections
         uint16_t peermaxknowncons = 0; // Max known peer connections
 
-        bool is_consensus_public = false; // If true, consensus are broadcasted to non-unl nodes as well.
-        bool is_npl_public = false;       // If true, npl messages are broadcasted to non-unl nodes as well.
-
         bool msgforwarding = false;        // Whether peer message forwarding is on/off.
         bool dynamicpeerdiscovery = false; // Whether dynamic peer discovery is on/off.
         bool fullhistory = false;          // Whether full history mode is on/off.
 
-        std::string loglevel;                    // Log severity level (debug, info, warn, error)
-        LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
-        std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
+        log_config log;
     };
 
     // Global contract context struct exposed to the application.
@@ -161,7 +182,7 @@ namespace conf
 
     int binpair_to_hex(contract_config &cfg);
 
-    void change_operating_mode(const OPERATING_MODE mode);
+    void change_operating_mode(const Role mode);
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);
 } // namespace conf

@@ -23,7 +23,7 @@ namespace crypto
 
     std::string sign(std::string_view msg, std::string_view seckey);
 
-    std::string sign_hex(std::string_view msg, std::string_view seckeyhex);
+    std::string sign_hex(std::string_view msg, std::string_view private_key_hex);
 
     int verify(std::string_view msg, std::string_view sig, std::string_view pubkey);
 

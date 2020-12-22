@@ -62,11 +62,11 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CONTRACT_ID;
         msg += SEP_COLON;
-        msg += conf::cfg.contractid;
+        msg += conf::cfg.contract.id;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CONTRACT_VERSION;
         msg += SEP_COLON;
-        msg += conf::cfg.contractversion;
+        msg += conf::cfg.contract.version;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CHALLENGE;
         msg += SEP_COLON;
@@ -90,8 +90,8 @@ namespace msg::usrmsg::json
     void create_server_challenge_response(std::vector<uint8_t> &msg, const std::string &original_challenge)
     {
         // Generate signature of challenge + contract id + contract version.
-        const std::string content = original_challenge + conf::cfg.contractid + conf::cfg.contractversion;
-        const std::string sig_hex = crypto::sign_hex(content, conf::cfg.seckeyhex);
+        const std::string content = original_challenge + conf::cfg.contract.id + conf::cfg.contract.version;
+        const std::string sig_hex = crypto::sign_hex(content, conf::cfg.node.private_key_hex);
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
         msg.reserve(256);
@@ -106,7 +106,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_PUBKEY;
         msg += SEP_COLON;
-        msg += conf::cfg.pubkeyhex;
+        msg += conf::cfg.node.pub_key_hex;
         msg += "\"}";
     }
 

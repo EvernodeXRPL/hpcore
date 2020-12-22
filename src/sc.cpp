@@ -112,7 +112,7 @@ namespace sc
             // Write the contract execution args from HotPocket to the stdin (0) of the contract process.
             write_contract_args(ctx, user_inputs_fd);
 
-            const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
+            const bool using_appbill = !ctx.args.readonly && !conf::cfg.contract.appbill.mode.empty();
             int len = conf::cfg.runtime_binexec_args.size() + 1;
             if (using_appbill)
                 len += conf::cfg.runtime_appbill_args.size();
@@ -258,7 +258,7 @@ namespace sc
 
         std::ostringstream os;
         os << "{\"version\":\"" << util::HP_VERSION
-           << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex.substr(2)
+           << "\",\"pubkey\":\"" << conf::cfg.node.pub_key_hex.substr(2)
            << "\",\"ts\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
@@ -521,14 +521,14 @@ namespace sc
     void broadcast_npl_output(std::string_view output)
     {
         // In observer mode, we do not send out npl messages.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast npl messages.
+        if (conf::cfg.node.role == conf::Role::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast npl messages.
             return;
 
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
             msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl());
-            p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_npl_public);
+            p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public);
         }
     }
 

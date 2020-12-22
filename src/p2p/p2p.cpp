@@ -77,7 +77,7 @@ namespace p2p
         std::string pubkeyhex;
         util::bin2hex(pubkeyhex, reinterpret_cast<const unsigned char *>(challenge_resp.pubkey.data()), challenge_resp.pubkey.length());
 
-        const int res = challenge_resp.pubkey.compare(conf::cfg.pubkey);
+        const int res = challenge_resp.pubkey.compare(conf::cfg.node.public_key);
 
         // If pub key is greater than our id (< 0), then we should give priority to any existing inbound connection
         // from the same peer and drop the outbound connection.
@@ -211,7 +211,7 @@ namespace p2p
 
         const uint64_t time_now = util::get_epoch_milliseconds();
         // Checking the time to live of the container. The time to live for forwarding is three times the round time.
-        if (container->timestamp() < (time_now - (conf::cfg.roundtime * 3)))
+        if (container->timestamp() < (time_now - (conf::cfg.contract.roundtime * 3)))
         {
             LOG_DEBUG << "Peer message is too old for forwarding.";
             return false;
