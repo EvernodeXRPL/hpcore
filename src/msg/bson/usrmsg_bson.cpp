@@ -122,8 +122,10 @@ namespace msg::usrmsg::bson
         encoder.begin_array();
         for (const auto &[pubkey, sig] : unl_sig)
         {
+            encoder.begin_array();
             encoder.byte_string_value(pubkey);
             encoder.byte_string_value(sig);
+            encoder.end_array();
         }
         encoder.end_array();
 
