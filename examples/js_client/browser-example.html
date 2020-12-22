@@ -23,11 +23,11 @@
             // Simple connection to single server without any validations.
             const hpc = await HotPocket.createClient(["wss://localhost:8081"], keys);
 
-            // Maintain multiple connections with contract id/version and server key validation.
+            // Maintain multiple connections with contract id/version and trusted server key validation.
             // const options = {
             //     contractId: "3c349abe-4d70-4f50-9fa6-018f1f2530ab",
             //     contractVersion: "1.0",
-            //     validServerKeys: [
+            //     trustedServerKeys: [
             //         "ed5597c207bbd251997b7133d5d83a2c6ab9600810edf0bdb43f4004852b8c9e17",
             //         "ed0b2ffd75b67c3979d3c362d8350ec190f053fa27d3dfcb2eced426efd1d3affc",
             //         "edd2e1a817387d68adf8adb1d0b339e3f04868c3c81bf6a7472647f10657e31aa1"

@@ -31,7 +31,8 @@
         disconnect: "disconnect",
         contractOutput: "contractOutput",
         contractReadResponse: "contractReadResponse",
-        connectionChange: "connectionChange"
+        connectionChange: "connectionChange",
+        unlChange: "unlChange"
     }
     Object.freeze(events);
 
@@ -62,7 +63,7 @@
         const defaultOptions = {
             contractId: null,
             contractVersion: null,
-            validServerKeys: null,
+            trustedServerKeys: null,
             protocol: protocols.json,
             requiredConnectionCount: 1,
             connectionTimeoutMs: 5000
@@ -101,25 +102,33 @@
         if (opt.requiredConnectionCount > Object.keys(serversLookup).length)
             throw "requiredConnectionCount is higher than no. of servers.";
 
-        let serverKeysLookup = null;
-        if (opt.validServerKeys) {
-            serverKeysLookup = {};
-            opt.validServerKeys.forEach(k => {
-                const key = k.trim();
-                if (key.length > 0)
-                    serverKeysLookup[key] = true
-            });
-        }
+        let trustedKeysLookup = {};
+        opt.trustedServerKeys && opt.trustedServerKeys.sort().forEach(k => {
+            const key = k.trim();
+            if (key.length > 0)
+                trustedKeysLookup[key] = true
+        });
+        if (Object.keys(trustedKeysLookup).length == 0)
+            trustedKeysLookup = null;
 
-        if (serverKeysLookup && Object.keys(serverKeysLookup).length == 0)
-            throw "serverKeys must contain at least one key. Specify null to bypass key validation.";
-
-        return new HotPocketClient(opt.contractId, opt.contractVersion, clientKeys, serversLookup, serverKeysLookup, opt.protocol, opt.requiredConnectionCount, opt.connectionTimeoutMs);
+        return new HotPocketClient(opt.contractId, opt.contractVersion, clientKeys, serversLookup, trustedKeysLookup, opt.protocol, opt.requiredConnectionCount, opt.connectionTimeoutMs);
     }
 
-    function HotPocketClient(contractId, contractVersion, clientKeys, serversLookup, serverKeysLookup, protocol, requiredConnectionCount, connectionTimeoutMs) {
+    function HotPocketClient(contractId, contractVersion, clientKeys, serversLookup, trustedKeysLookup, protocol, requiredConnectionCount, connectionTimeoutMs) {
 
         let emitter = new EventEmitter();
+
+        // The accessor function passed into connections to query latest trusted key list.
+        // We update the key list whenever we get a unl update.
+        const getTrustedKeys = () => {
+            return trustedKeysLookup;
+        }
+
+        // Whenever unl change is reported, update the trusted key list.
+        emitter.on(events.unlChange, (unl) => {
+            trustedKeysLookup = {};
+            unl.sort().forEach(pubkey => trustedKeysLookup[pubkey] = true);
+        })
 
         const nodes = Object.keys(serversLookup).map(s => {
             return {
@@ -197,7 +206,7 @@
 
                 // Get the next available node.
                 const n = freeNodes.shift();
-                n.connection = new HotPocketConnection(contractId, contractVersion, clientKeys, n.server, serverKeysLookup, protocol, connectionTimeoutMs, emitter);
+                n.connection = new HotPocketConnection(contractId, contractVersion, clientKeys, n.server, getTrustedKeys, protocol, connectionTimeoutMs, emitter);
                 n.lastActivity = new Date().getTime();
 
                 n.connection.connect().then(success => {
@@ -265,7 +274,7 @@
         }
     }
 
-    function HotPocketConnection(contractId, contractVersion, clientKeys, server, serverKeysLookup, protocol, connectionTimeoutMs, emitter) {
+    function HotPocketConnection(contractId, contractVersion, clientKeys, server, getTrustedKeys, protocol, connectionTimeoutMs, emitter) {
 
         // Create message helper with JSON protocol initially.
         // After challenge handshake, we will change this to use the protocol specified by user.
@@ -275,6 +284,7 @@
         let serverChallenge = null; // The hex challenge we have issued to the server.
         let reportedContractId = null;
         let reportedContractVersion = null;
+        let pubkey = false; // Pubkey hex (with prefix) of this connection.
 
         let ws = null;
         let handshakeTimer = null; // Timer to track connection handshake timeout.
@@ -334,11 +344,8 @@
 
             for (pair of signatures) {
                 const pubkeyHex = msgHelper.stringifyValue(pair[0]);
-                const pubkey = isString(pair[0]) ? hexToUint8Array(pair[0]) : pair[0].buffer;
+                const pubkey = isString(pair[0]) ? hexToUint8Array(pair[0].substring(2)) : pair[0].buffer.slice(1); // Skip prefix byte.
                 const sig = isString(pair[1]) ? hexToUint8Array(pair[1]) : pair[1].buffer;
-
-                console.log(pubkey);
-                console.log(sig);
 
                 if (!passedKeys[pubkeyHex] && unlKeysLookup[pubkeyHex] && sodium.crypto_sign_verify_detached(sig, rootHash, pubkey))
                     passedKeys[pubkeyHex] = true;
@@ -349,18 +356,17 @@
             return ((passed / totalUnl) >= outputValidationPassThreshold);
         }
 
-        const validateOutput = (msg) => {
+        const validateOutput = (msg, trustedKeys) => {
 
             // Calculate combined output hash with user's pubkey.
-            const outputHash = getHash([[0xED], clientKeys.publicKey, ...msgHelper.spreadOutputs(msg.outputs)]);
+            const outputHash = getHash([[0xED], clientKeys.publicKey, ...msgHelper.spreadArrayField(msg.outputs)]);
 
             const result = getMerkleHash(msg.hashes, msgHelper.stringifyValue(outputHash));
             if (result[0] == true) {
                 const rootHash = result[1];
-                
-                return true;
-                // TODO: Verify the issued signatures against the root hash.
-                // return validateHashSignatures(outputHash, msg.unl_sig, <unl keys>);
+
+                // Verify the issued signatures against the root hash.
+                return validateHashSignatures(rootHash, msg.unl_sig, trustedKeys);
             }
 
             return false;
@@ -406,12 +412,6 @@
             }
             else if (connectionStatus == 1 && serverChallenge && m.type == "server_challenge_response" && m.sig && m.pubkey) {
 
-                // If server keys has been specified, validate whether this server's pubkey is among the valid list.
-                if (serverKeysLookup && !serverKeysLookup[m.pubkey]) {
-                    console.log(`${server} key '${m.pubkey}' not among the valid keys.`);
-                    return false;
-                }
-
                 // Verify server challenge response.
                 const stringToVerify = serverChallenge + reportedContractId + reportedContractVersion;
                 const serverPubkeyHex = m.pubkey.substring(2); // Skip 'ed' prefix;
@@ -424,12 +424,24 @@
                 handshakeTimer = null;
                 serverChallenge = null; // Clear the sent challenge as we no longer need it.
                 msgHelper.useProtocol(protocol); // Here onwards, use the message protocol specified by user.
+                pubkey = m.pubkey; // Set this connection's public key.
                 connectionStatus = 2; // Handshake complete.
 
                 // If we are still connected, report handshaking as successful.
                 // (If websocket disconnects, handshakeResolver will be already null)
                 handshakeResolver && handshakeResolver(true);
                 console.log(`Connected to ${server}`);
+
+                // If this is currently a trusted connection, notify unl update.
+                const trustedKeys = getTrustedKeys();
+                if (trustedKeys && trustedKeys[pubkey]) {
+                    // Prepare sorted new unl lookup object for equality comparison.
+                    const newUnl = m.unl.sort().forEach(k => newUnl[k] = true);
+                    // Only emit unl change event if the unl has really changed.
+                    if (JSON.stringify(trustedKeys) != JSON.stringify(newUnl))
+                        emitter && emitter.emit(events.unlChange, m.unl);
+                }
+
                 return true;
             }
 
@@ -456,7 +468,9 @@
             }
             else if (m.type == "contract_output") {
                 if (emitter) {
-                    if (validateOutput(m))
+                    // Validate outputs if trusted keys is not null. (null means bypass validation)
+                    const trustedKeys = getTrustedKeys();
+                    if (!trustedKeys || validateOutput(m, trustedKeys))
                         m.outputs.forEach(output => emitter.emit(events.contractOutput, msgHelper.deserializeOutput(output)));
                     else
                         console.log("Output validation failed.");
@@ -681,7 +695,8 @@
                 throw "Cannot stringify signature.";
         }
 
-        this.spreadOutputs = (outputs) => {
+        // Spreads hex/binary item array.
+        this.spreadArrayField = (outputs) => {
             return protocol == protocols.json ? outputs : outputs.map(o => o.buffer);
         }
 

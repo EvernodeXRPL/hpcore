@@ -19,6 +19,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_SIG = "sig";
     constexpr const char *FLD_PUBKEY = "pubkey";
     constexpr const char *FLD_PROTOCOL = "protocol";
+    constexpr const char *FLD_UNL = "unl";
     constexpr const char *FLD_INPUT = "input";
     constexpr const char *FLD_INPUT_CONTAINER = "input_container";
     constexpr const char *FLD_INPUT_SIG = "input_sig";

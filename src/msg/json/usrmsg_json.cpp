@@ -1,6 +1,7 @@
 #include "../../pchheader.hpp"
 #include "../../util/util.hpp"
 #include "../../util/merkle_hash_tree.hpp"
+#include "../../unl.hpp"
 #include "../../crypto.hpp"
 #include "../../hplog.hpp"
 #include "../../conf.hpp"
@@ -84,7 +85,8 @@ namespace msg::usrmsg::json
      *            {
      *              "type": "server_challenge_response",
      *              "sig": "<hex encoded signature of the [challenge + contract_id]>",
-     *              "pubkey": "<our public key in hex>"
+     *              "pubkey": "<our public key in hex>",
+     *              "unl": [<hex unl pubkey list>]
      *            }
      * @param original_challenge Original challenge issued by the user.
      */
@@ -95,7 +97,7 @@ namespace msg::usrmsg::json
         const std::string sig_hex = crypto::sign_hex(content, conf::cfg.seckeyhex);
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
-        msg.reserve(256);
+        msg.reserve(1024);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -108,7 +110,19 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_PUBKEY;
         msg += SEP_COLON;
         msg += conf::cfg.pubkeyhex;
-        msg += "\"}";
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_UNL;
+        msg += "\":[";
+        const std::set<std::string> unl_list = unl::get();
+        for (auto itr = unl_list.begin(); itr != unl_list.end(); itr++)
+        {
+            msg += "\"";
+            msg += util::to_hex(*itr);
+            msg += "\"";
+            if (std::next(itr) != unl_list.end())
+                msg += ",";
+        }
+        msg += "]}";
     }
 
     /**
