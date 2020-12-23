@@ -90,11 +90,15 @@ namespace msg::usrmsg::bson
      *              "type": "contract_output",
      *              "lcl": "<lcl id>"
      *              "lcl_seqno": <integer>,
-     *              "content": <contract output>
+     *              "outputs": [<binary output 1>, <binary output 2>, ...], // The output order is the hash order.
+     *              "hashes": [<binary merkle hash tree>], // Always includes user's output hash [output hash = hash(pubkey+all outputs for the user)]
+     *              "unl_sig": [["<pubkey>", "<sig>"], ...] // Binary UNL pubkeys and signatures of root hash.
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
+    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+                                          const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                          const uint64_t lcl_seq_no, std::string_view lcl)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -104,8 +108,27 @@ namespace msg::usrmsg::bson
         encoder.string_value(lcl);
         encoder.key(msg::usrmsg::FLD_LCL_SEQ);
         encoder.int64_value(lcl_seq_no);
-        encoder.key(msg::usrmsg::FLD_CONTENT);
-        encoder.byte_string_value(content);
+
+        encoder.key(msg::usrmsg::FLD_OUTPUTS);
+        encoder.begin_array();
+        for (int i = 0; i < outputs.size(); i++)
+            encoder.byte_string_value(outputs[i]);
+        encoder.end_array();
+
+        encoder.key(msg::usrmsg::FLD_HASHES);
+        populate_output_hash_array(encoder, hash_root);
+
+        encoder.key(msg::usrmsg::FLD_UNL_SIG);
+        encoder.begin_array();
+        for (const auto &[pubkey, sig] : unl_sig)
+        {
+            encoder.begin_array();
+            encoder.byte_string_value(pubkey);
+            encoder.byte_string_value(sig);
+            encoder.end_array();
+        }
+        encoder.end_array();
+
         encoder.end_object();
         encoder.flush();
     }
@@ -253,6 +276,22 @@ namespace msg::usrmsg::bson
         nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
         max_lcl_seqno = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
         return 0;
+    }
+
+    void populate_output_hash_array(jsoncons::bson::bson_bytes_encoder &encoder, const util::merkle_hash_node &node)
+    {
+        if (node.children.empty())
+        {
+            encoder.byte_string_value(node.hash);
+            return;
+        }
+        else
+        {
+            encoder.begin_array();
+            for (const auto &child : node.children)
+                populate_output_hash_array(encoder, child);
+            encoder.end_array();
+        }
     }
 
 } // namespace msg::usrmsg::bson

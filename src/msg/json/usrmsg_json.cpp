@@ -1,5 +1,7 @@
 #include "../../pchheader.hpp"
 #include "../../util/util.hpp"
+#include "../../util/merkle_hash_tree.hpp"
+#include "../../unl.hpp"
 #include "../../crypto.hpp"
 #include "../../hplog.hpp"
 #include "../../conf.hpp"
@@ -83,7 +85,8 @@ namespace msg::usrmsg::json
      *            {
      *              "type": "server_challenge_response",
      *              "sig": "<hex encoded signature of the [challenge + contract_id]>",
-     *              "pubkey": "<our public key in hex>"
+     *              "pubkey": "<our public key in hex>",
+     *              "unl": [<hex unl pubkey list>]
      *            }
      * @param original_challenge Original challenge issued by the user.
      */
@@ -94,7 +97,7 @@ namespace msg::usrmsg::json
         const std::string sig_hex = crypto::sign_hex(content, conf::cfg.node.private_key_hex);
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
-        msg.reserve(256);
+        msg.reserve(1024);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -107,7 +110,19 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_PUBKEY;
         msg += SEP_COLON;
         msg += conf::cfg.node.pub_key_hex;
-        msg += "\"}";
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_UNL;
+        msg += "\":[";
+        const std::set<std::string> unl_list = unl::get();
+        for (auto itr = unl_list.begin(); itr != unl_list.end(); itr++)
+        {
+            msg += "\"";
+            msg += util::to_hex(*itr);
+            msg += "\"";
+            if (std::next(itr) != unl_list.end())
+                msg += ",";
+        }
+        msg += "]}";
     }
 
     /**
@@ -226,15 +241,17 @@ namespace msg::usrmsg::json
      *              "type": "contract_output",
      *              "lcl": "<lcl id>"
      *              "lcl_seqno": <integer>,
-     *              "content": "<contract output string>"
+     *              "outputs": ["<output string 1>", "<output string 2>", ...], // The output order is the hash order.
+     *              "hashes": [<hex merkle hash tree>], // Always includes user's output hash [output hash = hash(pubkey+all outputs for the user)]
+     *              "unl_sig": [["<pubkey hex>", "<sig hex>"], ...] // UNL pubkeys and signatures of root hash.
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl)
+    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+                                          const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                          const uint64_t lcl_seq_no, std::string_view lcl)
     {
-        const bool is_string = is_json_string(content);
-
-        msg.reserve(content.size() + 256);
+        msg.reserve(1024);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -248,27 +265,56 @@ namespace msg::usrmsg::json
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_CONTENT;
-        msg += SEP_COLON_NOQUOTE;
+        msg += msg::usrmsg::FLD_OUTPUTS;
+        msg += "\":[";
 
-        if (is_json_string(content))
+        for (int i = 0; i < outputs.size(); i++)
         {
-            // Process the final string using jsoncons.
-            jsoncons::json jstring = content;
-            jsoncons::json_options options;
-            options.escape_all_non_ascii(true);
+            std::string_view output = outputs[i];
 
-            std::string escaped_content;
-            jstring.dump(escaped_content);
+            if (is_json_string(output))
+            {
+                // Process the final string using jsoncons.
+                jsoncons::json jstring = output;
+                jsoncons::json_options options;
+                options.escape_all_non_ascii(true);
 
-            msg += escaped_content;
+                std::string escaped_content;
+                jstring.dump(escaped_content);
+
+                msg += escaped_content;
+            }
+            else
+            {
+                msg += output;
+            }
+
+            if (i < outputs.size() - 1)
+                msg += ",";
         }
-        else
+
+        msg += "],\"";
+
+        msg += msg::usrmsg::FLD_HASHES;
+        msg += "\":";
+        populate_output_hash_array(msg, hash_root);
+        msg += ",\"";
+
+        msg += msg::usrmsg::FLD_UNL_SIG;
+        msg += "\":[";
+        for (int i = 0; i < unl_sig.size(); i++)
         {
-            msg += content;
-        }
+            const auto &sig = unl_sig[i]; // Pubkey and Signature pair.
+            msg += "[\"";
+            msg += util::to_hex(sig.first);
+            msg += "\",\"";
+            msg += util::to_hex(sig.second);
+            msg += "\"]";
 
-        msg += "}";
+            if (i < unl_sig.size() - 1)
+                msg += ",";
+        }
+        msg += "]}";
     }
 
     /**
@@ -567,6 +613,28 @@ namespace msg::usrmsg::json
         }
 
         return false; // Is a number.
+    }
+
+    void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_node &node)
+    {
+        if (node.children.empty())
+        {
+            msg += "\"";
+            msg += util::to_hex(node.hash);
+            msg += "\"";
+            return;
+        }
+        else
+        {
+            msg += "[";
+            for (auto itr = node.children.begin(); itr != node.children.end(); itr++)
+            {
+                populate_output_hash_array(msg, *itr);
+                if (std::next(itr) != node.children.end())
+                    msg += ",";
+            }
+            msg += "]";
+        }
     }
 
 } // namespace msg::usrmsg::json

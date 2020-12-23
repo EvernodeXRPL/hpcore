@@ -55,8 +55,9 @@ namespace p2p
         std::string unl_hash; // Hash of the current unl list.
         hpfs::h32 state;
         std::set<std::string> users;
-        std::set<std::string> hash_inputs;
-        std::set<std::string> hash_outputs;
+        std::set<std::string> input_hashes;
+        std::string output_hash;
+        std::string output_sig;
         contract_unl_changeset unl_changeset; // Additions and removals of the unl.
     };
 
