@@ -41,7 +41,7 @@ namespace hpfs
             // hpfs process.
             util::fork_detach();
 
-            const char *active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
+            const char *active_hpfs_trace_arg = (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
 
             // Fill process args.
             char *execv_args[] = {
@@ -141,7 +141,7 @@ namespace hpfs
                                 .append("/")
                                 .append(std::to_string(self_pid));
 
-            const char *active_hpfs_trace_arg = (conf::cfg.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
+            const char *active_hpfs_trace_arg = (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::DEBUG ? HPFS_TRACE_ARG_DEBUG : HPFS_TRACE_ARG_ERROR);
 
             // Fill process args.
             char *execv_args[] = {

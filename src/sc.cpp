@@ -112,22 +112,22 @@ namespace sc
             // Write the contract execution args from HotPocket to the stdin (0) of the contract process.
             write_contract_args(ctx, user_inputs_fd);
 
-            const bool using_appbill = !ctx.args.readonly && !conf::cfg.appbill.empty();
-            int len = conf::cfg.runtime_binexec_args.size() + 1;
+            const bool using_appbill = !ctx.args.readonly && !conf::cfg.contract.appbill.mode.empty();
+            int len = conf::cfg.contract.runtime_binexec_args.size() + 1;
             if (using_appbill)
-                len += conf::cfg.runtime_appbill_args.size();
+                len += conf::cfg.contract.appbill.runtime_args.size();
 
             // Fill process args.
             char *execv_args[len];
             int j = 0;
             if (using_appbill)
             {
-                for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++, j++)
-                    execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
+                for (int i = 0; i < conf::cfg.contract.appbill.runtime_args.size(); i++, j++)
+                    execv_args[i] = conf::cfg.contract.appbill.runtime_args[i].data();
             }
 
-            for (int i = 0; i < conf::cfg.runtime_binexec_args.size(); i++, j++)
-                execv_args[j] = conf::cfg.runtime_binexec_args[i].data();
+            for (int i = 0; i < conf::cfg.contract.runtime_binexec_args.size(); i++, j++)
+                execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
             chdir(ctx.args.state_dir.c_str());
@@ -258,7 +258,7 @@ namespace sc
 
         std::ostringstream os;
         os << "{\"version\":\"" << util::HP_VERSION
-           << "\",\"pubkey\":\"" << conf::cfg.pubkeyhex
+           << "\",\"pubkey\":\"" << conf::cfg.node.pub_key_hex
            << "\",\"ts\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
@@ -521,14 +521,14 @@ namespace sc
     void broadcast_npl_output(std::string_view output)
     {
         // In observer mode, we do not send out npl messages.
-        if (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast npl messages.
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER || !conf::cfg.node.is_unl) // If we are a non-unl node, do not broadcast npl messages.
             return;
 
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
             msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl());
-            p2p::broadcast_message(fbuf, true, false, !conf::cfg.is_npl_public);
+            p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public);
         }
     }
 
