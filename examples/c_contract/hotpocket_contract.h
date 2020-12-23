@@ -16,7 +16,7 @@
 #define __HP_STREAM_MSG_HEADER_SIZE 4
 #define __HP_SEQPKT_MAX_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
 #define HP_PEER_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
-#define HP_KEY_SIZE 64
+#define HP_KEY_SIZE 66 // Hex pubkey size. (64 char key + 2 chars for key type prfix)
 #define HP_HASH_SIZE 64
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                        \
@@ -79,14 +79,14 @@ struct hp_user_inputs_collection
 
 struct hp_user
 {
-    char pubkey[HP_KEY_SIZE + 1];
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
     int outfd;
     struct hp_user_inputs_collection inputs;
 };
 
 struct hp_peer
 {
-    char pubkey[HP_KEY_SIZE + 1];
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
 };
 
 struct hp_users_collection
@@ -107,8 +107,8 @@ struct hp_contract_context
 {
     bool readonly;
     uint64_t timestamp;
-    char pubkey[HP_KEY_SIZE + 1];
-    char lcl[HP_HASH_SIZE + 22]; // uint64(20 chars) + "-" + hash + nullchar
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
+    char lcl[HP_HASH_SIZE + 22];  // uint64(20 chars) + "-" + hash + nullchar
     struct hp_users_collection users;
     struct hp_peers_collection peers;
 };
@@ -382,12 +382,14 @@ int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout)
  */
 int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count)
 {
-    // We assume 'add' and 'remove' are pointing to a char buffer containing 'count' no. of char[64] buffers.
+    // We assume 'add' and 'remove' are pointing to char buffers containing 'count' no. of char[HP_KEY_SIZE] buffers.
 
     // Calculate total json message length and prepare the json buf.
     // Format: {"type":"unl_changeset","add":["pubkey1",...],"remove":["pubkey2",...]}
 
-    const size_t json_size = 45 + (67 * add_count - (add_count ? 1 : 0)) + (67 * remove_count - (remove_count ? 1 : 0));
+    // {"type":"unl_changeset","add":[],"remove":[]} => length 45
+    // "pubkey", (HP_KEY_SIZE+quotes+comma) => length 69
+    const size_t json_size = 45 + (69 * add_count - (add_count ? 1 : 0)) + (69 * remove_count - (remove_count ? 1 : 0));
     char json_buf[json_size];
 
     strncpy(json_buf, "{\"type\":\"unl_changeset\",\"add\":[", 31);
@@ -397,8 +399,8 @@ int hp_update_unl(const char *add, const size_t add_count, const char *remove, c
         if (i > 0)
             json_buf[pos++] = ',';
         json_buf[pos++] = '"';
-        strncpy(json_buf + pos, add + (i * 64), 64);
-        pos += 64;
+        strncpy(json_buf + pos, add + (i * HP_KEY_SIZE), HP_KEY_SIZE);
+        pos += HP_KEY_SIZE;
         json_buf[pos++] = '"';
     }
 
@@ -409,8 +411,8 @@ int hp_update_unl(const char *add, const size_t add_count, const char *remove, c
         if (i > 0)
             json_buf[pos++] = ',';
         json_buf[pos++] = '"';
-        strncpy(json_buf + pos, remove + (i * 64), 64);
-        pos += 64;
+        strncpy(json_buf + pos, remove + (i * HP_KEY_SIZE), HP_KEY_SIZE);
+        pos += HP_KEY_SIZE;
         json_buf[pos++] = '"';
     }
 

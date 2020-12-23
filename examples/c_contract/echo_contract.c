@@ -54,7 +54,7 @@ int main(int argc, char **argv)
     // free(msg);
 
     // Update UNL example:
-    // hp_update_unl("<64 char hex to add>", 1, "<64 char hex to remove>", 1);
+    // hp_update_unl("<66 char hex to add>", 1, "<66 char hex to remove>", 1);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();

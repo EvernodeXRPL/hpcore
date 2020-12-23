@@ -80,7 +80,7 @@ namespace msg::controlmsg::json
 
         for (const auto &v : d[field_name].array_range())
         {
-            std::string hex_pubkey = "ed" + v.as<std::string>();
+            std::string_view hex_pubkey = v.as<std::string_view>();
             std::string bin_pubkey;
             bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
             if (util::hex2bin(
