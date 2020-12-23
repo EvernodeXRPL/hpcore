@@ -63,31 +63,6 @@ namespace crypto
     }
 
     /**
-     * Returns the hex signature string for a message.
-     * 
-     * @param msg Message bytes to sign.
-     * @param private_key_hex hex private key string.
-     * @return hex signature string.
-     */
-    std::string sign_hex(std::string_view msg, std::string_view private_key_hex)
-    {
-        //Decode hex string and generate the signature using libsodium.
-
-        unsigned char private_key[PFXD_SECKEY_BYTES];
-        util::hex2bin(private_key, PFXD_SECKEY_BYTES, private_key_hex);
-
-        unsigned char sig[crypto_sign_ed25519_BYTES];
-        crypto_sign_ed25519_detached(
-            sig,
-            NULL,
-            reinterpret_cast<const unsigned char *>(msg.data()),
-            msg.length(),
-            private_key + 1); // +1 to skip prefix byte.
-
-        return util::to_hex(std::string_view(reinterpret_cast<const char *>(sig), crypto_sign_ed25519_BYTES));
-    }
-
-    /**
      * Verifies the given signature bytes for the message.
      * 
      * @param msg Message bytes.
@@ -102,31 +77,6 @@ namespace crypto
             reinterpret_cast<const unsigned char *>(msg.data()),
             msg.length(),
             reinterpret_cast<const unsigned char *>(pubkey.data() + 1)); // +1 to skip prefix byte.
-    }
-
-    /**
-     * Verifies the given hex signature for the message.
-     * 
-     * @param msg hex message string.
-     * @param sighex hex signature string.
-     * @param pubkeyhex hex public key.
-     * @return 0 for successful verification. -1 for failure.
-     */
-    int verify_hex(std::string_view msg, std::string_view sighex, std::string_view pubkeyhex)
-    {
-        //Decode hex string and verify the signature using libsodium.
-
-        unsigned char decoded_pubkey[PFXD_PUBKEY_BYTES];
-        util::hex2bin(decoded_pubkey, PFXD_PUBKEY_BYTES, pubkeyhex);
-
-        unsigned char decoded_sig[crypto_sign_ed25519_BYTES];
-        util::hex2bin(decoded_sig, crypto_sign_ed25519_BYTES, sighex);
-
-        return crypto_sign_ed25519_verify_detached(
-            decoded_sig,
-            reinterpret_cast<const unsigned char *>(msg.data()),
-            msg.length(),
-            decoded_pubkey + 1); // +1 to skip prefix byte.
     }
 
     /**

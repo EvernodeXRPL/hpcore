@@ -55,7 +55,7 @@ namespace conf
             return -1;
 
         crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
-        cfg.node.pub_key_hex = util::to_hex(cfg.node.public_key);
+        cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
         cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
         if (write_config(cfg) != 0)
@@ -96,7 +96,7 @@ namespace conf
         contract_config cfg = {};
 
         crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
-        cfg.node.pub_key_hex = util::to_hex(cfg.node.public_key);
+        cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
         cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
         cfg.hp_version = util::HP_VERSION;
@@ -244,7 +244,7 @@ namespace conf
         }
 
         const jsoncons::json &node = d["node"];
-        cfg.node.pub_key_hex = node["public_key"].as<std::string>();
+        cfg.node.public_key_hex = node["public_key"].as<std::string>();
         cfg.node.private_key_hex = node["private_key"].as<std::string>();
         if (node["role"] == ROLE_OBSERVER)
             cfg.node.role = ROLE::OBSERVER;
@@ -379,7 +379,7 @@ namespace conf
 
         // Node configs.
         jsoncons::ojson node_config;
-        node_config.insert_or_assign("public_key", cfg.node.pub_key_hex);
+        node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
         node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
         node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
         // node_config.insert_or_assign("full_history", cfg.node.full_history);
@@ -488,7 +488,7 @@ namespace conf
         if (util::hex2bin(
                 reinterpret_cast<unsigned char *>(cfg.node.public_key.data()),
                 cfg.node.public_key.length(),
-                cfg.node.pub_key_hex) != 0)
+                cfg.node.public_key_hex) != 0)
         {
             std::cerr << "Error decoding hex public key.\n";
             return -1;
@@ -533,7 +533,7 @@ namespace conf
     {
         // Check for non-empty signing keys.
         // We also check for key pair validity as well in the below code.
-        if (cfg.node.pub_key_hex.empty() || cfg.node.private_key_hex.empty())
+        if (cfg.node.public_key_hex.empty() || cfg.node.private_key_hex.empty())
         {
             std::cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
             return -1;
@@ -578,8 +578,8 @@ namespace conf
 
         //Sign and verify a sample message to ensure we have a matching signing key pair.
         const std::string msg = "hotpocket";
-        const std::string sighex = crypto::sign_hex(msg, cfg.node.private_key_hex);
-        if (crypto::verify_hex(msg, sighex, cfg.node.pub_key_hex) != 0)
+        const std::string sig = crypto::sign(msg, cfg.node.private_key);
+        if (crypto::verify(msg, sig, cfg.node.public_key) != 0)
         {
             std::cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
             return -1;

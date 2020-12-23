@@ -258,7 +258,7 @@ namespace sc
 
         std::ostringstream os;
         os << "{\"version\":\"" << util::HP_VERSION
-           << "\",\"pubkey\":\"" << conf::cfg.node.pub_key_hex
+           << "\",\"pubkey\":\"" << conf::cfg.node.public_key_hex
            << "\",\"ts\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 

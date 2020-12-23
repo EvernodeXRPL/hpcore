@@ -92,7 +92,7 @@ namespace msg::usrmsg::json
     {
         // Generate signature of challenge + contract id + contract version.
         const std::string content = original_challenge + conf::cfg.contract.id + conf::cfg.contract.version;
-        const std::string sig_hex = crypto::sign_hex(content, conf::cfg.node.private_key_hex);
+        const std::string sig_hex = util::to_hex(crypto::sign(content, conf::cfg.node.private_key));
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
         msg.reserve(1024);
@@ -107,7 +107,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_PUBKEY;
         msg += SEP_COLON;
-        msg += conf::cfg.node.pub_key_hex;
+        msg += conf::cfg.node.public_key_hex;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_UNL;
         msg += "\":[";
