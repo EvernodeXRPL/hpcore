@@ -14,7 +14,7 @@ namespace crypto
     static unsigned char KEYPFX_ed25519 = 0xED;
     // Prefixed public key bytes.
     static size_t PFXD_PUBKEY_BYTES = crypto_sign_ed25519_PUBLICKEYBYTES + 1;
-    // Prefixed secret key bytes.
+    // Prefixed private key bytes.
     static size_t PFXD_SECKEY_BYTES = crypto_sign_ed25519_SECRETKEYBYTES + 1;
 
     int init();

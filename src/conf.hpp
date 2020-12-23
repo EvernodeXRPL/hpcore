@@ -63,19 +63,19 @@ namespace conf
     {
         // Config elements which are initialized in memory (these are not directly loaded from the config file)
         std::string public_key;     // Contract public key bytes
-        std::string private_key;    // Contract secret key bytes
+        std::string private_key;    // Contract private key bytes
         Role role = Role::OBSERVER; // Configured startup role of the contract (Observer/validator).
 
         std::string pub_key_hex;     // Contract hex public key
-        std::string private_key_hex; // Contract hex secret key
+        std::string private_key_hex; // Contract hex private key
         bool is_unl = false;         // Indicate whether we are a unl node or not.
         bool full_history = false;   // Whether full history mode is on/off.
     };
 
     struct appbill_config
     {
-        std::string mode;     // binary to execute for appbill
-        std::string bin_args; // any arguments to supply to appbill binary by default
+        std::string mode;     // Binary to execute for appbill.
+        std::string bin_args; // Any arguments to supply to appbill binary by default.
 
         // Config element which are initialized in memory (This is not directly loaded from the config file)
         std::vector<std::string> runtime_args; // Appbill execution args used during runtime.
@@ -145,7 +145,7 @@ namespace conf
         std::string log_dir;         // Contract log dir full path
         std::string config_dir;      // Contract config dir full path
         std::string config_file;     // Full path to the contract config file
-        std::string tls_key_file;    // Full path to the tls secret key file
+        std::string tls_key_file;    // Full path to the tls private key file
         std::string tls_cert_file;   // Full path to the tls certificate
     };
 

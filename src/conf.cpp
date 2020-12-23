@@ -330,7 +330,7 @@ namespace conf
         // If max_connections is greater than max_known_connections then show error and stop execution.
         if (cfg.mesh.max_known_connections > cfg.mesh.max_connections)
         {
-            std::cerr << "Invalid configuration values: max_known_connections count should not exceed peermaxcons." << '\n';
+            std::cerr << "Invalid configuration values: mesh max_known_connections count should not exceed mesh max_connections." << '\n';
             return -1;
         }
         cfg.mesh.max_bytes_per_msg = d["mesh"]["max_bytes_per_msg"].as<uint64_t>();
@@ -459,7 +459,6 @@ namespace conf
         d.insert_or_assign("log", log_config);
 
         // Write the json doc to file.
-
         std::ofstream ofs(ctx.config_file);
         try
         {
@@ -501,7 +500,7 @@ namespace conf
                 cfg.node.private_key.length(),
                 cfg.node.private_key_hex) != 0)
         {
-            std::cerr << "Error decoding hex secret key.\n";
+            std::cerr << "Error decoding hex private key.\n";
             return -1;
         }
 
@@ -566,7 +565,9 @@ namespace conf
 
         fields_missing |= cfg.contract.bin_path.empty() && std::cerr << "Missing cfg field: bin_path\n";
         fields_missing |= cfg.contract.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
-        fields_missing |= cfg.mesh.port == 0 && std::cerr << "Missing cfg field: peer port\n";
+        fields_missing |= cfg.contract.unl.empty() && std::cerr << "Missing cfg field: unl. Unl list cannot be empty.\n";
+        fields_missing |= cfg.contract.id.empty() && std::cerr << "Missing cfg field: contract id.\n";
+        fields_missing |= cfg.mesh.port == 0 && std::cerr << "Missing cfg field: mesh port\n";
         fields_missing |= cfg.public_conf.port == 0 && std::cerr << "Missing cfg field: public port\n";
         fields_missing |= cfg.log.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
         fields_missing |= cfg.log.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";

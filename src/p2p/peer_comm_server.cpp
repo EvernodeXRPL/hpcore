@@ -75,7 +75,7 @@ namespace p2p
         {
             peer_managing_counter++;
 
-            // Send available peer capacity if peermaxcons is configured.
+            // Send available peer capacity if peer max connections is configured.
             if (conf::cfg.mesh.max_connections != 0)
                 p2p::send_available_capacity_announcement(p2p::get_available_capacity());
 
