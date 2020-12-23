@@ -1,8 +1,8 @@
 #include "hpfs.hpp"
-#include "h32.hpp"
 #include "../conf.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
+#include "../util/h32.hpp"
 
 namespace hpfs
 {
@@ -202,7 +202,7 @@ namespace hpfs
      * Populates the hash of the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
+    int get_hash(util::h32 &hash, const std::string_view mount_dir, const std::string_view vpath)
     {
         const std::string path = std::string(mount_dir).append(vpath).append(HPFS_HMAP_HASH);
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
@@ -217,7 +217,7 @@ namespace hpfs
             return -1;
         }
 
-        const int res = read(fd, &hash, sizeof(h32));
+        const int res = read(fd, &hash, sizeof(util::h32));
         close(fd);
         if (res == -1)
         {
@@ -231,7 +231,7 @@ namespace hpfs
      * Populates the list of file block hashes for the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath)
+    int get_file_block_hashes(std::vector<util::h32> &hashes, const std::string_view mount_dir, const std::string_view vpath)
     {
         const std::string path = std::string(mount_dir).append(vpath).append(HPFS_HMAP_CHILDREN);
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
@@ -254,7 +254,7 @@ namespace hpfs
             return -1;
         }
 
-        const int children_count = st.st_size / sizeof(h32);
+        const int children_count = st.st_size / sizeof(util::h32);
         hashes.resize(children_count);
 
         const int res = read(fd, hashes.data(), st.st_size);

@@ -3,7 +3,7 @@
 #include "../../crypto.hpp"
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
-#include "../../hpfs/h32.hpp"
+#include "../../util/h32.hpp"
 #include "../../hpfs/hpfs.hpp"
 #include "../../unl.hpp"
 #include "p2pmsg_container_generated.h"
@@ -508,7 +508,7 @@ namespace msg::fbuf::p2pmsg
  */
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
-        std::vector<hpfs::child_hash_node> &hash_nodes, hpfs::h32 expected_hash, std::string_view lcl)
+        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -540,12 +540,12 @@ namespace msg::fbuf::p2pmsg
  */
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &container_builder, std::string_view path,
-        std::vector<hpfs::h32> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl)
+        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);
 
-        std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(hpfs::h32));
+        std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(util::h32));
 
         const flatbuffers::Offset<File_HashMap_Response> resp =
             CreateFile_HashMap_Response(

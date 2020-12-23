@@ -11,7 +11,7 @@
 #include "hplog.hpp"
 #include "crypto.hpp"
 #include "sc.hpp"
-#include "hpfs/h32.hpp"
+#include "util/h32.hpp"
 #include "hpfs/hpfs.hpp"
 #include "state/state_common.hpp"
 #include "state/state_sync.hpp"
@@ -112,7 +112,7 @@ namespace consensus
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        hpfs::h32 state = state_common::ctx.get_state();
+        util::h32 state = state_common::ctx.get_state();
         std::string unl_hash = unl::get_hash();
 
         if (ctx.stage == 0)
@@ -187,7 +187,7 @@ namespace consensus
 
             // Check our state with majority state.
             bool is_state_desync = false;
-            hpfs::h32 majority_state = hpfs::h32_empty;
+            util::h32 majority_state = util::h32_empty;
             check_state_votes(is_state_desync, majority_state, votes);
 
             // Start state sync if we are out-of-sync with majority state.
@@ -530,7 +530,7 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, hpfs::h32 state, std::string_view unl_hash)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state, std::string_view unl_hash)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -559,7 +559,7 @@ namespace consensus
         return p;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const hpfs::h32 state, std::string_view unl_hash)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state, std::string_view unl_hash)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
@@ -765,7 +765,7 @@ namespace consensus
      * Check state against the winning and canonical state
      * @param votes The voting table.
      */
-    void check_state_votes(bool &is_desync, hpfs::h32 &majority_state, vote_counter &votes)
+    void check_state_votes(bool &is_desync, util::h32 &majority_state, vote_counter &votes)
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
@@ -816,7 +816,7 @@ namespace consensus
      * Update the ledger and execute the contract after consensus.
      * @param cons_prop The proposal that reached consensus.
      */
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, hpfs::h32 &new_state)
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state)
     {
         // Map to temporarily store the raw inputs along with the hash.
         std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
