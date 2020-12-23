@@ -92,7 +92,7 @@ namespace util
     }
 
     // Provide a safe std::string overload for realpath
-    std::string realpath(const std::string &path)
+    const std::string realpath(const std::string &path)
     {
         std::array<char, PATH_MAX> buffer;
         ::realpath(path.c_str(), buffer.data());

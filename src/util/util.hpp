@@ -48,7 +48,7 @@ namespace util
 
     int version_compare(const std::string &x, const std::string &y);
 
-    std::string realpath(const std::string &path);
+    const std::string realpath(const std::string &path);
 
     void mask_signal();
 
