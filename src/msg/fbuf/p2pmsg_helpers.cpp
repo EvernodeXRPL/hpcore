@@ -76,7 +76,7 @@ namespace msg::fbuf::p2pmsg
         if (container_buf_size <= MAX_SIZE_FOR_TIME_CHECK)
         {
             const uint64_t time_now = util::get_epoch_milliseconds();
-            if (container->timestamp() < (time_now - conf::cfg.roundtime * 4))
+            if (container->timestamp() < (time_now - conf::cfg.contract.roundtime * 4))
             {
                 LOG_DEBUG << "Peer message is too old.";
                 return -1;
@@ -317,7 +317,7 @@ namespace msg::fbuf::p2pmsg
         const flatbuffers::Offset<Peer_Challenge_Message> peer_challenge_msg =
             CreatePeer_Challenge_Message(
                 builder,
-                sv_to_flatbuff_str(builder, conf::cfg.contractid),
+                sv_to_flatbuff_str(builder, conf::cfg.contract.id),
                 sv_to_flatbuff_str(builder, challenge));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Message, peer_challenge_msg.Union());
@@ -340,7 +340,7 @@ namespace msg::fbuf::p2pmsg
             CreatePeer_Challenge_Response_Message(
                 builder,
                 sv_to_flatbuff_str(builder, challenge),
-                sv_to_flatbuff_bytes(builder, crypto::sign(challenge, conf::cfg.seckey)));
+                sv_to_flatbuff_bytes(builder, crypto::sign(challenge, conf::cfg.node.private_key)));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Response_Message, challenge_resp_msg.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -788,8 +788,8 @@ namespace msg::fbuf::p2pmsg
             // Sign message content with this node's private key.
             std::string_view content_to_sign(reinterpret_cast<const char *>(content_buf), content_size);
 
-            sig_offset = sv_to_flatbuff_bytes(container_builder, crypto::sign(content_to_sign, conf::cfg.seckey));
-            pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.pubkey);
+            sig_offset = sv_to_flatbuff_bytes(container_builder, crypto::sign(content_to_sign, conf::cfg.node.private_key));
+            pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.node.public_key);
         }
 
         if (!lcl.empty())

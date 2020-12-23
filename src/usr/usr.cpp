@@ -33,11 +33,11 @@ namespace usr
      */
     int init()
     {
-        metric_thresholds[0] = conf::cfg.pubmaxcpm;
+        metric_thresholds[0] = conf::cfg.user.max_bytes_per_min;
         metric_thresholds[1] = 0; // This metric doesn't apply to user context.
         metric_thresholds[2] = 0; // This metric doesn't apply to user context.
-        metric_thresholds[3] = conf::cfg.pubmaxbadmpm;
-        metric_thresholds[4] = conf::cfg.pubidletimeout;
+        metric_thresholds[3] = conf::cfg.user.max_bad_msgs_per_min;
+        metric_thresholds[4] = conf::cfg.user.idle_timeout;
 
         if (input_store.init() == -1)
             return -1;
@@ -67,11 +67,11 @@ namespace usr
      */
     int start_listening()
     {
-        ctx.server.emplace("User", conf::cfg.pubport, metric_thresholds, conf::cfg.pubmaxsize);
+        ctx.server.emplace("User", conf::cfg.user.port, metric_thresholds, conf::cfg.user.max_bytes_per_msg);
         if (ctx.server->start() == -1)
             return -1;
 
-        LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.pubport);
+        LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.user.port);
         return 0;
     }
 
@@ -357,17 +357,17 @@ namespace usr
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
     {
         // If appbill not enabled always green light the input.
-        if (conf::cfg.appbill.empty())
+        if (conf::cfg.contract.appbill.mode.empty())
             return true;
 
         // execute appbill in --check mode to verify this user can submit a packet/connection to the network
         // todo: this can be made more efficient, appbill --check can process 7 at a time
 
         // Fill appbill args
-        const int len = conf::cfg.runtime_appbill_args.size() + 4;
+        const int len = conf::cfg.contract.appbill.runtime_args.size() + 4;
         char *execv_args[len];
-        for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
-            execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
+        for (int i = 0; i < conf::cfg.contract.appbill.runtime_args.size(); i++)
+            execv_args[i] = conf::cfg.contract.appbill.runtime_args[i].data();
         char option[] = "--check";
         execv_args[len - 4] = option;
         // add the hex encoded public key as the last parameter

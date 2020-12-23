@@ -75,25 +75,25 @@ namespace p2p
         {
             peer_managing_counter++;
 
-            // Send available peer capacity if peermaxcons is configured.
-            if (conf::cfg.peermaxcons != 0)
+            // Send available peer capacity if peer max connections is configured.
+            if (conf::cfg.mesh.max_connections != 0)
                 p2p::send_available_capacity_announcement(p2p::get_available_capacity());
 
             // Start peer list request loop if dynamic peer discovery is enabled.
-            if (conf::cfg.dynamicpeerdiscovery && known_remote_count > 0)
+            if (conf::cfg.mesh.peer_discovery.enabled && known_remote_count > 0)
             {
                 // If max known peer connection cap is reached then periodically request peer list from random known peer.
                 // Otherwise frequently request peer list from a random known peer.
                 // Peer discovery time interval can be configured in the config.
-                if (conf::cfg.peermaxknowncons != 0 && known_remote_count == conf::cfg.peermaxknowncons)
+                if (conf::cfg.mesh.max_known_connections != 0 && known_remote_count == conf::cfg.mesh.max_known_connections)
                 {
-                    if (peer_managing_counter * 100 >= conf::cfg.peerdiscoverytime * 5)
+                    if (peer_managing_counter * 100 >= conf::cfg.mesh.peer_discovery.interval * 5)
                     {
                         p2p::send_peer_list_request();
                         peer_managing_counter = 0;
                     }
                 }
-                else if (peer_managing_counter * 100 >= conf::cfg.peerdiscoverytime)
+                else if (peer_managing_counter * 100 >= conf::cfg.mesh.peer_discovery.interval)
                 {
                     p2p::send_peer_list_request();
                     peer_managing_counter = 0;
@@ -135,11 +135,11 @@ namespace p2p
                 break;
 
             // Break if known peer cap is reached.
-            if (conf::cfg.peermaxknowncons != 0 && known_remote_count == conf::cfg.peermaxknowncons)
+            if (conf::cfg.mesh.max_known_connections != 0 && known_remote_count == conf::cfg.mesh.max_known_connections)
                 break;
 
             // Break if max peer connection cap is reached.
-            if (conf::cfg.peermaxcons != 0 && known_remote_count == conf::cfg.peermaxcons)
+            if (conf::cfg.mesh.max_connections != 0 && known_remote_count == conf::cfg.mesh.max_connections)
                 break;
 
             // Continue if the peer has no free slots.

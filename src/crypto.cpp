@@ -43,10 +43,10 @@ namespace crypto
      * Returns the signature bytes for a message.
      * 
      * @param msg Message bytes to sign.
-     * @param seckey Secret key bytes.
+     * @param private_key Private key bytes.
      * @return Signature bytes.
      */
-    std::string sign(std::string_view msg, std::string_view seckey)
+    std::string sign(std::string_view msg, std::string_view private_key)
     {
         //Generate the signature using libsodium.
 
@@ -57,7 +57,7 @@ namespace crypto
             NULL,
             reinterpret_cast<const unsigned char *>(msg.data()),
             msg.length(),
-            reinterpret_cast<const unsigned char *>(seckey.data() + 1)); // +1 to skip the prefix byte.
+            reinterpret_cast<const unsigned char *>(private_key.data() + 1)); // +1 to skip the prefix byte.
 
         return sig;
     }
@@ -66,15 +66,15 @@ namespace crypto
      * Returns the hex signature string for a message.
      * 
      * @param msg Message bytes to sign.
-     * @param seckeyhex hex secret key string.
+     * @param private_key_hex hex private key string.
      * @return hex signature string.
      */
-    std::string sign_hex(std::string_view msg, std::string_view seckeyhex)
+    std::string sign_hex(std::string_view msg, std::string_view private_key_hex)
     {
         //Decode hex string and generate the signature using libsodium.
 
-        unsigned char seckey[PFXD_SECKEY_BYTES];
-        util::hex2bin(seckey, PFXD_SECKEY_BYTES, seckeyhex);
+        unsigned char private_key[PFXD_SECKEY_BYTES];
+        util::hex2bin(private_key, PFXD_SECKEY_BYTES, private_key_hex);
 
         unsigned char sig[crypto_sign_ed25519_BYTES];
         crypto_sign_ed25519_detached(
@@ -82,7 +82,7 @@ namespace crypto
             NULL,
             reinterpret_cast<const unsigned char *>(msg.data()),
             msg.length(),
-            seckey + 1); // +1 to skip prefix byte.
+            private_key + 1); // +1 to skip prefix byte.
 
         std::string sighex;
         util::bin2hex(sighex, sig, crypto_sign_ed25519_BYTES);
@@ -111,7 +111,7 @@ namespace crypto
      * 
      * @param msg hex message string.
      * @param sighex hex signature string.
-     * @param pubkeyhex hex secret key.
+     * @param pubkeyhex hex public key.
      * @return 0 for successful verification. -1 for failure.
      */
     int verify_hex(std::string_view msg, std::string_view sighex, std::string_view pubkeyhex)
