@@ -181,7 +181,7 @@ namespace consensus
             // State lcl sync if we are out-of-sync with majority lcl.
             if (is_lcl_desync)
             {
-                conf::change_operating_mode(conf::Role::OBSERVER);
+                conf::change_role(conf::ROLE::OBSERVER);
                 ledger::set_sync_target(majority_lcl);
             }
 
@@ -193,7 +193,7 @@ namespace consensus
             // Start state sync if we are out-of-sync with majority state.
             if (is_state_desync)
             {
-                conf::change_operating_mode(conf::Role::OBSERVER);
+                conf::change_role(conf::ROLE::OBSERVER);
                 state_sync::set_target(majority_state);
             }
 
@@ -204,14 +204,14 @@ namespace consensus
             // Start unl sync if we are out-of-sync with majority unl.
             if (is_unl_desync)
             {
-                conf::change_operating_mode(conf::Role::OBSERVER);
+                conf::change_role(conf::ROLE::OBSERVER);
                 unl::set_sync_target(majority_unl);
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
             if (!is_lcl_desync && !is_state_desync && !is_unl_desync)
             {
-                conf::change_operating_mode(conf::Role::VALIDATOR);
+                conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
@@ -229,8 +229,8 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::Role::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
-            conf::change_operating_mode(conf::Role::VALIDATOR);
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+            conf::change_role(conf::ROLE::VALIDATOR);
     }
 
     /**
@@ -377,7 +377,7 @@ namespace consensus
     void broadcast_proposal(const p2p::proposal &p)
     {
         // In observer mode, we do not send out proposals.
-        if (conf::cfg.node.role == conf::Role::OBSERVER || !conf::cfg.node.is_unl) // If we are a non-unl node, do not broadcast proposals.
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER || !conf::cfg.node.is_unl) // If we are a non-unl node, do not broadcast proposals.
             return;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);

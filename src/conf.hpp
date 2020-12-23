@@ -37,7 +37,7 @@ namespace conf
     };
 
     // The role of the contract node.
-    enum Role
+    enum ROLE
     {
         OBSERVER = 0, // Observer mode. Only emits NUPs. Does not participate in voting.
         VALIDATOR = 1 // Consensus participant mode.
@@ -64,11 +64,11 @@ namespace conf
         // Config elements which are initialized in memory (these are not directly loaded from the config file)
         std::string public_key;     // Contract public key bytes
         std::string private_key;    // Contract private key bytes
-        Role role = Role::OBSERVER; // Configured startup role of the contract (Observer/validator).
+        ROLE role = ROLE::OBSERVER; // Configured startup role of the contract (Observer/validator).
+        bool is_unl = false;         // Indicate whether we are a unl node or not.
 
         std::string pub_key_hex;     // Contract hex public key
         std::string private_key_hex; // Contract hex private key
-        bool is_unl = false;         // Indicate whether we are a unl node or not.
         bool full_history = false;   // Whether full history mode is on/off.
     };
 
@@ -193,7 +193,7 @@ namespace conf
 
     int binpair_to_hex(contract_config &cfg);
 
-    void change_operating_mode(const Role mode);
+    void change_role(const ROLE role);
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);
 } // namespace conf
