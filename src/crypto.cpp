@@ -28,10 +28,10 @@ namespace crypto
         // Generate key pair using libsodium default algorithm.
         // Currently using ed25519. So append prefix byte to represent that.
 
-        pubkey.resize(PFXD_PUBKEY_BYTES);
+        pubkey.resize(crypto_sign_ed25519_PUBLICKEYBYTES + 1);
         pubkey[0] = KEYPFX_ed25519;
 
-        seckey.resize(PFXD_SECKEY_BYTES);
+        seckey.resize(crypto_sign_ed25519_SECRETKEYBYTES + 1);
         seckey[0] = KEYPFX_ed25519;
 
         crypto_sign_ed25519_keypair(

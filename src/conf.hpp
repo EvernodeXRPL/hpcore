@@ -185,8 +185,6 @@ namespace conf
 
     int write_config(const contract_config &cfg);
 
-    int populate_runtime_config(contract_config &parsed_cfg);
-
     int validate_config(const contract_config &cfg);
 
     int validate_contract_dir_paths();
