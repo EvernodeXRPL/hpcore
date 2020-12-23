@@ -221,7 +221,7 @@ namespace ledger
                     // Before first request, if full history mode is not enabled check the target lcl seq no to see whether
                     // it's too far ahead. That means no one probably has our lcl in their ledgers. So we should clear our
                     // entire ledger history before requesting from peers.
-                    if (sync_ctx.target_requested_on == 0 && !conf::cfg.mesh.full_history && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
+                    if (sync_ctx.target_requested_on == 0 && !conf::cfg.node.full_history && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
                     {
                         LOG_INFO << "lcl sync: Target " << sync_ctx.target_lcl.substr(0, 15) << " is too far ahead. Clearing our history.";
                         clear_ledger();
@@ -378,7 +378,7 @@ namespace ledger
         ctx.cache.emplace(seq_no, std::move(file_name));
 
         // Write full history to the full history directory if full history mode is on.
-        if (conf::cfg.mesh.full_history)
+        if (conf::cfg.node.full_history)
         {
             builder.Clear();
             msg::fbuf::ledger::create_full_history_block_from_raw_input_map(builder, raw_inputs);
@@ -400,7 +400,7 @@ namespace ledger
     void remove_old_ledgers(const uint64_t led_seq_no)
     {
         // Remove old ledgers if full history mode is not enabled.
-        if (!conf::cfg.mesh.full_history)
+        if (!conf::cfg.node.full_history)
         {
             std::map<uint64_t, const std::string>::iterator itr;
 

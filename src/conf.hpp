@@ -69,6 +69,7 @@ namespace conf
         std::string pub_key_hex;     // Contract hex public key
         std::string private_key_hex; // Contract hex secret key
         bool is_unl = false;         // Indicate whether we are a unl node or not.
+        bool full_history = false;   // Whether full history mode is on/off.
     };
 
     struct appbill_config
@@ -125,7 +126,6 @@ namespace conf
         uint64_t max_dup_msgs_per_min = 0;        // Peer max duplicate messages per minute
         uint16_t idle_timeout = 0;                // Idle connection timeout for peer connections in seconds.
         peer_discovery_config peer_discovery;     // Peer discovery configs.
-        bool full_history = false;                // Whether full history mode is on/off.
     };
 
     // Holds contextual information about the currently loaded contract.

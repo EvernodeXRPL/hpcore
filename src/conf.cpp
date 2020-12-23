@@ -116,7 +116,7 @@ namespace conf
 
         cfg.mesh.msg_forwarding = false;
         cfg.mesh.peer_discovery.enabled = false;
-        cfg.mesh.full_history = false;
+        cfg.node.full_history = false;
 
 #ifndef NDEBUG
         cfg.log.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -128,9 +128,7 @@ namespace conf
 
         cfg.log.loggers.emplace("console");
         cfg.log.loggers.emplace("file");
-        // cfg.contract.bin_path = "<your contract binary here>";
-        cfg.contract.bin_path = "/usr/bin/node";
-        cfg.contract.bin_args = "/home/savinda/Documents/HotPocketDev/core/examples/nodejs_contract/echo_contract.js";
+        cfg.contract.bin_path = "<your contract binary here>";
 
         //Save the default settings into the config file.
         if (write_config(cfg) != 0)
@@ -378,6 +376,7 @@ namespace conf
         node_config.insert_or_assign("public_key", cfg.node.pub_key_hex);
         node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
         node_config.insert_or_assign("role", cfg.node.role == Role::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+        // node_config.insert_or_assign("full_history", cfg.node.full_history);
         d.insert_or_assign("node", node_config);
 
         // Contract configs.
@@ -429,7 +428,6 @@ namespace conf
         mesh_config.insert_or_assign("max_bad_msgsigs_per_min", cfg.mesh.max_bad_msgsigs_per_min);
         mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
         mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
-        // mesh_config.insert_or_assign("full_history", cfg.mesh.full_history);
 
         jsoncons::ojson peer_discovery_config;
         peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
