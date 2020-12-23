@@ -378,7 +378,7 @@ namespace consensus
     void broadcast_proposal(const p2p::proposal &p)
     {
         // In observer mode, we do not send out proposals.
-        if (conf::cfg.node.role == conf::Role::OBSERVER || !conf::cfg.is_unl) // If we are a non-unl node, do not broadcast proposals.
+        if (conf::cfg.node.role == conf::Role::OBSERVER || !conf::cfg.node.is_unl) // If we are a non-unl node, do not broadcast proposals.
             return;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -806,7 +806,7 @@ namespace consensus
         std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
 
         // Add raw_inputs to the proposal if full history mode is on.
-        if (conf::cfg.fullhistory)
+        if (conf::cfg.mesh.full_history)
         {
             for (const auto &hash : cons_prop.hash_inputs)
             {

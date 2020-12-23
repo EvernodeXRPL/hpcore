@@ -105,18 +105,18 @@ namespace conf
         cfg.contract.roundtime = 1000;
 
         cfg.node.role = Role::VALIDATOR;
-        cfg.peerport = 22860;
+        cfg.mesh.port = 22860;
         cfg.public_conf.port = 8080;
-        cfg.peerdiscoverytime = 30000;
+        cfg.mesh.peer_discovery.interval = 30000;
         cfg.public_conf.idle_timeout = 0;
-        cfg.peeridletimeout = 120;
+        cfg.mesh.idle_timeout = 120;
 
         cfg.contract.is_consensus_public = false;
         cfg.contract.is_npl_public = false;
 
-        cfg.msgforwarding = false;
-        cfg.dynamicpeerdiscovery = false;
-        cfg.fullhistory = false;
+        cfg.mesh.msg_forwarding = false;
+        cfg.mesh.peer_discovery.enabled = false;
+        cfg.mesh.full_history = false;
 
 #ifndef NDEBUG
         cfg.log.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -242,6 +242,18 @@ namespace conf
             return -1;
         }
 
+        cfg.node.pub_key_hex = d["node"]["public_key"].as<std::string>();
+        cfg.node.private_key_hex = d["node"]["private_key"].as<std::string>();
+        if (d["node"]["role"] == ROLE_OBSERVER)
+            cfg.node.role = Role::OBSERVER;
+        else if (d["node"]["role"] == ROLE_VALIDATOR)
+            cfg.node.role = Role::VALIDATOR;
+        else
+        {
+            std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
+            return -1;
+        }
+
         cfg.contract.id = d["contract"]["id"].as<std::string>();
         cfg.contract.version = d["contract"]["version"].as<std::string>();
         if (cfg.contract.id.empty())
@@ -254,50 +266,6 @@ namespace conf
             std::cerr << "Contract version not specified.\n";
             return -1;
         }
-
-        if (d["node"]["role"] == ROLE_OBSERVER)
-            cfg.node.role = Role::OBSERVER;
-        else if (d["node"]["role"] == ROLE_VALIDATOR)
-            cfg.node.role = Role::VALIDATOR;
-        else
-        {
-            std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
-            return -1;
-        }
-
-        cfg.node.pub_key_hex = d["node"]["public_key"].as<std::string>();
-        cfg.node.private_key_hex = d["node"]["private_key"].as<std::string>();
-
-        cfg.contract.bin_path = d["contract"]["bin_path"].as<std::string>();
-        cfg.contract.bin_args = d["contract"]["bin_args"].as<std::string>();
-        cfg.contract.appbill.mode = d["contract"]["appbill"]["mode"].as<std::string>();
-        cfg.contract.appbill.bin_args = d["contract"]["appbill"]["bin_args"].as<std::string>();
-
-        // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
-        // seperately to retrieve easily when handling peer connections.
-        std::vector<std::string> splitted_peers;
-        cfg.peers.clear();
-        for (auto &v : d["peers"].array_range())
-        {
-            const char *ipport_concat = v.as<const char *>();
-            // Split the address:port text into two
-            util::split_string(splitted_peers, ipport_concat, ":");
-
-            // Push the peer address and the port to peers set
-            if (splitted_peers.size() != 2)
-            {
-                std::cerr << "Invalid peer: " << ipport_concat << "\n";
-                return -1;
-            }
-
-            peer_properties peer;
-            peer.ip_port.host_address = splitted_peers.front();
-            peer.ip_port.port = std::stoi(splitted_peers.back());
-
-            cfg.peers.push_back(peer);
-            splitted_peers.clear();
-        }
-
         cfg.contract.unl.clear();
         for (auto &nodepk : d["contract"]["unl"].array_range())
         {
@@ -314,28 +282,9 @@ namespace conf
             }
             cfg.contract.unl.emplace(bin_pubkey);
         }
-
+        cfg.contract.bin_path = d["contract"]["bin_path"].as<std::string>();
+        cfg.contract.bin_args = d["contract"]["bin_args"].as<std::string>();
         cfg.contract.roundtime = d["contract"]["roundtime"].as<uint16_t>();
-        cfg.peerport = d["peerport"].as<uint16_t>();
-        cfg.public_conf.port = d["public"]["port"].as<uint16_t>();
-        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<uint16_t>();
-
-        cfg.peeridletimeout = d["peeridletimeout"].as<uint16_t>();
-        cfg.public_conf.idle_timeout = d["public"]["idle_timeout"].as<uint16_t>();
-
-        cfg.public_conf.max_bytes_per_msg = d["public"]["max_bytes_per_msg"].as<uint64_t>();
-        cfg.public_conf.max_bytes_per_min = d["public"]["max_bytes_per_min"].as<uint64_t>();
-        cfg.public_conf.max_bad_msgs_per_min = d["public"]["max_bad_msgs_per_min"].as<uint64_t>();
-        cfg.public_conf.max_connections = d["public"]["max_connections"].as<unsigned int>();
-
-        cfg.peermaxsize = d["peermaxsize"].as<uint64_t>();
-        cfg.peermaxcpm = d["peermaxcpm"].as<uint64_t>();
-        cfg.peermaxdupmpm = d["peermaxdupmpm"].as<uint64_t>();
-        cfg.peermaxbadmpm = d["peermaxbadmpm"].as<uint64_t>();
-        cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
-        cfg.peermaxcons = d["peermaxcons"].as<uint16_t>();
-        cfg.peermaxknowncons = d["peermaxknowncons"].as<uint16_t>();
-
         if (d["contract"]["consensus"] != PUBLIC && d["contract"]["consensus"] != PRIVATE)
         {
             std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
@@ -349,17 +298,61 @@ namespace conf
             return -1;
         }
         cfg.contract.is_npl_public = d["contract"]["npl"] == PUBLIC;
+        cfg.contract.appbill.mode = d["contract"]["appbill"]["mode"].as<std::string>();
+        cfg.contract.appbill.bin_args = d["contract"]["appbill"]["bin_args"].as<std::string>();
 
-        // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
-        if (cfg.peermaxknowncons > cfg.peermaxcons)
+        cfg.mesh.port = d["mesh"]["port"].as<uint16_t>();
+        // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
+        // seperately to retrieve easily when handling peer connections.
+        std::vector<std::string> splitted_peers;
+        cfg.mesh.known_peers.clear();
+        for (auto &v : d["mesh"]["known_peers"].array_range())
         {
-            std::cerr << "Invalid configuration values: peermaxknowncons count should not exceed peermaxcons." << '\n';
+            const char *ipport_concat = v.as<const char *>();
+            // Split the address:port text into two
+            util::split_string(splitted_peers, ipport_concat, ":");
+
+            // Push the peer address and the port to peers set
+            if (splitted_peers.size() != 2)
+            {
+                std::cerr << "Invalid peer: " << ipport_concat << "\n";
+                return -1;
+            }
+
+            peer_properties peer;
+            peer.ip_port.host_address = splitted_peers.front();
+            peer.ip_port.port = std::stoi(splitted_peers.back());
+
+            cfg.mesh.known_peers.push_back(peer);
+            splitted_peers.clear();
+        }
+        cfg.mesh.msg_forwarding = d["mesh"]["msg_forwarding"].as<bool>();
+        cfg.mesh.max_connections = d["mesh"]["max_connections"].as<uint16_t>();
+        cfg.mesh.max_known_connections = d["mesh"]["max_known_connections"].as<uint16_t>();
+        // If max_connections is greater than max_known_connections then show error and stop execution.
+        if (cfg.mesh.max_known_connections > cfg.mesh.max_connections)
+        {
+            std::cerr << "Invalid configuration values: max_known_connections count should not exceed peermaxcons." << '\n';
             return -1;
         }
+        cfg.mesh.max_bytes_per_msg = d["mesh"]["max_bytes_per_msg"].as<uint64_t>();
+        cfg.mesh.max_bytes_per_min = d["mesh"]["max_bytes_per_min"].as<uint64_t>();
+        cfg.mesh.max_bad_msgs_per_min = d["mesh"]["max_bad_msgs_per_min"].as<uint64_t>();
+        cfg.mesh.max_bad_msgsigs_per_min = d["mesh"]["max_bad_msgsigs_per_min"].as<uint64_t>();
+        cfg.mesh.max_dup_msgs_per_min = d["mesh"]["max_dup_msgs_per_min"].as<uint64_t>();
+        cfg.mesh.idle_timeout = d["mesh"]["idle_timeout"].as<uint16_t>();
+        cfg.mesh.peer_discovery.interval = d["mesh"]["peer_discovery"]["interval"].as<uint16_t>();
+        cfg.mesh.peer_discovery.enabled = d["mesh"]["peer_discovery"]["enabled"].as<bool>();
 
-        cfg.msgforwarding = d["msgforwarding"].as<bool>();
-        cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
-        // cfg.fullhistory = d["fullhistory"].as<bool>();
+
+        cfg.public_conf.port = d["public"]["port"].as<uint16_t>();
+        cfg.public_conf.max_connections = d["public"]["max_connections"].as<unsigned int>();
+        cfg.public_conf.max_bytes_per_msg = d["public"]["max_bytes_per_msg"].as<uint64_t>();
+        cfg.public_conf.max_bytes_per_min = d["public"]["max_bytes_per_min"].as<uint64_t>();
+        cfg.public_conf.max_bad_msgs_per_min = d["public"]["max_bad_msgs_per_min"].as<uint64_t>();
+        cfg.public_conf.idle_timeout = d["public"]["idle_timeout"].as<uint16_t>();
+
+    
         cfg.log.loglevel = d["log"]["loglevel"].as<std::string>();
         cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
         cfg.log.loggers.clear();
@@ -380,6 +373,14 @@ namespace conf
         jsoncons::ojson d;
         d.insert_or_assign("hp_version", cfg.hp_version);
 
+        // Node configs.
+        jsoncons::ojson node_config;
+        node_config.insert_or_assign("public_key", cfg.node.pub_key_hex);
+        node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
+        node_config.insert_or_assign("role", cfg.node.role == Role::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+        d.insert_or_assign("node", node_config);
+
+        // Contract configs.
         jsoncons::ojson contract;
         contract.insert_or_assign("id", cfg.contract.id);
         contract.insert_or_assign("version", cfg.contract.version);
@@ -400,19 +401,44 @@ namespace conf
         contract.insert_or_assign("roundtime", cfg.contract.roundtime);
         contract.insert_or_assign("consensus", cfg.contract.is_consensus_public ? PUBLIC : PRIVATE);
         contract.insert_or_assign("npl", cfg.contract.is_npl_public ? PUBLIC : PRIVATE);
+
         jsoncons::ojson appbill;
         appbill.insert_or_assign("mode", cfg.contract.appbill.mode);
         appbill.insert_or_assign("bin_args", cfg.contract.appbill.bin_args);
-        contract.insert_or_assign("appbill", appbill);
 
+        contract.insert_or_assign("appbill", appbill);
         d.insert_or_assign("contract", contract);
 
-        jsoncons::ojson node_config;
-        node_config.insert_or_assign("role", cfg.node.role == Role::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
-        node_config.insert_or_assign("public_key", cfg.node.pub_key_hex);
-        node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
-        d.insert_or_assign("node", node_config);
+        // Mesh configs.
+        jsoncons::ojson mesh_config;
+        mesh_config.insert_or_assign("port", cfg.mesh.port);
 
+        jsoncons::ojson peers(jsoncons::json_array_arg);
+        for (const auto &peer : cfg.mesh.known_peers)
+        {
+            const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
+            peers.push_back(concat_str);
+        }
+        mesh_config.insert_or_assign("known_peers", peers);
+        mesh_config.insert_or_assign("msg_forwarding", cfg.mesh.msg_forwarding);
+        mesh_config.insert_or_assign("max_connections", cfg.mesh.max_connections);
+        mesh_config.insert_or_assign("max_known_connections", cfg.mesh.max_known_connections);
+        mesh_config.insert_or_assign("max_bytes_per_msg", cfg.mesh.max_bytes_per_msg);
+        mesh_config.insert_or_assign("max_bytes_per_min", cfg.mesh.max_bytes_per_min);
+        mesh_config.insert_or_assign("max_bad_msgs_per_min", cfg.mesh.max_bad_msgs_per_min);
+        mesh_config.insert_or_assign("max_bad_msgsigs_per_min", cfg.mesh.max_bad_msgsigs_per_min);
+        mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
+        mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
+        // mesh_config.insert_or_assign("full_history", cfg.mesh.full_history);
+
+        jsoncons::ojson peer_discovery_config;
+        peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
+        peer_discovery_config.insert_or_assign("interval", cfg.mesh.peer_discovery.interval);
+
+        mesh_config.insert_or_assign("peer_discovery", peer_discovery_config);
+        d.insert_or_assign("mesh", mesh_config);
+
+        // Public configs.
         jsoncons::ojson public_config;
         public_config.insert_or_assign("port", cfg.public_conf.port);
         public_config.insert_or_assign("idle_timeout", cfg.public_conf.idle_timeout);
@@ -422,33 +448,7 @@ namespace conf
         public_config.insert_or_assign("max_connections", cfg.public_conf.max_connections);
         d.insert_or_assign("public", public_config);
 
-        jsoncons::ojson peers(jsoncons::json_array_arg);
-        for (const auto &peer : cfg.peers)
-        {
-            const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
-            peers.push_back(concat_str);
-        }
-        d.insert_or_assign("peers", peers);
-
-
-        d.insert_or_assign("peerport", cfg.peerport);
-        d.insert_or_assign("peerdiscoverytime", cfg.peerdiscoverytime);
-
-        d.insert_or_assign("peeridletimeout", cfg.peeridletimeout);
-
-        d.insert_or_assign("peermaxsize", cfg.peermaxsize);
-        d.insert_or_assign("peermaxcpm", cfg.peermaxcpm);
-        d.insert_or_assign("peermaxdupmpm", cfg.peermaxdupmpm);
-        d.insert_or_assign("peermaxbadmpm", cfg.peermaxbadmpm);
-        d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
-        d.insert_or_assign("peermaxcons", cfg.peermaxcons);
-        d.insert_or_assign("peermaxknowncons", cfg.peermaxknowncons);
-
-
-        d.insert_or_assign("msgforwarding", cfg.msgforwarding);
-        d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
-        // d.insert_or_assign("fullhistory", cfg.fullhistory);
-
+        // Log configs.
         jsoncons::ojson log_config;
         log_config.insert_or_assign("loglevel", cfg.log.loglevel);
 
@@ -509,20 +509,20 @@ namespace conf
 
         // Populate runtime contract execution args.
         if (!cfg.contract.bin_args.empty())
-            util::split_string(cfg.runtime_binexec_args, cfg.contract.bin_args, " ");
-        cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.contract.bin_path[0] == '/' ? cfg.contract.bin_path : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.bin_path)));
+            util::split_string(cfg.contract.runtime_binexec_args, cfg.contract.bin_args, " ");
+        cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), (cfg.contract.bin_path[0] == '/' ? cfg.contract.bin_path : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.bin_path)));
 
         // Populate runtime app bill args.
         if (!cfg.contract.appbill.bin_args.empty())
-            util::split_string(cfg.runtime_appbill_args, cfg.contract.appbill.bin_args, " ");
+            util::split_string(cfg.contract.appbill.runtime_args, cfg.contract.appbill.bin_args, " ");
 
-        cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.contract.appbill.mode[0] == '/' ? cfg.contract.appbill.mode : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.appbill.mode)));
+        cfg.contract.appbill.runtime_args.insert(cfg.contract.appbill.runtime_args.begin(), (cfg.contract.appbill.mode[0] == '/' ? cfg.contract.appbill.mode : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.appbill.mode)));
 
         // Uncomment for docker-based execution.
         // std::string volumearg;
         // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
         // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.contract.bin_path.data()};
-        // cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
+        // cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
 
         return 0;
     }
@@ -568,7 +568,7 @@ namespace conf
 
         fields_missing |= cfg.contract.bin_path.empty() && std::cerr << "Missing cfg field: bin_path\n";
         fields_missing |= cfg.contract.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
-        fields_missing |= cfg.peerport == 0 && std::cerr << "Missing cfg field: peerport\n";
+        fields_missing |= cfg.mesh.port == 0 && std::cerr << "Missing cfg field: peer port\n";
         fields_missing |= cfg.public_conf.port == 0 && std::cerr << "Missing cfg field: public port\n";
         fields_missing |= cfg.log.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
         fields_missing |= cfg.log.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";

@@ -85,8 +85,10 @@ do
     # Update contract config.
     touch contract.json
     touch public.json
+    touch mesh.json
     node -p "JSON.stringify({...require('./tmp.json').contract}, null, 2)" > contract.json
     node -p "JSON.stringify({...require('./tmp.json').public}, null, 2)" > public.json
+    node -p "JSON.stringify({...require('./tmp.json').mesh}, null, 2)" > mesh.json
     node -p "JSON.stringify({...require('./tmp.json'), \
             contract: { \
                 ...require('./contract.json'), \
@@ -99,7 +101,10 @@ do
                     bin_args: '' \
                 }, \
             }, \
-            peerport: ${peerport}, \
+            mesh: { \
+                ...require('./mesh.json'), \
+                port: ${peerport}, \
+            }, \
             public: {
                 ...require('./public.json'), \
                 port: ${pubport}, \
@@ -112,6 +117,7 @@ do
     rm tmp.json
     rm contract.json
     rm public.json
+    rm mesh.json
 
     # Generate ssl certs
     openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \
@@ -168,10 +174,13 @@ do
     pushd ./node$n/cfg > /dev/null 2>&1
     mv hp.cfg tmp.json  # nodejs needs file extension to be .json
     touch contract.json
+    touch mesh.json
     node -p "JSON.stringify({...require('./tmp.json').contract, unl:${myunl}}, null, 2)" > contract.json
-    node -p "JSON.stringify({...require('./tmp.json'), contract:{...require('./contract.json')}, peers:${mypeers}}, null, 2)" > hp.cfg
+    node -p "JSON.stringify({...require('./tmp.json').mesh, known_peers:${mypeers}}, null, 2)" > mesh.json
+    node -p "JSON.stringify({...require('./tmp.json'), contract:{...require('./contract.json')}, mesh:{...require('./mesh.json')}}, null, 2)" > hp.cfg
     rm tmp.json
     rm contract.json
+    rm mesh.json
     popd > /dev/null 2>&1
 done
 

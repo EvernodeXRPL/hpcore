@@ -364,10 +364,10 @@ namespace usr
         // todo: this can be made more efficient, appbill --check can process 7 at a time
 
         // Fill appbill args
-        const int len = conf::cfg.runtime_appbill_args.size() + 4;
+        const int len = conf::cfg.contract.appbill.runtime_args.size() + 4;
         char *execv_args[len];
-        for (int i = 0; i < conf::cfg.runtime_appbill_args.size(); i++)
-            execv_args[i] = conf::cfg.runtime_appbill_args[i].data();
+        for (int i = 0; i < conf::cfg.contract.appbill.runtime_args.size(); i++)
+            execv_args[i] = conf::cfg.contract.appbill.runtime_args[i].data();
         char option[] = "--check";
         execv_args[len - 4] = option;
         // add the hex encoded public key as the last parameter
