@@ -371,8 +371,7 @@ namespace usr
         char option[] = "--check";
         execv_args[len - 4] = option;
         // add the hex encoded public key as the last parameter
-        std::string hexpubkey;
-        util::bin2hex(hexpubkey, reinterpret_cast<const unsigned char *>(pubkey.data()), pubkey.size());
+        std::string hexpubkey = util::to_hex(pubkey);
         std::string inputsize = std::to_string(input_len);
         execv_args[len - 3] = hexpubkey.data();
         execv_args[len - 2] = inputsize.data();

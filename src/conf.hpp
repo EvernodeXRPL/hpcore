@@ -191,8 +191,6 @@ namespace conf
 
     int validate_contract_dir_paths();
 
-    int binpair_to_hex(contract_config &cfg);
-
     void change_role(const ROLE role);
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);

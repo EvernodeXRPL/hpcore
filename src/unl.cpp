@@ -163,13 +163,7 @@ namespace unl
                 os << ","; // Trailing comma separator for previous element.
 
             // Convert binary pubkey into hex.
-            std::string pubkeyhex;
-            util::bin2hex(
-                pubkeyhex,
-                reinterpret_cast<const unsigned char *>(pk->data()),
-                pk->length());
-
-            os << "\"" << pubkeyhex << "\"";
+            os << "\"" << util::to_hex(*pk) << "\"";
         }
         os << "]";
         json_list = os.str();
@@ -208,7 +202,7 @@ namespace unl
             sync_ctx.target_unl = target_unl_hash;
             sync_ctx.target_requested_on = 0;
             sync_ctx.request_submissions = 0;
-            LOG_INFO << "unl sync: Syncing for target:" << hash_bin2hex(sync_ctx.target_unl).substr(0, 10) << " (current:" << hash_bin2hex(get_hash()).substr(0, 10) << ")";
+            LOG_INFO << "unl sync: Syncing for target:" << util::to_hex(sync_ctx.target_unl).substr(0, 10) << " (current:" << util::to_hex(get_hash()).substr(0, 10) << ")";
         }
     }
 
@@ -233,7 +227,7 @@ namespace unl
                 std::string target_pubkey;
                 p2p::send_message_to_random_peer(fbuf, target_pubkey);
 
-                LOG_DEBUG << "UNL list requested from [" << target_pubkey.substr(0, 10) << "]. Required unl hash:" << hash_bin2hex(sync_ctx.target_unl).substr(0, 10);
+                LOG_DEBUG << "UNL list requested from [" << target_pubkey.substr(0, 10) << "]. Required unl hash:" << util::to_hex(sync_ctx.target_unl).substr(0, 10);
                 sync_ctx.target_requested_on = time_now;
                 sync_ctx.request_submissions++;
             }
@@ -276,16 +270,6 @@ namespace unl
         }
 
         LOG_INFO << "unl sync: Worker stopped.";
-    }
-
-    std::string hash_bin2hex(std::string_view hash)
-    {
-        // Get hex from binary hash.
-        std::string unl_hash_hex;
-        util::bin2hex(unl_hash_hex,
-                      reinterpret_cast<const unsigned char *>(hash.data()),
-                      hash.size());
-        return unl_hash_hex;
     }
 
     /**
@@ -355,7 +339,7 @@ namespace unl
             {
                 if (unl.requester_unl == sync_ctx.target_unl && verify_and_replace(unl.unl_list) != -1)
                 {
-                    LOG_INFO << "unl sync: Sync complete. New unl:" << hash_bin2hex(sync_ctx.target_unl).substr(0, 10);
+                    LOG_INFO << "unl sync: Sync complete. New unl:" << util::to_hex(sync_ctx.target_unl).substr(0, 10);
                     sync_ctx.clear_target();
                 }
             }

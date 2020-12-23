@@ -437,11 +437,7 @@ namespace sc
         {
             if (npl_msg.lcl == ctx.args.lcl)
             {
-                std::string pubkeyhex;
-                util::bin2hex(
-                    pubkeyhex,
-                    reinterpret_cast<const unsigned char *>(npl_msg.pubkey.data()),
-                    npl_msg.pubkey.length());
+                const std::string pubkeyhex = util::to_hex(npl_msg.pubkey);
 
                 // Writing the public key to the contract's fd (Skip first byte for key type prefix).
                 if (write(writefd, pubkeyhex.data(), pubkeyhex.size()) == -1)
@@ -541,16 +537,10 @@ namespace sc
 
             // Get the hex pubkey.
             const std::string &pubkey = itr->first; // Pubkey in binary format.
-            std::string pubkeyhex;
-            util::bin2hex(
-                pubkeyhex,
-                reinterpret_cast<const unsigned char *>(pubkey.data()) + 1, // Skip key type prefix.
-                pubkey.length() - 1);
-
             const std::vector<util::buffer_view> &user_inputs = user_bufmap.find(pubkey)->second.inputs;
 
             // Write hex pubkey as key and output fd as first element of array.
-            os << "\"" << pubkeyhex << "\":["
+            os << "\"" << util::to_hex(pubkey) << "\":["
                << itr->second.scfd;
 
             // Write input offsets into the same array.

@@ -55,7 +55,8 @@ namespace conf
             return -1;
 
         crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
-        binpair_to_hex(cfg);
+        cfg.node.pub_key_hex = util::to_hex(cfg.node.public_key);
+        cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
         if (write_config(cfg) != 0)
             return -1;
@@ -93,8 +94,10 @@ namespace conf
         //We populate the in-memory struct with default settings and then save it to the file.
 
         contract_config cfg = {};
+
         crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
-        binpair_to_hex(cfg);
+        cfg.node.pub_key_hex = util::to_hex(cfg.node.public_key);
+        cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
         cfg.hp_version = util::HP_VERSION;
 
@@ -345,7 +348,6 @@ namespace conf
         cfg.mesh.peer_discovery.interval = mesh["peer_discovery"]["interval"].as<uint16_t>();
         cfg.mesh.peer_discovery.enabled = mesh["peer_discovery"]["enabled"].as<bool>();
 
-        
         const jsoncons::json &user = d["user"];
         cfg.user.port = user["port"].as<uint16_t>();
         cfg.user.max_connections = user["max_connections"].as<unsigned int>();
@@ -390,13 +392,7 @@ namespace conf
         jsoncons::ojson unl(jsoncons::json_array_arg);
         for (const auto &nodepk : cfg.contract.unl)
         {
-            std::string hex_pubkey;
-            util::bin2hex(
-                hex_pubkey,
-                reinterpret_cast<const unsigned char *>(nodepk.data()),
-                nodepk.length());
-
-            unl.push_back(hex_pubkey);
+            unl.push_back(util::to_hex(nodepk));
         }
         contract.insert_or_assign("unl", unl);
         contract.insert_or_assign("bin_path", cfg.contract.bin_path);
@@ -524,26 +520,6 @@ namespace conf
         // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
         // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.contract.bin_path.data()};
         // cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
-
-        return 0;
-    }
-
-    /**
-     * Decode current binary keys in 'cfg' and populate the it with hex keys.
-     *
-     * @return Always returns 0.
-     */
-    int binpair_to_hex(contract_config &cfg)
-    {
-        util::bin2hex(
-            cfg.node.pub_key_hex,
-            reinterpret_cast<const unsigned char *>(cfg.node.public_key.data()),
-            cfg.node.public_key.length());
-
-        util::bin2hex(
-            cfg.node.private_key_hex,
-            reinterpret_cast<const unsigned char *>(cfg.node.private_key.data()),
-            cfg.node.private_key.length());
 
         return 0;
     }

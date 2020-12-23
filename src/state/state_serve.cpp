@@ -101,13 +101,7 @@ namespace state_serve
                     }
 
                     // Session id is in binary format. Converting to hex before printing.
-                    std::string session_id_hex;
-                    util::bin2hex(
-                        session_id_hex,
-                        reinterpret_cast<const unsigned char *>(session_id.data()),
-                        session_id.length());
-
-                    LOG_DEBUG << "Serving state request from [" << session_id_hex.substr(2, 10) << "]";
+                    LOG_DEBUG << "Serving state request from [" << util::to_hex(session_id).substr(2, 10) << "]";
 
                     const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
 

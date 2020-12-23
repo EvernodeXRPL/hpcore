@@ -43,9 +43,7 @@ namespace msg::usrmsg::json
     {
         std::string challenge_bytes;
         crypto::random_bytes(challenge_bytes, msg::usrmsg::CHALLENGE_LEN);
-        util::bin2hex(challenge,
-                      reinterpret_cast<const unsigned char *>(challenge_bytes.data()),
-                      msg::usrmsg::CHALLENGE_LEN);
+        challenge = util::to_hex(challenge_bytes);
 
         // Construct the challenge msg json.
         // We do not use jsoncons library here in favour of performance because this is a simple json message.
@@ -169,9 +167,6 @@ namespace msg::usrmsg::json
      */
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
     {
-        std::string sighex;
-        util::bin2hex(sighex, reinterpret_cast<const unsigned char *>(input_sig.data()), input_sig.length());
-
         msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
@@ -188,7 +183,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_INPUT_SIG;
         msg += SEP_COLON;
-        msg += sighex;
+        msg += util::to_hex(input_sig);
         msg += "\"}";
     }
 

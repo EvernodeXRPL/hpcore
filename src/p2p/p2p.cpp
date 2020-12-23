@@ -74,8 +74,7 @@ namespace p2p
         }
 
         // Converting the binary pub key into hexadecimal string.
-        std::string pubkeyhex;
-        util::bin2hex(pubkeyhex, reinterpret_cast<const unsigned char *>(challenge_resp.pubkey.data()), challenge_resp.pubkey.length());
+        std::string pubkeyhex = util::to_hex(challenge_resp.pubkey);
 
         const int res = challenge_resp.pubkey.compare(conf::cfg.node.public_key);
 

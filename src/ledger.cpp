@@ -359,10 +359,7 @@ namespace ledger
         const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
 
         // Get hex from binary hash.
-        std::string lcl_hash_hex;
-        util::bin2hex(lcl_hash_hex,
-                      reinterpret_cast<const unsigned char *>(lcl_hash.data()),
-                      lcl_hash.size());
+        const std::string lcl_hash_hex = util::to_hex(lcl_hash);
 
         // Acquire lock so history request serving does not access the ledger while consensus is updating the ledger.
         std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
@@ -829,10 +826,7 @@ namespace ledger
         const std::string binary_block_hash = crypto::get_hash(block_buffer.data(), block_buffer.size());
 
         // Get hex from binary hash.
-        std::string block_hash;
-        util::bin2hex(block_hash,
-                      reinterpret_cast<const unsigned char *>(binary_block_hash.data()),
-                      binary_block_hash.size());
+        const std::string block_hash = util::to_hex(binary_block_hash);
 
         return block_hash == supplied_hash;
     }

@@ -84,9 +84,7 @@ namespace crypto
             msg.length(),
             private_key + 1); // +1 to skip prefix byte.
 
-        std::string sighex;
-        util::bin2hex(sighex, sig, crypto_sign_ed25519_BYTES);
-        return sighex;
+        return util::to_hex(std::string_view(reinterpret_cast<const char *>(sig), crypto_sign_ed25519_BYTES));
     }
 
     /**
@@ -237,12 +235,7 @@ namespace crypto
         uuid[6] = (uuid[8] & 0x0F) | 0x40;
         uuid[8] = (uuid[8] & 0xBF) | 0x80;
 
-        std::string hex;
-        util::bin2hex(
-            hex,
-            reinterpret_cast<const unsigned char *>(rand_bytes.data()),
-            rand_bytes.length());
-
+        const std::string hex = util::to_hex(rand_bytes);
         return hex.substr(0, 8) + "-" + hex.substr(8, 4) + "-" + hex.substr(12, 4) + "-" + hex.substr(16, 4) + "-" + hex.substr(20);
     }
 

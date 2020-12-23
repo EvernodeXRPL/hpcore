@@ -20,29 +20,6 @@ namespace util
     }
 
     /**
-     * Encodes provided bytes to hex string.
-     * 
-     * @param encoded_string String reference to assign the hex encoded output.
-     * @param bin Bytes to encode.
-     * @param bin_len Bytes length.
-     * @return Always returns 0.
-     */
-    int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len)
-    {
-        // Allocate the target string.
-        encoded_string.resize(bin_len * 2);
-
-        // Get encoded string.
-        sodium_bin2hex(
-            encoded_string.data(),
-            encoded_string.length() + 1, // + 1 because sodium writes ending '\0' character as well.
-            bin,
-            bin_len);
-
-        return 0;
-    }
-
-    /**
      * Decodes provided hex string into bytes.
      * 
      * @param decodedbuf Buffer to assign decoded bytes.
@@ -63,14 +40,6 @@ namespace util
         }
 
         return 0;
-    }
-
-    std::string get_hex(std::string_view bin, const off_t skip, const size_t take)
-    {
-        std::string hex;
-        const size_t len = (take ? take : (bin.size() - skip));
-        bin2hex(hex, reinterpret_cast<unsigned char *>(const_cast<char *>(bin.data() + skip)), len);
-        return hex;
     }
 
     /**
