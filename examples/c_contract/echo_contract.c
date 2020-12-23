@@ -47,7 +47,7 @@ int main(int argc, char **argv)
     // // Allocate buffers for received message.
     // char sender[HP_KEY_SIZE];
     // char *msg = malloc(HP_NPL_MSG_MAX_SIZE);
-    // // Wait for 200ms for incoming message. We will receive our own message as well.
+    // // Wait for 200ms for incoming message. We will receive our own message as well if we are part of unl.
     // const int len = hp_read_npl_msg(msg, sender, 200);
     // if (len > 0)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
