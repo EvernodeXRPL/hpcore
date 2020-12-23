@@ -3,7 +3,7 @@
 /**
  * Based on https://github.com/codetsunami/file-ptracer/blob/master/merkle.cpp
  */
-namespace hpfs
+namespace util
 {
     /**
      * Helper functions for working with 32 byte hash type h32.
@@ -31,7 +31,7 @@ namespace hpfs
 
     std::string_view h32::to_string_view() const
     {
-        return std::string_view(reinterpret_cast<const char *>(this), sizeof(hpfs::h32));
+        return std::string_view(reinterpret_cast<const char *>(this), sizeof(h32));
     }
 
     h32 &h32::operator=(std::string_view sv)
@@ -71,4 +71,4 @@ namespace hpfs
         return res;
     }
 
-} // namespace hpfs
+} // namespace util

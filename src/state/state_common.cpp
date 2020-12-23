@@ -11,7 +11,7 @@ namespace state_common
      */
     int init()
     {
-        hpfs::h32 initial_state;
+        util::h32 initial_state;
         if (hpfs::start_fs_session(conf::ctx.state_rw_dir) == -1 ||
             hpfs::get_hash(initial_state, conf::ctx.state_rw_dir, "/") == -1 ||
             hpfs::stop_fs_session(conf::ctx.state_rw_dir) == -1)

@@ -3,7 +3,7 @@
 
 #include "../../pchheader.hpp"
 #include "../../p2p/p2p.hpp"
-#include "../../hpfs/h32.hpp"
+#include "../../util/h32.hpp"
 #include "../../hpfs/hpfs.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
@@ -67,11 +67,11 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
-        std::vector<hpfs::child_hash_node> &hash_nodes, hpfs::h32 expected_hash, std::string_view lcl);
+        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl);
 
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &container_builder, std::string_view path,
-        std::vector<hpfs::h32> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl);
+        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl);
 
     void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl);
 
