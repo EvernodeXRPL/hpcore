@@ -258,7 +258,7 @@ namespace sc
 
         std::ostringstream os;
         os << "{\"version\":\"" << util::HP_VERSION
-           << "\",\"pubkey\":\"" << conf::cfg.node.pub_key_hex.substr(2)
+           << "\",\"pubkey\":\"" << conf::cfg.node.pub_key_hex
            << "\",\"ts\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
@@ -440,8 +440,8 @@ namespace sc
                 std::string pubkeyhex;
                 util::bin2hex(
                     pubkeyhex,
-                    reinterpret_cast<const unsigned char *>(npl_msg.pubkey.data()) + 1, // Skip first byte for key type prefix.
-                    npl_msg.pubkey.length() - 1);
+                    reinterpret_cast<const unsigned char *>(npl_msg.pubkey.data()),
+                    npl_msg.pubkey.length());
 
                 // Writing the public key to the contract's fd (Skip first byte for key type prefix).
                 if (write(writefd, pubkeyhex.data(), pubkeyhex.size()) == -1)

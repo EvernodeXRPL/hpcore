@@ -48,8 +48,8 @@ class HotPocketContract {
         const nplChannel = new NplChannel(hpargs.nplfd);
 
         const users = new UsersCollection(hpargs.userinfd, hpargs.users, this.#clientProtocol);
-        const peers = new PeersCollection(hpargs.readonly, hpargs.unl, nplChannel, pendingTasks);
-        const executionContext = new ContractExecutionContext(hpargs, users, peers, this.#controlChannel);
+        const unl = new UnlCollection(hpargs.readonly, hpargs.unl, nplChannel, pendingTasks);
+        const executionContext = new ContractExecutionContext(hpargs, users, unl, this.#controlChannel);
 
         invokeCallback(contractFunc, executionContext).catch(errHandler).finally(() => {
             // Wait for any pending tasks added during execution.
@@ -70,12 +70,12 @@ class ContractExecutionContext {
 
     #controlChannel = null;
 
-    constructor(hpargs, users, peers, controlChannel) {
+    constructor(hpargs, users, unl, controlChannel) {
         this.#controlChannel = controlChannel;
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.ts;
         this.users = users;
-        this.peers = peers; // Not available in readonly mode.
+        this.unl = unl; // Not available in readonly mode.
         this.lcl = hpargs.lcl; // Not available in readonly mode.
     }
 
@@ -181,8 +181,8 @@ class UserChannel {
     }
 }
 
-class PeersCollection {
-    #peers = {};
+class UnlCollection {
+    nodes = {};
     #channel = null;
     #readonly = false;
     #pendingTasks = null;
@@ -193,48 +193,49 @@ class PeersCollection {
 
         if (!readonly) {
             unl.forEach(pubKey => {
-                this.#peers[pubKey] = new Peer(pubKey);
+                this.nodes[pubKey] = new UnlNode(pubKey);
             });
 
             this.#channel = channel;
         }
     }
 
-    // Returns the Peer for the specified pubkey. Returns null if not found.
+    // Returns the unl node for the specified pubkey. Returns null if not found.
     find(pubKey) {
-        return this.#peers[pubKey];
+        return this.nodes[pubKey];
     }
 
-    // Returns all the peers.
+    // Returns all the unl nodes.
     list() {
-        return Object.values(this.#peers);
+        return Object.values(this.nodes);
     }
 
     count() {
-        return Object.keys(this.#peers).length;
+        return Object.keys(this.nodes).length;
     }
 
-    // Registers for peer messages.
+    // Registers for NPL messages.
     onMessage(callback) {
 
         if (this.#readonly)
-            throw "Peer messages not available in readonly mode.";
+            throw "NPL messages not available in readonly mode.";
 
         this.#channel.consume((pubKey, msg) => {
-            this.#pendingTasks.push(invokeCallback(callback, this.#peers[pubKey], msg));
+            this.#pendingTasks.push(invokeCallback(callback, this.nodes[pubKey], msg));
         });
     }
 
-    // Broadcasts a message to all peers (including self).
+    // Broadcasts a message to all unl nodes (including self if self is part of unl).
     async send(msg) {
         if (this.#readonly)
-            throw "Peer messages not available in readonly mode.";
+            throw "NPL messages not available in readonly mode.";
 
         await this.#channel.send(msg);
     }
 }
 
-class Peer {
+// Represents a node that's part of unl.
+class UnlNode {
     pubKey = null;
 
     constructor(pubKey) {
@@ -242,6 +243,7 @@ class Peer {
     }
 }
 
+// Represents the node-party-line that can be used to communicate with unl nodes.
 class NplChannel {
 
     #readStream = null;
@@ -276,7 +278,7 @@ class NplChannel {
     send(msg) {
         const buf = Buffer.from(msg);
         if (buf.length > MAX_SEQ_PACKET_SIZE)
-            throw ("Peer message exceeds max size " + MAX_SEQ_PACKET_SIZE);
+            throw ("NPL message exceeds max size " + MAX_SEQ_PACKET_SIZE);
         return writeAsync(this.#fd, buf);
     }
 

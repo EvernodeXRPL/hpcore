@@ -166,8 +166,8 @@ namespace unl
             std::string pubkeyhex;
             util::bin2hex(
                 pubkeyhex,
-                reinterpret_cast<const unsigned char *>(pk->data()) + 1,
-                pk->length() - 1);
+                reinterpret_cast<const unsigned char *>(pk->data()),
+                pk->length());
 
             os << "\"" << pubkeyhex << "\"";
         }

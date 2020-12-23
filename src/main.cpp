@@ -196,9 +196,8 @@ int main(int argc, char **argv)
                 hplog::init();
 
                 LOG_INFO << "Hot Pocket " << util::HP_VERSION;
-                LOG_INFO << "Role: "
-                         << (conf::cfg.node.role == conf::ROLE::OBSERVER ? "Observer" : "Validator");
-                LOG_INFO << "Public key: " << conf::cfg.node.pub_key_hex.substr(2); // Public key without 'ed' prefix.
+                LOG_INFO << "Role: " << (conf::cfg.node.role == conf::ROLE::OBSERVER ? "Observer" : "Validator");
+                LOG_INFO << "Public key: " << conf::cfg.node.pub_key_hex;
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
                 if (ledger::init() == -1 ||
