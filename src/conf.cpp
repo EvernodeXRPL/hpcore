@@ -273,12 +273,8 @@ namespace conf
         for (auto &nodepk : contract["unl"].array_range())
         {
             // Convert the public key hex of each node to binary and store it.
-            std::string bin_pubkey;
-            bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
-            if (util::hex2bin(
-                    reinterpret_cast<unsigned char *>(bin_pubkey.data()),
-                    bin_pubkey.length(),
-                    nodepk.as<std::string_view>()) != 0)
+            const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
+            if (bin_pubkey.empty())
             {
                 std::cerr << "Error decoding unl list.\n";
                 return -1;
@@ -483,22 +479,15 @@ namespace conf
         startup_mode = cfg.node.role;
 
         // Convert the hex keys to binary.
-
-        cfg.node.public_key.resize(crypto::PFXD_PUBKEY_BYTES);
-        if (util::hex2bin(
-                reinterpret_cast<unsigned char *>(cfg.node.public_key.data()),
-                cfg.node.public_key.length(),
-                cfg.node.public_key_hex) != 0)
+        cfg.node.public_key = util::to_bin(cfg.node.public_key_hex);
+        if (cfg.node.public_key.empty())
         {
             std::cerr << "Error decoding hex public key.\n";
             return -1;
         }
 
-        cfg.node.private_key.resize(crypto::PFXD_SECKEY_BYTES);
-        if (util::hex2bin(
-                reinterpret_cast<unsigned char *>(cfg.node.private_key.data()),
-                cfg.node.private_key.length(),
-                cfg.node.private_key_hex) != 0)
+        cfg.node.private_key = util::to_bin(cfg.node.private_key_hex);
+        if (cfg.node.private_key.empty())
         {
             std::cerr << "Error decoding hex private key.\n";
             return -1;

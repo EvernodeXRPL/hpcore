@@ -238,14 +238,8 @@ namespace usr
             return -1;
         }
 
-        // Decode hex pubkey and get binary pubkey. We are only going to keep
-        // the binary pubkey due to reduced memory footprint.
-        std::string pubkey;
-        pubkey.resize(pubkey_hex.length() / 2);
-        util::hex2bin(
-            reinterpret_cast<unsigned char *>(pubkey.data()),
-            pubkey.length(),
-            pubkey_hex);
+        // Decode hex pubkey and get binary pubkey.
+        const std::string pubkey = util::to_bin(pubkey_hex);
 
         // Acquire user list lock.
         std::scoped_lock<std::mutex> lock(ctx.users_mutex);

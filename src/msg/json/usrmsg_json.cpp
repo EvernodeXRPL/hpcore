@@ -399,20 +399,12 @@ namespace msg::usrmsg::json
         // Verify the challenge signature. We do this last due to signature verification cost.
 
         std::string_view pubkey_hex = d[msg::usrmsg::FLD_PUBKEY].as<std::string_view>();
-        std::string pubkey_bytes;
-        pubkey_bytes.resize(crypto::PFXD_PUBKEY_BYTES);
-        util::hex2bin(reinterpret_cast<unsigned char *>(pubkey_bytes.data()),
-                      pubkey_bytes.size(),
-                      pubkey_hex);
+        const std::string pubkey_bytes = util::to_bin(pubkey_hex);
 
         std::string_view sig_hex = d[msg::usrmsg::FLD_SIG].as<std::string_view>();
-        std::string sig_bytes;
-        sig_bytes.resize(sig_hex.size() / 2);
-        util::hex2bin(reinterpret_cast<unsigned char *>(sig_bytes.data()),
-                      sig_bytes.size(),
-                      sig_hex);
+        const std::string sig_bytes = util::to_bin(sig_hex);
 
-        if (crypto::verify(original_challenge, sig_bytes, pubkey_bytes) != 0)
+        if (pubkey_bytes.empty() || sig_bytes.empty() || crypto::verify(original_challenge, sig_bytes, pubkey_bytes) != 0)
         {
             LOG_DEBUG << "User challenge response signature verification failed.";
             return -1;
@@ -532,9 +524,7 @@ namespace msg::usrmsg::json
 
         // Extract the hex signature and convert to binary.
         const std::string_view sig_hex = d[msg::usrmsg::FLD_SIG].as<std::string_view>();
-        extracted_sig.resize(crypto_sign_ed25519_BYTES);
-        util::hex2bin(reinterpret_cast<unsigned char *>(extracted_sig.data()), extracted_sig.length(), sig_hex);
-
+        extracted_sig = util::to_bin(sig_hex);
         return 0;
     }
 

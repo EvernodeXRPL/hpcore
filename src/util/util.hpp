@@ -40,7 +40,7 @@ namespace util
 
     const std::string to_hex(const std::string_view bin);
 
-    int hex2bin(unsigned char *decoded, const size_t decoded_len, std::string_view hex_str);
+    const std::string to_bin(const std::string_view hex);
 
     uint64_t get_epoch_milliseconds();
 

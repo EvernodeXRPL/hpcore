@@ -19,27 +19,22 @@ namespace util
         return encoded_string;
     }
 
-    /**
-     * Decodes provided hex string into bytes.
-     * 
-     * @param decodedbuf Buffer to assign decoded bytes.
-     * @param decodedbuf_len Decoded buffer size.
-     * @param hex_str hex string to decode.
-     */
-    int hex2bin(unsigned char *decodedbuf, const size_t decodedbuf_len, std::string_view hex_str)
+    const std::string to_bin(const std::string_view hex)
     {
+        std::string bin;
+        bin.resize(hex.size() / 2);
+
         const char *hex_end;
         size_t bin_len;
         if (sodium_hex2bin(
-                decodedbuf, decodedbuf_len,
-                hex_str.data(),
-                hex_str.length(),
+                reinterpret_cast<unsigned char *>(bin.data()), bin.size(),
+                hex.data(), hex.size(),
                 "", &bin_len, &hex_end))
         {
-            return -1;
+            return ""; // Empty indicates error.
         }
 
-        return 0;
+        return bin;
     }
 
     /**
