@@ -308,7 +308,7 @@ fi
 # Update downloaded hp.cfg files from all nodes to be part of the same UNL cluster.
 
 # Locally update values of download hp.cfg files.
-peerport=$(echo $contconfig | jq -r ".peerport")
+peerport=$(echo $contconfig | jq -r ".mesh.port")
 for (( i=0; i<$vmcount; i++ ))
 do
     vmaddr=${vmaddrs[i]}
@@ -365,7 +365,7 @@ do
     # Merge json contents to produce final contract config.
     echo "$(cat ./cfg/node$n.cfg)" \
         '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/hpfiles/nodejs_contract/echo_contract.js", "unl": '${myunl}'}}'\
-        '{"mesh": {"known_peers": '${mypeers}'}'\
+        '{"mesh": {"known_peers": '${mypeers}'}}'\
         $contconfig \
         | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
 done
