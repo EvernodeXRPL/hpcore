@@ -12,10 +12,6 @@ namespace crypto
 
     // Prefix byte to append to ed25519 keys.
     static unsigned char KEYPFX_ed25519 = 0xED;
-    // Prefixed public key bytes.
-    static size_t PFXD_PUBKEY_BYTES = crypto_sign_ed25519_PUBLICKEYBYTES + 1;
-    // Prefixed private key bytes.
-    static size_t PFXD_SECKEY_BYTES = crypto_sign_ed25519_SECRETKEYBYTES + 1;
 
     int init();
 
@@ -23,11 +19,7 @@ namespace crypto
 
     std::string sign(std::string_view msg, std::string_view seckey);
 
-    std::string sign_hex(std::string_view msg, std::string_view private_key_hex);
-
     int verify(std::string_view msg, std::string_view sig, std::string_view pubkey);
-
-    int verify_hex(std::string_view msg, std::string_view sighex, std::string_view pubkeyhex);
 
     void random_bytes(std::string &result, const size_t len);
 

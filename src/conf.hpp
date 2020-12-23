@@ -67,7 +67,7 @@ namespace conf
         ROLE role = ROLE::OBSERVER; // Configured startup role of the contract (Observer/validator).
         bool is_unl = false;         // Indicate whether we are a unl node or not.
 
-        std::string pub_key_hex;     // Contract hex public key
+        std::string public_key_hex;     // Contract hex public key
         std::string private_key_hex; // Contract hex private key
         bool full_history = false;   // Whether full history mode is on/off.
     };
@@ -185,13 +185,9 @@ namespace conf
 
     int write_config(const contract_config &cfg);
 
-    int populate_runtime_config(contract_config &parsed_cfg);
-
     int validate_config(const contract_config &cfg);
 
     int validate_contract_dir_paths();
-
-    int binpair_to_hex(contract_config &cfg);
 
     void change_role(const ROLE role);
 

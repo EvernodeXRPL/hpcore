@@ -43,9 +43,7 @@ namespace msg::usrmsg::json
     {
         std::string challenge_bytes;
         crypto::random_bytes(challenge_bytes, msg::usrmsg::CHALLENGE_LEN);
-        util::bin2hex(challenge,
-                      reinterpret_cast<const unsigned char *>(challenge_bytes.data()),
-                      msg::usrmsg::CHALLENGE_LEN);
+        challenge = util::to_hex(challenge_bytes);
 
         // Construct the challenge msg json.
         // We do not use jsoncons library here in favour of performance because this is a simple json message.
@@ -94,7 +92,7 @@ namespace msg::usrmsg::json
     {
         // Generate signature of challenge + contract id + contract version.
         const std::string content = original_challenge + conf::cfg.contract.id + conf::cfg.contract.version;
-        const std::string sig_hex = crypto::sign_hex(content, conf::cfg.node.private_key_hex);
+        const std::string sig_hex = util::to_hex(crypto::sign(content, conf::cfg.node.private_key));
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
         msg.reserve(1024);
@@ -109,7 +107,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_PUBKEY;
         msg += SEP_COLON;
-        msg += conf::cfg.node.pub_key_hex;
+        msg += conf::cfg.node.public_key_hex;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_UNL;
         msg += "\":[";
@@ -169,9 +167,6 @@ namespace msg::usrmsg::json
      */
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
     {
-        std::string sighex;
-        util::bin2hex(sighex, reinterpret_cast<const unsigned char *>(input_sig.data()), input_sig.length());
-
         msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
@@ -188,7 +183,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_INPUT_SIG;
         msg += SEP_COLON;
-        msg += sighex;
+        msg += util::to_hex(input_sig);
         msg += "\"}";
     }
 
@@ -404,20 +399,12 @@ namespace msg::usrmsg::json
         // Verify the challenge signature. We do this last due to signature verification cost.
 
         std::string_view pubkey_hex = d[msg::usrmsg::FLD_PUBKEY].as<std::string_view>();
-        std::string pubkey_bytes;
-        pubkey_bytes.resize(crypto::PFXD_PUBKEY_BYTES);
-        util::hex2bin(reinterpret_cast<unsigned char *>(pubkey_bytes.data()),
-                      pubkey_bytes.size(),
-                      pubkey_hex);
+        const std::string pubkey_bytes = util::to_bin(pubkey_hex);
 
         std::string_view sig_hex = d[msg::usrmsg::FLD_SIG].as<std::string_view>();
-        std::string sig_bytes;
-        sig_bytes.resize(sig_hex.size() / 2);
-        util::hex2bin(reinterpret_cast<unsigned char *>(sig_bytes.data()),
-                      sig_bytes.size(),
-                      sig_hex);
+        const std::string sig_bytes = util::to_bin(sig_hex);
 
-        if (crypto::verify(original_challenge, sig_bytes, pubkey_bytes) != 0)
+        if (pubkey_bytes.empty() || sig_bytes.empty() || crypto::verify(original_challenge, sig_bytes, pubkey_bytes) != 0)
         {
             LOG_DEBUG << "User challenge response signature verification failed.";
             return -1;
@@ -537,9 +524,7 @@ namespace msg::usrmsg::json
 
         // Extract the hex signature and convert to binary.
         const std::string_view sig_hex = d[msg::usrmsg::FLD_SIG].as<std::string_view>();
-        extracted_sig.resize(crypto_sign_ed25519_BYTES);
-        util::hex2bin(reinterpret_cast<unsigned char *>(extracted_sig.data()), extracted_sig.length(), sig_hex);
-
+        extracted_sig = util::to_bin(sig_hex);
         return 0;
     }
 

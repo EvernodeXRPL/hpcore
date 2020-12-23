@@ -40,11 +40,7 @@ namespace util
 
     const std::string to_hex(const std::string_view bin);
 
-    int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len);
-
-    int hex2bin(unsigned char *decoded, const size_t decoded_len, std::string_view hex_str);
-
-    std::string get_hex(std::string_view bin, const off_t skip = 0, const size_t take = 0);
+    const std::string to_bin(const std::string_view hex);
 
     uint64_t get_epoch_milliseconds();
 
@@ -52,7 +48,7 @@ namespace util
 
     int version_compare(const std::string &x, const std::string &y);
 
-    std::string realpath(const std::string &path);
+    const std::string realpath(const std::string &path);
 
     void mask_signal();
 

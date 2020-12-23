@@ -238,14 +238,8 @@ namespace usr
             return -1;
         }
 
-        // Decode hex pubkey and get binary pubkey. We are only going to keep
-        // the binary pubkey due to reduced memory footprint.
-        std::string pubkey;
-        pubkey.resize(pubkey_hex.length() / 2);
-        util::hex2bin(
-            reinterpret_cast<unsigned char *>(pubkey.data()),
-            pubkey.length(),
-            pubkey_hex);
+        // Decode hex pubkey and get binary pubkey.
+        const std::string pubkey = util::to_bin(pubkey_hex);
 
         // Acquire user list lock.
         std::scoped_lock<std::mutex> lock(ctx.users_mutex);
@@ -371,8 +365,7 @@ namespace usr
         char option[] = "--check";
         execv_args[len - 4] = option;
         // add the hex encoded public key as the last parameter
-        std::string hexpubkey;
-        util::bin2hex(hexpubkey, reinterpret_cast<const unsigned char *>(pubkey.data()), pubkey.size());
+        std::string hexpubkey = util::to_hex(pubkey);
         std::string inputsize = std::to_string(input_len);
         execv_args[len - 3] = hexpubkey.data();
         execv_args[len - 2] = inputsize.data();

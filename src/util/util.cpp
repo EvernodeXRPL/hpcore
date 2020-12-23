@@ -19,58 +19,22 @@ namespace util
         return encoded_string;
     }
 
-    /**
-     * Encodes provided bytes to hex string.
-     * 
-     * @param encoded_string String reference to assign the hex encoded output.
-     * @param bin Bytes to encode.
-     * @param bin_len Bytes length.
-     * @return Always returns 0.
-     */
-    int bin2hex(std::string &encoded_string, const unsigned char *bin, const size_t bin_len)
+    const std::string to_bin(const std::string_view hex)
     {
-        // Allocate the target string.
-        encoded_string.resize(bin_len * 2);
+        std::string bin;
+        bin.resize(hex.size() / 2);
 
-        // Get encoded string.
-        sodium_bin2hex(
-            encoded_string.data(),
-            encoded_string.length() + 1, // + 1 because sodium writes ending '\0' character as well.
-            bin,
-            bin_len);
-
-        return 0;
-    }
-
-    /**
-     * Decodes provided hex string into bytes.
-     * 
-     * @param decodedbuf Buffer to assign decoded bytes.
-     * @param decodedbuf_len Decoded buffer size.
-     * @param hex_str hex string to decode.
-     */
-    int hex2bin(unsigned char *decodedbuf, const size_t decodedbuf_len, std::string_view hex_str)
-    {
         const char *hex_end;
         size_t bin_len;
         if (sodium_hex2bin(
-                decodedbuf, decodedbuf_len,
-                hex_str.data(),
-                hex_str.length(),
+                reinterpret_cast<unsigned char *>(bin.data()), bin.size(),
+                hex.data(), hex.size(),
                 "", &bin_len, &hex_end))
         {
-            return -1;
+            return ""; // Empty indicates error.
         }
 
-        return 0;
-    }
-
-    std::string get_hex(std::string_view bin, const off_t skip, const size_t take)
-    {
-        std::string hex;
-        const size_t len = (take ? take : (bin.size() - skip));
-        bin2hex(hex, reinterpret_cast<unsigned char *>(const_cast<char *>(bin.data() + skip)), len);
-        return hex;
+        return bin;
     }
 
     /**
@@ -128,7 +92,7 @@ namespace util
     }
 
     // Provide a safe std::string overload for realpath
-    std::string realpath(const std::string &path)
+    const std::string realpath(const std::string &path)
     {
         std::array<char, PATH_MAX> buffer;
         ::realpath(path.c_str(), buffer.data());

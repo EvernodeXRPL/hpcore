@@ -273,7 +273,7 @@ namespace consensus
                       << " ts:" << std::to_string(cp.time)
                       << " lcl:" << cp.lcl.substr(0, 15)
                       << " state:" << cp.state
-                      << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::get_hex(cp.pubkey, 1, 5)) << "]"
+                      << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
                       << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
 
             if (keep_candidate)
