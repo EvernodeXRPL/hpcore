@@ -33,11 +33,11 @@ namespace usr
      */
     int init()
     {
-        metric_thresholds[0] = conf::cfg.public_conf.max_bytes_per_min;
+        metric_thresholds[0] = conf::cfg.user.max_bytes_per_min;
         metric_thresholds[1] = 0; // This metric doesn't apply to user context.
         metric_thresholds[2] = 0; // This metric doesn't apply to user context.
-        metric_thresholds[3] = conf::cfg.public_conf.max_bad_msgs_per_min;
-        metric_thresholds[4] = conf::cfg.public_conf.idle_timeout;
+        metric_thresholds[3] = conf::cfg.user.max_bad_msgs_per_min;
+        metric_thresholds[4] = conf::cfg.user.idle_timeout;
 
         if (input_store.init() == -1)
             return -1;
@@ -67,11 +67,11 @@ namespace usr
      */
     int start_listening()
     {
-        ctx.server.emplace("User", conf::cfg.public_conf.port, metric_thresholds, conf::cfg.public_conf.max_bytes_per_msg);
+        ctx.server.emplace("User", conf::cfg.user.port, metric_thresholds, conf::cfg.user.max_bytes_per_msg);
         if (ctx.server->start() == -1)
             return -1;
 
-        LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.public_conf.port);
+        LOG_INFO << "Started listening for user connections on " << std::to_string(conf::cfg.user.port);
         return 0;
     }
 

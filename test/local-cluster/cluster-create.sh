@@ -83,13 +83,7 @@ do
     peers[i]="node${n}:${peerport}"
     
     # Update contract config.
-    contract_json=$(node -p "require('./tmp.json').contract")
-    public_json=$(node -p "require('./tmp.json').public")
-    mesh_json=$(node -p "require('./tmp.json').mesh")
-
-    node -p "JSON.stringify({...require('./tmp.json'), \
-            contract: { \
-                ${contract_json:1:-1}, \
+    contract_json=$(node -p "JSON.stringify({...require('./tmp.json').contract, 
                 id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
                 bin_path: '$binary', \
                 bin_args: '$binargs', \
@@ -97,16 +91,15 @@ do
                 appbill: { \
                     mode: '', \
                     bin_args: '' \
-                }, \
-            }, \
-            mesh: { \
-                ${mesh_json:1:-1}, \
-                port: ${peerport}, \
-            }, \
-            public: {
-                ${public_json:1:-1}, \
-                port: ${pubport}, \
-            }, \
+                },}, null, 2)")
+
+    mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, port:${peerport}}, null, 2)")
+    user_json=$(node -p "JSON.stringify({...require('./tmp.json').user, port:${pubport}}, null, 2)")
+
+    node -p "JSON.stringify({...require('./tmp.json'), \
+            contract: ${contract_json},\
+            mesh: ${mesh_json},\
+            user: ${user_json}, \
             log: {\
                 loglevel: '$loglevel', \
                 loggers:['console', 'file'] \
@@ -168,14 +161,10 @@ do
 
     pushd ./node$n/cfg > /dev/null 2>&1
     mv hp.cfg tmp.json  # nodejs needs file extension to be .json
-    touch contract.json
-    touch mesh.json
-    node -p "JSON.stringify({...require('./tmp.json').contract, unl:${myunl}}, null, 2)" > contract.json
-    node -p "JSON.stringify({...require('./tmp.json').mesh, known_peers:${mypeers}}, null, 2)" > mesh.json
-    node -p "JSON.stringify({...require('./tmp.json'), contract:{...require('./contract.json')}, mesh:{...require('./mesh.json')}}, null, 2)" > hp.cfg
+    contract_json=$(node -p "JSON.stringify({...require('./tmp.json').contract, unl:${myunl}}, null, 2)")
+    mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, known_peers:${mypeers}}, null, 2)")
+    node -p "JSON.stringify({...require('./tmp.json'), contract:${contract_json}, mesh:${mesh_json}}, null, 2)" > hp.cfg
     rm tmp.json
-    rm contract.json
-    rm mesh.json
     popd > /dev/null 2>&1
 done
 

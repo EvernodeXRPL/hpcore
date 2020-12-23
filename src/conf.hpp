@@ -96,7 +96,7 @@ namespace conf
         std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.
     };
 
-    struct public_config
+    struct user_config
     {
         uint16_t port = 0;                 // Listening port for public user connections
         uint16_t idle_timeout = 0;         // Idle connection timeout for user connections in seconds.
@@ -157,7 +157,7 @@ namespace conf
         node_config node;
         contract_params contract;
         mesh_config mesh;
-        public_config public_conf;
+        user_config user;
         log_config log;
     };
 

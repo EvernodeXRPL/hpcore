@@ -116,8 +116,8 @@ namespace conf
         cfg.mesh.peer_discovery.enabled = false;
         cfg.mesh.peer_discovery.interval = 30000;
 
-        cfg.public_conf.port = 8080;
-        cfg.public_conf.idle_timeout = 0;
+        cfg.user.port = 8080;
+        cfg.user.idle_timeout = 0;
 
 #ifndef NDEBUG
         cfg.log.loglevel_type = conf::LOG_SEVERITY::DEBUG;
@@ -346,13 +346,13 @@ namespace conf
         cfg.mesh.peer_discovery.enabled = mesh["peer_discovery"]["enabled"].as<bool>();
 
         
-        const jsoncons::json &public_conf = d["public"];
-        cfg.public_conf.port = public_conf["port"].as<uint16_t>();
-        cfg.public_conf.max_connections = public_conf["max_connections"].as<unsigned int>();
-        cfg.public_conf.max_bytes_per_msg = public_conf["max_bytes_per_msg"].as<uint64_t>();
-        cfg.public_conf.max_bytes_per_min = public_conf["max_bytes_per_min"].as<uint64_t>();
-        cfg.public_conf.max_bad_msgs_per_min = public_conf["max_bad_msgs_per_min"].as<uint64_t>();
-        cfg.public_conf.idle_timeout = public_conf["idle_timeout"].as<uint16_t>();
+        const jsoncons::json &user = d["user"];
+        cfg.user.port = user["port"].as<uint16_t>();
+        cfg.user.max_connections = user["max_connections"].as<unsigned int>();
+        cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
+        cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
+        cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
+        cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
 
         const jsoncons::json &log = d["log"];
         cfg.log.loglevel = log["loglevel"].as<std::string>();
@@ -440,15 +440,15 @@ namespace conf
         mesh_config.insert_or_assign("peer_discovery", peer_discovery_config);
         d.insert_or_assign("mesh", mesh_config);
 
-        // Public configs.
-        jsoncons::ojson public_config;
-        public_config.insert_or_assign("port", cfg.public_conf.port);
-        public_config.insert_or_assign("idle_timeout", cfg.public_conf.idle_timeout);
-        public_config.insert_or_assign("max_bytes_per_msg", cfg.public_conf.max_bytes_per_msg);
-        public_config.insert_or_assign("max_bytes_per_min", cfg.public_conf.max_bytes_per_min);
-        public_config.insert_or_assign("max_bad_msgs_per_min", cfg.public_conf.max_bad_msgs_per_min);
-        public_config.insert_or_assign("max_connections", cfg.public_conf.max_connections);
-        d.insert_or_assign("public", public_config);
+        // User configs.
+        jsoncons::ojson user_config;
+        user_config.insert_or_assign("port", cfg.user.port);
+        user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
+        user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
+        user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
+        user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
+        user_config.insert_or_assign("max_connections", cfg.user.max_connections);
+        d.insert_or_assign("user", user_config);
 
         // Log configs.
         jsoncons::ojson log_config;
@@ -572,7 +572,7 @@ namespace conf
         fields_missing |= cfg.contract.unl.empty() && std::cerr << "Missing cfg field: unl. Unl list cannot be empty.\n";
         fields_missing |= cfg.contract.id.empty() && std::cerr << "Missing cfg field: contract id.\n";
         fields_missing |= cfg.mesh.port == 0 && std::cerr << "Missing cfg field: mesh port\n";
-        fields_missing |= cfg.public_conf.port == 0 && std::cerr << "Missing cfg field: public port\n";
+        fields_missing |= cfg.user.port == 0 && std::cerr << "Missing cfg field: user port\n";
         fields_missing |= cfg.log.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
         fields_missing |= cfg.log.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";
 
