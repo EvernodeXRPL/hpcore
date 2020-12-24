@@ -212,109 +212,142 @@ namespace conf
         }
         ifs.close();
 
-        // Check whether the hp version is specified.
-        cfg.hp_version = d["hp_version"].as<std::string>();
-        if (cfg.hp_version.empty())
+        try
         {
-            std::cerr << "Contract config HP version missing.\n";
-            return -1;
-        }
+            // Check whether the hp version is specified.
+            cfg.hp_version = d["hp_version"].as<std::string>();
+            if (cfg.hp_version.empty())
+            {
+                std::cerr << "Contract config HP version missing.\n";
+                return -1;
+            }
 
-        // Check whether this config complies with the min version requirement.
-        int verresult = util::version_compare(cfg.hp_version, std::string(util::MIN_CONFIG_VERSION));
-        if (verresult == -1)
-        {
-            std::cerr << "Config version too old. Minimum "
-                      << util::MIN_CONFIG_VERSION << " required. "
-                      << cfg.hp_version << " found.\n";
-            return -1;
+            // Check whether this config complies with the min version requirement.
+            int verresult = util::version_compare(cfg.hp_version, std::string(util::MIN_CONFIG_VERSION));
+            if (verresult == -1)
+            {
+                std::cerr << "Config version too old. Minimum "
+                          << util::MIN_CONFIG_VERSION << " required. "
+                          << cfg.hp_version << " found.\n";
+                return -1;
+            }
+            else if (verresult == -2)
+            {
+                std::cerr << "Malformed version string.\n";
+                return -1;
+            }
         }
-        else if (verresult == -2)
+        catch (const std::exception &e)
         {
-            std::cerr << "Malformed version string.\n";
+            std::cerr << "Required config field hp_version missing at " << ctx.config_file << std::endl;
             return -1;
         }
 
         // node
         {
-            const jsoncons::json &node = d["node"];
-            cfg.node.public_key_hex = node["public_key"].as<std::string>();
-            cfg.node.private_key_hex = node["private_key"].as<std::string>();
-
-            // Convert the hex keys to binary.
-            cfg.node.public_key = util::to_bin(cfg.node.public_key_hex);
-            if (cfg.node.public_key.empty())
+            try
             {
-                std::cerr << "Error decoding hex public key.\n";
+                const jsoncons::json &node = d["node"];
+                cfg.node.public_key_hex = node["public_key"].as<std::string>();
+                cfg.node.private_key_hex = node["private_key"].as<std::string>();
+
+                // Convert the hex keys to binary.
+                cfg.node.public_key = util::to_bin(cfg.node.public_key_hex);
+                if (cfg.node.public_key.empty())
+                {
+                    std::cerr << "Error decoding hex public key.\n";
+                    return -1;
+                }
+
+                cfg.node.private_key = util::to_bin(cfg.node.private_key_hex);
+                if (cfg.node.private_key.empty())
+                {
+                    std::cerr << "Error decoding hex private key.\n";
+                    return -1;
+                }
+
+                if (node["role"] == ROLE_OBSERVER)
+                    cfg.node.role = ROLE::OBSERVER;
+                else if (node["role"] == ROLE_VALIDATOR)
+                    cfg.node.role = ROLE::VALIDATOR;
+                else
+                {
+                    std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
+                    return -1;
+                }
+                startup_mode = cfg.node.role;
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required node config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
                 return -1;
             }
-
-            cfg.node.private_key = util::to_bin(cfg.node.private_key_hex);
-            if (cfg.node.private_key.empty())
-            {
-                std::cerr << "Error decoding hex private key.\n";
-                return -1;
-            }
-
-            if (node["role"] == ROLE_OBSERVER)
-                cfg.node.role = ROLE::OBSERVER;
-            else if (node["role"] == ROLE_VALIDATOR)
-                cfg.node.role = ROLE::VALIDATOR;
-            else
-            {
-                std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
-                return -1;
-            }
-            startup_mode = cfg.node.role;
         }
 
         // contract
         {
-            const jsoncons::json &contract = d["contract"];
-            cfg.contract.id = contract["id"].as<std::string>();
-            cfg.contract.version = contract["version"].as<std::string>();
-            if (cfg.contract.id.empty())
+            try
             {
-                std::cerr << "Contract id not specified.\n";
-                return -1;
-            }
-            else if (cfg.contract.version.empty())
-            {
-                std::cerr << "Contract version not specified.\n";
-                return -1;
-            }
-            cfg.contract.unl.clear();
-            for (auto &nodepk : contract["unl"].array_range())
-            {
-                // Convert the public key hex of each node to binary and store it.
-                const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
-                if (bin_pubkey.empty())
+                const jsoncons::json &contract = d["contract"];
+                cfg.contract.id = contract["id"].as<std::string>();
+                cfg.contract.version = contract["version"].as<std::string>();
+                if (cfg.contract.id.empty())
                 {
-                    std::cerr << "Error decoding unl list.\n";
+                    std::cerr << "Contract id not specified.\n";
                     return -1;
                 }
-                cfg.contract.unl.emplace(bin_pubkey);
-            }
-            cfg.contract.bin_path = contract["bin_path"].as<std::string>();
-            cfg.contract.bin_args = contract["bin_args"].as<std::string>();
-            cfg.contract.roundtime = contract["roundtime"].as<uint16_t>();
+                else if (cfg.contract.version.empty())
+                {
+                    std::cerr << "Contract version not specified.\n";
+                    return -1;
+                }
+                cfg.contract.unl.clear();
+                for (auto &nodepk : contract["unl"].array_range())
+                {
+                    // Convert the public key hex of each node to binary and store it.
+                    const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
+                    if (bin_pubkey.empty())
+                    {
+                        std::cerr << "Error decoding unl list.\n";
+                        return -1;
+                    }
+                    cfg.contract.unl.emplace(bin_pubkey);
+                }
+                cfg.contract.bin_path = contract["bin_path"].as<std::string>();
+                cfg.contract.bin_args = contract["bin_args"].as<std::string>();
+                cfg.contract.roundtime = contract["roundtime"].as<uint16_t>();
 
-            if (contract["consensus"] != PUBLIC && contract["consensus"] != PRIVATE)
+                if (contract["consensus"] != PUBLIC && contract["consensus"] != PRIVATE)
+                {
+                    std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
+                    return -1;
+                }
+                cfg.contract.is_consensus_public = contract["consensus"] == PUBLIC;
+
+                if (contract["npl"] != PUBLIC && contract["npl"] != PRIVATE)
+                {
+                    std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
+                    return -1;
+                }
+                cfg.contract.is_npl_public = contract["npl"] == PUBLIC;
+                if (!contract["appbill"].contains("mode"))
+                {
+                    std::cerr << "Required contract appbill config field mode missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.contract.appbill.mode = contract["appbill"]["mode"].as<std::string>();
+                if (!contract["appbill"].contains("bin_args"))
+                {
+                    std::cerr << "Required contract appbill config field bin_args missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.contract.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
+            }
+            catch (const std::exception &e)
             {
-                std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
+                std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
                 return -1;
             }
-            cfg.contract.is_consensus_public = contract["consensus"] == PUBLIC;
-
-            if (contract["npl"] != PUBLIC && contract["npl"] != PRIVATE)
-            {
-                std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
-                return -1;
-            }
-            cfg.contract.is_npl_public = contract["npl"] == PUBLIC;
-            cfg.contract.appbill.mode = contract["appbill"]["mode"].as<std::string>();
-            cfg.contract.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
-
             // Populate runtime contract execution args.
             if (!cfg.contract.bin_args.empty())
                 util::split_string(cfg.contract.runtime_binexec_args, cfg.contract.bin_args, " ");
@@ -335,70 +368,104 @@ namespace conf
 
         // mesh
         {
-            const jsoncons::json &mesh = d["mesh"];
-            cfg.mesh.port = mesh["port"].as<uint16_t>();
-            // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
-            // seperately to retrieve easily when handling peer connections.
-            std::vector<std::string> splitted_peers;
-            cfg.mesh.known_peers.clear();
-            for (auto &v : mesh["known_peers"].array_range())
+            try
             {
-                const char *ipport_concat = v.as<const char *>();
-                // Split the address:port text into two
-                util::split_string(splitted_peers, ipport_concat, ":");
-
-                // Push the peer address and the port to peers set
-                if (splitted_peers.size() != 2)
+                const jsoncons::json &mesh = d["mesh"];
+                cfg.mesh.port = mesh["port"].as<uint16_t>();
+                // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
+                // seperately to retrieve easily when handling peer connections.
+                std::vector<std::string> splitted_peers;
+                cfg.mesh.known_peers.clear();
+                for (auto &v : mesh["known_peers"].array_range())
                 {
-                    std::cerr << "Invalid peer: " << ipport_concat << "\n";
+                    const char *ipport_concat = v.as<const char *>();
+                    // Split the address:port text into two
+                    util::split_string(splitted_peers, ipport_concat, ":");
+
+                    // Push the peer address and the port to peers set
+                    if (splitted_peers.size() != 2)
+                    {
+                        std::cerr << "Invalid peer: " << ipport_concat << "\n";
+                        return -1;
+                    }
+
+                    peer_properties peer;
+                    peer.ip_port.host_address = splitted_peers.front();
+                    peer.ip_port.port = std::stoi(splitted_peers.back());
+
+                    cfg.mesh.known_peers.push_back(peer);
+                    splitted_peers.clear();
+                }
+                cfg.mesh.msg_forwarding = mesh["msg_forwarding"].as<bool>();
+                cfg.mesh.max_connections = mesh["max_connections"].as<uint16_t>();
+                cfg.mesh.max_known_connections = mesh["max_known_connections"].as<uint16_t>();
+                // If max_connections is greater than max_known_connections then show error and stop execution.
+                if (cfg.mesh.max_known_connections > cfg.mesh.max_connections)
+                {
+                    std::cerr << "Invalid configuration values: mesh max_known_connections count should not exceed mesh max_connections." << '\n';
                     return -1;
                 }
-
-                peer_properties peer;
-                peer.ip_port.host_address = splitted_peers.front();
-                peer.ip_port.port = std::stoi(splitted_peers.back());
-
-                cfg.mesh.known_peers.push_back(peer);
-                splitted_peers.clear();
+                cfg.mesh.max_bytes_per_msg = mesh["max_bytes_per_msg"].as<uint64_t>();
+                cfg.mesh.max_bytes_per_min = mesh["max_bytes_per_min"].as<uint64_t>();
+                cfg.mesh.max_bad_msgs_per_min = mesh["max_bad_msgs_per_min"].as<uint64_t>();
+                cfg.mesh.max_bad_msgsigs_per_min = mesh["max_bad_msgsigs_per_min"].as<uint64_t>();
+                cfg.mesh.max_dup_msgs_per_min = mesh["max_dup_msgs_per_min"].as<uint64_t>();
+                cfg.mesh.idle_timeout = mesh["idle_timeout"].as<uint16_t>();
+                if (!mesh["peer_discovery"].contains("interval"))
+                {
+                    std::cerr << "Required mesh peer discovery config field interval missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.mesh.peer_discovery.interval = mesh["peer_discovery"]["interval"].as<uint16_t>();
+                if (!mesh["peer_discovery"].contains("enabled"))
+                {
+                    std::cerr << "Required mesh peer discovery config field enabled missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.mesh.peer_discovery.enabled = mesh["peer_discovery"]["enabled"].as<bool>();
             }
-            cfg.mesh.msg_forwarding = mesh["msg_forwarding"].as<bool>();
-            cfg.mesh.max_connections = mesh["max_connections"].as<uint16_t>();
-            cfg.mesh.max_known_connections = mesh["max_known_connections"].as<uint16_t>();
-            // If max_connections is greater than max_known_connections then show error and stop execution.
-            if (cfg.mesh.max_known_connections > cfg.mesh.max_connections)
+            catch (const std::exception &e)
             {
-                std::cerr << "Invalid configuration values: mesh max_known_connections count should not exceed mesh max_connections." << '\n';
+                std::cerr << "Required mesh config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
                 return -1;
             }
-            cfg.mesh.max_bytes_per_msg = mesh["max_bytes_per_msg"].as<uint64_t>();
-            cfg.mesh.max_bytes_per_min = mesh["max_bytes_per_min"].as<uint64_t>();
-            cfg.mesh.max_bad_msgs_per_min = mesh["max_bad_msgs_per_min"].as<uint64_t>();
-            cfg.mesh.max_bad_msgsigs_per_min = mesh["max_bad_msgsigs_per_min"].as<uint64_t>();
-            cfg.mesh.max_dup_msgs_per_min = mesh["max_dup_msgs_per_min"].as<uint64_t>();
-            cfg.mesh.idle_timeout = mesh["idle_timeout"].as<uint16_t>();
-            cfg.mesh.peer_discovery.interval = mesh["peer_discovery"]["interval"].as<uint16_t>();
-            cfg.mesh.peer_discovery.enabled = mesh["peer_discovery"]["enabled"].as<bool>();
         }
 
         // user
         {
-            const jsoncons::json &user = d["user"];
-            cfg.user.port = user["port"].as<uint16_t>();
-            cfg.user.max_connections = user["max_connections"].as<unsigned int>();
-            cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
-            cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
-            cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
-            cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
+            try
+            {
+                const jsoncons::json &user = d["user"];
+                cfg.user.port = user["port"].as<uint16_t>();
+                cfg.user.max_connections = user["max_connections"].as<unsigned int>();
+                cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
+                cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
+                cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
+                cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required user config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
         }
 
         // log
         {
-            const jsoncons::json &log = d["log"];
-            cfg.log.loglevel = log["loglevel"].as<std::string>();
-            cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
-            cfg.log.loggers.clear();
-            for (auto &v : log["loggers"].array_range())
-                cfg.log.loggers.emplace(v.as<std::string>());
+            try
+            {
+                const jsoncons::json &log = d["log"];
+                cfg.log.loglevel = log["loglevel"].as<std::string>();
+                cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
+                cfg.log.loggers.clear();
+                for (auto &v : log["loggers"].array_range())
+                    cfg.log.loggers.emplace(v.as<std::string>());
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required log config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
         }
 
         return 0;
@@ -652,5 +719,17 @@ namespace conf
             return LOG_SEVERITY::INFO;
         else
             return LOG_SEVERITY::ERROR;
+    }
+
+    /**
+     * Extracts missing config field from the jsoncons exception message.
+     * @param err_message Jsoncons error message.
+     * @return Missing config field.
+    */
+    std::string_view extract_missing_field(std::string err_message)
+    {
+        err_message.erase(0, err_message.find("'") + 1);
+        err_message = err_message.substr(0, err_message.find("'"));
+        return err_message;
     }
 } // namespace conf
