@@ -192,6 +192,8 @@ namespace conf
     void change_role(const ROLE role);
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);
+
+    std::string_view extract_missing_field(std::string err_message);
 } // namespace conf
 
 #endif
