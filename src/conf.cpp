@@ -464,6 +464,7 @@ namespace conf
             catch (const std::exception &e)
             {
                 std::cerr << "Required log config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
             }
         }
 
