@@ -197,7 +197,7 @@ namespace conf
 
     int apply_patch_changes(contract_params &contract_config);
 
-    int validate_and_apply_patch_config(contract_params &contract_config);
+    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir);
 } // namespace conf
 
 #endif

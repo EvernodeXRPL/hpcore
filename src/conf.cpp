@@ -745,17 +745,18 @@ namespace conf
     */
     int apply_patch_changes(contract_params &contract_config)
     {
-        pid_t hpfs_rw_pid = 0;
+        pid_t hpfs_ro_pid = 0;
+        std::string mount_dir; // Holds the mount directory of the newly created hpfs session.
         int res = 0;
 
-        if (hpfs::start_ro_rw_process(hpfs_rw_pid, conf::ctx.state_rw_dir,
-                                      true, false, true) == -1 ||  // Creating a hpfs process and then starting a hpfs session.
-            validate_and_apply_patch_config(cfg.contract) == -1 || // Validate content in patch file and update contract section in config.
-            hpfs::stop_fs_session(conf::ctx.state_rw_dir) == -1)   // Stop created hpfs sesson.
+        if (hpfs::start_ro_rw_process(hpfs_ro_pid, mount_dir,
+                                      true, false, true) == -1 ||                // Creating a hpfs process and then starts a virtual hpfs session.
+            validate_and_apply_patch_config(contract_config, mount_dir) == -1 || // Validate content in patch file and update contract section in config.
+            hpfs::stop_fs_session(mount_dir) == -1)                              // Stop the created hpfs session.
             res = -1;
 
         // Created hpfs process should be killed even the patch validation failed.
-        if (hpfs_rw_pid > 0 && util::kill_process(hpfs_rw_pid, true) == -1)
+        if (hpfs_ro_pid > 0 && util::kill_process(hpfs_ro_pid, true) == -1)
             res = -1;
         return res;
     }
@@ -763,11 +764,12 @@ namespace conf
     /**
      * Validate and update contract config section if a patch file detected.
      * @param contract_config Contract section of config structure.
+     * @param mount_dir hpfs process mount directory path.
      * @return Returns -1 on error and 0 in successful update.
     */
-    int validate_and_apply_patch_config(contract_params &contract_config)
+    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir)
     {
-        const std::string path = conf::ctx.state_rw_dir + "/" + PATCH_FILE_NAME;
+        const std::string path = std::string(mount_dir).append("/").append(PATCH_FILE_NAME);
         if (util::is_file_exists(path))
         {
             std::ifstream ifs(path);
