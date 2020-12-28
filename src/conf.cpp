@@ -1,6 +1,7 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
+#include "hpfs/hpfs.hpp"
 #include "util/util.hpp"
 
 namespace conf
@@ -21,6 +22,8 @@ namespace conf
     const static char *PUBLIC = "public";
     const static char *PRIVATE = "private";
 
+    const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
+
     /**
      * Loads and initializes the contract config for execution. Must be called once during application startup.
      * @return 0 for success. -1 for failure.
@@ -30,10 +33,12 @@ namespace conf
         // The validations/loading needs to be in this order.
         // 1. Validate contract directories
         // 2. Read and load the contract config into memory
-        // 3. Validate the loaded config values
+        // 3. Update contract config if patch file exists.
+        // 4. Validate the loaded config values
 
         if (validate_contract_dir_paths() == -1 ||
             read_config(cfg) == -1 ||
+            apply_patch_changes(cfg.contract) == -1 ||
             validate_config(cfg) == -1)
         {
             return -1;
@@ -731,5 +736,142 @@ namespace conf
         err_message.erase(0, err_message.find("'") + 1);
         err_message = err_message.substr(0, err_message.find("'"));
         return err_message;
+    }
+
+    /**
+     * Update config contract section if a patch file is detected.
+     * @param contract_config Contract section of config structure.
+     * @return Returns -1 on error and 0 on successful update.
+    */
+    int apply_patch_changes(contract_params &contract_config)
+    {
+        pid_t hpfs_ro_pid = 0;
+        std::string mount_dir; // Holds the mount directory of the newly created hpfs session.
+        int res = 0;
+
+        if (hpfs::start_ro_rw_process(hpfs_ro_pid, mount_dir,
+                                      true, false, true) == -1 ||                // Creating a hpfs process and then starts a virtual hpfs session.
+            validate_and_apply_patch_config(contract_config, mount_dir) == -1 || // Validate content in patch file and update contract section in config.
+            hpfs::stop_fs_session(mount_dir) == -1)                              // Stop the created hpfs session.
+            res = -1;
+
+        // Created hpfs process should be killed even the patch validation failed.
+        if (hpfs_ro_pid > 0 && util::kill_process(hpfs_ro_pid, true) == -1)
+            res = -1;
+        return res;
+    }
+
+    /**
+     * Validate and update contract config section if a patch file detected.
+     * @param contract_config Contract section of config structure.
+     * @param mount_dir hpfs process mount directory path.
+     * @return Returns -1 on error and 0 in successful update.
+    */
+    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir)
+    {
+        const std::string path = std::string(mount_dir).append("/").append(PATCH_FILE_NAME);
+        if (util::is_file_exists(path))
+        {
+            std::ifstream ifs(path);
+            jsoncons::ojson contract;
+            try
+            {
+                contract = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Invalid patch config file format. " << e.what() << '\n';
+                return -1;
+            }
+            ifs.close();
+
+            try
+            {
+
+                contract_config.version = contract["version"].as<std::string>();
+                if (contract_config.version.empty())
+                {
+                    std::cerr << "Patch contract version not specified.\n";
+                    return -1;
+                }
+
+                contract_config.unl.clear();
+                for (auto &nodepk : contract["unl"].array_range())
+                {
+                    // Convert the public key hex of each node to binary and store it.
+                    const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
+                    if (bin_pubkey.empty())
+                    {
+                        std::cerr << "Error decoding patch file unl list.\n";
+                        return -1;
+                    }
+                    contract_config.unl.emplace(bin_pubkey);
+                }
+                if (contract_config.unl.empty())
+                {
+                    std::cerr << "Patch file unl list cannot be empty.\n";
+                    return -1;
+                }
+
+                contract_config.bin_path = contract["bin_path"].as<std::string>();
+                if (contract_config.bin_path.empty())
+                {
+                    std::cerr << "Patch file binary path cannot be empty.\n";
+                }
+                contract_config.bin_args = contract["bin_args"].as<std::string>();
+                contract_config.roundtime = contract["roundtime"].as<uint16_t>();
+                if (contract_config.roundtime == 0)
+                {
+                    std::cerr << "Patch file round time cannot be zero.\n";
+                }
+
+                if (contract["consensus"] != conf::PUBLIC && contract["consensus"] != conf::PRIVATE)
+                {
+                    std::cerr << "Invalid consensus flag configured in patch file. Valid values: public|private\n";
+                    return -1;
+                }
+                contract_config.is_consensus_public = contract["consensus"] == conf::PUBLIC;
+
+                if (contract["npl"] != conf::PUBLIC && contract["npl"] != conf::PRIVATE)
+                {
+                    std::cerr << "Invalid npl flag configured in patch file. Valid values: public|private\n";
+                    return -1;
+                }
+                contract_config.is_npl_public = contract["npl"] == conf::PUBLIC;
+
+                if (!contract["appbill"].contains("mode"))
+                {
+                    std::cerr << "Required contract appbill config field mode missing at patch file.\n";
+                    return -1;
+                }
+                contract_config.appbill.mode = contract["appbill"]["mode"].as<std::string>();
+                if (!contract["appbill"].contains("bin_args"))
+                {
+                    std::cerr << "Required contract appbill config field bin_args missing at patch file.\n";
+                    return -1;
+                }
+                contract_config.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
+
+                // Populate runtime contract execution args.
+                contract_config.runtime_binexec_args.clear();
+                if (!contract_config.bin_args.empty())
+                    util::split_string(contract_config.runtime_binexec_args, contract_config.bin_args, " ");
+                contract_config.runtime_binexec_args.insert(contract_config.runtime_binexec_args.begin(), (contract_config.bin_path[0] == '/' ? contract_config.bin_path : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.bin_path)));
+
+                // Populate runtime app bill args.
+                contract_config.appbill.runtime_args.clear();
+                if (!contract_config.appbill.bin_args.empty())
+                    util::split_string(contract_config.appbill.runtime_args, contract_config.appbill.bin_args, " ");
+                contract_config.appbill.runtime_args.insert(contract_config.appbill.runtime_args.begin(), (contract_config.appbill.mode[0] == '/' ? contract_config.appbill.mode : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.appbill.mode)));
+
+                std::cout << "Contract config updated from " << PATCH_FILE_NAME << " file\n";
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing in patch file.\n";
+                return -1;
+            }
+        }
+        return 0;
     }
 } // namespace conf
