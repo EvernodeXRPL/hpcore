@@ -13,8 +13,7 @@
 #include "sc.hpp"
 #include "util/h32.hpp"
 #include "hpfs/hpfs.hpp"
-#include "state/state_common.hpp"
-#include "state/state_sync.hpp"
+#include "hpfs/hpfs_sync.hpp"
 #include "unl.hpp"
 #include "ledger.hpp"
 #include "consensus.hpp"
@@ -112,7 +111,7 @@ namespace consensus
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        util::h32 state = state_common::ctx.get_state();
+        util::h32 state = hpfs::ctx.get_state();
         std::string unl_hash = unl::get_hash();
 
         if (ctx.stage == 0)
@@ -194,7 +193,7 @@ namespace consensus
             if (is_state_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                state_sync::set_target(majority_state);
+                hpfs_sync::set_target(majority_state);
             }
 
             // Check unl hash with the majority unl hash.
@@ -229,7 +228,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing && !unl::sync_ctx.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -782,7 +781,7 @@ namespace consensus
             }
         }
 
-        is_desync = (state_common::ctx.get_state() != majority_state);
+        is_desync = (hpfs::ctx.get_state() != majority_state);
     }
 
     /**
@@ -879,7 +878,7 @@ namespace consensus
             }
 
             sc::contract_execution_args &args = ctx.contract_ctx->args;
-            args.state_dir = conf::ctx.state_rw_dir;
+            args.hpfs_dir = conf::ctx.hpfs_rw_dir;
             args.readonly = false;
             args.time = cons_prop.time;
             args.lcl = new_lcl;
@@ -894,7 +893,7 @@ namespace consensus
                 return -1;
             }
 
-            state_common::ctx.set_state(args.post_execution_state_hash);
+            hpfs::ctx.set_state(args.post_execution_state_hash);
             new_state = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);

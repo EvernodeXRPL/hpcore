@@ -13,6 +13,55 @@ namespace hpfs
     constexpr const char *HPFS_SESSION = "::hpfs.session";
     constexpr ino_t HPFS_ROOT_INO = 2;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
+    bool init_success = false;
+    hpfs_context ctx;
+
+    /**
+     * Performs system startup activitites related to hpfs execution.
+     */
+    int init()
+    {
+        if (start_merge_process(ctx.hpfs_merge_pid) == -1)
+            return -1;
+
+        if (start_ro_rw_process(ctx.hpfs_rw_pid, conf::ctx.hpfs_rw_dir, false, true, false) == -1)
+        {
+            // Stop the merge process in case of failure.
+            util::kill_process(ctx.hpfs_merge_pid, true);
+            return -1;
+        }
+
+        util::h32 initial_state;
+        if (start_fs_session(conf::ctx.hpfs_rw_dir) == -1 ||
+            get_hash(initial_state, conf::ctx.hpfs_rw_dir, "/") == -1 ||
+            stop_fs_session(conf::ctx.hpfs_rw_dir) == -1)
+        {
+            LOG_ERROR << "Failed to get initial state hash.";
+            return -1;
+        }
+
+        ctx.set_state(initial_state);
+        LOG_INFO << "Initial state: " << initial_state;
+        init_success = true;
+        return 0;
+    }
+
+    /**
+     * Performs global cleanup related to hpfs execution.
+     */
+    void deinit()
+    {
+        if (init_success)
+        {
+            LOG_DEBUG << "Stopping hpfs rw process... pid:" << ctx.hpfs_rw_pid;
+            if (ctx.hpfs_rw_pid > 0 && util::kill_process(ctx.hpfs_rw_pid, true) == 0)
+                LOG_INFO << "Stopped hpfs rw process.";
+
+            LOG_DEBUG << "Stopping hpfs merge process... pid:" << ctx.hpfs_merge_pid;
+            if (ctx.hpfs_merge_pid > 0 && util::kill_process(ctx.hpfs_merge_pid, true) == 0)
+                LOG_INFO << "Stopped hpfs merge process.";
+        }
+    }
 
     /**
      * Starts hpfs merge process.
@@ -47,7 +96,7 @@ namespace hpfs
             char *execv_args[] = {
                 conf::ctx.hpfs_exe_path.data(),
                 (char *)"merge",
-                conf::ctx.state_dir.data(),
+                conf::ctx.hpfs_dir.data(),
                 (char *)active_hpfs_trace_arg,
                 NULL};
 
@@ -80,7 +129,7 @@ namespace hpfs
 
             // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             if (mount_dir.empty())
-                mount_dir = std::string(conf::ctx.state_dir)
+                mount_dir = std::string(conf::ctx.hpfs_dir)
                                 .append("/")
                                 .append(std::to_string(pid));
 
@@ -137,7 +186,7 @@ namespace hpfs
             // If the mount dir is not specified, assign a mount dir based on hpfs process id.
             const pid_t self_pid = getpid();
             if (mount_dir.empty())
-                mount_dir = std::string(conf::ctx.state_dir)
+                mount_dir = std::string(conf::ctx.hpfs_dir)
                                 .append("/")
                                 .append(std::to_string(self_pid));
 
@@ -147,7 +196,7 @@ namespace hpfs
             char *execv_args[] = {
                 conf::ctx.hpfs_exe_path.data(),
                 (char *)mode, // hpfs mode: rw | ro
-                conf::ctx.state_dir.data(),
+                conf::ctx.hpfs_dir.data(),
                 mount_dir.data(),
                 (char *)(hash_map_enabled ? "hmap=true" : "hmap=false"),
                 (char *)active_hpfs_trace_arg,

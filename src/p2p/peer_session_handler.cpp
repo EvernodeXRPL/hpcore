@@ -9,7 +9,7 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../state/state_sync.hpp"
+#include "../hpfs/hpfs_sync.hpp"
 #include "../ledger.hpp"
 #include "peer_comm_session.hpp"
 #include "p2p.hpp"
@@ -187,34 +187,34 @@ namespace p2p
 
             handle_npl_message(container, content);
         }
-        else if (content_message_type == p2pmsg::Message_State_Request_Message)
+        else if (content_message_type == p2pmsg::Message_Hpfs_Request_Message)
         {
             // Check the cap and insert request with lock.
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_requests_mutex);
+            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_requests_mutex);
 
             // If max number of state requests reached skip the rest.
-            if (ctx.collected_msgs.state_requests.size() < p2p::STATE_REQ_LIST_CAP)
+            if (ctx.collected_msgs.hpfs_requests.size() < p2p::STATE_REQ_LIST_CAP)
             {
                 std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.state_requests.push_back(std::make_pair(session.pubkey, std::move(state_request_msg)));
+                ctx.collected_msgs.hpfs_requests.push_back(std::make_pair(session.pubkey, std::move(state_request_msg)));
             }
             else
             {
                 LOG_DEBUG << "State request rejected. Maximum state request count reached. " << session.display_name();
             }
         }
-        else if (content_message_type == p2pmsg::Message_State_Response_Message)
+        else if (content_message_type == p2pmsg::Message_Hpfs_Response_Message)
         {
-            if (state_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
+            if (hpfs_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
             {
                 // Check the cap and insert state_response with lock.
-                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.state_responses_mutex);
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_responses_mutex);
 
                 // If max number of state responses reached skip the rest.
-                if (ctx.collected_msgs.state_responses.size() < p2p::STATE_RES_LIST_CAP)
+                if (ctx.collected_msgs.hpfs_responses.size() < p2p::STATE_RES_LIST_CAP)
                 {
                     std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                    ctx.collected_msgs.state_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
+                    ctx.collected_msgs.hpfs_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
                 }
                 else
                 {

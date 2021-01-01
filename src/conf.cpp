@@ -87,10 +87,11 @@ namespace conf
         util::create_dir_tree_recursive(ctx.hist_dir);
         util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
-        util::create_dir_tree_recursive(ctx.state_dir);
+        util::create_dir_tree_recursive(ctx.hpfs_dir);
 
-        // Creating state seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
-        util::create_dir_tree_recursive(ctx.state_dir + "/seed");
+        // Creating hpfs seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
+        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed");
+        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed/state");
 
         //Create config file with default settings.
 
@@ -176,9 +177,9 @@ namespace conf
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
         ctx.hist_dir = basedir + "/hist";
         ctx.full_hist_dir = basedir + "/fullhist";
-        ctx.state_dir = basedir + "/state";
-        ctx.state_rw_dir = ctx.state_dir + "/rw";
-        ctx.state_serve_dir = ctx.state_dir + "/ss";
+        ctx.hpfs_dir = basedir + "/hpfs";
+        ctx.hpfs_rw_dir = ctx.hpfs_dir + "/rw";
+        ctx.hpfs_serve_dir = ctx.hpfs_dir + "/ss";
         ctx.log_dir = basedir + "/log";
     }
 
@@ -366,7 +367,7 @@ namespace conf
 
             // Uncomment for docker-based execution.
             // std::string volumearg;
-            // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
+            // volumearg.append("type=bind,source=").append(ctx.hpfs_dir).append(",target=/hpfs");
             // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.contract.bin_path.data()};
             // cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
         }
@@ -663,7 +664,7 @@ namespace conf
             ctx.config_file,
             ctx.hist_dir,
             ctx.full_hist_dir,
-            ctx.state_dir,
+            ctx.hpfs_dir,
             ctx.tls_key_file,
             ctx.tls_cert_file,
             ctx.hpfs_exe_path,

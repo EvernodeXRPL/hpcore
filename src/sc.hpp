@@ -59,8 +59,8 @@ namespace sc
         // Whether the contract should execute in read only mode (to serve read requests).
         bool readonly = false;
 
-        // State dir path to be used for this execution.
-        std::string state_dir;
+        // Hpfs dir path to be used for this execution.
+        std::string hpfs_dir;
 
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
@@ -130,10 +130,6 @@ namespace sc
         {
         }
     };
-
-    int init();
-
-    void deinit();
 
     int execute_contract(execution_context &ctx);
 

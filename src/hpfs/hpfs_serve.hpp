@@ -1,20 +1,20 @@
-#ifndef _HP_STATE_STATE_SERVE_
-#define _HP_STATE_STATE_SERVE_
+#ifndef _HP_HPFS_HPFS_SERVE_
+#define _HP_HPFS_HPFS_SERVE_
 
 #include "../util/h32.hpp"
-#include "../hpfs/hpfs.hpp"
+#include "hpfs.hpp"
 #include "../p2p/p2p.hpp"
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 
-namespace state_serve
+namespace hpfs_serve
 {
     int init();
 
     void deinit();
     
-    void state_serve_loop();
+    void hpfs_serve_loop();
 
-    int create_state_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::state_request &sr, std::string_view lcl);
+    int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &sr, std::string_view lcl);
 
     int get_data_block(std::vector<uint8_t> &vec, const std::string_view vpath,
                        const uint32_t block_id, const util::h32 expected_hash);
@@ -24,6 +24,6 @@ namespace state_serve
 
     int get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
                                 const std::string_view vpath, const util::h32 expected_hash);
-} // namespace state_sync
+} // namespace hpfs_sync
 
 #endif

@@ -8,10 +8,9 @@
 #include "../util/util.hpp"
 #include "../hpfs/hpfs.hpp"
 #include "../util/h32.hpp"
-#include "state_sync.hpp"
-#include "state_common.hpp"
+#include "hpfs_sync.hpp"
 
-namespace state_sync
+namespace hpfs_sync
 {
     // Idle loop sleep time  (milliseconds).
     constexpr uint16_t IDLE_WAIT = 40;
@@ -34,10 +33,10 @@ namespace state_sync
 
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = state_common::get_request_resubmit_timeout();
+        REQUEST_RESUBMIT_TIMEOUT = hpfs::get_request_resubmit_timeout();
         ctx.target_state = util::h32_empty;
-        ctx.state_sync_thread = std::thread(state_syncer_loop);
-        ctx.hpfs_mount_dir = conf::ctx.state_rw_dir;
+        ctx.hpfs_sync_thread = std::thread(hpfs_syncer_loop);
+        ctx.hpfs_mount_dir = conf::ctx.hpfs_rw_dir;
         init_success = true;
         return 0;
     }
@@ -48,7 +47,7 @@ namespace state_sync
         {
             ctx.is_syncing = false;
             ctx.is_shutting_down = true;
-            ctx.state_sync_thread.join();
+            ctx.hpfs_sync_thread.join();
         }
     }
 
@@ -72,11 +71,11 @@ namespace state_sync
     /**
      * Runs the state sync worker loop.
      */
-    void state_syncer_loop()
+    void hpfs_syncer_loop()
     {
         util::mask_signal();
 
-        LOG_INFO << "State sync: Worker started.";
+        LOG_INFO << "hpfs sync: Worker started.";
 
         while (!ctx.is_shutting_down)
         {
@@ -88,7 +87,7 @@ namespace state_sync
                 if (!ctx.is_syncing)
                     continue;
 
-                LOG_INFO << "State sync: Starting sync for target state: " << ctx.target_state;
+                LOG_INFO << "hpfs sync: Starting sync for target hpfs state: " << ctx.target_state;
             }
 
             if (hpfs::start_fs_session(ctx.hpfs_mount_dir) != -1)
@@ -110,12 +109,12 @@ namespace state_sync
 
                         if (new_state == ctx.target_state)
                         {
-                            LOG_INFO << "State sync: Target state achieved: " << new_state;
+                            LOG_INFO << "hpfs sync: Target hpfs state achieved: " << new_state;
                             break;
                         }
                         else
                         {
-                            LOG_INFO << "State sync: Continuing sync for new target: " << ctx.target_state;
+                            LOG_INFO << "hpfs sync: Continuing sync for new target: " << ctx.target_state;
                             continue;
                         }
                     }
@@ -125,7 +124,7 @@ namespace state_sync
             }
             else
             {
-                LOG_ERROR << "State sync: Failed to start hpfs rw session";
+                LOG_ERROR << "hpfs sync: Failed to start hpfs rw session";
             }
 
             std::unique_lock lock(ctx.target_state_mutex);
@@ -133,7 +132,7 @@ namespace state_sync
             ctx.is_syncing = false;
         }
 
-        LOG_INFO << "State sync: Worker stopped.";
+        LOG_INFO << "hpfs sync: Worker stopped.";
     }
 
     int request_loop(const util::h32 current_target, util::h32 &updated_state)
@@ -159,11 +158,11 @@ namespace state_sync
             std::string lcl = ledger::ctx.get_lcl();
 
             {
-                std::scoped_lock lock(p2p::ctx.collected_msgs.state_responses_mutex);
+                std::scoped_lock lock(p2p::ctx.collected_msgs.hpfs_responses_mutex);
 
                 // Move collected state responses over to local candidate responses list.
-                if (!p2p::ctx.collected_msgs.state_responses.empty())
-                    ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.state_responses);
+                if (!p2p::ctx.collected_msgs.hpfs_responses.empty())
+                    ctx.candidate_state_responses.splice(ctx.candidate_state_responses.end(), p2p::ctx.collected_msgs.hpfs_responses);
             }
 
             prev_responses_processed = !ctx.candidate_state_responses.empty();
@@ -177,10 +176,10 @@ namespace state_sync
                 if (should_stop_request_loop(current_target))
                     return 0;
 
-                LOG_DEBUG << "State sync: Processing state response from [" << response.first.substr(2, 10) << "]";
+                LOG_DEBUG << "hpfs sync: Processing hpfs response from [" << response.first.substr(2, 10) << "]";
 
                 const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
-                const msg::fbuf::p2pmsg::State_Response_Message *resp_msg = content->message_as_State_Response_Message();
+                const msg::fbuf::p2pmsg::Hpfs_Response_Message *resp_msg = content->message_as_Hpfs_Response_Message();
 
                 // Check whether we are actually waiting for this response. If not, ignore it.
                 std::string_view hash = msg::fbuf::flatbuff_bytes_to_sv(resp_msg->hash());
@@ -190,33 +189,33 @@ namespace state_sync
                 const auto pending_resp_itr = ctx.submitted_requests.find(key);
                 if (pending_resp_itr == ctx.submitted_requests.end())
                 {
-                    LOG_DEBUG << "State sync: Skipping state response due to hash mismatch.";
+                    LOG_DEBUG << "hpfs sync: Skipping hpfs response due to hash mismatch.";
                     continue;
                 }
 
                 // Process the message based on response type.
-                const msg::fbuf::p2pmsg::State_Response msg_type = resp_msg->state_response_type();
+                const msg::fbuf::p2pmsg::Hpfs_Response msg_type = resp_msg->hpfs_response_type();
 
-                if (msg_type == msg::fbuf::p2pmsg::State_Response_Fs_Entry_Response)
+                if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Fs_Entry_Response)
                 {
-                    const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_resp = resp_msg->state_response_as_Fs_Entry_Response();
+                    const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_resp = resp_msg->hpfs_response_as_Fs_Entry_Response();
 
                     // Get fs entries we have received.
-                    std::unordered_map<std::string, p2p::state_fs_hash_entry> peer_fs_entry_map;
-                    msg::fbuf::p2pmsg::flatbuf_statefshashentry_to_statefshashentry(peer_fs_entry_map, fs_resp->entries());
+                    std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
+                    msg::fbuf::p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp->entries());
 
                     // Validate received fs data against the hash.
                     if (!validate_fs_entry_hash(vpath, hash, peer_fs_entry_map))
                     {
-                        LOG_INFO << "State sync: Skipping state response due to fs entry hash mismatch.";
+                        LOG_INFO << "hpfs sync: Skipping hpfs response due to fs entry hash mismatch.";
                         continue;
                     }
 
                     handle_fs_entry_response(vpath, peer_fs_entry_map);
                 }
-                else if (msg_type == msg::fbuf::p2pmsg::State_Response_File_HashMap_Response)
+                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_File_HashMap_Response)
                 {
-                    const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp = resp_msg->state_response_as_File_HashMap_Response();
+                    const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp = resp_msg->hpfs_response_as_File_HashMap_Response();
 
                     // File block hashes we received from the peer.
                     const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp->hash_map()->data());
@@ -225,15 +224,15 @@ namespace state_sync
                     // Validate received hashmap against the hash.
                     if (!validate_file_hashmap_hash(vpath, hash, peer_hashes, peer_hash_count))
                     {
-                        LOG_INFO << "State sync: Skipping state response due to file hashmap hash mismatch.";
+                        LOG_INFO << "hpfs sync: Skipping hpfs response due to file hashmap hash mismatch.";
                         continue;
                     }
 
                     handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp->file_length());
                 }
-                else if (msg_type == msg::fbuf::p2pmsg::State_Response_Block_Response)
+                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Block_Response)
                 {
-                    const msg::fbuf::p2pmsg::Block_Response *block_resp = resp_msg->state_response_as_Block_Response();
+                    const msg::fbuf::p2pmsg::Block_Response *block_resp = resp_msg->hpfs_response_as_Block_Response();
 
                     // Get the file path of the block data we have received.
                     const uint32_t block_id = block_resp->block_id();
@@ -242,7 +241,7 @@ namespace state_sync
                     // Validate received block data against the hash.
                     if (!validate_file_block_hash(hash, block_id, buf))
                     {
-                        LOG_INFO << "State sync: Skipping state response due to file block hash mismatch.";
+                        LOG_INFO << "hpfs sync: Skipping hpfs response due to file block hash mismatch.";
                         continue;
                     }
 
@@ -252,17 +251,17 @@ namespace state_sync
                 // Now that we have received matching hash and handled it, remove it from the waiting list.
                 ctx.submitted_requests.erase(pending_resp_itr);
 
-                // After handling each response, check whether we have reached target state.
+                // After handling each response, check whether we have reached target hpfs state.
                 if (hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, "/") < 1)
                 {
-                    LOG_ERROR << "State sync: exiting due to hash check error.";
+                    LOG_ERROR << "hpfs sync: exiting due to hash check error.";
                     return -1;
                 }
 
                 // Update the central state tracker.
-                state_common::ctx.set_state(updated_state);
+                hpfs::ctx.set_state(updated_state);
 
-                LOG_DEBUG << "State sync: current:" << updated_state << " | target:" << current_target;
+                LOG_DEBUG << "hpfs sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
                     return 0;
             }
@@ -284,13 +283,13 @@ namespace state_sync
                 {
                     if (++resubmissions_count > ABANDON_THRESHOLD)
                     {
-                        LOG_INFO << "State sync: Resubmission threshold exceeded. Abandoning sync.";
+                        LOG_INFO << "hpfs sync: Resubmission threshold exceeded. Abandoning sync.";
                         return -1;
                     }
 
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
-                    LOG_DEBUG << "State sync: Resubmitting request...";
+                    LOG_DEBUG << "hpfs sync: Resubmitting request...";
                     submit_request(request, lcl);
                 }
             }
@@ -321,7 +320,7 @@ namespace state_sync
      * @param fs_entry_map Received fs entry map.
      * @returns true if hash is valid, otherwise false.
     */
-    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map)
+    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
     {
         util::h32 content_hash;
 
@@ -400,7 +399,7 @@ namespace state_sync
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                  const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
     {
-        p2p::state_request sr;
+        p2p::hpfs_request sr;
         sr.parent_path = path;
         sr.is_file = is_file;
         sr.block_id = block_id;
@@ -425,7 +424,7 @@ namespace state_sync
         request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, target_pubkey);
 
         if (!target_pubkey.empty())
-            LOG_DEBUG << "State sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
+            LOG_DEBUG << "hpfs sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
                       << " path:" << request.path << " block_id:" << request.block_id
                       << " hash:" << request.expected_hash;
     }
@@ -436,10 +435,10 @@ namespace state_sync
      * @param fs_entry_map Received fs entry map.
      * @returns 0 on success, otherwise -1.
      */
-    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map)
+    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
     {
         // Get the parent path of the fs entries we have received.
-        LOG_DEBUG << "State sync: Processing fs entries response for " << vpath;
+        LOG_DEBUG << "hpfs sync: Processing fs entries response for " << vpath;
 
         // Create physical directory on our side if not exist.
         std::string parent_physical_path = std::string(ctx.hpfs_mount_dir).append(vpath);
@@ -483,7 +482,7 @@ namespace state_sync
                     !ex_entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
                     return -1;
 
-                LOG_DEBUG << "State sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
+                LOG_DEBUG << "hpfs sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
             }
         }
 
@@ -516,7 +515,7 @@ namespace state_sync
     int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length)
     {
         // Get the file path of the block hashes we have received.
-        LOG_DEBUG << "State sync: Processing file block hashes response for " << vpath;
+        LOG_DEBUG << "hpfs sync: Processing file block hashes response for " << vpath;
 
         // File block hashes on our side (file might not exist on our side).
         std::vector<util::h32> existing_hashes;
@@ -554,7 +553,7 @@ namespace state_sync
      */
     int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf)
     {
-        LOG_DEBUG << "State sync: Writing block_id " << block_id
+        LOG_DEBUG << "hpfs sync: Writing block_id " << block_id
                   << " (len:" << buf.length()
                   << ") of " << vpath;
 
@@ -566,7 +565,7 @@ namespace state_sync
             return -1;
         }
 
-        const off_t offset = block_id * state_common::BLOCK_SIZE;
+        const off_t offset = block_id * hpfs::BLOCK_SIZE;
         const int res = pwrite(fd, buf.data(), buf.length(), offset);
         close(fd);
         if (res < buf.length())
@@ -578,4 +577,4 @@ namespace state_sync
         return 0;
     }
 
-} // namespace state_sync
+} // namespace hpfs_sync

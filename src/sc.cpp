@@ -13,47 +13,6 @@
 namespace sc
 {
     const uint32_t READ_BUFFER_SIZE = 128 * 1024; // This has to be minimum 128KB to support sequence packets.
-    bool init_success = false;
-
-    // We maintain two hpfs global processes for merging and rw sessions.
-    pid_t hpfs_merge_pid = 0;
-    pid_t hpfs_rw_pid = 0;
-
-    /**
-     * Performs system startup activitites related to smart contract execution.
-     */
-    int init()
-    {
-        if (hpfs::start_merge_process(hpfs_merge_pid) == -1)
-            return -1;
-
-        if (hpfs::start_ro_rw_process(hpfs_rw_pid, conf::ctx.state_rw_dir, false, true, false) == -1)
-        {
-            // Stop the merge process in case of failure.
-            util::kill_process(hpfs_merge_pid, true);
-            return -1;
-        }
-
-        init_success = true;
-        return 0;
-    }
-
-    /**
-     * Performs global cleanup related to smart contract execution.
-     */
-    void deinit()
-    {
-        if (init_success)
-        {
-            LOG_DEBUG << "Stopping hpfs rw process... pid:" << hpfs_rw_pid;
-            if (hpfs_rw_pid > 0 && util::kill_process(hpfs_rw_pid, true) == 0)
-                LOG_INFO << "Stopped hpfs rw process.";
-
-            LOG_DEBUG << "Stopping hpfs merge process... pid:" << hpfs_merge_pid;
-            if (hpfs_merge_pid > 0 && util::kill_process(hpfs_merge_pid, true) == 0)
-                LOG_INFO << "Stopped hpfs merge process.";
-        }
-    }
 
     /**
      * Executes the contract process and passes the specified context arguments.
@@ -130,7 +89,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            chdir(ctx.args.state_dir.c_str());
+            chdir((ctx.args.hpfs_dir + "/state").c_str());
 
             execv(execv_args[0], execv_args);
             std::cerr << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
@@ -188,7 +147,7 @@ namespace sc
     }
 
     /**
-     * Starts the hpfs read/write state filesystem.
+     * Starts the hpfs read/write virtual filesystem.
      */
     int start_hpfs_session(execution_context &ctx)
     {
@@ -196,33 +155,33 @@ namespace sc
         // In RW mode, there is a global hpfs RW process so we only need to create an fs session.
         if (ctx.args.readonly)
         {
-            if (hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.state_dir, true, false, false) == -1)
+            if (hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.hpfs_dir, true, false, false) == -1)
                 return -1;
         }
         else
         {
-            ctx.hpfs_pid = hpfs_rw_pid;
+            ctx.hpfs_pid = hpfs::ctx.hpfs_rw_pid;
         }
 
-        if (hpfs::start_fs_session(ctx.args.state_dir) == -1)
+        if (hpfs::start_fs_session(ctx.args.hpfs_dir) == -1)
             return -1;
 
         return 0;
     }
 
     /**
-     * Stops the hpfs state filesystem.
+     * Stops the hpfs virtual filesystem.
      */
     int stop_hpfs_session(execution_context &ctx)
     {
         int result = 0;
         // Read the root hash if not in readonly mode.
-        if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.state_dir, "/") < 1)
+        if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_dir, "/") < 1)
             result = -1;
 
         LOG_DEBUG << "Stopping hpfs contract session..." << (ctx.args.readonly ? " (rdonly)" : "");
 
-        if (hpfs::stop_fs_session(ctx.args.state_dir) == -1)
+        if (hpfs::stop_fs_session(ctx.args.hpfs_dir) == -1)
             return -1;
 
         // In readonly mode, we must also stop the hpfs process itself after sopping the session.
