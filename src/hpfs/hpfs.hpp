@@ -2,7 +2,7 @@
 #define _HP_HPFS_HPFS_
 
 #include "../pchheader.hpp"
-#include "h32.hpp"
+#include "../util/h32.hpp"
 
 namespace hpfs
 {
@@ -10,7 +10,7 @@ namespace hpfs
     {
         bool is_file = false;
         char name[256];
-        h32 hash;
+        util::h32 hash;
 
         child_hash_node()
         {
@@ -26,8 +26,8 @@ namespace hpfs
                             const bool hash_map_enabled, const bool auto_start_session, const uint16_t timeout = 4000);
     int start_fs_session(std::string_view mount_dir);
     int stop_fs_session(std::string_view mount_dir);
-    int get_hash(h32 &hash, const std::string_view mount_dir, const std::string_view vpath);
-    int get_file_block_hashes(std::vector<h32> &hashes, const std::string_view mount_dir, const std::string_view vpath);
+    int get_hash(util::h32 &hash, const std::string_view mount_dir, const std::string_view vpath);
+    int get_file_block_hashes(std::vector<util::h32> &hashes, const std::string_view mount_dir, const std::string_view vpath);
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath);
 } // namespace hpfs
 

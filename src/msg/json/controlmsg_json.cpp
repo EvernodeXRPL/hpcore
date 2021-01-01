@@ -78,18 +78,11 @@ namespace msg::controlmsg::json
         if (!d.contains(field_name) || !d[field_name].is_array())
             return;
 
-        for (const auto &v : d[field_name].array_range())
+        for (const auto &pkhex : d[field_name].array_range())
         {
-            std::string hex_pubkey = "ed" + v.as<std::string>();
-            std::string bin_pubkey;
-            bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
-            if (util::hex2bin(
-                    reinterpret_cast<unsigned char *>(bin_pubkey.data()),
-                    bin_pubkey.length(),
-                    hex_pubkey) != -1)
-            {
+            const std::string bin_pubkey = util::to_bin(pkhex.as<std::string_view>());
+            if (!bin_pubkey.empty())
                 vec.emplace(bin_pubkey);
-            }
         }
     }
 

@@ -1,6 +1,6 @@
 #include "../pchheader.hpp"
 #include "../hpfs/hpfs.hpp"
-#include "../hpfs/h32.hpp"
+#include "../util/h32.hpp"
 #include "../util/util.hpp"
 #include "../p2p/p2p.hpp"
 #include "../msg/fbuf/p2pmsg_content_generated.h"
@@ -101,13 +101,7 @@ namespace state_serve
                     }
 
                     // Session id is in binary format. Converting to hex before printing.
-                    std::string session_id_hex;
-                    util::bin2hex(
-                        session_id_hex,
-                        reinterpret_cast<const unsigned char *>(session_id.data()),
-                        session_id.length());
-
-                    LOG_DEBUG << "Serving state request from [" << session_id_hex.substr(2, 10) << "]";
+                    LOG_DEBUG << "Serving state request from [" << util::to_hex(session_id).substr(2, 10) << "]";
 
                     const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
 
@@ -181,7 +175,7 @@ namespace state_serve
             // File state request means we have to reply with the file block hash map.
             if (sr.is_file)
             {
-                std::vector<hpfs::h32> block_hashes;
+                std::vector<util::h32> block_hashes;
                 std::size_t file_length = 0;
                 const int result = get_data_block_hashes(block_hashes, file_length, sr.parent_path, sr.expected_hash);
 
@@ -228,10 +222,10 @@ namespace state_serve
      * @return 1 if block data was succefully fetched. 0 if vpath or block does not exist. -1 on error.
      */
     int get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
-                       const uint32_t block_id, const hpfs::h32 expected_hash)
+                       const uint32_t block_id, const util::h32 expected_hash)
     {
         // Check whether the existing block hash matches expected hash.
-        std::vector<hpfs::h32> block_hashes;
+        std::vector<util::h32> block_hashes;
         int result = hpfs::get_file_block_hashes(block_hashes, conf::ctx.state_serve_dir, vpath);
         if (result == 1)
         {
@@ -304,11 +298,11 @@ namespace state_serve
      * Retrieves the specified file block hashes if expected hash matches.
      * @return 1 if block hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
      */
-    int get_data_block_hashes(std::vector<hpfs::h32> &hashes, size_t &file_length,
-                              const std::string_view vpath, const hpfs::h32 expected_hash)
+    int get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length,
+                              const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing file hash matches expected hash.
-        hpfs::h32 file_hash = hpfs::h32_empty;
+        util::h32 file_hash = util::h32_empty;
         int result = hpfs::get_hash(file_hash, conf::ctx.state_serve_dir, vpath);
         if (result == 1)
         {
@@ -345,10 +339,10 @@ namespace state_serve
      * @return 1 if fs entry hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
      */
     int get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
-                            const std::string_view vpath, const hpfs::h32 expected_hash)
+                            const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing dir hash matches expected hash.
-        hpfs::h32 dir_hash = hpfs::h32_empty;
+        util::h32 dir_hash = util::h32_empty;
         int result = hpfs::get_hash(dir_hash, conf::ctx.state_serve_dir, vpath);
         if (result == 1)
         {

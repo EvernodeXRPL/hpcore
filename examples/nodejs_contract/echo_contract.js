@@ -2,7 +2,7 @@ const HotPocket = require("./hp-contract-lib");
 const fs = require('fs');
 
 // HP smart contract is defined as a function which takes HP ExecutionContext as an argument.
-// HP considers execution as complete, when this function completes and all the peer message callbacks are complete.
+// HP considers execution as complete, when this function completes and all the NPL message callbacks are complete.
 const echoContract = async (ctx) => {
 
     // We just save execution timestamp as an example state file change.
@@ -35,19 +35,22 @@ const echoContract = async (ctx) => {
     // Get the user identified by public key.
     // ctx.users.find("<PubkeyHex>");
 
-    // Get list of all peers in the cluster.
-    // ctx.peers.list();
+    // Get list of all unl nodes in the cluster.
+    // ctx.unl.list();
 
-    // Get the peer identified by public key.
-    // ctx.peers.find("<PubkeyHex>");
+    // Get the unl node identified by public key.
+    // ctx.unl.find("<PubkeyHex>");
 
-    // Peer messages example.
+    // NPL messages example.
     // if (!ctx.readonly) {
-    //     ctx.peers.onMessage((peer, msg) => {
-    //         console.log(msg + " from " + peer.pubKey);
+    //     ctx.unl.onMessage((node, msg) => {
+    //         console.log(msg + " from " + node.pubKey);
     //     })
-    //     await ctx.peers.send("Hello");
+    //     await ctx.unl.send("Hello");
     // }
+
+    // Update UNL example:
+    // ctx.updateUnl(["<add pubkey hex>"], ["<remove pubkey hex>"]);
 }
 
 const hpc = new HotPocket.Contract();

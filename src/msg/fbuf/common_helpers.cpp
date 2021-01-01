@@ -33,9 +33,9 @@ namespace msg::fbuf
     /**
  * Returns hash from Flat Buffer vector of bytes.
  */
-    hpfs::h32 flatbuff_bytes_to_hash(const flatbuffers::Vector<uint8_t> *buffer)
+    util::h32 flatbuff_bytes_to_hash(const flatbuffers::Vector<uint8_t> *buffer)
     {
-        return *reinterpret_cast<const hpfs::h32 *>(buffer->data());
+        return *reinterpret_cast<const util::h32 *>(buffer->data());
     }
 
     /**
@@ -87,9 +87,9 @@ namespace msg::fbuf
  * Returns Flatbuffer bytes vector from hash.
  */
     const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>
-    hash_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, const hpfs::h32 hash)
+    hash_to_flatbuff_bytes(flatbuffers::FlatBufferBuilder &builder, const util::h32 hash)
     {
-        return builder.CreateVector(reinterpret_cast<const uint8_t *>(&hash), sizeof(hpfs::h32));
+        return builder.CreateVector(reinterpret_cast<const uint8_t *>(&hash), sizeof(util::h32));
     }
 
     /**

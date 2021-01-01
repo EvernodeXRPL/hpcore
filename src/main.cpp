@@ -206,10 +206,9 @@ int main(int argc, char **argv)
                 }
 
                 LOG_INFO << "Hot Pocket " << util::HP_VERSION;
-                LOG_INFO << "Operating mode: "
-                         << (conf::cfg.operating_mode == conf::OPERATING_MODE::OBSERVER ? "Observer" : "Proposer");
-                LOG_INFO << "Public key: " << conf::cfg.pubkeyhex.substr(2); // Public key without 'ed' prefix.
-                LOG_INFO << "Contract: " << conf::cfg.contractid << " (" << conf::cfg.contractversion << ")";
+                LOG_INFO << "Role: " << (conf::cfg.node.role == conf::ROLE::OBSERVER ? "Observer" : "Validator");
+                LOG_INFO << "Public key: " << conf::cfg.node.public_key_hex;
+                LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
                 if (ledger::init() == -1 ||
                     unl::init() == -1 ||

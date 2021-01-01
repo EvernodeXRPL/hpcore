@@ -31,7 +31,7 @@ namespace ledger
      */
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.roundtime;
+        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.contract.roundtime;
 
         // Filename list of the history folder.
         std::list<std::string> sorted_folder_entries = util::fetch_dir_entries(conf::ctx.hist_dir);
@@ -221,7 +221,7 @@ namespace ledger
                     // Before first request, if full history mode is not enabled check the target lcl seq no to see whether
                     // it's too far ahead. That means no one probably has our lcl in their ledgers. So we should clear our
                     // entire ledger history before requesting from peers.
-                    if (sync_ctx.target_requested_on == 0 && !conf::cfg.fullhistory && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
+                    if (sync_ctx.target_requested_on == 0 && !conf::cfg.node.full_history && sync_ctx.target_lcl_seq_no > (ctx.get_seq_no() + MAX_LEDGER_SEQUENCE))
                     {
                         LOG_INFO << "lcl sync: Target " << sync_ctx.target_lcl.substr(0, 15) << " is too far ahead. Clearing our history.";
                         clear_ledger();
@@ -359,10 +359,7 @@ namespace ledger
         const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
 
         // Get hex from binary hash.
-        std::string lcl_hash_hex;
-        util::bin2hex(lcl_hash_hex,
-                      reinterpret_cast<const unsigned char *>(lcl_hash.data()),
-                      lcl_hash.size());
+        const std::string lcl_hash_hex = util::to_hex(lcl_hash);
 
         // Acquire lock so history request serving does not access the ledger while consensus is updating the ledger.
         std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
@@ -378,7 +375,7 @@ namespace ledger
         ctx.cache.emplace(seq_no, std::move(file_name));
 
         // Write full history to the full history directory if full history mode is on.
-        if (conf::cfg.fullhistory)
+        if (conf::cfg.node.full_history)
         {
             builder.Clear();
             msg::fbuf::ledger::create_full_history_block_from_raw_input_map(builder, raw_inputs);
@@ -400,7 +397,7 @@ namespace ledger
     void remove_old_ledgers(const uint64_t led_seq_no)
     {
         // Remove old ledgers if full history mode is not enabled.
-        if (!conf::cfg.fullhistory)
+        if (!conf::cfg.node.full_history)
         {
             std::map<uint64_t, const std::string>::iterator itr;
 
@@ -829,10 +826,7 @@ namespace ledger
         const std::string binary_block_hash = crypto::get_hash(block_buffer.data(), block_buffer.size());
 
         // Get hex from binary hash.
-        std::string block_hash;
-        util::bin2hex(block_hash,
-                      reinterpret_cast<const unsigned char *>(binary_block_hash.data()),
-                      binary_block_hash.size());
+        const std::string block_hash = util::to_hex(binary_block_hash);
 
         return block_hash == supplied_hash;
     }

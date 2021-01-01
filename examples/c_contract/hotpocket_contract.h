@@ -12,11 +12,11 @@
 #include "json.h"
 
 #define __HP_MMAP_BLOCK_SIZE 4096
-#define __HP_MMAP_BLOCK_ALIGN(x) (((x) + ((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1)) & ~((typeof(x))(__HP_MMAP_BLOCK_SIZE)-1))
+#define __HP_MMAP_BLOCK_ALIGN(x) (((x) + ((off_t)(__HP_MMAP_BLOCK_SIZE)-1)) & ~((off_t)(__HP_MMAP_BLOCK_SIZE)-1))
 #define __HP_STREAM_MSG_HEADER_SIZE 4
 #define __HP_SEQPKT_MAX_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
-#define HP_PEER_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
-#define HP_KEY_SIZE 64
+#define HP_NPL_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
+#define HP_KEY_SIZE 66 // Hex pubkey size. (64 char key + 2 chars for key type prfix)
 #define HP_HASH_SIZE 64
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                        \
@@ -77,16 +77,18 @@ struct hp_user_inputs_collection
     size_t count;
 };
 
+// Represents a user that is connected to HP cluster.
 struct hp_user
 {
-    char pubkey[HP_KEY_SIZE + 1];
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
     int outfd;
     struct hp_user_inputs_collection inputs;
 };
 
-struct hp_peer
+// Represents a node that's part of unl.
+struct hp_unl_node
 {
-    char pubkey[HP_KEY_SIZE + 1];
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
 };
 
 struct hp_users_collection
@@ -96,21 +98,21 @@ struct hp_users_collection
     int in_fd;
 };
 
-struct hp_peers_collection
+struct hp_unl_collection
 {
-    struct hp_peer *list;
+    struct hp_unl_node *list;
     size_t count;
-    int fd;
+    int npl_fd;
 };
 
 struct hp_contract_context
 {
     bool readonly;
     uint64_t timestamp;
-    char pubkey[HP_KEY_SIZE + 1];
-    char lcl[HP_HASH_SIZE + 22]; // uint64(20 chars) + "-" + hash + nullchar
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
+    char lcl[HP_HASH_SIZE + 22];  // uint64(20 chars) + "-" + hash + nullchar
     struct hp_users_collection users;
-    struct hp_peers_collection peers;
+    struct hp_unl_collection unl;
 };
 
 struct __hp_contract
@@ -128,9 +130,9 @@ const void *hp_init_user_input_mmap();
 void hp_deinit_user_input_mmap();
 int hp_write_user_msg(const struct hp_user *user, const void *buf, const uint32_t len);
 int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, const int buf_count);
-int hp_write_peer_msg(const void *buf, const uint32_t len);
-int hp_writev_peer_msg(const struct iovec *bufs, const int buf_count);
-int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout);
+int hp_write_npl_msg(const void *buf, const uint32_t len);
+int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
+int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
 int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count);
 
 void __hp_parse_args_json(const struct json_object_s *object);
@@ -189,11 +191,11 @@ int hp_deinit_contract()
     // Cleanup user input mmap (if mapped).
     hp_deinit_user_input_mmap();
 
-    // Cleanup user and peer fds.
+    // Cleanup user and npl fd.
     close(cctx->users.in_fd);
     for (int i = 0; i < cctx->users.count; i++)
         close(cctx->users.list[i].outfd);
-    close(cctx->peers.fd);
+    close(cctx->unl.npl_fd);
 
     // Cleanup user list allocation.
     if (cctx->users.list)
@@ -203,8 +205,8 @@ int hp_deinit_contract()
 
         __hp_free(cctx->users.list);
     }
-    // Cleanup peer list allocation.
-    __hp_free(cctx->peers.list);
+    // Cleanup unl list allocation.
+    __hp_free(cctx->unl.list);
     // Cleanup contract context.
     __hp_free(cctx);
 
@@ -283,56 +285,56 @@ int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, con
     return writev(user->outfd, all_bufs, total_buf_count);
 }
 
-int hp_write_peer_msg(const void *buf, const uint32_t len)
+int hp_write_npl_msg(const void *buf, const uint32_t len)
 {
-    if (len > HP_PEER_MSG_MAX_SIZE)
+    if (len > HP_NPL_MSG_MAX_SIZE)
     {
-        fprintf(stderr, "Peer message exceeds max length %d.", HP_PEER_MSG_MAX_SIZE);
+        fprintf(stderr, "NPL message exceeds max length %d.", HP_NPL_MSG_MAX_SIZE);
         return -1;
     }
 
-    return write(__hpc.cctx->peers.fd, buf, len);
+    return write(__hpc.cctx->unl.npl_fd, buf, len);
 }
 
-int hp_writev_peer_msg(const struct iovec *bufs, const int buf_count)
+int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count)
 {
     uint32_t len = 0;
     for (int i = 0; i < buf_count; i++)
         len += bufs[i].iov_len;
 
-    if (len > HP_PEER_MSG_MAX_SIZE)
+    if (len > HP_NPL_MSG_MAX_SIZE)
     {
-        fprintf(stderr, "Peer message exceeds max length %d.", HP_PEER_MSG_MAX_SIZE);
+        fprintf(stderr, "NPL message exceeds max length %d.", HP_NPL_MSG_MAX_SIZE);
         return -1;
     }
 
-    return writev(__hpc.cctx->peers.fd, bufs, buf_count);
+    return writev(__hpc.cctx->unl.npl_fd, bufs, buf_count);
 }
 
 /**
- * Reads a peer message (NPL) while waiting for 'timeout' milliseconds.
- * @param msg_buf The buffer to place the incoming message. Must be of at least 'HP_PEER_MSG_MAX_SIZE' length.
+ * Reads a NPL message while waiting for 'timeout' milliseconds.
+ * @param msg_buf The buffer to place the incoming message. Must be of at least 'HP_NPL_MSG_MAX_SIZE' length.
  * @param pubkey_buf The buffer to place the sender pubkey (hex). Must be of at least 'HP_KEY_SIZE' length.
  * @param timeout Maximum milliseoncds to wait until a message arrives. If 0, returns immediately.
  *                If -1, waits forever until message arrives.
  * @return Message length on success. 0 if no message arrived within timeout. -1 on error.
  */
-int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout)
+int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
 {
-    struct pollfd pfd = {__hpc.cctx->peers.fd, POLLIN, 0};
+    struct pollfd pfd = {__hpc.cctx->unl.npl_fd, POLLIN, 0};
 
-    // Peer messages consist of alternating SEQ packets of pubkey and data.
-    // So we need to wait for both pubkey and data packets to form a complete peer message.
+    // NPL messages consist of alternating SEQ packets of pubkey and data.
+    // So we need to wait for both pubkey and data packets to form a complete NPL message.
 
     // Wait for the pubkey.
     if (poll(&pfd, 1, timeout) == -1)
     {
-        perror("Peer channel pubkey poll error");
+        perror("NPL channel pubkey poll error");
         return -1;
     }
     else if (pfd.revents & (POLLHUP | POLLERR | POLLNVAL))
     {
-        fprintf(stderr, "Peer channel pubkey poll returned error: %d\n", pfd.revents);
+        fprintf(stderr, "NPL channel pubkey poll returned error: %d\n", pfd.revents);
         return -1;
     }
     else if (pfd.revents & POLLIN)
@@ -340,7 +342,7 @@ int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout)
         // Read pubkey.
         if (read(pfd.fd, pubkey_buf, HP_KEY_SIZE) == -1)
         {
-            perror("Error reading pubkey from peer channel");
+            perror("Error reading pubkey from NPL channel");
             return -1;
         }
 
@@ -348,21 +350,21 @@ int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout)
         pfd.revents = 0;
         if (poll(&pfd, 1, 100) == -1)
         {
-            perror("Peer channel data poll error");
+            perror("NPL channel data poll error");
             return -1;
         }
         else if (pfd.revents & (POLLHUP | POLLERR | POLLNVAL))
         {
-            fprintf(stderr, "Peer channel data poll returned error: %d\n", pfd.revents);
+            fprintf(stderr, "NPL channel data poll returned error: %d\n", pfd.revents);
             return -1;
         }
         else if (pfd.revents & POLLIN)
         {
             // Read data.
-            const int readres = read(pfd.fd, msg_buf, HP_PEER_MSG_MAX_SIZE);
+            const int readres = read(pfd.fd, msg_buf, HP_NPL_MSG_MAX_SIZE);
             if (readres == -1)
             {
-                perror("Error reading pubkey from peer channel");
+                perror("Error reading pubkey from NPL channel");
                 return -1;
             }
             return readres;
@@ -382,12 +384,14 @@ int hp_read_peer_msg(void *msg_buf, char *pubkey_buf, const int timeout)
  */
 int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count)
 {
-    // We assume 'add' and 'remove' are pointing to a char buffer containing 'count' no. of char[64] buffers.
+    // We assume 'add' and 'remove' are pointing to char buffers containing 'count' no. of char[HP_KEY_SIZE] buffers.
 
     // Calculate total json message length and prepare the json buf.
     // Format: {"type":"unl_changeset","add":["pubkey1",...],"remove":["pubkey2",...]}
 
-    const size_t json_size = 45 + (67 * add_count - (add_count ? 1 : 0)) + (67 * remove_count - (remove_count ? 1 : 0));
+    // {"type":"unl_changeset","add":[],"remove":[]} => length 45
+    // "pubkey", (HP_KEY_SIZE+quotes+comma) => length 69
+    const size_t json_size = 45 + (69 * add_count - (add_count ? 1 : 0)) + (69 * remove_count - (remove_count ? 1 : 0));
     char json_buf[json_size];
 
     strncpy(json_buf, "{\"type\":\"unl_changeset\",\"add\":[", 31);
@@ -397,8 +401,8 @@ int hp_update_unl(const char *add, const size_t add_count, const char *remove, c
         if (i > 0)
             json_buf[pos++] = ',';
         json_buf[pos++] = '"';
-        strncpy(json_buf + pos, add + (i * 64), 64);
-        pos += 64;
+        strncpy(json_buf + pos, add + (i * HP_KEY_SIZE), HP_KEY_SIZE);
+        pos += HP_KEY_SIZE;
         json_buf[pos++] = '"';
     }
 
@@ -409,8 +413,8 @@ int hp_update_unl(const char *add, const size_t add_count, const char *remove, c
         if (i > 0)
             json_buf[pos++] = ',';
         json_buf[pos++] = '"';
-        strncpy(json_buf + pos, remove + (i * 64), 64);
-        pos += 64;
+        strncpy(json_buf + pos, remove + (i * HP_KEY_SIZE), HP_KEY_SIZE);
+        pos += HP_KEY_SIZE;
         json_buf[pos++] = '"';
     }
 
@@ -499,25 +503,25 @@ void __hp_parse_args_json(const struct json_object_s *object)
         }
         else if (strcmp(k->string, "nplfd") == 0)
         {
-            __HP_ASSIGN_INT(cctx->peers.fd, elem);
+            __HP_ASSIGN_INT(cctx->unl.npl_fd, elem);
         }
         else if (strcmp(k->string, "unl") == 0)
         {
             if (elem->value->type == json_type_array)
             {
-                const struct json_array_s *peer_array = (struct json_array_s *)elem->value->payload;
-                const size_t peer_count = peer_array->length;
+                const struct json_array_s *unl_array = (struct json_array_s *)elem->value->payload;
+                const size_t unl_count = unl_array->length;
 
-                cctx->peers.count = peer_count;
-                cctx->peers.list = peer_count ? (struct hp_peer *)malloc(sizeof(struct hp_peer) * peer_count) : NULL;
+                cctx->unl.count = unl_count;
+                cctx->unl.list = unl_count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * unl_count) : NULL;
 
-                if (peer_count > 0)
+                if (unl_count > 0)
                 {
-                    struct json_array_element_s *peer_elem = peer_array->start;
-                    for (int i = 0; i < peer_count; i++)
+                    struct json_array_element_s *unl_elem = unl_array->start;
+                    for (int i = 0; i < unl_count; i++)
                     {
-                        __HP_ASSIGN_STRING(cctx->peers.list[i].pubkey, peer_elem);
-                        peer_elem = peer_elem->next;
+                        __HP_ASSIGN_STRING(cctx->unl.list[i].pubkey, unl_elem);
+                        unl_elem = unl_elem->next;
                     }
                 }
             }

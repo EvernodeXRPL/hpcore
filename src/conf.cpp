@@ -1,6 +1,7 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
+#include "hpfs/hpfs.hpp"
 #include "util/util.hpp"
 
 namespace conf
@@ -13,13 +14,15 @@ namespace conf
     contract_config cfg;
 
     // Stores the initial startup mode of the node.
-    OPERATING_MODE startup_mode;
+    ROLE startup_mode;
 
-    const static char *MODE_OBSERVER = "observer";
-    const static char *MODE_PROPOSER = "proposer";
+    const static char *ROLE_OBSERVER = "observer";
+    const static char *ROLE_VALIDATOR = "validator";
 
     const static char *PUBLIC = "public";
     const static char *PRIVATE = "private";
+
+    const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
 
     /**
      * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -30,13 +33,13 @@ namespace conf
         // The validations/loading needs to be in this order.
         // 1. Validate contract directories
         // 2. Read and load the contract config into memory
-        // 3. Validate the loaded config values
+        // 3. Update contract config if patch file exists.
+        // 4. Validate the loaded config values
 
-        contract_config cfg = {};
         if (validate_contract_dir_paths() == -1 ||
             read_config(cfg) == -1 ||
-            validate_config(cfg) == -1 ||
-            populate_runtime_config(cfg) == -1)
+            apply_patch_changes(cfg.contract) == -1 ||
+            validate_config(cfg) == -1)
         {
             return -1;
         }
@@ -54,8 +57,9 @@ namespace conf
         if (read_config(cfg) != 0)
             return -1;
 
-        crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-        binpair_to_hex(cfg);
+        crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
+        cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
+        cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
         if (write_config(cfg) != 0)
             return -1;
@@ -93,42 +97,38 @@ namespace conf
         //We populate the in-memory struct with default settings and then save it to the file.
 
         contract_config cfg = {};
-        crypto::generate_signing_keys(cfg.pubkey, cfg.seckey);
-        binpair_to_hex(cfg);
 
-        cfg.hpversion = util::HP_VERSION;
-        cfg.contractversion = "1.0";
-        cfg.contractid = crypto::generate_uuid();
+        crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
+        cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
+        cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
+        cfg.hp_version = util::HP_VERSION;
+
+        cfg.node.role = ROLE::VALIDATOR;
+        cfg.node.full_history = false;
+
+        cfg.contract.id = crypto::generate_uuid();
+        cfg.contract.version = "1.0";
         //Add self pubkey to the unl.
-        cfg.unl.emplace(cfg.pubkey);
+        cfg.contract.unl.emplace(cfg.node.public_key);
+        cfg.contract.bin_path = "<your contract binary here>";
+        cfg.contract.roundtime = 1000;
+        cfg.contract.is_consensus_public = false;
+        cfg.contract.is_npl_public = false;
 
-        cfg.operating_mode = OPERATING_MODE::PROPOSER;
-        cfg.peerport = 22860;
-        cfg.roundtime = 1000;
-        cfg.pubport = 8080;
-        cfg.peerdiscoverytime = 30000;
-        cfg.pubidletimeout = 0;
-        cfg.peeridletimeout = 120;
+        cfg.mesh.port = 22860;
+        cfg.mesh.msg_forwarding = false;
+        cfg.mesh.idle_timeout = 120;
+        cfg.mesh.peer_discovery.enabled = false;
+        cfg.mesh.peer_discovery.interval = 30000;
 
-        cfg.is_consensus_public = false;
-        cfg.is_npl_public = false;
+        cfg.user.port = 8080;
+        cfg.user.idle_timeout = 0;
 
-        cfg.msgforwarding = false;
-        cfg.dynamicpeerdiscovery = false;
-        cfg.fullhistory = false;
-
-#ifndef NDEBUG
-        cfg.loglevel_type = conf::LOG_SEVERITY::DEBUG;
-        cfg.loglevel = "dbg";
-#else
-        cfg.loglevel_type = conf::LOG_SEVERITY::WARN;
-        cfg.loglevel = "inf";
-#endif
-
-        cfg.loggers.emplace("console");
-        cfg.loggers.emplace("file");
-        cfg.binary = "<your contract binary here>";
+        cfg.log.loglevel_type = conf::LOG_SEVERITY::WARN;
+        cfg.log.loglevel = "inf";
+        cfg.log.loggers.emplace("console");
+        cfg.log.loggers.emplace("file");
 
         //Save the default settings into the config file.
         if (write_config(cfg) != 0)
@@ -188,7 +188,7 @@ namespace conf
         if (read_config(cfg) == -1)
             return -1;
 
-        cfg.unl = updated_unl;
+        cfg.contract.unl = updated_unl;
 
         if (write_config(cfg) == -1)
             return -1;
@@ -217,153 +217,261 @@ namespace conf
         }
         ifs.close();
 
-        // Check whether the hp version is specified.
-        cfg.hpversion = d["hpversion"].as<std::string>();
-        if (cfg.hpversion.empty())
+        try
         {
-            std::cerr << "Contract config HP version missing.\n";
-            return -1;
-        }
-
-        // Check whether this config complies with the min version requirement.
-        int verresult = util::version_compare(cfg.hpversion, std::string(util::MIN_CONFIG_VERSION));
-        if (verresult == -1)
-        {
-            std::cerr << "Config version too old. Minimum "
-                      << util::MIN_CONFIG_VERSION << " required. "
-                      << cfg.hpversion << " found.\n";
-            return -1;
-        }
-        else if (verresult == -2)
-        {
-            std::cerr << "Malformed version string.\n";
-            return -1;
-        }
-
-        cfg.contractid = d["contractid"].as<std::string>();
-        cfg.contractversion = d["contractversion"].as<std::string>();
-        if (cfg.contractid.empty())
-        {
-            std::cerr << "Contract id not specified.\n";
-            return -1;
-        }
-        else if (cfg.contractversion.empty())
-        {
-            std::cerr << "Contract version not specified.\n";
-            return -1;
-        }
-
-        if (d["mode"] == MODE_OBSERVER)
-            cfg.operating_mode = OPERATING_MODE::OBSERVER;
-        else if (d["mode"] == MODE_PROPOSER)
-            cfg.operating_mode = OPERATING_MODE::PROPOSER;
-        else
-        {
-            std::cerr << "Invalid mode. 'observer' or 'proposer' expected.\n";
-            return -1;
-        }
-
-        cfg.pubkeyhex = d["pubkeyhex"].as<std::string>();
-        cfg.seckeyhex = d["seckeyhex"].as<std::string>();
-
-        cfg.binary = d["binary"].as<std::string>();
-        cfg.binargs = d["binargs"].as<std::string>();
-        cfg.appbill = d["appbill"].as<std::string>();
-        cfg.appbillargs = d["appbillargs"].as<std::string>();
-
-        // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
-        // seperately to retrieve easily when handling peer connections.
-        std::vector<std::string> splitted_peers;
-        cfg.peers.clear();
-        for (auto &v : d["peers"].array_range())
-        {
-            const char *ipport_concat = v.as<const char *>();
-            // Split the address:port text into two
-            util::split_string(splitted_peers, ipport_concat, ":");
-
-            // Push the peer address and the port to peers set
-            if (splitted_peers.size() != 2)
+            // Check whether the hp version is specified.
+            cfg.hp_version = d["hp_version"].as<std::string>();
+            if (cfg.hp_version.empty())
             {
-                std::cerr << "Invalid peer: " << ipport_concat << "\n";
+                std::cerr << "Contract config HP version missing.\n";
                 return -1;
             }
 
-            peer_properties peer;
-            peer.ip_port.host_address = splitted_peers.front();
-            peer.ip_port.port = std::stoi(splitted_peers.back());
-
-            cfg.peers.push_back(peer);
-            splitted_peers.clear();
-        }
-
-        cfg.unl.clear();
-        for (auto &nodepk : d["unl"].array_range())
-        {
-            // Convert the public key hex of each node to binary and store it.
-            std::string bin_pubkey;
-            bin_pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
-            if (util::hex2bin(
-                    reinterpret_cast<unsigned char *>(bin_pubkey.data()),
-                    bin_pubkey.length(),
-                    nodepk.as<std::string_view>()) != 0)
+            // Check whether this config complies with the min version requirement.
+            int verresult = util::version_compare(cfg.hp_version, std::string(util::MIN_CONFIG_VERSION));
+            if (verresult == -1)
             {
-                std::cerr << "Error decoding unl list.\n";
+                std::cerr << "Config version too old. Minimum "
+                          << util::MIN_CONFIG_VERSION << " required. "
+                          << cfg.hp_version << " found.\n";
                 return -1;
             }
-            cfg.unl.emplace(bin_pubkey);
+            else if (verresult == -2)
+            {
+                std::cerr << "Malformed version string.\n";
+                return -1;
+            }
         }
-
-        cfg.peerport = d["peerport"].as<uint16_t>();
-        cfg.pubport = d["pubport"].as<uint16_t>();
-        cfg.roundtime = d["roundtime"].as<uint16_t>();
-        cfg.peerdiscoverytime = d["peerdiscoverytime"].as<uint16_t>();
-
-        cfg.peeridletimeout = d["peeridletimeout"].as<uint16_t>();
-        cfg.pubidletimeout = d["pubidletimeout"].as<uint16_t>();
-
-        cfg.pubmaxsize = d["pubmaxsize"].as<uint64_t>();
-        cfg.pubmaxcpm = d["pubmaxcpm"].as<uint64_t>();
-        cfg.pubmaxbadmpm = d["pubmaxbadmpm"].as<uint64_t>();
-        cfg.pubmaxcons = d["pubmaxcons"].as<unsigned int>();
-
-        cfg.peermaxsize = d["peermaxsize"].as<uint64_t>();
-        cfg.peermaxcpm = d["peermaxcpm"].as<uint64_t>();
-        cfg.peermaxdupmpm = d["peermaxdupmpm"].as<uint64_t>();
-        cfg.peermaxbadmpm = d["peermaxbadmpm"].as<uint64_t>();
-        cfg.peermaxbadsigpm = d["peermaxbadsigpm"].as<uint64_t>();
-        cfg.peermaxcons = d["peermaxcons"].as<uint16_t>();
-        cfg.peermaxknowncons = d["peermaxknowncons"].as<uint16_t>();
-
-        if (d["consensus"] != PUBLIC && d["consensus"] != PRIVATE)
+        catch (const std::exception &e)
         {
-            std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
-            return -1;
-        }
-        cfg.is_consensus_public = d["consensus"] == PUBLIC;
-
-        if (d["npl"] != PUBLIC && d["npl"] != PRIVATE)
-        {
-            std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
-            return -1;
-        }
-        cfg.is_npl_public = d["npl"] == PUBLIC;
-
-        // If peermaxknowcons is greater than peermaxcons then show error and stop execution.
-        if (cfg.peermaxknowncons > cfg.peermaxcons)
-        {
-            std::cerr << "Invalid configuration values: peermaxknowncons count should not exceed peermaxcons." << '\n';
+            std::cerr << "Required config field hp_version missing at " << ctx.config_file << std::endl;
             return -1;
         }
 
-        cfg.msgforwarding = d["msgforwarding"].as<bool>();
-        cfg.dynamicpeerdiscovery = d["dynamicpeerdiscovery"].as<bool>();
-        // cfg.fullhistory = d["fullhistory"].as<bool>();
+        // node
+        {
+            try
+            {
+                const jsoncons::json &node = d["node"];
+                cfg.node.public_key_hex = node["public_key"].as<std::string>();
+                cfg.node.private_key_hex = node["private_key"].as<std::string>();
 
-        cfg.loglevel = d["loglevel"].as<std::string>();
-        cfg.loglevel_type = get_loglevel_type(cfg.loglevel);
-        cfg.loggers.clear();
-        for (auto &v : d["loggers"].array_range())
-            cfg.loggers.emplace(v.as<std::string>());
+                // Convert the hex keys to binary.
+                cfg.node.public_key = util::to_bin(cfg.node.public_key_hex);
+                if (cfg.node.public_key.empty())
+                {
+                    std::cerr << "Error decoding hex public key.\n";
+                    return -1;
+                }
+
+                cfg.node.private_key = util::to_bin(cfg.node.private_key_hex);
+                if (cfg.node.private_key.empty())
+                {
+                    std::cerr << "Error decoding hex private key.\n";
+                    return -1;
+                }
+
+                if (node["role"] == ROLE_OBSERVER)
+                    cfg.node.role = ROLE::OBSERVER;
+                else if (node["role"] == ROLE_VALIDATOR)
+                    cfg.node.role = ROLE::VALIDATOR;
+                else
+                {
+                    std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
+                    return -1;
+                }
+                startup_mode = cfg.node.role;
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required node config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+        }
+
+        // contract
+        {
+            try
+            {
+                const jsoncons::json &contract = d["contract"];
+                cfg.contract.id = contract["id"].as<std::string>();
+                cfg.contract.version = contract["version"].as<std::string>();
+                if (cfg.contract.id.empty())
+                {
+                    std::cerr << "Contract id not specified.\n";
+                    return -1;
+                }
+                else if (cfg.contract.version.empty())
+                {
+                    std::cerr << "Contract version not specified.\n";
+                    return -1;
+                }
+                cfg.contract.unl.clear();
+                for (auto &nodepk : contract["unl"].array_range())
+                {
+                    // Convert the public key hex of each node to binary and store it.
+                    const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
+                    if (bin_pubkey.empty())
+                    {
+                        std::cerr << "Error decoding unl list.\n";
+                        return -1;
+                    }
+                    cfg.contract.unl.emplace(bin_pubkey);
+                }
+                cfg.contract.bin_path = contract["bin_path"].as<std::string>();
+                cfg.contract.bin_args = contract["bin_args"].as<std::string>();
+                cfg.contract.roundtime = contract["roundtime"].as<uint16_t>();
+
+                if (contract["consensus"] != PUBLIC && contract["consensus"] != PRIVATE)
+                {
+                    std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
+                    return -1;
+                }
+                cfg.contract.is_consensus_public = contract["consensus"] == PUBLIC;
+
+                if (contract["npl"] != PUBLIC && contract["npl"] != PRIVATE)
+                {
+                    std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
+                    return -1;
+                }
+                cfg.contract.is_npl_public = contract["npl"] == PUBLIC;
+                if (!contract["appbill"].contains("mode"))
+                {
+                    std::cerr << "Required contract appbill config field mode missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.contract.appbill.mode = contract["appbill"]["mode"].as<std::string>();
+                if (!contract["appbill"].contains("bin_args"))
+                {
+                    std::cerr << "Required contract appbill config field bin_args missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.contract.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+            // Populate runtime contract execution args.
+            if (!cfg.contract.bin_args.empty())
+                util::split_string(cfg.contract.runtime_binexec_args, cfg.contract.bin_args, " ");
+            cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), (cfg.contract.bin_path[0] == '/' ? cfg.contract.bin_path : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.bin_path)));
+
+            // Populate runtime app bill args.
+            if (!cfg.contract.appbill.bin_args.empty())
+                util::split_string(cfg.contract.appbill.runtime_args, cfg.contract.appbill.bin_args, " ");
+
+            cfg.contract.appbill.runtime_args.insert(cfg.contract.appbill.runtime_args.begin(), (cfg.contract.appbill.mode[0] == '/' ? cfg.contract.appbill.mode : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.appbill.mode)));
+
+            // Uncomment for docker-based execution.
+            // std::string volumearg;
+            // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
+            // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.contract.bin_path.data()};
+            // cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
+        }
+
+        // mesh
+        {
+            try
+            {
+                const jsoncons::json &mesh = d["mesh"];
+                cfg.mesh.port = mesh["port"].as<uint16_t>();
+                // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
+                // seperately to retrieve easily when handling peer connections.
+                std::vector<std::string> splitted_peers;
+                cfg.mesh.known_peers.clear();
+                for (auto &v : mesh["known_peers"].array_range())
+                {
+                    const char *ipport_concat = v.as<const char *>();
+                    // Split the address:port text into two
+                    util::split_string(splitted_peers, ipport_concat, ":");
+
+                    // Push the peer address and the port to peers set
+                    if (splitted_peers.size() != 2)
+                    {
+                        std::cerr << "Invalid peer: " << ipport_concat << "\n";
+                        return -1;
+                    }
+
+                    peer_properties peer;
+                    peer.ip_port.host_address = splitted_peers.front();
+                    peer.ip_port.port = std::stoi(splitted_peers.back());
+
+                    cfg.mesh.known_peers.push_back(peer);
+                    splitted_peers.clear();
+                }
+                cfg.mesh.msg_forwarding = mesh["msg_forwarding"].as<bool>();
+                cfg.mesh.max_connections = mesh["max_connections"].as<uint16_t>();
+                cfg.mesh.max_known_connections = mesh["max_known_connections"].as<uint16_t>();
+                // If max_connections is greater than max_known_connections then show error and stop execution.
+                if (cfg.mesh.max_known_connections > cfg.mesh.max_connections)
+                {
+                    std::cerr << "Invalid configuration values: mesh max_known_connections count should not exceed mesh max_connections." << '\n';
+                    return -1;
+                }
+                cfg.mesh.max_bytes_per_msg = mesh["max_bytes_per_msg"].as<uint64_t>();
+                cfg.mesh.max_bytes_per_min = mesh["max_bytes_per_min"].as<uint64_t>();
+                cfg.mesh.max_bad_msgs_per_min = mesh["max_bad_msgs_per_min"].as<uint64_t>();
+                cfg.mesh.max_bad_msgsigs_per_min = mesh["max_bad_msgsigs_per_min"].as<uint64_t>();
+                cfg.mesh.max_dup_msgs_per_min = mesh["max_dup_msgs_per_min"].as<uint64_t>();
+                cfg.mesh.idle_timeout = mesh["idle_timeout"].as<uint16_t>();
+                if (!mesh["peer_discovery"].contains("interval"))
+                {
+                    std::cerr << "Required mesh peer discovery config field interval missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.mesh.peer_discovery.interval = mesh["peer_discovery"]["interval"].as<uint16_t>();
+                if (!mesh["peer_discovery"].contains("enabled"))
+                {
+                    std::cerr << "Required mesh peer discovery config field enabled missing at " << ctx.config_file << std::endl;
+                    return -1;
+                }
+                cfg.mesh.peer_discovery.enabled = mesh["peer_discovery"]["enabled"].as<bool>();
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required mesh config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+        }
+
+        // user
+        {
+            try
+            {
+                const jsoncons::json &user = d["user"];
+                cfg.user.port = user["port"].as<uint16_t>();
+                cfg.user.max_connections = user["max_connections"].as<unsigned int>();
+                cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
+                cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
+                cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
+                cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required user config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+        }
+
+        // log
+        {
+            try
+            {
+                const jsoncons::json &log = d["log"];
+                cfg.log.loglevel = log["loglevel"].as<std::string>();
+                cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
+                cfg.log.loggers.clear();
+                for (auto &v : log["loggers"].array_range())
+                    cfg.log.loggers.emplace(v.as<std::string>());
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required log config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+        }
 
         return 0;
     }
@@ -377,78 +485,90 @@ namespace conf
         // Popualte json document with 'cfg' values.
         // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
-        d.insert_or_assign("hpversion", cfg.hpversion);
-        d.insert_or_assign("contractid", cfg.contractid);
-        d.insert_or_assign("contractversion", cfg.contractversion);
-        d.insert_or_assign("mode", cfg.operating_mode == OPERATING_MODE::OBSERVER ? MODE_OBSERVER : MODE_PROPOSER);
+        d.insert_or_assign("hp_version", cfg.hp_version);
 
-        d.insert_or_assign("pubkeyhex", cfg.pubkeyhex);
-        d.insert_or_assign("seckeyhex", cfg.seckeyhex);
-        d.insert_or_assign("binary", cfg.binary);
-        d.insert_or_assign("binargs", cfg.binargs);
-        d.insert_or_assign("appbill", cfg.appbill);
-        d.insert_or_assign("appbillargs", cfg.appbillargs);
+        // Node configs.
+        jsoncons::ojson node_config;
+        node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
+        node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
+        node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+        // node_config.insert_or_assign("full_history", cfg.node.full_history);
+        d.insert_or_assign("node", node_config);
+
+        // Contract configs.
+        jsoncons::ojson contract;
+        contract.insert_or_assign("id", cfg.contract.id);
+        contract.insert_or_assign("version", cfg.contract.version);
+        jsoncons::ojson unl(jsoncons::json_array_arg);
+        for (const auto &nodepk : cfg.contract.unl)
+        {
+            unl.push_back(util::to_hex(nodepk));
+        }
+        contract.insert_or_assign("unl", unl);
+        contract.insert_or_assign("bin_path", cfg.contract.bin_path);
+        contract.insert_or_assign("bin_args", cfg.contract.bin_args);
+        contract.insert_or_assign("roundtime", cfg.contract.roundtime);
+        contract.insert_or_assign("consensus", cfg.contract.is_consensus_public ? PUBLIC : PRIVATE);
+        contract.insert_or_assign("npl", cfg.contract.is_npl_public ? PUBLIC : PRIVATE);
+
+        jsoncons::ojson appbill;
+        appbill.insert_or_assign("mode", cfg.contract.appbill.mode);
+        appbill.insert_or_assign("bin_args", cfg.contract.appbill.bin_args);
+
+        contract.insert_or_assign("appbill", appbill);
+        d.insert_or_assign("contract", contract);
+
+        // Mesh configs.
+        jsoncons::ojson mesh_config;
+        mesh_config.insert_or_assign("port", cfg.mesh.port);
 
         jsoncons::ojson peers(jsoncons::json_array_arg);
-        for (const auto &peer : cfg.peers)
+        for (const auto &peer : cfg.mesh.known_peers)
         {
             const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
             peers.push_back(concat_str);
         }
-        d.insert_or_assign("peers", peers);
+        mesh_config.insert_or_assign("known_peers", peers);
+        mesh_config.insert_or_assign("msg_forwarding", cfg.mesh.msg_forwarding);
+        mesh_config.insert_or_assign("max_connections", cfg.mesh.max_connections);
+        mesh_config.insert_or_assign("max_known_connections", cfg.mesh.max_known_connections);
+        mesh_config.insert_or_assign("max_bytes_per_msg", cfg.mesh.max_bytes_per_msg);
+        mesh_config.insert_or_assign("max_bytes_per_min", cfg.mesh.max_bytes_per_min);
+        mesh_config.insert_or_assign("max_bad_msgs_per_min", cfg.mesh.max_bad_msgs_per_min);
+        mesh_config.insert_or_assign("max_bad_msgsigs_per_min", cfg.mesh.max_bad_msgsigs_per_min);
+        mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
+        mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
 
-        jsoncons::ojson unl(jsoncons::json_array_arg);
-        for (const auto &nodepk : cfg.unl)
-        {
-            std::string hex_pubkey;
-            util::bin2hex(
-                hex_pubkey,
-                reinterpret_cast<const unsigned char *>(nodepk.data()),
-                nodepk.length());
+        jsoncons::ojson peer_discovery_config;
+        peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
+        peer_discovery_config.insert_or_assign("interval", cfg.mesh.peer_discovery.interval);
 
-            unl.push_back(hex_pubkey);
-        }
-        d.insert_or_assign("unl", unl);
+        mesh_config.insert_or_assign("peer_discovery", peer_discovery_config);
+        d.insert_or_assign("mesh", mesh_config);
 
-        d.insert_or_assign("peerport", cfg.peerport);
-        d.insert_or_assign("pubport", cfg.pubport);
-        d.insert_or_assign("roundtime", cfg.roundtime);
-        d.insert_or_assign("peerdiscoverytime", cfg.peerdiscoverytime);
+        // User configs.
+        jsoncons::ojson user_config;
+        user_config.insert_or_assign("port", cfg.user.port);
+        user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
+        user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
+        user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
+        user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
+        user_config.insert_or_assign("max_connections", cfg.user.max_connections);
+        d.insert_or_assign("user", user_config);
 
-        d.insert_or_assign("peeridletimeout", cfg.peeridletimeout);
-        d.insert_or_assign("pubidletimeout", cfg.pubidletimeout);
-
-        d.insert_or_assign("pubmaxsize", cfg.pubmaxsize);
-        d.insert_or_assign("pubmaxcpm", cfg.pubmaxcpm);
-        d.insert_or_assign("pubmaxbadmpm", cfg.pubmaxbadmpm);
-        d.insert_or_assign("pubmaxcons", cfg.pubmaxcons);
-
-        d.insert_or_assign("peermaxsize", cfg.peermaxsize);
-        d.insert_or_assign("peermaxcpm", cfg.peermaxcpm);
-        d.insert_or_assign("peermaxdupmpm", cfg.peermaxdupmpm);
-        d.insert_or_assign("peermaxbadmpm", cfg.peermaxbadmpm);
-        d.insert_or_assign("peermaxbadsigpm", cfg.peermaxbadsigpm);
-        d.insert_or_assign("peermaxcons", cfg.peermaxcons);
-        d.insert_or_assign("peermaxknowncons", cfg.peermaxknowncons);
-
-        d.insert_or_assign("consensus", cfg.is_consensus_public ? PUBLIC : PRIVATE);
-        d.insert_or_assign("npl", cfg.is_npl_public ? PUBLIC : PRIVATE);
-
-        d.insert_or_assign("msgforwarding", cfg.msgforwarding);
-        d.insert_or_assign("dynamicpeerdiscovery", cfg.dynamicpeerdiscovery);
-        // d.insert_or_assign("fullhistory", cfg.fullhistory);
-
-        d.insert_or_assign("loglevel", cfg.loglevel);
+        // Log configs.
+        jsoncons::ojson log_config;
+        log_config.insert_or_assign("loglevel", cfg.log.loglevel);
 
         jsoncons::ojson loggers(jsoncons::json_array_arg);
-        for (std::string_view logger : cfg.loggers)
+        for (std::string_view logger : cfg.log.loggers)
         {
             loggers.push_back(logger);
         }
-        d.insert_or_assign("loggers", loggers);
+        log_config.insert_or_assign("loggers", loggers);
+        d.insert_or_assign("log", log_config);
 
         // Write the json doc to file.
-
         std::ofstream ofs(ctx.config_file);
         try
         {
@@ -467,73 +587,6 @@ namespace conf
         return 0;
     }
 
-    int populate_runtime_config(contract_config &parsed_cfg)
-    {
-        cfg = parsed_cfg;
-        startup_mode = cfg.operating_mode;
-
-        // Convert the hex keys to binary.
-
-        cfg.pubkey.resize(crypto::PFXD_PUBKEY_BYTES);
-        if (util::hex2bin(
-                reinterpret_cast<unsigned char *>(cfg.pubkey.data()),
-                cfg.pubkey.length(),
-                cfg.pubkeyhex) != 0)
-        {
-            std::cerr << "Error decoding hex public key.\n";
-            return -1;
-        }
-
-        cfg.seckey.resize(crypto::PFXD_SECKEY_BYTES);
-        if (util::hex2bin(
-                reinterpret_cast<unsigned char *>(cfg.seckey.data()),
-                cfg.seckey.length(),
-                cfg.seckeyhex) != 0)
-        {
-            std::cerr << "Error decoding hex secret key.\n";
-            return -1;
-        }
-
-        // Populate runtime contract execution args.
-        if (!cfg.binargs.empty())
-            util::split_string(cfg.runtime_binexec_args, cfg.binargs, " ");
-        cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), (cfg.binary[0] == '/' ? cfg.binary : util::realpath(ctx.contract_dir + "/bin/" + cfg.binary)));
-
-        // Populate runtime app bill args.
-        if (!cfg.appbillargs.empty())
-            util::split_string(cfg.runtime_appbill_args, cfg.appbillargs, " ");
-
-        cfg.runtime_appbill_args.insert(cfg.runtime_appbill_args.begin(), (cfg.appbill[0] == '/' ? cfg.appbill : util::realpath(ctx.contract_dir + "/bin/" + cfg.appbill)));
-
-        // Uncomment for docker-based execution.
-        // std::string volumearg;
-        // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
-        // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.binary.data()};
-        // cfg.runtime_binexec_args.insert(cfg.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
-
-        return 0;
-    }
-
-    /**
-     * Decode current binary keys in 'cfg' and populate the it with hex keys.
-     *
-     * @return Always returns 0.
-     */
-    int binpair_to_hex(contract_config &cfg)
-    {
-        util::bin2hex(
-            cfg.pubkeyhex,
-            reinterpret_cast<const unsigned char *>(cfg.pubkey.data()),
-            cfg.pubkey.length());
-
-        util::bin2hex(
-            cfg.seckeyhex,
-            reinterpret_cast<const unsigned char *>(cfg.seckey.data()),
-            cfg.seckey.length());
-
-        return 0;
-    }
-
     /**
      * Validates the 'cfg' struct for invalid values.
      *
@@ -543,7 +596,7 @@ namespace conf
     {
         // Check for non-empty signing keys.
         // We also check for key pair validity as well in the below code.
-        if (cfg.pubkeyhex.empty() || cfg.seckeyhex.empty())
+        if (cfg.node.public_key_hex.empty() || cfg.node.private_key_hex.empty())
         {
             std::cerr << "Signing keys missing. Run with 'rekey' to generate new keys.\n";
             return -1;
@@ -553,12 +606,14 @@ namespace conf
 
         bool fields_missing = false;
 
-        fields_missing |= cfg.binary.empty() && std::cerr << "Missing cfg field: binary\n";
-        fields_missing |= cfg.peerport == 0 && std::cerr << "Missing cfg field: peerport\n";
-        fields_missing |= cfg.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
-        fields_missing |= cfg.pubport == 0 && std::cerr << "Missing cfg field: pubport\n";
-        fields_missing |= cfg.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
-        fields_missing |= cfg.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";
+        fields_missing |= cfg.contract.bin_path.empty() && std::cerr << "Missing cfg field: bin_path\n";
+        fields_missing |= cfg.contract.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
+        fields_missing |= cfg.contract.unl.empty() && std::cerr << "Missing cfg field: unl. Unl list cannot be empty.\n";
+        fields_missing |= cfg.contract.id.empty() && std::cerr << "Missing cfg field: contract id.\n";
+        fields_missing |= cfg.mesh.port == 0 && std::cerr << "Missing cfg field: mesh port\n";
+        fields_missing |= cfg.user.port == 0 && std::cerr << "Missing cfg field: user port\n";
+        fields_missing |= cfg.log.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
+        fields_missing |= cfg.log.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";
 
         if (fields_missing)
         {
@@ -568,14 +623,14 @@ namespace conf
 
         // Log settings
         const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err"});
-        if (valid_loglevels.count(cfg.loglevel) != 1)
+        if (valid_loglevels.count(cfg.log.loglevel) != 1)
         {
             std::cerr << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err\n";
             return -1;
         }
 
         const std::unordered_set<std::string> valid_loggers({"console", "file"});
-        for (const std::string &logger : cfg.loggers)
+        for (const std::string &logger : cfg.log.loggers)
         {
             if (valid_loggers.count(logger) != 1)
             {
@@ -586,8 +641,8 @@ namespace conf
 
         //Sign and verify a sample message to ensure we have a matching signing key pair.
         const std::string msg = "hotpocket";
-        const std::string sighex = crypto::sign_hex(msg, cfg.seckeyhex);
-        if (crypto::verify_hex(msg, sighex, cfg.pubkeyhex) != 0)
+        const std::string sig = crypto::sign(msg, cfg.node.private_key);
+        if (crypto::verify(msg, sig, cfg.node.public_key) != 0)
         {
             std::cerr << "Invalid signing keys. Run with 'rekey' to generate new keys.\n";
             return -1;
@@ -640,18 +695,18 @@ namespace conf
         return 0;
     }
 
-    void change_operating_mode(const OPERATING_MODE mode)
+    void change_role(const ROLE role)
     {
         // Do not allow to change the mode if the node was started as an observer.
-        if (startup_mode == OPERATING_MODE::OBSERVER || cfg.operating_mode == mode)
+        if (startup_mode == ROLE::OBSERVER || cfg.node.role == role)
             return;
 
-        cfg.operating_mode = mode;
+        cfg.node.role = role;
 
-        if (mode == OPERATING_MODE::OBSERVER)
+        if (role == ROLE::OBSERVER)
             LOG_INFO << "Switched to OBSERVER mode.";
         else
-            LOG_INFO << "Switched back to PROPOSER mode.";
+            LOG_INFO << "Switched back to VALIDATOR mode.";
     }
 
     /**
@@ -669,5 +724,154 @@ namespace conf
             return LOG_SEVERITY::INFO;
         else
             return LOG_SEVERITY::ERROR;
+    }
+
+    /**
+     * Extracts missing config field from the jsoncons exception message.
+     * @param err_message Jsoncons error message.
+     * @return Missing config field.
+    */
+    std::string_view extract_missing_field(std::string err_message)
+    {
+        err_message.erase(0, err_message.find("'") + 1);
+        err_message = err_message.substr(0, err_message.find("'"));
+        return err_message;
+    }
+
+    /**
+     * Update config contract section if a patch file is detected.
+     * @param contract_config Contract section of config structure.
+     * @return Returns -1 on error and 0 on successful update.
+    */
+    int apply_patch_changes(contract_params &contract_config)
+    {
+        pid_t hpfs_ro_pid = 0;
+        std::string mount_dir; // Holds the mount directory of the newly created hpfs session.
+        int res = 0;
+
+        if (hpfs::start_ro_rw_process(hpfs_ro_pid, mount_dir,
+                                      true, false, true) == -1 ||                // Creating a hpfs process and then starts a virtual hpfs session.
+            validate_and_apply_patch_config(contract_config, mount_dir) == -1 || // Validate content in patch file and update contract section in config.
+            hpfs::stop_fs_session(mount_dir) == -1)                              // Stop the created hpfs session.
+            res = -1;
+
+        // Created hpfs process should be killed even the patch validation failed.
+        if (hpfs_ro_pid > 0 && util::kill_process(hpfs_ro_pid, true) == -1)
+            res = -1;
+        return res;
+    }
+
+    /**
+     * Validate and update contract config section if a patch file detected.
+     * @param contract_config Contract section of config structure.
+     * @param mount_dir hpfs process mount directory path.
+     * @return Returns -1 on error and 0 in successful update.
+    */
+    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir)
+    {
+        const std::string path = std::string(mount_dir).append("/").append(PATCH_FILE_NAME);
+        if (util::is_file_exists(path))
+        {
+            std::ifstream ifs(path);
+            jsoncons::ojson contract;
+            try
+            {
+                contract = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Invalid patch config file format. " << e.what() << '\n';
+                return -1;
+            }
+            ifs.close();
+
+            try
+            {
+
+                contract_config.version = contract["version"].as<std::string>();
+                if (contract_config.version.empty())
+                {
+                    std::cerr << "Patch contract version not specified.\n";
+                    return -1;
+                }
+
+                contract_config.unl.clear();
+                for (auto &nodepk : contract["unl"].array_range())
+                {
+                    // Convert the public key hex of each node to binary and store it.
+                    const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
+                    if (bin_pubkey.empty())
+                    {
+                        std::cerr << "Error decoding patch file unl list.\n";
+                        return -1;
+                    }
+                    contract_config.unl.emplace(bin_pubkey);
+                }
+                if (contract_config.unl.empty())
+                {
+                    std::cerr << "Patch file unl list cannot be empty.\n";
+                    return -1;
+                }
+
+                contract_config.bin_path = contract["bin_path"].as<std::string>();
+                if (contract_config.bin_path.empty())
+                {
+                    std::cerr << "Patch file binary path cannot be empty.\n";
+                }
+                contract_config.bin_args = contract["bin_args"].as<std::string>();
+                contract_config.roundtime = contract["roundtime"].as<uint16_t>();
+                if (contract_config.roundtime == 0)
+                {
+                    std::cerr << "Patch file round time cannot be zero.\n";
+                }
+
+                if (contract["consensus"] != conf::PUBLIC && contract["consensus"] != conf::PRIVATE)
+                {
+                    std::cerr << "Invalid consensus flag configured in patch file. Valid values: public|private\n";
+                    return -1;
+                }
+                contract_config.is_consensus_public = contract["consensus"] == conf::PUBLIC;
+
+                if (contract["npl"] != conf::PUBLIC && contract["npl"] != conf::PRIVATE)
+                {
+                    std::cerr << "Invalid npl flag configured in patch file. Valid values: public|private\n";
+                    return -1;
+                }
+                contract_config.is_npl_public = contract["npl"] == conf::PUBLIC;
+
+                if (!contract["appbill"].contains("mode"))
+                {
+                    std::cerr << "Required contract appbill config field mode missing at patch file.\n";
+                    return -1;
+                }
+                contract_config.appbill.mode = contract["appbill"]["mode"].as<std::string>();
+                if (!contract["appbill"].contains("bin_args"))
+                {
+                    std::cerr << "Required contract appbill config field bin_args missing at patch file.\n";
+                    return -1;
+                }
+                contract_config.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
+
+                // Populate runtime contract execution args.
+                contract_config.runtime_binexec_args.clear();
+                if (!contract_config.bin_args.empty())
+                    util::split_string(contract_config.runtime_binexec_args, contract_config.bin_args, " ");
+                contract_config.runtime_binexec_args.insert(contract_config.runtime_binexec_args.begin(), (contract_config.bin_path[0] == '/' ? contract_config.bin_path : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.bin_path)));
+
+                // Populate runtime app bill args.
+                contract_config.appbill.runtime_args.clear();
+                if (!contract_config.appbill.bin_args.empty())
+                    util::split_string(contract_config.appbill.runtime_args, contract_config.appbill.bin_args, " ");
+                contract_config.appbill.runtime_args.insert(contract_config.appbill.runtime_args.begin(), (contract_config.appbill.mode[0] == '/' ? contract_config.appbill.mode : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.appbill.mode)));
+
+                std::cout << "Contract config updated from " << PATCH_FILE_NAME << " file\n";
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing in patch file.\n";
+                return -1;
+            }
+        }
+        return 0;
     }
 } // namespace conf

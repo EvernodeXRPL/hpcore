@@ -38,12 +38,14 @@ namespace msg::usrmsg
             busrmsg::create_contract_read_response_container(msg, content);
     }
 
-    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl) const
+    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+                                                         const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                                         const uint64_t lcl_seq_no, std::string_view lcl) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_contract_output_container(msg, content, lcl_seq_no, lcl);
+            jusrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl);
         else
-            busrmsg::create_contract_output_container(msg, content, lcl_seq_no, lcl);
+            busrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl);
     }
 
     int usrmsg_parser::parse(std::string_view message)

@@ -3,7 +3,7 @@
 
 #include "pchheader.hpp"
 #include "usr/usr.hpp"
-#include "hpfs/h32.hpp"
+#include "util/h32.hpp"
 #include "util/util.hpp"
 #include "util/buffer_store.hpp"
 #include "p2p/p2p.hpp"
@@ -81,7 +81,7 @@ namespace sc
         std::string lcl;
 
         // State hash after execution will be copied to this (not applicable to read only mode).
-        hpfs::h32 post_execution_state_hash = hpfs::h32_empty;
+        util::h32 post_execution_state_hash = util::h32_empty;
 
         // Collected unl addition and removal change sets. Holds the changeset until they are subjected to the consensus.
         p2p::contract_unl_changeset unl_changeset;

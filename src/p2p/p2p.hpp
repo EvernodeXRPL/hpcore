@@ -3,7 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../usr/user_input.hpp"
-#include "../hpfs/h32.hpp"
+#include "../util/h32.hpp"
 #include "../conf.hpp"
 #include "../msg/fbuf/p2pmsg_container_generated.h"
 #include "peer_comm_server.hpp"
@@ -53,10 +53,11 @@ namespace p2p
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
         std::string unl_hash; // Hash of the current unl list.
-        hpfs::h32 state;
+        util::h32 state;
         std::set<std::string> users;
-        std::set<std::string> hash_inputs;
-        std::set<std::string> hash_outputs;
+        std::set<std::string> input_hashes;
+        std::string output_hash;
+        std::string output_sig;
         contract_unl_changeset unl_changeset; // Additions and removals of the unl.
     };
 
@@ -129,7 +130,7 @@ namespace p2p
         std::string parent_path; // The requested file or dir path.
         bool is_file = false;    // Whether the path is a file or dir.
         int32_t block_id = 0;    // Block id of the file if we are requesting for file block. Otherwise -1.
-        hpfs::h32 expected_hash; // The expected hash of the requested result.
+        util::h32 expected_hash; // The expected hash of the requested result.
     };
 
     // Represents state file system entry.
@@ -137,7 +138,7 @@ namespace p2p
     {
         std::string name;     // Name of the file/dir.
         bool is_file = false; // Whether this is a file or dir.
-        hpfs::h32 hash;       // Hash of the file or dir.
+        util::h32 hash;       // Hash of the file or dir.
     };
 
     // Represents a file block data resposne.
@@ -146,7 +147,7 @@ namespace p2p
         std::string path;      // Path of the file.
         uint32_t block_id = 0; // Id of the block where the data belongs to.
         std::string_view data; // The block data.
-        hpfs::h32 hash;        // Hash of the bloc data.
+        util::h32 hash;        // Hash of the bloc data.
     };
 
     struct message_collection

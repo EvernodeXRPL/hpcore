@@ -3,7 +3,7 @@
 #include "../../crypto.hpp"
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
-#include "../../hpfs/h32.hpp"
+#include "../../util/h32.hpp"
 #include "../../hpfs/hpfs.hpp"
 #include "../../unl.hpp"
 #include "p2pmsg_container_generated.h"
@@ -76,7 +76,7 @@ namespace msg::fbuf::p2pmsg
         if (container_buf_size <= MAX_SIZE_FOR_TIME_CHECK)
         {
             const uint64_t time_now = util::get_epoch_milliseconds();
-            if (container->timestamp() < (time_now - conf::cfg.roundtime * 4))
+            if (container->timestamp() < (time_now - conf::cfg.contract.roundtime * 4))
             {
                 LOG_DEBUG << "Peer message is too old.";
                 return -1;
@@ -241,11 +241,14 @@ namespace msg::fbuf::p2pmsg
         if (msg.users())
             p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
 
-        if (msg.hash_inputs())
-            p.hash_inputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_inputs());
+        if (msg.input_hashes())
+            p.input_hashes = flatbuf_bytearrayvector_to_stringlist(msg.input_hashes());
 
-        if (msg.hash_outputs())
-            p.hash_outputs = flatbuf_bytearrayvector_to_stringlist(msg.hash_outputs());
+        if (msg.output_hash())
+            p.output_hash = flatbuff_bytes_to_sv(msg.output_hash());
+
+        if (msg.output_sig())
+            p.output_sig = flatbuff_bytes_to_sv(msg.output_sig());
 
         return p;
     }
@@ -314,7 +317,7 @@ namespace msg::fbuf::p2pmsg
         const flatbuffers::Offset<Peer_Challenge_Message> peer_challenge_msg =
             CreatePeer_Challenge_Message(
                 builder,
-                sv_to_flatbuff_str(builder, conf::cfg.contractid),
+                sv_to_flatbuff_str(builder, conf::cfg.contract.id),
                 sv_to_flatbuff_str(builder, challenge));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Message, peer_challenge_msg.Union());
@@ -337,7 +340,7 @@ namespace msg::fbuf::p2pmsg
             CreatePeer_Challenge_Response_Message(
                 builder,
                 sv_to_flatbuff_str(builder, challenge),
-                sv_to_flatbuff_bytes(builder, crypto::sign(challenge, conf::cfg.seckey)));
+                sv_to_flatbuff_bytes(builder, crypto::sign(challenge, conf::cfg.node.private_key)));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Response_Message, challenge_resp_msg.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -377,8 +380,7 @@ namespace msg::fbuf::p2pmsg
         const flatbuffers::Offset<Unl_Changeset> unl_changeset = CreateUnl_Changeset(
             builder,
             stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.additions),
-            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.removals)
-        );
+            stringlist_to_flatbuf_bytearrayvector(builder, p.unl_changeset.removals));
 
         const flatbuffers::Offset<Proposal_Message> proposal =
             CreateProposal_Message(
@@ -387,8 +389,9 @@ namespace msg::fbuf::p2pmsg
                 p.time,
                 sv_to_flatbuff_bytes(builder, p.nonce),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_inputs),
-                stringlist_to_flatbuf_bytearrayvector(builder, p.hash_outputs),
+                stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
+                sv_to_flatbuff_bytes(builder, p.output_hash),
+                sv_to_flatbuff_bytes(builder, p.output_sig),
                 hash_to_flatbuff_bytes(builder, p.state),
                 sv_to_flatbuff_bytes(builder, p.unl_hash),
                 unl_changeset);
@@ -505,7 +508,7 @@ namespace msg::fbuf::p2pmsg
  */
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
-        std::vector<hpfs::child_hash_node> &hash_nodes, hpfs::h32 expected_hash, std::string_view lcl)
+        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -537,12 +540,12 @@ namespace msg::fbuf::p2pmsg
  */
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &container_builder, std::string_view path,
-        std::vector<hpfs::h32> &hashmap, std::size_t file_length, hpfs::h32 expected_hash, std::string_view lcl)
+        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);
 
-        std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(hpfs::h32));
+        std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(util::h32));
 
         const flatbuffers::Offset<File_HashMap_Response> resp =
             CreateFile_HashMap_Response(
@@ -785,8 +788,8 @@ namespace msg::fbuf::p2pmsg
             // Sign message content with this node's private key.
             std::string_view content_to_sign(reinterpret_cast<const char *>(content_buf), content_size);
 
-            sig_offset = sv_to_flatbuff_bytes(container_builder, crypto::sign(content_to_sign, conf::cfg.seckey));
-            pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.pubkey);
+            sig_offset = sv_to_flatbuff_bytes(container_builder, crypto::sign(content_to_sign, conf::cfg.node.private_key));
+            pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.node.public_key);
         }
 
         if (!lcl.empty())

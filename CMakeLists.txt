@@ -28,13 +28,14 @@ add_executable(hpcore
     src/util/rollover_hashset.cpp
     src/util/ttl_set.cpp
     src/util/buffer_store.cpp
+    src/util/merkle_hash_tree.cpp
+    src/util/h32.cpp
     src/unl.cpp
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
     src/sc.cpp
     src/bill/corebill.cpp
-    src/hpfs/h32.cpp
     src/hpfs/hpfs.cpp
     src/comm/comm_session.cpp
     src/msg/fbuf/common_helpers.cpp

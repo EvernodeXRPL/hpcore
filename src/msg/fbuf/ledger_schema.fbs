@@ -11,7 +11,7 @@ table LedgerBlock {
     unl:[ubyte];
     users: [ByteArray];
     inputs: [ByteArray]; 
-    outputs: [ByteArray];
+    output: [ubyte];
     unl_changeset: Unl_Changeset;
 }
 

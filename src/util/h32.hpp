@@ -1,12 +1,12 @@
-#ifndef _HP_HPFS_H32_
-#define _HP_HPFS_H32_
+#ifndef _HP_UTIL_H32_
+#define _HP_UTIL_H32_
 
 #include "../pchheader.hpp"
 
-namespace hpfs
+namespace util
 {
 
-    // blake2b hash is 32 bytes which we store as 4 quad words
+    // blake3b hash is 32 bytes which we store as 4 quad words
     // Originally from https://github.com/codetsunami/file-ptracer/blob/master/merkle.cpp
     struct h32
     {
@@ -29,13 +29,13 @@ namespace hpfs
     std::ostream &operator<<(std::ostream &output, const h32 &h);
 
     // Helper class to support std::map/std::unordered_map custom hashing function.
-    // This is needed to use B2H as the std map container key.
+    // This is needed to use h32 as the std map container key.
     class h32_std_key_hasher
     {
     public:
         size_t operator()(const h32 h) const;
     };
 
-} // namespace hpfs
+} // namespace util
 
 #endif

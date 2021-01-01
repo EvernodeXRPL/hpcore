@@ -24,11 +24,11 @@ namespace p2p
      */
     int init()
     {
-        metric_thresholds[0] = conf::cfg.peermaxcpm;
-        metric_thresholds[1] = conf::cfg.peermaxdupmpm;
-        metric_thresholds[2] = conf::cfg.peermaxbadsigpm;
-        metric_thresholds[3] = conf::cfg.peermaxbadmpm;
-        metric_thresholds[4] = conf::cfg.peeridletimeout;
+        metric_thresholds[0] = conf::cfg.mesh.max_bytes_per_min;
+        metric_thresholds[1] = conf::cfg.mesh.max_dup_msgs_per_min;
+        metric_thresholds[2] = conf::cfg.mesh.max_bad_msgsigs_per_min;
+        metric_thresholds[3] = conf::cfg.mesh.max_bad_msgs_per_min;
+        metric_thresholds[4] = conf::cfg.mesh.idle_timeout;
 
         //Entry point for p2p which will start peer connections to other nodes
         if (start_peer_connections() == -1)
@@ -49,11 +49,11 @@ namespace p2p
 
     int start_peer_connections()
     {
-        ctx.server.emplace(conf::cfg.peerport, metric_thresholds, conf::cfg.peermaxsize, conf::cfg.peers);
+        ctx.server.emplace(conf::cfg.mesh.port, metric_thresholds, conf::cfg.mesh.max_bytes_per_msg, conf::cfg.mesh.known_peers);
         if (ctx.server->start() == -1)
             return -1;
 
-        LOG_INFO << "Started listening for peer connections on " << std::to_string(conf::cfg.peerport);
+        LOG_INFO << "Started listening for peer connections on " << std::to_string(conf::cfg.mesh.port);
         return 0;
     }
 
@@ -74,10 +74,9 @@ namespace p2p
         }
 
         // Converting the binary pub key into hexadecimal string.
-        std::string pubkeyhex;
-        util::bin2hex(pubkeyhex, reinterpret_cast<const unsigned char *>(challenge_resp.pubkey.data()), challenge_resp.pubkey.length());
+        std::string pubkeyhex = util::to_hex(challenge_resp.pubkey);
 
-        const int res = challenge_resp.pubkey.compare(conf::cfg.pubkey);
+        const int res = challenge_resp.pubkey.compare(conf::cfg.node.public_key);
 
         // If pub key is greater than our id (< 0), then we should give priority to any existing inbound connection
         // from the same peer and drop the outbound connection.
@@ -204,14 +203,14 @@ namespace p2p
     bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
     {
         // Checking whether the message forwarding is enabled.
-        if (!conf::cfg.msgforwarding)
+        if (!conf::cfg.mesh.msg_forwarding)
         {
             return false;
         }
 
         const uint64_t time_now = util::get_epoch_milliseconds();
         // Checking the time to live of the container. The time to live for forwarding is three times the round time.
-        if (container->timestamp() < (time_now - (conf::cfg.roundtime * 3)))
+        if (container->timestamp() < (time_now - (conf::cfg.contract.roundtime * 3)))
         {
             LOG_DEBUG << "Peer message is too old for forwarding.";
             return false;
@@ -419,18 +418,18 @@ namespace p2p
      */
     int16_t get_available_capacity()
     {
-        // If both peermaxcons and peermaxknowncons are configured calculate the capacity.
-        if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons != 0)
+        // If both max_connections and max_known_connections are configured calculate the capacity.
+        if (conf::cfg.mesh.max_connections != 0 && conf::cfg.mesh.max_known_connections != 0)
         {
             // If known peer max connection count is equal to the peer max connection count then return 0.
             // Otherwise peer max con count - know peer max con count - inbound peer cons.
-            if (conf::cfg.peermaxcons != conf::cfg.peermaxknowncons)
-                return conf::cfg.peermaxcons - conf::cfg.peermaxknowncons - ctx.peer_connections.size() + ctx.server->known_remote_count;
+            if (conf::cfg.mesh.max_connections != conf::cfg.mesh.max_known_connections)
+                return conf::cfg.mesh.max_connections - conf::cfg.mesh.max_known_connections - ctx.peer_connections.size() + ctx.server->known_remote_count;
             else
                 return 0;
         }
-        else if (conf::cfg.peermaxcons != 0 && conf::cfg.peermaxknowncons == 0)
-            return conf::cfg.peermaxcons - ctx.peer_connections.size();
+        else if (conf::cfg.mesh.max_connections != 0 && conf::cfg.mesh.max_known_connections == 0)
+            return conf::cfg.mesh.max_connections - ctx.peer_connections.size();
         return -1;
     }
 

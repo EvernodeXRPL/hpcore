@@ -2,6 +2,7 @@
 #define _HP_MSG_BSON_USRMSG_BSON_
 
 #include "../../pchheader.hpp"
+#include "../../util/merkle_hash_tree.hpp"
 
 namespace msg::usrmsg::bson
 {
@@ -13,7 +14,9 @@ namespace msg::usrmsg::bson
 
     void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content);
 
-    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view content, const uint64_t lcl_seq_no, std::string_view lcl);
+    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+                                          const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
+                                          const uint64_t lcl_seq_no, std::string_view lcl);
 
     int verify_user_handshake_response(std::string &extracted_pubkeyhex, std::string &extracted_protocol,
                                        std::string_view response, std::string_view original_challenge);
@@ -29,6 +32,8 @@ namespace msg::usrmsg::bson
 
     int extract_input_container(std::string &input, std::string &nonce,
                                 uint64_t &max_lcl_seqno, std::string_view contentbson);
+
+    void populate_output_hash_array(jsoncons::bson::bson_bytes_encoder &encoder, const util::merkle_hash_node &node);
 
 } // namespace msg::usrmsg::bson
 

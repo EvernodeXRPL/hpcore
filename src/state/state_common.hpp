@@ -3,7 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../conf.hpp"
-#include "../hpfs/h32.hpp"
+#include "../util/h32.hpp"
 
 namespace state_common
 {
@@ -11,23 +11,23 @@ namespace state_common
 
     inline uint16_t get_request_resubmit_timeout()
     {
-        return conf::cfg.roundtime;
+        return conf::cfg.contract.roundtime;
     }
 
     struct state_context
     {
     private:
-        hpfs::h32 state;
+        util::h32 state;
         std::shared_mutex state_mutex;
 
     public:
-        hpfs::h32 get_state()
+        util::h32 get_state()
         {
             std::shared_lock lock(state_mutex);
             return state;
         }
 
-        void set_state(hpfs::h32 new_state)
+        void set_state(util::h32 new_state)
         {
             std::unique_lock lock(state_mutex);
             state = new_state;

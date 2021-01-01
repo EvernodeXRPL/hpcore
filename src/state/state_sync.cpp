@@ -7,7 +7,7 @@
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../hpfs/hpfs.hpp"
-#include "../hpfs/h32.hpp"
+#include "../util/h32.hpp"
 #include "state_sync.hpp"
 #include "state_common.hpp"
 
@@ -35,7 +35,7 @@ namespace state_sync
     int init()
     {
         REQUEST_RESUBMIT_TIMEOUT = state_common::get_request_resubmit_timeout();
-        ctx.target_state = hpfs::h32_empty;
+        ctx.target_state = util::h32_empty;
         ctx.state_sync_thread = std::thread(state_syncer_loop);
         ctx.hpfs_mount_dir = conf::ctx.state_rw_dir;
         init_success = true;
@@ -57,7 +57,7 @@ namespace state_sync
      * @param target_state The target state which we should sync towards.
      * @param completion_callback The callback function to call upon state sync completion.
      */
-    void set_target(const hpfs::h32 target_state)
+    void set_target(const util::h32 target_state)
     {
         std::unique_lock lock(ctx.target_state_mutex);
 
@@ -95,15 +95,15 @@ namespace state_sync
             {
                 while (!ctx.is_shutting_down)
                 {
-                    hpfs::h32 new_state = hpfs::h32_empty;
+                    util::h32 new_state = util::h32_empty;
                     const int result = request_loop(ctx.target_state, new_state);
-
-                    if (result == -1 || ctx.is_shutting_down)
-                        break;
 
                     ctx.pending_requests.clear();
                     ctx.candidate_state_responses.clear();
                     ctx.submitted_requests.clear();
+
+                    if (result == -1 || ctx.is_shutting_down)
+                        break;
 
                     {
                         std::shared_lock lock(ctx.target_state_mutex);
@@ -129,14 +129,14 @@ namespace state_sync
             }
 
             std::unique_lock lock(ctx.target_state_mutex);
-            ctx.target_state = hpfs::h32_empty;
+            ctx.target_state = util::h32_empty;
             ctx.is_syncing = false;
         }
 
         LOG_INFO << "State sync: Worker stopped.";
     }
 
-    int request_loop(const hpfs::h32 current_target, hpfs::h32 &updated_state)
+    int request_loop(const util::h32 current_target, util::h32 &updated_state)
     {
         std::string lcl = ledger::ctx.get_lcl();
 
@@ -219,8 +219,8 @@ namespace state_sync
                     const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp = resp_msg->state_response_as_File_HashMap_Response();
 
                     // File block hashes we received from the peer.
-                    const hpfs::h32 *peer_hashes = reinterpret_cast<const hpfs::h32 *>(file_resp->hash_map()->data());
-                    const size_t peer_hash_count = file_resp->hash_map()->size() / sizeof(hpfs::h32);
+                    const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp->hash_map()->data());
+                    const size_t peer_hash_count = file_resp->hash_map()->size() / sizeof(util::h32);
 
                     // Validate received hashmap against the hash.
                     if (!validate_file_hashmap_hash(vpath, hash, peer_hashes, peer_hash_count))
@@ -323,7 +323,7 @@ namespace state_sync
     */
     bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map)
     {
-        hpfs::h32 content_hash;
+        util::h32 content_hash;
 
         // Initilal hash is vpath hash.
         content_hash = crypto::get_hash(vpath);
@@ -345,9 +345,9 @@ namespace state_sync
      * @param hash_count Size of the hash list.
      * @returns true if hash is valid, otherwise false.
     */
-    bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const hpfs::h32 *hashes, const size_t hash_count)
+    bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const util::h32 *hashes, const size_t hash_count)
     {
-        hpfs::h32 content_hash = hpfs::h32_empty;
+        util::h32 content_hash = util::h32_empty;
 
         // Initilal hash is vpath hash.
         content_hash = crypto::get_hash(vpath);
@@ -379,7 +379,7 @@ namespace state_sync
     /**
      * Indicates whether to break out of state request processing loop.
      */
-    bool should_stop_request_loop(const hpfs::h32 current_target)
+    bool should_stop_request_loop(const util::h32 current_target)
     {
         if (ctx.is_shutting_down)
             return true;
@@ -398,7 +398,7 @@ namespace state_sync
      * @param target_pubkey The peer pubkey the request was submitted to.
      */
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                 const hpfs::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
+                                 const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
     {
         p2p::state_request sr;
         sr.parent_path = path;
@@ -417,7 +417,7 @@ namespace state_sync
     void submit_request(const backlog_item &request, std::string_view lcl)
     {
         const std::string key = std::string(request.path)
-                                    .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(hpfs::h32));
+                                    .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(util::h32));
         ctx.submitted_requests.try_emplace(key, request);
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
@@ -513,13 +513,13 @@ namespace state_sync
      * @param file_length Size of the file.
      * @returns 0 on success, otherwise -1.
      */
-    int handle_file_hashmap_response(std::string_view vpath, const hpfs::h32 *hashes, const size_t hash_count, const uint64_t file_length)
+    int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length)
     {
         // Get the file path of the block hashes we have received.
         LOG_DEBUG << "State sync: Processing file block hashes response for " << vpath;
 
         // File block hashes on our side (file might not exist on our side).
-        std::vector<hpfs::h32> existing_hashes;
+        std::vector<util::h32> existing_hashes;
         if (hpfs::get_file_block_hashes(existing_hashes, ctx.hpfs_mount_dir, vpath) == -1 && errno != ENOENT)
             return -1;
         const size_t existing_hash_count = existing_hashes.size();

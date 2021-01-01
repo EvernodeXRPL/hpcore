@@ -84,8 +84,8 @@ namespace p2p
         {
             // Npl messages and consensus proposals are forwarded only to unl nodes if relavent flags (npl and consensus) are set to private.
             // If consensus and npl flags are public, these messages are forward to all the connected nodes.
-            const bool unl_only = (!conf::cfg.is_npl_public && content_message_type == p2pmsg::Message_Npl_Message) ||
-                                  (!conf::cfg.is_consensus_public && content_message_type == p2pmsg::Message_Proposal_Message);
+            const bool unl_only = (!conf::cfg.contract.is_npl_public && content_message_type == p2pmsg::Message_Npl_Message) ||
+                                  (!conf::cfg.contract.is_consensus_public && content_message_type == p2pmsg::Message_Proposal_Message);
             if (session.need_consensus_msg_forwarding)
             {
                 // Forward messages received by weakly connected nodes to other peers.
@@ -103,7 +103,7 @@ namespace p2p
             const p2p::peer_challenge chall = p2pmsg::get_peer_challenge_from_msg(*content->message_as_Peer_Challenge_Message());
 
             // Check whether contract ids match.
-            if (chall.contract_id != conf::cfg.contractid)
+            if (chall.contract_id != conf::cfg.contract.id)
                 return -1;
 
             // Sending the challenge response to the sender.
