@@ -892,6 +892,8 @@ namespace conf
             {
                 std::cerr << "Another hpcore instance is already running in directory " << ctx.contract_dir << "\n";
             }
+            // Close fd if lock aquiring failed.
+            close(ctx.config_fd);
             return -1;
         }
 
@@ -905,6 +907,7 @@ namespace conf
     int release_config_lock()
     {
         const int res = util::release_lock(ctx.config_fd, ctx.config_lock);
+        // Close fd in termination.
         close(ctx.config_fd);
         return res;
     }
