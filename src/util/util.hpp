@@ -29,9 +29,6 @@ namespace util
     // (Keeping this as int for effcient msg payload and comparison)
     constexpr uint8_t MIN_NPL_INPUT_VERSION = 1;
 
-    // File permissions for lock file.
-    constexpr int FILE_PERMS = 0644;
-
     /**
      * The messaging protocol used in a web socket channel.
      */
@@ -81,9 +78,9 @@ namespace util
 
     int stoull(const std::string &str, uint64_t &result);
 
-    int lock_contract_dir();
+    int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len);
 
-    int unlock_contract_dir();
+    int release_lock(const int fd, struct flock &lock);
 } // namespace util
 
 #endif

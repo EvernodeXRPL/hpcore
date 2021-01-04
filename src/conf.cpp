@@ -874,4 +874,37 @@ namespace conf
         }
         return 0;
     }
+
+    /**
+     * Locks the config file. If already locked means there's another hpcore instance running in the same directory.
+     * @return Returns 0 if lock is successfully aquired, -1 on error.
+    */
+    int set_config_lock()
+    {
+        ctx.config_fd = open(ctx.config_file.data(), O_RDWR, 444);
+        if (ctx.config_fd == -1)
+            return -1;
+
+        if (util::set_lock(ctx.config_fd, ctx.config_lock, true, 0, 0) == -1)
+        {
+            if (errno == EACCES || errno == EAGAIN)
+            {
+                std::cerr << "Another hpcore instance is already running in directory " << ctx.contract_dir << "\n";
+            }
+            return -1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Releses the config file and closes the opened file descriptor.
+     * @return Returns 0 if lock is successfully aquired, -1 on error.
+    */
+    int release_config_lock()
+    {
+        const int res = util::release_lock(ctx.config_fd, ctx.config_lock);
+        close(ctx.config_fd);
+        return res;
+    }
 } // namespace conf
