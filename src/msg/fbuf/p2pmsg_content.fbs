@@ -64,7 +64,8 @@ table Proposal_Message { //Proposal type message schema
     input_hashes:[ByteArray];
     output_hash:[ubyte];
     output_sig:[ubyte];
-    state: [ubyte];
+    state_hash: [ubyte];
+    patch_hash: [ubyte];
     unl_hash: [ubyte]; // Hash of the current unl list.
     unl_changeset: Unl_Changeset;
 }

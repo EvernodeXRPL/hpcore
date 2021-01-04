@@ -89,7 +89,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            chdir((ctx.args.hpfs_dir + "/state").c_str());
+            chdir((ctx.args.hpfs_dir.append("/").append(STATE_DIR_NAME)).c_str());
 
             execv(execv_args[0], execv_args);
             std::cerr << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
@@ -176,7 +176,8 @@ namespace sc
     {
         int result = 0;
         // Read the root hash if not in readonly mode.
-        if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_dir, "/") < 1)
+        const std::string state_dir = std::string("/").append(STATE_DIR_NAME);
+        if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_dir, state_dir) < 1)
             result = -1;
 
         LOG_DEBUG << "Stopping hpfs contract session..." << (ctx.args.readonly ? " (rdonly)" : "");

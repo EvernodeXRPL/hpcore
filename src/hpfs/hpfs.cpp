@@ -3,6 +3,7 @@
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
+#include "../sc.hpp"
 
 namespace hpfs
 {
@@ -31,17 +32,24 @@ namespace hpfs
             return -1;
         }
 
-        util::h32 initial_state;
+        util::h32 initial_state_hash;
+        util::h32 initial_patch_hash;
+        const std::string patch_file_path = std::string("/").append(conf::PATCH_FILE_NAME);
+        const std::string state_dir = std::string("/").append(sc::STATE_DIR_NAME);
+
         if (start_fs_session(conf::ctx.hpfs_rw_dir) == -1 ||
-            get_hash(initial_state, conf::ctx.hpfs_rw_dir, "/") == -1 ||
+            get_hash(initial_state_hash, conf::ctx.hpfs_rw_dir, state_dir) == -1 ||
+            get_hash(initial_patch_hash, conf::ctx.hpfs_rw_dir, patch_file_path) == -1 ||
             stop_fs_session(conf::ctx.hpfs_rw_dir) == -1)
         {
             LOG_ERROR << "Failed to get initial state hash.";
             return -1;
         }
 
-        ctx.set_state(initial_state);
-        LOG_INFO << "Initial state: " << initial_state;
+        ctx.set_hash(HPFS_PARENT_COMPONENTS::STATE, initial_state_hash);
+        ctx.set_hash(HPFS_PARENT_COMPONENTS::PATCH, initial_patch_hash);
+        LOG_INFO << "Initial state hash: " << initial_state_hash;
+        LOG_INFO << "Initial patch hash: " << initial_patch_hash;
         init_success = true;
         return 0;
     }
@@ -322,7 +330,7 @@ namespace hpfs
      */
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath)
     {
-        const std::string path = std::string(mount_dir).append(dir_vpath).append("::hpfs.hmap.children");
+        const std::string path = std::string(mount_dir).append(dir_vpath).append(HPFS_HMAP_CHILDREN);
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {

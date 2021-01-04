@@ -169,6 +169,8 @@ namespace conf
     // Other modeuls will access config values via this.
     extern contract_config cfg;
 
+    const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
+
     int init();
 
     int rekey();

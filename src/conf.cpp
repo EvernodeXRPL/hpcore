@@ -3,6 +3,7 @@
 #include "crypto.hpp"
 #include "hpfs/hpfs.hpp"
 #include "util/util.hpp"
+#include "sc.hpp"
 
 namespace conf
 {
@@ -21,8 +22,6 @@ namespace conf
 
     const static char *PUBLIC = "public";
     const static char *PRIVATE = "private";
-
-    const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
 
     /**
      * Loads and initializes the contract config for execution. Must be called once during application startup.
@@ -91,7 +90,7 @@ namespace conf
 
         // Creating hpfs seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
         util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed");
-        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed/state");
+        util::create_dir_tree_recursive(ctx.hpfs_dir + std::string("/seed/").append(sc::STATE_DIR_NAME));
 
         //Create config file with default settings.
 

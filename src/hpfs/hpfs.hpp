@@ -26,25 +26,41 @@ namespace hpfs
         return conf::cfg.contract.roundtime;
     }
 
+    enum HPFS_PARENT_COMPONENTS
+    {
+        STATE,
+        PATCH
+    };
+
     struct hpfs_context
     {
     private:
-        util::h32 state;
-        std::shared_mutex state_mutex;
+        std::vector<util::h32> parent_hashes;                                             // Keep hashes of each hpfs parent.
+        std::shared_mutex parent_mutexes[2] = {std::shared_mutex(), std::shared_mutex()}; // Mutexes for each parent.
 
     public:
         pid_t hpfs_merge_pid = 0;
         pid_t hpfs_rw_pid = 0;
-        util::h32 get_state()
+
+        hpfs_context()
         {
-            std::shared_lock lock(state_mutex);
-            return state;
+            parent_hashes.reserve(2);
+            for (size_t i = 0; i < 2; i++)
+            {
+                parent_hashes.push_back(util::h32_empty);
+            }
         }
 
-        void set_state(util::h32 new_state)
+        util::h32 get_hash(const HPFS_PARENT_COMPONENTS parent)
         {
-            std::unique_lock lock(state_mutex);
-            state = new_state;
+            std::shared_lock lock(parent_mutexes[parent]);
+            return parent_hashes[parent];
+        }
+
+        void set_hash(const HPFS_PARENT_COMPONENTS parent, util::h32 new_state)
+        {
+            std::unique_lock lock(parent_mutexes[parent]);
+            parent_hashes[parent] = new_state;
         }
     };
 

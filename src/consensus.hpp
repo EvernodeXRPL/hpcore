@@ -95,7 +95,8 @@ namespace consensus
         std::map<std::string, uint32_t> users;
         std::map<std::string, uint32_t> inputs;
         std::map<std::string, uint32_t> output_hash;
-        std::map<util::h32, uint32_t> state;
+        std::map<util::h32, uint32_t> state_hash;
+        std::map<util::h32, uint32_t> patch_hash;
         std::map<std::string, uint32_t> unl;
         std::map<std::string, uint32_t> unl_additions;
         std::map<std::string, uint32_t> unl_removals;
@@ -125,15 +126,15 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state, std::string_view unl_hash);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, std::string_view unl_hash);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state, std::string_view unl_hash);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, std::string_view unl_hash);
 
     void broadcast_proposal(const p2p::proposal &p);
 
     bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count);
 
-    void check_state_votes(bool &is_desync, util::h32 &majority_state, vote_counter &votes);
+    void check_hpfs_votes(bool &is_desync, util::h32 &majority_state_hash, util::h32 &majority_patch_hash, vote_counter &votes);
 
     void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes, std::string_view unl_hash);
 
@@ -143,7 +144,7 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int update_ledger_and_execute_contract(const p2p::proposal &proposal, std::string &new_lcl, util::h32 &new_state);
+    int update_ledger_and_execute_contract(const p2p::proposal &proposal, std::string &new_lcl, util::h32 &new_state_hash);
 
     int dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 

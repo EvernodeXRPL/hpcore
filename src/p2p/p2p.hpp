@@ -47,13 +47,14 @@ namespace p2p
         std::string pubkey;
 
         uint64_t sent_timestamp = 0; // The timestamp of the sender when this proposal was sent.
-        uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for statsitics)
+        uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for statistics)
         uint64_t time = 0;           // The time value that is voted on.
         uint8_t stage = 0;
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
-        std::string unl_hash; // Hash of the current unl list.
-        util::h32 state;
+        std::string unl_hash;   // Hash of the current unl list.
+        util::h32 state_hash;   // Contract state hash.
+        util::h32 patch_hash;   // Patch file hash.
         std::set<std::string> users;
         std::set<std::string> input_hashes;
         std::string output_hash;

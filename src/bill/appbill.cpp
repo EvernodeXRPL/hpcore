@@ -25,8 +25,8 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-#define TABLE_FILE "appbill.table"
-#define TABLE_FILE_2 "./state/appbill.table" // if TABLE_FILE can't be found try here
+#define TABLE_FILE "./state/appbill.table"
+#define TABLE_FILE_2 "appbill.table" // if TABLE_FILE can't be found try here
 
 uint64_t new_balance(uint64_t balance, int64_t to_credit) {
     if (to_credit < 0 && -to_credit > balance) {

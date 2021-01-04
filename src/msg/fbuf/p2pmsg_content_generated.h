@@ -916,9 +916,10 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_INPUT_HASHES = 12,
     VT_OUTPUT_HASH = 14,
     VT_OUTPUT_SIG = 16,
-    VT_STATE = 18,
-    VT_UNL_HASH = 20,
-    VT_UNL_CHANGESET = 22
+    VT_STATE_HASH = 18,
+    VT_PATCH_HASH = 20,
+    VT_UNL_HASH = 22,
+    VT_UNL_CHANGESET = 24
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -962,11 +963,17 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_output_sig() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_OUTPUT_SIG);
   }
-  const flatbuffers::Vector<uint8_t> *state() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE);
+  const flatbuffers::Vector<uint8_t> *state_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE_HASH);
   }
-  flatbuffers::Vector<uint8_t> *mutable_state() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE);
+  flatbuffers::Vector<uint8_t> *mutable_state_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE_HASH);
+  }
+  const flatbuffers::Vector<uint8_t> *patch_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_patch_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
   }
   const flatbuffers::Vector<uint8_t> *unl_hash() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_UNL_HASH);
@@ -996,8 +1003,10 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(output_hash()) &&
            VerifyOffset(verifier, VT_OUTPUT_SIG) &&
            verifier.VerifyVector(output_sig()) &&
-           VerifyOffset(verifier, VT_STATE) &&
-           verifier.VerifyVector(state()) &&
+           VerifyOffset(verifier, VT_STATE_HASH) &&
+           verifier.VerifyVector(state_hash()) &&
+           VerifyOffset(verifier, VT_PATCH_HASH) &&
+           verifier.VerifyVector(patch_hash()) &&
            VerifyOffset(verifier, VT_UNL_HASH) &&
            verifier.VerifyVector(unl_hash()) &&
            VerifyOffset(verifier, VT_UNL_CHANGESET) &&
@@ -1031,8 +1040,11 @@ struct Proposal_MessageBuilder {
   void add_output_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_sig) {
     fbb_.AddOffset(Proposal_Message::VT_OUTPUT_SIG, output_sig);
   }
-  void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
-    fbb_.AddOffset(Proposal_Message::VT_STATE, state);
+  void add_state_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash) {
+    fbb_.AddOffset(Proposal_Message::VT_STATE_HASH, state_hash);
+  }
+  void add_patch_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash) {
+    fbb_.AddOffset(Proposal_Message::VT_PATCH_HASH, patch_hash);
   }
   void add_unl_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl_hash) {
     fbb_.AddOffset(Proposal_Message::VT_UNL_HASH, unl_hash);
@@ -1060,14 +1072,16 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> input_hashes = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_sig = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl_hash = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::Unl_Changeset> unl_changeset = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
   builder_.add_unl_changeset(unl_changeset);
   builder_.add_unl_hash(unl_hash);
-  builder_.add_state(state);
+  builder_.add_patch_hash(patch_hash);
+  builder_.add_state_hash(state_hash);
   builder_.add_output_sig(output_sig);
   builder_.add_output_hash(output_hash);
   builder_.add_input_hashes(input_hashes);
@@ -1086,7 +1100,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *input_hashes = nullptr,
     const std::vector<uint8_t> *output_hash = nullptr,
     const std::vector<uint8_t> *output_sig = nullptr,
-    const std::vector<uint8_t> *state = nullptr,
+    const std::vector<uint8_t> *state_hash = nullptr,
+    const std::vector<uint8_t> *patch_hash = nullptr,
     const std::vector<uint8_t> *unl_hash = nullptr,
     flatbuffers::Offset<msg::fbuf::p2pmsg::Unl_Changeset> unl_changeset = 0) {
   auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
@@ -1094,7 +1109,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
   auto input_hashes__ = input_hashes ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*input_hashes) : 0;
   auto output_hash__ = output_hash ? _fbb.CreateVector<uint8_t>(*output_hash) : 0;
   auto output_sig__ = output_sig ? _fbb.CreateVector<uint8_t>(*output_sig) : 0;
-  auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
+  auto state_hash__ = state_hash ? _fbb.CreateVector<uint8_t>(*state_hash) : 0;
+  auto patch_hash__ = patch_hash ? _fbb.CreateVector<uint8_t>(*patch_hash) : 0;
   auto unl_hash__ = unl_hash ? _fbb.CreateVector<uint8_t>(*unl_hash) : 0;
   return msg::fbuf::p2pmsg::CreateProposal_Message(
       _fbb,
@@ -1105,7 +1121,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       input_hashes__,
       output_hash__,
       output_sig__,
-      state__,
+      state_hash__,
+      patch_hash__,
       unl_hash__,
       unl_changeset);
 }

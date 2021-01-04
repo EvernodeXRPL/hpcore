@@ -232,7 +232,8 @@ namespace msg::fbuf::p2pmsg
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
         p.unl_hash = flatbuff_bytes_to_sv(msg.unl_hash());
-        p.state = flatbuff_bytes_to_sv(msg.state());
+        p.state_hash = flatbuff_bytes_to_sv(msg.state_hash());
+        p.patch_hash = flatbuff_bytes_to_sv(msg.patch_hash());
 
         const auto unl_changeset = msg.unl_changeset();
         p.unl_changeset.additions = flatbuf_bytearrayvector_to_stringlist(unl_changeset->additions());
@@ -392,7 +393,8 @@ namespace msg::fbuf::p2pmsg
                 stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
                 sv_to_flatbuff_bytes(builder, p.output_hash),
                 sv_to_flatbuff_bytes(builder, p.output_sig),
-                hash_to_flatbuff_bytes(builder, p.state),
+                hash_to_flatbuff_bytes(builder, p.state_hash),
+                hash_to_flatbuff_bytes(builder, p.patch_hash),
                 sv_to_flatbuff_bytes(builder, p.unl_hash),
                 unl_changeset);
 

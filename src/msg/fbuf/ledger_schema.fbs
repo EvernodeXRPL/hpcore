@@ -7,7 +7,8 @@ table LedgerBlock {
     seq_no:uint64;
     time:uint64;
     lcl:[ubyte];
-    state:[ubyte];
+    state_hash:[ubyte];
+    patch_hash:[ubyte];
     unl:[ubyte];
     users: [ByteArray];
     inputs: [ByteArray]; 

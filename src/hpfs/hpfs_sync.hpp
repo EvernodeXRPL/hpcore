@@ -32,11 +32,15 @@ namespace hpfs_sync
 
     struct sync_context
     {
-        // The current target state we are syncing towards.
-        util::h32 target_state;
+        // The current target hashes we are syncing towards.
+        util::h32 target_state_hash;
+        util::h32 target_patch_hash;
+        util::h32 current_parent_target_hash;
 
-        // List of sender pubkeys and state responses(flatbuffer messages) to be processed.
-        std::list<std::pair<std::string, std::string>> candidate_state_responses;
+        hpfs::HPFS_PARENT_COMPONENTS current_syncing_parent;
+
+        // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
+        std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
 
         // List of pending sync requests to be sent out.
         std::list<backlog_item> pending_requests;
@@ -53,13 +57,11 @@ namespace hpfs_sync
 
     extern sync_context ctx;
 
-    extern std::list<std::string> candidate_state_responses;
-
     int init();
 
     void deinit();
 
-    void set_target(const util::h32 target_state);
+    void set_target(const util::h32 target_state_hash, const util::h32 target_patch_hash);
 
     void hpfs_syncer_loop();
 
