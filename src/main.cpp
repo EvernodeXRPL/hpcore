@@ -79,7 +79,7 @@ void deinit()
     sc::deinit();
     unl::deinit();
     ledger::deinit();
-    // Releases the config file lock  at the termination.
+    // Releases the config file lock at the termination.
     conf::release_config_lock();
 }
 
@@ -197,8 +197,7 @@ int main(int argc, char **argv)
 
                 hplog::init();
 
-                // Checking whether another hotpocket instance is running in the same directory. If so, terminate this instance,
-                // Otherwise lock the config.
+                // Locking the config file at the startup.
                 if (conf::set_config_lock() == -1)
                     return -1;
 

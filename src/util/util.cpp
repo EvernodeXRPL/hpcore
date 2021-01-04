@@ -377,7 +377,7 @@ namespace util
      * Releases the lock on file descriptor.
      * @param fd File descriptor to be released.
      * @param lock File lock.
-     * @return Returns 0 if lock is successfully aquired, -1 on error.
+     * @return Returns 0 if lock is successfully released, -1 on error.
     */
     int release_lock(const int fd, struct flock &lock)
     {

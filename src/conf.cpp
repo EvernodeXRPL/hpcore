@@ -877,6 +877,7 @@ namespace conf
 
     /**
      * Locks the config file. If already locked means there's another hpcore instance running in the same directory.
+     * If so, log error and return, Otherwise lock the config.
      * @return Returns 0 if lock is successfully aquired, -1 on error.
     */
     int set_config_lock()
