@@ -114,7 +114,7 @@ namespace conf
 
         // Creating hpfs seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
         util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed");
-        util::create_dir_tree_recursive(ctx.hpfs_dir + std::string("/seed/").append(sc::STATE_DIR_NAME));
+        util::create_dir_tree_recursive(ctx.hpfs_dir + std::string("/seed").append(sc::STATE_DIR_PATH));
 
         //Create config file with default settings.
 
@@ -793,7 +793,7 @@ namespace conf
     */
     int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir)
     {
-        const std::string path = std::string(mount_dir).append("/").append(PATCH_FILE_NAME);
+        const std::string path = std::string(mount_dir).append(PATCH_FILE_PATH);
         if (util::is_file_exists(path))
         {
             std::ifstream ifs(path);
@@ -887,8 +887,10 @@ namespace conf
                 if (!contract_config.appbill.bin_args.empty())
                     util::split_string(contract_config.appbill.runtime_args, contract_config.appbill.bin_args, " ");
                 contract_config.appbill.runtime_args.insert(contract_config.appbill.runtime_args.begin(), (contract_config.appbill.mode[0] == '/' ? contract_config.appbill.mode : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.appbill.mode)));
-
-                std::cout << "Contract config updated from " << PATCH_FILE_NAME << " file\n";
+                
+                // Removing '/' from patch file path.
+                const std::string patch_file_name(PATCH_FILE_PATH);
+                std::cout << "Contract config updated from " << patch_file_name.substr(1) << " file\n";
             }
             catch (const std::exception &e)
             {

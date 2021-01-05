@@ -34,12 +34,10 @@ namespace hpfs
 
         util::h32 initial_state_hash;
         util::h32 initial_patch_hash;
-        const std::string patch_file_path = std::string("/").append(conf::PATCH_FILE_NAME);
-        const std::string state_dir = std::string("/").append(sc::STATE_DIR_NAME);
 
         if (start_fs_session(conf::ctx.hpfs_rw_dir) == -1 ||
-            get_hash(initial_state_hash, conf::ctx.hpfs_rw_dir, state_dir) == -1 ||
-            get_hash(initial_patch_hash, conf::ctx.hpfs_rw_dir, patch_file_path) == -1 ||
+            get_hash(initial_state_hash, conf::ctx.hpfs_rw_dir, sc::STATE_DIR_PATH) == -1 ||
+            get_hash(initial_patch_hash, conf::ctx.hpfs_rw_dir, conf::PATCH_FILE_PATH) == -1 ||
             stop_fs_session(conf::ctx.hpfs_rw_dir) == -1)
         {
             LOG_ERROR << "Failed to get initial state hash.";

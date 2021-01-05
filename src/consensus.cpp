@@ -167,7 +167,7 @@ namespace consensus
 
     /**
      * Checks whether we are in sync with the received votes.
-     * @return 0 if we are in sync. -1 on lcl or state desync. -2 if majority lcl unreliable.
+     * @return 0 if we are in sync. -1 on lcl, hpfs or unl desync. -2 if majority lcl unreliable.
      */
     int check_sync_status(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes)
     {
@@ -187,12 +187,14 @@ namespace consensus
 
             // Check our state with majority state.
             bool is_state_desync = false;
+            bool is_patch_desync = false;
             util::h32 majority_state_hash = util::h32_empty;
             util::h32 majority_patch_hash = util::h32_empty;
-            check_hpfs_votes(is_state_desync, majority_state_hash, majority_patch_hash, votes);
+            check_patch_votes(is_patch_desync, majority_patch_hash, votes);
+            check_state_votes(is_state_desync, majority_state_hash, votes);
 
-            // Start state sync if we are out-of-sync with majority state.
-            if (is_state_desync)
+            // Start hpfs sync if we are out-of-sync with majority hpfs state.
+            if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
                 hpfs_sync::set_target(majority_state_hash, majority_patch_hash);
@@ -210,13 +212,13 @@ namespace consensus
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
-            if (!is_lcl_desync && !is_state_desync && !is_unl_desync)
+            if (!is_lcl_desync && !is_state_desync && !is_patch_desync && !is_unl_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
-            // lcl or state desync.
+            // lcl, hpfs or unl desync.
             return -1;
         }
 
@@ -767,15 +769,16 @@ namespace consensus
     }
 
     /**
-     * Check state against the winning and canonical state
+     * Check state hash against the winning and canonical state hash.
+     * @param is_state_desync Flag to determine whether contract state is out of sync.
+     * @param majority_state_hash Consensused state hash.
      * @param votes The voting table.
      */
-    void check_hpfs_votes(bool &is_desync, util::h32 &majority_state_hash, util::h32 &majority_patch_hash, vote_counter &votes)
+    void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes)
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
             increment(votes.state_hash, cp.state_hash);
-            increment(votes.patch_hash, cp.patch_hash);
         }
 
         uint32_t winning_votes = 0;
@@ -787,7 +790,24 @@ namespace consensus
                 majority_state_hash = state_hash;
             }
         }
-        winning_votes = 0;
+
+        is_state_desync = (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE) != majority_state_hash);
+    }
+
+    /**
+     * Check state hash against the winning and canonical state hash.
+     * @param is_patch_desync Flag to determine whether patch file is out of sync.
+     * @param majority_patch_hash Consensused patch hash.
+     * @param votes The voting table.
+     */
+    void check_patch_votes(bool &is_patch_desync, util::h32 &majority_patch_hash, vote_counter &votes)
+    {
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            increment(votes.patch_hash, cp.patch_hash);
+        }
+
+        uint32_t winning_votes = 0;
         for (const auto [patch_hash, votes] : votes.patch_hash)
         {
             if (votes > winning_votes)
@@ -797,7 +817,7 @@ namespace consensus
             }
         }
 
-        is_desync = (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE) != majority_state_hash) || (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH) != majority_patch_hash);
+        is_patch_desync = (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH) != majority_patch_hash);
     }
 
     /**
@@ -863,7 +883,7 @@ namespace consensus
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state hash:" << cons_prop.state_hash << " patch hash:" << cons_prop.patch_hash  << ")";
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state hash:" << cons_prop.state_hash << " patch hash:" << cons_prop.patch_hash << ")";
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {

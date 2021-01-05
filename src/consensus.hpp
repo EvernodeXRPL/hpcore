@@ -134,7 +134,9 @@ namespace consensus
 
     bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count);
 
-    void check_hpfs_votes(bool &is_desync, util::h32 &majority_state_hash, util::h32 &majority_patch_hash, vote_counter &votes);
+    void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes);
+    
+    void check_patch_votes(bool &is_patch_desync, util::h32 &majority_patch_hash, vote_counter &votes);
 
     void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes, std::string_view unl_hash);
 

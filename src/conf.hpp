@@ -139,8 +139,8 @@ namespace conf
         std::string contract_dir;   // Contract base directory full path
         std::string full_hist_dir;  // Contract full history dir full path
         std::string hist_dir;       // Contract ledger history dir full path
-        std::string hpfs_dir;       // Virtual file system path (hpfs path)
-        std::string hpfs_rw_dir;    // Contract executation read/write hpfs path.
+        std::string hpfs_dir;       // Hpfs file system mount path (hpfs path)
+        std::string hpfs_rw_dir;    // Hpfs read/write mount path.
         std::string hpfs_serve_dir; // Hpfs server hpfs mount path.
         std::string log_dir;        // Contract log dir full path
         std::string config_dir;     // Contract config dir full path
@@ -172,7 +172,7 @@ namespace conf
     // Other modeuls will access config values via this.
     extern contract_config cfg;
 
-    const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
+    const static char *PATCH_FILE_PATH = "/patch.cfg"; // Config patch filename.
 
     int init();
 

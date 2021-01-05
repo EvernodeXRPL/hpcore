@@ -15,7 +15,7 @@ namespace sc
 {
     constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 64;     // Maximum npl message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
     constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 64; // Maximum out message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
-    constexpr const char *STATE_DIR_NAME = "state";        // State directory name.
+    constexpr const char *STATE_DIR_PATH = "/state";    // State directory name.
 
     struct fd_pair
     {

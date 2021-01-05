@@ -176,12 +176,12 @@ namespace hpfs_sync
         BACKLOG_ITEM_TYPE target_parent_backlog_item_type;
         if (ctx.current_syncing_parent == hpfs::HPFS_PARENT_COMPONENTS::STATE)
         {
-            target_parent_vpath = std::string("/").append(sc::STATE_DIR_NAME);
+            target_parent_vpath = sc::STATE_DIR_PATH;
             target_parent_backlog_item_type = BACKLOG_ITEM_TYPE::DIR;
         }
         else if (ctx.current_syncing_parent == hpfs::HPFS_PARENT_COMPONENTS::PATCH)
         {
-            target_parent_vpath = std::string("/").append(conf::PATCH_FILE_NAME);
+            target_parent_vpath = conf::PATCH_FILE_PATH;
             target_parent_backlog_item_type = BACKLOG_ITEM_TYPE::FILE;
         }
         std::string lcl = ledger::ctx.get_lcl();
