@@ -8,6 +8,7 @@
 #include "../ledger.hpp"
 #include "../hplog.hpp"
 #include "hpfs_serve.hpp"
+#include "hpfs_sync.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -63,6 +64,10 @@ namespace hpfs_serve
 
         while (!is_shutting_down)
         {
+            // We don't serve hpfs sync requests if this node is in hpfs syncing process.
+            if (hpfs_sync::ctx.is_syncing)
+                continue;
+
             // Wait a small delay if there were no requests processed during previous iteration.
             if (!prev_requests_processed)
                 util::sleep(LOOP_WAIT);

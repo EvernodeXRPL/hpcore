@@ -189,18 +189,21 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_Hpfs_Request_Message)
         {
-            // Check the cap and insert request with lock.
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_requests_mutex);
+            if (!hpfs_sync::ctx.is_syncing)
+            {
+                // Check the cap and insert request with lock.
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_requests_mutex);
 
-            // If max number of state requests reached skip the rest.
-            if (ctx.collected_msgs.hpfs_requests.size() < p2p::STATE_REQ_LIST_CAP)
-            {
-                std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.hpfs_requests.push_back(std::make_pair(session.pubkey, std::move(state_request_msg)));
-            }
-            else
-            {
-                LOG_DEBUG << "State request rejected. Maximum state request count reached. " << session.display_name();
+                // If max number of state requests reached skip the rest.
+                if (ctx.collected_msgs.hpfs_requests.size() < p2p::STATE_REQ_LIST_CAP)
+                {
+                    std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
+                    ctx.collected_msgs.hpfs_requests.push_back(std::make_pair(session.pubkey, std::move(state_request_msg)));
+                }
+                else
+                {
+                    LOG_DEBUG << "State request rejected. Maximum state request count reached. " << session.display_name();
+                }
             }
         }
         else if (content_message_type == p2pmsg::Message_Hpfs_Response_Message)
