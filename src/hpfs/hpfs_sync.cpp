@@ -57,15 +57,15 @@ namespace hpfs_sync
     }
 
     /**
-     * Sets a new target state for the syncing process.
-     * @param target_state The target state which we should sync towards.
-     * @param completion_callback The callback function to call upon state sync completion.
+     * Sets a new target states for the syncing process.
+     * @param target_state_hash The target hpfs state which we should sync towards.
+     * @param target_patch_hash The target hpfs patch state which we should sync towards.
      */
     void set_target(const util::h32 target_state_hash, const util::h32 target_patch_hash)
     {
         std::unique_lock lock(ctx.target_state_mutex);
 
-        // Do not do anything if we are already syncing towards the specified target state.
+        // Do not do anything if we are already syncing towards the specified target states.
         if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_state_hash == target_state_hash && ctx.target_patch_hash == target_patch_hash))
             return;
 
@@ -85,7 +85,7 @@ namespace hpfs_sync
     }
 
     /**
-     * Runs the state sync worker loop.
+     * Runs the hpfs sync worker loop.
      */
     void hpfs_syncer_loop()
     {
@@ -189,10 +189,10 @@ namespace hpfs_sync
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
 
-        // No. of repetitive resubmissions so far. (This is reset whenever we receive a state response)
+        // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
         uint16_t resubmissions_count = 0;
 
-        // Send the initial root state request.
+        // Send the initial root hpfs request.
         submit_request(backlog_item{target_parent_backlog_item_type, target_parent_vpath, -1, current_target}, lcl);
 
         while (!should_stop_request_loop(current_target))
@@ -207,7 +207,7 @@ namespace hpfs_sync
             {
                 std::scoped_lock lock(p2p::ctx.collected_msgs.hpfs_responses_mutex);
 
-                // Move collected state responses over to local candidate responses list.
+                // Move collected hpfs responses over to local candidate responses list.
                 if (!p2p::ctx.collected_msgs.hpfs_responses.empty())
                     ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.hpfs_responses);
             }
@@ -306,7 +306,7 @@ namespace hpfs_sync
                     return -1;
                 }
 
-                // Update the central state tracker.
+                // Update the central hpfs state tracker.
                 hpfs::ctx.set_hash(ctx.current_syncing_parent, updated_state);
 
                 LOG_DEBUG << "hpfs sync: current:" << updated_state << " | target:" << current_target;
@@ -428,7 +428,7 @@ namespace hpfs_sync
     }
 
     /**
-     * Indicates whether to break out of state request processing loop.
+     * Indicates whether to break out of hpfs request processing loop.
      */
     bool should_stop_request_loop(const util::h32 current_target)
     {
@@ -441,7 +441,7 @@ namespace hpfs_sync
     }
 
     /**
-     * Sends a state request to a random peer.
+     * Sends a hpfs request to a random peer.
      * @param path Requested file or dir path.
      * @param is_file Whether the requested path if a file or dir.
      * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
@@ -451,19 +451,19 @@ namespace hpfs_sync
     void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                  const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
     {
-        p2p::hpfs_request sr;
-        sr.parent_path = path;
-        sr.is_file = is_file;
-        sr.block_id = block_id;
-        sr.expected_hash = expected_hash;
+        p2p::hpfs_request hr;
+        hr.parent_path = path;
+        hr.is_file = is_file;
+        hr.block_id = block_id;
+        hr.expected_hash = expected_hash;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, sr, lcl);
-        p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority state to improve reliability of retrieving state.
+        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, hr, lcl);
+        p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority hpfs state to improve reliability of retrieving hpfs state.
     }
 
     /**
-     * Submits a pending state request to the peer.
+     * Submits a pending hpfs request to the peer.
      */
     void submit_request(const backlog_item &request, std::string_view lcl)
     {
@@ -513,10 +513,10 @@ namespace hpfs_sync
             const auto peer_itr = fs_entry_map.find(ex_entry.name);
             if (peer_itr != fs_entry_map.end())
             {
-                // Request state if hash is different.
+                // Request hpfs state if hash is different.
                 if (peer_itr->second.hash != ex_entry.hash)
                 {
-                    // Prioritize file state requests over directories.
+                    // Prioritize file hpfs requests over directories.
                     if (ex_entry.is_file)
                         ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, peer_itr->second.hash});
                     else
@@ -546,7 +546,7 @@ namespace hpfs_sync
                                           .append(vpath.back() != '/' ? "/" : "")
                                           .append(name);
 
-            // Prioritize file state requests over directories.
+            // Prioritize file hpfs requests over directories.
             if (fs_entry.is_file)
                 ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, fs_entry.hash});
             else
