@@ -65,9 +65,9 @@ namespace conf
         std::string public_key;     // Contract public key bytes
         std::string private_key;    // Contract private key bytes
         ROLE role = ROLE::OBSERVER; // Configured startup role of the contract (Observer/validator).
-        bool is_unl = false;         // Indicate whether we are a unl node or not.
+        bool is_unl = false;        // Indicate whether we are a unl node or not.
 
-        std::string public_key_hex;     // Contract hex public key
+        std::string public_key_hex;  // Contract hex public key
         std::string private_key_hex; // Contract hex private key
         bool full_history = false;   // Whether full history mode is on/off.
     };
@@ -147,6 +147,9 @@ namespace conf
         std::string config_file;     // Full path to the contract config file
         std::string tls_key_file;    // Full path to the tls private key file
         std::string tls_cert_file;   // Full path to the tls certificate
+
+        int config_fd;            // Config file file descriptor
+        struct flock config_lock; // Config file record log
     };
 
     // Holds all the contract config values.
@@ -170,6 +173,8 @@ namespace conf
     extern contract_config cfg;
 
     int init();
+
+    void deinit();
 
     int rekey();
 
@@ -198,6 +203,10 @@ namespace conf
     int apply_patch_changes(contract_params &contract_config);
 
     int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir);
+
+    int set_config_lock();
+
+    int release_config_lock();
 } // namespace conf
 
 #endif

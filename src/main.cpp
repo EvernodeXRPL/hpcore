@@ -79,6 +79,7 @@ void deinit()
     sc::deinit();
     unl::deinit();
     ledger::deinit();
+    conf::deinit();
 }
 
 void sig_exit_handler(int signum)

@@ -355,4 +355,33 @@ namespace util
         return 0;
     }
 
+    /**
+     * Create a record lock for the file descriptor. Lock is associated with the process (Not for forked child processes).
+     * @param fd File descriptor to be locked.
+     * @param lock File lock.
+     * @param is_rwlock Whether the record lock is a write lock.
+     * @param start Starting offset for the lock.
+     * @param len Number of bytes to lock.
+     * @return Returns 0 if lock is successfully aquired, -1 on error.
+    */
+    int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len)
+    {
+        lock.l_type = is_rwlock ? F_WRLCK : F_RDLCK;
+        lock.l_whence = SEEK_SET;
+        lock.l_start = start,
+        lock.l_len = len;
+        return fcntl(fd, F_SETLK, &lock);
+    }
+
+    /**
+     * Releases the lock on file descriptor.
+     * @param fd File descriptor to be released.
+     * @param lock File lock.
+     * @return Returns 0 if lock is successfully released, -1 on error.
+    */
+    int release_lock(const int fd, struct flock &lock)
+    {
+        lock.l_type = F_UNLCK;
+        return fcntl(fd, F_SETLKW, &lock);
+    }
 } // namespace util

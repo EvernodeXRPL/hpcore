@@ -24,6 +24,8 @@ namespace conf
 
     const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
 
+    bool init_success = false;
+
     /**
      * Loads and initializes the contract config for execution. Must be called once during application startup.
      * @return 0 for success. -1 for failure.
@@ -35,16 +37,31 @@ namespace conf
         // 2. Read and load the contract config into memory
         // 3. Update contract config if patch file exists.
         // 4. Validate the loaded config values
+        // 5. Locking the config file at the startup.
 
         if (validate_contract_dir_paths() == -1 ||
             read_config(cfg) == -1 ||
             apply_patch_changes(cfg.contract) == -1 ||
-            validate_config(cfg) == -1)
+            validate_config(cfg) == -1 ||
+            set_config_lock() == -1)
         {
             return -1;
         }
 
+        init_success = true;
         return 0;
+    }
+
+    /**
+     * Cleanup any resources.
+     */
+    void deinit()
+    {
+        if (init_success)
+        {
+            // Releases the config file lock at the termination.
+            release_config_lock();
+        }
     }
 
     /**
@@ -52,6 +69,10 @@ namespace conf
      */
     int rekey()
     {
+        // Locking the config file at the startup. To check whether there's any already running hp instances.
+        if (set_config_lock() == -1)
+            return -1;
+
         // Load the contract config and re-save with the newly generated keys.
         contract_config cfg = {};
         if (read_config(cfg) != 0)
@@ -65,6 +86,9 @@ namespace conf
             return -1;
 
         std::cout << "New signing keys generated at " << ctx.config_file << std::endl;
+
+        // Releases the config file lock at the termination.
+        release_config_lock();
 
         return 0;
     }
@@ -873,5 +897,42 @@ namespace conf
             }
         }
         return 0;
+    }
+
+    /**
+     * Locks the config file. If already locked means there's another hpcore instance running in the same directory.
+     * If so, log error and return, Otherwise lock the config.
+     * @return Returns 0 if lock is successfully aquired, -1 on error.
+    */
+    int set_config_lock()
+    {
+        ctx.config_fd = open(ctx.config_file.data(), O_RDWR, 444);
+        if (ctx.config_fd == -1)
+            return -1;
+
+        if (util::set_lock(ctx.config_fd, ctx.config_lock, true, 0, 0) == -1)
+        {
+            if (errno == EACCES || errno == EAGAIN)
+            {
+                std::cerr << "Another hpcore instance is already running in directory " << ctx.contract_dir << "\n";
+            }
+            // Close fd if lock aquiring failed.
+            close(ctx.config_fd);
+            return -1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Releses the config file and closes the opened file descriptor.
+     * @return Returns 0 if lock is successfully aquired, -1 on error.
+    */
+    int release_config_lock()
+    {
+        const int res = util::release_lock(ctx.config_fd, ctx.config_lock);
+        // Close fd in termination.
+        close(ctx.config_fd);
+        return res;
     }
 } // namespace conf
