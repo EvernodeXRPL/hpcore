@@ -24,6 +24,8 @@ namespace conf
 
     const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
 
+    bool init_success = false;
+
     /**
      * Loads and initializes the contract config for execution. Must be called once during application startup.
      * @return 0 for success. -1 for failure.
@@ -35,16 +37,31 @@ namespace conf
         // 2. Read and load the contract config into memory
         // 3. Update contract config if patch file exists.
         // 4. Validate the loaded config values
+        // 5. Locking the config file at the startup.
 
         if (validate_contract_dir_paths() == -1 ||
             read_config(cfg) == -1 ||
             apply_patch_changes(cfg.contract) == -1 ||
-            validate_config(cfg) == -1)
+            validate_config(cfg) == -1 ||
+            set_config_lock() == -1)
         {
             return -1;
         }
 
+        init_success = true;
         return 0;
+    }
+
+    /**
+     * Cleanup any resources.
+     */
+    void deinit()
+    {
+        if (init_success)
+        {
+            // Releases the config file lock at the termination.
+            release_config_lock();
+        }
     }
 
     /**

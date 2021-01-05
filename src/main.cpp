@@ -79,8 +79,7 @@ void deinit()
     sc::deinit();
     unl::deinit();
     ledger::deinit();
-    // Releases the config file lock at the termination.
-    conf::release_config_lock();
+    conf::deinit();
 }
 
 void sig_exit_handler(int signum)
@@ -196,10 +195,6 @@ int main(int argc, char **argv)
                 chdir(conf::ctx.contract_dir.c_str());
 
                 hplog::init();
-
-                // Locking the config file at the startup.
-                if (conf::set_config_lock() == -1)
-                    return -1;
 
                 LOG_INFO << "Hot Pocket " << util::HP_VERSION;
                 LOG_INFO << "Role: " << (conf::cfg.node.role == conf::ROLE::OBSERVER ? "Observer" : "Validator");

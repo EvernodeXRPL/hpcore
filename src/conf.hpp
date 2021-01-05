@@ -174,6 +174,8 @@ namespace conf
 
     int init();
 
+    void deinit();
+
     int rekey();
 
     int create_contract();
