@@ -98,12 +98,13 @@ namespace conf
 
     struct user_config
     {
-        uint16_t port = 0;                 // Listening port for public user connections
-        uint16_t idle_timeout = 0;         // Idle connection timeout for user connections in seconds.
-        uint64_t max_bytes_per_msg = 0;    // User message max size in bytes
-        uint64_t max_bytes_per_min = 0;    // User message rate (characters(bytes) per minute)
-        uint64_t max_bad_msgs_per_min = 0; // User bad messages per minute
-        uint16_t max_connections = 0;      // Max inbound user connections
+        uint16_t port = 0;                      // Listening port for public user connections
+        uint16_t idle_timeout = 0;              // Idle connection timeout for user connections in seconds.
+        uint64_t max_bytes_per_msg = 0;         // User message max size in bytes
+        uint64_t max_bytes_per_min = 0;         // User message rate (characters(bytes) per minute)
+        uint64_t max_bad_msgs_per_min = 0;      // User bad messages per minute
+        uint16_t max_connections = 0;           // Max inbound user connections
+        bool enable_user_connections = true;    // User connections enable/disable.
     };
 
     struct peer_discovery_config
