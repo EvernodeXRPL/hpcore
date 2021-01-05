@@ -18,7 +18,7 @@ namespace usr
     int handle_user_connect(usr::user_comm_session &session)
     {
         // Allow connection only if the user connection config is enabled.
-        if (!conf::cfg.user.enable_user_connections)
+        if (!conf::cfg.user.user_connections_enabled)
         {
             LOG_DEBUG << "Dropping the user connection. User connections config is disabled. Session: " << session.display_name() << ".";
             return -1;
