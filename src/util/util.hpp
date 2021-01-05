@@ -78,6 +78,8 @@ namespace util
 
     int stoull(const std::string &str, uint64_t &result);
 
+    const std::string get_name(std::string_view path);
+
 } // namespace util
 
 #endif

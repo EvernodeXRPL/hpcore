@@ -372,8 +372,10 @@ namespace hpfs_sync
     {
         util::h32 content_hash;
 
+        const std::string vpath_name = util::get_name(vpath);
+
         // Initilal hash is vpath hash.
-        content_hash = crypto::get_hash(vpath);
+        content_hash = crypto::get_hash(vpath_name);
 
         // Then XOR the file hashes to the initial hash.
         for (const auto &[name, fs_entry] : fs_entry_map)
@@ -396,8 +398,10 @@ namespace hpfs_sync
     {
         util::h32 content_hash = util::h32_empty;
 
+        const std::string vpath_name = util::get_name(vpath);
+
         // Initilal hash is vpath hash.
-        content_hash = crypto::get_hash(vpath);
+        content_hash = crypto::get_hash(vpath_name);
 
         // Then XOR the block hashes to the initial hash.
         for (int32_t block_id = 0; block_id < hash_count; block_id++)

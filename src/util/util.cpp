@@ -355,4 +355,13 @@ namespace util
         return 0;
     }
 
+    // Returns the file/dir name of the given path.
+    const std::string get_name(std::string_view path)
+    {
+        char *path2 = strdup(path.data());
+        const std::string name = basename(path2);
+        free(path2);
+        return name;
+    }
+
 } // namespace util
