@@ -471,7 +471,7 @@ namespace conf
                 cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
                 cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
-                cfg.user.user_connections_enabled = user["user_connections_enabled"].as<bool>();
+                cfg.user.enabled = user["enabled"].as<bool>();
             }
             catch (const std::exception &e)
             {
@@ -579,7 +579,7 @@ namespace conf
         user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
         user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
         user_config.insert_or_assign("max_connections", cfg.user.max_connections);
-        user_config.insert_or_assign("user_connections_enabled", cfg.user.user_connections_enabled);
+        user_config.insert_or_assign("enabled", cfg.user.enabled);
         d.insert_or_assign("user", user_config);
 
         // Log configs.

@@ -17,13 +17,6 @@ namespace usr
      */
     int handle_user_connect(usr::user_comm_session &session)
     {
-        // Allow connection only if the user connection config is enabled.
-        if (!conf::cfg.user.user_connections_enabled)
-        {
-            LOG_DEBUG << "Dropping the user connection. User connections config is disabled. Session: " << session.display_name() << ".";
-            return -1;
-        }
-
         // Allow connection only if the maximum capacity is not reached. 0 means allowing unlimited connections.
         if ((conf::cfg.user.max_connections == 0) || (usr::ctx.users.size() < conf::cfg.user.max_connections))
         {
