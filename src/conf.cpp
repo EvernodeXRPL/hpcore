@@ -69,6 +69,10 @@ namespace conf
      */
     int rekey()
     {
+        // Locking the config file at the startup. To check whether there's any already running hp instances.
+        if (set_config_lock() == -1)
+            return -1;
+
         // Load the contract config and re-save with the newly generated keys.
         contract_config cfg = {};
         if (read_config(cfg) != 0)
@@ -82,6 +86,9 @@ namespace conf
             return -1;
 
         std::cout << "New signing keys generated at " << ctx.config_file << std::endl;
+
+        // Releases the config file lock at the termination.
+        release_config_lock();
 
         return 0;
     }
