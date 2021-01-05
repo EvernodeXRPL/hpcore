@@ -147,6 +147,9 @@ namespace conf
         std::string config_file;    // Full path to the contract config file
         std::string tls_key_file;   // Full path to the tls private key file
         std::string tls_cert_file;  // Full path to the tls certificate
+
+        int config_fd;            // Config file file descriptor
+        struct flock config_lock; // Config file record log
     };
 
     // Holds all the contract config values.
@@ -172,6 +175,8 @@ namespace conf
     const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
 
     int init();
+
+    void deinit();
 
     int rekey();
 
@@ -200,6 +205,10 @@ namespace conf
     int apply_patch_changes(contract_params &contract_config);
 
     int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir);
+
+    int set_config_lock();
+
+    int release_config_lock();
 } // namespace conf
 
 #endif
