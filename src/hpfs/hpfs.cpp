@@ -128,7 +128,8 @@ namespace hpfs
                 (char *)"fs",
                 conf::ctx.hpfs_dir.data(),
                 conf::ctx.hpfs_mount_dir.data(),
-                (char *)"merge=true",
+                // In full history mode, we disable log merge of hpfs.
+                (char *)(conf::cfg.node.full_history ? "merge=false" : "merge=true"),
                 (char *)active_hpfs_trace_arg,
                 NULL};
 
