@@ -16,7 +16,6 @@ namespace unl
     bool exists(const std::string &bin_pubkey);
     int init();
     void update_json_list();
-    std::string get_hash();
     std::string calculate_hash(const std::set<std::string> &new_list);
     void update_unl_changes_from_patch();
 

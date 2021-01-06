@@ -77,12 +77,6 @@ namespace unl
         json_list = os.str();
     }
 
-    std::string get_hash()
-    {
-        std::shared_lock lock(unl_mutex);
-        return hash;
-    }
-
     /**
      * Calculate hash of the given set.
      * @param unl_list UNL list.
