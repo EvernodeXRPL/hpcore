@@ -34,16 +34,16 @@ namespace conf
         // The validations/loading needs to be in this order.
         // 1. Validate contract directories
         // 2. Read and load the contract config into memory
-        // 3. Update contract config if patch file exists.
         // 4. Validate the loaded config values
-        // 5. Locking the config file at the startup.
+        // 5. Initialize logging subsystem.
+        // 6. Update and validate contract config if patch file exists.
 
         if (validate_contract_dir_paths() == -1 ||
+            set_config_lock() == -1 ||
             read_config(cfg) == -1 ||
-            apply_patch_changes(cfg.contract) == -1 ||
-            validate_config(cfg) == -1 ||
-            set_config_lock() == -1)
+            validate_config(cfg) == -1)
         {
+            release_config_lock();
             return -1;
         }
 
@@ -769,13 +769,13 @@ namespace conf
      * @param contract_config Contract section of config structure.
      * @return Returns -1 on error and 0 on successful update.
     */
-    int apply_patch_changes(contract_params &contract_config)
+    int apply_patch_changes()
     {
         if (hpfs::start_ro_session(HPFS_PATCH_SESSION_NAME, false) == -1)
             return -1;
 
         // Validate content in patch file and update contract section in config.
-        if (validate_and_apply_patch_config(contract_config) == -1)
+        if (validate_and_apply_patch_config(cfg.contract) == -1)
         {
             hpfs::stop_ro_session(HPFS_PATCH_SESSION_NAME);
             return -1;

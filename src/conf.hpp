@@ -203,7 +203,7 @@ namespace conf
 
     std::string_view extract_missing_field(std::string err_message);
 
-    int apply_patch_changes(contract_params &contract_config);
+    int apply_patch_changes();
 
     int validate_and_apply_patch_config(contract_params &contract_config);
 

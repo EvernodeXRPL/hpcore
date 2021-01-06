@@ -200,11 +200,12 @@ int main(int argc, char **argv)
                 LOG_INFO << "Public key: " << conf::cfg.node.public_key_hex;
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
-                if (ledger::init() == -1 ||
-                    unl::init() == -1 ||
-                    hpfs::init() == -1 ||
+                if (hpfs::init() == -1 ||
+                    conf::apply_patch_changes() == -1 ||
                     hpfs_serve::init() == -1 ||
                     hpfs_sync::init() == -1 ||
+                    ledger::init() == -1 ||
+                    unl::init() == -1 ||
                     consensus::init() == -1 ||
                     read_req::init() == -1 ||
                     p2p::init() == -1 ||

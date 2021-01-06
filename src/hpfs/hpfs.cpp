@@ -183,7 +183,7 @@ namespace hpfs
 
         if (ctx.rw_consumers == 0)
         {
-            const std::string session_file = conf::ctx.hpfs_mount_dir.append(RW_SESSION);
+            const std::string session_file = conf::ctx.hpfs_mount_dir + RW_SESSION;
             if (unlink(session_file.c_str()) == -1)
             {
                 LOG_ERROR << errno << ": Error stopping hpfs rw session at " << conf::ctx.hpfs_rw_dir;
@@ -233,7 +233,7 @@ namespace hpfs
      */
     int get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + session_name.data() + vpath.data() + HMAP_HASH;
+        const std::string path = conf::ctx.hpfs_mount_dir + "/" + session_name.data() + vpath.data() + HMAP_HASH;
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
