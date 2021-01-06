@@ -775,7 +775,7 @@ namespace conf
             return -1;
 
         // Validate content in patch file and update contract section in config.
-        if (validate_and_apply_patch_config(cfg.contract) == -1)
+        if (validate_and_apply_patch_config(cfg.contract, HPFS_PATCH_SESSION_NAME) == -1)
         {
             hpfs::stop_ro_session(HPFS_PATCH_SESSION_NAME);
             return -1;
@@ -790,9 +790,9 @@ namespace conf
      * @param mount_dir hpfs process mount directory path.
      * @return Returns -1 on error and 0 in successful update.
     */
-    int validate_and_apply_patch_config(contract_params &contract_config)
+    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view hpfs_session_name)
     {
-        const std::string path = ctx.hpfs_mount_dir + HPFS_PATCH_SESSION_NAME + PATCH_FILE_PATH;
+        const std::string path = ctx.hpfs_mount_dir + "/" + hpfs_session_name.data() + PATCH_FILE_PATH;
         if (util::is_file_exists(path))
         {
             std::ifstream ifs(path);

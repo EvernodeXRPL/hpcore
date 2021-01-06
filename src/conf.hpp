@@ -205,7 +205,7 @@ namespace conf
 
     int apply_patch_changes();
 
-    int validate_and_apply_patch_config(contract_params &contract_config);
+    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view hpfs_session_name);
 
     int set_config_lock();
 

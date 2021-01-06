@@ -104,27 +104,6 @@ namespace sc
 
         cleanup_fds(ctx);
 
-        util::h32 patch_hash;
-        if (hpfs::get_hash(patch_hash, ctx.args.hpfs_dir, conf::PATCH_FILE_PATH) == 1)
-        {
-            if (patch_hash != hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH))
-            {
-
-                // Appling new patch file changes to hpcore runtime.
-                if (conf::validate_and_apply_patch_config(conf::cfg.contract, ctx.args.hpfs_dir) == -1)
-                {
-                    LOG_ERROR << "Appling patch file after contract execution failed";
-                }
-                else
-                {
-                    // Update global hash tracker with the new patch file hash.
-                    hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);
-
-                    unl::update_unl_changes_from_patch();
-                }
-            }
-        }
-
         if (stop_hpfs_session(ctx) == -1)
             ret = -1;
 
@@ -192,12 +171,35 @@ namespace sc
         }
         else
         {
-            // Read the root hash if not in readonly mode.
+            // Read the state hash if not in readonly mode.
             if (hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, STATE_DIR_PATH) < 1)
             {
                 hpfs::release_rw_session();
                 return -1;
             }
+
+            util::h32 patch_hash;
+            const int patch_hash_result = hpfs::get_hash(patch_hash, ctx.args.hpfs_session_name, conf::PATCH_FILE_PATH);
+            if (patch_hash_result == -1)
+            {
+                hpfs::release_rw_session();
+                return -1;
+            }
+            else if (patch_hash_result == 1 && patch_hash != hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH))
+            {
+                // Appling new patch file changes to hpcore runtime.
+                if (conf::validate_and_apply_patch_config(conf::cfg.contract, ctx.args.hpfs_session_name) == -1)
+                {
+                    LOG_ERROR << "Appling patch file after contract execution failed";
+                }
+                else
+                {
+                    // Update global hash tracker with the new patch file hash.
+                    hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);
+                    unl::update_unl_changes_from_patch();
+                }
+            }
+
             return hpfs::release_rw_session();
         }
     }

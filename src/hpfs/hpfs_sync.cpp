@@ -134,7 +134,7 @@ namespace hpfs_sync
                                 LOG_INFO << "hpfs sync: Target patch state achieved: " << new_state;
 
                                 // Appling new patch file changes to hpcore runtime.
-                                if (conf::validate_and_apply_patch_config(conf::cfg.contract, conf::ctx.hpfs_rw_dir) == -1)
+                                if (conf::validate_and_apply_patch_config(conf::cfg.contract, hpfs::RW_SESSION_NAME) == -1)
                                 {
                                     LOG_ERROR << "Appling patch file changes after sync failed";
                                 }
@@ -144,7 +144,7 @@ namespace hpfs_sync
 
                                     // Update global hash tracker with the new patch file hash.
                                     util::h32 updated_patch_hash;
-                                    hpfs::get_hash(updated_patch_hash, conf::ctx.hpfs_rw_dir, conf::PATCH_FILE_PATH);
+                                    hpfs::get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, conf::PATCH_FILE_PATH);
                                     hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, updated_patch_hash);
                                 }
 
