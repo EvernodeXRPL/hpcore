@@ -122,8 +122,17 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
-            const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash, unl_hash);
-            broadcast_proposal(p);
+            // If node is in observer mode skip the proposal creation and just clear the candidate user list for this stage.
+            if (conf::cfg.node.role != conf::ROLE::OBSERVER)
+            {
+                const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash, unl_hash);
+                broadcast_proposal(p);
+            }
+            else
+            {
+                ctx.candidate_users.clear();
+            }
+            
 
             ctx.stage = 1; // Transition to next stage.
         }
@@ -137,13 +146,19 @@ namespace consensus
 
             if (sync_status == 0)
             {
-                // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash, unl_hash);
-                broadcast_proposal(p);
+                // If node is in observer mode and stage is 1 or 2 skip the proposal creation and voting logic.
+                // In observer mode only stage 3 proposals are created for ledger creation.
+                // In other stages, proposal creation and voting logic is skipped.
+                if (conf::cfg.node.role != conf::ROLE::OBSERVER || ctx.stage == 3)
+                {
+                    // If we are in sync, vote and broadcast the winning votes to next stage.
+                    const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash, unl_hash);
+                    broadcast_proposal(p);
 
-                // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state_hash) == -1)
-                    LOG_ERROR << "Error occured in Stage 3 consensus execution.";
+                    // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
+                    if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state_hash) == -1)
+                        LOG_ERROR << "Error occured in Stage 3 consensus execution.";
+                }
             }
 
             if (ctx.stage == 2)

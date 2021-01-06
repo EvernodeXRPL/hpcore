@@ -24,7 +24,8 @@ namespace util
     {
         buffer_view view = {0, 0};
         int res = pwrite(fd, buf, size, next_write_pos);
-        if (res < size)
+        // Since res is int and size is unit32_t 'res == -1' is checked separately.
+        if (res == -1 || res < size)
         {
             LOG_ERROR << errno << ": Error writing to buffer store fd " << fd;
             return view;
