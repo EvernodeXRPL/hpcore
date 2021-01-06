@@ -12,7 +12,6 @@ namespace msg::controlmsg
 
     // Message types
     constexpr const char *MSGTYPE_CONTRACT_END = "contract_end";
-    constexpr const char *MSGTYPE_UNL_CHANGESET = "unl_changeset";
 
 } // namespace msg::controlmsg
 

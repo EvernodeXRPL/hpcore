@@ -84,9 +84,6 @@ namespace sc
         // State hash after execution will be copied to this (not applicable to read only mode).
         util::h32 post_execution_state_hash = util::h32_empty;
 
-        // Collected unl addition and removal change sets. Holds the changeset until they are subjected to the consensus.
-        p2p::contract_unl_changeset unl_changeset;
-
         contract_execution_args(util::buffer_store &user_input_store)
             : user_input_store(user_input_store),
               npl_messages(MAX_NPL_MSG_QUEUE_SIZE),

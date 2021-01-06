@@ -38,9 +38,7 @@ union Message {
     Peer_Requirement_Announcement_Message,
     Peer_List_Request_Message,
     Peer_List_Response_Message,
-    Available_Capacity_Announcement_Message,
-    Unl_Request_Message,
-    Unl_Response_Message
+    Available_Capacity_Announcement_Message
 } //message content type
 
 table Content {
@@ -49,11 +47,6 @@ table Content {
 
 table NonUnl_Proposal_Message {
     user_inputs:[UserInputGroup];
-}
-
-table Unl_Changeset {
-    additions:[ByteArray];
-    removals:[ByteArray];
 }
 
 table Proposal_Message { //Proposal type message schema
@@ -66,8 +59,6 @@ table Proposal_Message { //Proposal type message schema
     output_sig:[ubyte];
     state_hash: [ubyte];
     patch_hash: [ubyte];
-    unl_hash: [ubyte]; // Hash of the current unl list.
-    unl_changeset: Unl_Changeset;
 }
 
 table Npl_Message { //NPL type message schema
@@ -76,15 +67,6 @@ table Npl_Message { //NPL type message schema
 
 table History_Request_Message { //Ledger History request type message schema
     required_lcl:[ubyte];
-}
-
-table Unl_Request_Message {
-    required_unl: [ubyte];
-}
-
-table Unl_Response_Message {
-    requester_unl:[ubyte]; // Unl hash of the sender.
-    unl_list: [ByteArray];
 }
 
 enum Ledger_Response_Error : ubyte

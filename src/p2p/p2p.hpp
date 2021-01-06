@@ -18,30 +18,6 @@ namespace p2p
     constexpr uint16_t STATE_RES_LIST_CAP = 64;       // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
-    struct contract_unl_changeset
-    {
-        std::set<std::string> additions; // Pubkeys of the peers that need to be added to the unl.
-        std::set<std::string> removals;  // Pubkeys of the peers that need to be removed from the unl.
-
-        void clear()
-        {
-            additions.clear();
-            removals.clear();
-        }
-
-        // If there are items which are in both additions and removals. Remove them from the both sets.
-        void purify()
-        {
-            std::set<std::string> intersect;
-            std::set_intersection(additions.begin(), additions.end(), removals.begin(), removals.end(), std::inserter(intersect, intersect.begin()));
-            for (const auto &item : intersect)
-            {
-                additions.erase(item);
-                removals.erase(item);
-            }
-        }
-    };
-
     struct proposal
     {
         std::string pubkey;
@@ -52,14 +28,12 @@ namespace p2p
         uint8_t stage = 0;
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
-        std::string unl_hash;   // Hash of the current unl list.
         util::h32 state_hash;   // Contract state hash.
         util::h32 patch_hash;   // Patch file hash.
         std::set<std::string> users;
         std::set<std::string> input_hashes;
         std::string output_hash;
         std::string output_sig;
-        contract_unl_changeset unl_changeset; // Additions and removals of the unl.
     };
 
     struct nonunl_proposal
@@ -71,17 +45,6 @@ namespace p2p
     {
         std::string requester_lcl;
         std::string required_lcl;
-    };
-
-    struct unl_sync_request
-    {
-        std::string required_unl;
-    };
-
-    struct unl_sync_response
-    {
-        std::string requester_unl; // Unl hash of the sender.
-        std::set<std::string> unl_list;
     };
 
     struct history_ledger_block

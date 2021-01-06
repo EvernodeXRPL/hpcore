@@ -9,16 +9,9 @@ table LedgerBlock {
     lcl:[ubyte];
     state_hash:[ubyte];
     patch_hash:[ubyte];
-    unl:[ubyte];
     users: [ByteArray];
     inputs: [ByteArray]; 
     output: [ubyte];
-    unl_changeset: Unl_Changeset;
-}
-
-table Unl_Changeset {
-    additions:[ByteArray];
-    removals:[ByteArray];
 }
 
 root_type LedgerBlock;

@@ -57,33 +57,4 @@ namespace msg::controlmsg::json
         return 0;
     }
 
-    /**
-     * Extracts unl additions and removals from the json document.
-     * Format:
-     * {
-     *   "type": "unl_changeset",
-     *   "add": ["pk1","pk2",...]
-     *   "remove": ["pk1","pk2",...]
-     * }
-     */
-    int extract_unl_changeset(std::set<std::string> &additions, std::set<std::string> &removals, const jsoncons::json &d)
-    {
-        extract_string_set(additions, d, FLD_ADD);
-        extract_string_set(removals, d, FLD_REMOVE);
-        return 0;
-    }
-
-    void extract_string_set(std::set<std::string> &vec, const jsoncons::json &d, const char *field_name)
-    {
-        if (!d.contains(field_name) || !d[field_name].is_array())
-            return;
-
-        for (const auto &pkhex : d[field_name].array_range())
-        {
-            const std::string bin_pubkey = util::to_bin(pkhex.as<std::string_view>());
-            if (!bin_pubkey.empty())
-                vec.emplace(bin_pubkey);
-        }
-    }
-
 } // namespace msg::controlmsg::json
