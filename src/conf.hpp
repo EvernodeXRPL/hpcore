@@ -104,6 +104,7 @@ namespace conf
         uint64_t max_bytes_per_min = 0;    // User message rate (characters(bytes) per minute)
         uint64_t max_bad_msgs_per_min = 0; // User bad messages per minute
         uint16_t max_connections = 0;      // Max inbound user connections
+        bool enabled = true;               // User connections enable/disable.
     };
 
     struct peer_discovery_config
