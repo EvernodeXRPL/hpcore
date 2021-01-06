@@ -42,9 +42,16 @@ namespace usr
         if (input_store.init() == -1)
             return -1;
 
-        // Start listening for incoming user connections.
-        if (start_listening() == -1)
-            return -1;
+        // Start listening for incoming user connections only if user connections config is enabled.
+        if (conf::cfg.user.enabled)
+        {
+            if (start_listening() == -1)
+                return -1;
+        }
+        else
+        {
+            LOG_INFO << "User connection listner isn't started since user connections are disabled.";
+        }
 
         init_success = true;
         return 0;
@@ -57,7 +64,11 @@ namespace usr
     {
         if (init_success)
         {
-            ctx.server->stop();
+            // Stop com server only if user connections config is enabled (Otherwise server hasn't been started).
+            if (conf::cfg.user.enabled)
+            {
+                ctx.server->stop();
+            }
             input_store.deinit();
         }
     }
