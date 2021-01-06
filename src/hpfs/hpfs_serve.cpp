@@ -18,6 +18,7 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 namespace hpfs_serve
 {
     constexpr uint16_t LOOP_WAIT = 20; // Milliseconds
+    constexpr const char *HPFS_SESSION_NAME = "rw";
 
     uint16_t REQUEST_BATCH_TIMEOUT;
 
@@ -216,7 +217,7 @@ namespace hpfs_serve
     {
         // Check whether the existing block hash matches expected hash.
         std::vector<util::h32> block_hashes;
-        int result = hpfs::get_file_block_hashes(block_hashes, hpfs::RW_SESSION_NAME, vpath);
+        int result = hpfs::get_file_block_hashes(block_hashes, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (block_id >= block_hashes.size())
@@ -293,7 +294,7 @@ namespace hpfs_serve
     {
         // Check whether the existing file hash matches expected hash.
         util::h32 file_hash = util::h32_empty;
-        int result = hpfs::get_hash(file_hash, hpfs::RW_SESSION_NAME, vpath);
+        int result = hpfs::get_hash(file_hash, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (file_hash != expected_hash)
@@ -302,7 +303,7 @@ namespace hpfs_serve
                 result = 0;
             }
             // Get the block hashes.
-            else if (hpfs::get_file_block_hashes(hashes, hpfs::RW_SESSION_NAME, vpath) < 0)
+            else if (hpfs::get_file_block_hashes(hashes, HPFS_SESSION_NAME, vpath) < 0)
             {
                 result = -1;
             }
@@ -333,7 +334,7 @@ namespace hpfs_serve
     {
         // Check whether the existing dir hash matches expected hash.
         util::h32 dir_hash = util::h32_empty;
-        int result = hpfs::get_hash(dir_hash, hpfs::RW_SESSION_NAME, vpath);
+        int result = hpfs::get_hash(dir_hash, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (dir_hash != expected_hash)
@@ -342,7 +343,7 @@ namespace hpfs_serve
                 result = 0;
             }
             // Get the children hash nodes.
-            else if (hpfs::get_dir_children_hashes(hash_nodes, hpfs::RW_SESSION_NAME, vpath) < 0)
+            else if (hpfs::get_dir_children_hashes(hash_nodes, HPFS_SESSION_NAME, vpath) < 0)
             {
                 result = -1;
             }

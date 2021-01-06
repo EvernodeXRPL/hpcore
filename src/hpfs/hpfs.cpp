@@ -262,7 +262,7 @@ namespace hpfs
      */
     int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + session_name.data() + vpath.data() + HMAP_CHILDREN;
+        const std::string path = conf::ctx.hpfs_mount_dir + "/" + session_name.data() + vpath.data() + HMAP_CHILDREN;
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
@@ -302,7 +302,7 @@ namespace hpfs
      */
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + session_name.data() + dir_vpath.data() + HMAP_CHILDREN;
+        const std::string path = conf::ctx.hpfs_mount_dir + "/" + session_name.data() + dir_vpath.data() + HMAP_CHILDREN;
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
