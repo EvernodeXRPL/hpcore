@@ -7,7 +7,10 @@
 
 namespace hpfs
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024;   // 4MB;
+    constexpr const char *RW_SESSION_NAME = "rw";    // The built-in session name used by hpfs for RW sessions.
+    constexpr const char *STATE_DIR_PATH = "/state"; // State directory name.
+    constexpr const char *PATCH_FILE_PATH = "/patch.cfg"; // Config patch filename.
 
     struct child_hash_node
     {
@@ -39,8 +42,12 @@ namespace hpfs
         std::shared_mutex parent_mutexes[2] = {std::shared_mutex(), std::shared_mutex()}; // Mutexes for each parent.
 
     public:
-        pid_t hpfs_merge_pid = 0;
-        pid_t hpfs_rw_pid = 0;
+        pid_t hpfs_pid = 0;
+
+        // No. of consumers for RW session.
+        // We use this as a reference counting mechanism to cleanup RW session when no one requires it.
+        uint32_t rw_consumers = 0;
+        std::mutex rw_mutex;
 
         hpfs_context()
         {
@@ -69,14 +76,15 @@ namespace hpfs
     int init();
     void deinit();
 
-    int start_merge_process(pid_t &hpfs_pid);
-    int start_ro_rw_process(pid_t &hpfs_pid, std::string &mount_dir, const bool readonly,
-                            const bool hash_map_enabled, const bool auto_start_session, const uint16_t timeout = 4000);
-    int start_fs_session(std::string_view mount_dir);
-    int stop_fs_session(std::string_view mount_dir);
-    int get_hash(util::h32 &hash, const std::string_view mount_dir, const std::string_view vpath);
-    int get_file_block_hashes(std::vector<util::h32> &hashes, const std::string_view mount_dir, const std::string_view vpath);
-    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string_view mount_dir, const std::string_view dir_vpath);
+    int start_hpfs_process(pid_t &hpfs_pid);
+    int acquire_rw_session();
+    int release_rw_session();
+    int start_ro_session(const std::string &name, const bool hmap_enabled);
+    int stop_ro_session(const std::string &name);
+    int get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath);
+    int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath);
+    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath);
+    const std::string physical_path(std::string_view session_name, std::string_view vpath);
 } // namespace hpfs
 
 #endif

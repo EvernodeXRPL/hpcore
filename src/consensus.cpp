@@ -817,7 +817,7 @@ namespace consensus
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state hash:" << cons_prop.state_hash << " patch hash:" << cons_prop.patch_hash << ")";
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
@@ -844,7 +844,6 @@ namespace consensus
             }
 
             sc::contract_execution_args &args = ctx.contract_ctx->args;
-            args.hpfs_dir = conf::ctx.hpfs_rw_dir;
             args.readonly = false;
             args.time = cons_prop.time;
             args.lcl = new_lcl;

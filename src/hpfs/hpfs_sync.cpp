@@ -42,7 +42,6 @@ namespace hpfs_sync
         // Patch file sync has the highest priority.
         ctx.current_syncing_parent = hpfs::HPFS_PARENT_COMPONENTS::PATCH;
         ctx.hpfs_sync_thread = std::thread(hpfs_syncer_loop);
-        ctx.hpfs_mount_dir = conf::ctx.hpfs_rw_dir;
         init_success = true;
         return 0;
     }
@@ -103,7 +102,7 @@ namespace hpfs_sync
             if (!ctx.is_syncing)
                 continue;
 
-            if (hpfs::start_fs_session(ctx.hpfs_mount_dir) != -1)
+            if (hpfs::acquire_rw_session() != -1)
             {
                 while (!ctx.is_shutting_down)
                 {
@@ -135,7 +134,7 @@ namespace hpfs_sync
                                 LOG_INFO << "hpfs sync: Target patch state achieved: " << new_state;
 
                                 // Appling new patch file changes to hpcore runtime.
-                                if (conf::validate_and_apply_patch_config(conf::cfg.contract, conf::ctx.hpfs_rw_dir) == -1)
+                                if (conf::validate_and_apply_patch_config(conf::cfg.contract, hpfs::RW_SESSION_NAME) == -1)
                                 {
                                     LOG_ERROR << "Appling patch file changes after sync failed";
                                 }
@@ -145,7 +144,7 @@ namespace hpfs_sync
 
                                     // Update global hash tracker with the new patch file hash.
                                     util::h32 updated_patch_hash;
-                                    hpfs::get_hash(updated_patch_hash, conf::ctx.hpfs_rw_dir, conf::PATCH_FILE_PATH);
+                                    hpfs::get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
                                     hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, updated_patch_hash);
                                 }
 
@@ -172,7 +171,7 @@ namespace hpfs_sync
                 }
 
                 LOG_INFO << "hpfs sync: All parents synced.";
-                hpfs::stop_fs_session(ctx.hpfs_mount_dir);
+                hpfs::release_rw_session();
             }
             else
             {
@@ -193,12 +192,12 @@ namespace hpfs_sync
         BACKLOG_ITEM_TYPE target_parent_backlog_item_type;
         if (ctx.current_syncing_parent == hpfs::HPFS_PARENT_COMPONENTS::STATE)
         {
-            target_parent_vpath = sc::STATE_DIR_PATH;
+            target_parent_vpath = hpfs::STATE_DIR_PATH;
             target_parent_backlog_item_type = BACKLOG_ITEM_TYPE::DIR;
         }
         else if (ctx.current_syncing_parent == hpfs::HPFS_PARENT_COMPONENTS::PATCH)
         {
-            target_parent_vpath = conf::PATCH_FILE_PATH;
+            target_parent_vpath = hpfs::PATCH_FILE_PATH;
             target_parent_backlog_item_type = BACKLOG_ITEM_TYPE::FILE;
         }
         std::string lcl = ledger::ctx.get_lcl();
@@ -317,7 +316,7 @@ namespace hpfs_sync
 
                 // After handling each response, check whether we have reached target hpfs state.
                 // get_hash returns 0 incase target parent is not existing in our side.
-                if (hpfs::get_hash(updated_state, ctx.hpfs_mount_dir, target_parent_vpath) == -1)
+                if (hpfs::get_hash(updated_state, hpfs::RW_SESSION_NAME, target_parent_vpath) == -1)
                 {
                     LOG_ERROR << "hpfs sync: exiting due to hash check error.";
                     return -1;
@@ -510,13 +509,13 @@ namespace hpfs_sync
         LOG_DEBUG << "hpfs sync: Processing fs entries response for " << vpath;
 
         // Create physical directory on our side if not exist.
-        std::string parent_physical_path = std::string(ctx.hpfs_mount_dir).append(vpath);
+        std::string parent_physical_path = conf::ctx.hpfs_rw_dir + vpath.data();
         if (util::create_dir_tree_recursive(parent_physical_path) == -1)
             return -1;
 
         // Get the children hash entries and compare with what we got from peer.
         std::vector<hpfs::child_hash_node> existing_fs_entries;
-        if (hpfs::get_dir_children_hashes(existing_fs_entries, ctx.hpfs_mount_dir, vpath) == -1)
+        if (hpfs::get_dir_children_hashes(existing_fs_entries, hpfs::RW_SESSION_NAME, vpath) == -1)
             return -1;
 
         // Request more info on fs entries that exist on both sides but are different.
@@ -545,7 +544,7 @@ namespace hpfs_sync
             else
             {
                 // If there was an entry that does not exist on other side, delete it.
-                std::string child_physical_path = std::string(ctx.hpfs_mount_dir).append(child_vpath);
+                std::string child_physical_path = conf::ctx.hpfs_rw_dir + child_vpath.data();
 
                 if ((ex_entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
                     !ex_entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
@@ -588,7 +587,7 @@ namespace hpfs_sync
 
         // File block hashes on our side (file might not exist on our side).
         std::vector<util::h32> existing_hashes;
-        if (hpfs::get_file_block_hashes(existing_hashes, ctx.hpfs_mount_dir, vpath) == -1 && errno != ENOENT)
+        if (hpfs::get_file_block_hashes(existing_hashes, hpfs::RW_SESSION_NAME, vpath) == -1 && errno != ENOENT)
             return -1;
         const size_t existing_hash_count = existing_hashes.size();
 
@@ -605,7 +604,7 @@ namespace hpfs_sync
         if (existing_hashes.size() >= hash_count)
         {
             // If peer file might be smaller, truncate our file to match with peer file.
-            std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(vpath);
+            std::string file_physical_path =  conf::ctx.hpfs_rw_dir + vpath.data();
             if (truncate(file_physical_path.c_str(), file_length) == -1)
                 return -1;
         }
@@ -626,7 +625,7 @@ namespace hpfs_sync
                   << " (len:" << buf.length()
                   << ") of " << vpath;
 
-        std::string file_physical_path = std::string(ctx.hpfs_mount_dir).append(vpath);
+        std::string file_physical_path = conf::ctx.hpfs_rw_dir + vpath.data();
         const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);
         if (fd == -1)
         {

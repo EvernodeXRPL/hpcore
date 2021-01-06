@@ -15,7 +15,6 @@ namespace sc
 {
     constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 64;     // Maximum npl message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
     constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 64; // Maximum out message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
-    constexpr const char *STATE_DIR_PATH = "/state";    // State directory name.
 
     struct fd_pair
     {
@@ -60,8 +59,8 @@ namespace sc
         // Whether the contract should execute in read only mode (to serve read requests).
         bool readonly = false;
 
-        // Hpfs dir path to be used for this execution.
-        std::string hpfs_dir;
+        // hpfs session name used for this execution.
+        std::string hpfs_session_name;
 
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
@@ -111,9 +110,6 @@ namespace sc
 
         // Holds the contract process id (if currently executing).
         pid_t contract_pid = 0;
-
-        // Holds the hpfs rw process id (if currently executing).
-        pid_t hpfs_pid = 0;
 
         // Thread to collect contract inputs and outputs and feed npl messages while contract is running.
         std::thread contract_monitor_thread;

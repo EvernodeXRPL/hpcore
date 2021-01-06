@@ -217,9 +217,7 @@ namespace read_req
     */
     void initialize_execution_context(const user_read_req &read_request, const pthread_t thread_id, sc::execution_context &contract_ctx)
     {
-        // Create new folder with the thread id per each thread.
-        contract_ctx.args.hpfs_dir = conf::ctx.hpfs_dir;
-        contract_ctx.args.hpfs_dir.append("/rr_").append(std::to_string(thread_id));
+        contract_ctx.args.hpfs_session_name = "ro_" + std::to_string(thread_id);
         contract_ctx.args.readonly = true;
         sc::contract_iobufs user_bufs;
         user_bufs.inputs.push_back(read_request.content);

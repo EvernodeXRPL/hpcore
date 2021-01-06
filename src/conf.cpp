@@ -3,7 +3,6 @@
 #include "crypto.hpp"
 #include "hpfs/hpfs.hpp"
 #include "util/util.hpp"
-#include "sc.hpp"
 
 namespace conf
 {
@@ -17,11 +16,11 @@ namespace conf
     // Stores the initial startup mode of the node.
     ROLE startup_mode;
 
-    const static char *ROLE_OBSERVER = "observer";
-    const static char *ROLE_VALIDATOR = "validator";
-
-    const static char *PUBLIC = "public";
-    const static char *PRIVATE = "private";
+    constexpr const char *ROLE_OBSERVER = "observer";
+    constexpr const char *ROLE_VALIDATOR = "validator";
+    constexpr const char *PUBLIC = "public";
+    constexpr const char *PRIVATE = "private";
+    constexpr const char *HPFS_PATCH_SESSION_NAME = "ro_patch";
 
     bool init_success = false;
 
@@ -34,16 +33,16 @@ namespace conf
         // The validations/loading needs to be in this order.
         // 1. Validate contract directories
         // 2. Read and load the contract config into memory
-        // 3. Update contract config if patch file exists.
         // 4. Validate the loaded config values
-        // 5. Locking the config file at the startup.
+        // 5. Initialize logging subsystem.
+        // 6. Update and validate contract config if patch file exists.
 
         if (validate_contract_dir_paths() == -1 ||
+            set_config_lock() == -1 ||
             read_config(cfg) == -1 ||
-            apply_patch_changes(cfg.contract) == -1 ||
-            validate_config(cfg) == -1 ||
-            set_config_lock() == -1)
+            validate_config(cfg) == -1)
         {
+            release_config_lock();
             return -1;
         }
 
@@ -110,11 +109,7 @@ namespace conf
         util::create_dir_tree_recursive(ctx.hist_dir);
         util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
-        util::create_dir_tree_recursive(ctx.hpfs_dir);
-
-        // Creating hpfs seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
-        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed");
-        util::create_dir_tree_recursive(ctx.hpfs_dir + std::string("/seed").append(sc::STATE_DIR_PATH));
+        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH);
 
         //Create config file with default settings.
 
@@ -201,8 +196,8 @@ namespace conf
         ctx.hist_dir = basedir + "/hist";
         ctx.full_hist_dir = basedir + "/fullhist";
         ctx.hpfs_dir = basedir + "/hpfs";
-        ctx.hpfs_rw_dir = ctx.hpfs_dir + "/rw";
-        ctx.hpfs_serve_dir = ctx.hpfs_dir + "/ss";
+        ctx.hpfs_mount_dir = ctx.hpfs_dir + "/mnt";
+        ctx.hpfs_rw_dir = ctx.hpfs_mount_dir + "/rw";
         ctx.log_dir = basedir + "/log";
     }
 
@@ -769,22 +764,19 @@ namespace conf
      * @param contract_config Contract section of config structure.
      * @return Returns -1 on error and 0 on successful update.
     */
-    int apply_patch_changes(contract_params &contract_config)
+    int apply_patch_changes()
     {
-        pid_t hpfs_ro_pid = 0;
-        std::string mount_dir; // Holds the mount directory of the newly created hpfs session.
-        int res = 0;
+        if (hpfs::start_ro_session(HPFS_PATCH_SESSION_NAME, false) == -1)
+            return -1;
 
-        if (hpfs::start_ro_rw_process(hpfs_ro_pid, mount_dir,
-                                      true, false, true) == -1 ||                // Creating a hpfs process and then starts a virtual hpfs session.
-            validate_and_apply_patch_config(contract_config, mount_dir) == -1 || // Validate content in patch file and update contract section in config.
-            hpfs::stop_fs_session(mount_dir) == -1)                              // Stop the created hpfs session.
-            res = -1;
+        // Validate content in patch file and update contract section in config.
+        if (validate_and_apply_patch_config(cfg.contract, HPFS_PATCH_SESSION_NAME) == -1)
+        {
+            hpfs::stop_ro_session(HPFS_PATCH_SESSION_NAME);
+            return -1;
+        }
 
-        // Created hpfs process should be killed even the patch validation failed.
-        if (hpfs_ro_pid > 0 && util::kill_process(hpfs_ro_pid, true) == -1)
-            res = -1;
-        return res;
+        return hpfs::stop_ro_session(HPFS_PATCH_SESSION_NAME);
     }
 
     /**
@@ -793,9 +785,9 @@ namespace conf
      * @param mount_dir hpfs process mount directory path.
      * @return Returns -1 on error and 0 in successful update.
     */
-    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir)
+    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view hpfs_session_name)
     {
-        const std::string path = std::string(mount_dir).append(PATCH_FILE_PATH);
+        const std::string path = hpfs::physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
         if (util::is_file_exists(path))
         {
             std::ifstream ifs(path);
@@ -889,7 +881,7 @@ namespace conf
                 if (!contract_config.appbill.bin_args.empty())
                     util::split_string(contract_config.appbill.runtime_args, contract_config.appbill.bin_args, " ");
                 contract_config.appbill.runtime_args.insert(contract_config.appbill.runtime_args.begin(), (contract_config.appbill.mode[0] == '/' ? contract_config.appbill.mode : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.appbill.mode)));
-                
+
                 std::cout << "Contract config updated from patch file\n";
             }
             catch (const std::exception &e)

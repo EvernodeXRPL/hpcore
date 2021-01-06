@@ -18,21 +18,17 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 namespace hpfs_serve
 {
     constexpr uint16_t LOOP_WAIT = 20; // Milliseconds
+    constexpr const char *HPFS_SESSION_NAME = "rw";
 
     uint16_t REQUEST_BATCH_TIMEOUT;
 
     bool is_shutting_down = false;
     bool init_success = false;
-    pid_t hpfs_pid;
     std::thread hpfs_serve_thread;
 
     int init()
     {
         REQUEST_BATCH_TIMEOUT = hpfs::get_request_resubmit_timeout() * 0.9;
-
-        if (hpfs::start_ro_rw_process(hpfs_pid, conf::ctx.hpfs_serve_dir, true, true, false) == -1)
-            return -1;
-
         hpfs_serve_thread = std::thread(hpfs_serve_loop);
         init_success = true;
         return 0;
@@ -44,10 +40,6 @@ namespace hpfs_serve
         {
             is_shutting_down = true;
             hpfs_serve_thread.join();
-
-            LOG_DEBUG << "Stopping hpfs state serve process... pid:" << hpfs_pid;
-            if (hpfs_pid > 0 && util::kill_process(hpfs_pid, true) == 0)
-                LOG_INFO << "Stopped hpfs state serve process.";
         }
     }
 
@@ -83,7 +75,7 @@ namespace hpfs_serve
             if (hpfs_requests.empty())
                 continue;
 
-            if (hpfs::start_fs_session(conf::ctx.hpfs_serve_dir) != -1)
+            if (hpfs::acquire_rw_session() != -1)
             {
                 for (auto &[session_id, request] : hpfs_requests)
                 {
@@ -124,7 +116,7 @@ namespace hpfs_serve
                     }
                 }
 
-                hpfs::stop_fs_session(conf::ctx.hpfs_serve_dir);
+                hpfs::release_rw_session();
             }
 
             hpfs_requests.clear();
@@ -225,7 +217,7 @@ namespace hpfs_serve
     {
         // Check whether the existing block hash matches expected hash.
         std::vector<util::h32> block_hashes;
-        int result = hpfs::get_file_block_hashes(block_hashes, conf::ctx.hpfs_serve_dir, vpath);
+        int result = hpfs::get_file_block_hashes(block_hashes, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (block_id >= block_hashes.size())
@@ -241,7 +233,7 @@ namespace hpfs_serve
             else // Get actual block data.
             {
                 struct stat st;
-                const std::string file_path = std::string(conf::ctx.hpfs_serve_dir).append(vpath);
+                const std::string file_path = conf::ctx.hpfs_rw_dir  + vpath.data();
                 const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
                 const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
                 if (fd == -1)
@@ -302,7 +294,7 @@ namespace hpfs_serve
     {
         // Check whether the existing file hash matches expected hash.
         util::h32 file_hash = util::h32_empty;
-        int result = hpfs::get_hash(file_hash, conf::ctx.hpfs_serve_dir, vpath);
+        int result = hpfs::get_hash(file_hash, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (file_hash != expected_hash)
@@ -311,14 +303,14 @@ namespace hpfs_serve
                 result = 0;
             }
             // Get the block hashes.
-            else if (hpfs::get_file_block_hashes(hashes, conf::ctx.hpfs_serve_dir, vpath) < 0)
+            else if (hpfs::get_file_block_hashes(hashes, HPFS_SESSION_NAME, vpath) < 0)
             {
                 result = -1;
             }
             else
             {
                 // Get actual file length.
-                const std::string file_path = std::string(conf::ctx.hpfs_serve_dir).append(vpath);
+                const std::string file_path = conf::ctx.hpfs_rw_dir + vpath.data();
                 struct stat st;
                 if (stat(file_path.c_str(), &st) == -1)
                 {
@@ -342,7 +334,7 @@ namespace hpfs_serve
     {
         // Check whether the existing dir hash matches expected hash.
         util::h32 dir_hash = util::h32_empty;
-        int result = hpfs::get_hash(dir_hash, conf::ctx.hpfs_serve_dir, vpath);
+        int result = hpfs::get_hash(dir_hash, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (dir_hash != expected_hash)
@@ -351,7 +343,7 @@ namespace hpfs_serve
                 result = 0;
             }
             // Get the children hash nodes.
-            else if (hpfs::get_dir_children_hashes(hash_nodes, conf::ctx.hpfs_serve_dir, vpath) < 0)
+            else if (hpfs::get_dir_children_hashes(hash_nodes, HPFS_SESSION_NAME, vpath) < 0)
             {
                 result = -1;
             }
