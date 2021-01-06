@@ -37,6 +37,8 @@ add_executable(hpcore
     src/sc.cpp
     src/bill/corebill.cpp
     src/hpfs/hpfs.cpp
+    src/hpfs/hpfs_serve.cpp
+    src/hpfs/hpfs_sync.cpp
     src/comm/comm_session.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/p2pmsg_helpers.cpp
@@ -58,9 +60,6 @@ add_executable(hpcore
     src/usr/read_req.cpp
     src/ledger.cpp
     src/consensus.cpp
-    src/state/state_common.cpp
-    src/state/state_sync.cpp
-    src/state/state_serve.cpp
     src/main.cpp
 )
 target_link_libraries(hpcore

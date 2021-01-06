@@ -15,6 +15,7 @@ namespace sc
 {
     constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 64;     // Maximum npl message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
     constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 64; // Maximum out message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
+    constexpr const char *STATE_DIR_PATH = "/state";    // State directory name.
 
     struct fd_pair
     {
@@ -59,8 +60,8 @@ namespace sc
         // Whether the contract should execute in read only mode (to serve read requests).
         bool readonly = false;
 
-        // State dir path to be used for this execution.
-        std::string state_dir;
+        // Hpfs dir path to be used for this execution.
+        std::string hpfs_dir;
 
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
@@ -130,10 +131,6 @@ namespace sc
         {
         }
     };
-
-    int init();
-
-    void deinit();
 
     int execute_contract(execution_context &ctx);
 

@@ -389,7 +389,7 @@ namespace usr
             util::fork_detach();
 
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
-            chdir(conf::ctx.state_rw_dir.c_str());
+            chdir(conf::ctx.hpfs_rw_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
             std::cerr << errno << ": Appbill process execv failed.\n";
             return false;

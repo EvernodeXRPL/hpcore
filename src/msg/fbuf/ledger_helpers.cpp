@@ -25,7 +25,8 @@ namespace msg::fbuf::ledger
                 seq_no,
                 p.time,
                 sv_to_flatbuff_bytes(builder, p.lcl),
-                hash_to_flatbuff_bytes(builder, p.state),
+                hash_to_flatbuff_bytes(builder, p.state_hash),
+                hash_to_flatbuff_bytes(builder, p.patch_hash),
                 sv_to_flatbuff_bytes(builder, p.unl_hash),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
@@ -40,7 +41,8 @@ namespace msg::fbuf::ledger
         auto ledger = msg::fbuf::ledger::GetLedgerBlock(ledger_buf.data());
         p2p::proposal p;
         p.lcl = flatbuff_bytes_to_sv(ledger->lcl());
-        p.state = flatbuff_bytes_to_hash(ledger->state());
+        p.state_hash = flatbuff_bytes_to_hash(ledger->state_hash());
+        p.patch_hash = flatbuff_bytes_to_hash(ledger->patch_hash());
         // We do not need to convert all the fields of the proposal due to them not being used for any ledger-specific logic.
         return p;
     }

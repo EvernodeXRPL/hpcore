@@ -25,12 +25,13 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SEQ_NO = 6,
     VT_TIME = 8,
     VT_LCL = 10,
-    VT_STATE = 12,
-    VT_UNL = 14,
-    VT_USERS = 16,
-    VT_INPUTS = 18,
-    VT_OUTPUT = 20,
-    VT_UNL_CHANGESET = 22
+    VT_STATE_HASH = 12,
+    VT_PATCH_HASH = 14,
+    VT_UNL = 16,
+    VT_USERS = 18,
+    VT_INPUTS = 20,
+    VT_OUTPUT = 22,
+    VT_UNL_CHANGESET = 24
   };
   const flatbuffers::String *version() const {
     return GetPointer<const flatbuffers::String *>(VT_VERSION);
@@ -56,11 +57,17 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
-  const flatbuffers::Vector<uint8_t> *state() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE);
+  const flatbuffers::Vector<uint8_t> *state_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_STATE_HASH);
   }
-  flatbuffers::Vector<uint8_t> *mutable_state() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE);
+  flatbuffers::Vector<uint8_t> *mutable_state_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_STATE_HASH);
+  }
+  const flatbuffers::Vector<uint8_t> *patch_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_patch_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
   }
   const flatbuffers::Vector<uint8_t> *unl() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_UNL);
@@ -100,8 +107,10 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
-           VerifyOffset(verifier, VT_STATE) &&
-           verifier.VerifyVector(state()) &&
+           VerifyOffset(verifier, VT_STATE_HASH) &&
+           verifier.VerifyVector(state_hash()) &&
+           VerifyOffset(verifier, VT_PATCH_HASH) &&
+           verifier.VerifyVector(patch_hash()) &&
            VerifyOffset(verifier, VT_UNL) &&
            verifier.VerifyVector(unl()) &&
            VerifyOffset(verifier, VT_USERS) &&
@@ -134,8 +143,11 @@ struct LedgerBlockBuilder {
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
     fbb_.AddOffset(LedgerBlock::VT_LCL, lcl);
   }
-  void add_state(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state) {
-    fbb_.AddOffset(LedgerBlock::VT_STATE, state);
+  void add_state_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash) {
+    fbb_.AddOffset(LedgerBlock::VT_STATE_HASH, state_hash);
+  }
+  void add_patch_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash) {
+    fbb_.AddOffset(LedgerBlock::VT_PATCH_HASH, patch_hash);
   }
   void add_unl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl) {
     fbb_.AddOffset(LedgerBlock::VT_UNL, unl);
@@ -156,7 +168,6 @@ struct LedgerBlockBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  LedgerBlockBuilder &operator=(const LedgerBlockBuilder &);
   flatbuffers::Offset<LedgerBlock> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<LedgerBlock>(end);
@@ -170,7 +181,8 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
     uint64_t seq_no = 0,
     uint64_t time = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> inputs = 0,
@@ -184,7 +196,8 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
   builder_.add_inputs(inputs);
   builder_.add_users(users);
   builder_.add_unl(unl);
-  builder_.add_state(state);
+  builder_.add_patch_hash(patch_hash);
+  builder_.add_state_hash(state_hash);
   builder_.add_lcl(lcl);
   builder_.add_version(version);
   return builder_.Finish();
@@ -196,7 +209,8 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
     uint64_t seq_no = 0,
     uint64_t time = 0,
     const std::vector<uint8_t> *lcl = nullptr,
-    const std::vector<uint8_t> *state = nullptr,
+    const std::vector<uint8_t> *state_hash = nullptr,
+    const std::vector<uint8_t> *patch_hash = nullptr,
     const std::vector<uint8_t> *unl = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *inputs = nullptr,
@@ -204,7 +218,8 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
     flatbuffers::Offset<msg::fbuf::ledger::Unl_Changeset> unl_changeset = 0) {
   auto version__ = version ? _fbb.CreateString(version) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
-  auto state__ = state ? _fbb.CreateVector<uint8_t>(*state) : 0;
+  auto state_hash__ = state_hash ? _fbb.CreateVector<uint8_t>(*state_hash) : 0;
+  auto patch_hash__ = patch_hash ? _fbb.CreateVector<uint8_t>(*patch_hash) : 0;
   auto unl__ = unl ? _fbb.CreateVector<uint8_t>(*unl) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
   auto inputs__ = inputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*inputs) : 0;
@@ -215,7 +230,8 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
       seq_no,
       time,
       lcl__,
-      state__,
+      state_hash__,
+      patch_hash__,
       unl__,
       users__,
       inputs__,
@@ -267,7 +283,6 @@ struct Unl_ChangesetBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  Unl_ChangesetBuilder &operator=(const Unl_ChangesetBuilder &);
   flatbuffers::Offset<Unl_Changeset> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Unl_Changeset>(end);

@@ -14,9 +14,8 @@
 #include "consensus.hpp"
 #include "ledger.hpp"
 #include "hpfs/hpfs.hpp"
-#include "state/state_common.hpp"
-#include "state/state_sync.hpp"
-#include "state/state_serve.hpp"
+#include "hpfs/hpfs_sync.hpp"
+#include "hpfs/hpfs_serve.hpp"
 #include "unl.hpp"
 
 /**
@@ -74,9 +73,9 @@ void deinit()
     p2p::deinit();
     read_req::deinit();
     consensus::deinit();
-    state_sync::deinit();
-    state_serve::deinit();
-    sc::deinit();
+    hpfs_sync::deinit();
+    hpfs_serve::deinit();
+    hpfs::deinit();
     unl::deinit();
     ledger::deinit();
     conf::deinit();
@@ -203,10 +202,9 @@ int main(int argc, char **argv)
 
                 if (ledger::init() == -1 ||
                     unl::init() == -1 ||
-                    sc::init() == -1 ||
-                    state_common::init() == -1 ||
-                    state_serve::init() == -1 ||
-                    state_sync::init() == -1 ||
+                    hpfs::init() == -1 ||
+                    hpfs_serve::init() == -1 ||
+                    hpfs_sync::init() == -1 ||
                     consensus::init() == -1 ||
                     read_req::init() == -1 ||
                     p2p::init() == -1 ||

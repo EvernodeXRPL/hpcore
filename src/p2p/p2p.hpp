@@ -47,13 +47,14 @@ namespace p2p
         std::string pubkey;
 
         uint64_t sent_timestamp = 0; // The timestamp of the sender when this proposal was sent.
-        uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for statsitics)
+        uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for statistics)
         uint64_t time = 0;           // The time value that is voted on.
         uint8_t stage = 0;
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
-        std::string unl_hash; // Hash of the current unl list.
-        util::h32 state;
+        std::string unl_hash;   // Hash of the current unl list.
+        util::h32 state_hash;   // Contract state hash.
+        util::h32 patch_hash;   // Patch file hash.
         std::set<std::string> users;
         std::set<std::string> input_hashes;
         std::string output_hash;
@@ -124,8 +125,8 @@ namespace p2p
         std::string data;
     };
 
-    // Represents a state request sent to a peer.
-    struct state_request
+    // Represents a hpfs request sent to a peer.
+    struct hpfs_request
     {
         std::string parent_path; // The requested file or dir path.
         bool is_file = false;    // Whether the path is a file or dir.
@@ -133,8 +134,8 @@ namespace p2p
         util::h32 expected_hash; // The expected hash of the requested result.
     };
 
-    // Represents state file system entry.
-    struct state_fs_hash_entry
+    // Represents hpfs file system entry.
+    struct hpfs_fs_hash_entry
     {
         std::string name;     // Name of the file/dir.
         bool is_file = false; // Whether this is a file or dir.
@@ -158,13 +159,13 @@ namespace p2p
         std::list<nonunl_proposal> nonunl_proposals;
         std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 
-        // List of pairs indicating the session pubkey hex and the state requests.
-        std::list<std::pair<std::string, std::string>> state_requests;
-        std::mutex state_requests_mutex; // Mutex for state requests access race conditions.
+        // List of pairs indicating the session pubkey hex and the hpfs requests.
+        std::list<std::pair<std::string, std::string>> hpfs_requests;
+        std::mutex hpfs_requests_mutex; // Mutex for hpfs requests access race conditions.
 
-        // List of pairs indicating the session pubkey hex and the state responses.
-        std::list<std::pair<std::string, std::string>> state_responses;
-        std::mutex state_responses_mutex; // Mutex for state responses access race conditions.
+        // List of pairs indicating the session pubkey hex and the hpfs responses.
+        std::list<std::pair<std::string, std::string>> hpfs_responses;
+        std::mutex hpfs_responses_mutex; // Mutex for hpfs responses access race conditions.
     };
 
     struct connected_context

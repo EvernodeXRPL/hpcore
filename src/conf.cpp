@@ -3,6 +3,7 @@
 #include "crypto.hpp"
 #include "hpfs/hpfs.hpp"
 #include "util/util.hpp"
+#include "sc.hpp"
 
 namespace conf
 {
@@ -21,8 +22,6 @@ namespace conf
 
     const static char *PUBLIC = "public";
     const static char *PRIVATE = "private";
-
-    const static char *PATCH_FILE_NAME = "patch.cfg"; // Config patch filename.
 
     bool init_success = false;
 
@@ -111,10 +110,11 @@ namespace conf
         util::create_dir_tree_recursive(ctx.hist_dir);
         util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
-        util::create_dir_tree_recursive(ctx.state_dir);
+        util::create_dir_tree_recursive(ctx.hpfs_dir);
 
-        // Creating state seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
-        util::create_dir_tree_recursive(ctx.state_dir + "/seed");
+        // Creating hpfs seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
+        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed");
+        util::create_dir_tree_recursive(ctx.hpfs_dir + std::string("/seed").append(sc::STATE_DIR_PATH));
 
         //Create config file with default settings.
 
@@ -200,9 +200,9 @@ namespace conf
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
         ctx.hist_dir = basedir + "/hist";
         ctx.full_hist_dir = basedir + "/fullhist";
-        ctx.state_dir = basedir + "/state";
-        ctx.state_rw_dir = ctx.state_dir + "/rw";
-        ctx.state_serve_dir = ctx.state_dir + "/ss";
+        ctx.hpfs_dir = basedir + "/hpfs";
+        ctx.hpfs_rw_dir = ctx.hpfs_dir + "/rw";
+        ctx.hpfs_serve_dir = ctx.hpfs_dir + "/ss";
         ctx.log_dir = basedir + "/log";
     }
 
@@ -390,7 +390,7 @@ namespace conf
 
             // Uncomment for docker-based execution.
             // std::string volumearg;
-            // volumearg.append("type=bind,source=").append(ctx.state_dir).append(",target=/state");
+            // volumearg.append("type=bind,source=").append(ctx.hpfs_dir).append(",target=/hpfs");
             // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.contract.bin_path.data()};
             // cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
         }
@@ -689,7 +689,7 @@ namespace conf
             ctx.config_file,
             ctx.hist_dir,
             ctx.full_hist_dir,
-            ctx.state_dir,
+            ctx.hpfs_dir,
             ctx.tls_key_file,
             ctx.tls_cert_file,
             ctx.hpfs_exe_path,
@@ -795,7 +795,7 @@ namespace conf
     */
     int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir)
     {
-        const std::string path = std::string(mount_dir).append("/").append(PATCH_FILE_NAME);
+        const std::string path = std::string(mount_dir).append(PATCH_FILE_PATH);
         if (util::is_file_exists(path))
         {
             std::ifstream ifs(path);
@@ -889,8 +889,8 @@ namespace conf
                 if (!contract_config.appbill.bin_args.empty())
                     util::split_string(contract_config.appbill.runtime_args, contract_config.appbill.bin_args, " ");
                 contract_config.appbill.runtime_args.insert(contract_config.appbill.runtime_args.begin(), (contract_config.appbill.mode[0] == '/' ? contract_config.appbill.mode : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.appbill.mode)));
-
-                std::cout << "Contract config updated from " << PATCH_FILE_NAME << " file\n";
+                
+                std::cout << "Contract config updated from patch file\n";
             }
             catch (const std::exception &e)
             {

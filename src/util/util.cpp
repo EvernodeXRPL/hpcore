@@ -355,6 +355,15 @@ namespace util
         return 0;
     }
 
+    // Returns the file/dir name of the given path.
+    const std::string get_name(std::string_view path)
+    {
+        char *path2 = strdup(path.data());
+        const std::string name = basename(path2);
+        free(path2);
+        return name;
+    }
+
     /**
      * Create a record lock for the file descriptor. Lock is associated with the process (Not for forked child processes).
      * @param fd File descriptor to be locked.

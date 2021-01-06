@@ -137,17 +137,17 @@ namespace conf
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
 
-        std::string contract_dir;    // Contract base directory full path
-        std::string full_hist_dir;   // Contract full history dir full path
-        std::string hist_dir;        // Contract ledger history dir full path
-        std::string state_dir;       // Contract state maintenence path (hpfs path)
-        std::string state_rw_dir;    // Contract executation read/write state path.
-        std::string state_serve_dir; // State server hpfs mount path.
-        std::string log_dir;         // Contract log dir full path
-        std::string config_dir;      // Contract config dir full path
-        std::string config_file;     // Full path to the contract config file
-        std::string tls_key_file;    // Full path to the tls private key file
-        std::string tls_cert_file;   // Full path to the tls certificate
+        std::string contract_dir;   // Contract base directory full path
+        std::string full_hist_dir;  // Contract full history dir full path
+        std::string hist_dir;       // Contract ledger history dir full path
+        std::string hpfs_dir;       // Hpfs file system mount path (hpfs path)
+        std::string hpfs_rw_dir;    // Hpfs read/write mount path.
+        std::string hpfs_serve_dir; // Hpfs server hpfs mount path.
+        std::string log_dir;        // Contract log dir full path
+        std::string config_dir;     // Contract config dir full path
+        std::string config_file;    // Full path to the contract config file
+        std::string tls_key_file;   // Full path to the tls private key file
+        std::string tls_cert_file;  // Full path to the tls certificate
 
         int config_fd;            // Config file file descriptor
         struct flock config_lock; // Config file record log
@@ -172,6 +172,8 @@ namespace conf
     // Global configuration struct exposed to the application.
     // Other modeuls will access config values via this.
     extern contract_config cfg;
+
+    const static char *PATCH_FILE_PATH = "/patch.cfg"; // Config patch filename.
 
     int init();
 

@@ -31,8 +31,8 @@ union Message {
     NonUnl_Proposal_Message,
     Proposal_Message,
     Npl_Message,
-    State_Request_Message,
-    State_Response_Message,
+    Hpfs_Request_Message,
+    Hpfs_Response_Message,
     History_Request_Message,
     History_Response_Message,
     Peer_Requirement_Announcement_Message,
@@ -64,7 +64,8 @@ table Proposal_Message { //Proposal type message schema
     input_hashes:[ByteArray];
     output_hash:[ubyte];
     output_sig:[ubyte];
-    state: [ubyte];
+    state_hash: [ubyte];
+    patch_hash: [ubyte];
     unl_hash: [ubyte]; // Hash of the current unl list.
     unl_changeset: Unl_Changeset;
 }
@@ -109,23 +110,23 @@ table HistoryLedgerBlock {
    block_buffer:[ubyte];
 }
 
-table State_Request_Message { //State request message schema
+table Hpfs_Request_Message { //Hpfs request message schema
     parent_path:string;
     is_file:bool;
     block_id:int32;
     expected_hash:[ubyte];
 }
 
-union State_Response{ File_HashMap_Response, Block_Response, Fs_Entry_Response }
+union Hpfs_Response{ File_HashMap_Response, Block_Response, Fs_Entry_Response }
 
-table State_Response_Message{
-    state_response:State_Response;
+table Hpfs_Response_Message{
+    hpfs_response:Hpfs_Response;
     hash:[ubyte];
     path: string;
 }
 
 table Fs_Entry_Response{
-     entries: [State_FS_Hash_Entry];
+     entries: [Hpfs_FS_Hash_Entry];
 }
 
 table File_HashMap_Response{
@@ -138,7 +139,7 @@ table Block_Response{
     data: [ubyte];
 }
 
-table State_FS_Hash_Entry{
+table Hpfs_FS_Hash_Entry{
     name: string;
     is_file: bool;
     hash: [ubyte];

@@ -13,8 +13,7 @@
 #include "sc.hpp"
 #include "util/h32.hpp"
 #include "hpfs/hpfs.hpp"
-#include "state/state_common.hpp"
-#include "state/state_sync.hpp"
+#include "hpfs/hpfs_sync.hpp"
 #include "unl.hpp"
 #include "ledger.hpp"
 #include "consensus.hpp"
@@ -112,7 +111,8 @@ namespace consensus
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        util::h32 state = state_common::ctx.get_state();
+        util::h32 state_hash = hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE);
+        util::h32 patch_hash = hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH);
         std::string unl_hash = unl::get_hash();
 
         if (ctx.stage == 0)
@@ -122,7 +122,7 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
-            const p2p::proposal p = create_stage0_proposal(lcl, state, unl_hash);
+            const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash, unl_hash);
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
@@ -138,11 +138,11 @@ namespace consensus
             if (sync_status == 0)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state, unl_hash);
+                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash, unl_hash);
                 broadcast_proposal(p);
 
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state) == -1)
+                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state_hash) == -1)
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
             }
 
@@ -167,7 +167,7 @@ namespace consensus
 
     /**
      * Checks whether we are in sync with the received votes.
-     * @return 0 if we are in sync. -1 on lcl or state desync. -2 if majority lcl unreliable.
+     * @return 0 if we are in sync. -1 on lcl, hpfs or unl desync. -2 if majority lcl unreliable.
      */
     int check_sync_status(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes)
     {
@@ -187,14 +187,17 @@ namespace consensus
 
             // Check our state with majority state.
             bool is_state_desync = false;
-            util::h32 majority_state = util::h32_empty;
-            check_state_votes(is_state_desync, majority_state, votes);
+            bool is_patch_desync = false;
+            util::h32 majority_state_hash = util::h32_empty;
+            util::h32 majority_patch_hash = util::h32_empty;
+            check_patch_votes(is_patch_desync, majority_patch_hash, votes);
+            check_state_votes(is_state_desync, majority_state_hash, votes);
 
-            // Start state sync if we are out-of-sync with majority state.
-            if (is_state_desync)
+            // Start hpfs sync if we are out-of-sync with majority hpfs state.
+            if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                state_sync::set_target(majority_state);
+                hpfs_sync::set_target(majority_state_hash, majority_patch_hash);
             }
 
             // Check unl hash with the majority unl hash.
@@ -209,13 +212,13 @@ namespace consensus
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
-            if (!is_lcl_desync && !is_state_desync && !is_unl_desync)
+            if (!is_lcl_desync && !is_state_desync && !is_patch_desync && !is_unl_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
-            // lcl or state desync.
+            // lcl, hpfs or unl desync.
             return -1;
         }
 
@@ -229,7 +232,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !state_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing && !unl::sync_ctx.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -272,7 +275,8 @@ namespace consensus
                       << "/" << cp.input_hashes.size()
                       << " ts:" << std::to_string(cp.time)
                       << " lcl:" << cp.lcl.substr(0, 15)
-                      << " state:" << cp.state
+                      << " state hash:" << cp.state_hash
+                      << " patch hash:" << cp.patch_hash
                       << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
                       << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
 
@@ -388,7 +392,8 @@ namespace consensus
                   << "/" << p.input_hashes.size()
                   << " ts:" << std::to_string(p.time)
                   << " lcl:" << p.lcl.substr(0, 15)
-                  << " state:" << p.state;
+                  << " state hash:" << p.state_hash
+                  << " patch hash:" << p.patch_hash;
     }
 
     /**
@@ -530,7 +535,7 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state, std::string_view unl_hash)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, std::string_view unl_hash)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -538,7 +543,8 @@ namespace consensus
         p.time = ctx.round_start_time;
         p.stage = 0;
         p.lcl = lcl;
-        p.state = state;
+        p.state_hash = state_hash;
+        p.patch_hash = patch_hash;
         p.unl_hash = unl_hash;
         crypto::random_bytes(p.nonce, ROUND_NONCE_SIZE);
 
@@ -559,12 +565,13 @@ namespace consensus
         return p;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state, std::string_view unl_hash)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, std::string_view unl_hash)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
         p.stage = ctx.stage;
-        p.state = state;
+        p.state_hash = state_hash;
+        p.patch_hash = patch_hash;
 
         // We always vote for our current lcl and state regardless of what other peers are saying.
         // If there's a fork condition we will either request history and state from
@@ -762,27 +769,55 @@ namespace consensus
     }
 
     /**
-     * Check state against the winning and canonical state
+     * Check state hash against the winning and canonical state hash.
+     * @param is_state_desync Flag to determine whether contract state is out of sync.
+     * @param majority_state_hash Consensused state hash.
      * @param votes The voting table.
      */
-    void check_state_votes(bool &is_desync, util::h32 &majority_state, vote_counter &votes)
+    void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes)
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
-            increment(votes.state, cp.state);
+            increment(votes.state_hash, cp.state_hash);
         }
 
         uint32_t winning_votes = 0;
-        for (const auto [state, votes] : votes.state)
+        for (const auto [state_hash, votes] : votes.state_hash)
         {
             if (votes > winning_votes)
             {
                 winning_votes = votes;
-                majority_state = state;
+                majority_state_hash = state_hash;
             }
         }
 
-        is_desync = (state_common::ctx.get_state() != majority_state);
+        is_state_desync = (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE) != majority_state_hash);
+    }
+
+    /**
+     * Check state hash against the winning and canonical state hash.
+     * @param is_patch_desync Flag to determine whether patch file is out of sync.
+     * @param majority_patch_hash Consensused patch hash.
+     * @param votes The voting table.
+     */
+    void check_patch_votes(bool &is_patch_desync, util::h32 &majority_patch_hash, vote_counter &votes)
+    {
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            increment(votes.patch_hash, cp.patch_hash);
+        }
+
+        uint32_t winning_votes = 0;
+        for (const auto [patch_hash, votes] : votes.patch_hash)
+        {
+            if (votes > winning_votes)
+            {
+                winning_votes = votes;
+                majority_patch_hash = patch_hash;
+            }
+        }
+
+        is_patch_desync = (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH) != majority_patch_hash);
     }
 
     /**
@@ -816,7 +851,7 @@ namespace consensus
      * Update the ledger and execute the contract after consensus.
      * @param cons_prop The proposal that reached consensus.
      */
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state)
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state_hash)
     {
         // Map to temporarily store the raw inputs along with the hash.
         std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
@@ -848,7 +883,7 @@ namespace consensus
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state << ")";
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state hash:" << cons_prop.state_hash << " patch hash:" << cons_prop.patch_hash << ")";
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
@@ -879,7 +914,7 @@ namespace consensus
             }
 
             sc::contract_execution_args &args = ctx.contract_ctx->args;
-            args.state_dir = conf::ctx.state_rw_dir;
+            args.hpfs_dir = conf::ctx.hpfs_rw_dir;
             args.readonly = false;
             args.time = cons_prop.time;
             args.lcl = new_lcl;
@@ -894,8 +929,8 @@ namespace consensus
                 return -1;
             }
 
-            state_common::ctx.set_state(args.post_execution_state_hash);
-            new_state = args.post_execution_state_hash;
+            hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE, args.post_execution_state_hash);
+            new_state_hash = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);
 
@@ -905,7 +940,7 @@ namespace consensus
                 std::vector<std::string_view> hashes;
                 for (const auto &[hash, output] : ctx.generated_user_outputs)
                     hashes.push_back(hash);
-                hashes.push_back(new_state.to_string_view());
+                hashes.push_back(new_state_hash.to_string_view());
                 ctx.user_outputs_hashtree.populate(hashes);
                 ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root_hash(), conf::cfg.node.private_key);
             }

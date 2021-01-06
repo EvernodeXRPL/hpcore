@@ -1,5 +1,5 @@
-#ifndef _HP_STATE_STATE_SYNC_
-#define _HP_STATE_STATE_SYNC_
+#ifndef _HP_HPFS_HPFS_SYNC_
+#define _HP_HPFS_HPFS_SYNC_
 
 #include "../pchheader.hpp"
 #include "../p2p/p2p.hpp"
@@ -7,7 +7,7 @@
 #include "../util/h32.hpp"
 #include "../crypto.hpp"
 
-namespace state_sync
+namespace hpfs_sync
 {
 
     enum BACKLOG_ITEM_TYPE
@@ -32,11 +32,15 @@ namespace state_sync
 
     struct sync_context
     {
-        // The current target state we are syncing towards.
-        util::h32 target_state;
+        // The current target hashes we are syncing towards.
+        util::h32 target_state_hash;
+        util::h32 target_patch_hash;
+        util::h32 current_parent_target_hash;
 
-        // List of sender pubkeys and state responses(flatbuffer messages) to be processed.
-        std::list<std::pair<std::string, std::string>> candidate_state_responses;
+        hpfs::HPFS_PARENT_COMPONENTS current_syncing_parent;
+
+        // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
+        std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
 
         // List of pending sync requests to be sent out.
         std::list<backlog_item> pending_requests;
@@ -44,7 +48,7 @@ namespace state_sync
         // List of submitted requests we are awaiting responses for, keyed by expected response path+hash.
         std::unordered_map<std::string, backlog_item> submitted_requests;
 
-        std::thread state_sync_thread;
+        std::thread hpfs_sync_thread;
         std::shared_mutex target_state_mutex;
         std::atomic<bool> is_syncing = false;
         std::atomic<bool> is_shutting_down = false;
@@ -53,19 +57,17 @@ namespace state_sync
 
     extern sync_context ctx;
 
-    extern std::list<std::string> candidate_state_responses;
-
     int init();
 
     void deinit();
 
-    void set_target(const util::h32 target_state);
+    void set_target(const util::h32 target_state_hash, const util::h32 target_patch_hash);
 
-    void state_syncer_loop();
+    void hpfs_syncer_loop();
 
     int request_loop(const util::h32 current_target, util::h32 &updated_state);
 
-    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map);
+    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 
     bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const util::h32 *hashes, const size_t hash_count);
 
@@ -78,12 +80,12 @@ namespace state_sync
 
     void submit_request(const backlog_item &request, std::string_view lcl);
 
-    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::state_fs_hash_entry> &fs_entry_map);
+    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 
     int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 
     int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
 
-} // namespace state_sync
+} // namespace hpfs_sync
 
 #endif
