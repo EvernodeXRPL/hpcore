@@ -34,8 +34,8 @@ namespace hpfs
         util::h32 initial_patch_hash;
 
         if (start_ro_session(INIT_SESSION_NAME, true) == -1 ||
-            get_hash(initial_state_hash, INIT_SESSION_NAME, sc::STATE_DIR_PATH) == -1 ||
-            get_hash(initial_patch_hash, INIT_SESSION_NAME, conf::PATCH_FILE_PATH) == -1 ||
+            get_hash(initial_state_hash, INIT_SESSION_NAME, hpfs::STATE_DIR_PATH) == -1 ||
+            get_hash(initial_patch_hash, INIT_SESSION_NAME, hpfs::PATCH_FILE_PATH) == -1 ||
             stop_ro_session(INIT_SESSION_NAME) == -1)
         {
             LOG_ERROR << "Failed to get initial hpfs hashes.";
@@ -233,7 +233,7 @@ namespace hpfs
      */
     int get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + "/" + session_name.data() + vpath.data() + HMAP_HASH;
+        const std::string path = physical_path(session_name, std::string(vpath).append(HMAP_HASH));
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
@@ -262,7 +262,7 @@ namespace hpfs
      */
     int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + "/" + session_name.data() + vpath.data() + HMAP_CHILDREN;
+        const std::string path = physical_path(session_name, std::string(vpath).append(HMAP_CHILDREN));
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
@@ -302,7 +302,7 @@ namespace hpfs
      */
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + "/" + session_name.data() + dir_vpath.data() + HMAP_CHILDREN;
+        const std::string path = physical_path(session_name, std::string(dir_vpath).append(HMAP_CHILDREN));
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
@@ -334,6 +334,11 @@ namespace hpfs
             return -1;
         }
         return 1;
+    }
+
+    const std::string physical_path(std::string_view session_name, std::string_view vpath)
+    {
+        return conf::ctx.hpfs_mount_dir + "/" + session_name.data() + vpath.data();
     }
 
 } // namespace hpfs

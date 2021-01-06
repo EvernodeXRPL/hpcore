@@ -144,7 +144,7 @@ namespace hpfs_sync
 
                                     // Update global hash tracker with the new patch file hash.
                                     util::h32 updated_patch_hash;
-                                    hpfs::get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, conf::PATCH_FILE_PATH);
+                                    hpfs::get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
                                     hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, updated_patch_hash);
                                 }
 
@@ -192,12 +192,12 @@ namespace hpfs_sync
         BACKLOG_ITEM_TYPE target_parent_backlog_item_type;
         if (ctx.current_syncing_parent == hpfs::HPFS_PARENT_COMPONENTS::STATE)
         {
-            target_parent_vpath = sc::STATE_DIR_PATH;
+            target_parent_vpath = hpfs::STATE_DIR_PATH;
             target_parent_backlog_item_type = BACKLOG_ITEM_TYPE::DIR;
         }
         else if (ctx.current_syncing_parent == hpfs::HPFS_PARENT_COMPONENTS::PATCH)
         {
-            target_parent_vpath = conf::PATCH_FILE_PATH;
+            target_parent_vpath = hpfs::PATCH_FILE_PATH;
             target_parent_backlog_item_type = BACKLOG_ITEM_TYPE::FILE;
         }
         std::string lcl = ledger::ctx.get_lcl();

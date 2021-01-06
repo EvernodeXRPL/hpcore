@@ -89,7 +89,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            const std::string current_dir = conf::ctx.hpfs_mount_dir + "/" + ctx.args.hpfs_session_name + STATE_DIR_PATH;
+            const std::string current_dir = hpfs::physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
             chdir(current_dir.c_str());
 
             execv(execv_args[0], execv_args);
@@ -172,14 +172,14 @@ namespace sc
         else
         {
             // Read the state hash if not in readonly mode.
-            if (hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, STATE_DIR_PATH) < 1)
+            if (hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH) < 1)
             {
                 hpfs::release_rw_session();
                 return -1;
             }
 
             util::h32 patch_hash;
-            const int patch_hash_result = hpfs::get_hash(patch_hash, ctx.args.hpfs_session_name, conf::PATCH_FILE_PATH);
+            const int patch_hash_result = hpfs::get_hash(patch_hash, ctx.args.hpfs_session_name, hpfs::PATCH_FILE_PATH);
             if (patch_hash_result == -1)
             {
                 hpfs::release_rw_session();

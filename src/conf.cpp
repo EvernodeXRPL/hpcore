@@ -3,7 +3,6 @@
 #include "crypto.hpp"
 #include "hpfs/hpfs.hpp"
 #include "util/util.hpp"
-#include "sc.hpp"
 
 namespace conf
 {
@@ -110,11 +109,7 @@ namespace conf
         util::create_dir_tree_recursive(ctx.hist_dir);
         util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
-        util::create_dir_tree_recursive(ctx.hpfs_dir);
-
-        // Creating hpfs seed dir in advance so hpfs doesn't cause mkdir race conditions during first-run.
-        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed");
-        util::create_dir_tree_recursive(ctx.hpfs_dir + std::string("/seed").append(sc::STATE_DIR_PATH));
+        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH);
 
         //Create config file with default settings.
 
@@ -201,7 +196,7 @@ namespace conf
         ctx.hist_dir = basedir + "/hist";
         ctx.full_hist_dir = basedir + "/fullhist";
         ctx.hpfs_dir = basedir + "/hpfs";
-        ctx.hpfs_mount_dir = basedir + "/hpfs/mnt";
+        ctx.hpfs_mount_dir = ctx.hpfs_dir + "/mnt";
         ctx.hpfs_rw_dir = ctx.hpfs_mount_dir + "/rw";
         ctx.log_dir = basedir + "/log";
     }
@@ -792,7 +787,7 @@ namespace conf
     */
     int validate_and_apply_patch_config(contract_params &contract_config, std::string_view hpfs_session_name)
     {
-        const std::string path = ctx.hpfs_mount_dir + "/" + hpfs_session_name.data() + PATCH_FILE_PATH;
+        const std::string path = hpfs::physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
         if (util::is_file_exists(path))
         {
             std::ifstream ifs(path);

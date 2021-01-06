@@ -7,8 +7,10 @@
 
 namespace hpfs
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
-    constexpr const char *RW_SESSION_NAME = "rw";  // The built-in session name used by hpfs for RW sessions.
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024;   // 4MB;
+    constexpr const char *RW_SESSION_NAME = "rw";    // The built-in session name used by hpfs for RW sessions.
+    constexpr const char *STATE_DIR_PATH = "/state"; // State directory name.
+    constexpr const char *PATCH_FILE_PATH = "/patch.cfg"; // Config patch filename.
 
     struct child_hash_node
     {
@@ -82,6 +84,7 @@ namespace hpfs
     int get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath);
     int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath);
     int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath);
+    const std::string physical_path(std::string_view session_name, std::string_view vpath);
 } // namespace hpfs
 
 #endif

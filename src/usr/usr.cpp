@@ -8,6 +8,7 @@
 #include "../hplog.hpp"
 #include "../ledger.hpp"
 #include "../util/buffer_store.hpp"
+#include "../hpfs/hpfs.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_comm_session.hpp"
@@ -389,7 +390,8 @@ namespace usr
             util::fork_detach();
 
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
-            chdir(conf::ctx.hpfs_rw_dir.c_str());
+            const std::string appbill_dir = conf::ctx.hpfs_rw_dir + hpfs::STATE_DIR_PATH;
+            chdir(appbill_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
             std::cerr << errno << ": Appbill process execv failed.\n";
             return false;
