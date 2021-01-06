@@ -9,7 +9,6 @@ table LedgerBlock {
     lcl:[ubyte];
     state_hash:[ubyte];
     patch_hash:[ubyte];
-    unl:[ubyte];
     users: [ByteArray];
     inputs: [ByteArray]; 
     output: [ubyte];

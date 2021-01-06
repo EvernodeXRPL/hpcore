@@ -27,7 +27,6 @@ namespace msg::fbuf::ledger
                 sv_to_flatbuff_bytes(builder, p.lcl),
                 hash_to_flatbuff_bytes(builder, p.state_hash),
                 hash_to_flatbuff_bytes(builder, p.patch_hash),
-                sv_to_flatbuff_bytes(builder, p.unl_hash),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
                 sv_to_flatbuff_bytes(builder, p.output_hash),

@@ -76,7 +76,6 @@ void deinit()
     hpfs_sync::deinit();
     hpfs_serve::deinit();
     hpfs::deinit();
-    unl::deinit();
     ledger::deinit();
     conf::deinit();
 }

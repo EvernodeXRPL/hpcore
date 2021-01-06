@@ -27,11 +27,10 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_LCL = 10,
     VT_STATE_HASH = 12,
     VT_PATCH_HASH = 14,
-    VT_UNL = 16,
-    VT_USERS = 18,
-    VT_INPUTS = 20,
-    VT_OUTPUT = 22,
-    VT_UNL_CHANGESET = 24
+    VT_USERS = 16,
+    VT_INPUTS = 18,
+    VT_OUTPUT = 20,
+    VT_UNL_CHANGESET = 22
   };
   const flatbuffers::String *version() const {
     return GetPointer<const flatbuffers::String *>(VT_VERSION);
@@ -69,12 +68,6 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_patch_hash() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
   }
-  const flatbuffers::Vector<uint8_t> *unl() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_UNL);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_unl() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_UNL);
-  }
   const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_USERS);
   }
@@ -111,8 +104,6 @@ struct LedgerBlock FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(state_hash()) &&
            VerifyOffset(verifier, VT_PATCH_HASH) &&
            verifier.VerifyVector(patch_hash()) &&
-           VerifyOffset(verifier, VT_UNL) &&
-           verifier.VerifyVector(unl()) &&
            VerifyOffset(verifier, VT_USERS) &&
            verifier.VerifyVector(users()) &&
            verifier.VerifyVectorOfTables(users()) &&
@@ -149,9 +140,6 @@ struct LedgerBlockBuilder {
   void add_patch_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash) {
     fbb_.AddOffset(LedgerBlock::VT_PATCH_HASH, patch_hash);
   }
-  void add_unl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl) {
-    fbb_.AddOffset(LedgerBlock::VT_UNL, unl);
-  }
   void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users) {
     fbb_.AddOffset(LedgerBlock::VT_USERS, users);
   }
@@ -183,7 +171,6 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> unl = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> inputs = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output = 0,
@@ -195,7 +182,6 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlock(
   builder_.add_output(output);
   builder_.add_inputs(inputs);
   builder_.add_users(users);
-  builder_.add_unl(unl);
   builder_.add_patch_hash(patch_hash);
   builder_.add_state_hash(state_hash);
   builder_.add_lcl(lcl);
@@ -211,7 +197,6 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
     const std::vector<uint8_t> *lcl = nullptr,
     const std::vector<uint8_t> *state_hash = nullptr,
     const std::vector<uint8_t> *patch_hash = nullptr,
-    const std::vector<uint8_t> *unl = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *inputs = nullptr,
     const std::vector<uint8_t> *output = nullptr,
@@ -220,7 +205,6 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
   auto state_hash__ = state_hash ? _fbb.CreateVector<uint8_t>(*state_hash) : 0;
   auto patch_hash__ = patch_hash ? _fbb.CreateVector<uint8_t>(*patch_hash) : 0;
-  auto unl__ = unl ? _fbb.CreateVector<uint8_t>(*unl) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
   auto inputs__ = inputs ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*inputs) : 0;
   auto output__ = output ? _fbb.CreateVector<uint8_t>(*output) : 0;
@@ -232,7 +216,6 @@ inline flatbuffers::Offset<LedgerBlock> CreateLedgerBlockDirect(
       lcl__,
       state_hash__,
       patch_hash__,
-      unl__,
       users__,
       inputs__,
       output__,

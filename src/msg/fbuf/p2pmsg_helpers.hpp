@@ -37,10 +37,6 @@ namespace msg::fbuf::p2pmsg
     const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg);
 
     const p2p::hpfs_request create_hpfs_request_from_msg(const Hpfs_Request_Message &msg);
-    
-    const p2p::unl_sync_request create_unl_sync_request_from_msg(const Unl_Request_Message &unl_req_message);
-
-    const p2p::unl_sync_response create_unl_sync_response_from_msg(const Unl_Response_Message &unl_response_message);
 
     const std::vector<conf::peer_properties> create_peer_list_response_from_msg(const Peer_List_Response_Message &msg);
 
@@ -60,10 +56,6 @@ namespace msg::fbuf::p2pmsg
     void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view &msg, std::string_view lcl);
 
     void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl);
-
-    void create_msg_from_unl_sync_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::unl_sync_request &unl_sync_message);
-
-    void create_msg_from_unl_sync_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::unl_sync_response &unl_response);
 
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
