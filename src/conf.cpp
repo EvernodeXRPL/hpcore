@@ -890,9 +890,7 @@ namespace conf
                     util::split_string(contract_config.appbill.runtime_args, contract_config.appbill.bin_args, " ");
                 contract_config.appbill.runtime_args.insert(contract_config.appbill.runtime_args.begin(), (contract_config.appbill.mode[0] == '/' ? contract_config.appbill.mode : util::realpath(conf::ctx.contract_dir + "/bin/" + contract_config.appbill.mode)));
                 
-                // Removing '/' from patch file path.
-                const std::string patch_file_name(PATCH_FILE_PATH);
-                std::cout << "Contract config updated from " << patch_file_name.substr(1) << " file\n";
+                std::cout << "Contract config updated from patch file\n";
             }
             catch (const std::exception &e)
             {
