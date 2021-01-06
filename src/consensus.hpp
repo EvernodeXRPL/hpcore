@@ -68,9 +68,6 @@ namespace consensus
         std::string user_outputs_our_sig;
         std::vector<std::pair<std::string, std::string>> user_outputs_unl_sig;
 
-        // Collected unl changset to be subjected to the consensus. This will stay here until end of the current consensus round.
-        p2p::contract_unl_changeset candidate_unl_changeset;
-
         uint8_t stage = 1;
         uint64_t round_start_time = 0;
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
@@ -97,9 +94,6 @@ namespace consensus
         std::map<std::string, uint32_t> output_hash;
         std::map<util::h32, uint32_t> state_hash;
         std::map<util::h32, uint32_t> patch_hash;
-        std::map<std::string, uint32_t> unl;
-        std::map<std::string, uint32_t> unl_additions;
-        std::map<std::string, uint32_t> unl_removals;
     };
 
     int init();
@@ -112,7 +106,7 @@ namespace consensus
 
     int consensus();
 
-    int check_sync_status(std::string_view lcl, std::string_view unl_hash, const size_t unl_count, vote_counter &votes);
+    int check_sync_status(std::string_view lcl, const size_t unl_count, vote_counter &votes);
 
     void check_sync_completion();
 
@@ -126,9 +120,9 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, std::string_view unl_hash);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, std::string_view unl_hash);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash);
 
     void broadcast_proposal(const p2p::proposal &p);
 
@@ -137,8 +131,6 @@ namespace consensus
     void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes);
     
     void check_patch_votes(bool &is_patch_desync, util::h32 &majority_patch_hash, vote_counter &votes);
-
-    void check_unl_votes(bool &is_desync, std::string &majority_unl, vote_counter &votes, std::string_view unl_hash);
 
     void timewait_stage(const bool reset, const uint64_t time);
 
