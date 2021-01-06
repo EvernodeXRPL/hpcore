@@ -89,7 +89,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            const std::string current_dir = std::string(ctx.args.hpfs_dir).append(STATE_DIR_PATH);
+            const std::string current_dir = conf::ctx.hpfs_mount_dir + "/" + ctx.args.hpfs_session_name + STATE_DIR_PATH;
             chdir(current_dir.c_str());
 
             execv(execv_args[0], execv_args);
@@ -148,50 +148,36 @@ namespace sc
     }
 
     /**
-     * Starts the hpfs read/write virtual filesystem.
+     * Starts the hpfs virtual filesystem session used for contract execution.
      */
     int start_hpfs_session(execution_context &ctx)
     {
-        // In readonly mode, we must start the hpfs process first.
-        // In RW mode, there is a global hpfs RW process so we only need to create an fs session.
-        if (ctx.args.readonly)
-        {
-            if (hpfs::start_ro_rw_process(ctx.hpfs_pid, ctx.args.hpfs_dir, true, false, false) == -1)
-                return -1;
-        }
-        else
-        {
-            ctx.hpfs_pid = hpfs::ctx.hpfs_rw_pid;
-        }
+        if (!ctx.args.readonly)
+            ctx.args.hpfs_session_name = hpfs::RW_SESSION_NAME;
 
-        if (hpfs::start_fs_session(ctx.args.hpfs_dir) == -1)
-            return -1;
-
-        return 0;
+        return ctx.args.readonly ? hpfs::start_ro_session(ctx.args.hpfs_session_name, false)
+                                 : hpfs::acquire_rw_session();
     }
 
     /**
-     * Stops the hpfs virtual filesystem.
+     * Stops the hpfs virtual filesystem session.
      */
     int stop_hpfs_session(execution_context &ctx)
     {
-        int result = 0;
-        // Read the root hash if not in readonly mode.
-        if (!ctx.args.readonly && hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_dir, STATE_DIR_PATH) < 1)
-            result = -1;
-
-        LOG_DEBUG << "Stopping hpfs contract session..." << (ctx.args.readonly ? " (rdonly)" : "");
-
-        if (hpfs::stop_fs_session(ctx.args.hpfs_dir) == -1)
-            return -1;
-
-        // In readonly mode, we must also stop the hpfs process itself after sopping the session.
-        // In RW mode, we only need to stop the fs session and let the process keep running.
-        if (ctx.args.readonly && util::kill_process(ctx.hpfs_pid, true) == -1)
-            result = -1;
-
-        ctx.hpfs_pid = 0;
-        return result;
+        if (ctx.args.readonly)
+        {
+            return hpfs::stop_ro_session(ctx.args.hpfs_session_name);
+        }
+        else
+        {
+            // Read the root hash if not in readonly mode.
+            if (hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, STATE_DIR_PATH) < 1)
+            {
+                hpfs::release_rw_session();
+                return -1;
+            }
+            return hpfs::release_rw_session();
+        }
     }
 
     /**

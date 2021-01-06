@@ -60,8 +60,8 @@ namespace sc
         // Whether the contract should execute in read only mode (to serve read requests).
         bool readonly = false;
 
-        // Hpfs dir path to be used for this execution.
-        std::string hpfs_dir;
+        // hpfs session name used for this execution.
+        std::string hpfs_session_name;
 
         // Map of user I/O buffers (map key: user binary public key).
         // The value is a pair holding consensus-verified inputs and contract-generated outputs.
@@ -114,9 +114,6 @@ namespace sc
 
         // Holds the contract process id (if currently executing).
         pid_t contract_pid = 0;
-
-        // Holds the hpfs rw process id (if currently executing).
-        pid_t hpfs_pid = 0;
 
         // Thread to collect contract inputs and outputs and feed npl messages while contract is running.
         std::thread contract_monitor_thread;

@@ -140,8 +140,9 @@ namespace conf
         std::string contract_dir;   // Contract base directory full path
         std::string full_hist_dir;  // Contract full history dir full path
         std::string hist_dir;       // Contract ledger history dir full path
-        std::string hpfs_dir;       // Hpfs file system mount path (hpfs path)
-        std::string hpfs_rw_dir;    // Hpfs read/write mount path.
+        std::string hpfs_dir;       // Hpfs metdata dir (The location of hpfs log file).
+        std::string hpfs_mount_dir; // Hpfs file system mount path.
+        std::string hpfs_rw_dir;    // Hpfs read/write fs session path.
         std::string hpfs_serve_dir; // Hpfs server hpfs mount path.
         std::string log_dir;        // Contract log dir full path
         std::string config_dir;     // Contract config dir full path
@@ -205,7 +206,7 @@ namespace conf
 
     int apply_patch_changes(contract_params &contract_config);
 
-    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view mount_dir);
+    int validate_and_apply_patch_config(contract_params &contract_config);
 
     int set_config_lock();
 

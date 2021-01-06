@@ -914,7 +914,6 @@ namespace consensus
             }
 
             sc::contract_execution_args &args = ctx.contract_ctx->args;
-            args.hpfs_dir = conf::ctx.hpfs_rw_dir;
             args.readonly = false;
             args.time = cons_prop.time;
             args.lcl = new_lcl;
