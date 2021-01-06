@@ -103,6 +103,24 @@ namespace sc
         }
 
         cleanup_fds(ctx);
+
+        util::h32 patch_hash;
+        if (hpfs::get_hash(patch_hash, ctx.args.hpfs_dir, conf::PATCH_FILE_PATH) == 1)
+        {
+            if (patch_hash != hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH))
+            {
+                // Update global hash tracker with the new patch file hash.
+                hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);
+
+                // Appling new patch file changes to hpcore runtime.
+                if (conf::validate_and_apply_patch_config(conf::cfg.contract, ctx.args.hpfs_dir) == -1)
+                {
+                    LOG_ERROR << "Appling patch file after contract execution failed";
+                }
+                unl::update_unl_changes_from_patch();
+            }
+        }
+
         if (stop_hpfs_session(ctx) == -1)
             ret = -1;
 

@@ -55,6 +55,7 @@ namespace unl
     int verify_and_replace(const std::set<std::string> &new_list);
     int check_unl_sync_requests();
     int check_unl_sync_responses();
+    void update_unl_changes_from_patch();
 
 } // namespace unl
 

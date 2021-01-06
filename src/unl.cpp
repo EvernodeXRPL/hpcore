@@ -347,4 +347,32 @@ namespace unl
         return unl_responses.empty() ? 0 : 1;
     }
 
+    /**
+     * Replace the unl list from the latest unl list from patch file.
+    */
+    void update_unl_changes_from_patch()
+    {
+        bool is_unl_list_changed = false;
+        {
+            std::unique_lock lock(unl_mutex);
+            const std::string updated_hash = calculate_hash(list);
+            if (hash != updated_hash)
+            {
+                hash = updated_hash;
+                list = conf::cfg.contract.unl;
+                update_json_list();
+
+                // conf::persist_unl_update(list);
+                
+                // Update the own node's unl status.
+                conf::cfg.node.is_unl = (list.find(conf::cfg.node.public_key) != list.end());
+                is_unl_list_changed = true;
+            }
+        }
+
+        // Update the is_unl flag of peer sessions.
+        if (is_unl_list_changed)
+            p2p::update_unl_connections();
+    }
+
 } // namespace unl
