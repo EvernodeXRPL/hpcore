@@ -143,7 +143,6 @@ namespace conf
         std::string hpfs_dir;       // Hpfs metdata dir (The location of hpfs log file).
         std::string hpfs_mount_dir; // Hpfs file system mount path.
         std::string hpfs_rw_dir;    // Hpfs read/write fs session path.
-        std::string hpfs_serve_dir; // Hpfs server hpfs mount path.
         std::string log_dir;        // Contract log dir full path
         std::string config_dir;     // Contract config dir full path
         std::string config_file;    // Full path to the contract config file

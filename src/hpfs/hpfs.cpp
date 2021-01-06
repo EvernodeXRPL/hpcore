@@ -231,9 +231,9 @@ namespace hpfs
      * Populates the hash of the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_hash(util::h32 &hash, const std::string &session_name, const std::string &vpath)
+    int get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + session_name + vpath + HMAP_HASH;
+        const std::string path = conf::ctx.hpfs_mount_dir + session_name.data() + vpath.data() + HMAP_HASH;
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
@@ -260,9 +260,9 @@ namespace hpfs
      * Populates the list of file block hashes for the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_file_block_hashes(std::vector<util::h32> &hashes, const std::string &session_name, const std::string &vpath)
+    int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + session_name + vpath + HMAP_CHILDREN;
+        const std::string path = conf::ctx.hpfs_mount_dir + session_name.data() + vpath.data() + HMAP_CHILDREN;
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {
@@ -300,9 +300,9 @@ namespace hpfs
      * Populates the list of dir entry hashes for the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string &session_name, const std::string &dir_vpath)
+    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath)
     {
-        const std::string path = conf::ctx.hpfs_mount_dir + session_name + dir_vpath + HMAP_CHILDREN;
+        const std::string path = conf::ctx.hpfs_mount_dir + session_name.data() + dir_vpath.data() + HMAP_CHILDREN;
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1 && errno == ENOENT)
         {

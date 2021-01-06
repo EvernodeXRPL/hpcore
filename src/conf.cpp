@@ -203,7 +203,6 @@ namespace conf
         ctx.hpfs_dir = basedir + "/hpfs";
         ctx.hpfs_mount_dir = basedir + "/hpfs/mnt";
         ctx.hpfs_rw_dir = ctx.hpfs_mount_dir + "/rw";
-        ctx.hpfs_serve_dir = ctx.hpfs_dir + "/ss";
         ctx.log_dir = basedir + "/log";
     }
 

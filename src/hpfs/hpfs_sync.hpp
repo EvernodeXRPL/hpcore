@@ -52,7 +52,6 @@ namespace hpfs_sync
         std::shared_mutex target_state_mutex;
         std::atomic<bool> is_syncing = false;
         std::atomic<bool> is_shutting_down = false;
-        std::string hpfs_mount_dir;
     };
 
     extern sync_context ctx;

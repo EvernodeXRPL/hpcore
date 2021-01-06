@@ -79,9 +79,9 @@ namespace hpfs
     int release_rw_session();
     int start_ro_session(const std::string &name, const bool hmap_enabled);
     int stop_ro_session(const std::string &name);
-    int get_hash(util::h32 &hash, const std::string &session_name, const std::string &vpath);
-    int get_file_block_hashes(std::vector<util::h32> &hashes, const std::string &session_name, const std::string &vpath);
-    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, const std::string &session_name, const std::string &vpath);
+    int get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath);
+    int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath);
+    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath);
 } // namespace hpfs
 
 #endif
