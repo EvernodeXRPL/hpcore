@@ -61,46 +61,6 @@ namespace unl
         return list.find(bin_pubkey) != list.end();
     }
 
-    /**
-     * Called by consensus to apply unl changesets that reached consensus.
-     */
-    void apply_changeset(const std::set<std::string> &additions, const std::set<std::string> &removals)
-    {
-        if (additions.empty() && removals.empty())
-            return;
-
-        bool is_updated = false;
-        {
-            std::unique_lock lock(unl_mutex);
-            for (const std::string &pubkey : additions)
-            {
-                const auto [ele, is_success] = list.emplace(pubkey);
-                if (is_success)
-                    is_updated = true;
-            }
-
-            for (const std::string &pubkey : removals)
-            {
-                if (list.erase(pubkey))
-                    is_updated = true;
-            }
-
-            if (is_updated)
-            {
-                update_json_list();
-                conf::persist_unl_update(list);
-                hash = calculate_hash(list);
-                LOG_INFO << "UNL updated. Count:" << list.size();
-                // Update the own node's unl status.
-                conf::cfg.node.is_unl = (list.find(conf::cfg.node.public_key) != list.end());
-            }
-        }
-
-        // Update the is_unl flag of peer sessions.
-        if (is_updated)
-            p2p::update_unl_connections();
-    }
-
     void update_json_list()
     {
         std::ostringstream os;
@@ -150,7 +110,7 @@ namespace unl
                 list = conf::cfg.contract.unl;
                 update_json_list();
 
-                // conf::persist_unl_update(list);
+                conf::persist_unl_update(list);
                 
                 // Update the own node's unl status.
                 conf::cfg.node.is_unl = (list.find(conf::cfg.node.public_key) != list.end());

@@ -68,9 +68,6 @@ namespace consensus
         std::string user_outputs_our_sig;
         std::vector<std::pair<std::string, std::string>> user_outputs_unl_sig;
 
-        // Collected unl changset to be subjected to the consensus. This will stay here until end of the current consensus round.
-        p2p::contract_unl_changeset candidate_unl_changeset;
-
         uint8_t stage = 1;
         uint64_t round_start_time = 0;
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
@@ -97,8 +94,6 @@ namespace consensus
         std::map<std::string, uint32_t> output_hash;
         std::map<util::h32, uint32_t> state_hash;
         std::map<util::h32, uint32_t> patch_hash;
-        std::map<std::string, uint32_t> unl_additions;
-        std::map<std::string, uint32_t> unl_removals;
     };
 
     int init();

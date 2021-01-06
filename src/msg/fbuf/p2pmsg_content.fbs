@@ -49,11 +49,6 @@ table NonUnl_Proposal_Message {
     user_inputs:[UserInputGroup];
 }
 
-table Unl_Changeset {
-    additions:[ByteArray];
-    removals:[ByteArray];
-}
-
 table Proposal_Message { //Proposal type message schema
     stage:uint8;
     time:uint64;
@@ -64,7 +59,6 @@ table Proposal_Message { //Proposal type message schema
     output_sig:[ubyte];
     state_hash: [ubyte];
     patch_hash: [ubyte];
-    unl_changeset: Unl_Changeset;
 }
 
 table Npl_Message { //NPL type message schema

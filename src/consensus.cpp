@@ -546,9 +546,6 @@ namespace consensus
         p.output_hash = ctx.user_outputs_hashtree.root_hash();
         p.output_sig = ctx.user_outputs_our_sig;
 
-        // Populate the proposal with unl changeset.
-        p.unl_changeset = ctx.candidate_unl_changeset;
-
         return p;
     }
 
@@ -589,16 +586,6 @@ namespace consensus
 
             // Vote for contract output hash.
             increment(votes.output_hash, cp.output_hash);
-
-            // Vote for unl additions. Only vote for the unl additions that are in our candidate_unl_changeset.
-            for (const std::string &pubkey : cp.unl_changeset.additions)
-                if (ctx.candidate_unl_changeset.additions.count(pubkey) > 0)
-                    increment(votes.unl_additions, pubkey);
-
-            // Vote for unl removals. Only vote for the unl removals that are in our candidate_unl_changeset.
-            for (const std::string &pubkey : cp.unl_changeset.removals)
-                if (ctx.candidate_unl_changeset.removals.count(pubkey) > 0)
-                    increment(votes.unl_removals, pubkey);
         }
 
         uint32_t required_votes = ceil(STAGE_THRESHOLDS[ctx.stage - 1] * unl_count);
@@ -618,18 +605,8 @@ namespace consensus
             if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
                 p.input_hashes.emplace(hash);
 
-        // For the unl changeset, reset required votes for majority votes.
+        // Reset required votes for majority votes.
         required_votes = ceil(MAJORITY_THRESHOLD * unl_count);
-
-        // Add unl additions which have votes over majority threshold to proposal.
-        for (const auto &[pubkey, numvotes] : votes.unl_additions)
-            if (numvotes >= required_votes)
-                p.unl_changeset.additions.emplace(pubkey);
-
-        // Add unl removals which have votes over majority threshold to proposal.
-        for (const auto &[pubkey, numvotes] : votes.unl_removals)
-            if (numvotes >= required_votes)
-                p.unl_changeset.removals.emplace(pubkey);
 
         // Add the output hash which has most votes over stage threshold to proposal.
         uint32_t highest_output_vote = 0;
@@ -854,10 +831,6 @@ namespace consensus
             }
         }
 
-        // Update the unl with the unl changeset that subjected to the consensus.
-        unl::apply_changeset(cons_prop.unl_changeset.additions, cons_prop.unl_changeset.removals);
-        ctx.candidate_unl_changeset.clear();
-
         // Send any output from the previous consensus round to locally connected users.
         if (dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl) == -1)
             return -1;
@@ -901,10 +874,6 @@ namespace consensus
                 ctx.user_outputs_hashtree.populate(hashes);
                 ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root_hash(), conf::cfg.node.private_key);
             }
-
-            // Prepare the consensus candidate unl changeset that we have accumulated so far. (We receive them as control inputs)
-            // The candidate unl changeset will be included in the stage 0 proposal.
-            std::swap(ctx.candidate_unl_changeset, ctx.contract_ctx->args.unl_changeset);
 
             {
                 std::scoped_lock lock(ctx.contract_ctx_mutex);
