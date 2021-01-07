@@ -191,7 +191,8 @@ class ContractExecutionContext {
         this.users = users;
         this.unl = unl; // Not available in readonly mode.
         this.lcl = hpargs.lcl; // Not available in readonly mode.
-        this.#patchConfig = new PatchConfig();
+        if (!this.readonly)
+            this.#patchConfig = new PatchConfig();
     }
 
     updateConfig(params) {
@@ -229,10 +230,12 @@ class ContractExecutionContext {
     }
 
     updateUnl(addArray, removeArray) {
+        if (this.readonly)
+            throw "Config update not allowed in readonly mode."
+
         let unlArray = [...new Set([...addArray, ...this.#patchConfig.getUnl()])];
         unlArray = unlArray.filter(unl => !removeArray.includes(unl));
-        this.#patchConfig.setUnl(unlArray);
-        this.#patchConfig.saveChanges();
+        this.updateConfig({unl: unlArray});
     }
 }
 
