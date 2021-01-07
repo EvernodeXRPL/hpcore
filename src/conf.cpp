@@ -201,20 +201,6 @@ namespace conf
         ctx.log_dir = basedir + "/log";
     }
 
-    int persist_unl_update(const std::set<std::string> &updated_unl)
-    {
-        contract_config cfg = {};
-        if (read_config(cfg) == -1)
-            return -1;
-
-        cfg.contract.unl = updated_unl;
-
-        if (write_config(cfg) == -1)
-            return -1;
-
-        return 0;
-    }
-
     /**
      * Reads the config file on disk and populates the in-memory 'cfg' struct.
      * @return 0 for successful loading of config. -1 for failure.
