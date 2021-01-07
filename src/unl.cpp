@@ -104,8 +104,6 @@ namespace unl
                 list = conf::cfg.contract.unl;
                 update_json_list();
 
-                conf::persist_unl_update(list);
-                
                 // Update the own node's unl status.
                 conf::cfg.node.is_unl = (list.find(conf::cfg.node.public_key) != list.end());
                 is_unl_list_changed = true;
