@@ -70,74 +70,119 @@ class HotPocketContract {
 class PatchConfig {
     #patchConfigPath = "../patch.cfg";
 
-    constructor(version, unl, roundtime, consensus, npl, appbillMode, appbillBinArgs, binPath, binArgs = null) {
-        if (this.readonly)
-            throw "Config update not allowed in readonly mode.";
+    constructor() {
+        if (fs.existsSync(this.#patchConfigPath)) {
+            const fileContent = fs.readFileSync(this.#patchConfigPath);
+            const config = JSON.parse(fileContent.toString());
+            this.version = config.version;
+            this.binPath = config.bin_path;
+            this.binArgs = config.bin_args;
+            this.roundtime = +config.roundtime;
+            this.consensus = config.consensus;
+            this.npl = config.npl;
+            this.unl = config.unl;
+            this.appbillMode = config.appbill.mode;
+            this.appbillBinArgs = config.appbill.bin_args;
+        }
+        else {
+            this.saveChanges();
+        }
+    }
 
+    setVersion(version) {
         if (!version)
             throw "Contract version is not specified.";
+        this.version = version;
+    }
 
-        if (!unl.length)
+    setUnl(unl) {
+        if (!unl || !unl.length)
             throw "UNL list cannot be empty.";
 
-        this.unl = [];
-        for (let pubKey of unl)
+        let updatedUnl = [];
+        for (let pubKey of unl) {
             if (!pubKey.length)
                 throw "UNL pubKey not specified.";
-            else
-                this.unl.push(pubKey);
+            else if (pubKey.length != 66)
+                throw "Invalid UNL pubKey specified. Invalid length.";
+            else if (!pubKey.startsWith("ed"))
+                throw "Invalid UNL pubKey specified. Invalid format.";
 
+            try {
+                let pubKeyBin = hexToUint8Array(pubKey.substring(2));
+            }
+            catch {
+                throw "Invalid UNL pubKey specified. Decode error.";
+            }
+
+            updatedUnl.push(pubKey);
+        }
+        this.unl = updatedUnl;
+    }
+
+    getUnl() {
+        return this.unl;
+    }
+
+    setBinPath(binPath) {
         if (!binPath.length)
             throw "Binary path cannot be empty.";
+        this.binPath = binPath;
+    }
 
+    setBinArgs(binArgs) {
+        this.binArgs = binArgs;
+    }
+
+    setRoundtime(roundtime) {
         if (roundtime == 0)
             throw "Round time cannot be zero."
+        this.roundtime = roundtime;
+    }
 
+    setConsensus(consensus) {
         if (consensus != "public" && consensus != "private")
             throw "Invalid consensus flag configured in patch file. Valid values: public|private";
+        this.consensus = consensus;
+    }
 
+    setNpl(npl) {
         if (npl != "public" && npl != "private")
             throw "Invalid npl flag configured in patch file. Valid values: public|private";
-
-        if (appbill)
-            throw "Contract appbill config cannot be empty.";
-
-        if (appbillMode)
-            throw "Required contract appbill config field mode missing at patch file.";
-
-        if (appbillBinArgs)
-            throw "Required contract appbill config field bin_args missing at patch file.";
-
-        this.version = version;
-        this.binPath = binPath;
-        this.binArgs = binArgs;
-        this.roundtime = roundtime;
-        this.consensus = consensus;
         this.npl = npl;
+    }
+
+    setAppbillMode(appbillMode) {
         this.appbillMode = appbillMode;
         this.appbillBinArgs = appbillBinArgs;
     }
 
+    setAppbillBinArgs(appbillBinArgs) {
+        this.appbillBinArgs = appbillBinArgs;
+    }
+
     saveChanges() {
-        const fileContent = fs.readFileSync(this.#patchConfigPath);
-        const curConfig = JSON.parse(fileContent.toString());
-
-        curConfig.version = this.version;
-        curConfig.binPath = this.binPath;
-        curConfig.binArgs = this.binArgs;
-        curConfig.roundtime = this.roundtime;
-        curConfig.consensus = this.consensus;
-        curConfig.npl = this.npl;
-        curConfig.appbillMode = this.appbillMode;
-        curConfig.appbillBinArgs = this.appbillBinArgs;
-
-        fs.writeFileSync(patchConfigPath, JSON.stringify(curConfig));
+        const config = {
+            version: this.version,
+            bin_path: this.binPath,
+            bin_args: this.binArgs ? this.binArgs : "",
+            roundtime: this.roundtime,
+            consensus: this.consensus,
+            npl: this.npl,
+            unl: this.unl,
+            appbill: {
+                mode: this.appbillMode ? this.appbillMode : "",
+                bin_args: this.appbillBinArgs ? this.appbillBinArgs : ""
+            }
+        }
+        fs.writeFileSync(this.#patchConfigPath, JSON.stringify(config));
     }
 }
 
 class ContractExecutionContext {
 
     #controlChannel = null;
+    #patchConfig = null;
 
     constructor(hpargs, users, unl, controlChannel) {
         this.#controlChannel = controlChannel;
@@ -146,17 +191,48 @@ class ContractExecutionContext {
         this.users = users;
         this.unl = unl; // Not available in readonly mode.
         this.lcl = hpargs.lcl; // Not available in readonly mode.
+        this.#patchConfig = new PatchConfig();
     }
 
-    updateConfig(version, unl, roundtime, consensus, npl, appbillMode, appbillBinArgs, binPath, binArgs = null) {
-        const patchConfig = new PatchConfig(version, unl, roundtime, consensus, npl, appbillMode, appbillBinArgs, binPath, binArgs)
-        patchConfig.saveChanges();
-    }
-
-    async updateUnl(addArray, removeArray) {
+    updateConfig(params) {
         if (this.readonly)
-            throw "UNL update not allowed in readonly mode."
-        await this.#controlChannel.send({ type: controlMessages.unlChangeset, add: addArray, remove: removeArray });
+            throw "Config update not allowed in readonly mode."
+
+        if (params.version) {
+            this.#patchConfig.setVersion(params.version);
+        }
+        if (params.unl) {
+            this.#patchConfig.setUnl(params.unl);
+        }
+        if (params.roundtime) {
+            this.#patchConfig.setRoundtime(params.roundtime);
+        }
+        if (params.consensus) {
+            this.#patchConfig.setConsensus(params.consensus);
+        }
+        if (params.npl) {
+            this.#patchConfig.setNpl(params.npl);
+        }
+        if (params.binPath) {
+            this.#patchConfig.setBinPath(params.binPath);
+        }
+        if (params.binArgs) {
+            this.#patchConfig.setBinArgs(params.binArgs);
+        }
+        if (params.appbillMode) {
+            this.#patchConfig.setAppbillMode(params.appbillMode);
+        }
+        if (params.appbillBinArgs) {
+            this.#patchConfig.setAppbillBinArgs(params.appbillBinArgs);
+        }
+        this.#patchConfig.saveChanges();
+    }
+
+    updateUnl(addArray, removeArray) {
+        let unlArray = [...new Set([...addArray, ...this.#patchConfig.getUnl()])];
+        unlArray = unlArray.filter(unl => !removeArray.includes(unl));
+        this.#patchConfig.setUnl(unlArray);
+        this.#patchConfig.saveChanges();
     }
 }
 
@@ -403,6 +479,10 @@ const invokeCallback = async (callback, ...args) => {
     else {
         callback(...args);
     }
+}
+
+const hexToUint8Array = (hexString) => {
+    return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 }
 
 const errHandler = (err) => console.log(err);
