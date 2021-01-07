@@ -785,6 +785,7 @@ namespace ledger
                 {
                     remove_ledger(it->second);
                     // Erase function advance the iterator.
+                    std::cout << "cache count: " << ctx.cache.size() << " | itr: " << std::to_string(it->first) << ", " << it->second << "\n";
                     ctx.cache.erase((--it).base());
                 }
 
