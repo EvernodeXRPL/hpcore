@@ -105,25 +105,6 @@ struct hp_unl_collection
     int npl_fd;
 };
 
-struct patch_appbill
-{
-    char *mode;
-    char *bin_args;
-};
-
-struct patch_config
-{
-    char *id;
-    char *version;
-    struct hp_unl_node *unl;
-    char *bin_path;
-    char *bin_args;
-    u_int32_t roundtime;
-    char *consensus;
-    char *npl;
-    struct patch_appbill appbill;
-};
-
 struct hp_contract_context
 {
     bool readonly;
@@ -441,63 +422,6 @@ int hp_update_unl(const char *add, const size_t add_count, const char *remove, c
 
     return __hp_write_control_msg(json_buf, json_size);
 }
-
-// int hp_update_config(const struct patch_config config)
-// {
-//     if (__hpc.cctx->readonly)
-//         perror("Config update not allowed in readonly mode.");
-
-//     char *patch_config_path = "../patch.cfg";
-
-//     if (config.version == NULL)
-//         perror("Contract version is not specified.");
-
-//     if (sizeof(config.unl) == 0)
-//         perror("UNL list cannot be empty.");
-
-//     let unl = [];
-
-//     for (let unl of config.unl)
-//         if (!unl.length)
-//             perror("UNL not specified.");
-//         else
-//             unl.push(unl);
-
-//     if (!config.bin_path.length)
-//         perror("Binary path cannot be empty.");
-
-//     if (config.roundtime == 0)
-//         perror("Round time cannot be zero."
-
-//             if (config.consensus != "public" && config.consensus != "private") perror("Invalid consensus flag configured in patch file. Valid values: public|private");
-
-//     if (config.npl != "public" && config.npl != "private")
-//         perror("Invalid npl flag configured in patch file. Valid values: public|private");
-
-//     if (config.appbill)
-//         perror("Contract appbill config cannot be empty.");
-
-//     if (config.appbill.mode)
-//         perror("Required contract appbill config field mode missing at patch file.");
-
-//     if (config.appbill.bin_args)
-//         perror("Required contract appbill config field bin_args missing at patch file.");
-
-//     const fileContent = fs.readFileSync(patchConfigPath);
-//     const curConfig = JSON.parse(fileContent.toString());
-
-//     curConfig.version = config.version;
-//     curConfig.bin_path = config.bin_path;
-//     curConfig.bin_args = config.bin_args;
-//     curConfig.roundtime = config.roundtime;
-//     curConfig.consensus = config.consensus;
-//     curConfig.npl = config.npl;
-//     curConfig.unl = config.unl;
-//     curConfig.appbill.mode = config.appbill.mode;
-//     curConfig.appbill.bin_args = config.appbill.bin_args;
-
-//     fs.writeFileSync(patchConfigPath, JSON.stringify(curConfig));
-// }
 
 void __hp_parse_args_json(const struct json_object_s *object)
 {
