@@ -66,11 +66,12 @@ class HotPocketContract {
     }
 }
 
-// Represents patch config
+// Represents patch config.
 class PatchConfig {
     #patchConfigPath = "../patch.cfg";
 
     constructor() {
+        // Loads the config value if there's a patch config file. Otherwise values will be null.
         if (fs.existsSync(this.#patchConfigPath)) {
             const fileContent = fs.readFileSync(this.#patchConfigPath);
             const config = JSON.parse(fileContent.toString());
@@ -83,9 +84,6 @@ class PatchConfig {
             this.unl = config.unl;
             this.appbillMode = config.appbill.mode;
             this.appbillBinArgs = config.appbill.bin_args;
-        }
-        else {
-            this.saveChanges();
         }
     }
 
@@ -161,6 +159,7 @@ class PatchConfig {
         this.appbillBinArgs = appbillBinArgs;
     }
 
+    // Saves the config changes to tha patch config.
     saveChanges() {
         const config = {
             version: this.version,
@@ -195,6 +194,19 @@ class ContractExecutionContext {
             this.#patchConfig = new PatchConfig();
     }
 
+    // Updates the config with given parameters and save the patch config.
+    // Params,
+    // {
+    //     version: version as string,
+    //     unl: list of unl pubkeys,
+    //     roundtime:  roundtime as Number,
+    //     consensus: consensus private|public,
+    //     npl: npl private|public,
+    //     binPath: contract binary path string,
+    //     binArgs: contract binary args string,
+    //     appbillMode: appbill mode string,
+    //     appbillBinArgs: appbill binary args string
+    // }
     updateConfig(params) {
         if (this.readonly)
             throw "Config update not allowed in readonly mode."
@@ -229,6 +241,9 @@ class ContractExecutionContext {
         this.#patchConfig.saveChanges();
     }
 
+    // Update unl in the patch config.
+    // addArray - pubKey list to add to the UNL.
+    // removeArray - pubKey list to remove from UNL.
     updateUnl(addArray, removeArray) {
         if (this.readonly)
             throw "Config update not allowed in readonly mode."
