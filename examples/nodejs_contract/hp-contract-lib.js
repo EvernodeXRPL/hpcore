@@ -202,7 +202,7 @@ class ContractExecutionContext {
     // Params,
     // {
     //     version: contract version as string,
-    //     unl: list of unl pubkeys. Expecting "ed" prefixed (edDSA algorithm) hex pubkeys,
+    //     unl: list of unl pubkeys. Expecting "ed" prefixed (ed22519 algorithm) hex pubkeys,
     //     roundtime:  roundtime as Number,
     //     consensus: consensus private|public,
     //     npl: npl private|public,
