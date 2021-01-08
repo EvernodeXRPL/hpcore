@@ -40,6 +40,8 @@ namespace hpfs
     private:
         std::vector<util::h32> parent_hashes;                                             // Keep hashes of each hpfs parent.
         std::shared_mutex parent_mutexes[2] = {std::shared_mutex(), std::shared_mutex()}; // Mutexes for each parent.
+        util::h32 updated_patch_hash = util::h32_empty; 
+        std::shared_mutex patch_mutex;
 
     public:
         pid_t hpfs_pid = 0;
@@ -68,6 +70,16 @@ namespace hpfs
         {
             std::unique_lock lock(parent_mutexes[parent]);
             parent_hashes[parent] = new_state;
+        }
+
+        util::h32 get_updated_patch_hash(){
+            std::shared_lock lock(patch_mutex);
+            return updated_patch_hash;
+        }
+
+        void set_updated_patch_hash(util::h32 hash){
+            std::unique_lock lock(patch_mutex);
+            updated_patch_hash = hash;
         }
     };
 

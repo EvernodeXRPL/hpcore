@@ -29,6 +29,8 @@ namespace consensus
     consensus_context ctx;
     bool init_success = false;
 
+    constexpr const char *INIT_SESSION_NAME = "consensus_init";
+
     int init()
     {
         // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).
@@ -125,6 +127,30 @@ namespace consensus
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
+
+            util::h32 updated_patch_hash = hpfs::ctx.get_updated_patch_hash();
+
+            //LOG_INFO << "Patch Hash " << patch_hash;
+            //LOG_INFO << "Updated atch Hash " << updated_patch_hash;
+
+            if(updated_patch_hash!= util::h32_empty && updated_patch_hash == patch_hash)
+            {
+                if (hpfs::start_ro_session(INIT_SESSION_NAME, true) == -1)
+                {
+                    // Appling new patch file changes to hpcore runtime.
+                    if (conf::validate_and_apply_patch_config(conf::cfg.contract, INIT_SESSION_NAME) == -1)
+                    {
+                        LOG_ERROR << "Appling patch file after contract execution failed";
+                    }
+                    else
+                    {
+                        unl::update_unl_changes_from_patch();
+                        hpfs::ctx.set_updated_patch_hash(util::h32_empty);
+                    }
+                }
+                 
+                hpfs::stop_ro_session(INIT_SESSION_NAME);
+            }
         }
         else
         {

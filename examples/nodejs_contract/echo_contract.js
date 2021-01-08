@@ -5,9 +5,30 @@ const fs = require('fs');
 // HP considers execution as complete, when this function completes and all the NPL message callbacks are complete.
 const echoContract = async (ctx) => {
 
-    // We just save execution timestamp as an example state file change.
-    if (!ctx.readonly)
+    if (!ctx.readonly) {
+        const jsonObj = {
+            "version": "1.0",
+            "unl": [
+                "ed6f985e39f17914b3fc6958594b92e5998d12c0299ac9eee734eaddac7a890cf0",
+                "ed5eef63e0e48798b792f361803f722a373ba7b93363ab4009191633919f894052",
+                "ed0bb1a736ef1321746ff835f7e54a28bfe10d537199a60b31033514afde368fd6",
+                "ed5440b242e981c5fff677cf5ff737265715320625354692f2f1f56287b79fae3f",
+                "ed32fa6b8e5667aaa8793b733313787513c72ca4025b35c16f913f28fee2dfe365"
+            ],
+            "bin_path": "/usr/local/bin/node",
+            "bin_args": "/contract/bin/echo_contract.js",
+            "roundtime": 1000,
+            "consensus": "private",
+            "npl": "private",
+            "appbill": {
+              "mode": "",
+              "bin_args": ""
+            }
+          };
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
+        fs.writeFileSync("../patch.cfg", JSON.stringify(jsonObj));
+    }
+
 
     // Collection of user input handler promises to wait for.
     const inputHandlers = [];
