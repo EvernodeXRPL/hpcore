@@ -159,7 +159,7 @@ class PatchConfig {
     }
 
     // Saves the config changes to tha patch config.
-    async saveChanges() {
+    saveChanges() {
         const config = {
             version: this.version,
             bin_path: this.binPath,
