@@ -159,7 +159,7 @@ class PatchConfig {
     }
 
     // Saves the config changes to tha patch config.
-    saveChanges() {
+    async saveChanges() {
         const config = {
             version: this.version,
             bin_path: this.binPath,
@@ -173,7 +173,12 @@ class PatchConfig {
                 bin_args: this.appbillBinArgs ? this.appbillBinArgs : ""
             }
         }
-        fs.writeFileSync(this.#patchConfigPath, JSON.stringify(config));
+        return new Promise((resolve, reject) => {
+            fs.writeFile(this.#patchConfigPath, JSON.stringify(config), (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
     }
 }
 
@@ -196,8 +201,8 @@ class ContractExecutionContext {
     // Updates the config with given parameters and save the patch config.
     // Params,
     // {
-    //     version: version as string,
-    //     unl: list of unl pubkeys,
+    //     version: contract version as string,
+    //     unl: list of unl pubkeys. Expecting "ed" prefixed (edDSA algorithm) hex pubkeys,
     //     roundtime:  roundtime as Number,
     //     consensus: consensus private|public,
     //     npl: npl private|public,
@@ -206,7 +211,7 @@ class ContractExecutionContext {
     //     appbillMode: appbill mode string,
     //     appbillBinArgs: appbill binary args string
     // }
-    updateConfig(params) {
+    async updateConfig(params) {
         if (this.readonly)
             throw "Config update not allowed in readonly mode."
 
@@ -237,19 +242,7 @@ class ContractExecutionContext {
         if (params.appbillBinArgs) {
             this.#patchConfig.setAppbillBinArgs(params.appbillBinArgs);
         }
-        this.#patchConfig.saveChanges();
-    }
-
-    // Update unl in the patch config.
-    // addArray - pubKey list to add to the UNL.
-    // removeArray - pubKey list to remove from UNL.
-    updateUnl(addArray, removeArray) {
-        if (this.readonly)
-            throw "Config update not allowed in readonly mode."
-
-        let unlArray = [...new Set([...addArray, ...this.#patchConfig.getUnl()])];
-        unlArray = unlArray.filter(unl => !removeArray.includes(unl));
-        this.updateConfig({unl: unlArray});
+        await this.#patchConfig.saveChanges();
     }
 }
 
