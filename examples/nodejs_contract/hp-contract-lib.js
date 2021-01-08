@@ -152,7 +152,6 @@ class PatchConfig {
 
     setAppbillMode(appbillMode) {
         this.appbillMode = appbillMode;
-        this.appbillBinArgs = appbillBinArgs;
     }
 
     setAppbillBinArgs(appbillBinArgs) {
