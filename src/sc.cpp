@@ -188,7 +188,7 @@ namespace sc
             else if (patch_hash_result == 1 && patch_hash != hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH))
             {
                 // Appling new patch file changes to hpcore runtime.
-                if (conf::validate_and_apply_patch_config(conf::cfg.contract, ctx.args.hpfs_session_name) == -1)
+                if (conf::apply_patch_config(ctx.args.hpfs_session_name) == -1)
                 {
                     LOG_ERROR << "Appling patch file after contract execution failed";
                 }

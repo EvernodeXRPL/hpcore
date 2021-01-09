@@ -16,7 +16,6 @@ namespace hpfs
     constexpr const char *HMAP_CHILDREN = "::hpfs.hmap.children";
     constexpr ino_t ROOT_INO = 1;
 
-    constexpr const char *INIT_SESSION_NAME = "init";
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
     bool init_success = false;
@@ -30,22 +29,12 @@ namespace hpfs
         if (start_hpfs_process(ctx.hpfs_pid) == -1)
             return -1;
 
-        util::h32 initial_state_hash;
-        util::h32 initial_patch_hash;
-
-        if (start_ro_session(INIT_SESSION_NAME, true) == -1 ||
-            get_hash(initial_state_hash, INIT_SESSION_NAME, hpfs::STATE_DIR_PATH) == -1 ||
-            get_hash(initial_patch_hash, INIT_SESSION_NAME, hpfs::PATCH_FILE_PATH) == -1 ||
-            stop_ro_session(INIT_SESSION_NAME) == -1)
+        if (prepare_fs() == -1)
         {
-            LOG_ERROR << "Failed to get initial hpfs hashes.";
             util::kill_process(ctx.hpfs_pid, true);
             return -1;
         }
 
-        ctx.set_hash(HPFS_PARENT_COMPONENTS::STATE, initial_state_hash);
-        ctx.set_hash(HPFS_PARENT_COMPONENTS::PATCH, initial_patch_hash);
-        LOG_INFO << "Initial state hash: " << initial_state_hash << " | patch hash: " << initial_patch_hash;
         init_success = true;
         return 0;
     }
@@ -61,6 +50,31 @@ namespace hpfs
             if (ctx.hpfs_pid > 0 && util::kill_process(ctx.hpfs_pid, true) == 0)
                 LOG_INFO << "Stopped hpfs process.";
         }
+    }
+
+    /**
+     * Performs initial patch file population and loads initial hashes for later use.
+     * @return 0 on success. -1 on failure.
+     */
+    int prepare_fs()
+    {
+        util::h32 initial_state_hash;
+        util::h32 initial_patch_hash;
+
+        if (acquire_rw_session() == -1 ||
+            conf::populate_patch_config() == -1 ||
+            get_hash(initial_state_hash, RW_SESSION_NAME, hpfs::STATE_DIR_PATH) == -1 ||
+            get_hash(initial_patch_hash, RW_SESSION_NAME, hpfs::PATCH_FILE_PATH) == -1 ||
+            release_rw_session() == -1)
+        {
+            LOG_ERROR << "Failed to get prepare initial fs.";
+            return -1;
+        }
+
+        ctx.set_hash(HPFS_PARENT_COMPONENTS::STATE, initial_state_hash);
+        ctx.set_hash(HPFS_PARENT_COMPONENTS::PATCH, initial_patch_hash);
+        LOG_INFO << "Initial state: " << initial_state_hash << " | patch: " << initial_patch_hash;
+        return 0;
     }
 
     /**
