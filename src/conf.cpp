@@ -724,121 +724,126 @@ namespace conf
     }
 
     /**
-     * Validate and update contract config section if a patch file detected.
-     * @param contract_config Contract section of config structure.
-     * @param mount_dir hpfs process mount directory path.
-     * @return Returns -1 on error and 0 in successful update.
+     * Validate and update contract config section if a patch file detected. Whenever patch file change is detected,
+     * we also persist it to hp.cfg so that both config files are consistent with each other.
+     * @param hpfs_session_name The current hpfs session hosting the patch config.
+     * @return -1 on error and 0 in successful update.
     */
     int apply_patch_config(std::string_view hpfs_session_name)
     {
         const std::string path = hpfs::physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
-        if (util::is_file_exists(path))
+        if (!util::is_file_exists(path))
+            return 0;
+
+        // If patch file exist, read the patch file values to a json doc and then persist the values into hp.cfg.
+        std::ifstream ifs(path);
+        jsoncons::ojson contract;
+        try
         {
-            std::ifstream ifs(path);
-            jsoncons::ojson contract;
-            try
+            contract = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Invalid patch config file format. " << e.what() << '\n';
+            return -1;
+        }
+        ifs.close();
+
+        try
+        {
+
+            cfg.contract.version = contract["version"].as<std::string>();
+            if (cfg.contract.version.empty())
             {
-                contract = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
-            }
-            catch (const std::exception &e)
-            {
-                std::cerr << "Invalid patch config file format. " << e.what() << '\n';
+                std::cerr << "Patch contract version not specified.\n";
                 return -1;
             }
-            ifs.close();
 
-            try
+            cfg.contract.unl.clear();
+            for (auto &nodepk : contract["unl"].array_range())
             {
-
-                cfg.contract.version = contract["version"].as<std::string>();
-                if (cfg.contract.version.empty())
+                // Convert the public key hex of each node to binary and store it.
+                const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
+                if (bin_pubkey.empty())
                 {
-                    std::cerr << "Patch contract version not specified.\n";
+                    std::cerr << "Error decoding patch file unl list.\n";
                     return -1;
                 }
-
-                cfg.contract.unl.clear();
-                for (auto &nodepk : contract["unl"].array_range())
-                {
-                    // Convert the public key hex of each node to binary and store it.
-                    const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
-                    if (bin_pubkey.empty())
-                    {
-                        std::cerr << "Error decoding patch file unl list.\n";
-                        return -1;
-                    }
-                    cfg.contract.unl.emplace(bin_pubkey);
-                }
-                if (cfg.contract.unl.empty())
-                {
-                    std::cerr << "Patch file unl list cannot be empty.\n";
-                    return -1;
-                }
-
-                cfg.contract.bin_path = contract["bin_path"].as<std::string>();
-                if (cfg.contract.bin_path.empty())
-                {
-                    std::cerr << "Patch file binary path cannot be empty.\n";
-                }
-                cfg.contract.bin_args = contract["bin_args"].as<std::string>();
-                cfg.contract.roundtime = contract["roundtime"].as<uint16_t>();
-                if (cfg.contract.roundtime == 0)
-                {
-                    std::cerr << "Patch file round time cannot be zero.\n";
-                }
-
-                if (contract["consensus"] != conf::PUBLIC && contract["consensus"] != conf::PRIVATE)
-                {
-                    std::cerr << "Invalid consensus flag configured in patch file. Valid values: public|private\n";
-                    return -1;
-                }
-                cfg.contract.is_consensus_public = contract["consensus"] == conf::PUBLIC;
-
-                if (contract["npl"] != conf::PUBLIC && contract["npl"] != conf::PRIVATE)
-                {
-                    std::cerr << "Invalid npl flag configured in patch file. Valid values: public|private\n";
-                    return -1;
-                }
-                cfg.contract.is_npl_public = contract["npl"] == conf::PUBLIC;
-
-                if (!contract["appbill"].contains("mode"))
-                {
-                    std::cerr << "Required contract appbill config field mode missing at patch file.\n";
-                    return -1;
-                }
-                cfg.contract.appbill.mode = contract["appbill"]["mode"].as<std::string>();
-                if (!contract["appbill"].contains("bin_args"))
-                {
-                    std::cerr << "Required contract appbill config field bin_args missing at patch file.\n";
-                    return -1;
-                }
-                cfg.contract.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
-
-                // Populate runtime contract execution args.
-                cfg.contract.runtime_binexec_args.clear();
-                if (!cfg.contract.bin_args.empty())
-                    util::split_string(cfg.contract.runtime_binexec_args, cfg.contract.bin_args, " ");
-                cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(),
-                                                         (cfg.contract.bin_path[0] == '/'
-                                                              ? cfg.contract.bin_path
-                                                              : util::realpath(conf::ctx.contract_dir + "/bin/" + cfg.contract.bin_path)));
-
-                // Populate runtime app bill args.
-                cfg.contract.appbill.runtime_args.clear();
-                if (!cfg.contract.appbill.bin_args.empty())
-                    util::split_string(cfg.contract.appbill.runtime_args, cfg.contract.appbill.bin_args, " ");
-                cfg.contract.appbill.runtime_args.insert(cfg.contract.appbill.runtime_args.begin(),
-                                                         (cfg.contract.appbill.mode[0] == '/'
-                                                              ? cfg.contract.appbill.mode
-                                                              : util::realpath(conf::ctx.contract_dir + "/bin/" + cfg.contract.appbill.mode)));
-
-                std::cout << "Contract config updated from patch file\n";
+                cfg.contract.unl.emplace(bin_pubkey);
             }
-            catch (const std::exception &e)
+            if (cfg.contract.unl.empty())
             {
-                std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing in patch file.\n";
+                std::cerr << "Patch file unl list cannot be empty.\n";
                 return -1;
             }
+
+            cfg.contract.bin_path = contract["bin_path"].as<std::string>();
+            if (cfg.contract.bin_path.empty())
+            {
+                std::cerr << "Patch file binary path cannot be empty.\n";
+            }
+            cfg.contract.bin_args = contract["bin_args"].as<std::string>();
+            cfg.contract.roundtime = contract["roundtime"].as<uint16_t>();
+            if (cfg.contract.roundtime == 0)
+            {
+                std::cerr << "Patch file round time cannot be zero.\n";
+            }
+
+            if (contract["consensus"] != conf::PUBLIC && contract["consensus"] != conf::PRIVATE)
+            {
+                std::cerr << "Invalid consensus flag configured in patch file. Valid values: public|private\n";
+                return -1;
+            }
+            cfg.contract.is_consensus_public = contract["consensus"] == conf::PUBLIC;
+
+            if (contract["npl"] != conf::PUBLIC && contract["npl"] != conf::PRIVATE)
+            {
+                std::cerr << "Invalid npl flag configured in patch file. Valid values: public|private\n";
+                return -1;
+            }
+            cfg.contract.is_npl_public = contract["npl"] == conf::PUBLIC;
+
+            if (!contract["appbill"].contains("mode"))
+            {
+                std::cerr << "Required contract appbill config field mode missing at patch file.\n";
+                return -1;
+            }
+            cfg.contract.appbill.mode = contract["appbill"]["mode"].as<std::string>();
+            if (!contract["appbill"].contains("bin_args"))
+            {
+                std::cerr << "Required contract appbill config field bin_args missing at patch file.\n";
+                return -1;
+            }
+            cfg.contract.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
+
+            // Populate runtime contract execution args.
+            cfg.contract.runtime_binexec_args.clear();
+            if (!cfg.contract.bin_args.empty())
+                util::split_string(cfg.contract.runtime_binexec_args, cfg.contract.bin_args, " ");
+            cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(),
+                                                     (cfg.contract.bin_path[0] == '/'
+                                                          ? cfg.contract.bin_path
+                                                          : util::realpath(conf::ctx.contract_dir + "/bin/" + cfg.contract.bin_path)));
+
+            // Populate runtime app bill args.
+            cfg.contract.appbill.runtime_args.clear();
+            if (!cfg.contract.appbill.bin_args.empty())
+                util::split_string(cfg.contract.appbill.runtime_args, cfg.contract.appbill.bin_args, " ");
+            cfg.contract.appbill.runtime_args.insert(cfg.contract.appbill.runtime_args.begin(),
+                                                     (cfg.contract.appbill.mode[0] == '/'
+                                                          ? cfg.contract.appbill.mode
+                                                          : util::realpath(conf::ctx.contract_dir + "/bin/" + cfg.contract.appbill.mode)));
+
+            // Persist new changes to HP config file.
+            if (write_config(cfg) == -1)
+                return -1;
+
+            LOG_INFO << "Contract config updated from patch file.";
+        }
+        catch (const std::exception &e)
+        {
+            LOG_ERROR << "Required contract config field " << extract_missing_field(e.what()) << " missing in patch file.";
+            return -1;
         }
         return 0;
     }
@@ -888,7 +893,7 @@ namespace conf
     {
         if (include_id)
             json.insert_or_assign("id", cfg.contract.id);
-            
+
         json.insert_or_assign("version", cfg.contract.version);
         jsoncons::ojson unl(jsoncons::json_array_arg);
         for (const auto &nodepk : cfg.contract.unl)

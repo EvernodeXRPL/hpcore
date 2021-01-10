@@ -54,6 +54,7 @@ namespace hpfs
 
     /**
      * Performs initial patch file population and loads initial hashes for later use.
+     * During startup, we always populate patch.cfg with current values from hp.cfg.
      * @return 0 on success. -1 on failure.
      */
     int prepare_fs()
@@ -67,7 +68,7 @@ namespace hpfs
             get_hash(initial_patch_hash, RW_SESSION_NAME, hpfs::PATCH_FILE_PATH) == -1 ||
             release_rw_session() == -1)
         {
-            LOG_ERROR << "Failed to get prepare initial fs.";
+            LOG_ERROR << "Failed to prepare initial fs.";
             return -1;
         }
 
