@@ -209,10 +209,10 @@ namespace conf
         // Read the config file into json document object.
 
         std::ifstream ifs(ctx.config_file);
-        jsoncons::json d;
+        jsoncons::ojson d;
         try
         {
-            d = jsoncons::json::parse(ifs, jsoncons::strict_json_parsing());
+            d = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
         }
         catch (const std::exception &e)
         {
@@ -256,7 +256,7 @@ namespace conf
         {
             try
             {
-                const jsoncons::json &node = d["node"];
+                const jsoncons::ojson &node = d["node"];
                 cfg.node.public_key_hex = node["public_key"].as<std::string>();
                 cfg.node.private_key_hex = node["private_key"].as<std::string>();
 
@@ -302,7 +302,7 @@ namespace conf
         {
             try
             {
-                const jsoncons::json &mesh = d["mesh"];
+                const jsoncons::ojson &mesh = d["mesh"];
                 cfg.mesh.port = mesh["port"].as<uint16_t>();
                 // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
                 // seperately to retrieve easily when handling peer connections.
@@ -367,7 +367,7 @@ namespace conf
         {
             try
             {
-                const jsoncons::json &user = d["user"];
+                const jsoncons::ojson &user = d["user"];
                 cfg.user.port = user["port"].as<uint16_t>();
                 cfg.user.max_connections = user["max_connections"].as<unsigned int>();
                 cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
@@ -387,7 +387,7 @@ namespace conf
         {
             try
             {
-                const jsoncons::json &log = d["log"];
+                const jsoncons::ojson &log = d["log"];
                 cfg.log.loglevel = log["loglevel"].as<std::string>();
                 cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
                 cfg.log.loggers.clear();
@@ -412,11 +412,11 @@ namespace conf
     {
         // Popualte json document with 'cfg' values.
         // ojson is used instead of json to preserve insertion order.
-        jsoncons::json d;
+        jsoncons::ojson d;
         d.insert_or_assign("hp_version", cfg.hp_version);
 
         // Node configs.
-        jsoncons::json node_config;
+        jsoncons::ojson node_config;
         node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
         node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
         node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
@@ -424,15 +424,15 @@ namespace conf
         d.insert_or_assign("node", node_config);
 
         // Contract config section.
-        jsoncons::json contract;
+        jsoncons::ojson contract;
         populate_contract_section_json(contract, cfg.contract, true);
         d.insert_or_assign("contract", contract);
 
         // Mesh configs.
-        jsoncons::json mesh_config;
+        jsoncons::ojson mesh_config;
         mesh_config.insert_or_assign("port", cfg.mesh.port);
 
-        jsoncons::json peers(jsoncons::json_array_arg);
+        jsoncons::ojson peers(jsoncons::json_array_arg);
         for (const auto &peer : cfg.mesh.known_peers)
         {
             const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
@@ -449,7 +449,7 @@ namespace conf
         mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
         mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
 
-        jsoncons::json peer_discovery_config;
+        jsoncons::ojson peer_discovery_config;
         peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
         peer_discovery_config.insert_or_assign("interval", cfg.mesh.peer_discovery.interval);
 
@@ -457,7 +457,7 @@ namespace conf
         d.insert_or_assign("mesh", mesh_config);
 
         // User configs.
-        jsoncons::json user_config;
+        jsoncons::ojson user_config;
         user_config.insert_or_assign("port", cfg.user.port);
         user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
         user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
@@ -468,10 +468,10 @@ namespace conf
         d.insert_or_assign("user", user_config);
 
         // Log configs.
-        jsoncons::json log_config;
+        jsoncons::ojson log_config;
         log_config.insert_or_assign("loglevel", cfg.log.loglevel);
 
-        jsoncons::json loggers(jsoncons::json_array_arg);
+        jsoncons::ojson loggers(jsoncons::json_array_arg);
         for (std::string_view logger : cfg.log.loggers)
         {
             loggers.push_back(logger);
@@ -639,7 +639,7 @@ namespace conf
     */
     int populate_patch_config()
     {
-        jsoncons::json jdoc;
+        jsoncons::ojson jdoc;
         populate_contract_section_json(jdoc, cfg.contract, false);
 
         const std::string patch_file_path = hpfs::physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
@@ -660,10 +660,10 @@ namespace conf
 
         // If patch file exist, read the patch file values to a json doc and then persist the values into hp.cfg.
         std::ifstream ifs(path);
-        jsoncons::json jdoc;
+        jsoncons::ojson jdoc;
         try
         {
-            jdoc = jsoncons::json::parse(ifs, jsoncons::strict_json_parsing());
+            jdoc = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
         }
         catch (const std::exception &e)
         {
@@ -728,13 +728,13 @@ namespace conf
      * @param contract The contract fields struct containing current field values.
      * @param include_id Whether to populate the contract id field or not.
      */
-    void populate_contract_section_json(jsoncons::json &jdoc, const contract_params &contract, const bool include_id)
+    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool include_id)
     {
         if (include_id)
             jdoc.insert_or_assign("id", contract.id);
 
         jdoc.insert_or_assign("version", contract.version);
-        jsoncons::json unl(jsoncons::json_array_arg);
+        jsoncons::ojson unl(jsoncons::json_array_arg);
         for (const auto &nodepk : contract.unl)
         {
             unl.push_back(util::to_hex(nodepk));
@@ -746,7 +746,7 @@ namespace conf
         jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
 
-        jsoncons::json appbill;
+        jsoncons::ojson appbill;
         appbill.insert_or_assign("mode", contract.appbill.mode);
         appbill.insert_or_assign("bin_args", contract.appbill.bin_args);
 
@@ -760,7 +760,7 @@ namespace conf
      * @param parse_id Whether to parse the contract id field or not.
      * @return 0 on success. -1 on error.
      */
-    int parse_contract_section_json(contract_params &contract, const jsoncons::json &jdoc, const bool parse_id)
+    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &jdoc, const bool parse_id)
     {
         try
         {
@@ -865,7 +865,7 @@ namespace conf
      * Writes the given json doc to a file.
      * @return 0 on success. -1 on failure.
      */
-    int write_json_file(const std::string &file_path, const jsoncons::json &d)
+    int write_json_file(const std::string &file_path, const jsoncons::ojson &d)
     {
         std::ofstream ofs(file_path);
         try

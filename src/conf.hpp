@@ -207,11 +207,11 @@ namespace conf
 
     int release_config_lock();
 
-    void populate_contract_section_json(jsoncons::json &jdoc, const contract_params &contract, const bool include_id);
+    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool include_id);
 
-    int parse_contract_section_json(contract_params &contract, const jsoncons::json &json, const bool parse_id);
+    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &json, const bool parse_id);
 
-    int write_json_file(const std::string &file_path, const jsoncons::json &d);
+    int write_json_file(const std::string &file_path, const jsoncons::ojson &d);
 
 } // namespace conf
 
