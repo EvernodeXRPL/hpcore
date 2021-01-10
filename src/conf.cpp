@@ -295,84 +295,7 @@ namespace conf
 
         // contract
         {
-            try
-            {
-                const jsoncons::json &contract = d["contract"];
-                cfg.contract.id = contract["id"].as<std::string>();
-                cfg.contract.version = contract["version"].as<std::string>();
-                if (cfg.contract.id.empty())
-                {
-                    std::cerr << "Contract id not specified.\n";
-                    return -1;
-                }
-                else if (cfg.contract.version.empty())
-                {
-                    std::cerr << "Contract version not specified.\n";
-                    return -1;
-                }
-                cfg.contract.unl.clear();
-                for (auto &nodepk : contract["unl"].array_range())
-                {
-                    // Convert the public key hex of each node to binary and store it.
-                    const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
-                    if (bin_pubkey.empty())
-                    {
-                        std::cerr << "Error decoding unl list.\n";
-                        return -1;
-                    }
-                    cfg.contract.unl.emplace(bin_pubkey);
-                }
-                cfg.contract.bin_path = contract["bin_path"].as<std::string>();
-                cfg.contract.bin_args = contract["bin_args"].as<std::string>();
-                cfg.contract.roundtime = contract["roundtime"].as<uint16_t>();
-
-                if (contract["consensus"] != PUBLIC && contract["consensus"] != PRIVATE)
-                {
-                    std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
-                    return -1;
-                }
-                cfg.contract.is_consensus_public = contract["consensus"] == PUBLIC;
-
-                if (contract["npl"] != PUBLIC && contract["npl"] != PRIVATE)
-                {
-                    std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
-                    return -1;
-                }
-                cfg.contract.is_npl_public = contract["npl"] == PUBLIC;
-                if (!contract["appbill"].contains("mode"))
-                {
-                    std::cerr << "Required contract appbill config field mode missing at " << ctx.config_file << std::endl;
-                    return -1;
-                }
-                cfg.contract.appbill.mode = contract["appbill"]["mode"].as<std::string>();
-                if (!contract["appbill"].contains("bin_args"))
-                {
-                    std::cerr << "Required contract appbill config field bin_args missing at " << ctx.config_file << std::endl;
-                    return -1;
-                }
-                cfg.contract.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
-            }
-            catch (const std::exception &e)
-            {
-                std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
-                return -1;
-            }
-            // Populate runtime contract execution args.
-            if (!cfg.contract.bin_args.empty())
-                util::split_string(cfg.contract.runtime_binexec_args, cfg.contract.bin_args, " ");
-            cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), (cfg.contract.bin_path[0] == '/' ? cfg.contract.bin_path : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.bin_path)));
-
-            // Populate runtime app bill args.
-            if (!cfg.contract.appbill.bin_args.empty())
-                util::split_string(cfg.contract.appbill.runtime_args, cfg.contract.appbill.bin_args, " ");
-
-            cfg.contract.appbill.runtime_args.insert(cfg.contract.appbill.runtime_args.begin(), (cfg.contract.appbill.mode[0] == '/' ? cfg.contract.appbill.mode : util::realpath(ctx.contract_dir + "/bin/" + cfg.contract.appbill.mode)));
-
-            // Uncomment for docker-based execution.
-            // std::string volumearg;
-            // volumearg.append("type=bind,source=").append(ctx.hpfs_dir).append(",target=/hpfs");
-            // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), cfg.contract.bin_path.data()};
-            // cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
+            parse_contract_section_json(cfg.contract, d["contract"], true);
         }
 
         // mesh
@@ -489,11 +412,11 @@ namespace conf
     {
         // Popualte json document with 'cfg' values.
         // ojson is used instead of json to preserve insertion order.
-        jsoncons::ojson d;
+        jsoncons::json d;
         d.insert_or_assign("hp_version", cfg.hp_version);
 
         // Node configs.
-        jsoncons::ojson node_config;
+        jsoncons::json node_config;
         node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
         node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
         node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
@@ -501,15 +424,15 @@ namespace conf
         d.insert_or_assign("node", node_config);
 
         // Contract config section.
-        jsoncons::ojson contract;
-        populate_contract_section_json(cfg, contract, true);
+        jsoncons::json contract;
+        populate_contract_section_json(contract, cfg.contract, true);
         d.insert_or_assign("contract", contract);
 
         // Mesh configs.
-        jsoncons::ojson mesh_config;
+        jsoncons::json mesh_config;
         mesh_config.insert_or_assign("port", cfg.mesh.port);
 
-        jsoncons::ojson peers(jsoncons::json_array_arg);
+        jsoncons::json peers(jsoncons::json_array_arg);
         for (const auto &peer : cfg.mesh.known_peers)
         {
             const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
@@ -526,7 +449,7 @@ namespace conf
         mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
         mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
 
-        jsoncons::ojson peer_discovery_config;
+        jsoncons::json peer_discovery_config;
         peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
         peer_discovery_config.insert_or_assign("interval", cfg.mesh.peer_discovery.interval);
 
@@ -534,7 +457,7 @@ namespace conf
         d.insert_or_assign("mesh", mesh_config);
 
         // User configs.
-        jsoncons::ojson user_config;
+        jsoncons::json user_config;
         user_config.insert_or_assign("port", cfg.user.port);
         user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
         user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
@@ -545,10 +468,10 @@ namespace conf
         d.insert_or_assign("user", user_config);
 
         // Log configs.
-        jsoncons::ojson log_config;
+        jsoncons::json log_config;
         log_config.insert_or_assign("loglevel", cfg.log.loglevel);
 
-        jsoncons::ojson loggers(jsoncons::json_array_arg);
+        jsoncons::json loggers(jsoncons::json_array_arg);
         for (std::string_view logger : cfg.log.loggers)
         {
             loggers.push_back(logger);
@@ -716,11 +639,11 @@ namespace conf
     */
     int populate_patch_config()
     {
-        jsoncons::ojson json;
-        populate_contract_section_json(cfg, json, false);
+        jsoncons::json jdoc;
+        populate_contract_section_json(jdoc, cfg.contract, false);
 
         const std::string patch_file_path = hpfs::physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
-        return write_json_file(patch_file_path, json);
+        return write_json_file(patch_file_path, jdoc);
     }
 
     /**
@@ -737,114 +660,28 @@ namespace conf
 
         // If patch file exist, read the patch file values to a json doc and then persist the values into hp.cfg.
         std::ifstream ifs(path);
-        jsoncons::ojson contract;
+        jsoncons::json jdoc;
         try
         {
-            contract = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
+            jdoc = jsoncons::json::parse(ifs, jsoncons::strict_json_parsing());
         }
         catch (const std::exception &e)
         {
+            ifs.close();
             std::cerr << "Invalid patch config file format. " << e.what() << '\n';
             return -1;
         }
         ifs.close();
 
-        try
+        // Persist new changes to HP config file.
+        if (parse_contract_section_json(cfg.contract, jdoc, false) == -1 ||
+            write_config(cfg) == -1)
         {
-
-            cfg.contract.version = contract["version"].as<std::string>();
-            if (cfg.contract.version.empty())
-            {
-                std::cerr << "Patch contract version not specified.\n";
-                return -1;
-            }
-
-            cfg.contract.unl.clear();
-            for (auto &nodepk : contract["unl"].array_range())
-            {
-                // Convert the public key hex of each node to binary and store it.
-                const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
-                if (bin_pubkey.empty())
-                {
-                    std::cerr << "Error decoding patch file unl list.\n";
-                    return -1;
-                }
-                cfg.contract.unl.emplace(bin_pubkey);
-            }
-            if (cfg.contract.unl.empty())
-            {
-                std::cerr << "Patch file unl list cannot be empty.\n";
-                return -1;
-            }
-
-            cfg.contract.bin_path = contract["bin_path"].as<std::string>();
-            if (cfg.contract.bin_path.empty())
-            {
-                std::cerr << "Patch file binary path cannot be empty.\n";
-            }
-            cfg.contract.bin_args = contract["bin_args"].as<std::string>();
-            cfg.contract.roundtime = contract["roundtime"].as<uint16_t>();
-            if (cfg.contract.roundtime == 0)
-            {
-                std::cerr << "Patch file round time cannot be zero.\n";
-            }
-
-            if (contract["consensus"] != conf::PUBLIC && contract["consensus"] != conf::PRIVATE)
-            {
-                std::cerr << "Invalid consensus flag configured in patch file. Valid values: public|private\n";
-                return -1;
-            }
-            cfg.contract.is_consensus_public = contract["consensus"] == conf::PUBLIC;
-
-            if (contract["npl"] != conf::PUBLIC && contract["npl"] != conf::PRIVATE)
-            {
-                std::cerr << "Invalid npl flag configured in patch file. Valid values: public|private\n";
-                return -1;
-            }
-            cfg.contract.is_npl_public = contract["npl"] == conf::PUBLIC;
-
-            if (!contract["appbill"].contains("mode"))
-            {
-                std::cerr << "Required contract appbill config field mode missing at patch file.\n";
-                return -1;
-            }
-            cfg.contract.appbill.mode = contract["appbill"]["mode"].as<std::string>();
-            if (!contract["appbill"].contains("bin_args"))
-            {
-                std::cerr << "Required contract appbill config field bin_args missing at patch file.\n";
-                return -1;
-            }
-            cfg.contract.appbill.bin_args = contract["appbill"]["bin_args"].as<std::string>();
-
-            // Populate runtime contract execution args.
-            cfg.contract.runtime_binexec_args.clear();
-            if (!cfg.contract.bin_args.empty())
-                util::split_string(cfg.contract.runtime_binexec_args, cfg.contract.bin_args, " ");
-            cfg.contract.runtime_binexec_args.insert(cfg.contract.runtime_binexec_args.begin(),
-                                                     (cfg.contract.bin_path[0] == '/'
-                                                          ? cfg.contract.bin_path
-                                                          : util::realpath(conf::ctx.contract_dir + "/bin/" + cfg.contract.bin_path)));
-
-            // Populate runtime app bill args.
-            cfg.contract.appbill.runtime_args.clear();
-            if (!cfg.contract.appbill.bin_args.empty())
-                util::split_string(cfg.contract.appbill.runtime_args, cfg.contract.appbill.bin_args, " ");
-            cfg.contract.appbill.runtime_args.insert(cfg.contract.appbill.runtime_args.begin(),
-                                                     (cfg.contract.appbill.mode[0] == '/'
-                                                          ? cfg.contract.appbill.mode
-                                                          : util::realpath(conf::ctx.contract_dir + "/bin/" + cfg.contract.appbill.mode)));
-
-            // Persist new changes to HP config file.
-            if (write_config(cfg) == -1)
-                return -1;
-
-            LOG_INFO << "Contract config updated from patch file.";
-        }
-        catch (const std::exception &e)
-        {
-            LOG_ERROR << "Required contract config field " << extract_missing_field(e.what()) << " missing in patch file.";
+            LOG_ERROR << "Error applying patch config.";
             return -1;
         }
+
+        LOG_INFO << "Contract config updated from patch file.";
         return 0;
     }
 
@@ -874,7 +711,7 @@ namespace conf
     }
 
     /**
-     * Releses the config file and closes the opened file descriptor.
+     * Releases the config file and closes the opened file descriptor.
      * @return Returns 0 if lock is successfully aquired, -1 on error.
     */
     int release_config_lock()
@@ -886,39 +723,149 @@ namespace conf
     }
 
     /**
-     * Populates contract section fields into the provided json doc.
-     * @param include_id Whether to include the contract id field or not.
+     * Populates contract section field values into the provided json doc.
+     * @param jdoc The json doc to populate contract section field values.
+     * @param contract The contract fields struct containing current field values.
+     * @param include_id Whether to populate the contract id field or not.
      */
-    void populate_contract_section_json(const contract_config &cfg, jsoncons::ojson &json, const bool include_id)
+    void populate_contract_section_json(jsoncons::json &jdoc, const contract_params &contract, const bool include_id)
     {
         if (include_id)
-            json.insert_or_assign("id", cfg.contract.id);
+            jdoc.insert_or_assign("id", contract.id);
 
-        json.insert_or_assign("version", cfg.contract.version);
-        jsoncons::ojson unl(jsoncons::json_array_arg);
-        for (const auto &nodepk : cfg.contract.unl)
+        jdoc.insert_or_assign("version", contract.version);
+        jsoncons::json unl(jsoncons::json_array_arg);
+        for (const auto &nodepk : contract.unl)
         {
             unl.push_back(util::to_hex(nodepk));
         }
-        json.insert_or_assign("unl", unl);
-        json.insert_or_assign("bin_path", cfg.contract.bin_path);
-        json.insert_or_assign("bin_args", cfg.contract.bin_args);
-        json.insert_or_assign("roundtime", cfg.contract.roundtime);
-        json.insert_or_assign("consensus", cfg.contract.is_consensus_public ? PUBLIC : PRIVATE);
-        json.insert_or_assign("npl", cfg.contract.is_npl_public ? PUBLIC : PRIVATE);
+        jdoc.insert_or_assign("unl", unl);
+        jdoc.insert_or_assign("bin_path", contract.bin_path);
+        jdoc.insert_or_assign("bin_args", contract.bin_args);
+        jdoc.insert_or_assign("roundtime", contract.roundtime);
+        jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
+        jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
 
-        jsoncons::ojson appbill;
-        appbill.insert_or_assign("mode", cfg.contract.appbill.mode);
-        appbill.insert_or_assign("bin_args", cfg.contract.appbill.bin_args);
+        jsoncons::json appbill;
+        appbill.insert_or_assign("mode", contract.appbill.mode);
+        appbill.insert_or_assign("bin_args", contract.appbill.bin_args);
 
-        json.insert_or_assign("appbill", appbill);
+        jdoc.insert_or_assign("appbill", appbill);
+    }
+
+    /**
+     * Validates the provided json doc and populate the provided contract struct with values from json doc.
+     * @param contract The contract fields struct to populate.
+     * @param jdoc The json doc containing the contract section field values.
+     * @param parse_id Whether to parse the contract id field or not.
+     * @return 0 on success. -1 on error.
+     */
+    int parse_contract_section_json(contract_params &contract, const jsoncons::json &jdoc, const bool parse_id)
+    {
+        try
+        {
+            if (parse_id)
+            {
+                contract.id = jdoc["id"].as<std::string>();
+                if (contract.id.empty())
+                {
+                    std::cerr << "Contract id not specified.\n";
+                    return -1;
+                }
+            }
+
+            contract.version = jdoc["version"].as<std::string>();
+            if (contract.version.empty())
+            {
+                std::cerr << "Contract version not specified.\n";
+                return -1;
+            }
+
+            contract.unl.clear();
+            for (auto &nodepk : jdoc["unl"].array_range())
+            {
+                // Convert the public key hex of each node to binary and store it.
+                const std::string bin_pubkey = util::to_bin(nodepk.as<std::string_view>());
+                if (bin_pubkey.empty())
+                {
+                    std::cerr << "Error decoding unl list.\n";
+                    return -1;
+                }
+                contract.unl.emplace(bin_pubkey);
+            }
+            if (contract.unl.empty())
+            {
+                std::cerr << "UNL cannot be empty.\n";
+                return -1;
+            }
+
+            contract.bin_path = jdoc["bin_path"].as<std::string>();
+            contract.bin_args = jdoc["bin_args"].as<std::string>();
+
+            contract.roundtime = jdoc["roundtime"].as<uint16_t>();
+            if (contract.roundtime == 0)
+            {
+                std::cerr << "Round time cannot be zero.\n";
+                return -1;
+            }
+
+            if (jdoc["consensus"] != PUBLIC && jdoc["consensus"] != PRIVATE)
+            {
+                std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
+                return -1;
+            }
+            contract.is_consensus_public = jdoc["consensus"] == PUBLIC;
+
+            if (jdoc["npl"] != PUBLIC && jdoc["npl"] != PRIVATE)
+            {
+                std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
+                return -1;
+            }
+            contract.is_npl_public = jdoc["npl"] == PUBLIC;
+
+            if (!jdoc["appbill"].contains("mode"))
+            {
+                std::cerr << "Required contract appbill config field mode missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+            contract.appbill.mode = jdoc["appbill"]["mode"].as<std::string>();
+            if (!jdoc["appbill"].contains("bin_args"))
+            {
+                std::cerr << "Required contract appbill config field bin_args missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+            contract.appbill.bin_args = jdoc["appbill"]["bin_args"].as<std::string>();
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+            return -1;
+        }
+
+        // Populate runtime contract execution args.
+        if (!contract.bin_args.empty())
+            util::split_string(contract.runtime_binexec_args, contract.bin_args, " ");
+        contract.runtime_binexec_args.insert(contract.runtime_binexec_args.begin(), contract.bin_path);
+
+        // Populate runtime app bill args.
+        if (!contract.appbill.bin_args.empty())
+            util::split_string(contract.appbill.runtime_args, contract.appbill.bin_args, " ");
+        contract.appbill.runtime_args.insert(contract.appbill.runtime_args.begin(), contract.appbill.mode);
+
+        // Uncomment for docker-based execution.
+        // std::string volumearg;
+        // volumearg.append("type=bind,source=").append(ctx.hpfs_dir).append(",target=/hpfs");
+        // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), contract.bin_path.data()};
+        // contract.runtime_binexec_args.insert(contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
+
+        return 0;
     }
 
     /**
      * Writes the given json doc to a file.
      * @return 0 on success. -1 on failure.
      */
-    int write_json_file(const std::string &file_path, const jsoncons::ojson &d)
+    int write_json_file(const std::string &file_path, const jsoncons::json &d)
     {
         std::ofstream ofs(file_path);
         try
