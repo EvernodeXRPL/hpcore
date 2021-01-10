@@ -197,7 +197,7 @@ namespace conf
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);
 
-    std::string_view extract_missing_field(std::string err_message);
+    const std::string extract_missing_field(std::string err_message);
 
     int populate_patch_config();
 

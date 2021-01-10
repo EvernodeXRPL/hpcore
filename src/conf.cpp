@@ -109,6 +109,7 @@ namespace conf
         util::create_dir_tree_recursive(ctx.full_hist_dir);
         util::create_dir_tree_recursive(ctx.log_dir);
         util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH);
+        util::create_dir_tree_recursive(ctx.hpfs_mount_dir);
 
         //Create config file with default settings.
 
@@ -626,11 +627,10 @@ namespace conf
      * @param err_message Jsoncons error message.
      * @return Missing config field.
     */
-    std::string_view extract_missing_field(std::string err_message)
+    const std::string extract_missing_field(std::string err_message)
     {
         err_message.erase(0, err_message.find("'") + 1);
-        err_message = err_message.substr(0, err_message.find("'"));
-        return err_message;
+        return err_message.substr(0, err_message.find("'"));
     }
 
     /**
