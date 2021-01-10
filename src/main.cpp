@@ -200,7 +200,6 @@ int main(int argc, char **argv)
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
                 if (hpfs::init() == -1 ||
-                    conf::apply_patch_changes() == -1 ||
                     hpfs_serve::init() == -1 ||
                     hpfs_sync::init() == -1 ||
                     ledger::init() == -1 ||
