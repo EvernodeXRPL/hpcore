@@ -208,14 +208,15 @@ namespace sc
      * Writes the contract args (JSON) into the stdin of the contract process.
      * Args format:
      * {
-     *   "version":"<hp version>",
+     *   "hp_version":"<hp version>",
+     *   "contract_id": "<contract guid>",
      *   "pubkey": "<this node's hex public key>",
-     *   "ts": <this node's timestamp (unix milliseconds)>,
+     *   "timestamp": <this node's timestamp (unix milliseconds)>,
      *   "readonly": <true|false>,
      *   "lcl": "<this node's last closed ledger seq no. and hash in hex>", (eg: 169-a1d82eb4c9ed005ec2c4f4f82b6f0c2fd7543d66b1a0f6b8e58ae670b3e2bcfb)
-     *   "controlfd": fd,
-     *   "nplfd":fd,
-     *   "userinfd":fd, // User inputs fd.
+     *   "control_fd": fd,
+     *   "npl_fd":fd,
+     *   "user_in_fd":fd, // User inputs fd.
      *   "users":{ "<pkhex>":[outfd, [msg1_off, msg1_len], ...], ... },
      *   "unl":[ "<pkhex>", ... ]
      * }
@@ -227,20 +228,21 @@ namespace sc
         // json string manually.
 
         std::ostringstream os;
-        os << "{\"version\":\"" << util::HP_VERSION
+        os << "{\"hp_version\":\"" << util::HP_VERSION
+           << "\",\"contract_id\":\"" << conf::cfg.contract.id
            << "\",\"pubkey\":\"" << conf::cfg.node.public_key_hex
-           << "\",\"ts\":" << ctx.args.time
+           << "\",\"timestamp\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
         if (!ctx.args.readonly)
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
-               << "\",\"nplfd\":" << ctx.nplfds.scfd;
+               << "\",\"npl_fd\":" << ctx.nplfds.scfd;
         }
 
-        os << ",\"controlfd\":" << ctx.controlfds.scfd;
+        os << ",\"control_fd\":" << ctx.controlfds.scfd;
 
-        os << ",\"userinfd\":" << user_inputs_fd
+        os << ",\"user_in_fd\":" << user_inputs_fd
            << ",\"users\":{";
 
         user_json_to_stream(ctx.userfds, ctx.args.userbufs, os);
