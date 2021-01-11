@@ -69,7 +69,6 @@ class HotPocketContract {
 // Represents patch config.
 class PatchConfig {
     #patchConfigPath = "../patch.cfg";
-    #patchConfigInit = false;
     #version = null;
     #binPath = null;
     #binArgs = null;
@@ -80,26 +79,22 @@ class PatchConfig {
     #appbillMode = null;
     #appbillBinArgs = null;
 
-    constructor() {
-        // Loads the config value if there's a patch config file. Otherwise values will be null.
-        if (fs.existsSync(this.#patchConfigPath)) {
-            const fileContent = fs.readFileSync(this.#patchConfigPath);
-            const config = JSON.parse(fileContent.toString());
-            this.#version = config.version;
-            this.#binPath = config.bin_path;
-            this.#binArgs = config.bin_args;
-            this.#roundtime = +config.roundtime;
-            this.#consensus = config.consensus;
-            this.#npl = config.npl;
-            this.#unl = config.unl;
-            this.#appbillMode = config.appbill.mode;
-            this.#appbillBinArgs = config.appbill.bin_args;
-            this.#patchConfigInit = true;
-        }
-    }
+    // Loads the config value if there's a patch config file. Otherwise values will be null.
+    readConfig() {
+        if (!fs.existsSync(this.#patchConfigPath))
+            throw "Patch config file does not exists.";
 
-    hasPatchConfig() {
-        return this.#patchConfigInit;
+        const fileContent = fs.readFileSync(this.#patchConfigPath);
+        const config = JSON.parse(fileContent.toString());
+        this.#version = config.version;
+        this.#binPath = config.bin_path;
+        this.#binArgs = config.bin_args;
+        this.#roundtime = +config.roundtime;
+        this.#consensus = config.consensus;
+        this.#npl = config.npl;
+        this.#unl = config.unl;
+        this.#appbillMode = config.appbill.mode;
+        this.#appbillBinArgs = config.appbill.bin_args;
     }
 
     setVersion(version) {
@@ -261,8 +256,8 @@ class ContractContext {
         if (this.readonly)
             throw "Config update not allowed in readonly mode.";
 
-        if (!this.#patchConfig.hasPatchConfig())
-            throw "Patch config file does not exists."
+        // Read current patch config values before update.
+        this.#patchConfig.readConfig();
 
         if (params.version) {
             this.#patchConfig.setVersion(params.version);
@@ -309,9 +304,8 @@ class ContractContext {
     //     appbillBinArgs: appbill binary args string
     // }
     getConfig() {
-        if (!this.#patchConfig.hasPatchConfig())
-            throw "Patch config file does not exists."
-
+        // Read current patch config values.
+        this.#patchConfig.readConfig()
         return {
             version: this.#patchConfig.getVersion(),
             unl: this.#patchConfig.getUnl(),
