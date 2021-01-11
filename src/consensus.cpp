@@ -133,12 +133,12 @@ namespace consensus
             //LOG_INFO << "Patch Hash " << patch_hash;
             //LOG_INFO << "Updated atch Hash " << updated_patch_hash;
 
-            if(updated_patch_hash!= util::h32_empty && updated_patch_hash == patch_hash)
+            if (updated_patch_hash != util::h32_empty && updated_patch_hash == patch_hash)
             {
-                if (hpfs::start_ro_session(INIT_SESSION_NAME, true) == -1)
+                if (hpfs::start_ro_session(INIT_SESSION_NAME, true) != -1)
                 {
                     // Appling new patch file changes to hpcore runtime.
-                    if (conf::validate_and_apply_patch_config(conf::cfg.contract, INIT_SESSION_NAME) == -1)
+                    if (conf::apply_patch_config(INIT_SESSION_NAME) == -1)
                     {
                         LOG_ERROR << "Appling patch file after contract execution failed";
                     }
