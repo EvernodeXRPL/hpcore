@@ -79,7 +79,7 @@ class PatchConfig {
     #appbillMode = null;
     #appbillBinArgs = null;
 
-    // Loads the config value if there's a patch config file. Otherwise values will be null.
+    // Loads the config value if there's a patch config file. Otherwise throw error.
     readConfig() {
         if (!fs.existsSync(this.#patchConfigPath))
             throw "Patch config file does not exists.";
