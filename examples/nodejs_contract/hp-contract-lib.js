@@ -37,7 +37,7 @@ class HotPocketContract {
         const argsJson = fs.readFileSync(process.stdin.fd, 'utf8');
         const hpargs = JSON.parse(argsJson);
 
-        this.#controlChannel = new ControlChannel(hpargs.controlfd);
+        this.#controlChannel = new ControlChannel(hpargs.control_fd);
         this.#executeContract(hpargs, contractFunc);
         return true;
     }
@@ -45,11 +45,11 @@ class HotPocketContract {
     #executeContract = (hpargs, contractFunc) => {
         // Keeps track of all the tasks (promises) that must be awaited before the termination.
         const pendingTasks = [];
-        const nplChannel = new NplChannel(hpargs.nplfd);
+        const nplChannel = new NplChannel(hpargs.npl_fd);
 
-        const users = new UsersCollection(hpargs.userinfd, hpargs.users, this.#clientProtocol);
+        const users = new UsersCollection(hpargs.user_in_fd, hpargs.users, this.#clientProtocol);
         const unl = new UnlCollection(hpargs.readonly, hpargs.unl, nplChannel, pendingTasks);
-        const executionContext = new ContractExecutionContext(hpargs, users, unl, this.#controlChannel);
+        const executionContext = new ContractContext(hpargs, users, unl, this.#controlChannel);
 
         invokeCallback(contractFunc, executionContext).catch(errHandler).finally(() => {
             // Wait for any pending tasks added during execution.
@@ -182,7 +182,7 @@ class PatchConfig {
     }
 }
 
-class ContractExecutionContext {
+class ContractContext {
 
     #controlChannel = null;
     #patchConfig = null;
@@ -190,7 +190,7 @@ class ContractExecutionContext {
     constructor(hpargs, users, unl, controlChannel) {
         this.#controlChannel = controlChannel;
         this.readonly = hpargs.readonly;
-        this.timestamp = hpargs.ts;
+        this.timestamp = hpargs.timestamp;
         this.users = users;
         this.unl = unl; // Not available in readonly mode.
         this.lcl = hpargs.lcl; // Not available in readonly mode.

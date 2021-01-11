@@ -436,7 +436,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
         {
             __HP_ASSIGN_STRING(cctx->pubkey, elem);
         }
-        else if (strcmp(k->string, "ts") == 0)
+        else if (strcmp(k->string, "timestamp") == 0)
         {
             __HP_ASSIGN_UINT64(cctx->timestamp, elem);
         }
@@ -448,7 +448,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
         {
             __HP_ASSIGN_STRING(cctx->lcl, elem);
         }
-        else if (strcmp(k->string, "userinfd") == 0)
+        else if (strcmp(k->string, "user_in_fd") == 0)
         {
             __HP_ASSIGN_INT(cctx->users.in_fd, elem);
         }
@@ -501,7 +501,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                 }
             }
         }
-        else if (strcmp(k->string, "nplfd") == 0)
+        else if (strcmp(k->string, "npl_fd") == 0)
         {
             __HP_ASSIGN_INT(cctx->unl.npl_fd, elem);
         }
@@ -526,7 +526,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                 }
             }
         }
-        else if (strcmp(k->string, "controlfd") == 0)
+        else if (strcmp(k->string, "control_fd") == 0)
         {
             __HP_ASSIGN_INT(__hpc.control_fd, elem);
         }
