@@ -66,9 +66,126 @@ class HotPocketContract {
     }
 }
 
+// Represents patch config.
+class PatchConfig {
+    #patchConfigPath = "../patch.cfg";
+
+    constructor() {
+        // Loads the config value if there's a patch config file. Otherwise values will be null.
+        if (fs.existsSync(this.#patchConfigPath)) {
+            const fileContent = fs.readFileSync(this.#patchConfigPath);
+            const config = JSON.parse(fileContent.toString());
+            this.version = config.version;
+            this.binPath = config.bin_path;
+            this.binArgs = config.bin_args;
+            this.roundtime = +config.roundtime;
+            this.consensus = config.consensus;
+            this.npl = config.npl;
+            this.unl = config.unl;
+            this.appbillMode = config.appbill.mode;
+            this.appbillBinArgs = config.appbill.bin_args;
+        }
+    }
+
+    setVersion(version) {
+        if (!version)
+            throw "Contract version is not specified.";
+        this.version = version;
+    }
+
+    setUnl(unl) {
+        if (!unl || !unl.length)
+            throw "UNL list cannot be empty.";
+
+        let updatedUnl = [];
+        for (let pubKey of unl) {
+            if (!pubKey.length)
+                throw "UNL pubKey not specified.";
+            else if (pubKey.length != 66)
+                throw "Invalid UNL pubKey specified. Invalid length.";
+            else if (!pubKey.startsWith("ed"))
+                throw "Invalid UNL pubKey specified. Invalid format.";
+
+            try {
+                let pubKeyBin = hexToUint8Array(pubKey.substring(2));
+            }
+            catch {
+                throw "Invalid UNL pubKey specified. Decode error.";
+            }
+
+            updatedUnl.push(pubKey);
+        }
+        this.unl = updatedUnl;
+    }
+
+    getUnl() {
+        return this.unl;
+    }
+
+    setBinPath(binPath) {
+        if (!binPath.length)
+            throw "Binary path cannot be empty.";
+        this.binPath = binPath;
+    }
+
+    setBinArgs(binArgs) {
+        this.binArgs = binArgs;
+    }
+
+    setRoundtime(roundtime) {
+        if (roundtime == 0)
+            throw "Round time cannot be zero."
+        this.roundtime = roundtime;
+    }
+
+    setConsensus(consensus) {
+        if (consensus != "public" && consensus != "private")
+            throw "Invalid consensus flag configured in patch file. Valid values: public|private";
+        this.consensus = consensus;
+    }
+
+    setNpl(npl) {
+        if (npl != "public" && npl != "private")
+            throw "Invalid npl flag configured in patch file. Valid values: public|private";
+        this.npl = npl;
+    }
+
+    setAppbillMode(appbillMode) {
+        this.appbillMode = appbillMode;
+    }
+
+    setAppbillBinArgs(appbillBinArgs) {
+        this.appbillBinArgs = appbillBinArgs;
+    }
+
+    // Saves the config changes to tha patch config.
+    saveChanges() {
+        const config = {
+            version: this.version,
+            bin_path: this.binPath,
+            bin_args: this.binArgs ? this.binArgs : "",
+            roundtime: this.roundtime,
+            consensus: this.consensus,
+            npl: this.npl,
+            unl: this.unl,
+            appbill: {
+                mode: this.appbillMode ? this.appbillMode : "",
+                bin_args: this.appbillBinArgs ? this.appbillBinArgs : ""
+            }
+        }
+        return new Promise((resolve, reject) => {
+            fs.writeFile(this.#patchConfigPath, JSON.stringify(config), (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    }
+}
+
 class ContractExecutionContext {
 
     #controlChannel = null;
+    #patchConfig = null;
 
     constructor(hpargs, users, unl, controlChannel) {
         this.#controlChannel = controlChannel;
@@ -77,12 +194,55 @@ class ContractExecutionContext {
         this.users = users;
         this.unl = unl; // Not available in readonly mode.
         this.lcl = hpargs.lcl; // Not available in readonly mode.
+        if (!this.readonly)
+            this.#patchConfig = new PatchConfig();
     }
 
-    async updateUnl(addArray, removeArray) {
+    // Updates the config with given parameters and save the patch config.
+    // Params,
+    // {
+    //     version: contract version as string,
+    //     unl: list of unl pubkeys. Expecting "ed" prefixed (ed22519 algorithm) hex pubkeys,
+    //     roundtime:  roundtime as Number,
+    //     consensus: consensus private|public,
+    //     npl: npl private|public,
+    //     binPath: contract binary path string,
+    //     binArgs: contract binary args string,
+    //     appbillMode: appbill mode string,
+    //     appbillBinArgs: appbill binary args string
+    // }
+    async updateConfig(params) {
         if (this.readonly)
-            throw "UNL update not allowed in readonly mode."
-        await this.#controlChannel.send({ type: controlMessages.unlChangeset, add: addArray, remove: removeArray });
+            throw "Config update not allowed in readonly mode."
+
+        if (params.version) {
+            this.#patchConfig.setVersion(params.version);
+        }
+        if (params.unl) {
+            this.#patchConfig.setUnl(params.unl);
+        }
+        if (params.roundtime) {
+            this.#patchConfig.setRoundtime(params.roundtime);
+        }
+        if (params.consensus) {
+            this.#patchConfig.setConsensus(params.consensus);
+        }
+        if (params.npl) {
+            this.#patchConfig.setNpl(params.npl);
+        }
+        if (params.binPath) {
+            this.#patchConfig.setBinPath(params.binPath);
+        }
+        if (params.binArgs) {
+            this.#patchConfig.setBinArgs(params.binArgs);
+        }
+        if (params.appbillMode) {
+            this.#patchConfig.setAppbillMode(params.appbillMode);
+        }
+        if (params.appbillBinArgs) {
+            this.#patchConfig.setAppbillBinArgs(params.appbillBinArgs);
+        }
+        await this.#patchConfig.saveChanges();
     }
 }
 
@@ -329,6 +489,10 @@ const invokeCallback = async (callback, ...args) => {
     else {
         callback(...args);
     }
+}
+
+const hexToUint8Array = (hexString) => {
+    return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 }
 
 const errHandler = (err) => console.log(err);

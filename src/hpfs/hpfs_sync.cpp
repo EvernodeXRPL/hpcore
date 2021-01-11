@@ -134,7 +134,7 @@ namespace hpfs_sync
                                 LOG_INFO << "hpfs sync: Target patch state achieved: " << new_state;
 
                                 // Appling new patch file changes to hpcore runtime.
-                                if (conf::validate_and_apply_patch_config(conf::cfg.contract, hpfs::RW_SESSION_NAME) == -1)
+                                if (conf::apply_patch_config(hpfs::RW_SESSION_NAME) == -1)
                                 {
                                     LOG_ERROR << "Appling patch file changes after sync failed";
                                 }

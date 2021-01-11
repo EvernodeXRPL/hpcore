@@ -289,8 +289,8 @@ namespace consensus
                       << "/" << cp.input_hashes.size()
                       << " ts:" << std::to_string(cp.time)
                       << " lcl:" << cp.lcl.substr(0, 15)
-                      << " state hash:" << cp.state_hash
-                      << " patch hash:" << cp.patch_hash
+                      << " state:" << cp.state_hash
+                      << " patch:" << cp.patch_hash
                       << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
                       << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
 
@@ -406,8 +406,8 @@ namespace consensus
                   << "/" << p.input_hashes.size()
                   << " ts:" << std::to_string(p.time)
                   << " lcl:" << p.lcl.substr(0, 15)
-                  << " state hash:" << p.state_hash
-                  << " patch hash:" << p.patch_hash;
+                  << " state:" << p.state_hash
+                  << " patch:" << p.patch_hash;
     }
 
     /**
