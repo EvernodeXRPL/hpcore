@@ -75,6 +75,7 @@ namespace hpfs
 
     int init();
     void deinit();
+    int prepare_fs();
 
     int start_hpfs_process(pid_t &hpfs_pid);
     int acquire_rw_session();

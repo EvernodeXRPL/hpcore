@@ -197,15 +197,22 @@ namespace conf
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);
 
-    std::string_view extract_missing_field(std::string err_message);
+    const std::string extract_missing_field(std::string err_message);
 
-    int apply_patch_changes();
+    int populate_patch_config();
 
-    int validate_and_apply_patch_config(contract_params &contract_config, std::string_view hpfs_session_name);
+    int apply_patch_config(std::string_view hpfs_session_name);
 
     int set_config_lock();
 
     int release_config_lock();
+
+    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool include_id);
+
+    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &json, const bool parse_id);
+
+    int write_json_file(const std::string &file_path, const jsoncons::ojson &d);
+
 } // namespace conf
 
 #endif

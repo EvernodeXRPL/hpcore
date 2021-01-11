@@ -775,17 +775,18 @@ namespace ledger
             const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(history_itr->second.block_buffer);
 
             // Removing ledger blocks upto the received histroy response starting point.
-            const auto reverse_history_ptr = std::make_reverse_iterator(ctx.cache.find(history_itr->first));
-            if (reverse_history_ptr != ctx.cache.rend())
+            const uint64_t joining_seq_no = history_itr->first;
+            if (ctx.cache.count(joining_seq_no) == 1)
             {
                 // If cache ledger and history ledger are overlapping, remove blocks from end until the
                 // cache end at the state where history ledger can be straightly joined.
                 auto it = ctx.cache.rbegin();
-                while (it != reverse_history_ptr)
+                while (it != ctx.cache.rend() && it->first >= joining_seq_no)
                 {
                     remove_ledger(it->second);
-                    // Erase function advance the iterator.
-                    ctx.cache.erase((--it).base());
+
+                    // Erase and advance the reverse iterator.
+                    ctx.cache.erase((--it.base()));
                 }
 
                 auto &[cache_seq_no, cache_lcl] = get_ledger_cache_top();
