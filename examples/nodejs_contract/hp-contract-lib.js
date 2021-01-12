@@ -37,7 +37,7 @@ class HotPocketContract {
         const argsJson = fs.readFileSync(process.stdin.fd, 'utf8');
         const hpargs = JSON.parse(argsJson);
 
-        this.#controlChannel = new ControlChannel(hpargs.controlfd);
+        this.#controlChannel = new ControlChannel(hpargs.control_fd);
         this.#executeContract(hpargs, contractFunc);
         return true;
     }
@@ -45,11 +45,11 @@ class HotPocketContract {
     #executeContract = (hpargs, contractFunc) => {
         // Keeps track of all the tasks (promises) that must be awaited before the termination.
         const pendingTasks = [];
-        const nplChannel = new NplChannel(hpargs.nplfd);
+        const nplChannel = new NplChannel(hpargs.npl_fd);
 
-        const users = new UsersCollection(hpargs.userinfd, hpargs.users, this.#clientProtocol);
+        const users = new UsersCollection(hpargs.user_in_fd, hpargs.users, this.#clientProtocol);
         const unl = new UnlCollection(hpargs.readonly, hpargs.unl, nplChannel, pendingTasks);
-        const executionContext = new ContractExecutionContext(hpargs, users, unl, this.#controlChannel);
+        const executionContext = new ContractContext(hpargs, users, unl, this.#controlChannel);
 
         invokeCallback(contractFunc, executionContext).catch(errHandler).finally(() => {
             // Wait for any pending tasks added during execution.
@@ -69,28 +69,38 @@ class HotPocketContract {
 // Represents patch config.
 class PatchConfig {
     #patchConfigPath = "../patch.cfg";
+    #version = null;
+    #binPath = null;
+    #binArgs = null;
+    #roundtime = null;
+    #consensus = null;
+    #npl = null;
+    #unl = null;
+    #appbillMode = null;
+    #appbillBinArgs = null;
 
-    constructor() {
-        // Loads the config value if there's a patch config file. Otherwise values will be null.
-        if (fs.existsSync(this.#patchConfigPath)) {
-            const fileContent = fs.readFileSync(this.#patchConfigPath);
-            const config = JSON.parse(fileContent.toString());
-            this.version = config.version;
-            this.binPath = config.bin_path;
-            this.binArgs = config.bin_args;
-            this.roundtime = +config.roundtime;
-            this.consensus = config.consensus;
-            this.npl = config.npl;
-            this.unl = config.unl;
-            this.appbillMode = config.appbill.mode;
-            this.appbillBinArgs = config.appbill.bin_args;
-        }
+    // Loads the config value if there's a patch config file. Otherwise throw error.
+    readConfig() {
+        if (!fs.existsSync(this.#patchConfigPath))
+            throw "Patch config file does not exist.";
+
+        const fileContent = fs.readFileSync(this.#patchConfigPath);
+        const config = JSON.parse(fileContent);
+        this.#version = config.version;
+        this.#binPath = config.bin_path;
+        this.#binArgs = config.bin_args;
+        this.#roundtime = +config.roundtime;
+        this.#consensus = config.consensus;
+        this.#npl = config.npl;
+        this.#unl = config.unl;
+        this.#appbillMode = config.appbill.mode;
+        this.#appbillBinArgs = config.appbill.bin_args;
     }
 
     setVersion(version) {
         if (!version)
             throw "Contract version is not specified.";
-        this.version = version;
+        this.#version = version;
     }
 
     setUnl(unl) {
@@ -115,64 +125,61 @@ class PatchConfig {
 
             updatedUnl.push(pubKey);
         }
-        this.unl = updatedUnl;
-    }
-
-    getUnl() {
-        return this.unl;
+        this.#unl = updatedUnl;
     }
 
     setBinPath(binPath) {
         if (!binPath.length)
             throw "Binary path cannot be empty.";
-        this.binPath = binPath;
+        this.#binPath = binPath;
     }
 
     setBinArgs(binArgs) {
-        this.binArgs = binArgs;
+        this.#binArgs = binArgs;
     }
 
     setRoundtime(roundtime) {
         if (roundtime == 0)
             throw "Round time cannot be zero."
-        this.roundtime = roundtime;
+        this.#roundtime = roundtime;
     }
 
     setConsensus(consensus) {
         if (consensus != "public" && consensus != "private")
             throw "Invalid consensus flag configured in patch file. Valid values: public|private";
-        this.consensus = consensus;
+        this.#consensus = consensus;
     }
 
     setNpl(npl) {
         if (npl != "public" && npl != "private")
             throw "Invalid npl flag configured in patch file. Valid values: public|private";
-        this.npl = npl;
+        this.#npl = npl;
     }
 
     setAppbillMode(appbillMode) {
-        this.appbillMode = appbillMode;
+        this.#appbillMode = appbillMode;
     }
 
     setAppbillBinArgs(appbillBinArgs) {
-        this.appbillBinArgs = appbillBinArgs;
+        this.#appbillBinArgs = appbillBinArgs;
     }
 
     // Saves the config changes to tha patch config.
     saveChanges() {
         const config = {
-            version: this.version,
-            bin_path: this.binPath,
-            bin_args: this.binArgs ? this.binArgs : "",
-            roundtime: this.roundtime,
-            consensus: this.consensus,
-            npl: this.npl,
-            unl: this.unl,
+            version: this.#version,
+            bin_path: this.#binPath,
+            bin_args: this.#binArgs ? this.#binArgs : "",
+            roundtime: this.#roundtime,
+            consensus: this.#consensus,
+            npl: this.#npl,
+            unl: this.#unl,
             appbill: {
-                mode: this.appbillMode ? this.appbillMode : "",
-                bin_args: this.appbillBinArgs ? this.appbillBinArgs : ""
+                mode: this.#appbillMode ? this.#appbillMode : "",
+                bin_args: this.#appbillBinArgs ? this.#appbillBinArgs : ""
             }
-        }
+        };
+
         return new Promise((resolve, reject) => {
             fs.writeFile(this.#patchConfigPath, JSON.stringify(config), (err) => {
                 if (err) reject(err);
@@ -180,9 +187,26 @@ class PatchConfig {
             });
         });
     }
+
+    // Returns patch config as a JSON object.
+    getConfig() {
+        return {
+            version: this.#version,
+            unl: this.#unl,
+            roundtime: this.#roundtime,
+            consensus: this.#consensus,
+            npl: this.#npl,
+            binPath: this.#binPath,
+            binArgs: this.#binArgs,
+            appbill: {
+                mode: this.#appbillMode,
+                binArgs: this.#appbillBinArgs
+            }
+        }
+    }
 }
 
-class ContractExecutionContext {
+class ContractContext {
 
     #controlChannel = null;
     #patchConfig = null;
@@ -190,12 +214,11 @@ class ContractExecutionContext {
     constructor(hpargs, users, unl, controlChannel) {
         this.#controlChannel = controlChannel;
         this.readonly = hpargs.readonly;
-        this.timestamp = hpargs.ts;
+        this.timestamp = hpargs.timestamp;
         this.users = users;
         this.unl = unl; // Not available in readonly mode.
         this.lcl = hpargs.lcl; // Not available in readonly mode.
-        if (!this.readonly)
-            this.#patchConfig = new PatchConfig();
+        this.#patchConfig = new PatchConfig();
     }
 
     // Updates the config with given parameters and save the patch config.
@@ -203,7 +226,6 @@ class ContractExecutionContext {
     // {
     //     version: contract version as string,
     //     unl: list of unl pubkeys. Expecting "ed" prefixed (ed22519 algorithm) hex pubkeys,
-    //     roundtime:  roundtime as Number,
     //     consensus: consensus private|public,
     //     npl: npl private|public,
     //     binPath: contract binary path string,
@@ -213,36 +235,61 @@ class ContractExecutionContext {
     // }
     async updateConfig(params) {
         if (this.readonly)
-            throw "Config update not allowed in readonly mode."
+            throw "Config update not allowed in readonly mode.";
 
-        if (params.version) {
+        // Read current patch config values before update.
+        this.#patchConfig.readConfig();
+
+        if (params.hasOwnProperty('version')) {
             this.#patchConfig.setVersion(params.version);
         }
-        if (params.unl) {
+        if (params.hasOwnProperty('unl')) {
             this.#patchConfig.setUnl(params.unl);
         }
-        if (params.roundtime) {
-            this.#patchConfig.setRoundtime(params.roundtime);
-        }
-        if (params.consensus) {
+        // Commented and disabled updating until roundtime sniffing heuristics is implemented in HP.
+        // if (params.hasOwnProperty('roundtime')) {
+        //     this.#patchConfig.setRoundtime(params.roundtime);
+        // }
+        if (params.hasOwnProperty('consensus')) {
             this.#patchConfig.setConsensus(params.consensus);
         }
-        if (params.npl) {
+        if (params.hasOwnProperty('npl')) {
             this.#patchConfig.setNpl(params.npl);
         }
-        if (params.binPath) {
+        if (params.hasOwnProperty('binPath')) {
             this.#patchConfig.setBinPath(params.binPath);
         }
-        if (params.binArgs) {
+        if (params.hasOwnProperty('binArgs')) {
             this.#patchConfig.setBinArgs(params.binArgs);
         }
-        if (params.appbillMode) {
+        if (params.hasOwnProperty('appbillMode')) {
             this.#patchConfig.setAppbillMode(params.appbillMode);
         }
-        if (params.appbillBinArgs) {
+        if (params.hasOwnProperty('appbillBinArgs')) {
             this.#patchConfig.setAppbillBinArgs(params.appbillBinArgs);
         }
         await this.#patchConfig.saveChanges();
+    }
+
+    // Returns the config values in patch config.
+    // Returns,
+    // {
+    //     version: contract version as string,
+    //     unl: list of unl pubkeys. "ed" prefixed (ed22519 algorithm) hex pubkeys,
+    //     roundtime:  roundtime as Number,
+    //     consensus: consensus private|public,
+    //     npl: npl private|public,
+    //     binPath: contract binary path string,
+    //     binArgs: contract binary args string,
+    //     appbill: {
+    //         mode: appbill mode string,
+    //         binArgs: appbill binary args string
+    //     }
+    // }
+    getConfig() {
+        // Read current patch config values.
+        this.#patchConfig.readConfig()
+        return this.#patchConfig.getConfig();
     }
 }
 

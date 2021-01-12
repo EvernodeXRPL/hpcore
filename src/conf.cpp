@@ -842,11 +842,13 @@ namespace conf
             return -1;
         }
 
+        contract.runtime_binexec_args.clear();
         // Populate runtime contract execution args.
         if (!contract.bin_args.empty())
             util::split_string(contract.runtime_binexec_args, contract.bin_args, " ");
         contract.runtime_binexec_args.insert(contract.runtime_binexec_args.begin(), contract.bin_path);
 
+        contract.appbill.runtime_args.clear();
         // Populate runtime app bill args.
         if (!contract.appbill.bin_args.empty())
             util::split_string(contract.appbill.runtime_args, contract.appbill.bin_args, " ");
