@@ -105,7 +105,7 @@ struct hp_unl_collection
     int npl_fd;
 };
 
-struct patch_appbill
+struct hp_appbill_collection
 {
     char *mode;
     char *bin_args;
@@ -113,15 +113,14 @@ struct patch_appbill
 
 struct patch_config
 {
-    char *id;
     char *version;
-    struct hp_unl_node *unl;
+    struct hp_unl_collection unl;
     char *bin_path;
     char *bin_args;
-    u_int32_t roundtime;
+    u_int16_t roundtime;
     char *consensus;
     char *npl;
-    struct patch_appbill appbill;
+    struct hp_appbill_collection appbill;
 };
 
 struct hp_contract_context
@@ -153,9 +152,12 @@ int hp_write_npl_msg(const void *buf, const uint32_t len);
 int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
 int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
 int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count);
+int hp_update_config(const struct patch_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
 int __hp_write_control_msg(const void *buf, const uint32_t len);
+void __hp_populate_patch_from_existing_file(struct json_object_s *object, struct patch_config *config);
+void __hp_write_to_patch_file(const int fd, const struct patch_config *config);
 void __hp_free(void *ptr);
 
 static struct __hp_contract __hpc = {};
@@ -195,7 +197,6 @@ int hp_init_contract()
             return 0;
         }
     }
-
     __hp_free(root);
     return -1;
 }
@@ -442,62 +443,193 @@ int hp_update_unl(const char *add, const size_t add_count, const char *remove, c
     return __hp_write_control_msg(json_buf, json_size);
 }
 
-// int hp_update_config(const struct patch_config config)
-// {
-//     if (__hpc.cctx->readonly)
-//         perror("Config update not allowed in readonly mode.");
+int hp_update_config(const struct patch_config *config)
+{
+    struct hp_contract_context *cctx = __hpc.cctx;
+    if (cctx->readonly)
+    {
+        fprintf(stderr, "Config update not allowed in readonly mode.");
+        return -1;        
+    }
+    int fd = open("../patch1.cfg", O_RDWR | O_CREAT);
+    struct patch_config existing_patch = {};
+    if (fd > 0)
+    {
+        char buf[4096];
+        const size_t len = read(fd, buf, sizeof(buf));
+        if (len == -1)
+        {
+            fprintf(stderr, "Error when reading stdin.");
+            return -1;
+        }
 
-//     char *patch_config_path = "../patch.cfg";
+        struct json_value_s *root = json_parse(buf, len);
+        if (root && root->type == json_type_object)
+        {
+            struct json_object_s *object = (struct json_object_s *)root->payload;
+            __hp_populate_patch_from_existing_file(object, &existing_patch);
+            if (config->version)
+            {
+                if (strlen(config->version) != 0)
+                {
+                    printf("version: %s\n", config->version);
+                    existing_patch.version = config->version;
+                }
+                else
+                {
+                    fprintf(stderr, "Version cannot be empty.");
+                    return -1;
+                }
+            }
 
-//     if (config.version == NULL)
-//         perror("Contract version is not specified.");
+            if (config->bin_path)
+                existing_patch.bin_path = config->bin_path;
 
-//     if (sizeof(config.unl) == 0)
-//         perror("UNL list cannot be empty.");
+            if (config->bin_args)
+                existing_patch.bin_args = config->bin_args;
 
-//     let unl = [];
+            if (config->roundtime)
+                existing_patch.roundtime = config->roundtime;
 
-//     for (let unl of config.unl)
-//         if (!unl.length)
-//             perror("UNL not specified.");
-//         else
-//             unl.push(unl);
+            if (config->consensus)
+            {
+                if (strlen(config->consensus) == 0 || (strcmp(config->consensus, "public") != 0 && strcmp(config->consensus, "private") != 0))
+                {
+                    fprintf(stderr, "Invalid consensus flag. Valid values: public|private\n");
+                    return -1;
+                }
+                existing_patch.consensus = config->consensus;
+            }
 
-//     if (!config.bin_path.length)
-//         perror("Binary path cannot be empty.");
+            if (config->npl)
+            {
+                if (strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
+                {
+                    fprintf(stderr, "Invalid npl flag. Valid values: public|private\n");
+                    return -1;
+                }
+                existing_patch.npl = config->npl;
+            }
 
-//     if (config.roundtime == 0)
-//         perror("Round time cannot be zero."
+            if (config->appbill.mode)
+                existing_patch.appbill.mode = config->appbill.mode;
 
-//             if (config.consensus != "public" && config.consensus != "private") perror("Invalid consensus flag configured in patch file. Valid values: public|private");
+            if (config->appbill.bin_args)
+                existing_patch.appbill.bin_args = config->appbill.bin_args;
 
-//     if (config.npl != "public" && config.npl != "private")
-//         perror("Invalid npl flag configured in patch file. Valid values: public|private");
+            __hp_write_to_patch_file(fd, &existing_patch);
+            printf("value: %s\n", existing_patch.unl.list[0].pubkey);
+        }
+        close(fd);
+        __hp_free(root);
+    }
+    return 0;
+}
 
-//     if (config.appbill)
-//         perror("Contract appbill config cannot be empty.");
+void __hp_write_to_patch_file(const int fd, const struct patch_config *config)
+{
+    char *json_buf = "{\n\
+        \"version\": \"6.0\",\n\
+        \"unl\": [\"ed65aac94e7287d461540523b8ce43b873fc97398bef1b42350feac72ad360b7f3\"],\n\
+        \"bin_path\": \"/usr/bin/node\",\n\
+        \"bin_args\": \"/home/savinda/Documents/HotPocketDev/core/examples/nodejs_contract/echo_contract.js\",\n\
+        \"roundtime\": %d,\n\
+        \"consensus\": \"private\",\n\
+        \"npl\": \"private\",\n\
+        \"appbill\": {\n\
+            \"mode\": \"\",\n\
+            \"bin_args\": \"\"\n\
+        }\n\
+    }";
+    char final_json[500] = "";
+    sprintf(final_json, json_buf, 5);
+    lseek(fd, 0, SEEK_SET);
+    // ftruncate(fd, 0);
+    write(fd, final_json, strlen(json_buf));
+}
 
-//     if (config.appbill.mode)
-//         perror("Required contract appbill config field mode missing at patch file.");
+void __hp_populate_patch_from_existing_file(struct json_object_s *object, struct patch_config *config)
+{
+    const struct json_object_element_s *elem = object->start;
+    do
+    {
+        const struct json_string_s *k = elem->name;
 
-//     if (config.appbill.bin_args)
-//         perror("Required contract appbill config field bin_args missing at patch file.");
+        if (strcmp(k->string, "version") == 0)
+        {
+            const struct json_string_s *value = (struct json_string_s *)elem->value->payload;
+            config->version = (char *)value->string;
+        }
+        else if (strcmp(k->string, "unl") == 0)
+        {
+            if (elem->value->type == json_type_array)
+            {
+                const struct json_array_s *unl_array = (struct json_array_s *)elem->value->payload;
+                const size_t unl_count = unl_array->length;
 
-//     const fileContent = fs.readFileSync(patchConfigPath);
-//     const curConfig = JSON.parse(fileContent.toString());
+                config->unl.count = unl_count;
+                config->unl.list = unl_count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * unl_count) : NULL;
 
-//     curConfig.version = config.version;
-//     curConfig.bin_path = config.bin_path;
-//     curConfig.bin_args = config.bin_args;
-//     curConfig.roundtime = config.roundtime;
-//     curConfig.consensus = config.consensus;
-//     curConfig.npl = config.npl;
-//     curConfig.unl = config.unl;
-//     curConfig.appbill.mode = config.appbill.mode;
-//     curConfig.appbill.bin_args = config.appbill.bin_args;
+                if (unl_count > 0)
+                {
+                    struct json_array_element_s *unl_elem = unl_array->start;
+                    for (int i = 0; i < unl_count; i++)
+                    {
+                        __HP_ASSIGN_STRING(config->unl.list[i].pubkey, unl_elem);
+                        printf("%ld\n", strlen(config->unl.list[i].pubkey));
+                        unl_elem = unl_elem->next;
+                    }
+                }
+            }
+        }
+        else if (strcmp(k->string, "bin_path") == 0)
+        {
+            const struct json_string_s *value = (struct json_string_s *)elem->value->payload;
+            config->bin_path = (char *)value->string;
+        }
+        else if (strcmp(k->string, "bin_args") == 0)
+        {
+            const struct json_string_s *value = (struct json_string_s *)elem->value->payload;
+            config->bin_args = (char *)value->string;
+        }
+        else if (strcmp(k->string, "roundtime") == 0)
+        {
+            const struct json_number_s *value = (struct json_number_s *)elem->value->payload;
+            config->roundtime = strtol(value->number, NULL, 0);
+        }
+        else if (strcmp(k->string, "consensus") == 0)
+        {
+            const struct json_string_s *value = (struct json_string_s *)elem->value->payload;
+            config->consensus = (char *)value->string;
+        }
+        else if (strcmp(k->string, "npl") == 0)
+        {
+            const struct json_string_s *value = (struct json_string_s *)elem->value->payload;
+            config->npl = (char *)value->string;
+        }
+        else if (strcmp(k->string, "appbill") == 0)
+        {
+            struct json_object_s *object = (struct json_object_s *)elem->value->payload;
+            struct json_object_element_s *sub_ele = object->start;
+            do
+            {
+                if (strcmp(sub_ele->name->string, "mode") == 0)
+                {
+                    const struct json_string_s *value = (struct json_string_s *)sub_ele->value->payload;
+                    config->appbill.mode = (char *)value->string;
+                }
+                else if (strcmp(sub_ele->name->string, "bin_args") == 0)
+                {
+                    const struct json_string_s *value = (struct json_string_s *)sub_ele->value->payload;
+                    config->appbill.bin_args = (char *)value->string;
+                }
+                sub_ele = sub_ele->next;
+            } while (sub_ele);
+        }
 
-//     fs.writeFileSync(patchConfigPath, JSON.stringify(curConfig));
-// }
+        elem = elem->next;
+    } while (elem);
+}
 
 void __hp_parse_args_json(const struct json_object_s *object)
 {
