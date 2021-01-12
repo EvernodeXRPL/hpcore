@@ -105,7 +105,7 @@ struct hp_unl_collection
     int npl_fd;
 };
 
-struct hp_appbill_collection
+struct hp_appbill_config
 {
     char *mode;
     char *bin_args;
@@ -120,7 +120,7 @@ struct patch_config
     u_int16_t roundtime;
     char *consensus;
     char *npl;
-    struct hp_appbill_collection appbill;
+    struct hp_appbill_config appbill;
 };
 
 struct hp_contract_context
@@ -141,6 +141,8 @@ struct __hp_contract
     size_t user_inmap_size;
 };
 
+const char * PATCH_FILE_PATH = "../patch.cfg";
+
 int hp_init_contract();
 int hp_deinit_contract();
 const struct hp_contract_context *hp_get_context();
@@ -156,7 +158,7 @@ int hp_update_config(const struct patch_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
 int __hp_write_control_msg(const void *buf, const uint32_t len);
-void __hp_populate_patch_from_existing_file(struct json_object_s *object, struct patch_config *config);
+void __hp_populate_patch_from_json_object(struct json_object_s *object, struct patch_config *config);
 void __hp_write_to_patch_file(const int fd, const struct patch_config *config);
 void __hp_free(void *ptr);
 
@@ -449,106 +451,169 @@ int hp_update_config(const struct patch_config *config)
     if (cctx->readonly)
     {
         fprintf(stderr, "Config update not allowed in readonly mode.");
-        return -1;        
+        return -1;
     }
-    int fd = open("../patch1.cfg", O_RDWR | O_CREAT);
+    const int fd = open(PATCH_FILE_PATH, O_RDWR);
     struct patch_config existing_patch = {};
-    if (fd > 0)
+    if (fd == -1)
     {
-        char buf[4096];
-        const size_t len = read(fd, buf, sizeof(buf));
-        if (len == -1)
-        {
-            fprintf(stderr, "Error when reading stdin.");
-            return -1;
-        }
-
-        struct json_value_s *root = json_parse(buf, len);
-        if (root && root->type == json_type_object)
-        {
-            struct json_object_s *object = (struct json_object_s *)root->payload;
-            __hp_populate_patch_from_existing_file(object, &existing_patch);
-            if (config->version)
-            {
-                if (strlen(config->version) != 0)
-                {
-                    printf("version: %s\n", config->version);
-                    existing_patch.version = config->version;
-                }
-                else
-                {
-                    fprintf(stderr, "Version cannot be empty.");
-                    return -1;
-                }
-            }
-
-            if (config->bin_path)
-                existing_patch.bin_path = config->bin_path;
-
-            if (config->bin_args)
-                existing_patch.bin_args = config->bin_args;
-
-            if (config->roundtime)
-                existing_patch.roundtime = config->roundtime;
-
-            if (config->consensus)
-            {
-                if (strlen(config->consensus) == 0 || (strcmp(config->consensus, "public") != 0 && strcmp(config->consensus, "private") != 0))
-                {
-                    fprintf(stderr, "Invalid consensus flag. Valid values: public|private\n");
-                    return -1;
-                }
-                existing_patch.consensus = config->consensus;
-            }
-
-            if (config->npl)
-            {
-                if (strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
-                {
-                    fprintf(stderr, "Invalid npl flag. Valid values: public|private\n");
-                    return -1;
-                }
-                existing_patch.npl = config->npl;
-            }
-
-            if (config->appbill.mode)
-                existing_patch.appbill.mode = config->appbill.mode;
-
-            if (config->appbill.bin_args)
-                existing_patch.appbill.bin_args = config->appbill.bin_args;
-
-            __hp_write_to_patch_file(fd, &existing_patch);
-            printf("value: %s\n", existing_patch.unl.list[0].pubkey);
-        }
-        close(fd);
-        __hp_free(root);
+        fprintf(stderr, "Error opening patch.cfg file.\n");
+        return -1;
     }
+    char buf[4096];
+    const size_t len = read(fd, buf, sizeof(buf));
+    if (len == -1)
+    {
+        fprintf(stderr, "Error when reading stdin.\n");
+        return -1;
+    }
+
+    struct json_value_s *root = json_parse(buf, len);
+    if (root && root->type == json_type_object)
+    {
+        struct json_object_s *object = (struct json_object_s *)root->payload;
+        __hp_populate_patch_from_json_object(object, &existing_patch);
+        if (config->version)
+        {
+            if (strlen(config->version) != 0)
+            {
+                existing_patch.version = config->version;
+            }
+            else
+            {
+                fprintf(stderr, "Version cannot be empty.\n");
+                return -1;
+            }
+        }
+
+        if (config->unl.count)
+        {
+            for (size_t i = 0; i < config->unl.count; i++)
+            {
+                const size_t pubkey_len = strlen(config->unl.list[i].pubkey);
+                if (pubkey_len == 0)
+                {
+                    fprintf(stderr, "Unl pubkey cannot be empty.\n");
+                    return -1;
+                }
+
+                if (pubkey_len != HP_KEY_SIZE)
+                {
+                    fprintf(stderr, "Unl pubkey invalid. Invalid length.\n");
+                    return -1;
+                }
+
+                if (config->unl.list[i].pubkey[0] != 'e' || config->unl.list[i].pubkey[1] != 'd')
+                {
+                    fprintf(stderr, "Unl pubkey invalid. Invalid format.\n");
+                    return -1;
+                }
+                // Checking the validity of hexadecimal portion. (without 'ed'). 
+                for (size_t j = 2; j < HP_KEY_SIZE; j++)
+                {
+                    const char current_char = config->unl.list[i].pubkey[j];
+                    if ((current_char < 'A' || current_char > 'F') && (current_char < 'a' || current_char > 'f') && (current_char < '0' || current_char > '9'))
+                    {
+                        fprintf(stderr, "Unl pubkey invalid. Invalid character %c.\n", current_char);
+                        return -1;
+                    }
+                }
+                
+            }
+            existing_patch.unl = config->unl;
+        }
+
+        if (config->bin_path)
+            existing_patch.bin_path = config->bin_path;
+
+        if (config->bin_args)
+            existing_patch.bin_args = config->bin_args;
+
+        if (config->roundtime)
+            existing_patch.roundtime = config->roundtime;
+
+        if (config->consensus)
+        {
+            if (strlen(config->consensus) == 0 || (strcmp(config->consensus, "public") != 0 && strcmp(config->consensus, "private") != 0))
+            {
+                fprintf(stderr, "Invalid consensus flag. Valid values: public|private\n");
+                return -1;
+            }
+            existing_patch.consensus = config->consensus;
+        }
+
+        if (config->npl)
+        {
+            if (strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
+            {
+                fprintf(stderr, "Invalid npl flag. Valid values: public|private\n");
+                return -1;
+            }
+            existing_patch.npl = config->npl;
+        }
+
+        if (config->appbill.mode)
+            existing_patch.appbill.mode = config->appbill.mode;
+
+        if (config->appbill.bin_args)
+            existing_patch.appbill.bin_args = config->appbill.bin_args;
+
+        __hp_write_to_patch_file(fd, &existing_patch);
+    }
+    close(fd);
+    __hp_free(root);
+
     return 0;
 }
 
 void __hp_write_to_patch_file(const int fd, const struct patch_config *config)
 {
-    char *json_buf = "{\n\
-        \"version\": \"6.0\",\n\
-        \"unl\": [\"ed65aac94e7287d461540523b8ce43b873fc97398bef1b42350feac72ad360b7f3\"],\n\
-        \"bin_path\": \"/usr/bin/node\",\n\
-        \"bin_args\": \"/home/savinda/Documents/HotPocketDev/core/examples/nodejs_contract/echo_contract.js\",\n\
-        \"roundtime\": %d,\n\
-        \"consensus\": \"private\",\n\
-        \"npl\": \"private\",\n\
-        \"appbill\": {\n\
-            \"mode\": \"\",\n\
-            \"bin_args\": \"\"\n\
-        }\n\
-    }";
-    char final_json[500] = "";
-    sprintf(final_json, json_buf, 5);
+    struct iovec iov_vec[4];
+    const size_t version_len = 21 + strlen(config->version);
+    char version_buf[version_len];
+    sprintf(version_buf, "{\n    \"version\": \"%s\",\n", config->version);
+    iov_vec[0].iov_base = version_buf;
+    iov_vec[0].iov_len = version_len;
+
+    const size_t unl_buf_size = 15 + (69 * config->unl.count - (config->unl.count ? 1 : 0));
+    char unl_buf[unl_buf_size];
+
+    strncpy(unl_buf, "    \"unl\": [", 12);
+    size_t pos = 12;
+    for (int i = 0; i < config->unl.count; i++)
+    {
+        if (i > 0)
+            unl_buf[pos++] = ',';
+        unl_buf[pos++] = '"';
+        strncpy(unl_buf + pos, config->unl.list[i].pubkey, HP_KEY_SIZE);
+        pos += HP_KEY_SIZE;
+        unl_buf[pos++] = '"';
+    }
+
+    strncpy(unl_buf + pos, "],\n", 3);
+    iov_vec[1].iov_base = unl_buf;
+    iov_vec[1].iov_len = unl_buf_size;
+
+    char *rem_json = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %d,\n    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n";
+    const size_t rem_json_len = 97 + strlen(config->bin_path) + strlen(config->bin_args) + sizeof(uint16_t) + strlen(config->consensus) + strlen(config->npl);
+    char rem_buf[rem_json_len];
+    sprintf(rem_buf, rem_json, config->bin_path, config->bin_args, config->roundtime, config->consensus, config->npl);
+    iov_vec[2].iov_base = rem_buf;
+    iov_vec[2].iov_len = rem_json_len;
+
+    char * appbill_json = "    \"appbill\": {\n        \"mode\": \"%s\",\n        \"bin_args\": \"%s\"\n    }\n}";
+    const size_t appbill_json_len = 67 + strlen(config->appbill.mode) + strlen(config->appbill.bin_args);
+    char appbill_buf[appbill_json_len];
+    sprintf(appbill_buf, appbill_json, config->appbill.mode, config->appbill.bin_args);
+    iov_vec[3].iov_base = appbill_buf;
+    iov_vec[3].iov_len = appbill_json_len;
+
+    ftruncate(fd, 0);
     lseek(fd, 0, SEEK_SET);
-    // ftruncate(fd, 0);
-    write(fd, final_json, strlen(json_buf));
+    writev(fd, iov_vec, 4);
 }
 
-void __hp_populate_patch_from_existing_file(struct json_object_s *object, struct patch_config *config)
+void __hp_populate_patch_from_json_object(struct json_object_s *object, struct patch_config *config)
 {
     const struct json_object_element_s *elem = object->start;
     do
@@ -576,7 +641,6 @@ void __hp_populate_patch_from_existing_file(struct json_object_s *object, struct
                     for (int i = 0; i < unl_count; i++)
                     {
                         __HP_ASSIGN_STRING(config->unl.list[i].pubkey, unl_elem);
-                        printf("%ld\n", strlen(config->unl.list[i].pubkey));
                         unl_elem = unl_elem->next;
                     }
                 }
