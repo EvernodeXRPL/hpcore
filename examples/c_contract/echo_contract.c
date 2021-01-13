@@ -53,9 +53,6 @@ int main(int argc, char **argv)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
     // free(msg);
 
-    // Update UNL example:
-    // hp_update_unl("<66 char hex to add>", 1, "<66 char hex to remove>", 1);
-    
     // Patch file update.
     // struct patch_config patch = {};
     // patch.version = "2.0";
