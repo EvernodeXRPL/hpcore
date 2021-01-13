@@ -55,19 +55,15 @@ int main(int argc, char **argv)
 
     // Update UNL example:
     // hp_update_unl("<66 char hex to add>", 1, "<66 char hex to remove>", 1);
-    struct patch_config patch = {};
-    patch.version = "2.6";
-    patch.bin_path = "/home/savinda/Documents/HotPocketDev/core/examples/c_contract/echo_contract";
-    patch.bin_args = "updated_bin_args";
-    struct hp_unl_node unl[1] = {"ed65aac94e7287d461540523b8ce43b873fc97398bef1b42350feac72ad360b7f3"};
-    patch.unl.list = unl;
-    patch.unl.count = 1;
-    patch.roundtime = 1000;
-    // patch.consensus = "private";
-    // patch.npl = "private";
-    patch.appbill.mode = "sdlf";
-    patch.appbill.bin_args = "sdlf";
-    hp_update_config(&patch);
+    
+    // Patch file update.
+    // struct patch_config patch = {};
+    // patch.version = "2.0";
+    // struct hp_unl_node unl[1] = {"ed65aac94e7287d461540523b8ce43b873fc97398bef1b42350feac72ad360b7f3"};
+    // patch.unl.list = unl;
+    // patch.unl.count = 1;
+    // patch.roundtime = 1000;
+    // hp_update_config(&patch);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();
