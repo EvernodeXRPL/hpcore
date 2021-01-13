@@ -80,6 +80,8 @@ namespace util
 
     const std::string get_name(std::string_view path);
 
+    int read_from_fd(int fd, std::string &buf);
+
     int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len);
 
     int release_lock(const int fd, struct flock &lock);

@@ -365,6 +365,23 @@ namespace util
     }
 
     /**
+     * Reads from a given file discriptor. 
+     * @param fd File descriptor to be read.
+     * @param buf String buffer to be populated.
+     * @return Returns number of bytes read in a successful read and -1 on error.
+    */
+    int read_from_fd(int fd, std::string &buf)
+    {
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+            return -1;
+
+        buf.resize(st.st_size);
+
+        return read(fd, buf.data(), buf.size());
+    }
+
+    /**
      * Create a record lock for the file descriptor. Lock is associated with the process (Not for forked child processes).
      * @param fd File descriptor to be locked.
      * @param lock File lock.

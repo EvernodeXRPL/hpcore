@@ -208,19 +208,21 @@ namespace conf
     int read_config(contract_config &cfg)
     {
         // Read the config file into json document object.
+        std::string buf;
+        if (util::read_from_fd(ctx.config_fd, buf) == -1)
+            std::cerr << "Error reading from the config file. " << errno << '\n';
 
-        std::ifstream ifs(ctx.config_file);
         jsoncons::ojson d;
         try
         {
-            d = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
+            d = jsoncons::ojson::parse(buf, jsoncons::strict_json_parsing());
         }
         catch (const std::exception &e)
         {
             std::cerr << "Invalid config file format. " << e.what() << '\n';
             return -1;
         }
-        ifs.close();
+        buf.clear();
 
         try
         {
@@ -659,19 +661,21 @@ namespace conf
             return 0;
 
         // If patch file exist, read the patch file values to a json doc and then persist the values into hp.cfg.
-        std::ifstream ifs(path);
+        std::string buf;
+        if (util::read_from_fd(ctx.config_fd, buf) == -1)
+            std::cerr << "Error reading from the patch config file. " << errno << '\n';
+        
         jsoncons::ojson jdoc;
         try
         {
-            jdoc = jsoncons::ojson::parse(ifs, jsoncons::strict_json_parsing());
+            jdoc = jsoncons::ojson::parse(buf, jsoncons::strict_json_parsing());
         }
         catch (const std::exception &e)
         {
-            ifs.close();
             std::cerr << "Invalid patch config file format. " << e.what() << '\n';
             return -1;
         }
-        ifs.close();
+        buf.clear();
 
         // Persist new changes to HP config file.
         if (parse_contract_section_json(cfg.contract, jdoc, false) == -1 ||
