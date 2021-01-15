@@ -29,8 +29,6 @@ namespace consensus
     consensus_context ctx;
     bool init_success = false;
 
-    constexpr const char *INIT_SESSION_NAME = "consensus_init";
-
     int init()
     {
         // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).
@@ -127,30 +125,6 @@ namespace consensus
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
-
-            util::h32 updated_patch_hash = hpfs::ctx.get_updated_patch_hash();
-
-            //LOG_INFO << "Patch Hash " << patch_hash;
-            //LOG_INFO << "Updated atch Hash " << updated_patch_hash;
-
-            if (updated_patch_hash != util::h32_empty && updated_patch_hash == patch_hash)
-            {
-                if (hpfs::start_ro_session(INIT_SESSION_NAME, true) != -1)
-                {
-                    // Appling new patch file changes to hpcore runtime.
-                    if (conf::apply_patch_config(INIT_SESSION_NAME) == -1)
-                    {
-                        LOG_ERROR << "Appling patch file after contract execution failed";
-                    }
-                    else
-                    {
-                        unl::update_unl_changes_from_patch();
-                        hpfs::ctx.set_updated_patch_hash(util::h32_empty);
-                    }
-                }
-                 
-                hpfs::stop_ro_session(INIT_SESSION_NAME);
-            }
         }
         else
         {
@@ -845,6 +819,10 @@ namespace consensus
 
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
+        // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
+        if (apply_consensed_patch_file_changes(cons_prop.patch_hash) == -1)
+            return -1;
+
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
             auto itr = ctx.candidate_user_inputs.begin();
@@ -1043,6 +1021,40 @@ namespace consensus
             counter[candidate]++;
         else
             counter.try_emplace(candidate, 1);
+    }
+
+    /**
+     * Apply patch file changes after verification from consensus.
+     * @param prop_patch_hash Hash of patch file.
+     * @return 0 on success. -1 on failure.
+    */
+    int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash)
+    {
+        util::h32 updated_patch_hash = hpfs::ctx.get_updated_patch_hash();
+        const char *HPFS_SESSION_NAME = "ro_patch_file_to_hp";
+
+        if (updated_patch_hash != util::h32_empty && updated_patch_hash == prop_patch_hash)
+        {
+            if (hpfs::start_ro_session(HPFS_SESSION_NAME, true) != -1)
+            {
+                // Appling new patch file changes to hpcore runtime.
+                if (conf::apply_patch_config(HPFS_SESSION_NAME) == -1)
+                {
+                    LOG_ERROR << "Appling patch file changes after consensus failed.";
+                    hpfs::stop_ro_session(HPFS_SESSION_NAME);
+                    return -1;
+                }
+                else
+                {
+                    unl::update_unl_changes_from_patch();
+                    hpfs::ctx.set_updated_patch_hash(util::h32_empty);
+                }
+            }
+
+            if (hpfs::stop_ro_session(HPFS_SESSION_NAME) == -1)
+                return -1;
+        }
+        return 0;
     }
 
 } // namespace consensus

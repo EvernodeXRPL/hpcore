@@ -179,19 +179,14 @@ namespace sc
             }
 
             util::h32 patch_hash;
-            
             const int patch_hash_result = hpfs::get_hash(patch_hash, ctx.args.hpfs_session_name, hpfs::PATCH_FILE_PATH);
-            
-            LOG_INFO << "Patch Hash " << patch_hash;
-            util::h32 updated_patch_hash = hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH);
-            LOG_INFO << "Updated Patch Hash " << updated_patch_hash;
 
             if (patch_hash_result == -1)
             {
                 hpfs::release_rw_session();
                 return -1;
             }
-            else if (patch_hash_result == 1 && patch_hash != updated_patch_hash)
+            else if (patch_hash_result == 1 && patch_hash != hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH))
             {
                 // Update global hash tracker with the new patch file hash.
                 hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);

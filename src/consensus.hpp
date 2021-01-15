@@ -153,6 +153,8 @@ namespace consensus
 
     bool push_control_message(const std::string &control_msg);
 
+    int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash);
+
 } // namespace consensus
 
 #endif
