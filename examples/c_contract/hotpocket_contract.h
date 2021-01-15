@@ -102,7 +102,7 @@
 */
 #define __HP_STRING_COPY(dest, src)              \
     {                                            \
-        __HP_FREE(*dest);                             \
+        __HP_FREE(*dest);                        \
         *dest = (char *)malloc(strlen(src) + 1); \
         memcpy(*dest, src, strlen(src) + 1);     \
     }
