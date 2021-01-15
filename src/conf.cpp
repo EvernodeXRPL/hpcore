@@ -104,12 +104,19 @@ namespace conf
         }
 
         // Recursivly create contract directories.
-        util::create_dir_tree_recursive(ctx.config_dir);
-        util::create_dir_tree_recursive(ctx.hist_dir);
-        util::create_dir_tree_recursive(ctx.full_hist_dir);
-        util::create_dir_tree_recursive(ctx.log_dir);
-        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH);
-        util::create_dir_tree_recursive(ctx.hpfs_mount_dir);
+        int file_create_state = 0;
+        file_create_state += util::create_dir_tree_recursive(ctx.config_dir);
+        file_create_state += util::create_dir_tree_recursive(ctx.hist_dir);
+        file_create_state += util::create_dir_tree_recursive(ctx.full_hist_dir);
+        file_create_state += util::create_dir_tree_recursive(ctx.log_dir);
+        file_create_state += util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH);
+        file_create_state += util::create_dir_tree_recursive(ctx.hpfs_mount_dir);
+
+        if(file_create_state < 0)
+        {
+            std::cout << "ERROR: unable to create files\n";
+            return -1;
+        }
 
         //Create config file with default settings.
 
