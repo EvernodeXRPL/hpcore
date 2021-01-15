@@ -53,8 +53,14 @@ int main(int argc, char **argv)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
     // free(msg);
 
-    // Update UNL example:
-    // hp_update_unl("<66 char hex to add>", 1, "<66 char hex to remove>", 1);
+    // Patch file update.
+    // struct patch_config patch = {};
+    // patch.version = "2.0";
+    // struct hp_unl_node unl[1] = {"ed65aac94e7287d461540523b8ce43b873fc97398bef1b42350feac72ad360b7f3"};
+    // patch.unl.list = unl;
+    // patch.unl.count = 1;
+    // patch.roundtime = 1000;
+    // hp_update_config(&patch);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();
@@ -69,7 +75,7 @@ void store_timestamp(const uint64_t timestamp)
         char tsbuf[20];
         memset(tsbuf, 0, 20);
         sprintf(tsbuf, "%lu\n", timestamp);
-        struct iovec vec[2] = {{"ts:", 4}, {(void *)tsbuf, 20}};
+        struct iovec vec[2] = {{(void *)"ts:", 4}, {(void *)tsbuf, 20}};
         writev(fd, vec, 2);
         close(fd);
     }
@@ -77,7 +83,7 @@ void store_timestamp(const uint64_t timestamp)
 
 void process_user_message(const struct hp_user *user, const void *buf, const uint32_t len)
 {
-    if (strncmp(buf, "ts", 2) == 0)
+    if (strncmp((const char *)buf, "ts", 2) == 0)
     {
         int fd = open("exects.txt", O_RDONLY);
         if (fd > 0)
@@ -101,7 +107,7 @@ void process_user_message(const struct hp_user *user, const void *buf, const uin
     }
     else
     {
-        struct iovec vec[2] = {{"Echoing: ", 9}, {(void *)buf, len}};
+        struct iovec vec[2] = {{(void *)"Echoing: ", 9}, {(void *)buf, len}};
         hp_writev_user_msg(user, vec, 2);
     }
 }

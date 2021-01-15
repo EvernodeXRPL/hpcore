@@ -69,9 +69,6 @@ const echoContract = async (ctx) => {
     //     })
     //     await ctx.unl.send("Hello");
     // }
-
-    // Update UNL example:
-    // ctx.updateUnl(["<add pubkey hex>"], ["<remove pubkey hex>"]);
 }
 
 const hpc = new HotPocket.Contract();

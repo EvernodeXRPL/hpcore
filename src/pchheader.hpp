@@ -10,7 +10,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <flatbuffers/flatbuffers.h>
-#include <fstream>
 #include <ftw.h>
 #include <iomanip>
 #include <iostream>
