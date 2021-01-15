@@ -105,13 +105,17 @@ namespace conf
             return -1;
         }
 
-        // Recursivly create contract directories.
-        util::create_dir_tree_recursive(ctx.config_dir);
-        util::create_dir_tree_recursive(ctx.hist_dir);
-        util::create_dir_tree_recursive(ctx.full_hist_dir);
-        util::create_dir_tree_recursive(ctx.log_dir);
-        util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH);
-        util::create_dir_tree_recursive(ctx.hpfs_mount_dir);
+        // Recursivly create contract directories. Return an error if unable to create
+        if(util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
+            util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
+        {
+            std::cerr  << "ERROR: unable to create directories.\n";
+            return -1;
+        }
 
         //Create config file with default settings.
 
