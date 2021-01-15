@@ -28,6 +28,16 @@
         }                                                                                     \
     }
 
+#define __HP_ASSIGN_CHAR_PTR(dest, elem)                                                      \
+    {                                                                                         \
+        if (elem->value->type == json_type_string)                                            \
+        {                                                                                     \
+            const struct json_string_s *value = (struct json_string_s *)elem->value->payload; \
+            dest = (char *)malloc(value->string_size + 1);                                    \
+            memcpy(dest, value->string, value->string_size + 1);                              \
+        }                                                                                     \
+    }
+
 #define __HP_ASSIGN_UINT64(dest, elem)                                                        \
     {                                                                                         \
         if (elem->value->type == json_type_number)                                            \
@@ -65,6 +75,38 @@
         buf[3 + pos] = num;       \
     }
 
+#define __HP_FREE(ptr) \
+    {                  \
+        free(ptr);     \
+        ptr = NULL;    \
+    }
+
+#define __HP_UPDATE_CONFIG_ERROR(msg)                \
+    {                                                \
+        fprintf(stderr, "%s\n", msg);                \
+        if (fd)                                      \
+            close(fd);                               \
+                                                     \
+        if (root)                                    \
+            __HP_FREE(root);                         \
+                                                     \
+        if (config)                                  \
+            __hp_free_patch_config(&existing_patch); \
+                                                     \
+        return -1;                                   \
+    }
+
+/**
+ * dest - Pointer to destination pointer.
+ * src  - Source pointer.
+*/
+#define __HP_STRING_COPY(dest, src)              \
+    {                                            \
+        __HP_FREE(*dest);                        \
+        *dest = (char *)malloc(strlen(src) + 1); \
+        memcpy(*dest, src, strlen(src) + 1);     \
+    }
+
 struct hp_user_input
 {
     off_t offset;
@@ -80,7 +122,7 @@ struct hp_user_inputs_collection
 // Represents a user that is connected to HP cluster.
 struct hp_user
 {
-    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.
     int outfd;
     struct hp_user_inputs_collection inputs;
 };
@@ -88,7 +130,7 @@ struct hp_user
 // Represents a node that's part of unl.
 struct hp_unl_node
 {
-    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
+    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.
 };
 
 struct hp_users_collection
@@ -103,6 +145,24 @@ struct hp_unl_collection
     struct hp_unl_node *list;
     size_t count;
     int npl_fd;
+};
+
+struct hp_appbill_config
+{
+    char *mode;
+    char *bin_args;
+};
+
+struct patch_config
+{
+    char *version;
+    struct hp_unl_collection unl;
+    char *bin_path;
+    char *bin_args;
+    u_int16_t roundtime;
+    char *consensus;
+    char *npl;
+    struct hp_appbill_config appbill;
 };
 
 struct hp_contract_context
@@ -123,6 +183,8 @@ struct __hp_contract
     size_t user_inmap_size;
 };
 
+const char *PATCH_FILE_PATH = "../patch.cfg";
+
 int hp_init_contract();
 int hp_deinit_contract();
 const struct hp_contract_context *hp_get_context();
@@ -133,11 +195,13 @@ int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, con
 int hp_write_npl_msg(const void *buf, const uint32_t len);
 int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
 int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
-int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count);
+int hp_update_config(const struct patch_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
 int __hp_write_control_msg(const void *buf, const uint32_t len);
-void __hp_free(void *ptr);
+void __hp_populate_patch_from_json_object(struct patch_config *config, struct json_object_s *object);
+int __hp_write_to_patch_file(const int fd, const struct patch_config *config);
+void __hp_free_patch_config(struct patch_config *patch_config);
 
 static struct __hp_contract __hpc = {};
 
@@ -171,13 +235,12 @@ int hp_init_contract()
             // Create and populate hotpocket context.
             __hpc.cctx = (struct hp_contract_context *)malloc(sizeof(struct hp_contract_context));
             __hp_parse_args_json(object);
-            __hp_free(root);
+            __HP_FREE(root);
 
             return 0;
         }
     }
-
-    __hp_free(root);
+    __HP_FREE(root);
     return -1;
 }
 
@@ -201,14 +264,14 @@ int hp_deinit_contract()
     if (cctx->users.list)
     {
         for (int i = 0; i < cctx->users.count; i++)
-            __hp_free(cctx->users.list[i].inputs.list);
+            __HP_FREE(cctx->users.list[i].inputs.list);
 
-        __hp_free(cctx->users.list);
+        __HP_FREE(cctx->users.list);
     }
     // Cleanup unl list allocation.
-    __hp_free(cctx->unl.list);
+    __HP_FREE(cctx->unl.list);
     // Cleanup contract context.
-    __hp_free(cctx);
+    __HP_FREE(cctx);
 
     // Send termination control message.
     __hp_write_control_msg("{\"type\":\"contract_end\"}", 23);
@@ -375,52 +438,271 @@ int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
 }
 
 /**
- * Updates the UNL of this node with specified 'add' and 'remove' changesets.
- * @param add Array of hex pubkeys of 'HP_KEY_SIZE' to add.
- * @param add_count Number of elements in 'add' array.
- * @param remove Array of hex pubkeys of 'HP_KEY_SIZE' to remove.
- * @param remove_count Number of elements in 'add' remove.
- * @return 0 on success. -1 on error.
- */
-int hp_update_unl(const char *add, const size_t add_count, const char *remove, const size_t remove_count)
+ * Update the params of the existing patch file.
+ * @param config Pointer to the updated patch config struct. 
+*/
+int hp_update_config(const struct patch_config *config)
 {
-    // We assume 'add' and 'remove' are pointing to char buffers containing 'count' no. of char[HP_KEY_SIZE] buffers.
+    struct hp_contract_context *cctx = __hpc.cctx;
+    struct json_value_s *root = NULL;
+    struct patch_config existing_patch = {};
 
-    // Calculate total json message length and prepare the json buf.
-    // Format: {"type":"unl_changeset","add":["pubkey1",...],"remove":["pubkey2",...]}
-
-    // {"type":"unl_changeset","add":[],"remove":[]} => length 45
-    // "pubkey", (HP_KEY_SIZE+quotes+comma) => length 69
-    const size_t json_size = 45 + (69 * add_count - (add_count ? 1 : 0)) + (69 * remove_count - (remove_count ? 1 : 0));
-    char json_buf[json_size];
-
-    strncpy(json_buf, "{\"type\":\"unl_changeset\",\"add\":[", 31);
-    size_t pos = 31;
-    for (int i = 0; i < add_count; i++)
+    if (cctx->readonly)
     {
-        if (i > 0)
-            json_buf[pos++] = ',';
-        json_buf[pos++] = '"';
-        strncpy(json_buf + pos, add + (i * HP_KEY_SIZE), HP_KEY_SIZE);
-        pos += HP_KEY_SIZE;
-        json_buf[pos++] = '"';
+        fprintf(stderr, "Config update not allowed in readonly mode.");
+        return -1;
+    }
+    const int fd = open(PATCH_FILE_PATH, O_RDWR);
+    if (fd == -1)
+    {
+        fprintf(stderr, "Error opening patch.cfg file.\n");
+        return -1;
+    }
+    char buf[4096];
+    const size_t len = read(fd, buf, sizeof(buf));
+    if (len == -1)
+    {
+        __HP_UPDATE_CONFIG_ERROR("Error when reading stdin.");
     }
 
-    strncpy(json_buf + pos, "],\"remove\":[", 12);
-    pos += 12;
-    for (int i = 0; i < remove_count; i++)
+    root = json_parse(buf, len);
+    if (root && root->type == json_type_object)
+    {
+        struct json_object_s *object = (struct json_object_s *)root->payload;
+        __hp_populate_patch_from_json_object(&existing_patch, object);
+        if (config->version)
+        {
+            if (strlen(config->version) != 0)
+            {
+                __HP_STRING_COPY(&existing_patch.version, config->version);
+            }
+            else
+            {
+                __HP_UPDATE_CONFIG_ERROR("Version cannot be empty.");
+            }
+        }
+
+        if (config->unl.count)
+        {
+            for (size_t i = 0; i < config->unl.count; i++)
+            {
+                const size_t pubkey_len = strlen(config->unl.list[i].pubkey);
+                if (pubkey_len == 0)
+                {
+                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey cannot be empty.");
+                }
+
+                if (pubkey_len != HP_KEY_SIZE)
+                {
+                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid length.");
+                }
+
+                if (config->unl.list[i].pubkey[0] != 'e' || config->unl.list[i].pubkey[1] != 'd')
+                {
+                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid format.");
+                }
+                // Checking the validity of hexadecimal portion. (without 'ed').
+                for (size_t j = 2; j < HP_KEY_SIZE; j++)
+                {
+                    const char current_char = config->unl.list[i].pubkey[j];
+                    if ((current_char < 'A' || current_char > 'F') && (current_char < 'a' || current_char > 'f') && (current_char < '0' || current_char > '9'))
+                    {
+                        __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid character.");
+                    }
+                }
+            }
+            __HP_FREE(existing_patch.unl.list);
+            existing_patch.unl.list = config->unl.count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * config->unl.count) : NULL;
+            memcpy(existing_patch.unl.list, config->unl.list, sizeof(struct hp_unl_node) * config->unl.count);
+            existing_patch.unl.count = config->unl.count;
+        }
+
+        if (config->bin_path)
+            __HP_STRING_COPY(&existing_patch.bin_path, config->bin_path);
+
+        if (config->bin_args)
+            __HP_STRING_COPY(&existing_patch.bin_args, config->bin_args);
+
+        if (config->roundtime)
+            existing_patch.roundtime = config->roundtime;
+
+        if (config->consensus)
+        {
+            if (strlen(config->consensus) == 0 || (strcmp(config->consensus, "public") != 0 && strcmp(config->consensus, "private") != 0))
+            {
+                __HP_UPDATE_CONFIG_ERROR("Invalid consensus flag. Valid values: public|private");
+            }
+            __HP_STRING_COPY(&existing_patch.consensus, config->consensus);
+        }
+
+        if (config->npl)
+        {
+            if (strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
+            {
+                __HP_UPDATE_CONFIG_ERROR("Invalid npl flag. Valid values: public|private");
+            }
+            __HP_STRING_COPY(&existing_patch.npl, config->npl);
+        }
+
+        if (config->appbill.mode)
+            __HP_STRING_COPY(&existing_patch.appbill.mode, config->appbill.mode);
+
+        if (config->appbill.bin_args)
+            __HP_STRING_COPY(&existing_patch.appbill.bin_args, config->appbill.bin_args);
+
+        if (__hp_write_to_patch_file(fd, &existing_patch) == -1)
+            __HP_UPDATE_CONFIG_ERROR("Error writing updated config to patch.cfg file.");
+
+        __hp_free_patch_config(&existing_patch);
+    }
+    close(fd);
+    __HP_FREE(root);
+
+    return 0;
+}
+
+/**
+ * Write values of the given patch config struct to the file discriptor given.
+ * @param fd File discriptor of the patch.cfg file.
+ * @param config Patch config structure.
+*/
+int __hp_write_to_patch_file(const int fd, const struct patch_config *config)
+{
+    struct iovec iov_vec[4];
+    // {version: + newline + 4 spaces => 21;
+    const size_t version_len = 21 + strlen(config->version);
+    char version_buf[version_len];
+    sprintf(version_buf, "{\n    \"version\": \"%s\",\n", config->version);
+    iov_vec[0].iov_base = version_buf;
+    iov_vec[0].iov_len = version_len;
+
+    const size_t unl_buf_size = 20 + (69 * config->unl.count - (config->unl.count ? 1 : 0)) + (9 * config->unl.count);
+    char unl_buf[unl_buf_size];
+
+    strncpy(unl_buf, "    \"unl\": [", 12);
+    size_t pos = 12;
+    for (int i = 0; i < config->unl.count; i++)
     {
         if (i > 0)
-            json_buf[pos++] = ',';
-        json_buf[pos++] = '"';
-        strncpy(json_buf + pos, remove + (i * HP_KEY_SIZE), HP_KEY_SIZE);
+            unl_buf[pos++] = ',';
+
+        strncpy(unl_buf + pos, "\n        ", 9);
+        pos += 9;
+        unl_buf[pos++] = '"';
+        strncpy(unl_buf + pos, config->unl.list[i].pubkey, HP_KEY_SIZE);
         pos += HP_KEY_SIZE;
-        json_buf[pos++] = '"';
+        unl_buf[pos++] = '"';
     }
 
-    strncpy(json_buf + pos, "]}", 2);
+    strncpy(unl_buf + pos, "\n    ],\n", 8);
+    iov_vec[1].iov_base = unl_buf;
+    iov_vec[1].iov_len = unl_buf_size;
 
-    return __hp_write_control_msg(json_buf, json_size);
+    char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %d,\n    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n";
+
+    // Calculating number of digits in roundtime for json length.
+    // String length is taken after converting to string.
+    char roundtime_str[16];
+    sprintf(roundtime_str, "%d", config->roundtime);
+
+    const size_t json_string_len = 95 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(roundtime_str) + strlen(config->consensus) + strlen(config->npl);
+    char json_buf[json_string_len];
+    sprintf(json_buf, json_string, config->bin_path, config->bin_args, config->roundtime, config->consensus, config->npl);
+    iov_vec[2].iov_base = json_buf;
+    iov_vec[2].iov_len = json_string_len;
+
+    char *appbill_json = "    \"appbill\": {\n        \"mode\": \"%s\",\n        \"bin_args\": \"%s\"\n    }\n}";
+    const size_t appbill_json_len = 67 + strlen(config->appbill.mode) + strlen(config->appbill.bin_args);
+    char appbill_buf[appbill_json_len];
+    sprintf(appbill_buf, appbill_json, config->appbill.mode, config->appbill.bin_args);
+    iov_vec[3].iov_base = appbill_buf;
+    iov_vec[3].iov_len = appbill_json_len;
+
+    if (ftruncate(fd, 0) == -1 ||         // Clear any previous content in the file.
+        pwritev(fd, iov_vec, 4, 0) == -1) // Start writing from begining.
+        return -1;
+
+    return 0;
+}
+
+/**
+ * Populate the given patch struct file from the json_object obtained from the existing patch.cfg file.
+ * @param config Pointer to the patch config sturct to be populated.
+ * @param object Pointer to the json object.
+*/
+void __hp_populate_patch_from_json_object(struct patch_config *config, struct json_object_s *object)
+{
+    const struct json_object_element_s *elem = object->start;
+    do
+    {
+        const struct json_string_s *k = elem->name;
+
+        if (strcmp(k->string, "version") == 0)
+        {
+            __HP_ASSIGN_CHAR_PTR(config->version, elem);
+        }
+        else if (strcmp(k->string, "unl") == 0)
+        {
+            if (elem->value->type == json_type_array)
+            {
+                const struct json_array_s *unl_array = (struct json_array_s *)elem->value->payload;
+                const size_t unl_count = unl_array->length;
+
+                config->unl.count = unl_count;
+                config->unl.list = unl_count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * unl_count) : NULL;
+
+                if (unl_count > 0)
+                {
+                    struct json_array_element_s *unl_elem = unl_array->start;
+                    for (int i = 0; i < unl_count; i++)
+                    {
+                        __HP_ASSIGN_STRING(config->unl.list[i].pubkey, unl_elem);
+                        unl_elem = unl_elem->next;
+                    }
+                }
+            }
+        }
+        else if (strcmp(k->string, "bin_path") == 0)
+        {
+            __HP_ASSIGN_CHAR_PTR(config->bin_path, elem);
+        }
+        else if (strcmp(k->string, "bin_args") == 0)
+        {
+            __HP_ASSIGN_CHAR_PTR(config->bin_args, elem);
+        }
+        else if (strcmp(k->string, "roundtime") == 0)
+        {
+            const struct json_number_s *value = (struct json_number_s *)elem->value->payload;
+            config->roundtime = strtol(value->number, NULL, 0);
+        }
+        else if (strcmp(k->string, "consensus") == 0)
+        {
+            __HP_ASSIGN_CHAR_PTR(config->consensus, elem);
+        }
+        else if (strcmp(k->string, "npl") == 0)
+        {
+            __HP_ASSIGN_CHAR_PTR(config->npl, elem);
+        }
+        else if (strcmp(k->string, "appbill") == 0)
+        {
+            struct json_object_s *object = (struct json_object_s *)elem->value->payload;
+            struct json_object_element_s *sub_ele = object->start;
+            do
+            {
+                if (strcmp(sub_ele->name->string, "mode") == 0)
+                {
+                    __HP_ASSIGN_CHAR_PTR(config->appbill.mode, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "bin_args") == 0)
+                {
+                    __HP_ASSIGN_CHAR_PTR(config->appbill.bin_args, sub_ele);
+                }
+                sub_ele = sub_ele->next;
+            } while (sub_ele);
+        }
+
+        elem = elem->next;
+    } while (elem);
 }
 
 void __hp_parse_args_json(const struct json_object_s *object)
@@ -546,10 +828,20 @@ int __hp_write_control_msg(const void *buf, const uint32_t len)
     return write(__hpc.control_fd, buf, len);
 }
 
-void __hp_free(void *ptr)
+/**
+ * Free memory allocated for the given patch config struct.
+ * @param patch_config Pointer of patch config struct to be freed.
+*/
+void __hp_free_patch_config(struct patch_config *patch_config)
 {
-    free(ptr);
-    ptr = NULL;
+    __HP_FREE(patch_config->version);
+    __HP_FREE(patch_config->unl.list);
+    __HP_FREE(patch_config->bin_path);
+    __HP_FREE(patch_config->bin_args);
+    __HP_FREE(patch_config->consensus);
+    __HP_FREE(patch_config->npl);
+    __HP_FREE(patch_config->appbill.mode);
+    __HP_FREE(patch_config->appbill.bin_args);
 }
 
 #endif

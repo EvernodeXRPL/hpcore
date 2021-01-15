@@ -896,6 +896,7 @@ namespace conf
         {
             jsoncons::json_options options;
             options.object_array_line_splits(jsoncons::line_split_kind::multi_line);
+            options.spaces_around_comma(jsoncons::spaces_option::no_spaces);
             std::ostringstream os;
             os << jsoncons::pretty_print(d, options);
             json = os.str();
