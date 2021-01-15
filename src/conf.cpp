@@ -103,18 +103,15 @@ namespace conf
             return -1;
         }
 
-        // Recursivly create contract directories.
-        int file_create_state = 0;
-        file_create_state += util::create_dir_tree_recursive(ctx.config_dir);
-        file_create_state += util::create_dir_tree_recursive(ctx.hist_dir);
-        file_create_state += util::create_dir_tree_recursive(ctx.full_hist_dir);
-        file_create_state += util::create_dir_tree_recursive(ctx.log_dir);
-        file_create_state += util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH);
-        file_create_state += util::create_dir_tree_recursive(ctx.hpfs_mount_dir);
-
-        if(file_create_state < 0)
+        // Recursivly create contract directories. Return an error if unable to create
+        if(util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
+            util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
         {
-            std::cout << "ERROR: unable to create files\n";
+            std::cerr  << "ERROR: unable to create directories.\n";
             return -1;
         }
 
