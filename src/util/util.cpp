@@ -370,7 +370,7 @@ namespace util
      * @param buf String buffer to be populated.
      * @return Returns number of bytes read in a successful read and -1 on error.
     */
-    int read_from_fd(int fd, std::string &buf)
+    int read_from_fd(const int fd, std::string &buf)
     {
         struct stat st;
         if (fstat(fd, &st) == -1)

@@ -16,6 +16,8 @@ namespace conf
     // Stores the initial startup mode of the node.
     ROLE startup_mode;
 
+    constexpr int FILE_PERMS = 0644;
+
     constexpr const char *ROLE_OBSERVER = "observer";
     constexpr const char *ROLE_VALIDATOR = "validator";
     constexpr const char *PUBLIC = "public";
@@ -210,7 +212,10 @@ namespace conf
         // Read the config file into json document object.
         std::string buf;
         if (util::read_from_fd(ctx.config_fd, buf) == -1)
+        {
             std::cerr << "Error reading from the config file. " << errno << '\n';
+            return -1;
+        }
 
         jsoncons::ojson d;
         try
@@ -660,11 +665,23 @@ namespace conf
         if (!util::is_file_exists(path))
             return 0;
 
+        const int fd = open(path.data(), O_RDONLY);
+        if (fd == -1)
+        {
+            std::cerr << "Error opening the patch config file. " << errno << '\n';
+            return -1;
+        }
+
         // If patch file exist, read the patch file values to a json doc and then persist the values into hp.cfg.
         std::string buf;
-        if (util::read_from_fd(ctx.config_fd, buf) == -1)
+        if (util::read_from_fd(fd, buf) == -1)
+        {
             std::cerr << "Error reading from the patch config file. " << errno << '\n';
-        
+            close(fd);
+            return -1;
+        }
+        close(fd);
+
         jsoncons::ojson jdoc;
         try
         {
@@ -873,20 +890,33 @@ namespace conf
      */
     int write_json_file(const std::string &file_path, const jsoncons::ojson &d)
     {
-        std::ofstream ofs(file_path);
+        std::string json;
+        // Convert json object to a string.
         try
         {
             jsoncons::json_options options;
             options.object_array_line_splits(jsoncons::line_split_kind::multi_line);
-            ofs << jsoncons::pretty_print(d, options);
+            std::ostringstream os;
+            os << jsoncons::pretty_print(d, options);
+            json = os.str();
+            os.clear();
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Writing file failed. " << ctx.config_file << std::endl;
-            ofs.close();
+            std::cerr << "Converting json to string failed. " << file_path << std::endl;
             return -1;
         }
-        ofs.close();
+
+        // O_TRUNC flag is used to trucate existing content from the file.
+        const int fd = open(file_path.data(), O_CREAT | O_RDWR | O_TRUNC, FILE_PERMS);
+        if (fd == -1 || write(fd, json.data(), json.size()) == -1)
+        {
+            std::cerr << "Writing file failed. " << file_path << std::endl;
+            if (fd != -1)
+                close(fd);
+            return -1;
+        }
+        close(fd);
         return 0;
     }
 
