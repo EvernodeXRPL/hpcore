@@ -62,6 +62,12 @@ int main(int argc, char **argv)
     // patch.roundtime = 1000;
     // hp_update_config(&patch);
 
+    // // Get current patch file.
+    // struct patch_config patch2 = {};
+    // if (hp_get_config(&patch2) != -1)
+    //     printf("\"version\": \"%s\"\n", patch2.version);
+    // __hp_free_patch_config(&patch2);
+
     hp_deinit_user_input_mmap();
     hp_deinit_contract();
     return 0;
@@ -69,13 +75,13 @@ int main(int argc, char **argv)
 
 void store_timestamp(const uint64_t timestamp)
 {
-    int fd = open("exects.txt", O_RDWR | O_CREAT | O_APPEND);
+    int fd = open("exects.txt", O_RDWR | O_CREAT | O_APPEND, 0644);
     if (fd > 0)
     {
         char tsbuf[20];
         memset(tsbuf, 0, 20);
         sprintf(tsbuf, "%lu\n", timestamp);
-        struct iovec vec[2] = {{(void *)"ts:", 4}, {(void *)tsbuf, 20}};
+        struct iovec vec[2] = {{(void *)"ts:", 3}, {(void *)tsbuf, strlen(tsbuf)}};
         writev(fd, vec, 2);
         close(fd);
     }

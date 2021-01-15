@@ -86,10 +86,6 @@
         fprintf(stderr, "%s\n", msg);                \
         if (fd)                                      \
             close(fd);                               \
-                                                     \
-        if (root)                                    \
-            __HP_FREE(root);                         \
-                                                     \
         if (config)                                  \
             __hp_free_patch_config(&existing_patch); \
                                                      \
@@ -196,11 +192,13 @@ int hp_write_npl_msg(const void *buf, const uint32_t len);
 int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
 int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
 int hp_update_config(const struct patch_config *config);
+int hp_get_config(struct patch_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
 int __hp_write_control_msg(const void *buf, const uint32_t len);
-void __hp_populate_patch_from_json_object(struct patch_config *config, struct json_object_s *object);
+void __hp_populate_patch_from_json_object(struct patch_config *config, const struct json_object_s *object);
 int __hp_write_to_patch_file(const int fd, const struct patch_config *config);
+int __hp_read_from_patch_file(const int fd, struct patch_config *config);
 void __hp_free_patch_config(struct patch_config *patch_config);
 
 static struct __hp_contract __hpc = {};
@@ -444,12 +442,10 @@ int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
 int hp_update_config(const struct patch_config *config)
 {
     struct hp_contract_context *cctx = __hpc.cctx;
-    struct json_value_s *root = NULL;
-    struct patch_config existing_patch = {};
 
     if (cctx->readonly)
     {
-        fprintf(stderr, "Config update not allowed in readonly mode.");
+        fprintf(stderr, "Config update not allowed in readonly mode.\n");
         return -1;
     }
     const int fd = open(PATCH_FILE_PATH, O_RDWR);
@@ -458,18 +454,10 @@ int hp_update_config(const struct patch_config *config)
         fprintf(stderr, "Error opening patch.cfg file.\n");
         return -1;
     }
-    char buf[4096];
-    const size_t len = read(fd, buf, sizeof(buf));
-    if (len == -1)
-    {
-        __HP_UPDATE_CONFIG_ERROR("Error when reading stdin.");
-    }
 
-    root = json_parse(buf, len);
-    if (root && root->type == json_type_object)
+    struct patch_config existing_patch = {};
+    if (__hp_read_from_patch_file(fd, &existing_patch) != -1)
     {
-        struct json_object_s *object = (struct json_object_s *)root->payload;
-        __hp_populate_patch_from_json_object(&existing_patch, object);
         if (config->version)
         {
             if (strlen(config->version) != 0)
@@ -523,8 +511,8 @@ int hp_update_config(const struct patch_config *config)
         if (config->bin_args)
             __HP_STRING_COPY(&existing_patch.bin_args, config->bin_args);
 
-        if (config->roundtime)
-            existing_patch.roundtime = config->roundtime;
+        // if (config->roundtime)
+        //     existing_patch.roundtime = config->roundtime;
 
         if (config->consensus)
         {
@@ -555,10 +543,64 @@ int hp_update_config(const struct patch_config *config)
 
         __hp_free_patch_config(&existing_patch);
     }
-    close(fd);
-    __HP_FREE(root);
+    else
+    {
+        fprintf(stderr, "Error reading patch.cfg file.\n");
+        close(fd);
+        return -1;
+    }
 
+    close(fd);
     return 0;
+}
+
+/**
+ * Get the existing patch file.
+ * @param config Pointer to the patch config struct to be populated. 
+*/
+int hp_get_config(struct patch_config *config)
+{
+    const int fd = open(PATCH_FILE_PATH, O_RDONLY);
+    if (fd == -1)
+    {
+        fprintf(stderr, "Error opening patch.cfg file.\n");
+        return -1;
+    }
+
+    if (__hp_read_from_patch_file(fd, config) == -1)
+    {
+        fprintf(stderr, "Error reading patch.cfg file.\n");
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+    return 0;
+}
+
+/**
+ * Read the values from the existing patch file.
+ * @param fd File discriptor of the patch.cfg file.
+ * @param config Pointer to the patch config struct to be populated. 
+*/
+int __hp_read_from_patch_file(const int fd, struct patch_config *config)
+{
+    char buf[4096];
+    const size_t len = read(fd, buf, sizeof(buf));
+    if (len == -1)
+        return -1;
+
+    struct json_value_s *root = json_parse(buf, len);
+    if (root && root->type == json_type_object)
+    {
+        struct json_object_s *object = (struct json_object_s *)root->payload;
+        __hp_populate_patch_from_json_object(config, object);
+        __HP_FREE(root);
+        return 0;
+    }
+
+    __HP_FREE(root);
+    return -1;
 }
 
 /**
@@ -630,7 +672,7 @@ int __hp_write_to_patch_file(const int fd, const struct patch_config *config)
  * @param config Pointer to the patch config sturct to be populated.
  * @param object Pointer to the json object.
 */
-void __hp_populate_patch_from_json_object(struct patch_config *config, struct json_object_s *object)
+void __hp_populate_patch_from_json_object(struct patch_config *config, const struct json_object_s *object)
 {
     const struct json_object_element_s *elem = object->start;
     do
