@@ -460,7 +460,12 @@
 
         const contractMessageHandler = (m) => {
 
-            if (m.type == "contract_read_response") {
+            // First if condition (m.type == "changed_unl") is added for testing purpose of unl change announcment.
+            if (m.type == "changed_unl") {
+                console.log('---------------------');
+                console.log(m);
+            }
+            else if (m.type == "contract_read_response") {
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "contract_input_status") {
