@@ -53,29 +53,29 @@ int main(int argc, char **argv)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
     // free(msg);
 
-    // // Test code segment - Patch file will be updated with below values.
-    // struct patch_config patch = {};
-    // patch.version = "2.0";
-    // patch.consensus = "public";
-    // patch.npl = "public";
-    // patch.appbill.bin_args = "123";
+    // // Test code segment - Config file will be updated with below values.
+    // struct hp_config config = {};
+    // config.version = "2.0";
+    // config.consensus = "public";
+    // config.npl = "public";
+    // config.appbill.bin_args = "123";
     // struct hp_unl_node unl[1] = {"ed726f9f536904b125bdca10bbdd1e66591b274799b92ac8bcfc75bf45d7da4c0f"};
-    // patch.unl.list = unl;
-    // patch.unl.count = 1;
-    // patch.roundtime = 1000;
-    // hp_update_config(&patch);
+    // config.unl.list = unl;
+    // config.unl.count = 1;
+    // config.roundtime = 1000;
+    // hp_update_config(&config);
 
-    // // Test code segment - Get current patch file values.
-    // struct patch_config *current_patch = hp_get_config();
-    // if (current_patch != NULL)
+    // // Test code segment - Get current config file values.
+    // struct hp_config *current_config = hp_get_config();
+    // if (current_config != NULL)
     // {
-    //     printf("\"version\": \"%s\"\n", current_patch->version);
-    //     printf("\"consensus\": \"%s\"\n", current_patch->consensus);
-    //     printf("\"npl\": \"%s\"\n", current_patch->npl);
-    //     printf("\"appbill_bin_args\": \"%s\"\n", current_patch->appbill.bin_args);
+    //     printf("\"version\": \"%s\"\n", current_config->version);
+    //     printf("\"consensus\": \"%s\"\n", current_config->consensus);
+    //     printf("\"npl\": \"%s\"\n", current_config->npl);
+    //     printf("\"appbill_bin_args\": \"%s\"\n", current_config->appbill.bin_args);
     // }
-    // // Returned patch_config struct memory should be freed after it's been used.
-    // hp_free_patch_config(current_patch);
+    // // Returned hp_config struct memory should be freed after it's been used.
+    // hp_free_config(current_config);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();
