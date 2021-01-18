@@ -74,6 +74,7 @@ int main(int argc, char **argv)
     //     printf("\"npl\": \"%s\"\n", current_patch->npl);
     //     printf("\"appbill_bin_args\": \"%s\"\n", current_patch->appbill.bin_args);
     // }
+    // // Returned patch_config struct memory should be freed after it's been used.
     // hp_free_patch_config(current_patch);
 
     hp_deinit_user_input_mmap();
