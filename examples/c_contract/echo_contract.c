@@ -53,20 +53,28 @@ int main(int argc, char **argv)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
     // free(msg);
 
-    // Patch file update.
+    // // Test code segment - Patch file will be updated with below values.
     // struct patch_config patch = {};
     // patch.version = "2.0";
-    // struct hp_unl_node unl[1] = {"ed65aac94e7287d461540523b8ce43b873fc97398bef1b42350feac72ad360b7f3"};
+    // patch.consensus = "public";
+    // patch.npl = "public";
+    // patch.appbill.bin_args = "123";
+    // struct hp_unl_node unl[1] = {"ed726f9f536904b125bdca10bbdd1e66591b274799b92ac8bcfc75bf45d7da4c0f"};
     // patch.unl.list = unl;
     // patch.unl.count = 1;
     // patch.roundtime = 1000;
     // hp_update_config(&patch);
 
-    // // Get current patch file.
-    // struct patch_config patch2 = {};
-    // if (hp_get_config(&patch2) != -1)
-    //     printf("\"version\": \"%s\"\n", patch2.version);
-    // __hp_free_patch_config(&patch2);
+    // // Test code segment - Get current patch file values.
+    // struct patch_config *current_patch = hp_get_config();
+    // if (current_patch != NULL)
+    // {
+    //     printf("\"version\": \"%s\"\n", current_patch->version);
+    //     printf("\"consensus\": \"%s\"\n", current_patch->consensus);
+    //     printf("\"npl\": \"%s\"\n", current_patch->npl);
+    //     printf("\"appbill_bin_args\": \"%s\"\n", current_patch->appbill.bin_args);
+    // }
+    // hp_free_patch_config(current_patch);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();

@@ -81,26 +81,26 @@
         ptr = NULL;    \
     }
 
-#define __HP_UPDATE_CONFIG_ERROR(msg)                \
-    {                                                \
-        fprintf(stderr, "%s\n", msg);                \
-        if (fd)                                      \
-            close(fd);                               \
-        if (config)                                  \
-            __hp_free_patch_config(&existing_patch); \
-                                                     \
-        return -1;                                   \
+#define __HP_UPDATE_CONFIG_ERROR(msg)               \
+    {                                               \
+        fprintf(stderr, "%s\n", msg);               \
+        if (fd)                                     \
+            close(fd);                              \
+        if (config)                                 \
+            __hp_free_patch_config(existing_patch); \
+                                                    \
+        return -1;                                  \
     }
 
 /**
- * dest - Pointer to destination pointer.
+ * dest - Destination pointer.
  * src  - Source pointer.
 */
 #define __HP_STRING_COPY(dest, src)              \
     {                                            \
-        __HP_FREE(*dest);                        \
-        *dest = (char *)malloc(strlen(src) + 1); \
-        memcpy(*dest, src, strlen(src) + 1);     \
+        __HP_FREE(dest);                        \
+        dest = (char *)malloc(strlen(src) + 1); \
+        memcpy(dest, src, strlen(src) + 1);     \
     }
 
 struct hp_user_input
@@ -192,13 +192,14 @@ int hp_write_npl_msg(const void *buf, const uint32_t len);
 int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
 int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
 int hp_update_config(const struct patch_config *config);
-int hp_get_config(struct patch_config *config);
+struct patch_config *hp_get_config();
+void hp_free_patch_config(struct patch_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
 int __hp_write_control_msg(const void *buf, const uint32_t len);
 void __hp_populate_patch_from_json_object(struct patch_config *config, const struct json_object_s *object);
 int __hp_write_to_patch_file(const int fd, const struct patch_config *config);
-int __hp_read_from_patch_file(const int fd, struct patch_config *config);
+struct patch_config *__hp_read_from_patch_file(const int fd);
 void __hp_free_patch_config(struct patch_config *patch_config);
 
 static struct __hp_contract __hpc = {};
@@ -455,14 +456,14 @@ int hp_update_config(const struct patch_config *config)
         return -1;
     }
 
-    struct patch_config existing_patch = {};
-    if (__hp_read_from_patch_file(fd, &existing_patch) != -1)
+    struct patch_config *existing_patch = __hp_read_from_patch_file(fd);
+    if (existing_patch != NULL)
     {
         if (config->version)
         {
             if (strlen(config->version) != 0)
             {
-                __HP_STRING_COPY(&existing_patch.version, config->version);
+                __HP_STRING_COPY(existing_patch->version, config->version);
             }
             else
             {
@@ -499,20 +500,20 @@ int hp_update_config(const struct patch_config *config)
                     }
                 }
             }
-            __HP_FREE(existing_patch.unl.list);
-            existing_patch.unl.list = config->unl.count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * config->unl.count) : NULL;
-            memcpy(existing_patch.unl.list, config->unl.list, sizeof(struct hp_unl_node) * config->unl.count);
-            existing_patch.unl.count = config->unl.count;
+            __HP_FREE(existing_patch->unl.list);
+            existing_patch->unl.list = config->unl.count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * config->unl.count) : NULL;
+            memcpy(existing_patch->unl.list, config->unl.list, sizeof(struct hp_unl_node) * config->unl.count);
+            existing_patch->unl.count = config->unl.count;
         }
 
         if (config->bin_path)
-            __HP_STRING_COPY(&existing_patch.bin_path, config->bin_path);
+            __HP_STRING_COPY(existing_patch->bin_path, config->bin_path);
 
         if (config->bin_args)
-            __HP_STRING_COPY(&existing_patch.bin_args, config->bin_args);
+            __HP_STRING_COPY(existing_patch->bin_args, config->bin_args);
 
         // if (config->roundtime)
-        //     existing_patch.roundtime = config->roundtime;
+        //     existing_patch->roundtime = config->roundtime;
 
         if (config->consensus)
         {
@@ -520,7 +521,7 @@ int hp_update_config(const struct patch_config *config)
             {
                 __HP_UPDATE_CONFIG_ERROR("Invalid consensus flag. Valid values: public|private");
             }
-            __HP_STRING_COPY(&existing_patch.consensus, config->consensus);
+            __HP_STRING_COPY(existing_patch->consensus, config->consensus);
         }
 
         if (config->npl)
@@ -529,19 +530,19 @@ int hp_update_config(const struct patch_config *config)
             {
                 __HP_UPDATE_CONFIG_ERROR("Invalid npl flag. Valid values: public|private");
             }
-            __HP_STRING_COPY(&existing_patch.npl, config->npl);
+            __HP_STRING_COPY(existing_patch->npl, config->npl);
         }
 
         if (config->appbill.mode)
-            __HP_STRING_COPY(&existing_patch.appbill.mode, config->appbill.mode);
+            __HP_STRING_COPY(existing_patch->appbill.mode, config->appbill.mode);
 
         if (config->appbill.bin_args)
-            __HP_STRING_COPY(&existing_patch.appbill.bin_args, config->appbill.bin_args);
+            __HP_STRING_COPY(existing_patch->appbill.bin_args, config->appbill.bin_args);
 
-        if (__hp_write_to_patch_file(fd, &existing_patch) == -1)
+        if (__hp_write_to_patch_file(fd, existing_patch) == -1)
             __HP_UPDATE_CONFIG_ERROR("Error writing updated config to patch.cfg file.");
 
-        __hp_free_patch_config(&existing_patch);
+        __hp_free_patch_config(existing_patch);
     }
     else
     {
@@ -555,52 +556,63 @@ int hp_update_config(const struct patch_config *config)
 }
 
 /**
- * Get the existing patch file.
- * @param config Pointer to the patch config struct to be populated. 
+ * Get the existing patch file values.
+ * @returns returns a pointer to a patch_config structure, returns NULL on error.
 */
-int hp_get_config(struct patch_config *config)
+struct patch_config *hp_get_config()
 {
     const int fd = open(PATCH_FILE_PATH, O_RDONLY);
     if (fd == -1)
     {
         fprintf(stderr, "Error opening patch.cfg file.\n");
-        return -1;
+        return NULL;
     }
 
-    if (__hp_read_from_patch_file(fd, config) == -1)
-    {
+    struct patch_config *config = __hp_read_from_patch_file(fd);
+    if (config == NULL)
         fprintf(stderr, "Error reading patch.cfg file.\n");
-        close(fd);
-        return -1;
-    }
 
     close(fd);
-    return 0;
+    return config;
+}
+
+/**
+ * Frees the memory allocated for patch config.
+ * @param config Pointer to the patch config to be freed.
+*/
+void hp_free_patch_config(struct patch_config *config)
+{
+    __hp_free_patch_config(config);
 }
 
 /**
  * Read the values from the existing patch file.
  * @param fd File discriptor of the patch.cfg file.
- * @param config Pointer to the patch config struct to be populated. 
+ * @returns returns a pointer to a patch_config structure, returns NULL on error.
 */
-int __hp_read_from_patch_file(const int fd, struct patch_config *config)
+struct patch_config *__hp_read_from_patch_file(const int fd)
 {
     char buf[4096];
     const size_t len = read(fd, buf, sizeof(buf));
     if (len == -1)
-        return -1;
+        return NULL;
 
     struct json_value_s *root = json_parse(buf, len);
     if (root && root->type == json_type_object)
     {
         struct json_object_s *object = (struct json_object_s *)root->payload;
+        // Create struct to populate json values.
+        struct patch_config *config;
+        // Allocate memory for the patch_config struct.
+        config = (struct patch_config *)malloc(sizeof(struct patch_config));
+        // malloc and populate values to the struct.
         __hp_populate_patch_from_json_object(config, object);
         __HP_FREE(root);
-        return 0;
+        return config;
     }
 
     __HP_FREE(root);
-    return -1;
+    return NULL;
 }
 
 /**
@@ -884,6 +896,7 @@ void __hp_free_patch_config(struct patch_config *patch_config)
     __HP_FREE(patch_config->npl);
     __HP_FREE(patch_config->appbill.mode);
     __HP_FREE(patch_config->appbill.bin_args);
+    __HP_FREE(patch_config);
 }
 
 #endif
