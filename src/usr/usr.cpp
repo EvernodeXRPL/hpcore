@@ -417,4 +417,18 @@ namespace usr
         }
     }
 
+    void send_unl_changeset(const std::set<std::string> &unl_list)
+    {
+        for (const auto &user : ctx.users)
+        {
+            const usr::connected_user &connected_user = user.second;
+            msg::usrmsg::usrmsg_parser parser(connected_user.protocol);
+
+            std::vector<uint8_t> msg;
+            parser.create_changed_unl_container(msg, unl_list);
+
+            connected_user.session.send(msg);
+        }
+    }
+
 } // namespace usr

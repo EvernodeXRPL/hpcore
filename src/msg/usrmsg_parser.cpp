@@ -48,6 +48,14 @@ namespace msg::usrmsg
             busrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl);
     }
 
+    void usrmsg_parser::create_changed_unl_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_changed_unl_container(msg, unl_list);
+        else
+            busrmsg::create_changed_unl_container(msg, unl_list);
+    }
+
     int usrmsg_parser::parse(std::string_view message)
     {
         if (protocol == util::PROTOCOL::JSON)

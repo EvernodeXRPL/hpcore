@@ -134,6 +134,31 @@ namespace msg::usrmsg::bson
     }
 
     /**
+     * Constructs a changed unl list container message.
+     * @param msg String reference to copy the generated bson message string into.
+     *            Message format:
+     *            {
+     *              "type": "changed_unl",
+     *              "outputs": ["<pubkey1>", "pubkey", ...], // Pubkey list of unl nodes.
+     *            }
+     * @param unl_list The unl node pubkey list to be put in the message.
+     */
+    void create_changed_unl_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_CHANGED_UNL);
+        encoder.key(msg::usrmsg::FLD_UNL);
+        encoder.begin_array();
+        for (std::string_view unl : unl_list)
+            encoder.byte_string_value(unl);
+        encoder.end_array();        
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
      * Parses a bson message sent by a user.
      * @param d BSON document to which the parsed bson should be loaded.
      * @param message The message to parse.

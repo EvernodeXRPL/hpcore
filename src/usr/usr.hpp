@@ -85,6 +85,8 @@ namespace usr
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
+    void send_unl_changeset(const std::set<std::string> &unl_list);
+
 } // namespace usr
 
 #endif

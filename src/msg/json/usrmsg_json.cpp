@@ -15,6 +15,7 @@ namespace msg::usrmsg::json
     constexpr const char *SEP_COLON = "\":\"";
     constexpr const char *SEP_COMMA_NOQUOTE = ",\"";
     constexpr const char *SEP_COLON_NOQUOTE = "\":";
+    constexpr const char *DOUBLE_QUOTE = "\"";
 
     // std::vector overload to concatonate string.
     std::vector<uint8_t> &operator+=(std::vector<uint8_t> &vec, std::string_view sv)
@@ -309,6 +310,41 @@ namespace msg::usrmsg::json
             if (i < unl_sig.size() - 1)
                 msg += ",";
         }
+        msg += "]}";
+    }
+
+    /**
+     * Constructs a changed unl list container message.
+     * @param msg String reference to copy the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "changed_unl",
+     *              "outputs": ["<pubkey1>", "pubkey", ...], // Pubkey list of unl nodes.
+     *            }
+     * @param unl_list The unl node pubkey list to be put in the message.
+     */
+    void create_changed_unl_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
+    {
+        msg.reserve((69 * unl_list.size()) + 30);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_CHANGED_UNL;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_UNL;
+        msg += "\":[";
+
+        int i = 0;
+        for (std::string_view unl : unl_list)
+        {
+            msg += DOUBLE_QUOTE;
+            msg += util::to_hex(unl);
+            msg += DOUBLE_QUOTE;
+            if (i < unl_list.size() - 1)
+                msg += ",";
+            i++;
+        }
+
         msg += "]}";
     }
 
