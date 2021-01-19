@@ -180,6 +180,7 @@ namespace sc
 
             util::h32 patch_hash;
             const int patch_hash_result = hpfs::get_hash(patch_hash, ctx.args.hpfs_session_name, hpfs::PATCH_FILE_PATH);
+
             if (patch_hash_result == -1)
             {
                 hpfs::release_rw_session();
@@ -187,17 +188,10 @@ namespace sc
             }
             else if (patch_hash_result == 1 && patch_hash != hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH))
             {
-                // Appling new patch file changes to hpcore runtime.
-                if (conf::apply_patch_config(ctx.args.hpfs_session_name) == -1)
-                {
-                    LOG_ERROR << "Appling patch file after contract execution failed";
-                }
-                else
-                {
-                    // Update global hash tracker with the new patch file hash.
-                    hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);
-                    unl::update_unl_changes_from_patch();
-                }
+                // Update global hash tracker with the new patch file hash.
+                hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);
+                // Denote that the patch file was updated by the SC.
+                consensus::is_patch_update_pending = true;
             }
 
             return hpfs::release_rw_session();

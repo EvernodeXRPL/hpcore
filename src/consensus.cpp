@@ -25,9 +25,11 @@ namespace consensus
     constexpr float STAGE_THRESHOLDS[] = {0.5, 0.65, 0.8}; // Voting thresholds for stage 1,2,3
     constexpr float MAJORITY_THRESHOLD = 0.8;
     constexpr size_t ROUND_NONCE_SIZE = 64;
+    constexpr const char *HPFS_SESSION_NAME = "ro_patch_file_to_hp";
 
     consensus_context ctx;
     bool init_success = false;
+    std::atomic<bool> is_patch_update_pending = false; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
 
     int init()
     {
@@ -141,7 +143,7 @@ namespace consensus
                 broadcast_proposal(p);
 
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state_hash) == -1)
+                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state_hash, patch_hash) == -1)
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
             }
 
@@ -191,6 +193,11 @@ namespace consensus
             util::h32 majority_patch_hash = util::h32_empty;
             check_patch_votes(is_patch_desync, majority_patch_hash, votes);
             check_state_votes(is_state_desync, majority_state_hash, votes);
+
+            // Stop any patch file updates triggered from the sc. The sync is triggered because the changes
+            // done by the contract is not meeting consensus.
+            if (is_patch_desync)
+                is_patch_update_pending = false;
 
             // Start hpfs sync if we are out-of-sync with majority hpfs state.
             if (is_state_desync || is_patch_desync)
@@ -784,8 +791,10 @@ namespace consensus
     /**
      * Update the ledger and execute the contract after consensus.
      * @param cons_prop The proposal that reached consensus.
+     * @param new_state_hash The state hash.
+     * @param patch_hash The patch hash.
      */
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state_hash)
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state_hash, const util::h32 &patch_hash)
     {
         // Map to temporarily store the raw inputs along with the hash.
         std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
@@ -818,6 +827,10 @@ namespace consensus
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
+
+        // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
+        if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
+            return -1;
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
@@ -1017,6 +1030,39 @@ namespace consensus
             counter[candidate]++;
         else
             counter.try_emplace(candidate, 1);
+    }
+
+    /**
+     * Apply patch file changes after verification from consensus.
+     * @param prop_patch_hash Hash of patch file which reached consensus.
+     * @param current_patch_hash Hash of the current patch file.
+     * @return 0 on success. -1 on failure.
+    */
+    int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash)
+    {
+        // Check whether is there any patch changes to be applied which reached consensus.
+        if (is_patch_update_pending && current_patch_hash == prop_patch_hash)
+        {
+            if (hpfs::start_ro_session(HPFS_SESSION_NAME, false) != -1)
+            {
+                // Appling new patch file changes to hpcore runtime.
+                if (conf::apply_patch_config(HPFS_SESSION_NAME) == -1)
+                {
+                    LOG_ERROR << "Appling patch file changes after consensus failed.";
+                    hpfs::stop_ro_session(HPFS_SESSION_NAME);
+                    return -1;
+                }
+                else
+                {
+                    unl::update_unl_changes_from_patch();
+                    is_patch_update_pending = false;
+                }
+            }
+
+            if (hpfs::stop_ro_session(HPFS_SESSION_NAME) == -1)
+                return -1;
+        }
+        return 0;
     }
 
 } // namespace consensus
