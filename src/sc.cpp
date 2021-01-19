@@ -190,7 +190,8 @@ namespace sc
             {
                 // Update global hash tracker with the new patch file hash.
                 hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);
-                hpfs::ctx.set_updated_patch_hash(patch_hash);
+                // Denote that the patch file was updated by the SC.
+                consensus::is_patch_updating = true;
             }
 
             return hpfs::release_rw_session();

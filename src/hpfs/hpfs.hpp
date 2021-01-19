@@ -71,16 +71,6 @@ namespace hpfs
             std::unique_lock lock(parent_mutexes[parent]);
             parent_hashes[parent] = new_state;
         }
-
-        util::h32 get_updated_patch_hash(){
-            std::shared_lock lock(patch_mutex);
-            return updated_patch_hash;
-        }
-
-        void set_updated_patch_hash(util::h32 hash){
-            std::unique_lock lock(patch_mutex);
-            updated_patch_hash = hash;
-        }
     };
 
     extern hpfs_context ctx;

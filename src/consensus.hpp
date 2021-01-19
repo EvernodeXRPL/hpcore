@@ -95,6 +95,7 @@ namespace consensus
         std::map<util::h32, uint32_t> state_hash;
         std::map<util::h32, uint32_t> patch_hash;
     };
+    extern std::atomic<bool> is_patch_updating; // Keep track whether the patch file is changed by contract and is not yet applied to runtime.
 
     int init();
 
@@ -129,7 +130,7 @@ namespace consensus
     bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count);
 
     void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes);
-    
+
     void check_patch_votes(bool &is_patch_desync, util::h32 &majority_patch_hash, vote_counter &votes);
 
     void timewait_stage(const bool reset, const uint64_t time);
@@ -138,7 +139,7 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int update_ledger_and_execute_contract(const p2p::proposal &proposal, std::string &new_lcl, util::h32 &new_state_hash);
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state_hash, const util::h32 &patch_hash);
 
     int dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
 
@@ -153,7 +154,7 @@ namespace consensus
 
     bool push_control_message(const std::string &control_msg);
 
-    int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash);
+    int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash);
 
 } // namespace consensus
 
