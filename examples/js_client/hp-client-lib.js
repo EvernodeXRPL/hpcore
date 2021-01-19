@@ -498,7 +498,11 @@
                 statResponseResolvers = [];
             }
             else if (m.type == "unl_change") {
-                validateAndEmitUnlChange(m.unl);
+                if (m.unl) {
+                    // Convert unl pubkeys to hex string.
+                    let unl = m.unl.map(k => msgHelper.stringifyValue(k));
+                    validateAndEmitUnlChange(unl);
+                }
             }
             
             else {
