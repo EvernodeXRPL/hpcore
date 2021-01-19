@@ -22,6 +22,8 @@ namespace msg::usrmsg::json
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                           const uint64_t lcl_seq_no, std::string_view lcl);
 
+    void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
+
     int verify_user_challenge(std::string &extracted_pubkeyhex, std::string &extracted_protocol, std::string &extracted_server_challenge,
                               std::string_view response, std::string_view original_challenge);
 
