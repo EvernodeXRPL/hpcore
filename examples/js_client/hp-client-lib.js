@@ -493,7 +493,7 @@
                 })
                 statResponseResolvers = [];
             }
-            else if (m.type == "unl_list") {
+            else if (m.type == "unl_change") {
                 // UNL change announcement message is handled in this block.
                 console.log("Received :", m.type);
                 console.log(m.unl);

@@ -423,6 +423,8 @@ namespace usr
     */
     void announce_unl_list(const std::set<std::string> &unl_list)
     {
+        std::scoped_lock<std::mutex> lock(ctx.users_mutex);
+
         for (const auto &user : ctx.users)
         {
             const usr::connected_user &connected_user = user.second;

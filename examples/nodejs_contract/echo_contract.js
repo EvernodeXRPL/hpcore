@@ -23,26 +23,6 @@ const echoContract = async (ctx) => {
                 const buf = await ctx.users.read(input);
                 const msg = buf.toString();
 
-                // This condition is added to test unl addtions and removals.
-                if (msg.startsWith("unl:")) {
-                    let curUnl = ctx.getConfig().unl;
-                    let val = msg.substring(4);
-                    if (val.startsWith('+')) {
-                        curUnl.push(val.substring(1));
-                    }
-                    else {
-                        curUnl = curUnl.filter(u => u != val.substring(1));
-                    }
-                    try {
-                        await ctx.updateConfig({
-                            unl: curUnl
-                        });
-                    }
-                    catch (e) {
-                        console.log(e);
-                    }
-                }
-
                 const output = (msg == "ts") ? fs.readFileSync("exects.txt").toString() : ("Echoing: " + msg);
                 await user.send(output);
 

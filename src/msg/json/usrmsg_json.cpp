@@ -318,8 +318,8 @@ namespace msg::usrmsg::json
      * @param msg String reference to copy the generated json message string into.
      *            Message format:
      *            {
-     *              "type": "changed_unl",
-     *              "unl": ["<pubkey1>", "pubkey", ...], // Pubkey list of unl nodes.
+     *              "type": "unl_change",
+     *               ["<pubkey1>{[ed prefix][64 characters]}", ...], // Hex pubkey list of unl nodes.
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */
@@ -329,7 +329,7 @@ namespace msg::usrmsg::json
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
-        msg += msg::usrmsg::MSGTYPE_UNL_LIST;
+        msg += msg::usrmsg::MSGTYPE_UNL_CHANGE;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_UNL;
         msg += "\":[";

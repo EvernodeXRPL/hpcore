@@ -138,8 +138,8 @@ namespace msg::usrmsg::bson
      * @param msg String reference to copy the generated bson message string into.
      *            Message format:
      *            {
-     *              "type": "changed_unl",
-     *              "unl": ["<pubkey1>", "pubkey", ...], // Pubkey list of unl nodes.
+     *              "type": "unl_change",
+     *              "unl": ["<pubkey1>{[1byte(11101101) prefix][32byte]}", ...], // Binary pubkey list of unl nodes.
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */
@@ -148,7 +148,7 @@ namespace msg::usrmsg::bson
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
-        encoder.string_value(msg::usrmsg::MSGTYPE_UNL_LIST);
+        encoder.string_value(msg::usrmsg::MSGTYPE_UNL_CHANGE);
         encoder.key(msg::usrmsg::FLD_UNL);
         encoder.begin_array();
         for (std::string_view unl : unl_list)
