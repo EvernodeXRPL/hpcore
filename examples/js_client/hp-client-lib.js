@@ -378,6 +378,20 @@
             return false;
         }
 
+        const validateAndEmitUnlChange = (changedUnl) => {
+            // If this is currently a trusted connection, notify unl update.
+            const trustedKeys = getTrustedKeys();
+            if (trustedKeys && trustedKeys[pubkey]) {
+                // Prepare sorted new unl lookup object for equality comparison.
+                const newUnl = {};
+                changedUnl.sort().forEach(k => newUnl[k] = true);
+
+                // Only emit unl change event if the unl has really changed.
+                if (JSON.stringify(trustedKeys) != JSON.stringify(newUnl))
+                    emitter && emitter.emit(events.unlChange, changedUnl);
+            }
+        }
+
         const handshakeMessageHandler = (m) => {
 
             if (connectionStatus == 0 && m.type == "user_challenge" && m.hp_version && m.contract_id) {
@@ -438,17 +452,7 @@
                 handshakeResolver && handshakeResolver(true);
                 console.log(`Connected to ${server}`);
 
-                // If this is currently a trusted connection, notify unl update.
-                const trustedKeys = getTrustedKeys();
-                if (trustedKeys && trustedKeys[pubkey]) {
-                    // Prepare sorted new unl lookup object for equality comparison.
-                    const newUnl = {};
-                    m.unl.sort().forEach(k => newUnl[k] = true);
-
-                    // Only emit unl change event if the unl has really changed.
-                    if (JSON.stringify(trustedKeys) != JSON.stringify(newUnl))
-                        emitter && emitter.emit(events.unlChange, m.unl);
-                }
+                validateAndEmitUnlChange(m.unl);
 
                 return true;
             }
@@ -494,9 +498,7 @@
                 statResponseResolvers = [];
             }
             else if (m.type == "unl_change") {
-                // UNL change announcement message is handled in this block.
-                console.log("Received :", m.type);
-                console.log(m.unl);
+                validateAndEmitUnlChange(m.unl);
             }
             
             else {
