@@ -493,6 +493,12 @@
                 })
                 statResponseResolvers = [];
             }
+            else if (m.type == "unl_change") {
+                // UNL change announcement message is handled in this block.
+                console.log("Received :", m.type);
+                console.log(m.unl);
+            }
+            
             else {
                 console.log("Received unrecognized contract message: type:" + m.type);
                 return false;

@@ -30,6 +30,8 @@ namespace msg::usrmsg
                                               const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                               const uint64_t lcl_seq_no, std::string_view lcl) const;
 
+        void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const;
+
         int parse(std::string_view message);
 
         int extract_type(std::string &extracted_type) const;

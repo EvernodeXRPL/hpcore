@@ -3,6 +3,7 @@
 
 #include "pchheader.hpp"
 #include "p2p/p2p.hpp"
+#include "usr/usr.hpp"
 
 /**
  * Manages the UNL public keys of this node.

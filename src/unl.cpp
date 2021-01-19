@@ -111,8 +111,12 @@ namespace unl
         }
 
         // Update the is_unl flag of peer sessions.
+        // Broadcast changed unl list to all the connected users.
         if (is_unl_list_changed)
+        {
             p2p::update_unl_connections();
+            usr::announce_unl_list(list);
+        }
     }
 
 } // namespace unl
