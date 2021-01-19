@@ -29,7 +29,7 @@ namespace consensus
 
     consensus_context ctx;
     bool init_success = false;
-    std::atomic<bool> is_patch_updating = false; // Keep track whether the patch file is changed by contract and is not yet applied to runtime.
+    std::atomic<bool> is_patch_update_pending = false; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
 
     int init()
     {
@@ -197,7 +197,7 @@ namespace consensus
             // Stop any patch file updates triggered from the sc. The sync is triggered because the changes
             // done by the contract is not meeting consensus.
             if (is_patch_desync)
-                is_patch_updating = false;
+                is_patch_update_pending = false;
 
             // Start hpfs sync if we are out-of-sync with majority hpfs state.
             if (is_state_desync || is_patch_desync)
@@ -1041,9 +1041,9 @@ namespace consensus
     int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash)
     {
         // Check whether is there any patch changes to be applied which reached consensus.
-        if (is_patch_updating && current_patch_hash == prop_patch_hash)
+        if (is_patch_update_pending && current_patch_hash == prop_patch_hash)
         {
-            if (hpfs::start_ro_session(HPFS_SESSION_NAME, true) != -1)
+            if (hpfs::start_ro_session(HPFS_SESSION_NAME, false) != -1)
             {
                 // Appling new patch file changes to hpcore runtime.
                 if (conf::apply_patch_config(HPFS_SESSION_NAME) == -1)
@@ -1055,7 +1055,7 @@ namespace consensus
                 else
                 {
                     unl::update_unl_changes_from_patch();
-                    is_patch_updating = false;
+                    is_patch_update_pending = false;
                 }
             }
 
