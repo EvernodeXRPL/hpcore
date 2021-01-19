@@ -460,12 +460,7 @@
 
         const contractMessageHandler = (m) => {
 
-            // First if condition (m.type == "changed_unl") is added for testing purpose of unl change announcment.
-            if (m.type == "changed_unl") {
-                console.log('---------------------');
-                console.log(m);
-            }
-            else if (m.type == "contract_read_response") {
+            if (m.type == "contract_read_response") {
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "contract_input_status") {
@@ -498,6 +493,12 @@
                 })
                 statResponseResolvers = [];
             }
+            else if (m.type == "unl_list") {
+                // UNL change announcement message is handled in this block.
+                console.log("Received :", m.type);
+                console.log(m.unl);
+            }
+            
             else {
                 console.log("Received unrecognized contract message: type:" + m.type);
                 return false;

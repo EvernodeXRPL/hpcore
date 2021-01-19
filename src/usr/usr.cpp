@@ -417,7 +417,11 @@ namespace usr
         }
     }
 
-    void send_unl_changeset(const std::set<std::string> &unl_list)
+    /**
+     * Send unl list to all the connected users.
+     * @param unl_list Set of unl pubkeys.
+    */
+    void announce_unl_list(const std::set<std::string> &unl_list)
     {
         for (const auto &user : ctx.users)
         {
@@ -425,7 +429,7 @@ namespace usr
             msg::usrmsg::usrmsg_parser parser(connected_user.protocol);
 
             std::vector<uint8_t> msg;
-            parser.create_changed_unl_container(msg, unl_list);
+            parser.create_unl_list_container(msg, unl_list);
 
             connected_user.session.send(msg);
         }

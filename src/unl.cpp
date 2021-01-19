@@ -115,7 +115,7 @@ namespace unl
         if (is_unl_list_changed)
         {
             p2p::update_unl_connections();
-            usr::send_unl_changeset(list);
+            usr::announce_unl_list(list);
         }
     }
 

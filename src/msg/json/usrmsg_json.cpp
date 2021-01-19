@@ -314,22 +314,22 @@ namespace msg::usrmsg::json
     }
 
     /**
-     * Constructs a changed unl list container message.
+     * Constructs unl list container message.
      * @param msg String reference to copy the generated json message string into.
      *            Message format:
      *            {
      *              "type": "changed_unl",
-     *              "outputs": ["<pubkey1>", "pubkey", ...], // Pubkey list of unl nodes.
+     *              "unl": ["<pubkey1>", "pubkey", ...], // Pubkey list of unl nodes.
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */
-    void create_changed_unl_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
+    void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
     {
         msg.reserve((69 * unl_list.size()) + 30);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
-        msg += msg::usrmsg::MSGTYPE_CHANGED_UNL;
+        msg += msg::usrmsg::MSGTYPE_UNL_LIST;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_UNL;
         msg += "\":[";
