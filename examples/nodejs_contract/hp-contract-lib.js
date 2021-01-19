@@ -109,19 +109,11 @@ class PatchConfig {
 
         let updatedUnl = [];
         for (let pubKey of unl) {
+            // Pubkeys are validated against length, ed prefix and hex characters.
             if (!pubKey.length)
                 throw "UNL pubKey not specified.";
-            else if (pubKey.length != 66)
-                throw "Invalid UNL pubKey specified. Invalid length.";
-            else if (!pubKey.startsWith("ed"))
-                throw "Invalid UNL pubKey specified. Invalid format.";
-
-            try {
-                let pubKeyBin = hexToUint8Array(pubKey.substring(2));
-            }
-            catch {
-                throw "Invalid UNL pubKey specified. Decode error.";
-            }
+            else if (!(/^(e|E)(d|D)[0-9a-fA-F]{64}$/g.test(pubKey)))
+                throw "Invalid UNL pubKey specified.";
 
             updatedUnl.push(pubKey);
         }
@@ -166,14 +158,15 @@ class PatchConfig {
 
     // Saves the config changes to tha patch config.
     saveChanges() {
+        // Property order is simmilar to the property order of the patch.cfg created by HP at the startup.
         const config = {
             version: this.#version,
+            unl: this.#unl,
             bin_path: this.#binPath,
             bin_args: this.#binArgs ? this.#binArgs : "",
             roundtime: this.#roundtime,
             consensus: this.#consensus,
             npl: this.#npl,
-            unl: this.#unl,
             appbill: {
                 mode: this.#appbillMode ? this.#appbillMode : "",
                 bin_args: this.#appbillBinArgs ? this.#appbillBinArgs : ""
@@ -181,7 +174,8 @@ class PatchConfig {
         };
 
         return new Promise((resolve, reject) => {
-            fs.writeFile(this.#patchConfigPath, JSON.stringify(config), (err) => {
+            // Format json to match with the patch.cfg json format created by HP at the startup.
+            fs.writeFile(this.#patchConfigPath, JSON.stringify(config, null, 4), (err) => {
                 if (err) reject(err);
                 else resolve();
             });
@@ -536,10 +530,6 @@ const invokeCallback = async (callback, ...args) => {
     else {
         callback(...args);
     }
-}
-
-const hexToUint8Array = (hexString) => {
-    return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 }
 
 const errHandler = (err) => console.log(err);

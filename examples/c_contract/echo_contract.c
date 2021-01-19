@@ -53,14 +53,29 @@ int main(int argc, char **argv)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
     // free(msg);
 
-    // Patch file update.
-    // struct patch_config patch = {};
-    // patch.version = "2.0";
-    // struct hp_unl_node unl[1] = {"ed65aac94e7287d461540523b8ce43b873fc97398bef1b42350feac72ad360b7f3"};
-    // patch.unl.list = unl;
-    // patch.unl.count = 1;
-    // patch.roundtime = 1000;
-    // hp_update_config(&patch);
+    // // Test code segment - Config file will be updated with below values.
+    // struct hp_config config = {};
+    // config.version = "2.0";
+    // config.consensus = "public";
+    // config.npl = "public";
+    // config.appbill.bin_args = "123";
+    // struct hp_unl_node unl[1] = {"ed726f9f536904b125bdca10bbdd1e66591b274799b92ac8bcfc75bf45d7da4c0f"};
+    // config.unl.list = unl;
+    // config.unl.count = 1;
+    // config.roundtime = 1000;
+    // hp_update_config(&config);
+
+    // // Test code segment - Get current config file values.
+    // struct hp_config *current_config = hp_get_config();
+    // if (current_config != NULL)
+    // {
+    //     printf("\"version\": \"%s\"\n", current_config->version);
+    //     printf("\"consensus\": \"%s\"\n", current_config->consensus);
+    //     printf("\"npl\": \"%s\"\n", current_config->npl);
+    //     printf("\"appbill_bin_args\": \"%s\"\n", current_config->appbill.bin_args);
+    // }
+    // // Returned hp_config struct memory should be freed after it's been used.
+    // hp_free_config(current_config);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();
@@ -69,13 +84,13 @@ int main(int argc, char **argv)
 
 void store_timestamp(const uint64_t timestamp)
 {
-    int fd = open("exects.txt", O_RDWR | O_CREAT | O_APPEND);
+    int fd = open("exects.txt", O_RDWR | O_CREAT | O_APPEND, 0644);
     if (fd > 0)
     {
         char tsbuf[20];
         memset(tsbuf, 0, 20);
         sprintf(tsbuf, "%lu\n", timestamp);
-        struct iovec vec[2] = {{(void *)"ts:", 4}, {(void *)tsbuf, 20}};
+        struct iovec vec[2] = {{(void *)"ts:", 3}, {(void *)tsbuf, strlen(tsbuf)}};
         writev(fd, vec, 2);
         close(fd);
     }
