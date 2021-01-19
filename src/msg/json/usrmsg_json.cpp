@@ -319,7 +319,7 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "unl_change",
-     *               ["<pubkey1>{[ed prefix][64 characters]}", ...], // Hex pubkey list of unl nodes.
+     *              "unl": ["<pubkey1>{[ed prefix][64 characters]}", ...] // Hex pubkey list of unl nodes.
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */

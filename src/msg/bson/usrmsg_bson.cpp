@@ -139,7 +139,7 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "unl_change",
-     *              "unl": ["<pubkey1>{[1byte(11101101) prefix][32byte]}", ...], // Binary pubkey list of unl nodes.
+     *              "unl": ["<pubkey1>{[1byte(11101101) prefix][32byte]}", ...] // Binary pubkey list of unl nodes.
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */
