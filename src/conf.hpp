@@ -83,6 +83,7 @@ namespace conf
     struct contract_params
     {
         std::string id;                   // Contract guid.
+        bool execute;                     // Whether or not to execute the contract on the node.
         std::string version;              // Contract version string.
         std::set<std::string> unl;        // Unique node list (list of binary public keys)
         std::string bin_path;             // Full path to the contract binary

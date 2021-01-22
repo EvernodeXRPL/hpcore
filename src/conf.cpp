@@ -106,14 +106,14 @@ namespace conf
         }
 
         // Recursivly create contract directories. Return an error if unable to create
-        if(util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
+        if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
         {
-            std::cerr  << "ERROR: unable to create directories.\n";
+            std::cerr << "ERROR: unable to create directories.\n";
             return -1;
         }
 
@@ -133,6 +133,7 @@ namespace conf
         cfg.node.full_history = false;
 
         cfg.contract.id = crypto::generate_uuid();
+        cfg.contract.execute = true;
         cfg.contract.version = "1.0";
         //Add self pubkey to the unl.
         cfg.contract.unl.emplace(cfg.node.public_key);
@@ -307,7 +308,8 @@ namespace conf
 
         // contract
         {
-            parse_contract_section_json(cfg.contract, d["contract"], true);
+            if (parse_contract_section_json(cfg.contract, d["contract"], true) == -1)
+                return -1;
         }
 
         // mesh
@@ -513,7 +515,6 @@ namespace conf
 
         bool fields_missing = false;
 
-        fields_missing |= cfg.contract.bin_path.empty() && std::cerr << "Missing cfg field: bin_path\n";
         fields_missing |= cfg.contract.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
         fields_missing |= cfg.contract.unl.empty() && std::cerr << "Missing cfg field: unl. Unl list cannot be empty.\n";
         fields_missing |= cfg.contract.id.empty() && std::cerr << "Missing cfg field: contract id.\n";
@@ -756,7 +757,10 @@ namespace conf
     void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool include_id)
     {
         if (include_id)
+        {
             jdoc.insert_or_assign("id", contract.id);
+            jdoc.insert_or_assign("execute", contract.execute);
+        }
 
         jdoc.insert_or_assign("version", contract.version);
         jsoncons::ojson unl(jsoncons::json_array_arg);
@@ -797,6 +801,8 @@ namespace conf
                     std::cerr << "Contract id not specified.\n";
                     return -1;
                 }
+
+                contract.execute = jdoc["execute"].as<bool>();
             }
 
             contract.version = jdoc["version"].as<std::string>();
@@ -863,7 +869,7 @@ namespace conf
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+            std::cerr << "Required contract config field '" << extract_missing_field(e.what()) << "' missing at " << ctx.config_file << std::endl;
             return -1;
         }
 

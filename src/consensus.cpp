@@ -849,7 +849,7 @@ namespace consensus
             return -1;
 
         // Execute the contract
-        if (!ctx.is_shutting_down)
+        if (conf::cfg.contract.execute && !ctx.is_shutting_down)
         {
             {
                 std::scoped_lock lock(ctx.contract_ctx_mutex);
