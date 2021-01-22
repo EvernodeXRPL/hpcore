@@ -4,8 +4,8 @@
 #include "pchheader.hpp"
 
 /**
- * Manages the central contract config and context structs.
- * Contains functions to contract config operations such as create/rekey/load.
+ * Manages the central config and context structs.
+ * Contains functions to config operations such as create/rekey/load.
  */
 namespace conf
 {
@@ -80,7 +80,7 @@ namespace conf
         // Config element which are initialized in memory (This is not directly loaded from the config file)
         std::vector<std::string> runtime_args; // Appbill execution args used during runtime.
     };
-    struct contract_params
+    struct contract_config
     {
         std::string id;                   // Contract guid.
         bool execute;                     // Whether or not to execute the contract on the node.
@@ -145,8 +145,8 @@ namespace conf
         std::string hpfs_mount_dir; // hpfs fuse file system mount path.
         std::string hpfs_rw_dir;    // hpfs read/write fs session path.
         std::string log_dir;        // Contract log dir full path.
-        std::string config_dir;     // Contract config dir full path.
-        std::string config_file;    // Full path to the contract config file.
+        std::string config_dir;     // Config dir full path.
+        std::string config_file;    // Full path to the config file.
         std::string tls_key_file;   // Full path to the tls private key file.
         std::string tls_cert_file;  // Full path to the tls certificate.
 
@@ -154,13 +154,13 @@ namespace conf
         struct flock config_lock; // Config file lock.
     };
 
-    // Holds all the contract config values.
-    struct contract_config
+    // Holds all the config values.
+    struct hp_config
     {
         // Config elements which are loaded from the config file.
         std::string hp_version; // Version of Hot Pocket that generated the config.
         node_config node;
-        contract_params contract;
+        contract_config contract;
         mesh_config mesh;
         user_config user;
         log_config log;
@@ -172,7 +172,7 @@ namespace conf
 
     // Global configuration struct exposed to the application.
     // Other modeuls will access config values via this.
-    extern contract_config cfg;
+    extern hp_config cfg;
 
     int init();
 
@@ -186,11 +186,11 @@ namespace conf
 
     //------Internal-use functions for this namespace.
 
-    int read_config(contract_config &cfg);
+    int read_config(hp_config &cfg);
 
-    int write_config(const contract_config &cfg);
+    int write_config(const hp_config &cfg);
 
-    int validate_config(const contract_config &cfg);
+    int validate_config(const hp_config &cfg);
 
     int validate_contract_dir_paths();
 
@@ -208,9 +208,9 @@ namespace conf
 
     int release_config_lock();
 
-    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool is_patch_config);
+    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_config &contract, const bool is_patch_config);
 
-    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &json, const bool is_patch_config);
+    int parse_contract_section_json(contract_config &contract, const jsoncons::ojson &json, const bool is_patch_config);
 
     int write_json_file(const std::string &file_path, const jsoncons::ojson &d);
 

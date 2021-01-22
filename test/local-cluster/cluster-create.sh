@@ -82,7 +82,7 @@ do
     # So each node is reachable via 'node<id>' name.
     peers[i]="node${n}:${peerport}"
     
-    # Update contract config.
+    # Update config.
     contract_json=$(node -p "JSON.stringify({...require('./tmp.json').contract, 
                 id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
                 bin_path: '$binary', \

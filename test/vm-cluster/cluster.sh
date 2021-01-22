@@ -362,7 +362,7 @@ do
     # Skip param is passed as -1 to stop skipping self pubkey.
     myunl=$(joinarr pubkeys -1)
 
-    # Merge json contents to produce final contract config.
+    # Merge json contents to produce final config.
     echo "$(cat ./cfg/node$n.cfg)" \
         '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/hpfiles/nodejs_contract/echo_contract.js", "unl": '${myunl}'}}'\
         '{"mesh": {"known_peers": '${mypeers}'}}'\

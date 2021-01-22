@@ -12,10 +12,10 @@
 
 namespace util
 {
-    // Hot Pocket version. Displayed on 'hotpocket version' and written to new contract configs.
+    // Hot Pocket version. Displayed on 'hotpocket version' and written to new configs.
     constexpr const char *HP_VERSION = "0.1";
 
-    // Minimum compatible config version (this will be used to validate contract configs)
+    // Minimum compatible config version (this will be used to validate configs)
     constexpr const char *MIN_CONFIG_VERSION = "0.1";
 
     // Current version of the peer message protocol.
