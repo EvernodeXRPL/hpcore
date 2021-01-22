@@ -88,12 +88,20 @@ do
                 bin_path: '$binary', \
                 bin_args: '$binargs', \
                 roundtime: $roundtime, \
+                consensus: 'public', \
+                npl: 'public', \
                 appbill: { \
                     mode: '', \
                     bin_args: '' \
                 },}, null, 2)")
 
-    mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, port:${peerport}}, null, 2)")
+    mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, \
+                port:${peerport}, \
+                peer_discovery: { \
+                    enabled: true, \
+                    interval: 10000 \
+                }
+                }, null, 2)")
     user_json=$(node -p "JSON.stringify({...require('./tmp.json').user, port:${pubport}}, null, 2)")
 
     node -p "JSON.stringify({...require('./tmp.json'), \
