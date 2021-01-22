@@ -82,18 +82,26 @@ do
     # So each node is reachable via 'node<id>' name.
     peers[i]="node${n}:${peerport}"
     
-    # Update contract config.
+    # Update config.
     contract_json=$(node -p "JSON.stringify({...require('./tmp.json').contract, 
                 id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
                 bin_path: '$binary', \
                 bin_args: '$binargs', \
                 roundtime: $roundtime, \
+                consensus: 'public', \
+                npl: 'public', \
                 appbill: { \
                     mode: '', \
                     bin_args: '' \
                 },}, null, 2)")
 
-    mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, port:${peerport}}, null, 2)")
+    mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, \
+                port:${peerport}, \
+                peer_discovery: { \
+                    enabled: true, \
+                    interval: 10000 \
+                }
+                }, null, 2)")
     user_json=$(node -p "JSON.stringify({...require('./tmp.json').user, port:${pubport}}, null, 2)")
 
     node -p "JSON.stringify({...require('./tmp.json'), \

@@ -23,7 +23,7 @@ namespace p2p
     util::rollover_hashset recent_peermsg_hashes(200);
 
     /**
-     * This gets hit every time a peer connects to HP via the peer port (configured in contract config).
+     * This gets hit every time a peer connects to HP via the peer port (configured in config).
      * @param session connected session.
      * @return returns 0 if connection is successful and peer challenge is sent otherwise, -1.
      */

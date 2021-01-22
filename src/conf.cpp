@@ -11,7 +11,7 @@ namespace conf
     contract_ctx ctx;
 
     // Global configuration struct exposed to the application.
-    contract_config cfg;
+    hp_config cfg;
 
     // Stores the initial startup mode of the node.
     ROLE startup_mode;
@@ -26,17 +26,17 @@ namespace conf
     bool init_success = false;
 
     /**
-     * Loads and initializes the contract config for execution. Must be called once during application startup.
+     * Loads and initializes the config for execution. Must be called once during application startup.
      * @return 0 for success. -1 for failure.
      */
     int init()
     {
         // The validations/loading needs to be in this order.
         // 1. Validate contract directories
-        // 2. Read and load the contract config into memory
+        // 2. Read and load the config into memory
         // 4. Validate the loaded config values
         // 5. Initialize logging subsystem.
-        // 6. Update and validate contract config if patch file exists.
+        // 6. Update and validate config if patch file exists.
 
         if (validate_contract_dir_paths() == -1 ||
             set_config_lock() == -1 ||
@@ -64,7 +64,7 @@ namespace conf
     }
 
     /**
-     * Generates and saves new signing keys in the contract config.
+     * Generates and saves new signing keys in the config.
      */
     int rekey()
     {
@@ -72,8 +72,8 @@ namespace conf
         if (set_config_lock() == -1)
             return -1;
 
-        // Load the contract config and re-save with the newly generated keys.
-        contract_config cfg = {};
+        // Load the config and re-save with the newly generated keys.
+        hp_config cfg = {};
         if (read_config(cfg) != 0)
             return -1;
 
@@ -93,7 +93,7 @@ namespace conf
     }
 
     /**
-     * Creates a new contract directory with the default contract config.
+     * Creates a new contract directory with the default config.
      * By the time this gets called, the 'ctx' struct must be populated.
      * This function makes use of the paths populated in the ctx.
      */
@@ -106,14 +106,14 @@ namespace conf
         }
 
         // Recursivly create contract directories. Return an error if unable to create
-        if(util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
+        if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
         {
-            std::cerr  << "ERROR: unable to create directories.\n";
+            std::cerr << "ERROR: unable to create directories.\n";
             return -1;
         }
 
@@ -121,7 +121,7 @@ namespace conf
 
         //We populate the in-memory struct with default settings and then save it to the file.
 
-        contract_config cfg = {};
+        hp_config cfg = {};
 
         crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
         cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
@@ -133,6 +133,7 @@ namespace conf
         cfg.node.full_history = false;
 
         cfg.contract.id = crypto::generate_uuid();
+        cfg.contract.execute = true;
         cfg.contract.version = "1.0";
         //Add self pubkey to the unl.
         cfg.contract.unl.emplace(cfg.node.public_key);
@@ -211,7 +212,7 @@ namespace conf
      * Reads the config file on disk and populates the in-memory 'cfg' struct.
      * @return 0 for successful loading of config. -1 for failure.
      */
-    int read_config(contract_config &cfg)
+    int read_config(hp_config &cfg)
     {
         // Read the config file into json document object.
         std::string buf;
@@ -239,7 +240,7 @@ namespace conf
             cfg.hp_version = d["hp_version"].as<std::string>();
             if (cfg.hp_version.empty())
             {
-                std::cerr << "Contract config HP version missing.\n";
+                std::cerr << "Config HP version missing.\n";
                 return -1;
             }
 
@@ -307,7 +308,8 @@ namespace conf
 
         // contract
         {
-            parse_contract_section_json(cfg.contract, d["contract"], true);
+            if (parse_contract_section_json(cfg.contract, d["contract"], false) == -1)
+                return -1;
         }
 
         // mesh
@@ -420,7 +422,7 @@ namespace conf
      * Saves the provided 'cfg' struct into the config file.
      * @return 0 for successful save. -1 for failure.
      */
-    int write_config(const contract_config &cfg)
+    int write_config(const hp_config &cfg)
     {
         // Popualte json document with 'cfg' values.
         // ojson is used instead of json to preserve insertion order.
@@ -437,7 +439,7 @@ namespace conf
 
         // Contract config section.
         jsoncons::ojson contract;
-        populate_contract_section_json(contract, cfg.contract, true);
+        populate_contract_section_json(contract, cfg.contract, false);
         d.insert_or_assign("contract", contract);
 
         // Mesh configs.
@@ -499,7 +501,7 @@ namespace conf
      *
      * @return 0 for successful validation. -1 for failure.
      */
-    int validate_config(const contract_config &cfg)
+    int validate_config(const hp_config &cfg)
     {
         // Check for non-empty signing keys.
         // We also check for key pair validity as well in the below code.
@@ -513,7 +515,6 @@ namespace conf
 
         bool fields_missing = false;
 
-        fields_missing |= cfg.contract.bin_path.empty() && std::cerr << "Missing cfg field: bin_path\n";
         fields_missing |= cfg.contract.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
         fields_missing |= cfg.contract.unl.empty() && std::cerr << "Missing cfg field: unl. Unl list cannot be empty.\n";
         fields_missing |= cfg.contract.id.empty() && std::cerr << "Missing cfg field: contract id.\n";
@@ -651,14 +652,14 @@ namespace conf
     int populate_patch_config()
     {
         jsoncons::ojson jdoc;
-        populate_contract_section_json(jdoc, cfg.contract, false);
+        populate_contract_section_json(jdoc, cfg.contract, true);
 
         const std::string patch_file_path = hpfs::physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
         return write_json_file(patch_file_path, jdoc);
     }
 
     /**
-     * Validate and update contract config section if a patch file detected. Whenever patch file change is detected,
+     * Validate and update config section if a patch file detected. Whenever patch file change is detected,
      * we also persist it to hp.cfg so that both config files are consistent with each other.
      * @param hpfs_session_name The current hpfs session hosting the patch config.
      * @return -1 on error and 0 in successful update.
@@ -699,7 +700,7 @@ namespace conf
         buf.clear();
 
         // Persist new changes to HP config file.
-        if (parse_contract_section_json(cfg.contract, jdoc, false) == -1 ||
+        if (parse_contract_section_json(cfg.contract, jdoc, true) == -1 ||
             write_config(cfg) == -1)
         {
             LOG_ERROR << "Error applying patch config.";
@@ -751,12 +752,15 @@ namespace conf
      * Populates contract section field values into the provided json doc.
      * @param jdoc The json doc to populate contract section field values.
      * @param contract The contract fields struct containing current field values.
-     * @param include_id Whether to populate the contract id field or not.
+     * @param is_patch_config Whether this is called for patch config or not.
      */
-    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool include_id)
+    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_config &contract, const bool is_patch_config)
     {
-        if (include_id)
+        if (!is_patch_config)
+        {
             jdoc.insert_or_assign("id", contract.id);
+            jdoc.insert_or_assign("execute", contract.execute);
+        }
 
         jdoc.insert_or_assign("version", contract.version);
         jsoncons::ojson unl(jsoncons::json_array_arg);
@@ -782,14 +786,14 @@ namespace conf
      * Validates the provided json doc and populate the provided contract struct with values from json doc.
      * @param contract The contract fields struct to populate.
      * @param jdoc The json doc containing the contract section field values.
-     * @param parse_id Whether to parse the contract id field or not.
+     * @param is_patch_config Whether this is called for patch config or not.
      * @return 0 on success. -1 on error.
      */
-    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &jdoc, const bool parse_id)
+    int parse_contract_section_json(contract_config &contract, const jsoncons::ojson &jdoc, const bool is_patch_config)
     {
         try
         {
-            if (parse_id)
+            if (!is_patch_config)
             {
                 contract.id = jdoc["id"].as<std::string>();
                 if (contract.id.empty())
@@ -797,6 +801,8 @@ namespace conf
                     std::cerr << "Contract id not specified.\n";
                     return -1;
                 }
+
+                contract.execute = jdoc["execute"].as<bool>();
             }
 
             contract.version = jdoc["version"].as<std::string>();
@@ -863,7 +869,7 @@ namespace conf
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Required contract config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+            std::cerr << "Required contract config field '" << extract_missing_field(e.what()) << "' missing at " << ctx.config_file << std::endl;
             return -1;
         }
 

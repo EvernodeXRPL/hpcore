@@ -35,7 +35,7 @@ Example: When you make a change to `p2pmsg_content.fbc` defnition file, you need
 ## Code structure
 Code is divided into subsystems via namespaces.
 
-**conf::** Handles contract configuration. Loads and holds the central configuration object. Used by most of the subsystems.
+**conf::** Handles configuration. Loads and holds the central configuration object. Used by most of the subsystems.
 
 **crypto::** Handles cryptographic activities. Wraps libsodium and offers convenience functions.
 

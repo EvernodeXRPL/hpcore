@@ -5,7 +5,7 @@
 
 /**
  * Offers convenience functions for cryptographic operations wrapping libsodium.
- * These functions are used for contract config and user/peer message authentication.
+ * These functions are used for config and user/peer message authentication.
  */
 namespace crypto
 {
