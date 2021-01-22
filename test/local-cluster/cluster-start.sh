@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Runs the specified node contract with hpcore docker image.
+# Runs the specified node of the local cluster with hpcore docker image. (created via cluster-create.sh)
 # This script assumes you already have the hpcore docker image and 'hpnet' virtual docker network.
-# Usage (to run the node no. 1): ./start.sh 1
+# Usage (to run the node no. 1): ./cluster-start.sh 1
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
