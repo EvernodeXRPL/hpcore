@@ -104,7 +104,10 @@ namespace p2p
 
             // Check whether contract ids match.
             if (chall.contract_id != conf::cfg.contract.id)
+            {
+                LOG_ERROR << "Contract id mismatch. Dropping connection " << session.display_name();
                 return -1;
+            }
 
             // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf(1024);
