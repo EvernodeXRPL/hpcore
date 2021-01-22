@@ -308,7 +308,7 @@ namespace conf
 
         // contract
         {
-            if (parse_contract_section_json(cfg.contract, d["contract"], true) == -1)
+            if (parse_contract_section_json(cfg.contract, d["contract"], false) == -1)
                 return -1;
         }
 
@@ -439,7 +439,7 @@ namespace conf
 
         // Contract config section.
         jsoncons::ojson contract;
-        populate_contract_section_json(contract, cfg.contract, true);
+        populate_contract_section_json(contract, cfg.contract, false);
         d.insert_or_assign("contract", contract);
 
         // Mesh configs.
@@ -652,7 +652,7 @@ namespace conf
     int populate_patch_config()
     {
         jsoncons::ojson jdoc;
-        populate_contract_section_json(jdoc, cfg.contract, false);
+        populate_contract_section_json(jdoc, cfg.contract, true);
 
         const std::string patch_file_path = hpfs::physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
         return write_json_file(patch_file_path, jdoc);
@@ -700,7 +700,7 @@ namespace conf
         buf.clear();
 
         // Persist new changes to HP config file.
-        if (parse_contract_section_json(cfg.contract, jdoc, false) == -1 ||
+        if (parse_contract_section_json(cfg.contract, jdoc, true) == -1 ||
             write_config(cfg) == -1)
         {
             LOG_ERROR << "Error applying patch config.";
@@ -752,11 +752,11 @@ namespace conf
      * Populates contract section field values into the provided json doc.
      * @param jdoc The json doc to populate contract section field values.
      * @param contract The contract fields struct containing current field values.
-     * @param include_id Whether to populate the contract id field or not.
+     * @param is_patch_config Whether this is called for patch config or not.
      */
-    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool include_id)
+    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool is_patch_config)
     {
-        if (include_id)
+        if (!is_patch_config)
         {
             jdoc.insert_or_assign("id", contract.id);
             jdoc.insert_or_assign("execute", contract.execute);
@@ -786,14 +786,14 @@ namespace conf
      * Validates the provided json doc and populate the provided contract struct with values from json doc.
      * @param contract The contract fields struct to populate.
      * @param jdoc The json doc containing the contract section field values.
-     * @param parse_id Whether to parse the contract id field or not.
+     * @param is_patch_config Whether this is called for patch config or not.
      * @return 0 on success. -1 on error.
      */
-    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &jdoc, const bool parse_id)
+    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &jdoc, const bool is_patch_config)
     {
         try
         {
-            if (parse_id)
+            if (!is_patch_config)
             {
                 contract.id = jdoc["id"].as<std::string>();
                 if (contract.id.empty())

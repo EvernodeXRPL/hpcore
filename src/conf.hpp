@@ -208,9 +208,9 @@ namespace conf
 
     int release_config_lock();
 
-    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool include_id);
+    void populate_contract_section_json(jsoncons::ojson &jdoc, const contract_params &contract, const bool is_patch_config);
 
-    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &json, const bool parse_id);
+    int parse_contract_section_json(contract_params &contract, const jsoncons::ojson &json, const bool is_patch_config);
 
     int write_json_file(const std::string &file_path, const jsoncons::ojson &d);
 
