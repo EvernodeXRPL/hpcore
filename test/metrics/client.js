@@ -32,23 +32,22 @@ async function main() {
         const end = new Date();
         const duration = end.getTime() - start.getTime();
 
-        console.log(test + " " + duration + "ms");
+        console.log(test + ": " + duration + "ms");
     }
 
-    await testReadRequests(hpc);
+    await hpc.close();
 }
 
 function testReadRequests(hpc) {
 
     return new Promise(resolve => {
 
-        const payload = "ReadReq";
+        const payload = "A".repeat(100 * 1024);
         const requestCount = 100;
         let respCount = 0;
 
         hpc.on(HotPocket.events.contractReadResponse, (response) => {
-            if (response == payload)
-                respCount++;
+            respCount++;
 
             if (respCount == requestCount)
                 resolve();
