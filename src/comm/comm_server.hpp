@@ -11,6 +11,7 @@
 namespace comm
 {
     constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 4 * 1024 * 1024;
+    constexpr uint64_t DEFAULT_MAX_CONNECTIONS = 99999;
 
     template <typename T>
     class comm_server
@@ -18,6 +19,8 @@ namespace comm
     protected:
         const uint64_t (&metric_thresholds)[5];
         const uint64_t max_msg_size;
+        const uint64_t max_in_connections;
+        const uint64_t max_in_connections_per_host;
         bool is_shutting_down = false;
         std::list<T> sessions;
         std::list<T> new_sessions; // Sessions that haven't been initialized properly which are yet to be merge to "sessions" list.
@@ -190,8 +193,8 @@ namespace comm
                 conf::ctx.hpws_exe_path,
                 max_msg_size,
                 listen_port,
-                512, // Max connections
-                2,   // Max connections per IP.
+                max_in_connections,
+                max_in_connections_per_host,
                 conf::ctx.tls_cert_file,
                 conf::ctx.tls_key_file,
                 {},
@@ -210,11 +213,14 @@ namespace comm
         }
 
     public:
-        comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size)
+        comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
+                    const uint64_t max_in_connections, const uint64_t max_in_connections_per_host)
             : name(name),
               listen_port(port),
               metric_thresholds(metric_thresholds),
-              max_msg_size(max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE)
+              max_msg_size(max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE),
+              max_in_connections(max_in_connections > 0 ? max_in_connections : DEFAULT_MAX_CONNECTIONS),
+              max_in_connections_per_host(max_in_connections_per_host > 0 ? max_in_connections_per_host : DEFAULT_MAX_CONNECTIONS)
         {
         }
 
