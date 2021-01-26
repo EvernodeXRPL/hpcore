@@ -20,10 +20,13 @@ async function main() {
     console.log('HotPocket Connected.');
 
     const tests = {
-        "Read requests": testReadRequests
+        "Read requests": testReadRequests,
+        "Input/Output": testInputOutput,
     };
 
     for (const test in tests) {
+
+        console.log(test + "...");
         const start = new Date();
 
         hpc.clear();
@@ -32,7 +35,7 @@ async function main() {
         const end = new Date();
         const duration = end.getTime() - start.getTime();
 
-        console.log(test + ": " + duration + "ms");
+        console.log(duration + "ms");
     }
 
     await hpc.close();
@@ -42,19 +45,39 @@ function testReadRequests(hpc) {
 
     return new Promise(resolve => {
 
-        const payload = "A".repeat(100 * 1024);
-        const requestCount = 100;
+        const payload = "A".repeat(10 * 1024);
+        const requestCount = 10;
         let respCount = 0;
 
         hpc.on(HotPocket.events.contractReadResponse, (response) => {
             respCount++;
-
             if (respCount == requestCount)
                 resolve();
         });
 
         for (let i = 0; i < requestCount; i++) {
             hpc.sendContractReadRequest(payload);
+        }
+    })
+}
+
+function testInputOutput(hpc) {
+
+    return new Promise(async (resolve) => {
+
+        const payload = "A".repeat(10 * 1024);
+        const requestCount = 10;
+        let respCount = 0;
+
+        hpc.on(HotPocket.events.contractOutput, (response) => {
+            respCount++;
+            if (respCount == requestCount)
+                resolve();
+        });
+
+        for (let i = 0; i < requestCount; i++) {
+            const nonce = i.toString().padStart(5);
+            await hpc.sendContractInput(payload, nonce, 20);
         }
     })
 }
