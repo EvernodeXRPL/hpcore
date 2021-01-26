@@ -2,7 +2,7 @@
 #define _HP_HPFS_HPFS_SERVE_
 
 #include "../util/h32.hpp"
-#include "hpfs.hpp"
+#include "hpfs_mount.hpp"
 #include "../p2p/p2p.hpp"
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 

@@ -6,7 +6,7 @@
 #include "../ledger.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
-#include "../hpfs/hpfs.hpp"
+#include "../hpfs/hpfs_manager.hpp"
 #include "../util/h32.hpp"
 #include "hpfs_sync.hpp"
 #include "../sc.hpp"
@@ -71,7 +71,7 @@ namespace hpfs_sync
 
         ctx.target_state_hash = target_state_hash;
         ctx.target_patch_hash = target_patch_hash;
-        if (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH) != target_patch_hash)
+        if (hpfs_manager::contract_fs.ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH) != target_patch_hash)
         {
             ctx.current_syncing_parent = hpfs::HPFS_PARENT_COMPONENTS::PATCH;
             ctx.current_parent_target_hash = ctx.target_patch_hash;
@@ -102,7 +102,7 @@ namespace hpfs_sync
             if (!ctx.is_syncing)
                 continue;
 
-            if (hpfs::acquire_rw_session() != -1)
+            if (hpfs_manager::contract_fs.acquire_rw_session() != -1)
             {
                 while (!ctx.is_shutting_down)
                 {
@@ -144,11 +144,11 @@ namespace hpfs_sync
 
                                     // Update global hash tracker with the new patch file hash.
                                     util::h32 updated_patch_hash;
-                                    hpfs::get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
-                                    hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, updated_patch_hash);
+                                    hpfs_manager::contract_fs.get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
+                                    hpfs_manager::contract_fs.ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, updated_patch_hash);
                                 }
 
-                                if (ctx.target_state_hash == hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE))
+                                if (ctx.target_state_hash == hpfs_manager::contract_fs.ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE))
                                     break;
 
                                 ctx.current_parent_target_hash = ctx.target_state_hash;
@@ -171,7 +171,7 @@ namespace hpfs_sync
                 }
 
                 LOG_INFO << "hpfs sync: All parents synced.";
-                hpfs::release_rw_session();
+                hpfs_manager::contract_fs.release_rw_session();
             }
             else
             {
@@ -316,14 +316,14 @@ namespace hpfs_sync
 
                 // After handling each response, check whether we have reached target hpfs state.
                 // get_hash returns 0 incase target parent is not existing in our side.
-                if (hpfs::get_hash(updated_state, hpfs::RW_SESSION_NAME, target_parent_vpath) == -1)
+                if (hpfs_manager::contract_fs.get_hash(updated_state, hpfs::RW_SESSION_NAME, target_parent_vpath) == -1)
                 {
                     LOG_ERROR << "hpfs sync: exiting due to hash check error.";
                     return -1;
                 }
 
                 // Update the central hpfs state tracker.
-                hpfs::ctx.set_hash(ctx.current_syncing_parent, updated_state);
+                hpfs_manager::contract_fs.ctx.set_hash(ctx.current_syncing_parent, updated_state);
 
                 LOG_DEBUG << "hpfs sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
@@ -515,7 +515,7 @@ namespace hpfs_sync
 
         // Get the children hash entries and compare with what we got from peer.
         std::vector<hpfs::child_hash_node> existing_fs_entries;
-        if (hpfs::get_dir_children_hashes(existing_fs_entries, hpfs::RW_SESSION_NAME, vpath) == -1)
+        if (hpfs_manager::contract_fs.get_dir_children_hashes(existing_fs_entries, hpfs::RW_SESSION_NAME, vpath) == -1)
             return -1;
 
         // Request more info on fs entries that exist on both sides but are different.
@@ -587,7 +587,7 @@ namespace hpfs_sync
 
         // File block hashes on our side (file might not exist on our side).
         std::vector<util::h32> existing_hashes;
-        if (hpfs::get_file_block_hashes(existing_hashes, hpfs::RW_SESSION_NAME, vpath) == -1 && errno != ENOENT)
+        if (hpfs_manager::contract_fs.get_file_block_hashes(existing_hashes, hpfs::RW_SESSION_NAME, vpath) == -1 && errno != ENOENT)
             return -1;
         const size_t existing_hash_count = existing_hashes.size();
 

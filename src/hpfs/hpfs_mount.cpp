@@ -1,4 +1,4 @@
-#include "hpfs.hpp"
+#include "hpfs_mount.hpp"
 #include "../conf.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
@@ -8,7 +8,7 @@
 namespace hpfs
 {
     constexpr const char *TRACE_ARG_ERROR = "trace=error";
-    constexpr const char *TRACE_ARG_DEBUG = "trace=error";
+    constexpr const char *TRACE_ARG_DEBUG = "trace=debug";
     constexpr const char *RW_SESSION = "/::hpfs.rw.hmap";
     constexpr const char *RO_SESSION = "/::hpfs.ro.";
     constexpr const char *RO_SESSION_HMAP = "/::hpfs.ro.hmap.";
@@ -18,15 +18,17 @@ namespace hpfs
 
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
-    bool init_success = false;
-    hpfs_context ctx;
 
     /**
-     * Performs system startup activitites related to hpfs execution.
+     * This should be called to activate the hpfs mount process.
      */
-    int init()
+    int hpfs_mount::init(std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history)
     {
-        if (start_hpfs_process(ctx.hpfs_pid) == -1)
+        this->fs_dir = fs_dir;
+        this->mount_dir = mount_dir;
+        this->rw_dir = rw_dir;
+        this->is_full_history = is_full_history;
+        if (start_hpfs_process() == -1)
             return -1;
 
         if (prepare_fs() == -1)
@@ -40,9 +42,9 @@ namespace hpfs
     }
 
     /**
-     * Performs global cleanup related to hpfs execution.
+     * Performs cleanup related to hpfs mount execution.
      */
-    void deinit()
+    void hpfs_mount::deinit()
     {
         if (init_success)
         {
@@ -57,7 +59,7 @@ namespace hpfs
      * During startup, we always populate patch.cfg with current values from hp.cfg.
      * @return 0 on success. -1 on failure.
      */
-    int prepare_fs()
+    int hpfs_mount::prepare_fs()
     {
         util::h32 initial_state_hash;
         util::h32 initial_patch_hash;
@@ -68,7 +70,7 @@ namespace hpfs
             get_hash(initial_patch_hash, RW_SESSION_NAME, hpfs::PATCH_FILE_PATH) == -1 ||
             release_rw_session() == -1)
         {
-            LOG_ERROR << "Failed to prepare initial fs.";
+            LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
             return -1;
         }
 
@@ -81,14 +83,14 @@ namespace hpfs
     /**
      * Starts the hpfs process used for all fs sessions.
      */
-    int start_hpfs_process(pid_t &hpfs_pid)
+    int hpfs_mount::start_hpfs_process()
     {
         const pid_t pid = fork();
         if (pid > 0)
         {
             // HotPocket process.
 
-            LOG_DEBUG << "Starting hpfs process.";
+            LOG_DEBUG << "Starting hpfs process at " << mount_dir << ".";
 
             // Wait until hpfs is initialized properly.
             const uint16_t max_retries = PROCESS_INIT_TIMEOUT / INIT_CHECK_INTERVAL;
@@ -108,9 +110,9 @@ namespace hpfs
 
                 // We check for the specific inode no. of the mounted root dir. That means hpfs FUSE interface is up.
                 struct stat st;
-                if (stat(conf::ctx.hpfs_mount_dir.c_str(), &st) == -1)
+                if (stat(mount_dir.data(), &st) == -1)
                 {
-                    LOG_ERROR << errno << ": Error in checking hpfs status.";
+                    LOG_ERROR << errno << ": Error in checking hpfs status at mount " << mount_dir << ".";
                     break;
                 }
 
@@ -122,13 +124,13 @@ namespace hpfs
             // Kill the process if hpfs couldn't be initialized properly.
             if (!hpfs_initialized)
             {
-                LOG_ERROR << "Couldn't initialize hpfs process.";
+                LOG_ERROR << "Couldn't initialize hpfs process at mount " << mount_dir << ".";
                 util::kill_process(pid, true);
                 return -1;
             }
 
-            hpfs_pid = pid;
-            LOG_DEBUG << "hpfs process started. pid:" << hpfs_pid;
+            ctx.hpfs_pid = pid;
+            LOG_DEBUG << "hpfs process started. pid:" << ctx.hpfs_pid;
         }
         else if (pid == 0)
         {
@@ -141,20 +143,20 @@ namespace hpfs
             char *execv_args[] = {
                 conf::ctx.hpfs_exe_path.data(),
                 (char *)"fs",
-                conf::ctx.hpfs_dir.data(),
-                conf::ctx.hpfs_mount_dir.data(),
+                (char *)fs_dir.data(),
+                (char *)mount_dir.data(),
                 // In full history mode, we disable log merge of hpfs.
-                (char *)(conf::cfg.node.full_history ? "merge=false" : "merge=true"),
+                (char *)(is_full_history ? "merge=false" : "merge=true"),
                 (char *)active_hpfs_trace_arg,
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
-            std::cerr << errno << ": hpfs process execv failed.\n";
+            std::cerr << errno << ": hpfs process execv failed at mount " << mount_dir << ".\n";
             exit(1);
         }
         else
         {
-            LOG_ERROR << errno << ": fork() failed when starting hpfs process.";
+            LOG_ERROR << errno << ": fork() failed when starting hpfs process at mount " << mount_dir << ".";
             return -1;
         }
 
@@ -166,19 +168,19 @@ namespace hpfs
      * If RW session already started, this will simply acquire a consumer reference.
      * @return 0 on success. -1 on failure.
      */
-    int acquire_rw_session()
+    int hpfs_mount::acquire_rw_session()
     {
         std::scoped_lock lock(ctx.rw_mutex);
 
-        LOG_DEBUG << "Starting hpfs rw session at " << conf::ctx.hpfs_rw_dir;
+        LOG_DEBUG << "Starting hpfs rw session at " << rw_dir;
 
-        const std::string session_file = conf::ctx.hpfs_mount_dir + RW_SESSION;
+        const std::string session_file = mount_dir + RW_SESSION;
 
         // The sessions creation either should be succesful or should report as already exists (errno=EEXIST).
         // Otherwise we consider it as failure.
         if (mknod(session_file.c_str(), 0, 0) == -1 && errno != EEXIST)
         {
-            LOG_ERROR << errno << ": Error starting hpfs rw session at " << conf::ctx.hpfs_rw_dir;
+            LOG_ERROR << errno << ": Error starting hpfs rw session at " << rw_dir;
             return -1;
         }
         ctx.rw_consumers++;
@@ -190,7 +192,7 @@ namespace hpfs
      * actually stops the running RW session.
      * @return 0 on success. -1 on failure.
      */
-    int release_rw_session()
+    int hpfs_mount::release_rw_session()
     {
         std::scoped_lock lock(ctx.rw_mutex);
 
@@ -199,10 +201,10 @@ namespace hpfs
 
         if (ctx.rw_consumers == 0)
         {
-            const std::string session_file = conf::ctx.hpfs_mount_dir + RW_SESSION;
+            const std::string session_file = mount_dir + RW_SESSION;
             if (unlink(session_file.c_str()) == -1)
             {
-                LOG_ERROR << errno << ": Error stopping hpfs rw session at " << conf::ctx.hpfs_rw_dir;
+                LOG_ERROR << errno << ": Error stopping hpfs rw session at " << rw_dir;
                 return -1;
             }
         }
@@ -213,11 +215,11 @@ namespace hpfs
      * Starts a virtual fs ReadOnly session.
      * @return 0 on success. -1 on failure.
      */
-    int start_ro_session(const std::string &name, const bool hmap_enabled)
+    int hpfs_mount::start_ro_session(const std::string &name, const bool hmap_enabled)
     {
         LOG_DEBUG << "Starting hpfs ro session " << name << " hmap:" << hmap_enabled;
 
-        const std::string session_file = conf::ctx.hpfs_mount_dir + (hmap_enabled ? RO_SESSION_HMAP : RO_SESSION) + name;
+        const std::string session_file = mount_dir + (hmap_enabled ? RO_SESSION_HMAP : RO_SESSION) + name;
         if (mknod(session_file.c_str(), 0, 0) == -1)
         {
             LOG_ERROR << errno << ": Error starting hpfs ro session " << name;
@@ -230,11 +232,11 @@ namespace hpfs
      * Stops the specified ReadOnly fs session.
      * @return 0 on success. -1 on failure.
      */
-    int stop_ro_session(const std::string &name)
+    int hpfs_mount::stop_ro_session(const std::string &name)
     {
         LOG_DEBUG << "Stopping hpfs ro session " << name;
 
-        const std::string session_file = conf::ctx.hpfs_mount_dir + RO_SESSION + name;
+        const std::string session_file = mount_dir + RO_SESSION + name;
         if (unlink(session_file.c_str()) == -1)
         {
             LOG_ERROR << errno << ": Error stopping hpfs ro session " << name;
@@ -247,7 +249,7 @@ namespace hpfs
      * Populates the hash of the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath)
+    int hpfs_mount::get_hash(util::h32 &hash, std::string_view session_name, std::string_view vpath)
     {
         const std::string path = physical_path(session_name, std::string(vpath).append(HMAP_HASH));
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
@@ -276,7 +278,7 @@ namespace hpfs
      * Populates the list of file block hashes for the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath)
+    int hpfs_mount::get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath)
     {
         const std::string path = physical_path(session_name, std::string(vpath).append(HMAP_CHILDREN));
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
@@ -316,7 +318,7 @@ namespace hpfs
      * Populates the list of dir entry hashes for the specified vpath.
      * @return 1 on success. 0 if vpath not found. -1 on error.
      */
-    int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath)
+    int hpfs_mount::get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath)
     {
         const std::string path = physical_path(session_name, std::string(dir_vpath).append(HMAP_CHILDREN));
         const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
@@ -352,9 +354,9 @@ namespace hpfs
         return 1;
     }
 
-    const std::string physical_path(std::string_view session_name, std::string_view vpath)
+    const std::string hpfs_mount::physical_path(std::string_view session_name, std::string_view vpath)
     {
-        return conf::ctx.hpfs_mount_dir + "/" + session_name.data() + vpath.data();
+        return mount_dir + "/" + session_name.data() + vpath.data();
     }
 
 } // namespace hpfs

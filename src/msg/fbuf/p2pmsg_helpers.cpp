@@ -4,7 +4,6 @@
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
 #include "../../util/h32.hpp"
-#include "../../hpfs/hpfs.hpp"
 #include "../../unl.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"

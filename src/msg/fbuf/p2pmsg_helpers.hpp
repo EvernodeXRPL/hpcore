@@ -4,7 +4,7 @@
 #include "../../pchheader.hpp"
 #include "../../p2p/p2p.hpp"
 #include "../../util/h32.hpp"
-#include "../../hpfs/hpfs.hpp"
+#include "../../hpfs/hpfs_mount.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
 

@@ -8,7 +8,7 @@
 #include "../hplog.hpp"
 #include "../ledger.hpp"
 #include "../util/buffer_store.hpp"
-#include "../hpfs/hpfs.hpp"
+#include "../hpfs/hpfs_mount.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_comm_session.hpp"
