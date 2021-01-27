@@ -68,25 +68,33 @@ namespace util::sqlite_wrapper
             const std::string input_hash,
             const std::string output_hash)
             : seq_no(std::move(seq_no)),
-            time(std::move(time)),
-            ledger_hash(std::move(ledger_hash)),
-            prev_ledger_hash(std::move(prev_ledger_hash)),
-            data_hash(std::move(data_hash)),
-            state_hash(std::move(state_hash)),
-            patch_hash(std::move(patch_hash)),
-            user_hash(std::move(user_hash)),
-            input_hash(std::move(input_hash)),
-            output_hash(std::move(output_hash))
+              time(std::move(time)),
+              ledger_hash(std::move(ledger_hash)),
+              prev_ledger_hash(std::move(prev_ledger_hash)),
+              data_hash(std::move(data_hash)),
+              state_hash(std::move(state_hash)),
+              patch_hash(std::move(patch_hash)),
+              user_hash(std::move(user_hash)),
+              input_hash(std::move(input_hash)),
+              output_hash(std::move(output_hash))
         {
         }
     };
 
     int open_db(std::string_view db_name, sqlite3 **db);
-    int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **), void *callback_first_arg);
-    int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info);
-    int insert_values(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings);
-    int create_ledger_table(sqlite3 *db);
-    int insert_ledger_row(sqlite3 *db, const ledger &ledger);
-} // namespace ledger::sqlite_wrapper
 
-#endif 
+    int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **), void *callback_first_arg);
+
+    int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info);
+
+    int insert_values(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings);
+
+    int insert_value(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string);
+
+    int create_ledger_table(sqlite3 *db);
+
+    int insert_ledger_row(sqlite3 *db, const ledger &ledger);
+
+} // namespace util::sqlite_wrapper
+
+#endif

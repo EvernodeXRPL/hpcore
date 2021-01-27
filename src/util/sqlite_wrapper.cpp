@@ -1,4 +1,5 @@
 #include "sqlite_wrapper.hpp"
+#include "util.hpp"
 
 namespace util::sqlite_wrapper
 {
@@ -55,7 +56,7 @@ namespace util::sqlite_wrapper
      * @param column_info Column info of the table.
      * @returns returns 0 on success, or -1 on error.
     */
-    int create_table(sqlite3 *db, std::string_view table_name, const std::vector<util::sqlite_wrapper::table_column_info> &column_info)
+    int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info)
     {
         std::string sql;
         sql.append(CREATE_TABLE);
@@ -125,6 +126,8 @@ namespace util::sqlite_wrapper
     int insert_value(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string)
     {
         std::string sql;
+        // Reserving the space for the query before construction.
+        sql.reserve(INSERT_INTO.size() + table_name.size() + column_names_string.size() + VALUES.size() + value_string.size() + 5);
 
         sql.append(INSERT_INTO);
         sql.append(table_name);
@@ -141,33 +144,28 @@ namespace util::sqlite_wrapper
     }
 
     /**
-    * Creates a table for ledger records.
-    * @param db Pointer to the db.
-    * @returns returns 0 on success, or -1 on error.
+     * Creates a table for ledger records.
+     * @param db Pointer to the db.
+     * @returns returns 0 on success, or -1 on error.
     */
     int create_ledger_table(sqlite3 *db)
     {
-        std::vector< util::sqlite_wrapper::table_column_info> column_info{
-             util::sqlite_wrapper::table_column_info("seq_no",  util::sqlite_wrapper::COLUMN_DATA_TYPE::INT, true),
-             util::sqlite_wrapper::table_column_info("time",  util::sqlite_wrapper::COLUMN_DATA_TYPE::INT),
-             util::sqlite_wrapper::table_column_info("ledger_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT),
-             util::sqlite_wrapper::table_column_info("prev_ledger_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT),
-             util::sqlite_wrapper::table_column_info("data_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT),
-             util::sqlite_wrapper::table_column_info("state_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT),
-             util::sqlite_wrapper::table_column_info("patch_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT),
-             util::sqlite_wrapper::table_column_info("user_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT),
-             util::sqlite_wrapper::table_column_info("input_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT),
-             util::sqlite_wrapper::table_column_info("output_hash",  util::sqlite_wrapper::COLUMN_DATA_TYPE::TEXT)};
+        std::vector<table_column_info> column_info{
+            table_column_info("seq_no", COLUMN_DATA_TYPE::INT, true),
+            table_column_info("time", COLUMN_DATA_TYPE::INT),
+            table_column_info("ledger_hash", COLUMN_DATA_TYPE::TEXT),
+            table_column_info("prev_ledger_hash", COLUMN_DATA_TYPE::TEXT),
+            table_column_info("data_hash", COLUMN_DATA_TYPE::TEXT),
+            table_column_info("state_hash", COLUMN_DATA_TYPE::TEXT),
+            table_column_info("patch_hash", COLUMN_DATA_TYPE::TEXT),
+            table_column_info("user_hash", COLUMN_DATA_TYPE::TEXT),
+            table_column_info("input_hash", COLUMN_DATA_TYPE::TEXT),
+            table_column_info("output_hash", COLUMN_DATA_TYPE::TEXT)};
 
-        if ( util::sqlite_wrapper::create_table(db, LEDGER_TABLE, column_info) == -1)
+        if (create_table(db, LEDGER_TABLE, column_info) == -1)
             return -1;
 
         return 0;
-    }
-
-    std::string add_quote(std::string value)
-    {
-        return "'" + value + "'";
     }
 
     /**
@@ -176,28 +174,29 @@ namespace util::sqlite_wrapper
      * @param ledger Ledger struct to be inserted.
      * @returns returns 0 on success, or -1 on error.
     */
-    int insert_ledger_row(sqlite3 *db, const util::sqlite_wrapper::ledger &ledger)
+    int insert_ledger_row(sqlite3 *db, const ledger &ledger)
     {
         const std::string ledger_seq_no_str = std::to_string(ledger.seq_no);
         const std::string ledger_time_str = std::to_string(ledger.time);
 
         std::string value_string;
-        value_string.reserve(ledger_seq_no_str.length() + ledger_time_str.length() + (64*8) + 9);
+        // Reserving the space for the query before construction.
+        value_string.reserve(ledger_seq_no_str.length() + ledger_time_str.length() + (64 * 8) + 9);
 
         value_string.append(ledger_seq_no_str + ",");
         value_string.append(ledger_time_str + ",");
-        value_string.append(add_quote(ledger.ledger_hash) + ",");
-        value_string.append(add_quote(ledger.prev_ledger_hash) + ",");
-        value_string.append(add_quote(ledger.data_hash) + ",");
-        value_string.append(add_quote(ledger.state_hash) + ",");
-        value_string.append(add_quote(ledger.patch_hash) + ",");
-        value_string.append(add_quote(ledger.user_hash) + ",");
-        value_string.append(add_quote(ledger.input_hash) + ",");
-        value_string.append(add_quote(ledger.output_hash));
+        value_string.append(util::wrap_in_single_quote(ledger.ledger_hash) + ",");
+        value_string.append(util::wrap_in_single_quote(ledger.prev_ledger_hash) + ",");
+        value_string.append(util::wrap_in_single_quote(ledger.data_hash) + ",");
+        value_string.append(util::wrap_in_single_quote(ledger.state_hash) + ",");
+        value_string.append(util::wrap_in_single_quote(ledger.patch_hash) + ",");
+        value_string.append(util::wrap_in_single_quote(ledger.user_hash) + ",");
+        value_string.append(util::wrap_in_single_quote(ledger.input_hash) + ",");
+        value_string.append(util::wrap_in_single_quote(ledger.output_hash));
 
-        if ( insert_value(db, LEDGER_TABLE, LEDGER_COLUMNS, value_string) == -1)
+        if (insert_value(db, LEDGER_TABLE, LEDGER_COLUMNS, value_string) == -1)
             return -1;
 
         return 0;
     }
-} // namespace ledger::sqlite_wrapper
+} // namespace util::sqlite_wrapper
