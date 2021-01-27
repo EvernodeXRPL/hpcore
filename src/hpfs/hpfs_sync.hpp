@@ -7,7 +7,7 @@
 #include "../util/h32.hpp"
 #include "../crypto.hpp"
 
-namespace hpfs_sync
+namespace hpfs
 {
 
     enum BACKLOG_ITEM_TYPE
@@ -33,11 +33,16 @@ namespace hpfs_sync
     struct sync_context
     {
         // The current target hashes we are syncing towards.
-        util::h32 target_state_hash;
-        util::h32 target_patch_hash;
-        util::h32 current_parent_target_hash;
+        util::h32 target_hash_one;
+        std::string target_one_vpath;
+        BACKLOG_ITEM_TYPE target_one_item_type;
+        util::h32 target_hash_two;
+        std::string target_two_vpath;
+        BACKLOG_ITEM_TYPE target_two_item_type;
 
-        hpfs::HPFS_PARENT_COMPONENTS current_syncing_parent;
+        util::h32 current_target_hash;
+        std::string current_target_vpath;
+        BACKLOG_ITEM_TYPE current_target_item_type;
 
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
         std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
@@ -54,37 +59,52 @@ namespace hpfs_sync
         std::atomic<bool> is_shutting_down = false;
     };
 
-    extern sync_context ctx;
+    class hpfs_sync
+    {
+    private:
+        bool init_success = false;
+        uint16_t REQUEST_RESUBMIT_TIMEOUT; // No. of milliseconds to wait before resubmitting a request.
+        hpfs::hpfs_mount *fs_mount = NULL;
+        std::string name;
 
-    int init();
+    public:
+        sync_context ctx;
 
-    void deinit();
+        int init(std::string_view name, hpfs::hpfs_mount *fs_mount);
 
-    void set_target(const util::h32 target_state_hash, const util::h32 target_patch_hash);
+        void deinit();
 
-    void hpfs_syncer_loop();
+        void set_target(const util::h32 target_hash_one, std::string_view target_one_vpath, BACKLOG_ITEM_TYPE target_one_item_type,
+                        const util::h32 target_hash_two = util::h32_empty, std::string_view target_two_vpath = "", BACKLOG_ITEM_TYPE target_two_item_type = BACKLOG_ITEM_TYPE::DIR);
 
-    int request_loop(const util::h32 current_target, util::h32 &updated_state);
+        void hpfs_syncer_loop();
 
-    bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
+        int request_loop(const util::h32 current_target, util::h32 &updated_state);
 
-    bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const util::h32 *hashes, const size_t hash_count);
+        bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 
-    bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
+        bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const util::h32 *hashes, const size_t hash_count);
 
-    bool should_stop_request_loop(const util::h32 current_target);
+        bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
 
-    void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                 const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey);
+        bool should_stop_request_loop(const util::h32 &current_target);
 
-    void submit_request(const backlog_item &request, std::string_view lcl);
+        void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
+                                     const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey);
 
-    int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
+        void submit_request(const backlog_item &request, std::string_view lcl);
 
-    int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
+        int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 
-    int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
+        int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 
-} // namespace hpfs_sync
+        int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
+
+        int handle_hpfs_responses(const util::h32 &current_target, util::h32 &updated_state);
+
+        int on_sync_state_acheived(const util::h32 &new_state);
+    };
+
+} // namespace hpfs
 
 #endif

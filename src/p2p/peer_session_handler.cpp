@@ -213,7 +213,7 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_Hpfs_Response_Message)
         {
-            if (hpfs_sync::ctx.is_syncing) // Only accept state responses if state is syncing.
+            if (hpfs_manager::contract_sync.ctx.is_syncing) // Only accept hpfs responses if hpfs fs is syncing.
             {
                 // Check the cap and insert state_response with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_responses_mutex);
@@ -226,7 +226,7 @@ namespace p2p
                 }
                 else
                 {
-                    LOG_DEBUG << "State response rejected. Maximum state response count reached. " << session.display_name();
+                    LOG_DEBUG << "Contract hpfs response rejected. Maximum contract hpfs response count reached. " << session.display_name();
                 }
             }
         }

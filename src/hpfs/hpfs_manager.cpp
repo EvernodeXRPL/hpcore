@@ -6,6 +6,7 @@ namespace hpfs_manager
 {
     hpfs::hpfs_mount contract_fs; // Global contract file system instance. 
     hpfs::hpfs_serve contract_serve;
+    hpfs::hpfs_sync contract_sync;
 
     /**
      * Initialize necessary file system mounts to hpcore.
@@ -18,6 +19,9 @@ namespace hpfs_manager
         if (contract_serve.init("contract", &contract_fs) == -1)
             return -1;
 
+        if (contract_sync.init("contract", &contract_fs) == -1)
+            return -1;
+
         return 0;
     }
 
@@ -28,6 +32,7 @@ namespace hpfs_manager
     {
         contract_fs.deinit();
         contract_serve.deinit();
+        contract_sync.deinit();
     }
 
 } // namespace hpfs_manager

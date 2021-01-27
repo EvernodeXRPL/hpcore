@@ -75,8 +75,8 @@ namespace hpfs
             return -1;
         }
 
-        ctx.set_hash(HPFS_PARENT_COMPONENTS::STATE, initial_state_hash);
-        ctx.set_hash(HPFS_PARENT_COMPONENTS::PATCH, initial_patch_hash);
+        ctx.set_hash(hpfs::STATE_DIR_PATH, initial_state_hash);
+        ctx.set_hash(hpfs::PATCH_FILE_PATH, initial_patch_hash);
         LOG_INFO << "Initial state: " << initial_state_hash << " | patch: " << initial_patch_hash;
         return 0;
     }

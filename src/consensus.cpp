@@ -114,8 +114,8 @@ namespace consensus
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         hpfs::hpfs_mount &contract_fs = hpfs_manager::contract_fs; // Ref of the contract_fs object.
-        util::h32 state_hash = contract_fs.ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE);
-        util::h32 patch_hash = contract_fs.ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH);
+        util::h32 state_hash = contract_fs.ctx.get_hash(hpfs::STATE_DIR_PATH);
+        util::h32 patch_hash = contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH);
 
         if (ctx.stage == 0)
         {
@@ -204,7 +204,8 @@ namespace consensus
             if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                hpfs_sync::set_target(majority_state_hash, majority_patch_hash);
+                hpfs_manager::contract_sync.set_target(majority_patch_hash, hpfs::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE,
+                 majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR);
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
@@ -214,7 +215,7 @@ namespace consensus
                 return 0;
             }
 
-            // lcl, hpfs or unl desync.
+            // lcl or hpfs desync.
             return -1;
         }
 
@@ -228,7 +229,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs_manager::contract_sync.ctx.is_syncing && !ledger::sync_ctx.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -760,7 +761,7 @@ namespace consensus
             }
         }
 
-        is_state_desync = (hpfs_manager::contract_fs.ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE) != majority_state_hash);
+        is_state_desync = (hpfs_manager::contract_fs.ctx.get_hash(hpfs::STATE_DIR_PATH) != majority_state_hash);
     }
 
     /**
@@ -786,7 +787,7 @@ namespace consensus
             }
         }
 
-        is_patch_desync = (hpfs_manager::contract_fs.ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH) != majority_patch_hash);
+        is_patch_desync = (hpfs_manager::contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
     }
 
     /**
@@ -872,7 +873,7 @@ namespace consensus
                 return -1;
             }
 
-            hpfs_manager::contract_fs.ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE, args.post_execution_state_hash);
+            hpfs_manager::contract_fs.ctx.set_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
             new_state_hash = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);

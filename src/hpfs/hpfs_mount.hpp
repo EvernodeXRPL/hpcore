@@ -29,12 +29,6 @@ namespace hpfs
         return conf::cfg.contract.roundtime;
     }
 
-    enum HPFS_PARENT_COMPONENTS
-    {
-        STATE,
-        PATCH
-    };
-
     enum MOUNTS
     {
         CONTRACT
@@ -43,8 +37,8 @@ namespace hpfs
     struct hpfs_context
     {
     private:
-        std::vector<util::h32> parent_hashes;                                             // Keep hashes of each hpfs parent.
-        std::shared_mutex parent_mutexes[2] = {std::shared_mutex(), std::shared_mutex()}; // Mutexes for each parent.
+        std::unordered_map<std::string, util::h32> parent_hashes; // Keep hashes of each hpfs parent.
+        std::shared_mutex parent_hashes_mutex;
 
     public:
         pid_t hpfs_pid = 0;
@@ -54,25 +48,30 @@ namespace hpfs
         uint32_t rw_consumers = 0;
         std::mutex rw_mutex;
 
-        hpfs_context()
+        util::h32 get_hash(const std::string &parent)
         {
-            parent_hashes.reserve(2);
-            for (size_t i = 0; i < 2; i++)
+            std::shared_lock lock(parent_hashes_mutex);
+            const auto itr = parent_hashes.find(parent);
+            if (itr == parent_hashes.end())
             {
-                parent_hashes.push_back(util::h32_empty);
+                return util::h32_empty; // Looking parent is not found.
             }
+            return itr->second;
         }
 
-        util::h32 get_hash(const HPFS_PARENT_COMPONENTS parent)
+        void set_hash(const std::string &parent, util::h32 new_state)
         {
-            std::shared_lock lock(parent_mutexes[parent]);
-            return parent_hashes[parent];
-        }
-
-        void set_hash(const HPFS_PARENT_COMPONENTS parent, util::h32 new_state)
-        {
-            std::unique_lock lock(parent_mutexes[parent]);
-            parent_hashes[parent] = new_state;
+            std::unique_lock lock(parent_hashes_mutex);
+            const auto itr = parent_hashes.find(parent);
+            if (itr == parent_hashes.end())
+            {
+                parent_hashes.try_emplace(parent, new_state);
+            }
+            else
+            {
+                itr->second = new_state;
+            }
+            
         }
     };
 
