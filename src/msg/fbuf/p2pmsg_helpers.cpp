@@ -274,7 +274,7 @@ namespace msg::fbuf::p2pmsg
     const p2p::hpfs_request create_hpfs_request_from_msg(const Hpfs_Request_Message &msg)
     {
         p2p::hpfs_request hr;
-
+        hr.mount_id = msg.mount_id();
         hr.block_id = msg.block_id();
         hr.is_file = msg.is_file();
         hr.parent_path = flatbuff_str_to_sv(msg.parent_path());
@@ -467,13 +467,14 @@ namespace msg::fbuf::p2pmsg
      * @param container_builder Flatbuffer builder for the container message.
      * @param hr The hpfs request struct to be placed in the container message.
      */
-    void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl)
+    void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
         flatbuffers::Offset<Hpfs_Request_Message> srmsg =
             CreateHpfs_Request_Message(
                 builder,
+                hr.mount_id,
                 sv_to_flatbuff_str(builder, hr.parent_path),
                 hr.is_file,
                 hr.block_id,

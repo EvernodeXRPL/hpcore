@@ -22,8 +22,9 @@ namespace hpfs
     /**
      * This should be called to activate the hpfs mount process.
      */
-    int hpfs_mount::init(std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history)
+    int hpfs_mount::init(MOUNTS mount_type, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history)
     {
+        this->mount_type = mount_type;
         this->fs_dir = fs_dir;
         this->mount_dir = mount_dir;
         this->rw_dir = rw_dir;

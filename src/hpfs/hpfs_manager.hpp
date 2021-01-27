@@ -5,6 +5,7 @@
 
 namespace hpfs_manager
 {
+    constexpr int32_t CONTRACT_FS_ID = 0;
 
     extern hpfs::hpfs_mount contract_fs;
     int init();

@@ -14,6 +14,7 @@
 #include "peer_comm_session.hpp"
 #include "p2p.hpp"
 #include "../unl.hpp"
+#include "../hpfs/hpfs_manager.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -192,18 +193,22 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_Hpfs_Request_Message)
         {
-            // Check the cap and insert request with lock.
-            std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_requests_mutex);
+            const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(content_ptr);
+            const p2p::hpfs_request hr = p2pmsg::create_hpfs_request_from_msg(*content->message_as_Hpfs_Request_Message());
+            if (hr.mount_id == hpfs_manager::CONTRACT_FS_ID)
+            {
+                // Check the cap and insert request with lock.
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.contract_hpfs_requests_mutex);
 
-            // If max number of state requests reached skip the rest.
-            if (ctx.collected_msgs.hpfs_requests.size() < p2p::STATE_REQ_LIST_CAP)
-            {
-                std::string state_request_msg(reinterpret_cast<const char *>(content_ptr), content_size);
-                ctx.collected_msgs.hpfs_requests.push_back(std::make_pair(session.pubkey, std::move(state_request_msg)));
-            }
-            else
-            {
-                LOG_DEBUG << "State request rejected. Maximum state request count reached. " << session.display_name();
+                // If max number of state requests reached skip the rest.
+                if (ctx.collected_msgs.contract_hpfs_requests.size() < p2p::HPFS_REQ_LIST_CAP)
+                {
+                    ctx.collected_msgs.contract_hpfs_requests.push_back(std::make_pair(session.pubkey, std::move(hr)));
+                }
+                else
+                {
+                    LOG_DEBUG << "Hpfs contract fs request rejected. Maximum hpfs contract fs request count reached. " << session.display_name();
+                }
             }
         }
         else if (content_message_type == p2pmsg::Message_Hpfs_Response_Message)
@@ -214,7 +219,7 @@ namespace p2p
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_responses_mutex);
 
                 // If max number of state responses reached skip the rest.
-                if (ctx.collected_msgs.hpfs_responses.size() < p2p::STATE_RES_LIST_CAP)
+                if (ctx.collected_msgs.hpfs_responses.size() < p2p::HPFS_RES_LIST_CAP)
                 {
                     std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
                     ctx.collected_msgs.hpfs_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));

@@ -35,6 +35,11 @@ namespace hpfs
         PATCH
     };
 
+    enum MOUNTS
+    {
+        CONTRACT
+    };
+
     struct hpfs_context
     {
     private:
@@ -76,13 +81,14 @@ namespace hpfs
     private:
         std::string fs_dir;
         std::string mount_dir;
-        std::string rw_dir;
         bool is_full_history;
         bool init_success = false;
 
     public:
+        std::string rw_dir;
+        MOUNTS mount_type;
         hpfs_context ctx;
-        int init(std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history);
+        int init(MOUNTS mount_type, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history);
         void deinit();
         int prepare_fs();
 

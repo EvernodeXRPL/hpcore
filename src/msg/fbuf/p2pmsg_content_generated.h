@@ -1311,11 +1311,18 @@ inline flatbuffers::Offset<HistoryLedgerBlock> CreateHistoryLedgerBlockDirect(
 struct Hpfs_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Hpfs_Request_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PARENT_PATH = 4,
-    VT_IS_FILE = 6,
-    VT_BLOCK_ID = 8,
-    VT_EXPECTED_HASH = 10
+    VT_MOUNT_ID = 4,
+    VT_PARENT_PATH = 6,
+    VT_IS_FILE = 8,
+    VT_BLOCK_ID = 10,
+    VT_EXPECTED_HASH = 12
   };
+  int32_t mount_id() const {
+    return GetField<int32_t>(VT_MOUNT_ID, 0);
+  }
+  bool mutate_mount_id(int32_t _mount_id) {
+    return SetField<int32_t>(VT_MOUNT_ID, _mount_id, 0);
+  }
   const flatbuffers::String *parent_path() const {
     return GetPointer<const flatbuffers::String *>(VT_PARENT_PATH);
   }
@@ -1342,6 +1349,7 @@ struct Hpfs_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_MOUNT_ID) &&
            VerifyOffset(verifier, VT_PARENT_PATH) &&
            verifier.VerifyString(parent_path()) &&
            VerifyField<uint8_t>(verifier, VT_IS_FILE) &&
@@ -1356,6 +1364,9 @@ struct Hpfs_Request_MessageBuilder {
   typedef Hpfs_Request_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_mount_id(int32_t mount_id) {
+    fbb_.AddElement<int32_t>(Hpfs_Request_Message::VT_MOUNT_ID, mount_id, 0);
+  }
   void add_parent_path(flatbuffers::Offset<flatbuffers::String> parent_path) {
     fbb_.AddOffset(Hpfs_Request_Message::VT_PARENT_PATH, parent_path);
   }
@@ -1381,6 +1392,7 @@ struct Hpfs_Request_MessageBuilder {
 
 inline flatbuffers::Offset<Hpfs_Request_Message> CreateHpfs_Request_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t mount_id = 0,
     flatbuffers::Offset<flatbuffers::String> parent_path = 0,
     bool is_file = false,
     int32_t block_id = 0,
@@ -1389,12 +1401,14 @@ inline flatbuffers::Offset<Hpfs_Request_Message> CreateHpfs_Request_Message(
   builder_.add_expected_hash(expected_hash);
   builder_.add_block_id(block_id);
   builder_.add_parent_path(parent_path);
+  builder_.add_mount_id(mount_id);
   builder_.add_is_file(is_file);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Hpfs_Request_Message> CreateHpfs_Request_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t mount_id = 0,
     const char *parent_path = nullptr,
     bool is_file = false,
     int32_t block_id = 0,
@@ -1403,6 +1417,7 @@ inline flatbuffers::Offset<Hpfs_Request_Message> CreateHpfs_Request_MessageDirec
   auto expected_hash__ = expected_hash ? _fbb.CreateVector<uint8_t>(*expected_hash) : 0;
   return msg::fbuf::p2pmsg::CreateHpfs_Request_Message(
       _fbb,
+      mount_id,
       parent_path__,
       is_file,
       block_id,

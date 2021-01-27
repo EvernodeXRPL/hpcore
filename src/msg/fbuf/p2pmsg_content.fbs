@@ -93,6 +93,7 @@ table HistoryLedgerBlock {
 }
 
 table Hpfs_Request_Message { //Hpfs request message schema
+    mount_id: int32;
     parent_path:string;
     is_file:bool;
     block_id:int32;

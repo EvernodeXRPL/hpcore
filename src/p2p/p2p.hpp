@@ -14,8 +14,8 @@ namespace p2p
 {
     constexpr uint16_t PROPOSAL_LIST_CAP = 64;        // Maximum proposal count.
     constexpr uint16_t NONUNL_PROPOSAL_LIST_CAP = 64; // Maximum nonunl proposal count.
-    constexpr uint16_t STATE_REQ_LIST_CAP = 64;       // Maximum state request count.
-    constexpr uint16_t STATE_RES_LIST_CAP = 64;       // Maximum state response count.
+    constexpr uint16_t HPFS_REQ_LIST_CAP = 64;       // Maximum state request count.
+    constexpr uint16_t HPFS_RES_LIST_CAP = 64;       // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
     struct proposal
@@ -28,8 +28,8 @@ namespace p2p
         uint8_t stage = 0;
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
-        util::h32 state_hash;   // Contract state hash.
-        util::h32 patch_hash;   // Patch file hash.
+        util::h32 state_hash; // Contract state hash.
+        util::h32 patch_hash; // Patch file hash.
         std::set<std::string> users;
         std::set<std::string> input_hashes;
         std::string output_hash;
@@ -91,6 +91,7 @@ namespace p2p
     // Represents a hpfs request sent to a peer.
     struct hpfs_request
     {
+        int32_t mount_id;        // Relavent file system id.
         std::string parent_path; // The requested file or dir path.
         bool is_file = false;    // Whether the path is a file or dir.
         int32_t block_id = 0;    // Block id of the file if we are requesting for file block. Otherwise -1.
@@ -123,8 +124,8 @@ namespace p2p
         std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 
         // List of pairs indicating the session pubkey hex and the hpfs requests.
-        std::list<std::pair<std::string, std::string>> hpfs_requests;
-        std::mutex hpfs_requests_mutex; // Mutex for hpfs requests access race conditions.
+        std::list<std::pair<std::string, p2p::hpfs_request>> contract_hpfs_requests;
+        std::mutex contract_hpfs_requests_mutex; // Mutex for hpfs requests access race conditions.
 
         // List of pairs indicating the session pubkey hex and the hpfs responses.
         std::list<std::pair<std::string, std::string>> hpfs_responses;

@@ -472,9 +472,10 @@ namespace hpfs_sync
         hr.is_file = is_file;
         hr.block_id = block_id;
         hr.expected_hash = expected_hash;
+        hr.mount_id = hpfs_manager::CONTRACT_FS_ID;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_state_request(fbuf, hr, lcl);
+        msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, lcl);
         p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority hpfs state to improve reliability of retrieving hpfs state.
     }
 
