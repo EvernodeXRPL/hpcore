@@ -119,7 +119,7 @@ namespace util::sqlite_wrapper
      * @param db Pointer to the db.
      * @param table_name Table name to be populated.
      * @param column_names_string Comma seperated string of colums (eg: "col_1,col_2,...").
-     * @param value_strings Vector of comma seperated values (wrap in single quotes for TEXT type) (eg: ["r1val1,'r1val2',...", "r2val1,'r2val2',..."]).
+     * @param value_string comma seperated values as per column order (wrap in single quotes for TEXT type) (eg: "r1val1,'r1val2',...").
      * @returns returns 0 on success, or -1 on error.
     */
     int insert_value(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string)
