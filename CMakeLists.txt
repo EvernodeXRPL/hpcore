@@ -30,6 +30,7 @@ add_executable(hpcore
     src/util/buffer_store.cpp
     src/util/merkle_hash_tree.cpp
     src/util/h32.cpp
+    src/util/sqlite_wrapper.cpp
     src/unl.cpp
     src/crypto.cpp
     src/conf.cpp
@@ -68,6 +69,7 @@ target_link_libraries(hpcore
     libblake3.so
     libboost_stacktrace_backtrace.a
     backtrace
+    sqlite3
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
 add_dependencies(hpcore
