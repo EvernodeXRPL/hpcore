@@ -140,6 +140,11 @@ namespace util::sqlite_wrapper
         return exec_sql(db, sql);
     }
 
+    /**
+    * Creates a table for ledger records.
+    * @param db Pointer to the db.
+    * @returns returns 0 on success, or -1 on error.
+    */
     int create_ledger_table(sqlite3 *db)
     {
         std::vector< util::sqlite_wrapper::table_column_info> column_info{
@@ -165,6 +170,12 @@ namespace util::sqlite_wrapper
         return "'" + value + "'";
     }
 
+    /**
+     * Inserts a ledger record.
+     * @param db Pointer to the db.
+     * @param ledger Ledger struct to be inserted.
+     * @returns returns 0 on success, or -1 on error.
+    */
     int insert_ledger_row(sqlite3 *db, const util::sqlite_wrapper::ledger &ledger)
     {
         const std::string ledger_seq_no_str = std::to_string(ledger.seq_no);
