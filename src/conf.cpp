@@ -345,6 +345,7 @@ namespace conf
                 cfg.mesh.msg_forwarding = mesh["msg_forwarding"].as<bool>();
                 cfg.mesh.max_connections = mesh["max_connections"].as<uint16_t>();
                 cfg.mesh.max_known_connections = mesh["max_known_connections"].as<uint16_t>();
+                cfg.mesh.max_in_connections_per_host = mesh["max_in_connections_per_host"].as<uint16_t>();
                 // If max_connections is greater than max_known_connections then show error and stop execution.
                 if (cfg.mesh.max_known_connections > cfg.mesh.max_connections)
                 {
@@ -383,7 +384,8 @@ namespace conf
             {
                 const jsoncons::ojson &user = d["user"];
                 cfg.user.port = user["port"].as<uint16_t>();
-                cfg.user.max_connections = user["max_connections"].as<unsigned int>();
+                cfg.user.max_connections = user["max_connections"].as<uint64_t>();
+                cfg.user.max_in_connections_per_host = user["max_in_connections_per_host"].as<uint64_t>();
                 cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
                 cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
@@ -429,69 +431,80 @@ namespace conf
         jsoncons::ojson d;
         d.insert_or_assign("hp_version", cfg.hp_version);
 
-        // Node configs.
-        jsoncons::ojson node_config;
-        node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
-        node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
-        node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
-        // node_config.insert_or_assign("full_history", cfg.node.full_history);
-        d.insert_or_assign("node", node_config);
+        // Node config.
+        {
+            jsoncons::ojson node_config;
+            node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
+            node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
+            node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+            d.insert_or_assign("node", node_config);
+        }
 
         // Contract config section.
-        jsoncons::ojson contract;
-        populate_contract_section_json(contract, cfg.contract, false);
-        d.insert_or_assign("contract", contract);
+        {
+            jsoncons::ojson contract;
+            populate_contract_section_json(contract, cfg.contract, false);
+            d.insert_or_assign("contract", contract);
+        }
 
         // Mesh configs.
-        jsoncons::ojson mesh_config;
-        mesh_config.insert_or_assign("port", cfg.mesh.port);
-
-        jsoncons::ojson peers(jsoncons::json_array_arg);
-        for (const auto &peer : cfg.mesh.known_peers)
         {
-            const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
-            peers.push_back(concat_str);
+            jsoncons::ojson mesh_config;
+            mesh_config.insert_or_assign("port", cfg.mesh.port);
+
+            jsoncons::ojson peers(jsoncons::json_array_arg);
+            for (const auto &peer : cfg.mesh.known_peers)
+            {
+                const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
+                peers.push_back(concat_str);
+            }
+            mesh_config.insert_or_assign("known_peers", peers);
+            mesh_config.insert_or_assign("msg_forwarding", cfg.mesh.msg_forwarding);
+            mesh_config.insert_or_assign("max_connections", cfg.mesh.max_connections);
+            mesh_config.insert_or_assign("max_known_connections", cfg.mesh.max_known_connections);
+            mesh_config.insert_or_assign("max_in_connections_per_host", cfg.mesh.max_in_connections_per_host);
+            mesh_config.insert_or_assign("max_bytes_per_msg", cfg.mesh.max_bytes_per_msg);
+            mesh_config.insert_or_assign("max_bytes_per_min", cfg.mesh.max_bytes_per_min);
+            mesh_config.insert_or_assign("max_bad_msgs_per_min", cfg.mesh.max_bad_msgs_per_min);
+            mesh_config.insert_or_assign("max_bad_msgsigs_per_min", cfg.mesh.max_bad_msgsigs_per_min);
+            mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
+            mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
+
+            jsoncons::ojson peer_discovery_config;
+            peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
+            peer_discovery_config.insert_or_assign("interval", cfg.mesh.peer_discovery.interval);
+
+            mesh_config.insert_or_assign("peer_discovery", peer_discovery_config);
+            d.insert_or_assign("mesh", mesh_config);
         }
-        mesh_config.insert_or_assign("known_peers", peers);
-        mesh_config.insert_or_assign("msg_forwarding", cfg.mesh.msg_forwarding);
-        mesh_config.insert_or_assign("max_connections", cfg.mesh.max_connections);
-        mesh_config.insert_or_assign("max_known_connections", cfg.mesh.max_known_connections);
-        mesh_config.insert_or_assign("max_bytes_per_msg", cfg.mesh.max_bytes_per_msg);
-        mesh_config.insert_or_assign("max_bytes_per_min", cfg.mesh.max_bytes_per_min);
-        mesh_config.insert_or_assign("max_bad_msgs_per_min", cfg.mesh.max_bad_msgs_per_min);
-        mesh_config.insert_or_assign("max_bad_msgsigs_per_min", cfg.mesh.max_bad_msgsigs_per_min);
-        mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
-        mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
-
-        jsoncons::ojson peer_discovery_config;
-        peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
-        peer_discovery_config.insert_or_assign("interval", cfg.mesh.peer_discovery.interval);
-
-        mesh_config.insert_or_assign("peer_discovery", peer_discovery_config);
-        d.insert_or_assign("mesh", mesh_config);
 
         // User configs.
-        jsoncons::ojson user_config;
-        user_config.insert_or_assign("port", cfg.user.port);
-        user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
-        user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
-        user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
-        user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
-        user_config.insert_or_assign("max_connections", cfg.user.max_connections);
-        user_config.insert_or_assign("enabled", cfg.user.enabled);
-        d.insert_or_assign("user", user_config);
+        {
+            jsoncons::ojson user_config;
+            user_config.insert_or_assign("port", cfg.user.port);
+            user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
+            user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
+            user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
+            user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
+            user_config.insert_or_assign("max_connections", cfg.user.max_connections);
+            user_config.insert_or_assign("max_in_connections_per_host", cfg.user.max_in_connections_per_host);
+            user_config.insert_or_assign("enabled", cfg.user.enabled);
+            d.insert_or_assign("user", user_config);
+        }
 
         // Log configs.
-        jsoncons::ojson log_config;
-        log_config.insert_or_assign("loglevel", cfg.log.loglevel);
-
-        jsoncons::ojson loggers(jsoncons::json_array_arg);
-        for (std::string_view logger : cfg.log.loggers)
         {
-            loggers.push_back(logger);
+            jsoncons::ojson log_config;
+            log_config.insert_or_assign("loglevel", cfg.log.loglevel);
+
+            jsoncons::ojson loggers(jsoncons::json_array_arg);
+            for (std::string_view logger : cfg.log.loggers)
+            {
+                loggers.push_back(logger);
+            }
+            log_config.insert_or_assign("loggers", loggers);
+            d.insert_or_assign("log", log_config);
         }
-        log_config.insert_or_assign("loggers", loggers);
-        d.insert_or_assign("log", log_config);
 
         return write_json_file(ctx.config_file, d);
     }

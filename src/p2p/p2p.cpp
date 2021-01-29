@@ -49,7 +49,8 @@ namespace p2p
 
     int start_peer_connections()
     {
-        ctx.server.emplace(conf::cfg.mesh.port, metric_thresholds, conf::cfg.mesh.max_bytes_per_msg, conf::cfg.mesh.known_peers);
+        ctx.server.emplace(conf::cfg.mesh.port, metric_thresholds, conf::cfg.mesh.max_bytes_per_msg,
+                           conf::cfg.mesh.max_connections, conf::cfg.mesh.max_in_connections_per_host, conf::cfg.mesh.known_peers);
         if (ctx.server->start() == -1)
             return -1;
 
