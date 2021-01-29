@@ -93,7 +93,7 @@ namespace ledger
 
     const std::pair<uint64_t, std::string> get_ledger_cache_top();
 
-    int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> raw_inputs);
+    int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> &raw_inputs);
 
     void remove_old_ledgers(const uint64_t led_seq_no);
 

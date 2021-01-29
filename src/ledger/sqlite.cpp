@@ -18,7 +18,7 @@ namespace ledger::sqlite
     /**
      * Opens a connection to a given databse and give the db pointer.
      * @param db_name Database name to be connected.
-     * @param db Pointer to the db pointer which is to be connected and ponted.
+     * @param db Pointer to the db pointer which is to be connected and pointed.
      * @returns returns 0 on success, or -1 on error.
     */
     int open_db(std::string_view db_name, sqlite3 **db)
@@ -39,7 +39,7 @@ namespace ledger::sqlite
      * @param callback_first_arg First data argumat to be parced to the callback (void pointer).
      * @returns returns 0 on success, or -1 on error.
     */
-    int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **) = NULL, void *callback_first_arg = NULL)
+    int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **), void *callback_first_arg)
     {
         char *err_msg;
         if (sqlite3_exec(db, sql.data(), callback, (callback != NULL ? (void *)callback_first_arg : NULL), &err_msg) != SQLITE_OK)
@@ -67,7 +67,9 @@ namespace ledger::sqlite
 
         for (auto itr = column_info.begin(); itr != column_info.end(); ++itr)
         {
-            sql.append(itr->name + " " + COLUMN_DATA_TYPES[itr->column_type]);
+            sql.append(itr->name);
+            sql.append(" ");
+            sql.append(COLUMN_DATA_TYPES[itr->column_type]);
 
             if (itr->is_key)
             {

@@ -338,11 +338,11 @@ namespace ledger
      * @param proposal Consensus-reached Stage 3 proposal.
      * @param raw_inputs Raw inputs that are going to store.
      */
-    int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> raw_inputs)
+    int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> &raw_inputs)
     {
         // This is used as a sample to create ledger sqlite database,
         // Later this callee method can be called directly from consensus on ledger storage implementations. 
-        // ledger::ledger_sample::save_ledger(proposal, raw_inputs);
+        // ledger::ledger_sample::save_ledger(proposal);
 
         uint64_t seq_no = 0;
         std::string hash;

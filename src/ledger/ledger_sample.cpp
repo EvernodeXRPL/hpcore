@@ -11,9 +11,8 @@ namespace ledger::ledger_sample
     /**
      * Create and save ledger record from the given proposal message.
      * @param proposal Consensus-reached Stage 3 proposal.
-     * @param raw_inputs Raw inputs that are going to store.
      */
-    int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> raw_inputs)
+    int save_ledger(const p2p::proposal &proposal)
     {
         sqlite3 *db;
 
