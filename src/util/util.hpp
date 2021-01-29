@@ -85,8 +85,6 @@ namespace util
     int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len);
 
     int release_lock(const int fd, struct flock &lock);
-
-    std::string wrap_in_single_quote(std::string_view value);
 } // namespace util
 
 #endif

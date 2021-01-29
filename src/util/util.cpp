@@ -410,23 +410,4 @@ namespace util
         lock.l_type = F_UNLCK;
         return fcntl(fd, F_SETLKW, &lock);
     }
-
-    /**
-     * Wraps a given string with quoted.
-     * @param value String value to be quoted.
-     * @returns returns quoted string.
-    */
-    std::string wrap_in_single_quote(std::string_view value)
-    {
-        std::string s;
-
-        // Reserving the space for the query before construction.
-        s.reserve(value.size() + 2);
-
-        s.append("'");
-        s.append(value);
-        s.append("'");
-
-        return s;
-    }
 } // namespace util

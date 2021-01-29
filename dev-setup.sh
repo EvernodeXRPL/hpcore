@@ -107,6 +107,9 @@ rm 1.1.5.tar.gz && rm -r plog-1.1.5
 # Boost stacktrace
 sudo apt-get install -y libboost-stacktrace-dev
 
+# Sqlite
+sudo apt-get install -y sqlite3 libsqlite3-dev
+
 # Update linker library cache.
 sudo ldconfig
 

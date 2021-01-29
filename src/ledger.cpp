@@ -7,6 +7,7 @@
 #include "msg/fbuf/p2pmsg_helpers.hpp"
 #include "hplog.hpp"
 #include "ledger.hpp"
+#include "ledger/ledger_sample.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -339,6 +340,10 @@ namespace ledger
      */
     int save_ledger(const p2p::proposal &proposal, const std::unordered_map<std::string, usr::raw_user_input> raw_inputs)
     {
+        // This is used as a sample to create ledger sqlite database,
+        // Later this callee method can be called directly from consensus on ledger storage implementations. 
+        // ledger::ledger_sample::save_ledger(proposal, raw_inputs);
+
         uint64_t seq_no = 0;
         std::string hash;
         if (extract_lcl(proposal.lcl, seq_no, hash) == -1)

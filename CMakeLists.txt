@@ -30,7 +30,6 @@ add_executable(hpcore
     src/util/buffer_store.cpp
     src/util/merkle_hash_tree.cpp
     src/util/h32.cpp
-    src/util/sqlite_wrapper.cpp
     src/unl.cpp
     src/crypto.cpp
     src/conf.cpp
@@ -60,6 +59,8 @@ add_executable(hpcore
     src/usr/usr.cpp
     src/usr/read_req.cpp
     src/ledger.cpp
+    src/ledger/sqlite.cpp
+    src/ledger/ledger_sample.cpp
     src/consensus.cpp
     src/main.cpp
 )

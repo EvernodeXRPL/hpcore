@@ -1,17 +1,19 @@
-#include "sqlite_wrapper.hpp"
-#include "util.hpp"
+#include "sqlite.hpp"
 
-namespace util::sqlite_wrapper
+namespace ledger::sqlite
 {
-    const std::string LEDGER_TABLE = "ledger";
-    const std::string LEDGER_COLUMNS = "seq_no, time, ledger_hash, prev_ledger_hash, data_hash, state_hash, patch_hash, user_hash, input_hash, output_hash";
-    const std::string COLUMN_DATA_TYPES[]{"INT", "TEXT"};
-    const std::string CREATE_TABLE = "CREATE TABLE ";
-    const std::string INSERT_INTO = "INSERT INTO ";
-    const std::string PRIMARY_KEY = "PRIMARY KEY";
-    const std::string NOT_NULL = "NOT NULL";
-    const std::string VALUES = "VALUES";
-    const std::string SELECT_ALL = "SELECT * FROM ";
+    constexpr const char *LEDGER_TABLE = "ledger";
+    constexpr const char *LEDGER_COLUMNS = "seq_no, time, ledger_hash, prev_ledger_hash, data_hash, state_hash, patch_hash, user_hash, input_hash, output_hash";
+    constexpr const char *COLUMN_DATA_TYPES[]{"INT", "TEXT"};
+    constexpr const char *CREATE_TABLE = "CREATE TABLE ";
+    constexpr const char *INSERT_INTO = "INSERT INTO ";
+    constexpr const char *PRIMARY_KEY = "PRIMARY KEY";
+    constexpr const char *NOT_NULL = "NOT NULL";
+    constexpr const char *VALUES = "VALUES";
+    constexpr const char *SELECT_ALL = "SELECT * FROM ";
+    constexpr const char *SQLITE_MASTER = "sqlite_master";
+    constexpr const char *WHERE = " WHERE ";
+    constexpr const char *AND = " AND ";
 
     /**
      * Opens a connection to a given databse and give the db pointer.
@@ -23,7 +25,7 @@ namespace util::sqlite_wrapper
     {
         if (sqlite3_open(db_name.data(), db) != SQLITE_OK)
         {
-            std::cout << "Can't open database: " << sqlite3_errmsg(*db) << "\n";
+            LOG_ERROR << "Can't open database: " << sqlite3_errmsg(*db);
             return -1;
         }
         return 0;
@@ -39,11 +41,11 @@ namespace util::sqlite_wrapper
     */
     int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **) = NULL, void *callback_first_arg = NULL)
     {
-        char *zErrMsg;
-        if (sqlite3_exec(db, sql.data(), callback, (callback != NULL ? (void *)callback_first_arg : NULL), &zErrMsg) != SQLITE_OK)
+        char *err_msg;
+        if (sqlite3_exec(db, sql.data(), callback, (callback != NULL ? (void *)callback_first_arg : NULL), &err_msg) != SQLITE_OK)
         {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
+            LOG_ERROR << "SQL error occured: " << err_msg;
+            sqlite3_free(err_msg);
             return -1;
         }
         return 0;
@@ -68,10 +70,16 @@ namespace util::sqlite_wrapper
             sql.append(itr->name + " " + COLUMN_DATA_TYPES[itr->column_type]);
 
             if (itr->is_key)
-                sql.append(" " + PRIMARY_KEY);
+            {
+                sql.append(" ");
+                sql.append(PRIMARY_KEY);
+            }
 
             if (!itr->is_null)
-                sql.append(" " + NOT_NULL);
+            {
+                sql.append(" ");
+                sql.append(NOT_NULL);
+            }
 
             if (itr != column_info.end() - 1)
                 sql.append(",");
@@ -98,8 +106,8 @@ namespace util::sqlite_wrapper
         sql.append(table_name);
         sql.append("(");
         sql.append(column_names_string);
-        sql.append(")");
-        sql.append(" " + VALUES);
+        sql.append(") ");
+        sql.append(VALUES);
 
         for (auto itr = value_strings.begin(); itr != value_strings.end(); ++itr)
         {
@@ -127,20 +135,54 @@ namespace util::sqlite_wrapper
     {
         std::string sql;
         // Reserving the space for the query before construction.
-        sql.reserve(INSERT_INTO.size() + table_name.size() + column_names_string.size() + VALUES.size() + value_string.size() + 5);
+        sql.reserve(sizeof(INSERT_INTO) + table_name.size() + column_names_string.size() + sizeof(VALUES) + value_string.size() + 5);
 
         sql.append(INSERT_INTO);
         sql.append(table_name);
         sql.append("(");
         sql.append(column_names_string);
-        sql.append(")");
-        sql.append(" " + VALUES);
+        sql.append(") ");
+        sql.append(VALUES);
         sql.append("(");
         sql.append(value_string);
         sql.append(")");
 
         /* Execute SQL statement */
         return exec_sql(db, sql);
+    }
+
+    /**
+     * Checks whether table exist in the database.
+     * @param db Pointer to the db.
+     * @param table_name Table name to be checked.
+     * @returns returns true is exist, otherwise false.
+    */
+    bool is_table_exists(sqlite3 *db, std::string_view table_name)
+    {
+        std::string sql;
+        // Reserving the space for the query before construction.
+        sql.reserve(sizeof(SELECT_ALL) + sizeof(SQLITE_MASTER) + sizeof(WHERE) + sizeof(AND) + table_name.size() + 19);
+
+        sql.append(SELECT_ALL);
+        sql.append(SQLITE_MASTER);
+        sql.append(WHERE);
+        sql.append("type='table'");
+        sql.append(AND);
+        sql.append("name='");
+        sql.append(table_name);
+        sql.append("'");
+
+        sqlite3_stmt *stmt;
+
+        if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK &&
+            stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            sqlite3_reset(stmt);
+            return true;
+        }
+
+        sqlite3_reset(stmt);
+        return false;
     }
 
     /**
@@ -176,27 +218,30 @@ namespace util::sqlite_wrapper
     */
     int insert_ledger_row(sqlite3 *db, const ledger &ledger)
     {
-        const std::string ledger_seq_no_str = std::to_string(ledger.seq_no);
-        const std::string ledger_time_str = std::to_string(ledger.time);
-
-        std::string value_string;
-        // Reserving the space for the query before construction.
-        value_string.reserve(ledger_seq_no_str.length() + ledger_time_str.length() + (64 * 8) + 9);
-
-        value_string.append(ledger_seq_no_str + ",");
-        value_string.append(ledger_time_str + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.ledger_hash) + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.prev_ledger_hash) + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.data_hash) + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.state_hash) + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.patch_hash) + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.user_hash) + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.input_hash) + ",");
-        value_string.append(util::wrap_in_single_quote(ledger.output_hash));
+        std::string value_string = std::to_string(ledger.seq_no) + "," +
+                                   std::to_string(ledger.time) + "," +
+                                   "'" + ledger.ledger_hash_hex + "'," +
+                                   "'" + ledger.prev_ledger_hash_hex + "'," +
+                                   "'" + ledger.data_hash_hex + "'," +
+                                   "'" + ledger.state_hash_hex + "'," +
+                                   "'" + ledger.patch_hash_hex + "'," +
+                                   "'" + ledger.user_hash_hex + "'," +
+                                   "'" + ledger.input_hash_hex + "'," +
+                                   "'" + ledger.output_hash_hex + "'";
 
         if (insert_value(db, LEDGER_TABLE, LEDGER_COLUMNS, value_string) == -1)
             return -1;
 
         return 0;
     }
-} // namespace util::sqlite_wrapper
+
+    /**
+     * Checks whether ledger table exist.
+     * @param db Pointer to the db.
+     * @returns returns true is exist, otherwise false.
+    */
+    bool is_ledger_table_exist(sqlite3 *db)
+    {
+        return is_table_exists(db, LEDGER_TABLE);
+    }
+} // namespace ledger::sqlite

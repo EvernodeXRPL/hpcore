@@ -1,12 +1,9 @@
-#ifndef _SQLITE_WRAPPER_
-#define _SQLITE_WRAPPER_
+#ifndef _LEDGER_SQLITE_
+#define _LEDGER_SQLITE_
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <sqlite3.h>
+#include "../pchheader.hpp"
 
-namespace util::sqlite_wrapper
+namespace ledger::sqlite
 {
     /**
     * Define an enum and a string array for the column data types.
@@ -34,53 +31,55 @@ namespace util::sqlite_wrapper
         bool is_key;
         bool is_null;
 
-        table_column_info(const std::string name, const COLUMN_DATA_TYPE column_type, const bool is_key = false, const bool is_null = false)
-            : name(std::move(name)), column_type(std::move(column_type)), is_key(std::move(is_key)), is_null(std::move(is_null))
+        table_column_info(std::string_view name, const COLUMN_DATA_TYPE &column_type, const bool is_key = false, const bool is_null = false)
+            : name(name), column_type(column_type), is_key(is_key), is_null(is_null)
         {
         }
     };
 
     /**
      * Struct for ledger feilds.
+     * All the hashes are stored as hex strings.
     */
     struct ledger
     {
         uint64_t seq_no;
         uint64_t time;
-        std::string ledger_hash;
-        std::string prev_ledger_hash;
-        std::string data_hash;
-        std::string state_hash;
-        std::string patch_hash;
-        std::string user_hash;
-        std::string input_hash;
-        std::string output_hash;
+        std::string ledger_hash_hex;
+        std::string prev_ledger_hash_hex;
+        std::string data_hash_hex;
+        std::string state_hash_hex;
+        std::string patch_hash_hex;
+        std::string user_hash_hex;
+        std::string input_hash_hex;
+        std::string output_hash_hex;
 
         ledger(
             const uint64_t seq_no,
             const uint64_t time,
-            const std::string ledger_hash,
-            const std::string prev_ledger_hash,
-            const std::string data_hash,
-            const std::string state_hash,
-            const std::string patch_hash,
-            const std::string user_hash,
-            const std::string input_hash,
-            const std::string output_hash)
-            : seq_no(std::move(seq_no)),
-              time(std::move(time)),
-              ledger_hash(std::move(ledger_hash)),
-              prev_ledger_hash(std::move(prev_ledger_hash)),
-              data_hash(std::move(data_hash)),
-              state_hash(std::move(state_hash)),
-              patch_hash(std::move(patch_hash)),
-              user_hash(std::move(user_hash)),
-              input_hash(std::move(input_hash)),
-              output_hash(std::move(output_hash))
+            std::string_view ledger_hash_hex,
+            std::string_view prev_ledger_hash_hex,
+            std::string_view data_hash_hex,
+            std::string_view state_hash_hex,
+            std::string_view patch_hash_hex,
+            std::string_view user_hash_hex,
+            std::string_view input_hash_hex,
+            std::string_view output_hash_hex)
+            : seq_no(seq_no),
+              time(time),
+              ledger_hash_hex(ledger_hash_hex),
+              prev_ledger_hash_hex(prev_ledger_hash_hex),
+              data_hash_hex(data_hash_hex),
+              state_hash_hex(state_hash_hex),
+              patch_hash_hex(patch_hash_hex),
+              user_hash_hex(user_hash_hex),
+              input_hash_hex(input_hash_hex),
+              output_hash_hex(output_hash_hex)
         {
         }
     };
 
+    // Generic methods.
     int open_db(std::string_view db_name, sqlite3 **db);
 
     int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **), void *callback_first_arg);
@@ -91,10 +90,15 @@ namespace util::sqlite_wrapper
 
     int insert_value(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string);
 
+    bool is_table_exists(sqlite3 *db, std::string_view table_name);
+
+    // Ledger specific methdods.
     int create_ledger_table(sqlite3 *db);
 
     int insert_ledger_row(sqlite3 *db, const ledger &ledger);
 
-} // namespace util::sqlite_wrapper
+    bool is_ledger_table_exist(sqlite3 *db);
+    
+} // namespace ledger::sqlite
 
 #endif
