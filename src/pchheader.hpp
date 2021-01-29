@@ -48,5 +48,6 @@
 #include <concurrentqueue.h>
 #include <plog/Log.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
+#include <sqlite3.h>
 
 #endif

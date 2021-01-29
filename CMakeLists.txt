@@ -59,6 +59,8 @@ add_executable(hpcore
     src/usr/usr.cpp
     src/usr/read_req.cpp
     src/ledger.cpp
+    src/ledger/sqlite.cpp
+    src/ledger/ledger_sample.cpp
     src/consensus.cpp
     src/main.cpp
 )
@@ -68,6 +70,7 @@ target_link_libraries(hpcore
     libblake3.so
     libboost_stacktrace_backtrace.a
     backtrace
+    sqlite3
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
 add_dependencies(hpcore

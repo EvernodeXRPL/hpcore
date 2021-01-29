@@ -175,6 +175,28 @@ namespace crypto
         return hash;
     }
 
+    /**
+     * Generates blake3 hash for the given string set using stream hashing.
+     */
+    std::string get_hash(const std::set<std::string> &sw_set)
+    {
+        std::string hash;
+        hash.resize(BLAKE3_OUT_LEN);
+
+        // Init stream hashing.
+        blake3_hasher hasher;
+        blake3_hasher_init(&hasher);
+
+        // Hash is generated only using message in contract output struct.
+        for (std::string_view sw : sw_set)
+            blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(sw.data()), sw.length());
+
+        // Get the final hash.
+        blake3_hasher_finalize(&hasher, reinterpret_cast<unsigned char *>(hash.data()), hash.length());
+
+        return hash;
+    }
+
     std::string generate_uuid()
     {
         std::string rand_bytes;
