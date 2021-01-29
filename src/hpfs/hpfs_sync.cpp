@@ -33,9 +33,6 @@ namespace hpfs
         this->name = name;
         this->fs_mount = fs_mount;
         REQUEST_RESUBMIT_TIMEOUT = hpfs::get_request_resubmit_timeout();
-        ctx.target_hash_one = util::h32_empty;
-        ctx.target_hash_two = util::h32_empty;
-        ctx.current_target_hash = util::h32_empty;
         ctx.hpfs_sync_thread = std::thread(&hpfs_sync::hpfs_syncer_loop, this);
         init_success = true;
         return 0;
@@ -56,35 +53,20 @@ namespace hpfs
      * @param target_hash_one Priority one target hash.
      * @param target_hash_two Priority two target hash.
      */
-    void hpfs_sync::set_target(const util::h32 target_hash_one, std::string_view target_one_vpath, BACKLOG_ITEM_TYPE target_one_item_type,
-                               const util::h32 target_hash_two, std::string_view target_two_vpath, BACKLOG_ITEM_TYPE target_two_item_type)
+    void hpfs_sync::set_target(const std::list<sync_target> &target_list)
     {
+        if (target_list.empty())
+            return;
+
         std::unique_lock lock(ctx.target_state_mutex);
 
         // Do not do anything if we are already syncing towards the specified target states.
-        if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_hash_one == target_hash_one && ctx.target_hash_two == target_hash_two))
+        if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_list == target_list))
             return;
 
-        ctx.target_hash_one = target_hash_one;
-        ctx.target_one_vpath = target_one_vpath;
-        ctx.target_one_item_type = target_one_item_type;
+        ctx.target_list = std::move(target_list);
 
-        ctx.target_hash_two = target_hash_two;
-        ctx.target_two_vpath = target_two_vpath;
-        ctx.target_two_item_type = target_two_item_type;
-
-        if (fs_mount->ctx.get_hash(ctx.target_one_vpath) != ctx.target_hash_one)
-        {
-            ctx.current_target_vpath = ctx.target_one_vpath;
-            ctx.current_target_hash = ctx.target_hash_one;
-            ctx.current_target_item_type = ctx.target_one_item_type;
-        }
-        else
-        {
-            ctx.current_target_hash = ctx.target_hash_two;
-            ctx.current_target_vpath = ctx.target_two_vpath;
-            ctx.current_target_item_type = ctx.target_two_item_type;
-        }
+        ctx.current_target = ctx.target_list.front(); // Make the first element of the list the first target to sync.
         ctx.is_syncing = true;
     }
 
@@ -112,13 +94,10 @@ namespace hpfs
                 {
                     {
                         std::shared_lock lock(ctx.target_state_mutex);
-                        if (ctx.current_target_vpath == ctx.target_one_vpath)
-                            LOG_INFO << "hpfs " << name << " sync: Starting sync for target patch hash: " << ctx.target_hash_one;
-                        else
-                            LOG_INFO << "hpfs " << name << " sync: Starting sync for target state hash: " << ctx.target_hash_two;
+                        LOG_INFO << "hpfs " << name << " sync: Starting sync for target " << ctx.current_target.name << " hash: " << ctx.current_target.hash;
                     }
                     util::h32 new_state = util::h32_empty;
-                    const int result = request_loop(ctx.current_target_hash, new_state);
+                    const int result = request_loop(ctx.current_target.hash, new_state);
 
                     ctx.pending_requests.clear();
                     ctx.candidate_hpfs_responses.clear();
@@ -130,17 +109,25 @@ namespace hpfs
                     {
                         std::shared_lock lock(ctx.target_state_mutex);
 
-                        if (new_state == ctx.current_target_hash)
+                        if (new_state == ctx.current_target.hash)
                         {
-                            const int result = on_sync_state_acheived(new_state);
-                            if (result == 0)
-                                break; // The hpfs sync is complete.
+                            LOG_INFO << "hpfs " << name << " sync: Target " << ctx.current_target.name << " hash achieved: " << new_state;
+                            on_current_sync_state_acheived();
+                            ctx.target_list.pop_front(); // Remove the synced parent from the target list.
+                            if (ctx.target_list.empty())
+                            {
+                                ctx.current_target = {};
+                                break;
+                            }
                             else
-                                continue; // Only patch hpfs sync is complete. Continuing for state sync.
+                            {
+                                ctx.current_target = ctx.target_list.front();
+                                continue;
+                            }
                         }
                         else
                         {
-                            LOG_INFO << "hpfs " << name << " sync: Continuing sync for new target: " << ctx.current_target_hash;
+                            LOG_INFO << "hpfs " << name << " sync: Continuing sync for new target: " << ctx.current_target.hash;
                             continue;
                         }
                     }
@@ -153,9 +140,6 @@ namespace hpfs
             {
                 LOG_ERROR << "hpfs " << name << " sync: Failed to start hpfs rw session";
             }
-
-            std::unique_lock lock(ctx.target_state_mutex);
-            ctx.current_target_hash = util::h32_empty;
             ctx.is_syncing = false;
         }
 
@@ -167,7 +151,7 @@ namespace hpfs
         std::string lcl = ledger::ctx.get_lcl();
 
         // Send the initial root hpfs request.
-        submit_request(backlog_item{ctx.current_target_item_type, ctx.current_target_vpath, -1, current_target}, lcl);
+        submit_request(backlog_item{ctx.current_target.item_type, ctx.current_target.vpath, -1, current_target}, lcl);
 
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
@@ -280,14 +264,14 @@ namespace hpfs
 
                 // After handling each response, check whether we have reached target hpfs state.
                 // get_hash returns 0 incase target parent is not existing in our side.
-                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, ctx.current_target_vpath) == -1)
+                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, ctx.current_target.vpath) == -1)
                 {
                     LOG_ERROR << "hpfs " << name << " sync: exiting due to hash check error.";
                     return -1;
                 }
 
                 // Update the central hpfs state tracker.
-                fs_mount->ctx.set_hash(ctx.current_target_vpath, updated_state);
+                fs_mount->ctx.set_hash(ctx.current_target.vpath, updated_state);
 
                 LOG_DEBUG << "hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
@@ -416,7 +400,7 @@ namespace hpfs
 
         // Stop request loop if the target has changed.
         std::shared_lock lock(ctx.target_state_mutex);
-        return current_target != ctx.current_target_hash;
+        return current_target != ctx.current_target.hash;
     }
 
     /**
@@ -610,15 +594,13 @@ namespace hpfs
     }
 
     /**
-     * @return 0 when full sync completed, 1 on current sync state acheived and more to go.
+     * This method can be used to invoke mount specific custom logic (after extending this super class) to be executed after
+     * a sync target is acheived.
     */
-    int hpfs_sync::on_sync_state_acheived(const util::h32 &new_state)
+    void hpfs_sync::on_current_sync_state_acheived()
     {
-        if (ctx.current_target_vpath == ctx.target_one_vpath)
+        if (ctx.current_target.vpath == hpfs::PATCH_FILE_PATH)
         {
-            ctx.target_hash_one = util::h32_empty;
-            LOG_INFO << "hpfs " << name << " sync: Target patch state achieved: " << new_state;
-
             // Appling new patch file changes to hpcore runtime.
             if (conf::apply_patch_config(hpfs::RW_SESSION_NAME) == -1)
             {
@@ -631,23 +613,9 @@ namespace hpfs
                 // Update global hash tracker with the new patch file hash.
                 util::h32 updated_patch_hash;
                 fs_mount->get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
-                fs_mount->ctx.set_hash(ctx.current_target_vpath, updated_patch_hash);
+                fs_mount->ctx.set_hash(ctx.current_target.vpath, updated_patch_hash);
             }
-
-            if (ctx.target_hash_two == util::h32_empty ||                            // Incase where only one hash is set in set_target.
-                ctx.target_hash_two == fs_mount->ctx.get_hash(ctx.target_two_vpath)) // Incase second target is already met.
-                return 0;
-
-            ctx.current_target_hash = ctx.target_hash_two;
-            ctx.current_target_vpath = ctx.target_two_vpath;
-            return 1;
         }
-        else
-        {
-            ctx.target_hash_two = util::h32_empty;
-            LOG_INFO << "hpfs " << name << " sync: Target state achieved: " << new_state;
-        }
-        return 0;
     }
 
 } // namespace hpfs

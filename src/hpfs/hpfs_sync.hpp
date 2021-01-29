@@ -31,19 +31,25 @@ namespace hpfs
     };
 
 
+    struct sync_target
+    {
+        std::string name; // Used for logging.
+        util::h32 hash = util::h32_empty;
+        std::string vpath;
+        BACKLOG_ITEM_TYPE item_type = BACKLOG_ITEM_TYPE::DIR;
+
+        bool operator==(const sync_target &target) const
+        {
+            return this->hash == target.hash;
+        }
+    };
+
+
     struct sync_context
     {
         // The current target hashes we are syncing towards.
-        util::h32 target_hash_one;
-        std::string target_one_vpath;
-        BACKLOG_ITEM_TYPE target_one_item_type;
-        util::h32 target_hash_two;
-        std::string target_two_vpath;
-        BACKLOG_ITEM_TYPE target_two_item_type;
-
-        util::h32 current_target_hash;
-        std::string current_target_vpath;
-        BACKLOG_ITEM_TYPE current_target_item_type;
+        std::list<sync_target> target_list;
+        sync_target current_target = {};
 
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
         std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
@@ -75,8 +81,7 @@ namespace hpfs
 
         void deinit();
 
-        void set_target(const util::h32 target_hash_one, std::string_view target_one_vpath, BACKLOG_ITEM_TYPE target_one_item_type,
-                        const util::h32 target_hash_two = util::h32_empty, std::string_view target_two_vpath = "", BACKLOG_ITEM_TYPE target_two_item_type = BACKLOG_ITEM_TYPE::DIR);
+        void set_target(const std::list<sync_target> &target_list);
 
         void hpfs_syncer_loop();
 
@@ -101,7 +106,7 @@ namespace hpfs
 
         int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
 
-        int on_sync_state_acheived(const util::h32 &new_state);
+        void on_current_sync_state_acheived();
     };
 
 } // namespace hpfs

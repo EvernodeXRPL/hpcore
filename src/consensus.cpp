@@ -200,12 +200,32 @@ namespace consensus
             if (is_patch_desync)
                 is_patch_update_pending = false;
 
+            std::list<hpfs::sync_target> target_list;
+            if (is_patch_desync)
+            {
+                hpfs::sync_target patch_target;
+                patch_target.hash = majority_patch_hash;
+                patch_target.name = "patch";
+                patch_target.vpath = hpfs::PATCH_FILE_PATH;
+                patch_target.item_type = hpfs::BACKLOG_ITEM_TYPE::FILE;
+                target_list.emplace_back(patch_target);
+            }
+
+            if (is_state_desync)
+            {
+                hpfs::sync_target state_target;
+                state_target.hash = majority_state_hash;
+                state_target.name = "state";
+                state_target.vpath = hpfs::STATE_DIR_PATH;
+                state_target.item_type = hpfs::BACKLOG_ITEM_TYPE::DIR;
+                target_list.emplace_back(state_target);
+            }
+
             // Start hpfs sync if we are out-of-sync with majority hpfs state.
             if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                hpfs_manager::contract_sync.set_target(majority_patch_hash, hpfs::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE,
-                 majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR);
+                hpfs_manager::contract_sync.set_target(std::move(target_list));
             }
 
             // Proceed further only if both lcl and state are in sync with majority.

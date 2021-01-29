@@ -48,24 +48,24 @@ namespace hpfs
         uint32_t rw_consumers = 0;
         std::mutex rw_mutex;
 
-        util::h32 get_hash(const std::string &parent)
+        util::h32 get_hash(const std::string &parent_vpath)
         {
             std::shared_lock lock(parent_hashes_mutex);
-            const auto itr = parent_hashes.find(parent);
+            const auto itr = parent_hashes.find(parent_vpath);
             if (itr == parent_hashes.end())
             {
-                return util::h32_empty; // Looking parent is not found.
+                return util::h32_empty; // Looking parent_vpath is not found.
             }
             return itr->second;
         }
 
-        void set_hash(const std::string &parent, util::h32 new_state)
+        void set_hash(const std::string &parent_vpath, util::h32 new_state)
         {
             std::unique_lock lock(parent_hashes_mutex);
-            const auto itr = parent_hashes.find(parent);
+            const auto itr = parent_hashes.find(parent_vpath);
             if (itr == parent_hashes.end())
             {
-                parent_hashes.try_emplace(parent, new_state);
+                parent_hashes.try_emplace(parent_vpath, new_state);
             }
             else
             {
