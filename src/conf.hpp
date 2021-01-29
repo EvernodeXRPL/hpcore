@@ -99,13 +99,14 @@ namespace conf
 
     struct user_config
     {
-        uint16_t port = 0;                 // Listening port for public user connections
-        uint16_t idle_timeout = 0;         // Idle connection timeout for user connections in seconds.
-        uint64_t max_bytes_per_msg = 0;    // User message max size in bytes
-        uint64_t max_bytes_per_min = 0;    // User message rate (characters(bytes) per minute)
-        uint64_t max_bad_msgs_per_min = 0; // User bad messages per minute
-        uint16_t max_connections = 0;      // Max inbound user connections
-        bool enabled = true;               // User connections enable/disable.
+        uint16_t port = 0;                        // Listening port for public user connections
+        uint16_t idle_timeout = 0;                // Idle connection timeout for user connections in seconds.
+        uint64_t max_bytes_per_msg = 0;           // User message max size in bytes
+        uint64_t max_bytes_per_min = 0;           // User message rate (characters(bytes) per minute)
+        uint64_t max_bad_msgs_per_min = 0;        // User bad messages per minute
+        uint16_t max_connections = 0;             // Max inbound user connections
+        uint16_t max_in_connections_per_host = 0; // Max inbound user connections per remote host (IP).
+        bool enabled = true;                      // User connections enable/disable.
     };
 
     struct peer_discovery_config
@@ -117,15 +118,16 @@ namespace conf
     struct mesh_config
     {
         uint16_t port = 0;                        // Listening port for peer connections
-        std::vector<peer_properties> known_peers; // Vector of peers with ip_port, timestamp, capacity
+        std::vector<peer_properties> known_peers; // Vector of peers with ip_port, timestamp, capacity.
         bool msg_forwarding = false;              // Whether peer message forwarding is on/off.
-        uint16_t max_connections = 0;             // Max peer connections
-        uint16_t max_known_connections = 0;       // Max known peer connections
-        uint64_t max_bytes_per_msg = 0;           // Peer message max size in bytes
-        uint64_t max_bytes_per_min = 0;           // Peer message rate (characters(bytes) per minute)
-        uint64_t max_bad_msgs_per_min = 0;        // Peer bad messages per minute
-        uint64_t max_bad_msgsigs_per_min = 0;     // Peer bad signatures per minute
-        uint64_t max_dup_msgs_per_min = 0;        // Peer max duplicate messages per minute
+        uint16_t max_connections = 0;             // Max peer connections.
+        uint16_t max_known_connections = 0;       // Max known peer connections.
+        uint16_t max_in_connections_per_host = 0; // Max inbound peer connections per remote host (IP).
+        uint64_t max_bytes_per_msg = 0;           // Peer message max size in bytes.
+        uint64_t max_bytes_per_min = 0;           // Peer message rate (characters(bytes) per minute).
+        uint64_t max_bad_msgs_per_min = 0;        // Peer bad messages per minute.
+        uint64_t max_bad_msgsigs_per_min = 0;     // Peer bad signatures per minute.
+        uint64_t max_dup_msgs_per_min = 0;        // Peer max duplicate messages per minute.
         uint16_t idle_timeout = 0;                // Idle connection timeout for peer connections in seconds.
         peer_discovery_config peer_discovery;     // Peer discovery configs.
     };
