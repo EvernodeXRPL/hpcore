@@ -57,7 +57,7 @@ namespace hpfs
      * @param target_hash_two Priority two target hash.
      */
     void hpfs_sync::set_target(const util::h32 target_hash_one, std::string_view target_one_vpath, BACKLOG_ITEM_TYPE target_one_item_type,
-                    const util::h32 target_hash_two, std::string_view target_two_vpath, BACKLOG_ITEM_TYPE target_two_item_type)
+                               const util::h32 target_hash_two, std::string_view target_two_vpath, BACKLOG_ITEM_TYPE target_two_item_type)
     {
         std::unique_lock lock(ctx.target_state_mutex);
 
@@ -84,7 +84,6 @@ namespace hpfs
             ctx.current_target_hash = ctx.target_hash_two;
             ctx.current_target_vpath = ctx.target_two_vpath;
             ctx.current_target_item_type = ctx.target_two_item_type;
-
         }
         ctx.is_syncing = true;
     }
@@ -113,7 +112,7 @@ namespace hpfs
                 {
                     {
                         std::shared_lock lock(ctx.target_state_mutex);
-                        if (ctx.current_target_vpath == hpfs::PATCH_FILE_PATH)
+                        if (ctx.current_target_vpath == ctx.target_one_vpath)
                             LOG_INFO << "hpfs " << name << " sync: Starting sync for target patch hash: " << ctx.target_hash_one;
                         else
                             LOG_INFO << "hpfs " << name << " sync: Starting sync for target state hash: " << ctx.target_hash_two;
@@ -170,7 +169,175 @@ namespace hpfs
         // Send the initial root hpfs request.
         submit_request(backlog_item{ctx.current_target_item_type, ctx.current_target_vpath, -1, current_target}, lcl);
 
-        return handle_hpfs_responses(current_target, updated_state);
+        // Indicates whether any responses were processed in the previous loop iteration.
+        bool prev_responses_processed = false;
+
+        // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
+        uint16_t resubmissions_count = 0;
+
+        while (!should_stop_request_loop(current_target))
+        {
+            // Wait a small delay if there were no responses processed during previous iteration.
+            if (!prev_responses_processed)
+                util::sleep(REQUEST_LOOP_WAIT);
+
+            // Get current lcl.
+            std::string lcl = ledger::ctx.get_lcl();
+
+            {
+                std::scoped_lock lock(p2p::ctx.collected_msgs.hpfs_responses_mutex);
+
+                // Move collected hpfs responses over to local candidate responses list.
+                if (!p2p::ctx.collected_msgs.hpfs_responses.empty())
+                    ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.hpfs_responses);
+            }
+
+            prev_responses_processed = !ctx.candidate_hpfs_responses.empty();
+
+            // Reset resubmissions counter whenever we have a resposne.
+            if (!ctx.candidate_hpfs_responses.empty())
+                resubmissions_count = 0;
+
+            for (auto &response : ctx.candidate_hpfs_responses)
+            {
+                if (should_stop_request_loop(current_target))
+                    return 0;
+
+                LOG_DEBUG << "hpfs " << name << " sync: Processing hpfs response from [" << response.first.substr(2, 10) << "]";
+
+                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
+                const msg::fbuf::p2pmsg::Hpfs_Response_Message *resp_msg = content->message_as_Hpfs_Response_Message();
+
+                // Check whether we are actually waiting for this response. If not, ignore it.
+                std::string_view hash = msg::fbuf::flatbuff_bytes_to_sv(resp_msg->hash());
+                std::string_view vpath = msg::fbuf::flatbuff_str_to_sv(resp_msg->path());
+
+                const std::string key = std::string(vpath).append(hash);
+                const auto pending_resp_itr = ctx.submitted_requests.find(key);
+                if (pending_resp_itr == ctx.submitted_requests.end())
+                {
+                    LOG_DEBUG << "hpfs " << name << " sync: Skipping hpfs response due to hash mismatch.";
+                    continue;
+                }
+
+                // Process the message based on response type.
+                const msg::fbuf::p2pmsg::Hpfs_Response msg_type = resp_msg->hpfs_response_type();
+
+                if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Fs_Entry_Response)
+                {
+                    const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_resp = resp_msg->hpfs_response_as_Fs_Entry_Response();
+
+                    // Get fs entries we have received.
+                    std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
+                    msg::fbuf::p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp->entries());
+
+                    // Validate received fs data against the hash.
+                    if (!validate_fs_entry_hash(vpath, hash, peer_fs_entry_map))
+                    {
+                        LOG_INFO << "hpfs " << name << " sync: Skipping hpfs response due to fs entry hash mismatch.";
+                        continue;
+                    }
+
+                    handle_fs_entry_response(vpath, peer_fs_entry_map);
+                }
+                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_File_HashMap_Response)
+                {
+                    const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp = resp_msg->hpfs_response_as_File_HashMap_Response();
+
+                    // File block hashes we received from the peer.
+                    const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp->hash_map()->data());
+                    const size_t peer_hash_count = file_resp->hash_map()->size() / sizeof(util::h32);
+
+                    // Validate received hashmap against the hash.
+                    if (!validate_file_hashmap_hash(vpath, hash, peer_hashes, peer_hash_count))
+                    {
+                        LOG_INFO << "hpfs " << name << " sync: Skipping hpfs response due to file hashmap hash mismatch.";
+                        continue;
+                    }
+
+                    handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp->file_length());
+                }
+                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Block_Response)
+                {
+                    const msg::fbuf::p2pmsg::Block_Response *block_resp = resp_msg->hpfs_response_as_Block_Response();
+
+                    // Get the file path of the block data we have received.
+                    const uint32_t block_id = block_resp->block_id();
+                    std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_resp->data());
+
+                    // Validate received block data against the hash.
+                    if (!validate_file_block_hash(hash, block_id, buf))
+                    {
+                        LOG_INFO << "hpfs " << name << " sync: Skipping hpfs response due to file block hash mismatch.";
+                        continue;
+                    }
+
+                    handle_file_block_response(vpath, block_id, buf);
+                }
+
+                // Now that we have received matching hash and handled it, remove it from the waiting list.
+                ctx.submitted_requests.erase(pending_resp_itr);
+
+                // After handling each response, check whether we have reached target hpfs state.
+                // get_hash returns 0 incase target parent is not existing in our side.
+                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, ctx.current_target_vpath) == -1)
+                {
+                    LOG_ERROR << "hpfs " << name << " sync: exiting due to hash check error.";
+                    return -1;
+                }
+
+                // Update the central hpfs state tracker.
+                fs_mount->ctx.set_hash(ctx.current_target_vpath, updated_state);
+
+                LOG_DEBUG << "hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target;
+                if (updated_state == current_target)
+                    return 0;
+            }
+
+            ctx.candidate_hpfs_responses.clear();
+
+            // Check for long-awaited responses and re-request them.
+            for (auto &[hash, request] : ctx.submitted_requests)
+            {
+                if (should_stop_request_loop(current_target))
+                    return 0;
+
+                if (request.waiting_time < REQUEST_RESUBMIT_TIMEOUT)
+                {
+                    // Increment wait time.
+                    request.waiting_time += REQUEST_LOOP_WAIT;
+                }
+                else
+                {
+                    if (++resubmissions_count > ABANDON_THRESHOLD)
+                    {
+                        LOG_INFO << "hpfs " << name << " sync: Resubmission threshold exceeded. Abandoning sync.";
+                        return -1;
+                    }
+
+                    // Reset the counter and re-submit request.
+                    request.waiting_time = 0;
+                    LOG_DEBUG << "hpfs " << name << " sync: Resubmitting request...";
+                    submit_request(request, lcl);
+                }
+            }
+
+            // Check whether we can submit any more requests.
+            if (!ctx.pending_requests.empty() && ctx.submitted_requests.size() < MAX_AWAITING_REQUESTS)
+            {
+                const uint16_t available_slots = MAX_AWAITING_REQUESTS - ctx.submitted_requests.size();
+                for (int i = 0; i < available_slots && !ctx.pending_requests.empty(); i++)
+                {
+                    if (should_stop_request_loop(current_target))
+                        return 0;
+
+                    const backlog_item &request = ctx.pending_requests.front();
+                    submit_request(request, lcl);
+                    ctx.pending_requests.pop_front();
+                }
+            }
+        }
+        return 0;
     }
 
     /**
@@ -261,7 +428,7 @@ namespace hpfs
      * @param target_pubkey The peer pubkey the request was submitted to.
      */
     void hpfs_sync::request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                 const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
+                                            const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
     {
         p2p::hpfs_request hr;
         hr.parent_path = path;
@@ -442,179 +609,6 @@ namespace hpfs
         return 0;
     }
 
-    int hpfs_sync::handle_hpfs_responses(const util::h32 &current_target, util::h32 &updated_state)
-    {
-        // Indicates whether any responses were processed in the previous loop iteration.
-        bool prev_responses_processed = false;
-
-        // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
-        uint16_t resubmissions_count = 0;
-
-        while (!should_stop_request_loop(current_target))
-        {
-            // Wait a small delay if there were no responses processed during previous iteration.
-            if (!prev_responses_processed)
-                util::sleep(REQUEST_LOOP_WAIT);
-
-            // Get current lcl.
-            std::string lcl = ledger::ctx.get_lcl();
-
-            {
-                std::scoped_lock lock(p2p::ctx.collected_msgs.hpfs_responses_mutex);
-
-                // Move collected hpfs responses over to local candidate responses list.
-                if (!p2p::ctx.collected_msgs.hpfs_responses.empty())
-                    ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.hpfs_responses);
-            }
-
-            prev_responses_processed = !ctx.candidate_hpfs_responses.empty();
-
-            // Reset resubmissions counter whenever we have a resposne.
-            if (!ctx.candidate_hpfs_responses.empty())
-                resubmissions_count = 0;
-
-            for (auto &response : ctx.candidate_hpfs_responses)
-            {
-                if (should_stop_request_loop(current_target))
-                    return 0;
-
-                LOG_DEBUG << "hpfs " << name << " sync: Processing hpfs response from [" << response.first.substr(2, 10) << "]";
-
-                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
-                const msg::fbuf::p2pmsg::Hpfs_Response_Message *resp_msg = content->message_as_Hpfs_Response_Message();
-
-                // Check whether we are actually waiting for this response. If not, ignore it.
-                std::string_view hash = msg::fbuf::flatbuff_bytes_to_sv(resp_msg->hash());
-                std::string_view vpath = msg::fbuf::flatbuff_str_to_sv(resp_msg->path());
-
-                const std::string key = std::string(vpath).append(hash);
-                const auto pending_resp_itr = ctx.submitted_requests.find(key);
-                if (pending_resp_itr == ctx.submitted_requests.end())
-                {
-                    LOG_DEBUG << "hpfs " << name << " sync: Skipping hpfs response due to hash mismatch.";
-                    continue;
-                }
-
-                // Process the message based on response type.
-                const msg::fbuf::p2pmsg::Hpfs_Response msg_type = resp_msg->hpfs_response_type();
-
-                if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Fs_Entry_Response)
-                {
-                    const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_resp = resp_msg->hpfs_response_as_Fs_Entry_Response();
-
-                    // Get fs entries we have received.
-                    std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
-                    msg::fbuf::p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp->entries());
-
-                    // Validate received fs data against the hash.
-                    if (!validate_fs_entry_hash(vpath, hash, peer_fs_entry_map))
-                    {
-                        LOG_INFO << "hpfs " << name << " sync: Skipping hpfs response due to fs entry hash mismatch.";
-                        continue;
-                    }
-
-                    handle_fs_entry_response(vpath, peer_fs_entry_map);
-                }
-                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_File_HashMap_Response)
-                {
-                    const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp = resp_msg->hpfs_response_as_File_HashMap_Response();
-
-                    // File block hashes we received from the peer.
-                    const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp->hash_map()->data());
-                    const size_t peer_hash_count = file_resp->hash_map()->size() / sizeof(util::h32);
-
-                    // Validate received hashmap against the hash.
-                    if (!validate_file_hashmap_hash(vpath, hash, peer_hashes, peer_hash_count))
-                    {
-                        LOG_INFO << "hpfs " << name << " sync: Skipping hpfs response due to file hashmap hash mismatch.";
-                        continue;
-                    }
-
-                    handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp->file_length());
-                }
-                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Block_Response)
-                {
-                    const msg::fbuf::p2pmsg::Block_Response *block_resp = resp_msg->hpfs_response_as_Block_Response();
-
-                    // Get the file path of the block data we have received.
-                    const uint32_t block_id = block_resp->block_id();
-                    std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_resp->data());
-
-                    // Validate received block data against the hash.
-                    if (!validate_file_block_hash(hash, block_id, buf))
-                    {
-                        LOG_INFO << "hpfs " << name << " sync: Skipping hpfs response due to file block hash mismatch.";
-                        continue;
-                    }
-
-                    handle_file_block_response(vpath, block_id, buf);
-                }
-
-                // Now that we have received matching hash and handled it, remove it from the waiting list.
-                ctx.submitted_requests.erase(pending_resp_itr);
-
-                // After handling each response, check whether we have reached target hpfs state.
-                // get_hash returns 0 incase target parent is not existing in our side.
-                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, ctx.current_target_vpath) == -1)
-                {
-                    LOG_ERROR << "hpfs " << name << " sync: exiting due to hash check error.";
-                    return -1;
-                }
-
-                // Update the central hpfs state tracker.
-                fs_mount->ctx.set_hash(ctx.current_target_vpath, updated_state);
-
-                LOG_DEBUG << "hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target;
-                if (updated_state == current_target)
-                    return 0;
-            }
-
-            ctx.candidate_hpfs_responses.clear();
-
-            // Check for long-awaited responses and re-request them.
-            for (auto &[hash, request] : ctx.submitted_requests)
-            {
-                if (should_stop_request_loop(current_target))
-                    return 0;
-
-                if (request.waiting_time < REQUEST_RESUBMIT_TIMEOUT)
-                {
-                    // Increment wait time.
-                    request.waiting_time += REQUEST_LOOP_WAIT;
-                }
-                else
-                {
-                    if (++resubmissions_count > ABANDON_THRESHOLD)
-                    {
-                        LOG_INFO << "hpfs " << name << " sync: Resubmission threshold exceeded. Abandoning sync.";
-                        return -1;
-                    }
-
-                    // Reset the counter and re-submit request.
-                    request.waiting_time = 0;
-                    LOG_DEBUG << "hpfs " << name << " sync: Resubmitting request...";
-                    submit_request(request, lcl);
-                }
-            }
-
-            // Check whether we can submit any more requests.
-            if (!ctx.pending_requests.empty() && ctx.submitted_requests.size() < MAX_AWAITING_REQUESTS)
-            {
-                const uint16_t available_slots = MAX_AWAITING_REQUESTS - ctx.submitted_requests.size();
-                for (int i = 0; i < available_slots && !ctx.pending_requests.empty(); i++)
-                {
-                    if (should_stop_request_loop(current_target))
-                        return 0;
-
-                    const backlog_item &request = ctx.pending_requests.front();
-                    submit_request(request, lcl);
-                    ctx.pending_requests.pop_front();
-                }
-            }
-        }
-        return 0;
-    }
-
     /**
      * @return 0 when full sync completed, 1 on current sync state acheived and more to go.
     */
@@ -640,7 +634,7 @@ namespace hpfs
                 fs_mount->ctx.set_hash(ctx.current_target_vpath, updated_patch_hash);
             }
 
-            if (ctx.target_hash_two == util::h32_empty ||                                            // Incase where only one hash is set in set_target.
+            if (ctx.target_hash_two == util::h32_empty ||                            // Incase where only one hash is set in set_target.
                 ctx.target_hash_two == fs_mount->ctx.get_hash(ctx.target_two_vpath)) // Incase second target is already met.
                 return 0;
 
@@ -656,4 +650,4 @@ namespace hpfs
         return 0;
     }
 
-} // namespace hpfs_sync
+} // namespace hpfs

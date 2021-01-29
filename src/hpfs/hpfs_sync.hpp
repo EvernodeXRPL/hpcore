@@ -30,6 +30,7 @@ namespace hpfs
         uint16_t waiting_time = 0;
     };
 
+
     struct sync_context
     {
         // The current target hashes we are syncing towards.
@@ -99,8 +100,6 @@ namespace hpfs
         int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 
         int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
-
-        int handle_hpfs_responses(const util::h32 &current_target, util::h32 &updated_state);
 
         int on_sync_state_acheived(const util::h32 &new_state);
     };
