@@ -18,6 +18,7 @@
     let sodium = null;
     let bson = null;
     let blake3 = null;
+    let logLevel = 0;
 
     /*--- Included in public interface. ---*/
     const protocols = {
@@ -66,7 +67,8 @@
             trustedServerKeys: null,
             protocol: protocols.json,
             requiredConnectionCount: 1,
-            connectionTimeoutMs: 5000
+            connectionTimeoutMs: 5000,
+            logLevel: "none"
         };
         const opt = options ? { ...defaultOptions, ...options } : defaultOptions;
 
@@ -173,7 +175,7 @@
 
                 // This means we were not able to maintain required connection count for the entire timeout period.
 
-                console.log("Missing-connections timeout reached.");
+                liblog(1, "Missing-connections timeout reached.");
 
                 // Close and cleanup all connections if we hit the timeout.
                 this.close().then(() => {
@@ -341,7 +343,7 @@
 
             const totalUnl = Object.keys(unlKeysLookup).length;
             if (totalUnl == 0) {
-                console.log("Cannot validate outputs with empty unl.");
+                liblog(1, "Cannot validate outputs with empty unl.");
                 return false;
             }
 
@@ -401,23 +403,23 @@
             if (connectionStatus == 0 && m.type == "user_challenge" && m.hp_version && m.contract_id) {
 
                 if (m.hp_version != supportedHpVersion) {
-                    console.log(`Incompatible Hot Pocket server version. Expected:${supportedHpVersion} Got:${m.hp_version}`);
+                    liblog(1, `Incompatible Hot Pocket server version. Expected:${supportedHpVersion} Got:${m.hp_version}`);
                     return false;
                 }
                 else if (!m.contract_id) {
-                    console.log("Server did not specify contract id.");
+                    liblog(1, "Server did not specify contract id.");
                     return false;
                 }
                 else if (contractId && m.contract_id != contractId) {
-                    console.log(`Contract id mismatch. Expected:${contractId} Got:${m.contract_id}`);
+                    liblog(1, `Contract id mismatch. Expected:${contractId} Got:${m.contract_id}`);
                     return false;
                 }
                 else if (!m.contract_version) {
-                    console.log("Server did not specify contract version.");
+                    liblog(1, "Server did not specify contract version.");
                     return false;
                 }
                 else if (contractVersion && m.contract_version != contractVersion) {
-                    console.log(`Contract version mismatch. Expected:${contractVersion} Got:${m.contract_version}`);
+                    liblog(1, `Contract version mismatch. Expected:${contractVersion} Got:${m.contract_version}`);
                     return false;
                 }
 
@@ -440,7 +442,7 @@
                 const stringToVerify = serverChallenge + reportedContractId + reportedContractVersion;
                 const serverPubkeyHex = m.pubkey.substring(2); // Skip 'ed' prefix;
                 if (!sodium.crypto_sign_verify_detached(hexToUint8Array(m.sig), stringToVerify, hexToUint8Array(serverPubkeyHex))) {
-                    console.log(`${server} challenge response verification failed.`);
+                    liblog(1, `${server} challenge response verification failed.`);
                     return false;
                 }
 
@@ -454,15 +456,15 @@
                 // If we are still connected, report handshaking as successful.
                 // (If websocket disconnects, handshakeResolver will be already null)
                 handshakeResolver && handshakeResolver(true);
-                console.log(`Connected to ${server}`);
+                liblog(0, `Connected to ${server}`);
 
                 validateAndEmitUnlChange(m.unl);
 
                 return true;
             }
 
-            console.log(`${server} invalid message during handshake. Connection status:${connectionStatus}`);
-            console.log(m);
+            liblog(1, `${server} invalid message during handshake. Connection status:${connectionStatus}`);
+            liblog(0, m);
             return false;
         }
 
@@ -489,7 +491,7 @@
                     if (!trustedKeys || validateOutput(m, trustedKeys))
                         m.outputs.forEach(output => emitter.emit(events.contractOutput, msgHelper.deserializeOutput(output)));
                     else
-                        console.log("Output validation failed.");
+                        liblog(1, "Output validation failed.");
                 }
             }
             else if (m.type == "stat_response") {
@@ -509,7 +511,7 @@
                 }
             }
             else {
-                console.log("Received unrecognized contract message: type:" + m.type);
+                liblog(1, "Received unrecognized contract message: type:" + m.type);
                 return false;
             }
 
@@ -526,9 +528,9 @@
                 m = msgHelper.deserializeMessage(data);
             }
             catch (e) {
-                console.log(e);
-                console.log("Exception deserializing: ");
-                console.log(data || rcvd);
+                liblog(1, e);
+                liblog(0, "Exception deserializing: ");
+                liblog(0, data || rcvd);
 
                 // If we get invalid message during handshake, close the socket.
                 if (connectionStatus < 2)
@@ -564,9 +566,9 @@
         const closeHandler = () => {
 
             if (closeResolver)
-                console.log("Closing connection to " + server);
+                liblog(0, "Closing connection to " + server);
             else
-                console.log("Disconnected from " + server);
+                liblog(0, "Disconnected from " + server);
 
             emitter = null;
 
@@ -597,7 +599,7 @@
         };
 
         this.connect = () => {
-            console.log("Connecting to " + server);
+            liblog(0, "Connecting to " + server);
             return new Promise(resolve => {
 
                 ws = isBrowser ? new WebSocket(server) : new WebSocket(server, { rejectUnauthorized: false });
@@ -883,13 +885,23 @@
         }
     }
 
+    function setLogLevel(level) {
+        logLevel = level;
+    }
+
+    function liblog(level, msg) {
+        if (level >= logLevel)
+            console.log(msg);
+    }
+
     if (isBrowser) {
         window.HotPocket = {
             generateKeys,
             createClient,
             events,
             protocols,
-            setBlake3
+            setBlake3,
+            setLogLevel
         };
     }
     else {
@@ -897,7 +909,8 @@
             generateKeys,
             createClient,
             events,
-            protocols
+            protocols,
+            setLogLevel
         };
     }
 })();

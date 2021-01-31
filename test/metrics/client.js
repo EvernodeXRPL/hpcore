@@ -2,6 +2,8 @@ const HotPocket = require('./hp-client-lib');
 
 async function main() {
 
+    HotPocket.setLogLevel(1);
+
     const tests = {
         "Single user read requests": singleUserReadRequests,
         "Single user Input/Output": singleUserInputOutput,
@@ -38,7 +40,7 @@ async function createClient() {
         console.log('Connection failed.');
         return null;
     }
-    console.log('HotPocket Connected.');
+
     return hpc;
 }
 
