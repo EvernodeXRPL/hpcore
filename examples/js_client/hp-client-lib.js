@@ -18,7 +18,7 @@
     let sodium = null;
     let bson = null;
     let blake3 = null;
-    let logLevel = 0;
+    let logLevel = 0; // 0=info, 1=error
 
     /*--- Included in public interface. ---*/
     const protocols = {
