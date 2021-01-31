@@ -1,9 +1,5 @@
 #!/bin/bash
 
-vmaddr=45.32.115.63
-vmuser=root
-vmpass=hpgeveo123
-
 scriptpath=$(dirname $(realpath $0))
 bindir=$(realpath $scriptpath/../../build)
 hpcore=$bindir/hpcore
@@ -24,6 +20,12 @@ echo "$(cat $contractdir/cfg/hp.cfg)" \
     | jq --slurp 'reduce .[] as $item ({}; . * $item)' > $contractdir/cfg/hp-merged.cfg
 mv $contractdir/cfg/hp-merged.cfg $contractdir/cfg/hp.cfg
 
-sshpass -p $vmpass scp -r $contractdir $vmuser@$vmaddr:~/
+# Copy the contract dir to the vm.
+# vmaddr=45.32.115.63
+# vmuser=root
+# vmpass=hpgeveo123
+# sshpass -p $vmpass scp -r $contractdir $vmuser@$vmaddr:~/
+# rm -r $contractdir
 
-rm -r $contractdir
+# Run the contract dir locally.
+$hpcore run $contractdir

@@ -508,7 +508,6 @@
                     validateAndEmitUnlChange(unl);
                 }
             }
-            
             else {
                 console.log("Received unrecognized contract message: type:" + m.type);
                 return false;
@@ -812,21 +811,19 @@
 
     // Set sodium reference.
     async function initSodium() {
-        if (sodium) { // If already set, do nothing.
-            return;
+
+        if (isBrowser) { // Browser
+            if (!sodium) {
+                sodium = window.sodium || await new Promise(resolve => {
+                    window.sodium = {
+                        onload: async (sodiumRef) => resolve(sodiumRef)
+                    }
+                })
+            }
         }
-        else if (isBrowser && window.sodium) { // browser (if sodium already loaded)
-            sodium = window.sodium;
-        }
-        else if (isBrowser && !window.sodium) { // If sodium not yet loaded in browser, wait for sodium ready.
-            sodium = await new Promise(resolve => {
-                window.sodium = {
-                    onload: async (sodiumRef) => resolve(sodiumRef)
-                }
-            })
-        }
-        else if (!isBrowser) { // nodejs
-            sodium = require('libsodium-wrappers');
+        else { // nodejs
+            if (!sodium)
+                sodium = require('libsodium-wrappers');
             await sodium.ready;
         }
 
