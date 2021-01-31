@@ -67,8 +67,7 @@
             trustedServerKeys: null,
             protocol: protocols.json,
             requiredConnectionCount: 1,
-            connectionTimeoutMs: 5000,
-            logLevel: "none"
+            connectionTimeoutMs: 5000
         };
         const opt = options ? { ...defaultOptions, ...options } : defaultOptions;
 

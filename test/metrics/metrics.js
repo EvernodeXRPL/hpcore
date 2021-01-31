@@ -1,4 +1,12 @@
+// HotPocket test client to collect metrics.
+// This assumes the HotPocket server we are connecting to is hosting the echo contract.
+
 const HotPocket = require('./hp-client-lib');
+
+let server = 'wss://localhost:8080';
+if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2];
+if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3];
+console.log("Server: " + server);
 
 async function main() {
 
@@ -27,18 +35,16 @@ async function main() {
 
 async function createClient() {
     const keys = await HotPocket.generateKeys();
-    const server = 'wss://' + process.argv[2] + ':' + process.argv[3]
 
     const hpc = await HotPocket.createClient([server], keys,
         {
-            contractId: "5657a933-74e3-4e5a-b1ab-c4de52a86cb3",
+            contractId: "3c349abe-4d70-4f50-9fa6-018f1f2530ab",
             protocol: HotPocket.protocols.json
         });
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
-        console.log('Connection failed.');
-        return null;
+        throw "Connection failed."
     }
 
     return hpc;
