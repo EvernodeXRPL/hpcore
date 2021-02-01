@@ -1,7 +1,7 @@
 // HotPocket test client to collect metrics.
 // This assumes the HotPocket server we are connecting to is hosting the echo contract.
 
-const HotPocket = require('./hp-client-lib');
+const HotPocket = require('../../examples/js_client/hp-client-lib');
 
 let server = 'wss://localhost:8080';
 if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2];
@@ -13,10 +13,11 @@ async function main() {
     HotPocket.setLogLevel(1);
 
     const tests = {
+        "Large payload": largePayload,
         "Single user read requests": singleUserReadRequests,
         "Single user Input/Output": singleUserInputOutput,
         "Multi user read requests": multiUserReadRequests,
-        "Multi user Input/Output": multiUserInputOutput
+        "Multi user Input/Output": multiUserInputOutput,
     };
 
     for (const test in tests) {
@@ -31,6 +32,8 @@ async function main() {
 
         console.log(duration + "ms");
     }
+
+    console.log("Done.");
 }
 
 async function createClient() {
@@ -113,6 +116,22 @@ function multiUserInputOutput() {
         tasks.push(singleUserInputOutput());
     }
     return Promise.all(tasks);
+}
+
+function largePayload() {
+    return new Promise(async (resolve) => {
+
+        const payload = "A".repeat(2 * 1024 * 1024);
+
+        const hpc = await createClient();
+        hpc.on(HotPocket.events.contractOutput, (response) => {
+            if (response.length < payload.length)
+                console.log("Payload length mismatch.");
+            hpc.close().then(() => resolve());
+        });
+
+        await hpc.sendContractInput(payload);
+    })
 }
 
 main();
