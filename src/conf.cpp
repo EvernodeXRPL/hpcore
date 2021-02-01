@@ -111,6 +111,8 @@ namespace conf
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
+            // "/ledger_temp/primary" should be made as a constant when ledger fs is implemented.
+            util::create_dir_tree_recursive(ctx.ledger_dir + "/seed" + "/ledger_temp/primary") == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
         {
             std::cerr << "ERROR: unable to create directories.\n";
@@ -205,6 +207,9 @@ namespace conf
         ctx.hpfs_dir = basedir + "/hpfs";
         ctx.hpfs_mount_dir = ctx.hpfs_dir + "/mnt";
         ctx.hpfs_rw_dir = ctx.hpfs_mount_dir + "/rw";
+        ctx.ledger_dir = basedir + "/hpfs"; // This should be made as "/hpfs" -> "/ledger" when ledger fs is implemented.
+        ctx.ledger_mount_dir = ctx.ledger_dir + "/mnt";
+        ctx.ledger_rw_dir = ctx.ledger_mount_dir + "/rw";
         ctx.log_dir = basedir + "/log";
     }
 
@@ -298,6 +303,8 @@ namespace conf
                     return -1;
                 }
                 startup_mode = cfg.node.role;
+
+                cfg.node.max_shards = node["max_shards"].as<uint64_t>();
             }
             catch (const std::exception &e)
             {
@@ -437,6 +444,7 @@ namespace conf
             node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
             node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
             node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+            node_config.insert_or_assign("max_shards", cfg.node.max_shards);
             d.insert_or_assign("node", node_config);
         }
 
@@ -579,12 +587,13 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[9] = {
+        const std::string paths[10] = {
             ctx.contract_dir,
             ctx.config_file,
             ctx.hist_dir,
             ctx.full_hist_dir,
             ctx.hpfs_dir,
+            ctx.ledger_dir,
             ctx.tls_key_file,
             ctx.tls_cert_file,
             ctx.hpfs_exe_path,

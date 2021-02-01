@@ -342,7 +342,7 @@ namespace ledger
     {
         // This is used as a sample to create ledger sqlite database,
         // Later this callee method can be called directly from consensus on ledger storage implementations. 
-        // ledger::ledger_sample::save_ledger(proposal);
+        ledger::ledger_sample::save_ledger(proposal);
 
         uint64_t seq_no = 0;
         std::string hash;

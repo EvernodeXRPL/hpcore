@@ -67,9 +67,10 @@ namespace conf
         ROLE role = ROLE::OBSERVER; // Configured startup role of the contract (Observer/validator).
         bool is_unl = false;        // Indicate whether we are a unl node or not.
 
-        std::string public_key_hex;  // Contract hex public key
-        std::string private_key_hex; // Contract hex private key
-        bool full_history = false;   // Whether full history mode is on/off.
+        std::string public_key_hex;   // Contract hex public key
+        std::string private_key_hex;  // Contract hex private key
+        bool full_history = false;    // Whether full history mode is on/off.
+        std::uint64_t max_shards = 0; // Maximum no of shards to be kept.
     };
 
     struct appbill_config
@@ -140,17 +141,20 @@ namespace conf
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
 
-        std::string contract_dir;   // Contract base directory full path.
-        std::string full_hist_dir;  // Contract full history dir full path.
-        std::string hist_dir;       // Contract ledger history dir full path.
-        std::string hpfs_dir;       // hpfs metdata dir (The location of hpfs log file).
-        std::string hpfs_mount_dir; // hpfs fuse file system mount path.
-        std::string hpfs_rw_dir;    // hpfs read/write fs session path.
-        std::string log_dir;        // Contract log dir full path.
-        std::string config_dir;     // Config dir full path.
-        std::string config_file;    // Full path to the config file.
-        std::string tls_key_file;   // Full path to the tls private key file.
-        std::string tls_cert_file;  // Full path to the tls certificate.
+        std::string contract_dir;     // Contract base directory full path.
+        std::string full_hist_dir;    // Contract full history dir full path.
+        std::string hist_dir;         // Contract ledger history dir full path.
+        std::string hpfs_dir;         // hpfs metdata dir (The location of hpfs log file).
+        std::string hpfs_mount_dir;   // hpfs fuse file system mount path.
+        std::string hpfs_rw_dir;      // hpfs read/write fs session path.
+        std::string ledger_dir;       // Ledger metdata dir (The location of ledger shards and full history).
+        std::string ledger_mount_dir; // Ledger fuse file system mount path.
+        std::string ledger_rw_dir;    // Ledger read/write fs session path.
+        std::string log_dir;          // Contract log dir full path.
+        std::string config_dir;       // Config dir full path.
+        std::string config_file;      // Full path to the config file.
+        std::string tls_key_file;     // Full path to the tls private key file.
+        std::string tls_cert_file;    // Full path to the tls certificate.
 
         int config_fd;            // Config file file descriptor.
         struct flock config_lock; // Config file lock.
