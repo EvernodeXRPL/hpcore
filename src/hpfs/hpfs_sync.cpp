@@ -28,8 +28,14 @@ namespace hpfs
 
     constexpr int FILE_PERMS = 0644;
 
+    /**
+     * This should be called to activate the hpfs sync.
+     */
     int hpfs_sync::init(std::string_view name, hpfs::hpfs_mount *fs_mount)
     {
+        if (fs_mount == NULL)
+            return -1;
+
         this->name = name;
         this->fs_mount = fs_mount;
         REQUEST_RESUBMIT_TIMEOUT = hpfs::get_request_resubmit_timeout();
@@ -38,6 +44,9 @@ namespace hpfs
         return 0;
     }
 
+    /**
+     * Perform relavent cleaning.
+     */
     void hpfs_sync::deinit()
     {
         if (init_success)
@@ -49,23 +58,23 @@ namespace hpfs
     }
 
     /**
-     * Sets a new target states for the syncing process.
-     * @param target_hash_one Priority one target hash.
-     * @param target_hash_two Priority two target hash.
+     * Sets a list of sync targets. Sync finishes when all the targets are synced.
+     * Syncing happens sequentially.
+     * @param target_list List of sync targets to sync towards.
      */
     void hpfs_sync::set_target(const std::list<sync_target> &target_list)
     {
         if (target_list.empty())
             return;
 
-        std::unique_lock lock(ctx.target_state_mutex);
-
         // Do not do anything if we are already syncing towards the specified target states.
-        if (ctx.is_shutting_down || (ctx.is_syncing && ctx.target_list == target_list))
+        if (ctx.is_shutting_down || (ctx.is_syncing && ctx.original_target_list == target_list))
             return;
 
+        ctx.original_target_list = target_list;
         ctx.target_list = std::move(target_list);
 
+        std::unique_lock lock(ctx.current_target_mutex);
         ctx.current_target = ctx.target_list.front(); // Make the first element of the list the first target to sync.
         ctx.is_syncing = true;
     }
@@ -93,7 +102,7 @@ namespace hpfs
                 while (!ctx.is_shutting_down)
                 {
                     {
-                        std::shared_lock lock(ctx.target_state_mutex);
+                        std::shared_lock lock(ctx.current_target_mutex);
                         LOG_INFO << "hpfs " << name << " sync: Starting sync for target " << ctx.current_target.name << " hash: " << ctx.current_target.hash;
                     }
                     util::h32 new_state = util::h32_empty;
@@ -103,27 +112,23 @@ namespace hpfs
                     ctx.candidate_hpfs_responses.clear();
                     ctx.submitted_requests.clear();
 
-                    if (result == -1 || ctx.is_shutting_down)
+                    if (result == -1 || result == 1 || ctx.is_shutting_down)
                         break;
 
                     {
-                        std::shared_lock lock(ctx.target_state_mutex);
+                        std::shared_lock lock(ctx.current_target_mutex);
 
                         if (new_state == ctx.current_target.hash)
                         {
                             LOG_INFO << "hpfs " << name << " sync: Target " << ctx.current_target.name << " hash achieved: " << new_state;
                             on_current_sync_state_acheived();
-                            ctx.target_list.pop_front(); // Remove the synced parent from the target list.
-                            if (ctx.target_list.empty())
-                            {
-                                ctx.current_target = {};
+
+                            // Start syncing to next target.
+                            const int result = start_syncing_next_target();
+                            if (result == 0)
                                 break;
-                            }
-                            else
-                            {
-                                ctx.current_target = ctx.target_list.front();
+                            else if (result == 1)
                                 continue;
-                            }
                         }
                         else
                         {
@@ -140,17 +145,24 @@ namespace hpfs
             {
                 LOG_ERROR << "hpfs " << name << " sync: Failed to start hpfs rw session";
             }
+            ctx.target_list.clear();
+            ctx.original_target_list.clear();
             ctx.is_syncing = false;
         }
 
         LOG_INFO << "hpfs " << name << " sync: Worker stopped.";
     }
 
+    /**
+     * Reqest loop.
+     * @return -1 on error. 0 when current sync state acheived or sync is stopped due to target change.
+     * Returns 1 on successfully finishing all the sync targets.
+    */
     int hpfs_sync::request_loop(const util::h32 current_target, util::h32 &updated_state)
     {
         std::string lcl = ledger::ctx.get_lcl();
 
-        // Send the initial root hpfs request.
+        // Send the initial root hpfs request of the current target.
         submit_request(backlog_item{ctx.current_target.item_type, ctx.current_target.vpath, -1, current_target}, lcl);
 
         // Indicates whether any responses were processed in the previous loop iteration.
@@ -168,13 +180,8 @@ namespace hpfs
             // Get current lcl.
             std::string lcl = ledger::ctx.get_lcl();
 
-            {
-                std::scoped_lock lock(p2p::ctx.collected_msgs.hpfs_responses_mutex);
-
-                // Move collected hpfs responses over to local candidate responses list.
-                if (!p2p::ctx.collected_msgs.hpfs_responses.empty())
-                    ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.hpfs_responses);
-            }
+            // Move the received hpfs responses to the local response list.
+            swap_collected_responses();
 
             prev_responses_processed = !ctx.candidate_hpfs_responses.empty();
 
@@ -296,7 +303,12 @@ namespace hpfs
                     if (++resubmissions_count > ABANDON_THRESHOLD)
                     {
                         LOG_INFO << "hpfs " << name << " sync: Resubmission threshold exceeded. Abandoning sync.";
-                        return -1;
+
+                        std::shared_lock lock(ctx.current_target_mutex);
+                        const int result = start_syncing_next_target();
+                        if (result == 0)
+                            return 1; // To stop syncing since we have sync all the targets.
+                        return 0;
                     }
 
                     // Reset the counter and re-submit request.
@@ -399,7 +411,7 @@ namespace hpfs
             return true;
 
         // Stop request loop if the target has changed.
-        std::shared_lock lock(ctx.target_state_mutex);
+        std::shared_lock lock(ctx.current_target_mutex);
         return current_target != ctx.current_target.hash;
     }
 
@@ -419,7 +431,7 @@ namespace hpfs
         hr.is_file = is_file;
         hr.block_id = block_id;
         hr.expected_hash = expected_hash;
-        hr.mount_id = hpfs_manager::CONTRACT_FS_ID;
+        hr.mount_id = fs_mount->mount_id;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
         msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, lcl);
@@ -616,6 +628,38 @@ namespace hpfs
                 fs_mount->ctx.set_hash(ctx.current_target.vpath, updated_patch_hash);
             }
         }
+    }
+
+    /**
+     * Starts syncing next target if available after current target finishes.
+     * @return returns 0 when the full sync is complete and 1 when more sync targets are available.
+    */
+    int hpfs_sync::start_syncing_next_target()
+    {
+        ctx.target_list.pop_front(); // Remove the synced parent from the target list.
+        if (ctx.target_list.empty())
+        {
+            ctx.current_target = {};
+            return 0;
+        }
+        else
+        {
+            ctx.current_target = ctx.target_list.front();
+            return 1;
+        }
+    }
+
+    /**
+     * Move the collected responses from hpfs responses to a local response list.
+    */
+    void hpfs_sync::swap_collected_responses()
+    {
+        // This logic will be added to a child class in next PBI.
+        std::scoped_lock lock(p2p::ctx.collected_msgs.contract_hpfs_responses_mutex);
+
+        // Move collected hpfs responses over to local candidate responses list.
+        if (!p2p::ctx.collected_msgs.contract_hpfs_responses.empty())
+            ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.contract_hpfs_responses);
     }
 
 } // namespace hpfs

@@ -30,7 +30,6 @@ namespace hpfs
         uint16_t waiting_time = 0;
     };
 
-
     struct sync_target
     {
         std::string name; // Used for logging.
@@ -44,11 +43,13 @@ namespace hpfs
         }
     };
 
-
     struct sync_context
     {
         // The current target hashes we are syncing towards.
         std::list<sync_target> target_list;
+        // Store the originally submitted sync target list. This list is used to avoid submitting same list multiple times
+        // because target list is updated when the sync targets are acheived.
+        std::list<sync_target> original_target_list;
         sync_target current_target = {};
 
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
@@ -61,7 +62,7 @@ namespace hpfs
         std::unordered_map<std::string, backlog_item> submitted_requests;
 
         std::thread hpfs_sync_thread;
-        std::shared_mutex target_state_mutex;
+        std::shared_mutex current_target_mutex;
         std::atomic<bool> is_syncing = false;
         std::atomic<bool> is_shutting_down = false;
     };
@@ -74,6 +75,16 @@ namespace hpfs
         hpfs::hpfs_mount *fs_mount = NULL;
         std::string name;
 
+        void hpfs_syncer_loop();
+
+        int request_loop(const util::h32 current_target, util::h32 &updated_state);
+
+        int start_syncing_next_target();
+
+    protected:
+        virtual void on_current_sync_state_acheived();
+        virtual void swap_collected_responses(); // Must override in child classes.
+
     public:
         sync_context ctx;
 
@@ -82,10 +93,6 @@ namespace hpfs
         void deinit();
 
         void set_target(const std::list<sync_target> &target_list);
-
-        void hpfs_syncer_loop();
-
-        int request_loop(const util::h32 current_target, util::h32 &updated_state);
 
         bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 
@@ -105,8 +112,6 @@ namespace hpfs
         int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 
         int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
-
-        void on_current_sync_state_acheived();
     };
 
 } // namespace hpfs

@@ -22,9 +22,9 @@ namespace hpfs
     /**
      * This should be called to activate the hpfs mount process.
      */
-    int hpfs_mount::init(MOUNTS mount_type, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history)
+    int hpfs_mount::init(const int32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history)
     {
-        this->mount_type = mount_type;
+        this->mount_id = mount_id;
         this->fs_dir = fs_dir;
         this->mount_dir = mount_dir;
         this->rw_dir = rw_dir;
@@ -56,12 +56,12 @@ namespace hpfs
     }
 
     /**
-     * Performs initial patch file population and loads initial hashes for later use.
-     * During startup, we always populate patch.cfg with current values from hp.cfg.
+     * This perform file system preparation tasks.
      * @return 0 on success. -1 on failure.
      */
     int hpfs_mount::prepare_fs()
     {
+        // This contract preparation specific preparing logic will be moved to a seprate child class in the next PBI.
         util::h32 initial_state_hash;
         util::h32 initial_patch_hash;
 
@@ -82,7 +82,7 @@ namespace hpfs
     }
 
     /**
-     * Starts the hpfs process used for all fs sessions.
+     * Starts the hpfs process used for all fs sessions of the mount.
      */
     int hpfs_mount::start_hpfs_process()
     {

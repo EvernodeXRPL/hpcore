@@ -31,7 +31,8 @@ namespace hpfs
 
     enum MOUNTS
     {
-        CONTRACT
+        CONTRACT,
+        LEDGER
     };
 
     struct hpfs_context
@@ -71,10 +72,12 @@ namespace hpfs
             {
                 itr->second = new_state;
             }
-            
         }
     };
 
+    /**
+     * This class represents a hpfs file system mount.
+     */
     class hpfs_mount
     {
     private:
@@ -83,13 +86,15 @@ namespace hpfs
         bool is_full_history;
         bool init_success = false;
 
+    protected:
+        virtual int prepare_fs();
+
     public:
+        int32_t mount_id; // Used in hpfs serving and syncing.
         std::string rw_dir;
-        MOUNTS mount_type;
         hpfs_context ctx;
-        int init(MOUNTS mount_type, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history);
+        int init(const int32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history);
         void deinit();
-        int prepare_fs();
 
         int start_hpfs_process();
         int acquire_rw_session();

@@ -195,7 +195,7 @@ namespace p2p
         {
             const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(content_ptr);
             const p2p::hpfs_request hr = p2pmsg::create_hpfs_request_from_msg(*content->message_as_Hpfs_Request_Message());
-            if (hr.mount_id == hpfs_manager::CONTRACT_FS_ID)
+            if (hr.mount_id == hpfs_manager::contract_fs.mount_id)
             {
                 // Check the cap and insert request with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.contract_hpfs_requests_mutex);
@@ -213,16 +213,20 @@ namespace p2p
         }
         else if (content_message_type == p2pmsg::Message_Hpfs_Response_Message)
         {
-            if (hpfs_manager::contract_sync.ctx.is_syncing) // Only accept hpfs responses if hpfs fs is syncing.
+            const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(content_ptr);
+            const msg::fbuf::p2pmsg::Hpfs_Response_Message *resp_msg = content->message_as_Hpfs_Response_Message();
+
+            // Only accept hpfs responses if hpfs fs is syncing.
+            if (hpfs_manager::contract_sync.ctx.is_syncing && resp_msg->mount_id() == hpfs_manager::contract_fs.mount_id)
             {
                 // Check the cap and insert state_response with lock.
-                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_responses_mutex);
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.contract_hpfs_responses_mutex);
 
                 // If max number of state responses reached skip the rest.
-                if (ctx.collected_msgs.hpfs_responses.size() < p2p::HPFS_RES_LIST_CAP)
+                if (ctx.collected_msgs.contract_hpfs_responses.size() < p2p::HPFS_RES_LIST_CAP)
                 {
                     std::string response(reinterpret_cast<const char *>(content_ptr), content_size);
-                    ctx.collected_msgs.hpfs_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
+                    ctx.collected_msgs.contract_hpfs_responses.push_back(std::make_pair(session.uniqueid, std::move(response)));
                 }
                 else
                 {

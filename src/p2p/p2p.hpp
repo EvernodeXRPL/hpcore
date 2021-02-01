@@ -123,13 +123,13 @@ namespace p2p
         std::list<nonunl_proposal> nonunl_proposals;
         std::mutex nonunl_proposals_mutex; // Mutex for non-unl proposals access race conditions.
 
-        // List of pairs indicating the session pubkey hex and the hpfs requests.
+        // List of pairs indicating the session pubkey hex and the contract fs hpfs requests.
         std::list<std::pair<std::string, p2p::hpfs_request>> contract_hpfs_requests;
-        std::mutex contract_hpfs_requests_mutex; // Mutex for hpfs requests access race conditions.
+        std::mutex contract_hpfs_requests_mutex; // Mutex for contract fs hpfs requests access race conditions.
 
-        // List of pairs indicating the session pubkey hex and the hpfs responses.
-        std::list<std::pair<std::string, std::string>> hpfs_responses;
-        std::mutex hpfs_responses_mutex; // Mutex for hpfs responses access race conditions.
+        // List of pairs indicating the session pubkey hex and the contract fs hpfs responses.
+        std::list<std::pair<std::string, std::string>> contract_hpfs_responses;
+        std::mutex contract_hpfs_responses_mutex; // Mutex for contract fs hpfs responses access race conditions.
     };
 
     struct connected_context

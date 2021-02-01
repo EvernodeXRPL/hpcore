@@ -18,13 +18,15 @@ namespace hpfs
         std::thread hpfs_serve_thread;
         hpfs::hpfs_mount *fs_mount = NULL;
         std::string_view name;
+        void hpfs_serve_loop();
+
+    protected:
+        virtual void swap_collected_requests(std::list<std::pair<std::string, p2p::hpfs_request>> &hpfs_requests); // Must override in child classes.
 
     public:
         int init(std::string_view name, hpfs::hpfs_mount *fs_mount);
 
         void deinit();
-
-        void hpfs_serve_loop();
 
         int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &sr, std::string_view lcl);
 

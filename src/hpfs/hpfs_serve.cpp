@@ -40,6 +40,9 @@ namespace hpfs
         return 0;
     }
 
+    /**
+     * Perform cleanup activities.
+    */
     void hpfs_serve::deinit()
     {
         if (init_success)
@@ -66,14 +69,7 @@ namespace hpfs
             if (!prev_requests_processed)
                 util::sleep(LOOP_WAIT);
 
-            if (fs_mount->mount_type == hpfs::MOUNTS::CONTRACT)
-            {
-                std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.contract_hpfs_requests_mutex);
-
-                // Move collected hpfs requests for contract fs over to local requests list.
-                if (!p2p::ctx.collected_msgs.contract_hpfs_requests.empty())
-                    hpfs_requests.splice(hpfs_requests.end(), p2p::ctx.collected_msgs.contract_hpfs_requests);
-            }
+            swap_collected_requests(hpfs_requests);
 
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
@@ -159,7 +155,7 @@ namespace hpfs
                 resp.hash = hr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, lcl);
+                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id, lcl);
                 return 1; // Success.
             }
         }
@@ -180,7 +176,7 @@ namespace hpfs
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
-                        fbuf, hr.parent_path, block_hashes,
+                        fbuf, hr.parent_path, fs_mount->mount_id, block_hashes,
                         file_length, hr.expected_hash, lcl);
                     return 1; // Success.
                 }
@@ -200,7 +196,7 @@ namespace hpfs
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, hr.parent_path, child_hash_nodes, hr.expected_hash, lcl);
+                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash, lcl);
                     return 1; // Success.
                 }
             }
@@ -356,5 +352,17 @@ namespace hpfs
         }
 
         return result;
+    }
+
+    /**
+     * Move the collected requests from hpfs requests to the local hpfs request list.
+    */
+    void hpfs_serve::swap_collected_requests(std::list<std::pair<std::string, p2p::hpfs_request>> &hpfs_requests)
+    {
+        std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.contract_hpfs_requests_mutex);
+
+        // Move collected hpfs requests for contract fs over to local requests list.
+        if (!p2p::ctx.collected_msgs.contract_hpfs_requests.empty())
+            hpfs_requests.splice(hpfs_requests.end(), p2p::ctx.collected_msgs.contract_hpfs_requests);
     }
 } // namespace hpfs

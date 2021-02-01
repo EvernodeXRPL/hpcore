@@ -58,14 +58,14 @@ namespace msg::fbuf::p2pmsg
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl);
 
     void create_msg_from_fsentry_response(
-        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
+        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const int32_t mount_id,
         std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl);
 
     void create_msg_from_filehashmap_response(
-        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path,
+        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const int32_t mount_id,
         std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl);
 
-    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl);
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const int32_t mount_id, std::string_view lcl);
 
     void create_containermsg_from_content(
         flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign);

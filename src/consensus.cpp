@@ -200,7 +200,8 @@ namespace consensus
             if (is_patch_desync)
                 is_patch_update_pending = false;
 
-            std::list<hpfs::sync_target> target_list;
+            // This list holds all the sync targets which needs to get synced in contract fs.
+            std::list<hpfs::sync_target> sync_target_list;
             if (is_patch_desync)
             {
                 hpfs::sync_target patch_target;
@@ -208,7 +209,7 @@ namespace consensus
                 patch_target.name = "patch";
                 patch_target.vpath = hpfs::PATCH_FILE_PATH;
                 patch_target.item_type = hpfs::BACKLOG_ITEM_TYPE::FILE;
-                target_list.emplace_back(patch_target);
+                sync_target_list.emplace_back(patch_target);
             }
 
             if (is_state_desync)
@@ -218,14 +219,15 @@ namespace consensus
                 state_target.name = "state";
                 state_target.vpath = hpfs::STATE_DIR_PATH;
                 state_target.item_type = hpfs::BACKLOG_ITEM_TYPE::DIR;
-                target_list.emplace_back(state_target);
+                sync_target_list.emplace_back(state_target);
             }
 
-            // Start hpfs sync if we are out-of-sync with majority hpfs state.
+            // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
             if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                hpfs_manager::contract_sync.set_target(std::move(target_list));
+                // Set sync targets for contract fs.
+                hpfs_manager::contract_sync.set_target(std::move(sync_target_list));
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
@@ -893,6 +895,7 @@ namespace consensus
                 return -1;
             }
 
+            // Update state hash in contract fs global hash tracker.
             hpfs_manager::contract_fs.ctx.set_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
             new_state_hash = args.post_execution_state_hash;
 
