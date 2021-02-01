@@ -61,7 +61,7 @@ namespace hpfs
      */
     int hpfs_mount::prepare_fs()
     {
-        // This contract preparation specific preparing logic will be moved to a seprate child class in the next PBI.
+        // This contract mount specific preparation logic will be moved to a seprate child class in the next PBI.
         util::h32 initial_state_hash;
         util::h32 initial_patch_hash;
 

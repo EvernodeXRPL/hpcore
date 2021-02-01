@@ -231,7 +231,7 @@ namespace hpfs
             else // Get actual block data.
             {
                 struct stat st;
-                const std::string file_path = conf::ctx.hpfs_rw_dir + vpath.data();
+                const std::string file_path = fs_mount->rw_dir + vpath.data();
                 const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
                 const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
                 if (fd == -1)
