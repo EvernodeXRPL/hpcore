@@ -469,7 +469,7 @@ namespace hpfs
         LOG_DEBUG << "hpfs " << name << " sync: Processing fs entries response for " << vpath;
 
         // Create physical directory on our side if not exist.
-        std::string parent_physical_path = conf::ctx.hpfs_rw_dir + vpath.data();
+        std::string parent_physical_path = fs_mount->rw_dir + vpath.data();
         if (util::create_dir_tree_recursive(parent_physical_path) == -1)
             return -1;
 
@@ -504,7 +504,7 @@ namespace hpfs
             else
             {
                 // If there was an entry that does not exist on other side, delete it.
-                std::string child_physical_path = conf::ctx.hpfs_rw_dir + child_vpath.data();
+                std::string child_physical_path = fs_mount->rw_dir + child_vpath.data();
 
                 if ((ex_entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
                     !ex_entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
@@ -564,7 +564,7 @@ namespace hpfs
         if (existing_hashes.size() >= hash_count)
         {
             // If peer file might be smaller, truncate our file to match with peer file.
-            std::string file_physical_path = conf::ctx.hpfs_rw_dir + vpath.data();
+            std::string file_physical_path = fs_mount->rw_dir + vpath.data();
             if (truncate(file_physical_path.c_str(), file_length) == -1)
                 return -1;
         }
@@ -585,7 +585,7 @@ namespace hpfs
                   << " (len:" << buf.length()
                   << ") of " << vpath;
 
-        std::string file_physical_path = conf::ctx.hpfs_rw_dir + vpath.data();
+        std::string file_physical_path = fs_mount->rw_dir + vpath.data();
         const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);
         if (fd == -1)
         {
