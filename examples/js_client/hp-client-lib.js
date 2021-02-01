@@ -12,6 +12,8 @@
     const outputValidationPassThreshold = 0.8;
     const connectionCheckIntervalMs = 1000;
     const recentActivityThresholdMs = 3000;
+    const textEncoder = new TextEncoder();
+    const textDecoder = new TextDecoder();
 
     // External dependency references.
     let WebSocket = null;
@@ -430,7 +432,7 @@
 
                 // Sign the challenge and send back the response
                 const response = msgHelper.createUserChallengeResponse(m.challenge, serverChallenge, protocol);
-                ws.send(msgHelper.serializeObject(response));
+                wsSend(msgHelper.serializeObject(response));
 
                 connectionStatus = 1;
                 return true;
@@ -519,9 +521,10 @@
 
         const messageHandler = async (rcvd) => {
 
-            const data = (connectionStatus < 2 || protocol == protocols.json) ?
-                (isBrowser ? await rcvd.data.text() : rcvd.data) :
-                (isBrowser ? await rcvd.data.arrayBuffer() : rcvd.data);
+            // Decode the received data buffer.
+            // In browser, text(json) mode requires the buffer to be "decoded" to text before JSON parsing.
+            const isTextMode = (connectionStatus < 2 || protocol == protocols.json);
+            const data = (isBrowser && isTextMode) ? textDecoder.decode(rcvd.data) : rcvd.data;
 
             try {
                 m = msgHelper.deserializeMessage(data);
@@ -593,6 +596,13 @@
             handshakeResolver && handshakeResolver(false);
         }
 
+        const wsSend = (msg) => {
+            if (isString(msg))
+                ws.send(textEncoder.encode(msg));
+            else
+                ws.send(msg);
+        }
+
         this.isConnected = () => {
             return connectionStatus == 2;
         };
@@ -602,6 +612,9 @@
             return new Promise(resolve => {
 
                 ws = isBrowser ? new WebSocket(server) : new WebSocket(server, { rejectUnauthorized: false });
+                if (isBrowser)
+                    ws.binaryType = "arraybuffer";
+
                 handshakeResolver = resolve;
                 ws.addEventListener("error", errorHandler);
                 ws.addEventListener("open", openHandler);
@@ -633,7 +646,7 @@
             // Otherwise simply wait for the previously sent request.
             if (statResponseResolvers.length == 1) {
                 const msg = msgHelper.createStatusRequest();
-                ws.send(msgHelper.serializeObject(msg));
+                wsSend(msgHelper.serializeObject(msg));
             }
             return p;
         }
@@ -663,7 +676,7 @@
                 contractInputResolvers[sigKey] = resolve;
             });
 
-            ws.send(msgHelper.serializeObject(msg));
+            wsSend(msgHelper.serializeObject(msg));
             return p;
         }
 
@@ -673,7 +686,7 @@
                 return;
 
             const msg = msgHelper.createReadRequest(request);
-            ws.send(msgHelper.serializeObject(msg));
+            wsSend(msgHelper.serializeObject(msg));
         }
     }
 
