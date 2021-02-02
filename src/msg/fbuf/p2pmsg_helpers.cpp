@@ -4,7 +4,6 @@
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
 #include "../../util/h32.hpp"
-#include "../../hpfs/hpfs.hpp"
 #include "../../unl.hpp"
 #include "p2pmsg_container_generated.h"
 #include "p2pmsg_content_generated.h"
@@ -275,7 +274,7 @@ namespace msg::fbuf::p2pmsg
     const p2p::hpfs_request create_hpfs_request_from_msg(const Hpfs_Request_Message &msg)
     {
         p2p::hpfs_request hr;
-
+        hr.mount_id = msg.mount_id();
         hr.block_id = msg.block_id();
         hr.is_file = msg.is_file();
         hr.parent_path = flatbuff_str_to_sv(msg.parent_path());
@@ -468,13 +467,14 @@ namespace msg::fbuf::p2pmsg
      * @param container_builder Flatbuffer builder for the container message.
      * @param hr The hpfs request struct to be placed in the container message.
      */
-    void create_msg_from_state_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl)
+    void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
         flatbuffers::Offset<Hpfs_Request_Message> srmsg =
             CreateHpfs_Request_Message(
                 builder,
+                hr.mount_id,
                 sv_to_flatbuff_str(builder, hr.parent_path),
                 hr.is_file,
                 hr.block_id,
@@ -497,7 +497,7 @@ namespace msg::fbuf::p2pmsg
  * @param lcl Lcl to be include in the container msg.
  */
     void create_msg_from_fsentry_response(
-        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path,
+        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const int32_t mount_id,
         std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -511,7 +511,7 @@ namespace msg::fbuf::p2pmsg
             builder, Hpfs_Response_Fs_Entry_Response,
             resp.Union(),
             hash_to_flatbuff_bytes(builder, expected_hash),
-            sv_to_flatbuff_str(builder, path));
+            sv_to_flatbuff_str(builder, path), mount_id);
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_Hpfs_Response_Message, st_resp.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -529,7 +529,7 @@ namespace msg::fbuf::p2pmsg
  * @param lcl Lcl to be include in the container msg.
  */
     void create_msg_from_filehashmap_response(
-        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path,
+        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const int32_t mount_id,
         std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
@@ -548,7 +548,7 @@ namespace msg::fbuf::p2pmsg
             Hpfs_Response_File_HashMap_Response,
             resp.Union(),
             hash_to_flatbuff_bytes(builder, expected_hash),
-            sv_to_flatbuff_str(builder, path));
+            sv_to_flatbuff_str(builder, path), mount_id);
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_Hpfs_Response_Message, st_resp.Union());
         builder.Finish(message); // Finished building message content to get serialised content.
@@ -564,7 +564,7 @@ namespace msg::fbuf::p2pmsg
  * @param block_resp Block response struct to place in the message
  * @param lcl Lcl to be include in the container message.
  */
-    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, std::string_view lcl)
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const int32_t mount_id, std::string_view lcl)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -580,7 +580,7 @@ namespace msg::fbuf::p2pmsg
             Hpfs_Response_Block_Response,
             resp.Union(),
             hash_to_flatbuff_bytes(builder, block_resp.hash),
-            sv_to_flatbuff_str(builder, block_resp.path));
+            sv_to_flatbuff_str(builder, block_resp.path), mount_id);
 
         flatbuffers::Offset<Content> message = CreateContent(builder, Message_Hpfs_Response_Message, st_resp.Union());
         builder.Finish(message); // Finished building message content to get serialised content.

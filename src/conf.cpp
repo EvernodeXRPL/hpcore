@@ -669,7 +669,7 @@ namespace conf
         jsoncons::ojson jdoc;
         populate_contract_section_json(jdoc, cfg.contract, true);
 
-        const std::string patch_file_path = hpfs::physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
+        const std::string patch_file_path = hpfs::contract_fs.physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
         return write_json_file(patch_file_path, jdoc);
     }
 
@@ -681,7 +681,7 @@ namespace conf
     */
     int apply_patch_config(std::string_view hpfs_session_name)
     {
-        const std::string path = hpfs::physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
+        const std::string path = hpfs::contract_fs.physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
         if (!util::is_file_exists(path))
             return 0;
 

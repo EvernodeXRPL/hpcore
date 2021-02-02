@@ -93,7 +93,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            const std::string current_dir = hpfs::physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
+            const std::string current_dir = hpfs::contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
             chdir(current_dir.c_str());
 
             if (conf::cfg.contract.log_output)
@@ -171,8 +171,8 @@ namespace sc
         if (!ctx.args.readonly)
             ctx.args.hpfs_session_name = hpfs::RW_SESSION_NAME;
 
-        return ctx.args.readonly ? hpfs::start_ro_session(ctx.args.hpfs_session_name, false)
-                                 : hpfs::acquire_rw_session();
+        return ctx.args.readonly ? hpfs::contract_fs.start_ro_session(ctx.args.hpfs_session_name, false)
+                                 : hpfs::contract_fs.acquire_rw_session();
     }
 
     /**
@@ -180,36 +180,37 @@ namespace sc
      */
     int stop_hpfs_session(execution_context &ctx)
     {
+        hpfs::hpfs_mount &contract_fs = hpfs::contract_fs;
         if (ctx.args.readonly)
         {
-            return hpfs::stop_ro_session(ctx.args.hpfs_session_name);
+            return contract_fs.stop_ro_session(ctx.args.hpfs_session_name);
         }
         else
         {
             // Read the state hash if not in readonly mode.
-            if (hpfs::get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH) < 1)
+            if (contract_fs.get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH) < 1)
             {
-                hpfs::release_rw_session();
+                contract_fs.release_rw_session();
                 return -1;
             }
 
             util::h32 patch_hash;
-            const int patch_hash_result = hpfs::get_hash(patch_hash, ctx.args.hpfs_session_name, hpfs::PATCH_FILE_PATH);
+            const int patch_hash_result = contract_fs.get_hash(patch_hash, ctx.args.hpfs_session_name, hpfs::PATCH_FILE_PATH);
 
             if (patch_hash_result == -1)
             {
-                hpfs::release_rw_session();
+                contract_fs.release_rw_session();
                 return -1;
             }
-            else if (patch_hash_result == 1 && patch_hash != hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH))
+            else if (patch_hash_result == 1 && patch_hash != contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH))
             {
-                // Update global hash tracker with the new patch file hash.
-                hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH, patch_hash);
+                // Update global hash tracker of contract fs with the new patch file hash.
+                contract_fs.set_parent_hash(hpfs::PATCH_FILE_PATH, patch_hash);
                 // Denote that the patch file was updated by the SC.
                 consensus::is_patch_update_pending = true;
             }
 
-            return hpfs::release_rw_session();
+            return contract_fs.release_rw_session();
         }
     }
 
