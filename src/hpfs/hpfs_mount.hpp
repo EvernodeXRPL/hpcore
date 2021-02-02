@@ -11,6 +11,8 @@ namespace hpfs
     constexpr const char *RW_SESSION_NAME = "rw";         // The built-in session name used by hpfs for RW sessions.
     constexpr const char *STATE_DIR_PATH = "/state";      // State directory name.
     constexpr const char *PATCH_FILE_PATH = "/patch.cfg"; // Config patch filename.
+    constexpr const char *LEDGER_PRIMARY_DIR = "/primary"; // Config patch filename.
+    constexpr const char *LEDGER_BLOB_DIR = "/blob"; // Config patch filename.
 
     struct child_hash_node
     {
@@ -37,7 +39,6 @@ namespace hpfs
     private:
         pid_t hpfs_pid = 0;
         std::string fs_dir;
-        std::string mount_dir;
         bool is_full_history;
         bool init_success = false;
         // Keeps the hashes of hpfs parents against its vpath.
@@ -49,6 +50,7 @@ namespace hpfs
         std::mutex rw_mutex;
 
     protected:
+        std::string mount_dir;
         virtual int prepare_fs();
 
     public:

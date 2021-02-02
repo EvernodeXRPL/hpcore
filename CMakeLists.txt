@@ -40,6 +40,12 @@ add_executable(hpcore
     src/hpfs/hpfs_mount.cpp
     src/hpfs/hpfs_serve.cpp
     src/hpfs/hpfs_sync.cpp
+    src/hpfs/contract_mount.cpp
+    src/hpfs/contract_serve.cpp
+    src/hpfs/contract_sync.cpp
+    src/hpfs/ledger_mount.cpp
+    src/hpfs/ledger_sync.cpp
+    src/hpfs/ledger_serve.cpp
     src/comm/comm_session.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/p2pmsg_helpers.cpp

@@ -6,6 +6,7 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../util/h32.hpp"
 #include "../crypto.hpp"
+#include "./hpfs_mount.hpp"
 
 namespace hpfs
 {
@@ -72,7 +73,6 @@ namespace hpfs
     private:
         bool init_success = false;
         uint16_t REQUEST_RESUBMIT_TIMEOUT; // No. of milliseconds to wait before resubmitting a request.
-        hpfs::hpfs_mount *fs_mount = NULL;
         std::string name;
 
         void hpfs_syncer_loop();
@@ -82,8 +82,9 @@ namespace hpfs
         int start_syncing_next_target();
 
     protected:
+        hpfs::hpfs_mount *fs_mount = NULL;
         virtual void on_current_sync_state_acheived();
-        virtual void swap_collected_responses(); // Must override in child classes.
+        virtual void swap_collected_responses() = 0; // Must override in child classes.
 
     public:
         sync_context ctx;

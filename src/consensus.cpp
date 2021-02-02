@@ -214,7 +214,7 @@ namespace consensus
                     sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // Set sync targets for contract fs.
-                hpfs::contract_sync.set_target(std::move(sync_target_list));
+                hpfs::contract_sync_worker.set_target(std::move(sync_target_list));
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
@@ -238,7 +238,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs::contract_sync.ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs::contract_sync_worker.ctx.is_syncing && !ledger::sync_ctx.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
