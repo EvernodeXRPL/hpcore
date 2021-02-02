@@ -639,7 +639,7 @@ namespace sc
 
         const time_t epoch = util::get_epoch_milliseconds() / 1000;
         std::stringstream now_ss;
-        now_ss << std::put_time(std::localtime(&epoch), "%Y-%m-%d %H:%M:%S");
+        now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
         const std::string now = now_ss.str();
 
         // For consensus execution, we keep appending logs to the same out/err files.
