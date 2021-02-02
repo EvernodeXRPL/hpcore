@@ -9,7 +9,6 @@
 #include "../hplog.hpp"
 #include "hpfs_serve.hpp"
 #include "hpfs_sync.hpp"
-#include "hpfs_manager.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -78,7 +77,7 @@ namespace hpfs
             if (hpfs_requests.empty())
                 continue;
 
-            if (hpfs_manager::contract_fs.acquire_rw_session() != -1)
+            if (fs_mount->acquire_rw_session() != -1)
             {
                 for (auto &[session_id, hr] : hpfs_requests)
                 {
@@ -115,7 +114,7 @@ namespace hpfs
                     }
                 }
 
-                hpfs_manager::contract_fs.release_rw_session();
+                fs_mount->release_rw_session();
             }
 
             hpfs_requests.clear();
