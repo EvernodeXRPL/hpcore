@@ -1,10 +1,10 @@
-#ifndef _HP_HPFS_HPFS_MANAGER_
-#define _HP_HPFS_HPFS_MANAGER_
+#ifndef _HP_HPFS_HPFS
+#define _HP_HPFS_HPFS
 
 #include "./hpfs_mount.hpp"
 #include "./hpfs_sync.hpp"
 
-namespace hpfs_manager
+namespace hpfs
 {
     constexpr int32_t CONTRACT_FS_ID = 0;
 
@@ -13,5 +13,5 @@ namespace hpfs_manager
     int init();
     void deinit();
 
-} // namespace hpfs_manager
+} // namespace hpfs
 #endif

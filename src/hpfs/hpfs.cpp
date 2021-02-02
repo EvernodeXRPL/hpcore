@@ -1,8 +1,8 @@
-#include "./hpfs_manager.hpp"
+#include "./hpfs.hpp"
 #include "../conf.hpp"
 #include "./hpfs_serve.hpp"
 
-namespace hpfs_manager
+namespace hpfs
 {
     hpfs::hpfs_mount contract_fs;  // Global contract file system instance.
     hpfs::hpfs_sync contract_sync; // Global contract file system sync instance.
@@ -44,4 +44,4 @@ namespace hpfs_manager
         contract_sync.deinit();
     }
 
-} // namespace hpfs_manager
+} // namespace hpfs

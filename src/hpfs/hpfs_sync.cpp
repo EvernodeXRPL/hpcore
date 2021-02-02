@@ -6,7 +6,6 @@
 #include "../ledger.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
-#include "../hpfs/hpfs_manager.hpp"
 #include "../util/h32.hpp"
 #include "hpfs_sync.hpp"
 #include "../sc.hpp"

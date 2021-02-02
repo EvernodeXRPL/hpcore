@@ -4,8 +4,7 @@
 #include "hplog.hpp"
 #include "ledger.hpp"
 #include "sc.hpp"
-#include "hpfs/hpfs_mount.hpp"
-#include "hpfs/hpfs_manager.hpp"
+#include "hpfs/hpfs.hpp"
 #include "msg/fbuf/p2pmsg_helpers.hpp"
 #include "msg/controlmsg_common.hpp"
 #include "msg/controlmsg_parser.hpp"
@@ -90,7 +89,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            const std::string current_dir = hpfs_manager::contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
+            const std::string current_dir = hpfs::contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
             chdir(current_dir.c_str());
 
             execv(execv_args[0], execv_args);
@@ -157,8 +156,8 @@ namespace sc
         if (!ctx.args.readonly)
             ctx.args.hpfs_session_name = hpfs::RW_SESSION_NAME;
 
-        return ctx.args.readonly ? hpfs_manager::contract_fs.start_ro_session(ctx.args.hpfs_session_name, false)
-                                 : hpfs_manager::contract_fs.acquire_rw_session();
+        return ctx.args.readonly ? hpfs::contract_fs.start_ro_session(ctx.args.hpfs_session_name, false)
+                                 : hpfs::contract_fs.acquire_rw_session();
     }
 
     /**
@@ -166,7 +165,7 @@ namespace sc
      */
     int stop_hpfs_session(execution_context &ctx)
     {
-        hpfs::hpfs_mount &contract_fs = hpfs_manager::contract_fs;
+        hpfs::hpfs_mount &contract_fs = hpfs::contract_fs;
         if (ctx.args.readonly)
         {
             return contract_fs.stop_ro_session(ctx.args.hpfs_session_name);

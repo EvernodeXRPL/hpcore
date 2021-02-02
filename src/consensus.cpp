@@ -12,7 +12,7 @@
 #include "crypto.hpp"
 #include "sc.hpp"
 #include "util/h32.hpp"
-#include "hpfs/hpfs_manager.hpp"
+#include "hpfs/hpfs.hpp"
 #include "hpfs/hpfs_sync.hpp"
 #include "unl.hpp"
 #include "ledger.hpp"
@@ -113,7 +113,7 @@ namespace consensus
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        hpfs::hpfs_mount &contract_fs = hpfs_manager::contract_fs; // Ref of the contract_fs object.
+        hpfs::hpfs_mount &contract_fs = hpfs::contract_fs; // Ref of the contract_fs object.
         util::h32 state_hash = contract_fs.ctx.get_hash(hpfs::STATE_DIR_PATH);
         util::h32 patch_hash = contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH);
 
@@ -227,7 +227,7 @@ namespace consensus
             {
                 conf::change_role(conf::ROLE::OBSERVER);
                 // Set sync targets for contract fs.
-                hpfs_manager::contract_sync.set_target(std::move(sync_target_list));
+                hpfs::contract_sync.set_target(std::move(sync_target_list));
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
@@ -251,7 +251,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs_manager::contract_sync.ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs::contract_sync.ctx.is_syncing && !ledger::sync_ctx.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -783,7 +783,7 @@ namespace consensus
             }
         }
 
-        is_state_desync = (hpfs_manager::contract_fs.ctx.get_hash(hpfs::STATE_DIR_PATH) != majority_state_hash);
+        is_state_desync = (hpfs::contract_fs.ctx.get_hash(hpfs::STATE_DIR_PATH) != majority_state_hash);
     }
 
     /**
@@ -809,7 +809,7 @@ namespace consensus
             }
         }
 
-        is_patch_desync = (hpfs_manager::contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
+        is_patch_desync = (hpfs::contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
     }
 
     /**
@@ -896,7 +896,7 @@ namespace consensus
             }
 
             // Update state hash in contract fs global hash tracker.
-            hpfs_manager::contract_fs.ctx.set_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
+            hpfs::contract_fs.ctx.set_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
             new_state_hash = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);
@@ -1065,7 +1065,7 @@ namespace consensus
     */
     int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash)
     {
-        hpfs::hpfs_mount &contract_fs = hpfs_manager::contract_fs;
+        hpfs::hpfs_mount &contract_fs = hpfs::contract_fs;
 
         // Check whether is there any patch changes to be applied which reached consensus.
         if (is_patch_update_pending && current_patch_hash == prop_patch_hash)

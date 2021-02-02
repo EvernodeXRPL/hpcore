@@ -14,7 +14,7 @@
 #include "peer_comm_session.hpp"
 #include "p2p.hpp"
 #include "../unl.hpp"
-#include "../hpfs/hpfs_manager.hpp"
+#include "../hpfs/hpfs.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -195,7 +195,7 @@ namespace p2p
         {
             const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(content_ptr);
             const p2p::hpfs_request hr = p2pmsg::create_hpfs_request_from_msg(*content->message_as_Hpfs_Request_Message());
-            if (hr.mount_id == hpfs_manager::contract_fs.mount_id)
+            if (hr.mount_id == hpfs::contract_fs.mount_id)
             {
                 // Check the cap and insert request with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.contract_hpfs_requests_mutex);
@@ -217,7 +217,7 @@ namespace p2p
             const msg::fbuf::p2pmsg::Hpfs_Response_Message *resp_msg = content->message_as_Hpfs_Response_Message();
 
             // Only accept hpfs responses if hpfs fs is syncing.
-            if (hpfs_manager::contract_sync.ctx.is_syncing && resp_msg->mount_id() == hpfs_manager::contract_fs.mount_id)
+            if (hpfs::contract_sync.ctx.is_syncing && resp_msg->mount_id() == hpfs::contract_fs.mount_id)
             {
                 // Check the cap and insert state_response with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.contract_hpfs_responses_mutex);
