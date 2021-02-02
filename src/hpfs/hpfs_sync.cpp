@@ -61,7 +61,7 @@ namespace hpfs
      * Syncing happens sequentially.
      * @param target_list List of sync targets to sync towards.
      */
-    void hpfs_sync::set_target(const std::list<sync_target> &target_list)
+    void hpfs_sync::set_target(const std::queue<sync_target> &target_list)
     {
         if (target_list.empty())
             return;
@@ -144,8 +144,9 @@ namespace hpfs
             {
                 LOG_ERROR << "hpfs " << name << " sync: Failed to start hpfs rw session";
             }
-            ctx.target_list.clear();
-            ctx.original_target_list.clear();
+            // Clear target list and original target list since the sync is complete.
+            ctx.target_list = {};
+            ctx.original_target_list = {};
             ctx.is_syncing = false;
         }
 
@@ -277,7 +278,7 @@ namespace hpfs
                 }
 
                 // Update the central hpfs state tracker.
-                fs_mount->ctx.set_hash(ctx.current_target.vpath, updated_state);
+                fs_mount->set_hash_in_store(ctx.current_target.vpath, updated_state);
 
                 LOG_DEBUG << "hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
@@ -624,7 +625,7 @@ namespace hpfs
                 // Update global hash tracker with the new patch file hash.
                 util::h32 updated_patch_hash;
                 fs_mount->get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
-                fs_mount->ctx.set_hash(ctx.current_target.vpath, updated_patch_hash);
+                fs_mount->set_hash_in_store(ctx.current_target.vpath, updated_patch_hash);
             }
         }
     }
@@ -635,7 +636,7 @@ namespace hpfs
     */
     int hpfs_sync::start_syncing_next_target()
     {
-        ctx.target_list.pop_front(); // Remove the synced parent from the target list.
+        ctx.target_list.pop(); // Remove the synced parent from the target list.
         if (ctx.target_list.empty())
         {
             ctx.current_target = {};

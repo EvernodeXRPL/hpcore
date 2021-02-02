@@ -114,8 +114,8 @@ namespace consensus
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         hpfs::hpfs_mount &contract_fs = hpfs::contract_fs; // Ref of the contract_fs object.
-        util::h32 state_hash = contract_fs.ctx.get_hash(hpfs::STATE_DIR_PATH);
-        util::h32 patch_hash = contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH);
+        util::h32 state_hash = contract_fs.get_hash_from_store(hpfs::STATE_DIR_PATH);
+        util::h32 patch_hash = contract_fs.get_hash_from_store(hpfs::PATCH_FILE_PATH);
 
         if (ctx.stage == 0)
         {
@@ -200,32 +200,19 @@ namespace consensus
             if (is_patch_desync)
                 is_patch_update_pending = false;
 
-            // This list holds all the sync targets which needs to get synced in contract fs.
-            std::list<hpfs::sync_target> sync_target_list;
-            if (is_patch_desync)
-            {
-                hpfs::sync_target patch_target;
-                patch_target.hash = majority_patch_hash;
-                patch_target.name = "patch";
-                patch_target.vpath = hpfs::PATCH_FILE_PATH;
-                patch_target.item_type = hpfs::BACKLOG_ITEM_TYPE::FILE;
-                sync_target_list.emplace_back(patch_target);
-            }
-
-            if (is_state_desync)
-            {
-                hpfs::sync_target state_target;
-                state_target.hash = majority_state_hash;
-                state_target.name = "state";
-                state_target.vpath = hpfs::STATE_DIR_PATH;
-                state_target.item_type = hpfs::BACKLOG_ITEM_TYPE::DIR;
-                sync_target_list.emplace_back(state_target);
-            }
-
             // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
             if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
+
+                // This queue holds all the sync targets which needs to get synced in contract fs.
+                std::queue<hpfs::sync_target> sync_target_list;
+                if (is_patch_desync)
+                    sync_target_list.push(hpfs::sync_target{"patch", majority_patch_hash, hpfs::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+
+                if (is_state_desync)
+                    sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+
                 // Set sync targets for contract fs.
                 hpfs::contract_sync.set_target(std::move(sync_target_list));
             }
@@ -783,7 +770,7 @@ namespace consensus
             }
         }
 
-        is_state_desync = (hpfs::contract_fs.ctx.get_hash(hpfs::STATE_DIR_PATH) != majority_state_hash);
+        is_state_desync = (hpfs::contract_fs.get_hash_from_store(hpfs::STATE_DIR_PATH) != majority_state_hash);
     }
 
     /**
@@ -809,7 +796,7 @@ namespace consensus
             }
         }
 
-        is_patch_desync = (hpfs::contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
+        is_patch_desync = (hpfs::contract_fs.get_hash_from_store(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
     }
 
     /**
@@ -896,7 +883,7 @@ namespace consensus
             }
 
             // Update state hash in contract fs global hash tracker.
-            hpfs::contract_fs.ctx.set_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
+            hpfs::contract_fs.set_hash_in_store(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
             new_state_hash = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);

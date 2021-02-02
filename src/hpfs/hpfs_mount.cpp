@@ -8,7 +8,8 @@
 namespace hpfs
 {
     constexpr const char *TRACE_ARG_ERROR = "trace=error";
-    constexpr const char *TRACE_ARG_DEBUG = "trace=debug";
+    // Trace is set to error intentionally to prevent log pollution in debug mode. Change this in hpfs specific debugging.
+    constexpr const char *TRACE_ARG_DEBUG = "trace=error";
     constexpr const char *RW_SESSION = "/::hpfs.rw.hmap";
     constexpr const char *RO_SESSION = "/::hpfs.ro.";
     constexpr const char *RO_SESSION_HMAP = "/::hpfs.ro.hmap.";
@@ -22,7 +23,7 @@ namespace hpfs
     /**
      * This should be called to activate the hpfs mount process.
      */
-    int hpfs_mount::init(const int32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, bool is_full_history)
+    int hpfs_mount::init(const int32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history)
     {
         this->mount_id = mount_id;
         this->fs_dir = fs_dir;
@@ -34,7 +35,7 @@ namespace hpfs
 
         if (prepare_fs() == -1)
         {
-            util::kill_process(ctx.hpfs_pid, true);
+            util::kill_process(hpfs_pid, true);
             return -1;
         }
 
@@ -49,8 +50,8 @@ namespace hpfs
     {
         if (init_success)
         {
-            LOG_DEBUG << "Stopping hpfs process... pid:" << ctx.hpfs_pid;
-            if (ctx.hpfs_pid > 0 && util::kill_process(ctx.hpfs_pid, true) == 0)
+            LOG_DEBUG << "Stopping hpfs process... pid:" << hpfs_pid;
+            if (hpfs_pid > 0 && util::kill_process(hpfs_pid, true) == 0)
                 LOG_INFO << "Stopped hpfs process.";
         }
     }
@@ -75,8 +76,8 @@ namespace hpfs
             return -1;
         }
 
-        ctx.set_hash(hpfs::STATE_DIR_PATH, initial_state_hash);
-        ctx.set_hash(hpfs::PATCH_FILE_PATH, initial_patch_hash);
+        set_hash_in_store(hpfs::STATE_DIR_PATH, initial_state_hash);
+        set_hash_in_store(hpfs::PATCH_FILE_PATH, initial_patch_hash);
         LOG_INFO << "Initial state: " << initial_state_hash << " | patch: " << initial_patch_hash;
         return 0;
     }
@@ -130,8 +131,8 @@ namespace hpfs
                 return -1;
             }
 
-            ctx.hpfs_pid = pid;
-            LOG_DEBUG << "hpfs process started. pid:" << ctx.hpfs_pid;
+            hpfs_pid = pid;
+            LOG_DEBUG << "hpfs process started. pid:" << hpfs_pid;
         }
         else if (pid == 0)
         {
@@ -171,7 +172,7 @@ namespace hpfs
      */
     int hpfs_mount::acquire_rw_session()
     {
-        std::scoped_lock lock(ctx.rw_mutex);
+        std::scoped_lock lock(rw_mutex);
 
         LOG_DEBUG << "Starting hpfs rw session at " << rw_dir;
 
@@ -184,7 +185,7 @@ namespace hpfs
             LOG_ERROR << errno << ": Error starting hpfs rw session at " << rw_dir;
             return -1;
         }
-        ctx.rw_consumers++;
+        rw_consumers++;
         return 0;
     }
 
@@ -195,12 +196,12 @@ namespace hpfs
      */
     int hpfs_mount::release_rw_session()
     {
-        std::scoped_lock lock(ctx.rw_mutex);
+        std::scoped_lock lock(rw_mutex);
 
-        if (ctx.rw_consumers > 0)
-            ctx.rw_consumers--;
+        if (rw_consumers > 0)
+            rw_consumers--;
 
-        if (ctx.rw_consumers == 0)
+        if (rw_consumers == 0)
         {
             const std::string session_file = mount_dir + RW_SESSION;
             if (unlink(session_file.c_str()) == -1)
@@ -358,6 +359,41 @@ namespace hpfs
     const std::string hpfs_mount::physical_path(std::string_view session_name, std::string_view vpath)
     {
         return mount_dir + "/" + session_name.data() + vpath.data();
+    }
+
+    /**
+     * This returns the hash of a given vpath in in-memory hash store.
+     * @param parent_vpath Parent vpath of the file or directory.
+     * @return Returns the hash of the given vpath if available or
+    */
+    const util::h32 hpfs_mount::get_hash_from_store(const std::string &parent_vpath)
+    {
+        std::shared_lock lock(parent_hashes_mutex);
+        const auto itr = parent_hashes.find(parent_vpath);
+        if (itr == parent_hashes.end())
+        {
+            return util::h32_empty; // Looking parent_vpath is not found.
+        }
+        return itr->second;
+    }
+
+    /**
+     * This set the hash of a given vpath in in-memory hash store.
+     * @param parent_vpath Parent vpath of the file or directory.
+     * @param new_state Hash of the parent.
+    */
+    void hpfs_mount::set_hash_in_store(const std::string &parent_vpath, const util::h32 new_state)
+    {
+        std::unique_lock lock(parent_hashes_mutex);
+        const auto itr = parent_hashes.find(parent_vpath);
+        if (itr == parent_hashes.end())
+        {
+            parent_hashes.try_emplace(parent_vpath, new_state);
+        }
+        else
+        {
+            itr->second = new_state;
+        }
     }
 
 } // namespace hpfs

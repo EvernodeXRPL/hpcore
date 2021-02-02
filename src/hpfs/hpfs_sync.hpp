@@ -46,10 +46,10 @@ namespace hpfs
     struct sync_context
     {
         // The current target hashes we are syncing towards.
-        std::list<sync_target> target_list;
+        std::queue<sync_target> target_list;
         // Store the originally submitted sync target list. This list is used to avoid submitting same list multiple times
         // because target list is updated when the sync targets are acheived.
-        std::list<sync_target> original_target_list;
+        std::queue<sync_target> original_target_list;
         sync_target current_target = {};
 
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
@@ -92,7 +92,7 @@ namespace hpfs
 
         void deinit();
 
-        void set_target(const std::list<sync_target> &target_list);
+        void set_target(const std::queue<sync_target> &target_list);
 
         bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 

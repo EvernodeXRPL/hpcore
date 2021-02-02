@@ -187,10 +187,10 @@ namespace sc
                 contract_fs.release_rw_session();
                 return -1;
             }
-            else if (patch_hash_result == 1 && patch_hash != contract_fs.ctx.get_hash(hpfs::PATCH_FILE_PATH))
+            else if (patch_hash_result == 1 && patch_hash != contract_fs.get_hash_from_store(hpfs::PATCH_FILE_PATH))
             {
                 // Update global hash tracker of contract fs with the new patch file hash.
-                contract_fs.ctx.set_hash(hpfs::PATCH_FILE_PATH, patch_hash);
+                contract_fs.set_hash_in_store(hpfs::PATCH_FILE_PATH, patch_hash);
                 // Denote that the patch file was updated by the SC.
                 consensus::is_patch_update_pending = true;
             }
