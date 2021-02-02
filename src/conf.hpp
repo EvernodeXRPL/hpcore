@@ -84,6 +84,7 @@ namespace conf
     {
         std::string id;                   // Contract guid.
         bool execute;                     // Whether or not to execute the contract on the node.
+        bool log_output;                  // Whether to log stdout/err of the contract process.
         std::string version;              // Contract version string.
         std::set<std::string> unl;        // Unique node list (list of binary public keys)
         std::string bin_path;             // Full path to the contract binary

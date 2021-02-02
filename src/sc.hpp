@@ -22,6 +22,12 @@ namespace sc
         int scfd = -1;
     };
 
+    struct std_stream_fds
+    {
+        int outfd = -1;
+        int errfd = -1;
+    };
+
     /**
      * Stores contract output message length along with the message. Length is used to construct the message from the stream buffer.
     */
@@ -108,6 +114,8 @@ namespace sc
         // Socket fds for control messages.
         fd_pair controlfds;
 
+        std_stream_fds std_fds;
+
         // Holds the contract process id (if currently executing).
         pid_t contract_pid = 0;
 
@@ -157,6 +165,8 @@ namespace sc
 
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap);
 
+    int create_log_fds(execution_context &ctx);
+
     int create_iosockets(fd_pair &fds, const int socket_type);
 
     int write_iosocket_seq_packet(fd_pair &fds, std::string_view input);
@@ -171,6 +181,8 @@ namespace sc
 
     void cleanup_fd_pair(fd_pair &fds);
 
+    void cleanup_std_fd_pair(std_stream_fds &fds);
+    
     void stop(execution_context &ctx);
 
     void handle_control_msg(execution_context &ctx, std::string_view msg);
