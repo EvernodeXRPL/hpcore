@@ -114,8 +114,8 @@ namespace consensus
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         hpfs::hpfs_mount &contract_fs = hpfs::contract_fs; // Ref of the contract_fs object.
-        util::h32 state_hash = contract_fs.get_hash_from_store(hpfs::STATE_DIR_PATH);
-        util::h32 patch_hash = contract_fs.get_hash_from_store(hpfs::PATCH_FILE_PATH);
+        util::h32 state_hash = contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH);
+        util::h32 patch_hash = contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH);
 
         if (ctx.stage == 0)
         {
@@ -770,7 +770,7 @@ namespace consensus
             }
         }
 
-        is_state_desync = (hpfs::contract_fs.get_hash_from_store(hpfs::STATE_DIR_PATH) != majority_state_hash);
+        is_state_desync = (hpfs::contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH) != majority_state_hash);
     }
 
     /**
@@ -796,7 +796,7 @@ namespace consensus
             }
         }
 
-        is_patch_desync = (hpfs::contract_fs.get_hash_from_store(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
+        is_patch_desync = (hpfs::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
     }
 
     /**
@@ -883,7 +883,7 @@ namespace consensus
             }
 
             // Update state hash in contract fs global hash tracker.
-            hpfs::contract_fs.set_hash_in_store(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
+            hpfs::contract_fs.set_parent_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
             new_state_hash = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);

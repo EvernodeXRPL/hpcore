@@ -66,8 +66,8 @@ namespace hpfs
         int get_file_block_hashes(std::vector<util::h32> &hashes, std::string_view session_name, std::string_view vpath);
         int get_dir_children_hashes(std::vector<child_hash_node> &hash_nodes, std::string_view session_name, std::string_view dir_vpath);
         const std::string physical_path(std::string_view session_name, std::string_view vpath);
-        const util::h32 get_hash_from_store(const std::string &parent_vpath);
-        void set_hash_in_store(const std::string &parent_vpath, const util::h32 new_state);
+        const util::h32 get_parent_hash(const std::string &parent_vpath);
+        void set_parent_hash(const std::string &parent_vpath, const util::h32 new_state);
     };
 
 } // namespace hpfs

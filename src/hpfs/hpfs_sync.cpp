@@ -278,7 +278,7 @@ namespace hpfs
                 }
 
                 // Update the central hpfs state tracker.
-                fs_mount->set_hash_in_store(ctx.current_target.vpath, updated_state);
+                fs_mount->set_parent_hash(ctx.current_target.vpath, updated_state);
 
                 LOG_DEBUG << "hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target;
                 if (updated_state == current_target)
@@ -625,7 +625,7 @@ namespace hpfs
                 // Update global hash tracker with the new patch file hash.
                 util::h32 updated_patch_hash;
                 fs_mount->get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
-                fs_mount->set_hash_in_store(ctx.current_target.vpath, updated_patch_hash);
+                fs_mount->set_parent_hash(ctx.current_target.vpath, updated_patch_hash);
             }
         }
     }

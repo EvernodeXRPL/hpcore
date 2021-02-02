@@ -76,8 +76,8 @@ namespace hpfs
             return -1;
         }
 
-        set_hash_in_store(hpfs::STATE_DIR_PATH, initial_state_hash);
-        set_hash_in_store(hpfs::PATCH_FILE_PATH, initial_patch_hash);
+        set_parent_hash(hpfs::STATE_DIR_PATH, initial_state_hash);
+        set_parent_hash(hpfs::PATCH_FILE_PATH, initial_patch_hash);
         LOG_INFO << "Initial state: " << initial_state_hash << " | patch: " << initial_patch_hash;
         return 0;
     }
@@ -362,11 +362,12 @@ namespace hpfs
     }
 
     /**
-     * This returns the hash of a given vpath in in-memory hash store.
-     * @param parent_vpath Parent vpath of the file or directory.
-     * @return Returns the hash of the given vpath if available or
+     * This returns the hash of a given parent.
+     * @param parent_vpath vpath of the parent file or directory.
+     * @return Returns the hash of the given vpath if available or 
+     * an empth h32 hash if parent vpath not available.
     */
-    const util::h32 hpfs_mount::get_hash_from_store(const std::string &parent_vpath)
+    const util::h32 hpfs_mount::get_parent_hash(const std::string &parent_vpath)
     {
         std::shared_lock lock(parent_hashes_mutex);
         const auto itr = parent_hashes.find(parent_vpath);
@@ -378,11 +379,11 @@ namespace hpfs
     }
 
     /**
-     * This set the hash of a given vpath in in-memory hash store.
-     * @param parent_vpath Parent vpath of the file or directory.
+     * This set the hash of a given parent.
+     * @param parent_vpath vpath of the parent file or directory.
      * @param new_state Hash of the parent.
     */
-    void hpfs_mount::set_hash_in_store(const std::string &parent_vpath, const util::h32 new_state)
+    void hpfs_mount::set_parent_hash(const std::string &parent_vpath, const util::h32 new_state)
     {
         std::unique_lock lock(parent_hashes_mutex);
         const auto itr = parent_hashes.find(parent_vpath);
