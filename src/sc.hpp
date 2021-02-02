@@ -106,13 +106,13 @@ namespace sc
         contract_execution_args args;
 
         // Map of user socket fds (map key: user public key)
-        contract_fdmap_t userfds;
+        contract_fdmap_t user_fds;
 
         // Socket fds for NPL messages.
-        fd_pair nplfds;
+        fd_pair npl_fds;
 
         // Socket fds for control messages.
-        fd_pair controlfds;
+        fd_pair control_fds;
 
         std_stream_fds std_fds;
 
