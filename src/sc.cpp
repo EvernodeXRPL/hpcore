@@ -29,8 +29,7 @@ namespace sc
 
         // Create the IO sockets for users, control channel and npl.
         // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
-        if (create_log_fds(ctx) == -1 ||
-            create_iosockets_for_fdmap(ctx.user_fds, ctx.args.userbufs) == -1 ||
+        if (create_iosockets_for_fdmap(ctx.user_fds, ctx.args.userbufs) == -1 ||
             create_iosockets(ctx.control_fds, SOCK_SEQPACKET) == -1 ||
             (!ctx.args.readonly && create_iosockets(ctx.npl_fds, SOCK_SEQPACKET) == -1))
         {
@@ -96,15 +95,10 @@ namespace sc
             const std::string current_dir = hpfs::contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
             chdir(current_dir.c_str());
 
-            if (conf::cfg.contract.log_output)
+            if (create_contract_log_files(ctx) == -1)
             {
-                // Redirect stdout/err to log files.
-                if (dup2(ctx.std_fds.outfd, STDOUT_FILENO) == -1 ||
-                    dup2(ctx.std_fds.errfd, STDERR_FILENO) == -1)
-                {
-                    std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                    exit(1);
-                }
+                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
             }
 
             execv(execv_args[0], execv_args);
@@ -636,9 +630,9 @@ namespace sc
     }
 
     /**
-     * Create contract stdout/err log files.
+     * Create contract stdout/err log files. (Called from the contract process)
      */
-    int create_log_fds(execution_context &ctx)
+    int create_contract_log_files(execution_context &ctx)
     {
         if (!conf::cfg.contract.log_output)
             return 0;
@@ -657,7 +651,7 @@ namespace sc
         const int outfd = open(stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
         if (outfd == -1)
         {
-            LOG_ERROR << errno << ": Error opening " << stdout_file;
+            std::cerr << errno << ": Error opening " << stdout_file << "\n";
             return -1;
         }
 
@@ -665,7 +659,7 @@ namespace sc
         if (errfd == -1)
         {
             close(outfd);
-            LOG_ERROR << errno << ": Error opening " << stderr_file;
+            std::cerr << errno << ": Error opening " << stderr_file << "\n";
             return -1;
         }
 
@@ -679,13 +673,19 @@ namespace sc
             {
                 close(outfd);
                 close(errfd);
-                LOG_ERROR << errno << ": Error writing contract execution log header.";
+                std::cerr << errno << ": Error writing contract execution log header.\n";
                 return -1;
             }
         }
 
-        ctx.std_fds.outfd = outfd;
-        ctx.std_fds.errfd = errfd;
+        // Redirect stdout/err to log files.
+        if (dup2(outfd, STDOUT_FILENO) == -1 ||
+            dup2(errfd, STDERR_FILENO) == -1)
+        {
+            close(outfd);
+            close(errfd);
+            return -1;
+        }
         return 0;
     }
 
@@ -761,14 +761,6 @@ namespace sc
 
     void close_unused_fds(execution_context &ctx, const bool is_hp)
     {
-        if (is_hp)
-        {
-            if (ctx.std_fds.outfd > 0)
-                close(ctx.std_fds.outfd);
-            if (ctx.std_fds.errfd > 0)
-                close(ctx.std_fds.errfd);
-        }
-
         if (!ctx.args.readonly)
         {
             close_unused_socket_fds(is_hp, ctx.npl_fds);
@@ -818,7 +810,6 @@ namespace sc
 
     void cleanup_fds(execution_context &ctx)
     {
-        cleanup_std_fd_pair(ctx.std_fds);
         cleanup_fd_pair(ctx.control_fds);
         cleanup_fd_pair(ctx.npl_fds);
         for (auto &[pubkey, fds] : ctx.user_fds)
@@ -837,19 +828,6 @@ namespace sc
             close(fds.scfd);
         fds.hpfd = -1;
         fds.scfd = -1;
-    }
-
-    /**
-     * Closes fds in a standard stream fd pair.
-     */
-    void cleanup_std_fd_pair(std_stream_fds &fds)
-    {
-        if (fds.outfd != -1)
-            close(fds.outfd);
-        if (fds.errfd != -1)
-            close(fds.errfd);
-        fds.outfd = -1;
-        fds.errfd = -1;
     }
 
     /**
