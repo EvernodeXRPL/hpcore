@@ -14,8 +14,6 @@
 #include "consensus.hpp"
 #include "ledger.hpp"
 #include "hpfs/hpfs.hpp"
-#include "hpfs/hpfs_sync.hpp"
-#include "hpfs/hpfs_serve.hpp"
 #include "unl.hpp"
 
 /**
@@ -73,8 +71,6 @@ void deinit()
     p2p::deinit();
     read_req::deinit();
     consensus::deinit();
-    hpfs_sync::deinit();
-    hpfs_serve::deinit();
     hpfs::deinit();
     ledger::deinit();
     conf::deinit();
@@ -200,8 +196,6 @@ int main(int argc, char **argv)
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
                 if (hpfs::init() == -1 ||
-                    hpfs_serve::init() == -1 ||
-                    hpfs_sync::init() == -1 ||
                     ledger::init() == -1 ||
                     unl::init() == -1 ||
                     consensus::init() == -1 ||
