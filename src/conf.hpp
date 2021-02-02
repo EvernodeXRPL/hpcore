@@ -84,6 +84,7 @@ namespace conf
     {
         std::string id;                   // Contract guid.
         bool execute;                     // Whether or not to execute the contract on the node.
+        bool log_output;                  // Whether to log stdout/err of the contract process.
         std::string version;              // Contract version string.
         std::set<std::string> unl;        // Unique node list (list of binary public keys)
         std::string bin_path;             // Full path to the contract binary
@@ -140,17 +141,18 @@ namespace conf
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
 
-        std::string contract_dir;   // Contract base directory full path.
-        std::string full_hist_dir;  // Contract full history dir full path.
-        std::string hist_dir;       // Contract ledger history dir full path.
-        std::string hpfs_dir;       // hpfs metdata dir (The location of hpfs log file).
-        std::string hpfs_mount_dir; // hpfs fuse file system mount path.
-        std::string hpfs_rw_dir;    // hpfs read/write fs session path.
-        std::string log_dir;        // Contract log dir full path.
-        std::string config_dir;     // Config dir full path.
-        std::string config_file;    // Full path to the config file.
-        std::string tls_key_file;   // Full path to the tls private key file.
-        std::string tls_cert_file;  // Full path to the tls certificate.
+        std::string contract_dir;     // Contract base directory full path.
+        std::string full_hist_dir;    // Contract full history dir full path.
+        std::string hist_dir;         // Contract ledger history dir full path.
+        std::string hpfs_dir;         // hpfs metdata dir (The location of hpfs log file).
+        std::string hpfs_mount_dir;   // hpfs fuse file system mount path.
+        std::string hpfs_rw_dir;      // hpfs read/write fs session path.
+        std::string log_dir;          // HotPocket log dir full path.
+        std::string contract_log_dir; // Contract log dir full path.
+        std::string config_dir;       // Config dir full path.
+        std::string config_file;      // Full path to the config file.
+        std::string tls_key_file;     // Full path to the tls private key file.
+        std::string tls_cert_file;    // Full path to the tls certificate.
 
         int config_fd;            // Config file file descriptor.
         struct flock config_lock; // Config file lock.

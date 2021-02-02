@@ -109,7 +109,7 @@ namespace conf
         if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.contract_log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
         {
@@ -134,6 +134,7 @@ namespace conf
 
         cfg.contract.id = crypto::generate_uuid();
         cfg.contract.execute = true;
+        cfg.contract.log_output = false;
         cfg.contract.version = "1.0";
         //Add self pubkey to the unl.
         cfg.contract.unl.emplace(cfg.node.public_key);
@@ -206,6 +207,7 @@ namespace conf
         ctx.hpfs_mount_dir = ctx.hpfs_dir + "/mnt";
         ctx.hpfs_rw_dir = ctx.hpfs_mount_dir + "/rw";
         ctx.log_dir = basedir + "/log";
+        ctx.contract_log_dir = ctx.log_dir + "/contract";
     }
 
     /**
@@ -773,6 +775,7 @@ namespace conf
         {
             jdoc.insert_or_assign("id", contract.id);
             jdoc.insert_or_assign("execute", contract.execute);
+            jdoc.insert_or_assign("log_output", contract.log_output);
         }
 
         jdoc.insert_or_assign("version", contract.version);
@@ -816,6 +819,7 @@ namespace conf
                 }
 
                 contract.execute = jdoc["execute"].as<bool>();
+                contract.log_output = jdoc["log_output"].as<bool>();
             }
 
             contract.version = jdoc["version"].as<std::string>();
