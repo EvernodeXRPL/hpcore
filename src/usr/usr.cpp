@@ -145,6 +145,10 @@ namespace usr
 
             if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_READ_REQUEST)
             {
+                // Ignore the request if contract execution is disabled.
+                if (!conf::cfg.contract.execute)
+                    return 0;
+
                 std::string content;
                 if (parser.extract_read_request(content) != -1)
                 {
