@@ -152,7 +152,8 @@ namespace conf
         cfg.user.port = 8080;
         cfg.user.idle_timeout = 0;
 
-        cfg.log.loglevel_type = conf::LOG_SEVERITY::WARN;
+        cfg.log.max_file_count = 50;
+        cfg.log.max_mbytes_per_file = 10;
         cfg.log.loglevel = "inf";
         cfg.log.loggers.emplace("console");
         cfg.log.loggers.emplace("file");
@@ -408,6 +409,8 @@ namespace conf
                 const jsoncons::ojson &log = d["log"];
                 cfg.log.loglevel = log["loglevel"].as<std::string>();
                 cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
+                cfg.log.max_mbytes_per_file = log["max_mbytes_per_file"].as<size_t>();
+                cfg.log.max_file_count = log["max_file_count"].as<size_t>();
                 cfg.log.loggers.clear();
                 for (auto &v : log["loggers"].array_range())
                     cfg.log.loggers.emplace(v.as<std::string>());
@@ -498,6 +501,8 @@ namespace conf
         {
             jsoncons::ojson log_config;
             log_config.insert_or_assign("loglevel", cfg.log.loglevel);
+            log_config.insert_or_assign("max_mbytes_per_file", cfg.log.max_mbytes_per_file);
+            log_config.insert_or_assign("max_file_count", cfg.log.max_file_count);
 
             jsoncons::ojson loggers(jsoncons::json_array_arg);
             for (std::string_view logger : cfg.log.loggers)
