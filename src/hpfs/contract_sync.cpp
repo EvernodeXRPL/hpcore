@@ -26,6 +26,7 @@ namespace hpfs
             }
         }
     }
+
     void contract_sync::swap_collected_responses()
     {
         std::scoped_lock lock(p2p::ctx.collected_msgs.contract_hpfs_responses_mutex);

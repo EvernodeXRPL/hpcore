@@ -8,6 +8,9 @@
 
 namespace hpfs
 {
+    /**
+     * Represents ledger file system mount.
+    */
     class ledger_mount: public hpfs_mount
     {
         private:

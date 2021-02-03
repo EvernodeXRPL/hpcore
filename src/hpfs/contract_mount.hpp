@@ -8,6 +8,9 @@
 
 namespace hpfs
 {
+    /**
+     * Represents contract file system mount.
+    */
     class contract_mount: public hpfs_mount
     {
         private:
