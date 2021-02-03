@@ -150,7 +150,7 @@ namespace conf
         std::string ledger_hpfs_dir;         // Ledger hpfs metdata dir (The location of hpfs log file).
         std::string ledger_hpfs_mount_dir;   // Ledger hpfs fuse file system mount path.
         std::string ledger_hpfs_rw_dir;      // Ledger hpfs read/write fs session path.
-        std::string log_dir;                 // Contract log dir full path.
+        std::string log_dir;                 // HotPocket log dir full path.
         std::string contract_log_dir;        // Contract log dir full path.
         std::string config_dir;              // Config dir full path.
         std::string config_file;             // Full path to the config file.

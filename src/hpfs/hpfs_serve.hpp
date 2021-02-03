@@ -22,6 +22,7 @@ namespace hpfs
 
     protected:
         std::list<std::pair<std::string, p2p::hpfs_request>> hpfs_requests;
+        // Move the collected requests from hpfs requests to a local response list.
         virtual void swap_collected_requests() = 0; // Must override in child classes.
 
     public:

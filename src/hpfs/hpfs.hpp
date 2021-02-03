@@ -14,9 +14,9 @@ namespace hpfs
 
     extern hpfs::contract_mount contract_fs;         // Global contract file system instance.
     extern hpfs::contract_sync contract_sync_worker; // Global contract file system sync instance.
+    extern hpfs::ledger_mount ledger_fs;             // Global ledger file system instance.
+    extern hpfs::ledger_sync ledger_sync_worker;     // Global ledger file system sync instance.
 
-    extern hpfs::ledger_mount ledger_fs;         // Global ledger file system instance.
-    extern hpfs::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
     int init();
     void deinit();
 

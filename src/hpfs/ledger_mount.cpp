@@ -2,9 +2,13 @@
 
 namespace hpfs
 {
+    /**
+     * Perform ledger file system mount related preparation tasks.
+     * @return Returns -1 on error and 0 on success.
+    */
     int ledger_mount::prepare_fs()
     {
-        // Perform ledger fs preparation specific logic here.
+        // Add ledger fs preparation logic here.
         return 0;
     }
 

@@ -1,3 +1,4 @@
+#include "../pchheader.hpp"
 #include "./hpfs.hpp"
 #include "../conf.hpp"
 #include "./contract_serve.hpp"
@@ -7,10 +8,10 @@ namespace hpfs
 {
     hpfs::contract_mount contract_fs;         // Global contract file system instance.
     hpfs::contract_sync contract_sync_worker; // Global contract file system sync instance.
-    hpfs::contract_serve contract_server;
-    hpfs::ledger_mount ledger_fs;         // Global ledger file system instance.
-    hpfs::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
-    hpfs::ledger_serve ledger_server;
+    hpfs::contract_serve contract_server;     // Contract file server instance.
+    hpfs::ledger_mount ledger_fs;             // Global ledger file system instance.
+    hpfs::ledger_sync ledger_sync_worker;     // Global ledger file system sync instance.
+    hpfs::ledger_serve ledger_server;         // Ledger file server instance.
 
     /**
      * Initialize necessary file system mounts to hpcore.
@@ -41,13 +42,11 @@ namespace hpfs
             return -1;
         }
 
-
         if (ledger_server.init("ledger", &ledger_fs) == -1)
         {
             LOG_ERROR << "Ledger file system serve worker initialization failed.";
             return -1;
         }
-
 
         if (ledger_sync_worker.init("ledger", &ledger_fs) == -1)
         {

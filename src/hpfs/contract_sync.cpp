@@ -28,7 +28,6 @@ namespace hpfs
     }
     void contract_sync::swap_collected_responses()
     {
-        // This logic will be added to a child class in next PBI.
         std::scoped_lock lock(p2p::ctx.collected_msgs.contract_hpfs_responses_mutex);
 
         // Move collected hpfs responses over to local candidate responses list.

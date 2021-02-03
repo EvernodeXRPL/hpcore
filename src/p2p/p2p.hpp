@@ -129,7 +129,7 @@ namespace p2p
 
         // List of pairs indicating the session pubkey hex and the ledger fs hpfs requests.
         std::list<std::pair<std::string, p2p::hpfs_request>> ledger_hpfs_requests;
-        std::mutex ledger_hpfs_requests_mutex; // Mutex for contract fs hpfs requests access race conditions.
+        std::mutex ledger_hpfs_requests_mutex; // Mutex for ledger fs hpfs requests access race conditions.
 
         // List of pairs indicating the session pubkey hex and the contract fs hpfs responses.
         std::list<std::pair<std::string, std::string>> contract_hpfs_responses;
@@ -137,7 +137,7 @@ namespace p2p
 
         // List of pairs indicating the session pubkey hex and the ledger fs hpfs responses.
         std::list<std::pair<std::string, std::string>> ledger_hpfs_responses;
-        std::mutex ledger_hpfs_responses_mutex; // Mutex for contract fs hpfs responses access race conditions.
+        std::mutex ledger_hpfs_responses_mutex; // Mutex for ledger fs hpfs responses access race conditions.
     };
 
     struct connected_context

@@ -12,7 +12,7 @@ namespace hpfs
     {
     private:
         void on_current_sync_state_acheived();
-        void swap_collected_responses(); // Must override in child classes.
+        void swap_collected_responses();
     };
 } // namespace hpfs
 #endif

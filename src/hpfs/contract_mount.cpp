@@ -2,9 +2,12 @@
 
 namespace hpfs
 {
+    /**
+     * Perform contract file system mount related preparation tasks.
+     * @return Returns -1 on error and 0 on success.
+    */
     int contract_mount::prepare_fs()
     {
-        // This contract mount specific preparation logic will be moved to a seprate child class in the next PBI.
         util::h32 initial_state_hash;
         util::h32 initial_patch_hash;
 

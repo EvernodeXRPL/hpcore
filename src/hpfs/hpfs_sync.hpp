@@ -84,6 +84,7 @@ namespace hpfs
     protected:
         hpfs::hpfs_mount *fs_mount = NULL;
         virtual void on_current_sync_state_acheived();
+        // Move the collected responses from hpfs responses to a local response list.
         virtual void swap_collected_responses() = 0; // Must override in child classes.
 
     public:
