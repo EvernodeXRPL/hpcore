@@ -8,7 +8,7 @@
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
 #include "hpfs_sync.hpp"
-#include "../sc.hpp"
+#include "../contract/sc.hpp"
 #include "../unl.hpp"
 
 namespace hpfs

@@ -1,7 +1,7 @@
 
 #include "./ledger_serve.hpp"
 
-namespace hpfs
+namespace ledger
 {
     void ledger_serve::swap_collected_requests()
     {
@@ -11,4 +11,4 @@ namespace hpfs
         if (!p2p::ctx.collected_msgs.ledger_hpfs_requests.empty())
             hpfs_requests.splice(hpfs_requests.end(), p2p::ctx.collected_msgs.ledger_hpfs_requests);
     }
-} // namespace hpfs
+} // namespace ledger

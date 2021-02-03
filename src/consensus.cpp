@@ -10,7 +10,6 @@
 #include "p2p/peer_session_handler.hpp"
 #include "hplog.hpp"
 #include "crypto.hpp"
-#include "sc.hpp"
 #include "util/h32.hpp"
 #include "hpfs/hpfs.hpp"
 #include "hpfs/hpfs_sync.hpp"

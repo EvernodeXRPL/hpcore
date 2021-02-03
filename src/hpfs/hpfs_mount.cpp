@@ -3,7 +3,7 @@
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
-#include "../sc.hpp"
+#include "../contract/sc.hpp"
 
 namespace hpfs
 {

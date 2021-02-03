@@ -1,12 +1,12 @@
-#ifndef _HP_SC_
-#define _HP_SC_
+#ifndef _HP_CONTRACT_SC_
+#define _HP_CONTRACT_SC_
 
-#include "pchheader.hpp"
-#include "usr/usr.hpp"
-#include "util/h32.hpp"
-#include "util/util.hpp"
-#include "util/buffer_store.hpp"
-#include "p2p/p2p.hpp"
+#include "../pchheader.hpp"
+#include "../usr/usr.hpp"
+#include "../util/h32.hpp"
+#include "../util/util.hpp"
+#include "../util/buffer_store.hpp"
+#include "../p2p/p2p.hpp"
 
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
@@ -172,7 +172,7 @@ namespace sc
     void cleanup_fds(execution_context &ctx);
 
     void cleanup_fd_pair(fd_pair &fds);
-    
+
     void stop(execution_context &ctx);
 
     void handle_control_msg(execution_context &ctx, std::string_view msg);

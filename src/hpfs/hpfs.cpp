@@ -1,17 +1,17 @@
 #include "../pchheader.hpp"
 #include "./hpfs.hpp"
 #include "../conf.hpp"
-#include "./contract_serve.hpp"
-#include "./ledger_serve.hpp"
+#include "../contract/contract_serve.hpp"
+#include "../ledger/ledger_serve.hpp"
 
 namespace hpfs
 {
-    hpfs::contract_mount contract_fs;         // Global contract file system instance.
-    hpfs::contract_sync contract_sync_worker; // Global contract file system sync instance.
-    hpfs::contract_serve contract_server;     // Contract file server instance.
-    hpfs::ledger_mount ledger_fs;             // Global ledger file system instance.
-    hpfs::ledger_sync ledger_sync_worker;     // Global ledger file system sync instance.
-    hpfs::ledger_serve ledger_server;         // Ledger file server instance.
+    sc::contract_mount contract_fs;         // Global contract file system instance.
+    sc::contract_sync contract_sync_worker; // Global contract file system sync instance.
+    sc::contract_serve contract_server;     // Contract file server instance.
+    ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
+    ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
+    ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
     /**
      * Initialize necessary file system mounts to hpcore.

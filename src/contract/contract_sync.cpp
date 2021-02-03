@@ -1,9 +1,9 @@
 
 #include "./contract_sync.hpp"
 #include "../unl.hpp"
-#include "./hpfs_mount.hpp"
+#include "../hpfs/hpfs_mount.hpp"
 
-namespace hpfs
+namespace sc
 {
 
     void contract_sync::on_current_sync_state_acheived()
@@ -35,4 +35,4 @@ namespace hpfs
         if (!p2p::ctx.collected_msgs.contract_hpfs_responses.empty())
             ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.contract_hpfs_responses);
     }
-} // namespace hpfs
+} // namespace sc

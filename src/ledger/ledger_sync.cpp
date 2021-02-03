@@ -1,7 +1,7 @@
 
 #include "./ledger_sync.hpp"
 
-namespace hpfs
+namespace ledger
 {
     void ledger_sync::on_current_sync_state_acheived()
     {
@@ -16,4 +16,4 @@ namespace hpfs
         if (!p2p::ctx.collected_msgs.ledger_hpfs_responses.empty())
             ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.ledger_hpfs_responses);
     }
-} // namespace hpfs
+} // namespace ledger

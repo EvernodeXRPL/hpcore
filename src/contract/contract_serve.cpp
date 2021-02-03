@@ -1,7 +1,7 @@
 
 #include "./contract_serve.hpp"
 
-namespace hpfs
+namespace sc
 {
     void contract_serve::swap_collected_requests()
     {
@@ -11,4 +11,4 @@ namespace hpfs
         if (!p2p::ctx.collected_msgs.contract_hpfs_requests.empty())
             hpfs_requests.splice(hpfs_requests.end(), p2p::ctx.collected_msgs.contract_hpfs_requests);
     }
-} // namespace hpfs
+} // namespace sc

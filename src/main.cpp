@@ -6,7 +6,7 @@
 #include "util/util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "sc.hpp"
+#include "./contract/sc.hpp"
 #include "hplog.hpp"
 #include "usr/usr.hpp"
 #include "usr/read_req.hpp"

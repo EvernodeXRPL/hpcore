@@ -1,6 +1,6 @@
 #include "./ledger_mount.hpp"
 
-namespace hpfs
+namespace ledger
 {
     /**
      * Perform ledger file system mount related preparation tasks.
@@ -12,4 +12,4 @@ namespace hpfs
         return 0;
     }
 
-} // namespace hpfs
+} // namespace ledger
