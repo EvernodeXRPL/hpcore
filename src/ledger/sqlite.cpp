@@ -179,11 +179,13 @@ namespace ledger::sqlite
         if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK &&
             stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW)
         {
-            sqlite3_reset(stmt);
+            // Finalize and distroys the statement.
+            sqlite3_finalize(stmt);
             return true;
         }
 
-        sqlite3_reset(stmt);
+        // Finalize and distroys the statement.
+        sqlite3_finalize(stmt);
         return false;
     }
 

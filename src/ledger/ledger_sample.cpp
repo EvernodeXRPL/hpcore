@@ -144,7 +144,7 @@ namespace ledger::ledger_sample
                 {
                     shard_path.append("/");
                     shard_path.append(shard);
-                    if (util::is_dir_exists(shard_path) == -1 || util::remove_directory_recursively(shard_path) == -1)
+                    if (!util::is_dir_exists(shard_path) || util::remove_directory_recursively(shard_path) == -1)
                     {
                         LOG_ERROR << errno << ": Error deleting shard : " << shard;
                     }
