@@ -100,13 +100,13 @@ namespace sc
         contract_execution_args args;
 
         // Map of user socket fds (map key: user public key)
-        contract_fdmap_t userfds;
+        contract_fdmap_t user_fds;
 
         // Socket fds for NPL messages.
-        fd_pair nplfds;
+        fd_pair npl_fds;
 
         // Socket fds for control messages.
-        fd_pair controlfds;
+        fd_pair control_fds;
 
         // Holds the contract process id (if currently executing).
         pid_t contract_pid = 0;
@@ -157,6 +157,8 @@ namespace sc
 
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap);
 
+    int create_contract_log_files(execution_context &ctx);
+
     int create_iosockets(fd_pair &fds, const int socket_type);
 
     int write_iosocket_seq_packet(fd_pair &fds, std::string_view input);
@@ -170,7 +172,7 @@ namespace sc
     void cleanup_fds(execution_context &ctx);
 
     void cleanup_fd_pair(fd_pair &fds);
-
+    
     void stop(execution_context &ctx);
 
     void handle_control_msg(execution_context &ctx, std::string_view msg);

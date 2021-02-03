@@ -12,7 +12,10 @@
 
 namespace sc
 {
-    const uint32_t READ_BUFFER_SIZE = 128 * 1024; // This has to be minimum 128KB to support sequence packets.
+    constexpr uint32_t READ_BUFFER_SIZE = 128 * 1024; // This has to be minimum 128KB to support sequence packets.
+    constexpr int FILE_PERMS = 0644;
+    constexpr const char *STDOUT_LOG = ".stdout.log";
+    constexpr const char *STDERR_LOG = ".stderr.log";
 
     /**
      * Executes the contract process and passes the specified context arguments.
@@ -26,9 +29,9 @@ namespace sc
 
         // Create the IO sockets for users, control channel and npl.
         // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
-        if (create_iosockets_for_fdmap(ctx.userfds, ctx.args.userbufs) == -1 ||
-            create_iosockets(ctx.controlfds, SOCK_SEQPACKET) == -1 ||
-            (!ctx.args.readonly && create_iosockets(ctx.nplfds, SOCK_SEQPACKET) == -1))
+        if (create_iosockets_for_fdmap(ctx.user_fds, ctx.args.userbufs) == -1 ||
+            create_iosockets(ctx.control_fds, SOCK_SEQPACKET) == -1 ||
+            (!ctx.args.readonly && create_iosockets(ctx.npl_fds, SOCK_SEQPACKET) == -1))
         {
             cleanup_fds(ctx);
             stop_hpfs_session(ctx);
@@ -91,6 +94,12 @@ namespace sc
 
             const std::string current_dir = hpfs::contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
             chdir(current_dir.c_str());
+
+            if (create_contract_log_files(ctx) == -1)
+            {
+                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
 
             execv(execv_args[0], execv_args);
             std::cerr << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
@@ -232,15 +241,15 @@ namespace sc
         if (!ctx.args.readonly)
         {
             os << ",\"lcl\":\"" << ctx.args.lcl
-               << "\",\"npl_fd\":" << ctx.nplfds.scfd;
+               << "\",\"npl_fd\":" << ctx.npl_fds.scfd;
         }
 
-        os << ",\"control_fd\":" << ctx.controlfds.scfd;
+        os << ",\"control_fd\":" << ctx.control_fds.scfd;
 
         os << ",\"user_in_fd\":" << user_inputs_fd
            << ",\"users\":{";
 
-        user_json_to_stream(ctx.userfds, ctx.args.userbufs, os);
+        user_json_to_stream(ctx.user_fds, ctx.args.userbufs, os);
 
         os << "},\"unl\":" << unl::get_json() << "}";
 
@@ -282,16 +291,16 @@ namespace sc
 
         // Prepare output poll fd list.
         // User out fds + control fd + NPL fd (NPL fd not available in readonly mode)
-        const size_t out_fd_count = ctx.userfds.size() + (ctx.args.readonly ? 1 : 2);
-        const size_t control_fd_idx = ctx.userfds.size();
+        const size_t out_fd_count = ctx.user_fds.size() + (ctx.args.readonly ? 1 : 2);
+        const size_t control_fd_idx = ctx.user_fds.size();
         const size_t npl_fd_idx = control_fd_idx + 1;
         struct pollfd out_fds[out_fd_count];
 
-        auto user_itr = ctx.userfds.begin();
+        auto user_itr = ctx.user_fds.begin();
         for (int i = 0; i < out_fd_count; i++)
         {
-            const int fd = (user_itr != ctx.userfds.end()) ? (user_itr++)->second.hpfd
-                                                           : (i == control_fd_idx ? ctx.controlfds.hpfd : ctx.nplfds.hpfd);
+            const int fd = (user_itr != ctx.user_fds.end()) ? (user_itr++)->second.hpfd
+                                                            : (i == control_fd_idx ? ctx.control_fds.hpfd : ctx.npl_fds.hpfd);
             out_fds[i] = {fd, POLLIN, 0};
         }
 
@@ -310,7 +319,7 @@ namespace sc
             // Atempt to read messages from contract (regardless of contract terminated or not).
             const int control_read_res = read_control_outputs(ctx, out_fds[control_fd_idx]);
             const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, out_fds[npl_fd_idx]);
-            const int user_read_res = read_contract_fdmap_outputs(ctx.userfds, out_fds, ctx.args.userbufs);
+            const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
 
             if (ctx.termination_signaled || ctx.contract_pid == 0)
             {
@@ -371,7 +380,7 @@ namespace sc
 
         if (ctx.args.control_messages.try_dequeue(control_msg))
         {
-            if (write_iosocket_seq_packet(ctx.controlfds, control_msg) == -1)
+            if (write_iosocket_seq_packet(ctx.control_fds, control_msg) == -1)
             {
                 LOG_ERROR << "Error writing HP inputs to SC";
                 return -1;
@@ -392,7 +401,7 @@ namespace sc
          * npl inputs are feed into the contract as sequence packets. It first sends the pubkey and then
          * the data.
          */
-        const int writefd = ctx.nplfds.hpfd;
+        const int writefd = ctx.npl_fds.hpfd;
 
         if (writefd == -1)
             return 0;
@@ -621,6 +630,66 @@ namespace sc
     }
 
     /**
+     * Create contract stdout/err log files. (Called from the contract process)
+     */
+    int create_contract_log_files(execution_context &ctx)
+    {
+        if (!conf::cfg.contract.log_output)
+            return 0;
+
+        const time_t epoch = util::get_epoch_milliseconds() / 1000;
+        std::stringstream now_ss;
+        now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
+        const std::string now = now_ss.str();
+
+        // For consensus execution, we keep appending logs to the same out/err files.
+        // For read request executions, independent log files are created based on read request session names.
+        const std::string prefix = ctx.args.readonly ? (ctx.args.hpfs_session_name + "_" + now) : ctx.args.hpfs_session_name;
+        const std::string stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
+        const std::string stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+
+        const int outfd = open(stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        if (outfd == -1)
+        {
+            std::cerr << errno << ": Error opening " << stdout_file << "\n";
+            return -1;
+        }
+
+        const int errfd = open(stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        if (errfd == -1)
+        {
+            close(outfd);
+            std::cerr << errno << ": Error opening " << stderr_file << "\n";
+            return -1;
+        }
+
+        // Because consensus executions append logs to same files, we need to insert a demarkation line
+        // to mark the start of each execution.
+        if (!ctx.args.readonly)
+        {
+            const std::string header = "Execution lcl " + ctx.args.lcl + " on " + now + "\n";
+            if (write(outfd, header.data(), header.size()) == -1 ||
+                write(errfd, header.data(), header.size()) == -1)
+            {
+                close(outfd);
+                close(errfd);
+                std::cerr << errno << ": Error writing contract execution log header.\n";
+                return -1;
+            }
+        }
+
+        // Redirect stdout/err to log files.
+        if (dup2(outfd, STDOUT_FILENO) == -1 ||
+            dup2(errfd, STDERR_FILENO) == -1)
+        {
+            close(outfd);
+            close(errfd);
+            return -1;
+        }
+        return 0;
+    }
+
+    /**
      * Common function to create a socket (Hp->SC, SC->HP).
      * @param fds fd pair to populate.
      * @param socket_type Type of the socket. (SOCK_STREAM, SOCK_DGRAM, SOCK_SEQPACKET)
@@ -694,13 +763,13 @@ namespace sc
     {
         if (!ctx.args.readonly)
         {
-            close_unused_socket_fds(is_hp, ctx.nplfds);
+            close_unused_socket_fds(is_hp, ctx.npl_fds);
         }
 
-        close_unused_socket_fds(is_hp, ctx.controlfds);
+        close_unused_socket_fds(is_hp, ctx.control_fds);
 
         // Loop through user fds.
-        for (auto &[pubkey, fds] : ctx.userfds)
+        for (auto &[pubkey, fds] : ctx.user_fds)
             close_unused_socket_fds(is_hp, fds);
     }
 
@@ -741,11 +810,11 @@ namespace sc
 
     void cleanup_fds(execution_context &ctx)
     {
-        cleanup_fd_pair(ctx.controlfds);
-        cleanup_fd_pair(ctx.nplfds);
-        for (auto &[pubkey, fds] : ctx.userfds)
+        cleanup_fd_pair(ctx.control_fds);
+        cleanup_fd_pair(ctx.npl_fds);
+        for (auto &[pubkey, fds] : ctx.user_fds)
             cleanup_fd_pair(fds);
-        ctx.userfds.clear();
+        ctx.user_fds.clear();
     }
 
     /**
