@@ -111,8 +111,7 @@ namespace conf
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
-            // "/ledger_temp/primary" should be made as a constant when ledger fs is implemented.
-            util::create_dir_tree_recursive(ctx.ledger_dir + "/seed" + "/ledger_temp/primary") == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_dir + "/seed" + hpfs::PRIMARY_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
         {
             std::cerr << "ERROR: unable to create directories.\n";

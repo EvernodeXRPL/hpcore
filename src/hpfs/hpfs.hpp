@@ -7,10 +7,13 @@
 
 namespace hpfs
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024;   // 4MB;
-    constexpr const char *RW_SESSION_NAME = "rw";    // The built-in session name used by hpfs for RW sessions.
-    constexpr const char *STATE_DIR_PATH = "/state"; // State directory name.
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024;        // 4MB;
+    constexpr const char *RW_SESSION_NAME = "rw";         // The built-in session name used by hpfs for RW sessions.
+    constexpr const char *STATE_DIR_PATH = "/state";      // State directory name.
     constexpr const char *PATCH_FILE_PATH = "/patch.cfg"; // Config patch filename.
+
+    // "/ledger_temp/primary" should be made as a constant when ledger fs is implemented.
+    constexpr const char *PRIMARY_DIR_PATH = "/ledger_temp/primary";
 
     struct child_hash_node
     {

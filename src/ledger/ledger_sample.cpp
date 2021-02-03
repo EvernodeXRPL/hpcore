@@ -32,18 +32,19 @@ namespace ledger::ledger_sample
         seq_no++; // New lcl sequence number.
 
         // Aqure hpfs rw session before accessing shards and insert ledger records. This might be removed later.
-        ledger::acquire_rw_session();
+        if (ledger::acquire_rw_session() == -1)
+            return -1;
 
         // Construct shard path.
         const uint64_t shard_no = (seq_no - 1) / SHARD_SIZE;
-        const std::string shard_path = conf::ctx.ledger_rw_dir + PRIMARY_DIR_PATH + "/" + std::to_string(shard_no);
+        const std::string shard_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/" + std::to_string(shard_no);
 
         // If shard isn't exist create shard folder.
         if (!util::is_dir_exists(shard_path))
         {
             if (util::create_dir_tree_recursive(shard_path) == -1)
             {
-                LOG_ERROR << "Error creating shard folder, shard : " << std::to_string(shard_no);
+                LOG_ERROR << errno << ": Error creating shard folder, shard : " << std::to_string(shard_no);
                 ledger::release_rw_session(); // This will be removed when ledger fs is implemented.
                 return -1;
             }
@@ -108,6 +109,14 @@ namespace ledger::ledger_sample
             return -1;
         }
 
+        if (update_shard_index(shard_no) == -1)
+        {
+            LOG_ERROR << errno << ": Error updating shard index : " << std::to_string(shard_no);
+            sqlite3_close(db);
+            ledger::release_rw_session(); // This will be removed when ledger fs is implemented.
+            return -1;
+        }
+
         //Remove old shards that exceeds max shard range.
         if (conf::cfg.node.max_shards > 0 && shard_no >= conf::cfg.node.max_shards)
         {
@@ -115,9 +124,7 @@ namespace ledger::ledger_sample
         }
 
         sqlite3_close(db);
-        ledger::release_rw_session();
-
-        return 0;
+        return ledger::release_rw_session();
     }
 
     /**
@@ -129,19 +136,19 @@ namespace ledger::ledger_sample
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
         {
-            std::string shard_path = conf::ctx.ledger_rw_dir + PRIMARY_DIR_PATH;
+            std::string shard_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH;
             std::list<std::string> shards = util::fetch_dir_entries(shard_path);
-            for (std::string_view shard : shards)
+            for (const std::string shard : shards)
             {
-                if (std::stoi(std::string(shard)) < led_shard_no)
+                if (shard != SHARD_INDEX && std::stoi(shard) < led_shard_no)
                 {
                     shard_path.append("/");
                     shard_path.append(shard);
                     if (util::is_dir_exists(shard_path) == -1 || util::remove_directory_recursively(shard_path) == -1)
                     {
-                        LOG_ERROR << "Couldn't deleted shard : " << errno << " " << shard;
+                        LOG_ERROR << errno << ": Error deleting shard : " << shard;
                     }
-                    shard_path = conf::ctx.ledger_rw_dir + PRIMARY_DIR_PATH;
+                    shard_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH;
                 }
             }
         }
@@ -167,6 +174,82 @@ namespace ledger::ledger_sample
         if (hash.size() != 64)
             return -1;
 
+        return 0;
+    }
+
+    int update_shard_index(const uint64_t &shard_no)
+    {
+        util::h32 shard_hash;
+        std::string shard_path = ledger::PRIMARY_DIR_PATH;
+        shard_path.append("/");
+        shard_path.append(std::to_string(shard_no));
+        if (ledger::get_hash(shard_hash, LEDGER_SESSION_NAME, shard_path) == -1)
+            return -1;
+
+        const std::string index_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/" + SHARD_INDEX;
+        const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error opening shard index file.";
+            return -1;
+        }
+
+        if (pwrite(fd, shard_hash.to_string_view().data(), shard_hash.to_string_view().size(), shard_no * sizeof(util::h32)) == -1)
+        {
+            LOG_ERROR << errno << ": Error writing to shard index file.";
+            close(fd);
+            return -1;
+        }
+
+        close(fd);
+        return 0;
+    }
+
+    int read_shard_index(util::h32 &shard_hash, const int64_t &shard_no)
+    {
+        const std::string index_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/shard.idx";
+        const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error opening shard index file.";
+            return -1;
+        }
+
+        if (pread(fd, &shard_hash, sizeof(util::h32), shard_no * sizeof(util::h32)) == -1)
+        {
+            LOG_ERROR << errno << ": Error reading from shard index file.";
+            close(fd);
+            return -1;
+        }
+
+        close(fd);
+        return 0;
+    }
+
+    int read_shard_index(std::string &shard_hash)
+    {
+        const std::string index_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/shard.idx";
+        const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error opening shard index file.";
+            return -1;
+        }
+
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+            return -1;
+
+        shard_hash.resize(st.st_size);
+
+        if (read(fd, shard_hash.data(), shard_hash.size()) == -1)
+        {
+            LOG_ERROR << errno << ": Error reading from shard index file.";
+            close(fd);
+            return -1;
+        }
+
+        close(fd);
         return 0;
     }
 } // namespace ledger::ledger_sample
