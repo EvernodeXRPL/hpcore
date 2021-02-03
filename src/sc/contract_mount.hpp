@@ -1,5 +1,5 @@
-#ifndef _HP_CONTRACT_CONTRACT_MOUNT_
-#define _HP_CONTRACT_CONTRACT_MOUNT_
+#ifndef _HP_SC_CONTRACT_MOUNT_
+#define _HP_SC_CONTRACT_MOUNT_
 
 #include "../pchheader.hpp"
 #include "../util/h32.hpp"

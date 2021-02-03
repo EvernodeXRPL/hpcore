@@ -1,5 +1,5 @@
-#ifndef _HP_CONTRACT_SC_
-#define _HP_CONTRACT_SC_
+#ifndef _HP_SC_SC_
+#define _HP_SC_SC_
 
 #include "../pchheader.hpp"
 #include "../usr/usr.hpp"

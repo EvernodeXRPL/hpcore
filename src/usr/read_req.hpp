@@ -1,7 +1,7 @@
 #ifndef _HP_USR_READ_REQ_
 #define _HP_USR_READ_REQ_
 
-#include "../contract/sc.hpp"
+#include "../sc/sc.hpp"
 #include "../util/buffer_store.hpp"
 
 namespace read_req

@@ -1,7 +1,7 @@
 #include "../pchheader.hpp"
 #include "./hpfs.hpp"
 #include "../conf.hpp"
-#include "../contract/contract_serve.hpp"
+#include "../sc/contract_serve.hpp"
 #include "../ledger/ledger_serve.hpp"
 
 namespace hpfs

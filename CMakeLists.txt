@@ -39,10 +39,10 @@ add_executable(hpcore
     src/hpfs/hpfs_mount.cpp
     src/hpfs/hpfs_serve.cpp
     src/hpfs/hpfs_sync.cpp
-    src/contract/contract_mount.cpp
-    src/contract/contract_serve.cpp
-    src/contract/contract_sync.cpp
-    src/contract/sc.cpp
+    src/sc/contract_mount.cpp
+    src/sc/contract_serve.cpp
+    src/sc/contract_sync.cpp
+    src/sc/sc.cpp
     src/comm/comm_session.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/p2pmsg_helpers.cpp

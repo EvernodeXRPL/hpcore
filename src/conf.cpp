@@ -207,10 +207,10 @@ namespace conf
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
         ctx.hist_dir = basedir + "/hist";
         ctx.full_hist_dir = basedir + "/fullhist";
-        ctx.contract_hpfs_dir = basedir + "/contract_hpfs";
+        ctx.contract_hpfs_dir = basedir + "/contract_fs";
         ctx.contract_hpfs_mount_dir = ctx.contract_hpfs_dir + "/mnt";
         ctx.contract_hpfs_rw_dir = ctx.contract_hpfs_mount_dir + "/rw";
-        ctx.ledger_hpfs_dir = basedir + "/ledger_hpfs";
+        ctx.ledger_hpfs_dir = basedir + "/ledger_fs";
         ctx.ledger_hpfs_mount_dir = ctx.ledger_hpfs_dir + "/mnt";
         ctx.ledger_hpfs_rw_dir = ctx.ledger_hpfs_mount_dir + "/rw";
         ctx.log_dir = basedir + "/log";

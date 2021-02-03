@@ -5,7 +5,7 @@
 #include "util/util.hpp"
 #include "util/buffer_store.hpp"
 #include "util/merkle_hash_tree.hpp"
-#include "./contract/sc.hpp"
+#include "./sc/sc.hpp"
 #include "p2p/p2p.hpp"
 #include "usr/user_input.hpp"
 #include "util/h32.hpp"

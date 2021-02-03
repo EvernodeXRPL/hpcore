@@ -2,9 +2,9 @@
 #define _HP_HPFS_HPFS
 
 #include "./hpfs_mount.hpp"
-#include "../contract/contract_mount.hpp"
+#include "../sc/contract_mount.hpp"
 #include "../ledger/ledger_mount.hpp"
-#include "../contract/contract_sync.hpp"
+#include "../sc/contract_sync.hpp"
 #include "../ledger/ledger_sync.hpp"
 
 namespace hpfs

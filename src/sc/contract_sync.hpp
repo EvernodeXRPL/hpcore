@@ -1,5 +1,5 @@
-#ifndef _HP_CONTRACT_CONTRACT_SYNC_
-#define _HP_CONTRACT_CONTRACT_SYNC_
+#ifndef _HP_SC_CONTRACT_SYNC_
+#define _HP_SC_CONTRACT_SYNC_
 
 #include "../pchheader.hpp"
 #include "../util/h32.hpp"
