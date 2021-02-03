@@ -10,8 +10,6 @@
 // Currently this namespace is added for sqlite testing, later this can be modified and renamed as 'ledger::ledger_sample' -> 'ledger' for ledger implementations.
 namespace ledger::ledger_sample
 {
-    namespace ledger = hpfs;
-
     /**
      * Create and save ledger record from the given proposal message.
      * @param proposal Consensus-reached Stage 3 proposal.
@@ -32,12 +30,12 @@ namespace ledger::ledger_sample
         seq_no++; // New lcl sequence number.
 
         // Aqure hpfs rw session before accessing shards and insert ledger records. This might be removed later.
-        if (ledger::acquire_rw_session() == -1)
+        if (hpfs::contract_fs.acquire_rw_session() == -1)
             return -1;
 
         // Construct shard path.
         const uint64_t shard_no = (seq_no - 1) / SHARD_SIZE;
-        const std::string shard_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/" + std::to_string(shard_no);
+        const std::string shard_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/" + std::to_string(shard_no);
 
         // If shard isn't exist create shard folder.
         if (!util::is_dir_exists(shard_path))
@@ -45,7 +43,7 @@ namespace ledger::ledger_sample
             if (util::create_dir_tree_recursive(shard_path) == -1)
             {
                 LOG_ERROR << errno << ": Error creating shard folder, shard : " << std::to_string(shard_no);
-                ledger::release_rw_session(); // This will be removed when ledger fs is implemented.
+                hpfs::contract_fs.release_rw_session(); // This will be removed when ledger fs is implemented.
                 return -1;
             }
         }
@@ -55,7 +53,7 @@ namespace ledger::ledger_sample
             (!sqlite::is_ledger_table_exist(db) && sqlite::create_ledger_table(db) == -1))
         {
             sqlite3_close(db);
-            ledger::release_rw_session(); // This will be removed when ledger fs is implemented.
+            hpfs::contract_fs.release_rw_session(); // This will be removed when ledger fs is implemented.
             return -1;
         }
 
@@ -105,7 +103,7 @@ namespace ledger::ledger_sample
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
             sqlite3_close(db);
-            ledger::release_rw_session(); // This will be removed when ledger fs is implemented.
+            hpfs::contract_fs.release_rw_session(); // This will be removed when ledger fs is implemented.
             return -1;
         }
 
@@ -113,7 +111,7 @@ namespace ledger::ledger_sample
         {
             LOG_ERROR << errno << ": Error updating shard index : " << std::to_string(shard_no);
             sqlite3_close(db);
-            ledger::release_rw_session(); // This will be removed when ledger fs is implemented.
+            hpfs::contract_fs.release_rw_session(); // This will be removed when ledger fs is implemented.
             return -1;
         }
 
@@ -124,7 +122,7 @@ namespace ledger::ledger_sample
         }
 
         sqlite3_close(db);
-        return ledger::release_rw_session();
+        return hpfs::contract_fs.release_rw_session();
     }
 
     /**
@@ -136,7 +134,7 @@ namespace ledger::ledger_sample
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
         {
-            std::string shard_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH;
+            std::string shard_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH;
             std::list<std::string> shards = util::fetch_dir_entries(shard_path);
             for (const std::string shard : shards)
             {
@@ -148,7 +146,7 @@ namespace ledger::ledger_sample
                     {
                         LOG_ERROR << errno << ": Error deleting shard : " << shard;
                     }
-                    shard_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH;
+                    shard_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH;
                 }
             }
         }
@@ -180,13 +178,13 @@ namespace ledger::ledger_sample
     int update_shard_index(const uint64_t &shard_no)
     {
         util::h32 shard_hash;
-        std::string shard_path = ledger::PRIMARY_DIR_PATH;
+        std::string shard_path = hpfs::PRIMARY_DIR_PATH;
         shard_path.append("/");
         shard_path.append(std::to_string(shard_no));
-        if (ledger::get_hash(shard_hash, LEDGER_SESSION_NAME, shard_path) == -1)
+        if (hpfs::contract_fs.get_hash(shard_hash, LEDGER_SESSION_NAME, shard_path) == -1)
             return -1;
 
-        const std::string index_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/" + SHARD_INDEX;
+        const std::string index_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/" + SHARD_INDEX;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -207,7 +205,7 @@ namespace ledger::ledger_sample
 
     int read_shard_index(util::h32 &shard_hash, const int64_t &shard_no)
     {
-        const std::string index_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/shard.idx";
+        const std::string index_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/shard.idx";
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -228,7 +226,7 @@ namespace ledger::ledger_sample
 
     int read_shard_index(std::string &shard_hash)
     {
-        const std::string index_path = conf::ctx.ledger_rw_dir + ledger::PRIMARY_DIR_PATH + "/shard.idx";
+        const std::string index_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/shard.idx";
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -252,4 +250,4 @@ namespace ledger::ledger_sample
         close(fd);
         return 0;
     }
-} // namespace ledger::ledger_sample
+} // namespace hpfs::contract_fs.ledger_sample

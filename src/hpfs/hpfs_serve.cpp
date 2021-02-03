@@ -13,28 +13,36 @@
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
 /**
- * Helper functions for serving hpfs requests from other peers.
+ * Class for serving hpfs requests from other peers.
  */
-namespace hpfs_serve
+namespace hpfs
 {
     constexpr uint16_t LOOP_WAIT = 20; // Milliseconds
     constexpr const char *HPFS_SESSION_NAME = "rw";
 
-    uint16_t REQUEST_BATCH_TIMEOUT;
-
-    bool is_shutting_down = false;
-    bool init_success = false;
-    std::thread hpfs_serve_thread;
-
-    int init()
+    /**
+     * @param name The name of the serving instance. (For identification purpose)
+     * @param fs_mount The pointer to the relavent hpfs mount instance this server is serving.
+     * @return This returns -1 on error and 0 on success.
+    */
+    int hpfs_serve::init(std::string_view name, hpfs::hpfs_mount *fs_mount)
     {
+        if (fs_mount == NULL)
+            return -1;
+
+        this->name = name;
+        this->fs_mount = fs_mount;
+
         REQUEST_BATCH_TIMEOUT = hpfs::get_request_resubmit_timeout() * 0.9;
-        hpfs_serve_thread = std::thread(hpfs_serve_loop);
+        hpfs_serve_thread = std::thread(&hpfs_serve::hpfs_serve_loop, this);
         init_success = true;
         return 0;
     }
 
-    void deinit()
+    /**
+     * Perform cleanup activities.
+    */
+    void hpfs_serve::deinit()
     {
         if (init_success)
         {
@@ -43,13 +51,13 @@ namespace hpfs_serve
         }
     }
 
-    void hpfs_serve_loop()
+    void hpfs_serve::hpfs_serve_loop()
     {
         util::mask_signal();
 
-        LOG_INFO << "Hpfs server started.";
+        LOG_INFO << "Hpfs " << name << " server started.";
 
-        std::list<std::pair<std::string, std::string>> hpfs_requests;
+        std::list<std::pair<std::string, p2p::hpfs_request>> hpfs_requests;
 
         // Indicates whether any requests were processed in the previous loop iteration.
         bool prev_requests_processed = false;
@@ -60,13 +68,7 @@ namespace hpfs_serve
             if (!prev_requests_processed)
                 util::sleep(LOOP_WAIT);
 
-            {
-                std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.hpfs_requests_mutex);
-
-                // Move collected hpfs requests over to local requests list.
-                if (!p2p::ctx.collected_msgs.hpfs_requests.empty())
-                    hpfs_requests.splice(hpfs_requests.end(), p2p::ctx.collected_msgs.hpfs_requests);
-            }
+            swap_collected_requests(hpfs_requests);
 
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
@@ -75,9 +77,9 @@ namespace hpfs_serve
             if (hpfs_requests.empty())
                 continue;
 
-            if (hpfs::acquire_rw_session() != -1)
+            if (fs_mount->acquire_rw_session() != -1)
             {
-                for (auto &[session_id, request] : hpfs_requests)
+                for (auto &[session_id, hr] : hpfs_requests)
                 {
                     if (is_shutting_down)
                         break;
@@ -87,19 +89,15 @@ namespace hpfs_serve
                     const uint64_t time_now = util::get_epoch_milliseconds();
                     if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
                     {
-                        LOG_DEBUG << "Hpfs serve batch timeout. Abandonding hpfs requests.";
+                        LOG_DEBUG << "Hpfs " << name << " serve batch timeout. Abandonding hpfs requests.";
                         break;
                     }
 
                     // Session id is in binary format. Converting to hex before printing.
                     LOG_DEBUG << "Serving hpfs request from [" << util::to_hex(session_id).substr(2, 10) << "]";
-
-                    const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(request.data());
-
-                    const p2p::hpfs_request sr = p2pmsg::create_hpfs_request_from_msg(*content->message_as_Hpfs_Request_Message());
                     flatbuffers::FlatBufferBuilder fbuf(1024);
 
-                    if (hpfs_serve::create_hpfs_response(fbuf, sr, lcl) == 1)
+                    if (hpfs_serve::create_hpfs_response(fbuf, hr, lcl) == 1)
                     {
                         // Find the peer that we should send the hpfs response to.
                         std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -116,13 +114,12 @@ namespace hpfs_serve
                     }
                 }
 
-                hpfs::release_rw_session();
+                fs_mount->release_rw_session();
             }
 
             hpfs_requests.clear();
         }
-
-        LOG_INFO << "Hpfs server stopped.";
+        LOG_INFO << "Hpfs " << name << " server stopped.";
     }
 
     /**
@@ -132,7 +129,7 @@ namespace hpfs_serve
      * @return 1 if successful hpfs response was generated. 0 if request is invalid
      *         and no response was generated. -1 on error.
      */
-    int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl)
+    int hpfs_serve::create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl)
     {
         LOG_DEBUG << "Serving hpfs req. path:" << hr.parent_path << " block_id:" << hr.block_id;
 
@@ -157,7 +154,7 @@ namespace hpfs_serve
                 resp.hash = hr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, lcl);
+                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id, lcl);
                 return 1; // Success.
             }
         }
@@ -178,7 +175,7 @@ namespace hpfs_serve
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
-                        fbuf, hr.parent_path, block_hashes,
+                        fbuf, hr.parent_path, fs_mount->mount_id, block_hashes,
                         file_length, hr.expected_hash, lcl);
                     return 1; // Success.
                 }
@@ -198,7 +195,7 @@ namespace hpfs_serve
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, hr.parent_path, child_hash_nodes, hr.expected_hash, lcl);
+                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash, lcl);
                     return 1; // Success.
                 }
             }
@@ -212,12 +209,12 @@ namespace hpfs_serve
      * Retrieves the specified data block from a hpfs file if expected hash matches.
      * @return 1 if block data was succefully fetched. 0 if vpath or block does not exist. -1 on error.
      */
-    int get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
-                       const uint32_t block_id, const util::h32 expected_hash)
+    int hpfs_serve::get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
+                                   const uint32_t block_id, const util::h32 expected_hash)
     {
         // Check whether the existing block hash matches expected hash.
         std::vector<util::h32> block_hashes;
-        int result = hpfs::get_file_block_hashes(block_hashes, HPFS_SESSION_NAME, vpath);
+        int result = fs_mount->get_file_block_hashes(block_hashes, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (block_id >= block_hashes.size())
@@ -233,7 +230,7 @@ namespace hpfs_serve
             else // Get actual block data.
             {
                 struct stat st;
-                const std::string file_path = conf::ctx.hpfs_rw_dir  + vpath.data();
+                const std::string file_path = fs_mount->rw_dir + vpath.data();
                 const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
                 const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
                 if (fd == -1)
@@ -289,12 +286,12 @@ namespace hpfs_serve
      * Retrieves the specified file block hashes if expected hash matches.
      * @return 1 if block hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
      */
-    int get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length,
-                              const std::string_view vpath, const util::h32 expected_hash)
+    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length,
+                                          const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing file hash matches expected hash.
         util::h32 file_hash = util::h32_empty;
-        int result = hpfs::get_hash(file_hash, HPFS_SESSION_NAME, vpath);
+        int result = fs_mount->get_hash(file_hash, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (file_hash != expected_hash)
@@ -303,14 +300,14 @@ namespace hpfs_serve
                 result = 0;
             }
             // Get the block hashes.
-            else if (hpfs::get_file_block_hashes(hashes, HPFS_SESSION_NAME, vpath) < 0)
+            else if (fs_mount->get_file_block_hashes(hashes, HPFS_SESSION_NAME, vpath) < 0)
             {
                 result = -1;
             }
             else
             {
                 // Get actual file length.
-                const std::string file_path = conf::ctx.hpfs_rw_dir + vpath.data();
+                const std::string file_path = fs_mount->rw_dir + vpath.data();
                 struct stat st;
                 if (stat(file_path.c_str(), &st) == -1)
                 {
@@ -329,12 +326,12 @@ namespace hpfs_serve
      * Retrieves the specified dir entry hashes if expected fir hash matches.
      * @return 1 if fs entry hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
      */
-    int get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
-                            const std::string_view vpath, const util::h32 expected_hash)
+    int hpfs_serve::get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
+                                        const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing dir hash matches expected hash.
         util::h32 dir_hash = util::h32_empty;
-        int result = hpfs::get_hash(dir_hash, HPFS_SESSION_NAME, vpath);
+        int result = fs_mount->get_hash(dir_hash, HPFS_SESSION_NAME, vpath);
         if (result == 1)
         {
             if (dir_hash != expected_hash)
@@ -343,7 +340,7 @@ namespace hpfs_serve
                 result = 0;
             }
             // Get the children hash nodes.
-            else if (hpfs::get_dir_children_hashes(hash_nodes, HPFS_SESSION_NAME, vpath) < 0)
+            else if (fs_mount->get_dir_children_hashes(hash_nodes, HPFS_SESSION_NAME, vpath) < 0)
             {
                 result = -1;
             }
@@ -355,4 +352,16 @@ namespace hpfs_serve
 
         return result;
     }
-} // namespace hpfs_serve
+
+    /**
+     * Move the collected requests from hpfs requests to the local hpfs request list.
+    */
+    void hpfs_serve::swap_collected_requests(std::list<std::pair<std::string, p2p::hpfs_request>> &hpfs_requests)
+    {
+        std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.contract_hpfs_requests_mutex);
+
+        // Move collected hpfs requests for contract fs over to local requests list.
+        if (!p2p::ctx.collected_msgs.contract_hpfs_requests.empty())
+            hpfs_requests.splice(hpfs_requests.end(), p2p::ctx.collected_msgs.contract_hpfs_requests);
+    }
+} // namespace hpfs

@@ -113,8 +113,9 @@ namespace consensus
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        util::h32 state_hash = hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE);
-        util::h32 patch_hash = hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH);
+        hpfs::hpfs_mount &contract_fs = hpfs::contract_fs; // Ref of the contract_fs object.
+        util::h32 state_hash = contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH);
+        util::h32 patch_hash = contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH);
 
         if (ctx.stage == 0)
         {
@@ -199,11 +200,21 @@ namespace consensus
             if (is_patch_desync)
                 is_patch_update_pending = false;
 
-            // Start hpfs sync if we are out-of-sync with majority hpfs state.
+            // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
             if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                hpfs_sync::set_target(majority_state_hash, majority_patch_hash);
+
+                // This queue holds all the sync targets which needs to get synced in contract fs.
+                std::queue<hpfs::sync_target> sync_target_list;
+                if (is_patch_desync)
+                    sync_target_list.push(hpfs::sync_target{"patch", majority_patch_hash, hpfs::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+
+                if (is_state_desync)
+                    sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+
+                // Set sync targets for contract fs.
+                hpfs::contract_sync.set_target(std::move(sync_target_list));
             }
 
             // Proceed further only if both lcl and state are in sync with majority.
@@ -213,7 +224,7 @@ namespace consensus
                 return 0;
             }
 
-            // lcl, hpfs or unl desync.
+            // lcl or hpfs desync.
             return -1;
         }
 
@@ -227,7 +238,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs_sync::ctx.is_syncing && !ledger::sync_ctx.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !hpfs::contract_sync.ctx.is_syncing && !ledger::sync_ctx.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -759,7 +770,7 @@ namespace consensus
             }
         }
 
-        is_state_desync = (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE) != majority_state_hash);
+        is_state_desync = (hpfs::contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH) != majority_state_hash);
     }
 
     /**
@@ -785,7 +796,7 @@ namespace consensus
             }
         }
 
-        is_patch_desync = (hpfs::ctx.get_hash(hpfs::HPFS_PARENT_COMPONENTS::PATCH) != majority_patch_hash);
+        is_patch_desync = (hpfs::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
     }
 
     /**
@@ -871,7 +882,8 @@ namespace consensus
                 return -1;
             }
 
-            hpfs::ctx.set_hash(hpfs::HPFS_PARENT_COMPONENTS::STATE, args.post_execution_state_hash);
+            // Update state hash in contract fs global hash tracker.
+            hpfs::contract_fs.set_parent_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
             new_state_hash = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);
@@ -1040,16 +1052,18 @@ namespace consensus
     */
     int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash)
     {
+        hpfs::hpfs_mount &contract_fs = hpfs::contract_fs;
+
         // Check whether is there any patch changes to be applied which reached consensus.
         if (is_patch_update_pending && current_patch_hash == prop_patch_hash)
         {
-            if (hpfs::start_ro_session(HPFS_SESSION_NAME, false) != -1)
+            if (contract_fs.start_ro_session(HPFS_SESSION_NAME, false) != -1)
             {
                 // Appling new patch file changes to hpcore runtime.
                 if (conf::apply_patch_config(HPFS_SESSION_NAME) == -1)
                 {
                     LOG_ERROR << "Appling patch file changes after consensus failed.";
-                    hpfs::stop_ro_session(HPFS_SESSION_NAME);
+                    contract_fs.stop_ro_session(HPFS_SESSION_NAME);
                     return -1;
                 }
                 else
@@ -1059,7 +1073,7 @@ namespace consensus
                 }
             }
 
-            if (hpfs::stop_ro_session(HPFS_SESSION_NAME) == -1)
+            if (contract_fs.stop_ro_session(HPFS_SESSION_NAME) == -1)
                 return -1;
         }
         return 0;

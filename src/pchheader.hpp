@@ -4,8 +4,10 @@
 // Enable boost strack trace.
 #define BOOST_STACKTRACE_USE_BACKTRACE
 
+#include <blake3.h>
 #include <boost/stacktrace.hpp>
 #include <chrono>
+#include <concurrentqueue.h>
 #include <cstdio>
 #include <dirent.h>
 #include <fcntl.h>
@@ -20,11 +22,15 @@
 #include <math.h>
 #include <memory>
 #include <mutex>
+#include <plog/Log.h>
+#include <plog/Appenders/ColorConsoleAppender.h>
 #include <poll.h>
+#include <queue>
 #include <readerwriterqueue/readerwriterqueue.h>
 #include <set>
 #include <shared_mutex>
 #include <sodium.h>
+#include <sqlite3.h>
 #include <sstream>
 #include <stdlib.h>
 #include <string>
@@ -44,10 +50,5 @@
 #include <unordered_set>
 #include <variant>
 #include <vector>
-#include <blake3.h>
-#include <concurrentqueue.h>
-#include <plog/Log.h>
-#include <plog/Appenders/ColorConsoleAppender.h>
-#include <sqlite3.h>
 
 #endif

@@ -109,7 +109,7 @@ namespace conf
         if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.contract_log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.ledger_dir + "/seed" + hpfs::PRIMARY_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
@@ -135,6 +135,7 @@ namespace conf
 
         cfg.contract.id = crypto::generate_uuid();
         cfg.contract.execute = true;
+        cfg.contract.log_output = false;
         cfg.contract.version = "1.0";
         //Add self pubkey to the unl.
         cfg.contract.unl.emplace(cfg.node.public_key);
@@ -152,7 +153,8 @@ namespace conf
         cfg.user.port = 8080;
         cfg.user.idle_timeout = 0;
 
-        cfg.log.loglevel_type = conf::LOG_SEVERITY::WARN;
+        cfg.log.max_file_count = 50;
+        cfg.log.max_mbytes_per_file = 10;
         cfg.log.loglevel = "inf";
         cfg.log.loggers.emplace("console");
         cfg.log.loggers.emplace("file");
@@ -210,6 +212,7 @@ namespace conf
         ctx.ledger_mount_dir = ctx.ledger_dir + "/mnt";
         ctx.ledger_rw_dir = ctx.ledger_mount_dir + "/rw";
         ctx.log_dir = basedir + "/log";
+        ctx.contract_log_dir = ctx.log_dir + "/contract";
     }
 
     /**
@@ -412,6 +415,8 @@ namespace conf
                 const jsoncons::ojson &log = d["log"];
                 cfg.log.loglevel = log["loglevel"].as<std::string>();
                 cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
+                cfg.log.max_mbytes_per_file = log["max_mbytes_per_file"].as<size_t>();
+                cfg.log.max_file_count = log["max_file_count"].as<size_t>();
                 cfg.log.loggers.clear();
                 for (auto &v : log["loggers"].array_range())
                     cfg.log.loggers.emplace(v.as<std::string>());
@@ -503,6 +508,8 @@ namespace conf
         {
             jsoncons::ojson log_config;
             log_config.insert_or_assign("loglevel", cfg.log.loglevel);
+            log_config.insert_or_assign("max_mbytes_per_file", cfg.log.max_mbytes_per_file);
+            log_config.insert_or_assign("max_file_count", cfg.log.max_file_count);
 
             jsoncons::ojson loggers(jsoncons::json_array_arg);
             for (std::string_view logger : cfg.log.loggers)
@@ -675,7 +682,7 @@ namespace conf
         jsoncons::ojson jdoc;
         populate_contract_section_json(jdoc, cfg.contract, true);
 
-        const std::string patch_file_path = hpfs::physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
+        const std::string patch_file_path = hpfs::contract_fs.physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
         return write_json_file(patch_file_path, jdoc);
     }
 
@@ -687,7 +694,7 @@ namespace conf
     */
     int apply_patch_config(std::string_view hpfs_session_name)
     {
-        const std::string path = hpfs::physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
+        const std::string path = hpfs::contract_fs.physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
         if (!util::is_file_exists(path))
             return 0;
 
@@ -781,6 +788,7 @@ namespace conf
         {
             jdoc.insert_or_assign("id", contract.id);
             jdoc.insert_or_assign("execute", contract.execute);
+            jdoc.insert_or_assign("log_output", contract.log_output);
         }
 
         jdoc.insert_or_assign("version", contract.version);
@@ -824,6 +832,7 @@ namespace conf
                 }
 
                 contract.execute = jdoc["execute"].as<bool>();
+                contract.log_output = jdoc["log_output"].as<bool>();
             }
 
             contract.version = jdoc["version"].as<std::string>();

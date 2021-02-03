@@ -57,6 +57,8 @@ namespace conf
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
         std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
+        size_t max_mbytes_per_file;              // Max MB size of a single log file.
+        size_t max_file_count;                   // Max no. of log files to keep.
     };
 
     struct node_config
@@ -85,6 +87,7 @@ namespace conf
     {
         std::string id;                   // Contract guid.
         bool execute;                     // Whether or not to execute the contract on the node.
+        bool log_output;                  // Whether to log stdout/err of the contract process.
         std::string version;              // Contract version string.
         std::set<std::string> unl;        // Unique node list (list of binary public keys)
         std::string bin_path;             // Full path to the contract binary
@@ -150,7 +153,8 @@ namespace conf
         std::string ledger_dir;       // Ledger metdata dir (The location of ledger shards and full history).
         std::string ledger_mount_dir; // Ledger fuse file system mount path.
         std::string ledger_rw_dir;    // Ledger read/write fs session path.
-        std::string log_dir;          // Contract log dir full path.
+        std::string log_dir;          // HotPocket log dir full path.
+        std::string contract_log_dir; // Contract log dir full path.
         std::string config_dir;       // Config dir full path.
         std::string config_file;      // Full path to the config file.
         std::string tls_key_file;     // Full path to the tls private key file.
