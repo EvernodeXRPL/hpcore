@@ -232,7 +232,7 @@ namespace p2p
             const msg::fbuf::p2pmsg::Hpfs_Response_Message *resp_msg = content->message_as_Hpfs_Response_Message();
 
             // Only accept hpfs responses if hpfs fs is syncing.
-            if (hpfs::contract_sync_worker.ctx.is_syncing && resp_msg->mount_id() == hpfs::contract_fs.mount_id)
+            if (hpfs::contract_sync_worker.is_syncing && resp_msg->mount_id() == hpfs::contract_fs.mount_id)
             {
                 // Check the cap and insert state_response with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.contract_hpfs_responses_mutex);
@@ -248,7 +248,7 @@ namespace p2p
                     LOG_DEBUG << "Contract hpfs response rejected. Maximum contract hpfs response count reached. " << session.display_name();
                 }
             }
-            else if (hpfs::ledger_sync_worker.ctx.is_syncing && resp_msg->mount_id() == hpfs::ledger_fs.mount_id)
+            else if (hpfs::ledger_sync_worker.is_syncing && resp_msg->mount_id() == hpfs::ledger_fs.mount_id)
             {
                 // Check the cap and insert state_response with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.ledger_hpfs_responses_mutex);

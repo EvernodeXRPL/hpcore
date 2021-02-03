@@ -38,7 +38,7 @@ namespace hpfs
         this->name = name;
         this->fs_mount = fs_mount;
         REQUEST_RESUBMIT_TIMEOUT = hpfs::get_request_resubmit_timeout();
-        ctx.hpfs_sync_thread = std::thread(&hpfs_sync::hpfs_syncer_loop, this);
+        hpfs_sync_thread = std::thread(&hpfs_sync::hpfs_syncer_loop, this);
         init_success = true;
         return 0;
     }
@@ -50,9 +50,9 @@ namespace hpfs
     {
         if (init_success)
         {
-            ctx.is_syncing = false;
-            ctx.is_shutting_down = true;
-            ctx.hpfs_sync_thread.join();
+            is_syncing = false;
+            is_shutting_down = true;
+            hpfs_sync_thread.join();
         }
     }
 
@@ -67,15 +67,15 @@ namespace hpfs
             return;
 
         // Do not do anything if we are already syncing towards the specified target states.
-        if (ctx.is_shutting_down || (ctx.is_syncing && ctx.original_target_list == target_list))
+        if (is_shutting_down || (is_syncing && original_target_list == target_list))
             return;
 
-        ctx.original_target_list = target_list;
-        ctx.target_list = std::move(target_list);
+        this->original_target_list = target_list;
+        this->target_list = std::move(target_list);
 
-        std::unique_lock lock(ctx.current_target_mutex);
-        ctx.current_target = ctx.target_list.front(); // Make the first element of the list the first target to sync.
-        ctx.is_syncing = true;
+        std::unique_lock lock(current_target_mutex);
+        current_target = target_list.front(); // Make the first element of the list the first target to sync.
+        is_syncing = true;
     }
 
     /**
@@ -87,40 +87,40 @@ namespace hpfs
 
         LOG_INFO << "Hpfs " << name << " sync: Worker started.";
 
-        while (!ctx.is_shutting_down)
+        while (!is_shutting_down)
         {
             util::sleep(IDLE_WAIT);
 
             // Keep idling if we are not doing any sync activity.
 
-            if (!ctx.is_syncing)
+            if (!is_syncing)
                 continue;
 
             if (fs_mount->acquire_rw_session() != -1)
             {
-                while (!ctx.is_shutting_down)
+                while (!is_shutting_down)
                 {
                     {
-                        std::shared_lock lock(ctx.current_target_mutex);
-                        LOG_INFO << "Hpfs " << name << " sync: Starting sync for target " << ctx.current_target.name << " hash: " << ctx.current_target.hash;
+                        std::shared_lock lock(current_target_mutex);
+                        LOG_INFO << "Hpfs " << name << " sync: Starting sync for target " << current_target.name << " hash: " << current_target.hash;
                     }
                     util::h32 new_state = util::h32_empty;
-                    const int result = request_loop(ctx.current_target.hash, new_state);
+                    const int result = request_loop(current_target.hash, new_state);
 
-                    ctx.pending_requests.clear();
-                    ctx.candidate_hpfs_responses.clear();
-                    ctx.submitted_requests.clear();
+                    pending_requests.clear();
+                    candidate_hpfs_responses.clear();
+                    submitted_requests.clear();
 
-                    if (result == -1 || result == 1 || ctx.is_shutting_down)
+                    if (result == -1 || result == 1 || is_shutting_down)
                         break;
 
                     {
-                        std::shared_lock lock(ctx.current_target_mutex);
+                        std::shared_lock lock(current_target_mutex);
 
-                        if (new_state == ctx.current_target.hash)
+                        if (new_state == current_target.hash)
                         {
-                            LOG_INFO << "Hpfs " << name << " sync: Target " << ctx.current_target.name << " hash achieved: " << new_state;
-                            on_current_sync_state_acheived();
+                            LOG_INFO << "Hpfs " << name << " sync: Target " << current_target.name << " hash achieved: " << new_state;
+                            on_current_sync_state_acheived(new_state);
 
                             // Start syncing to next target.
                             const int result = start_syncing_next_target();
@@ -131,7 +131,7 @@ namespace hpfs
                         }
                         else
                         {
-                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new target: " << ctx.current_target.hash;
+                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new target: " << current_target.hash;
                             continue;
                         }
                     }
@@ -145,9 +145,9 @@ namespace hpfs
                 LOG_ERROR << "Hpfs " << name << " sync: Failed to start hpfs rw session";
             }
             // Clear target list and original target list since the sync is complete.
-            ctx.target_list = {};
-            ctx.original_target_list = {};
-            ctx.is_syncing = false;
+            target_list = {};
+            original_target_list = {};
+            is_syncing = false;
         }
 
         LOG_INFO << "Hpfs " << name << " sync: Worker stopped.";
@@ -158,12 +158,12 @@ namespace hpfs
      * @return -1 on error. 0 when current sync state acheived or sync is stopped due to target change.
      * Returns 1 on successfully finishing all the sync targets.
     */
-    int hpfs_sync::request_loop(const util::h32 current_target, util::h32 &updated_state)
+    int hpfs_sync::request_loop(const util::h32 current_target_hash, util::h32 &updated_state)
     {
         std::string lcl = ledger::ctx.get_lcl();
 
         // Send the initial root hpfs request of the current target.
-        submit_request(backlog_item{ctx.current_target.item_type, ctx.current_target.vpath, -1, current_target}, lcl);
+        submit_request(backlog_item{this->current_target.item_type, this->current_target.vpath, -1, current_target_hash}, lcl);
 
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
@@ -171,7 +171,7 @@ namespace hpfs
         // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
         uint16_t resubmissions_count = 0;
 
-        while (!should_stop_request_loop(current_target))
+        while (!should_stop_request_loop(current_target_hash))
         {
             // Wait a small delay if there were no responses processed during previous iteration.
             if (!prev_responses_processed)
@@ -183,15 +183,15 @@ namespace hpfs
             // Move the received hpfs responses to the local response list.
             swap_collected_responses();
 
-            prev_responses_processed = !ctx.candidate_hpfs_responses.empty();
+            prev_responses_processed = !candidate_hpfs_responses.empty();
 
             // Reset resubmissions counter whenever we have a resposne.
-            if (!ctx.candidate_hpfs_responses.empty())
+            if (!candidate_hpfs_responses.empty())
                 resubmissions_count = 0;
 
-            for (auto &response : ctx.candidate_hpfs_responses)
+            for (auto &response : candidate_hpfs_responses)
             {
-                if (should_stop_request_loop(current_target))
+                if (should_stop_request_loop(current_target_hash))
                     return 0;
 
                 LOG_DEBUG << "Hpfs " << name << " sync: Processing hpfs response from [" << response.first.substr(2, 10) << "]";
@@ -204,8 +204,8 @@ namespace hpfs
                 std::string_view vpath = msg::fbuf::flatbuff_str_to_sv(resp_msg->path());
 
                 const std::string key = std::string(vpath).append(hash);
-                const auto pending_resp_itr = ctx.submitted_requests.find(key);
-                if (pending_resp_itr == ctx.submitted_requests.end())
+                const auto pending_resp_itr = submitted_requests.find(key);
+                if (pending_resp_itr == submitted_requests.end())
                 {
                     LOG_DEBUG << "Hpfs " << name << " sync: Skipping hpfs response due to hash mismatch.";
                     continue;
@@ -267,30 +267,30 @@ namespace hpfs
                 }
 
                 // Now that we have received matching hash and handled it, remove it from the waiting list.
-                ctx.submitted_requests.erase(pending_resp_itr);
+                submitted_requests.erase(pending_resp_itr);
 
                 // After handling each response, check whether we have reached target hpfs state.
                 // get_hash returns 0 incase target parent is not existing in our side.
-                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, ctx.current_target.vpath) == -1)
+                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, this->current_target.vpath) == -1)
                 {
                     LOG_ERROR << "Hpfs " << name << " sync: exiting due to hash check error.";
                     return -1;
                 }
 
                 // Update the central hpfs state tracker.
-                fs_mount->set_parent_hash(ctx.current_target.vpath, updated_state);
+                fs_mount->set_parent_hash(this->current_target.vpath, updated_state);
 
-                LOG_DEBUG << "Hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target;
-                if (updated_state == current_target)
+                LOG_DEBUG << "Hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target_hash;
+                if (updated_state == current_target_hash)
                     return 0;
             }
 
-            ctx.candidate_hpfs_responses.clear();
+            candidate_hpfs_responses.clear();
 
             // Check for long-awaited responses and re-request them.
-            for (auto &[hash, request] : ctx.submitted_requests)
+            for (auto &[hash, request] : submitted_requests)
             {
-                if (should_stop_request_loop(current_target))
+                if (should_stop_request_loop(current_target_hash))
                     return 0;
 
                 if (request.waiting_time < REQUEST_RESUBMIT_TIMEOUT)
@@ -304,7 +304,7 @@ namespace hpfs
                     {
                         LOG_INFO << "Hpfs " << name << " sync: Resubmission threshold exceeded. Abandoning sync.";
 
-                        std::shared_lock lock(ctx.current_target_mutex);
+                        std::shared_lock lock(current_target_mutex);
                         const int result = start_syncing_next_target();
                         if (result == 0)
                             return 1; // To stop syncing since we have sync all the targets.
@@ -319,17 +319,17 @@ namespace hpfs
             }
 
             // Check whether we can submit any more requests.
-            if (!ctx.pending_requests.empty() && ctx.submitted_requests.size() < MAX_AWAITING_REQUESTS)
+            if (!pending_requests.empty() && submitted_requests.size() < MAX_AWAITING_REQUESTS)
             {
-                const uint16_t available_slots = MAX_AWAITING_REQUESTS - ctx.submitted_requests.size();
-                for (int i = 0; i < available_slots && !ctx.pending_requests.empty(); i++)
+                const uint16_t available_slots = MAX_AWAITING_REQUESTS - submitted_requests.size();
+                for (int i = 0; i < available_slots && !pending_requests.empty(); i++)
                 {
-                    if (should_stop_request_loop(current_target))
+                    if (should_stop_request_loop(current_target_hash))
                         return 0;
 
-                    const backlog_item &request = ctx.pending_requests.front();
+                    const backlog_item &request = pending_requests.front();
                     submit_request(request, lcl);
-                    ctx.pending_requests.pop_front();
+                    pending_requests.pop_front();
                 }
             }
         }
@@ -405,14 +405,14 @@ namespace hpfs
     /**
      * Indicates whether to break out of hpfs request processing loop.
      */
-    bool hpfs_sync::should_stop_request_loop(const util::h32 &current_target)
+    bool hpfs_sync::should_stop_request_loop(const util::h32 &current_target_hash)
     {
-        if (ctx.is_shutting_down)
+        if (is_shutting_down)
             return true;
 
         // Stop request loop if the target has changed.
-        std::shared_lock lock(ctx.current_target_mutex);
-        return current_target != ctx.current_target.hash;
+        std::shared_lock lock(current_target_mutex);
+        return current_target_hash != this->current_target.hash;
     }
 
     /**
@@ -445,7 +445,7 @@ namespace hpfs
     {
         const std::string key = std::string(request.path)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(util::h32));
-        ctx.submitted_requests.try_emplace(key, request);
+        submitted_requests.try_emplace(key, request);
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
         std::string target_pubkey;
@@ -494,9 +494,9 @@ namespace hpfs
                 {
                     // Prioritize file hpfs requests over directories.
                     if (ex_entry.is_file)
-                        ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, peer_itr->second.hash});
+                        pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, peer_itr->second.hash});
                     else
-                        ctx.pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, peer_itr->second.hash});
+                        pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, peer_itr->second.hash});
                 }
 
                 fs_entry_map.erase(peer_itr);
@@ -524,9 +524,9 @@ namespace hpfs
 
             // Prioritize file hpfs requests over directories.
             if (fs_entry.is_file)
-                ctx.pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, fs_entry.hash});
+                pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, fs_entry.hash});
             else
-                ctx.pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, fs_entry.hash});
+                pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, fs_entry.hash});
         }
 
         return 0;
@@ -552,13 +552,13 @@ namespace hpfs
         const size_t existing_hash_count = existing_hashes.size();
 
         // Compare the block hashes and request any differences.
-        auto insert_itr = ctx.pending_requests.begin();
+        auto insert_itr = pending_requests.begin();
         const int32_t max_block_id = MAX(existing_hash_count, hash_count) - 1;
         for (int32_t block_id = 0; block_id <= max_block_id; block_id++)
         {
             // Insert at front to give priority to block requests while preserving block order.
             if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
-                ctx.pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
+                pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
         }
 
         if (existing_hashes.size() >= hash_count)
@@ -609,7 +609,7 @@ namespace hpfs
      * This method can be used to invoke mount specific custom logic (after extending this super class) to be executed after
      * a sync target is acheived.
     */
-    void hpfs_sync::on_current_sync_state_acheived()
+    void hpfs_sync::on_current_sync_state_acheived(const util::h32 &acheived_hash)
     {
     }
 
@@ -619,15 +619,15 @@ namespace hpfs
     */
     int hpfs_sync::start_syncing_next_target()
     {
-        ctx.target_list.pop(); // Remove the synced parent from the target list.
-        if (ctx.target_list.empty())
+        target_list.pop(); // Remove the synced parent from the target list.
+        if (target_list.empty())
         {
-            ctx.current_target = {};
+            current_target = {};
             return 0;
         }
         else
         {
-            ctx.current_target = ctx.target_list.front();
+            current_target = target_list.front();
             return 1;
         }
     }

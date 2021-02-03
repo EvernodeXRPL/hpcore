@@ -6,9 +6,9 @@
 namespace sc
 {
 
-    void contract_sync::on_current_sync_state_acheived()
+    void contract_sync::on_current_sync_state_acheived(const util::h32 &acheived_hash)
     {
-        if (ctx.current_target.vpath == hpfs::PATCH_FILE_PATH)
+        if (current_target.vpath == hpfs::PATCH_FILE_PATH)
         {
             // Appling new patch file changes to hpcore runtime.
             if (conf::apply_patch_config(hpfs::RW_SESSION_NAME) == -1)
@@ -20,9 +20,7 @@ namespace sc
                 unl::update_unl_changes_from_patch();
 
                 // Update global hash tracker with the new patch file hash.
-                util::h32 updated_patch_hash;
-                fs_mount->get_hash(updated_patch_hash, hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
-                fs_mount->set_parent_hash(ctx.current_target.vpath, updated_patch_hash);
+                fs_mount->set_parent_hash(current_target.vpath, acheived_hash);
             }
         }
     }
@@ -33,6 +31,6 @@ namespace sc
 
         // Move collected hpfs responses over to local candidate responses list.
         if (!p2p::ctx.collected_msgs.contract_hpfs_responses.empty())
-            ctx.candidate_hpfs_responses.splice(ctx.candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.contract_hpfs_responses);
+            candidate_hpfs_responses.splice(candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.contract_hpfs_responses);
     }
 } // namespace sc

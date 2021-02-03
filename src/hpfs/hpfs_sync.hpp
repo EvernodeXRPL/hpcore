@@ -44,51 +44,49 @@ namespace hpfs
         }
     };
 
-    struct sync_context
+    class hpfs_sync
     {
-        // The current target hashes we are syncing towards.
-        std::queue<sync_target> target_list;
+    private:
+        bool init_success = false;
+        uint16_t REQUEST_RESUBMIT_TIMEOUT; // No. of milliseconds to wait before resubmitting a request.
+        std::string name;                  // Name used for logging.
+
+        std::queue<sync_target> target_list; // The current target hashes we are syncing towards.
+
         // Store the originally submitted sync target list. This list is used to avoid submitting same list multiple times
         // because target list is updated when the sync targets are acheived.
         std::queue<sync_target> original_target_list;
-        sync_target current_target = {};
 
-        // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
-        std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
-
-        // List of pending sync requests to be sent out.
-        std::list<backlog_item> pending_requests;
+        std::list<backlog_item> pending_requests; // List of pending sync requests to be sent out.
 
         // List of submitted requests we are awaiting responses for, keyed by expected response path+hash.
         std::unordered_map<std::string, backlog_item> submitted_requests;
 
         std::thread hpfs_sync_thread;
         std::shared_mutex current_target_mutex;
-        std::atomic<bool> is_syncing = false;
         std::atomic<bool> is_shutting_down = false;
-    };
-
-    class hpfs_sync
-    {
-    private:
-        bool init_success = false;
-        uint16_t REQUEST_RESUBMIT_TIMEOUT; // No. of milliseconds to wait before resubmitting a request.
-        std::string name;
 
         void hpfs_syncer_loop();
 
-        int request_loop(const util::h32 current_target, util::h32 &updated_state);
+        int request_loop(const util::h32 current_target_hash, util::h32 &updated_state);
 
         int start_syncing_next_target();
 
     protected:
+        sync_target current_target = {};
+
+        // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
+        std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
+
         hpfs::hpfs_mount *fs_mount = NULL;
-        virtual void on_current_sync_state_acheived();
+
+        virtual void on_current_sync_state_acheived(const util::h32 &acheived_hash);
+
         // Move the collected responses from hpfs responses to a local response list.
         virtual void swap_collected_responses() = 0; // Must override in child classes.
 
     public:
-        sync_context ctx;
+        std::atomic<bool> is_syncing = false;
 
         int init(std::string_view name, hpfs::hpfs_mount *fs_mount);
 
@@ -102,7 +100,7 @@ namespace hpfs
 
         bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
 
-        bool should_stop_request_loop(const util::h32 &current_target);
+        bool should_stop_request_loop(const util::h32 &current_target_hash);
 
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                      const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey);
