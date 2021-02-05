@@ -400,6 +400,7 @@ namespace conf
                 cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
                 cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
+                cfg.user.concurrent_read_reqeuests = user["concurrent_read_reqeuests"].as<uint64_t>();
                 cfg.user.enabled = user["enabled"].as<bool>();
             }
             catch (const std::exception &e)
@@ -501,6 +502,7 @@ namespace conf
             user_config.insert_or_assign("max_connections", cfg.user.max_connections);
             user_config.insert_or_assign("max_in_connections_per_host", cfg.user.max_in_connections_per_host);
             user_config.insert_or_assign("enabled", cfg.user.enabled);
+            user_config.insert_or_assign("concurrent_read_reqeuests", cfg.user.concurrent_read_reqeuests);
             d.insert_or_assign("user", user_config);
         }
 
@@ -553,6 +555,13 @@ namespace conf
         if (fields_missing)
         {
             std::cerr << "Required configuration fields missing at " << ctx.config_file << std::endl;
+            return -1;
+        }
+
+        // User settings
+        if (cfg.user.concurrent_read_reqeuests > CONCURRENT_READ_REQUEST_MAX_LIMIT)
+        {
+            std::cerr << "User concurrent_read_reqeuests cannot exceed " << CONCURRENT_READ_REQUEST_MAX_LIMIT << "\n";
             return -1;
         }
 

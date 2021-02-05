@@ -84,36 +84,39 @@ do
     
     # Update config.
     contract_json=$(node -p "JSON.stringify({...require('./tmp.json').contract, 
-                id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
-                bin_path: '$binary', \
-                bin_args: '$binargs', \
-                roundtime: $roundtime, \
-                consensus: 'public', \
-                npl: 'public', \
-                appbill: { \
-                    mode: '', \
-                    bin_args: '' \
-                },}, null, 2)")
+                    id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
+                    bin_path: '$binary', \
+                    bin_args: '$binargs', \
+                    roundtime: $roundtime, \
+                    consensus: 'public', \
+                    npl: 'public', \
+                    appbill: { \
+                        mode: '', \
+                        bin_args: '' \
+                    }
+                }, null, 2)")
 
     mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, \
-                port:${peerport}, \
-                peer_discovery: { \
-                    enabled: true, \
-                    interval: 10000 \
-                }
+                    port:${peerport}, \
+                    peer_discovery: { \
+                        enabled: true, \
+                        interval: 10000 \
+                    }
                 }, null, 2)")
-    user_json=$(node -p "JSON.stringify({...require('./tmp.json').user, port:${pubport}}, null, 2)")
+    user_json=$(node -p "JSON.stringify({...require('./tmp.json').user, \
+                    port:${pubport}
+                }, null, 2)")
+
+    log_json=$(node -p "JSON.stringify({...require('./tmp.json').log, \
+                    loglevel: '$loglevel', \
+                    loggers:['console', 'file'] \
+                }, null, 2)")
 
     node -p "JSON.stringify({...require('./tmp.json'), \
-            contract: ${contract_json},\
-            mesh: ${mesh_json},\
-            user: ${user_json}, \
-            log: {\
-                loglevel: '$loglevel', \
-                max_mbytes_per_file: 10, \
-                max_file_count": 50, \
-                loggers:['console', 'file'] \
-            }\
+                contract: ${contract_json},\
+                mesh: ${mesh_json},\
+                user: ${user_json}, \
+                log: ${log_json}, \
             }, null, 2)" > hp.cfg
     rm tmp.json
 

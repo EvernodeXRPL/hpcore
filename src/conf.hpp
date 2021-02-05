@@ -9,6 +9,8 @@
  */
 namespace conf
 {
+    constexpr size_t CONCURRENT_READ_REQUEST_MAX_LIMIT = 32;
+
     // Struct to represent ip and port of the peer.
     struct ip_port_prop
     {
@@ -109,6 +111,7 @@ namespace conf
         uint64_t max_bad_msgs_per_min = 0;        // User bad messages per minute
         uint16_t max_connections = 0;             // Max inbound user connections
         uint16_t max_in_connections_per_host = 0; // Max inbound user connections per remote host (IP).
+        uint64_t concurrent_read_reqeuests = 10;  // Supported concurrent read requests count.
         bool enabled = true;                      // User connections enable/disable.
     };
 
