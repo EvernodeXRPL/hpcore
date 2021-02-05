@@ -13,7 +13,7 @@
 #include "p2p/p2p.hpp"
 #include "consensus.hpp"
 #include "ledger.hpp"
-#include "hpfs/hpfs.hpp"
+#include "ledger/ledger_sample.hpp"
 #include "unl.hpp"
 
 /**
@@ -71,7 +71,8 @@ void deinit()
     p2p::deinit();
     read_req::deinit();
     consensus::deinit();
-    hpfs::deinit();
+    ledger::ledger_sample::deinit(); // Deinit method in new ledger implementation.
+    sc::deinit();
     ledger::deinit();
     conf::deinit();
 }
@@ -195,7 +196,8 @@ int main(int argc, char **argv)
                 LOG_INFO << "Public key: " << conf::cfg.node.public_key_hex;
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
-                if (hpfs::init() == -1 ||
+                if (sc::init() == -1 ||
+                    ledger::ledger_sample::init() == -1 || // Init method of new ledger implementaiton.
                     ledger::init() == -1 ||
                     unl::init() == -1 ||
                     consensus::init() == -1 ||

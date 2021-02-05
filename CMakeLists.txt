@@ -35,7 +35,6 @@ add_executable(hpcore
     src/conf.cpp
     src/hplog.cpp
     src/bill/corebill.cpp
-    src/hpfs/hpfs.cpp
     src/hpfs/hpfs_mount.cpp
     src/hpfs/hpfs_serve.cpp
     src/hpfs/hpfs_sync.cpp

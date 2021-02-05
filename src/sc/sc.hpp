@@ -7,6 +7,8 @@
 #include "../util/util.hpp"
 #include "../util/buffer_store.hpp"
 #include "../p2p/p2p.hpp"
+#include "contract_mount.hpp"
+#include "contract_sync.hpp"
 
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
@@ -124,6 +126,13 @@ namespace sc
         {
         }
     };
+
+    extern sc::contract_mount contract_fs;         // Global contract file system instance.
+    extern sc::contract_sync contract_sync_worker; // Global contract file system sync instance.
+
+    int init();
+
+    void deinit();
 
     int execute_contract(execution_context &ctx);
 
