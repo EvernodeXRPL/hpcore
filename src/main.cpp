@@ -6,7 +6,7 @@
 #include "util/util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "sc.hpp"
+#include "./sc/sc.hpp"
 #include "hplog.hpp"
 #include "usr/usr.hpp"
 #include "usr/read_req.hpp"
@@ -14,7 +14,6 @@
 #include "consensus.hpp"
 #include "ledger.hpp"
 #include "ledger/ledger_sample.hpp"
-#include "hpfs/hpfs.hpp"
 #include "unl.hpp"
 
 /**
@@ -72,9 +71,9 @@ void deinit()
     p2p::deinit();
     read_req::deinit();
     consensus::deinit();
-    hpfs::deinit();
+    ledger::ledger_sample::deinit(); // Deinit method in new ledger implementation.
+    sc::deinit();
     ledger::deinit();
-    ledger::ledger_sample::deinit();
     conf::deinit();
 }
 
@@ -197,9 +196,9 @@ int main(int argc, char **argv)
                 LOG_INFO << "Public key: " << conf::cfg.node.public_key_hex;
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
-                if (hpfs::init() == -1 ||
+                if (sc::init() == -1 ||
+                    ledger::ledger_sample::init() == -1 || // Init method of new ledger implementaiton.
                     ledger::init() == -1 ||
-                    ledger::ledger_sample::init() == -1 ||
                     unl::init() == -1 ||
                     consensus::init() == -1 ||
                     read_req::init() == -1 ||

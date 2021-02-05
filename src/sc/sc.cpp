@@ -1,14 +1,14 @@
-#include "pchheader.hpp"
-#include "conf.hpp"
-#include "consensus.hpp"
-#include "hplog.hpp"
-#include "ledger.hpp"
+#include "../pchheader.hpp"
+#include "../conf.hpp"
+#include "../consensus.hpp"
+#include "../hplog.hpp"
+#include "../ledger.hpp"
 #include "sc.hpp"
-#include "hpfs/hpfs.hpp"
-#include "msg/fbuf/p2pmsg_helpers.hpp"
-#include "msg/controlmsg_common.hpp"
-#include "msg/controlmsg_parser.hpp"
-#include "unl.hpp"
+#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/controlmsg_common.hpp"
+#include "../msg/controlmsg_parser.hpp"
+#include "../unl.hpp"
+#include "contract_serve.hpp"
 
 namespace sc
 {
@@ -17,6 +17,40 @@ namespace sc
     constexpr const char *STDOUT_LOG = ".stdout.log";
     constexpr const char *STDERR_LOG = ".stderr.log";
 
+    constexpr uint32_t CONTRACT_FS_ID = 0;
+
+    sc::contract_mount contract_fs;         // Global contract file system instance.
+    sc::contract_sync contract_sync_worker; // Global contract file system sync instance.
+    sc::contract_serve contract_server;     // Contract file server instance.
+
+    int init()
+    {
+        if (contract_fs.init(CONTRACT_FS_ID, conf::ctx.contract_hpfs_dir, conf::ctx.contract_hpfs_mount_dir, conf::ctx.contract_hpfs_rw_dir, conf::cfg.node.full_history) == -1)
+        {
+            LOG_ERROR << "Contract file system initialization failed.";
+            return -1;
+        }
+
+        if (contract_server.init("contract", &contract_fs) == -1)
+        {
+            LOG_ERROR << "Contract file system serve worker initialization failed.";
+            return -1;
+        }
+
+        if (contract_sync_worker.init("contract", &contract_fs) == -1)
+        {
+            LOG_ERROR << "Contract file system sync worker initialization failed.";
+            return -1;
+        }
+        return 0;
+    }
+
+    void deinit()
+    {
+        contract_fs.deinit();
+        contract_server.deinit();
+        contract_sync_worker.deinit();
+    }
     /**
      * Executes the contract process and passes the specified context arguments.
      * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -92,7 +126,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            const std::string current_dir = hpfs::contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
+            const std::string current_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
             chdir(current_dir.c_str());
 
             if (create_contract_log_files(ctx) == -1)
@@ -165,8 +199,8 @@ namespace sc
         if (!ctx.args.readonly)
             ctx.args.hpfs_session_name = hpfs::RW_SESSION_NAME;
 
-        return ctx.args.readonly ? hpfs::contract_fs.start_ro_session(ctx.args.hpfs_session_name, false)
-                                 : hpfs::contract_fs.acquire_rw_session();
+        return ctx.args.readonly ? contract_fs.start_ro_session(ctx.args.hpfs_session_name, false)
+                                 : contract_fs.acquire_rw_session();
     }
 
     /**
@@ -174,7 +208,6 @@ namespace sc
      */
     int stop_hpfs_session(execution_context &ctx)
     {
-        hpfs::hpfs_mount &contract_fs = hpfs::contract_fs;
         if (ctx.args.readonly)
         {
             return contract_fs.stop_ro_session(ctx.args.hpfs_session_name);

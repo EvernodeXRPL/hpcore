@@ -1,5 +1,7 @@
 #include "../p2p/p2p.hpp"
 #include "sqlite.hpp"
+#include "ledger_sync.hpp"
+#include "ledger_mount.hpp"
 
 namespace ledger::ledger_sample
 {
@@ -16,6 +18,8 @@ namespace ledger::ledger_sample
     };
 
     extern ledger_context ctx;
+    extern ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
+    extern ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
 
     int init();
 

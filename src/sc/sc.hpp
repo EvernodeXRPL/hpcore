@@ -1,12 +1,14 @@
-#ifndef _HP_SC_
-#define _HP_SC_
+#ifndef _HP_SC_SC_
+#define _HP_SC_SC_
 
-#include "pchheader.hpp"
-#include "usr/usr.hpp"
-#include "util/h32.hpp"
-#include "util/util.hpp"
-#include "util/buffer_store.hpp"
-#include "p2p/p2p.hpp"
+#include "../pchheader.hpp"
+#include "../usr/usr.hpp"
+#include "../util/h32.hpp"
+#include "../util/util.hpp"
+#include "../util/buffer_store.hpp"
+#include "../p2p/p2p.hpp"
+#include "contract_mount.hpp"
+#include "contract_sync.hpp"
 
 /**
  * Contains helper functions regarding POSIX process execution and IPC between HP and SC.
@@ -125,6 +127,13 @@ namespace sc
         }
     };
 
+    extern sc::contract_mount contract_fs;         // Global contract file system instance.
+    extern sc::contract_sync contract_sync_worker; // Global contract file system sync instance.
+
+    int init();
+
+    void deinit();
+
     int execute_contract(execution_context &ctx);
 
     //------Internal-use functions for this namespace.
@@ -172,7 +181,7 @@ namespace sc
     void cleanup_fds(execution_context &ctx);
 
     void cleanup_fd_pair(fd_pair &fds);
-    
+
     void stop(execution_context &ctx);
 
     void handle_control_msg(execution_context &ctx, std::string_view msg);

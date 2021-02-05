@@ -1,31 +1,55 @@
 
 #include "ledger_sample.hpp"
 #include "../crypto.hpp"
-#include "../hpfs/hpfs.hpp"
 #include "../conf.hpp"
 #include "../util/util.hpp"
 #include "../msg/fbuf/ledger_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
+#include "ledger_serve.hpp"
 
 // Currently this namespace is added for sqlite testing, later this can be modified and renamed as 'ledger::ledger_sample' -> 'ledger' for ledger implementations.
 namespace ledger::ledger_sample
 {
     ledger_context ctx;
+    constexpr uint32_t LEDGER_FS_ID = 1;
+    ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
+    ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
+    ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
     /**
-     * Initialize ledger.
-     * @return Returns 0 on success -1 on error.
-     */
+     * Perform ledger related initializations.
+    */
     int init()
     {
+        if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, conf::cfg.node.full_history) == -1)
+        {
+            LOG_ERROR << "Ledger file system initialization failed.";
+            return -1;
+        }
+
+        if (ledger_server.init("ledger", &ledger_fs) == -1)
+        {
+            LOG_ERROR << "Ledger file system serve worker initialization failed.";
+            return -1;
+        }
+
+        if (ledger_sync_worker.init("ledger", &ledger_fs) == -1)
+        {
+            LOG_ERROR << "Ledger file system sync worker initialization failed.";
+            return -1;
+        }
+
         return 0;
     }
 
     /**
-     * Deinitialize ledger.
-     */
+     * Perform deinit tasks related to ledger.
+    */
     void deinit()
     {
+        ledger_fs.deinit();
+        ledger_server.deinit();
+        ledger_sync_worker.deinit();
     }
 
     /**
@@ -47,12 +71,12 @@ namespace ledger::ledger_sample
         seq_no++; // New lcl sequence number.
 
         // Aqure hpfs rw session before accessing shards and insert ledger records.
-        if (hpfs::contract_fs.acquire_rw_session() == -1)
+        if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
         // Construct shard path.
         const uint64_t shard_no = (seq_no - 1) / SHARD_SIZE;
-        const std::string shard_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/" + std::to_string(shard_no);
+        const std::string shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + std::to_string(shard_no);
 
         // If (seq_no - 1) % SHARD_SIZE == 0 means this is the first ledger of the shard.
         // So create the shard folder and ledger table.
@@ -62,7 +86,7 @@ namespace ledger::ledger_sample
             if (util::create_dir_tree_recursive(shard_path) == -1)
             {
                 LOG_ERROR << errno << ": Error creating the shard, shard: " << std::to_string(shard_no);
-                hpfs::contract_fs.release_rw_session();
+                ledger_fs.release_rw_session();
                 return -1;
             }
 
@@ -70,7 +94,7 @@ namespace ledger::ledger_sample
             if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_no);
-                hpfs::contract_fs.release_rw_session();
+                ledger_fs.release_rw_session();
                 return -1;
             }
 
@@ -79,14 +103,14 @@ namespace ledger::ledger_sample
             {
                 LOG_ERROR << errno << ": Error creating the shard table, shard: " << std::to_string(shard_no);
                 sqlite::close_db(&ctx.db);
-                hpfs::contract_fs.release_rw_session();
+                ledger_fs.release_rw_session();
                 return -1;
             }
         }
         else if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_no);
-            hpfs::contract_fs.release_rw_session();
+            ledger_fs.release_rw_session();
             return -1;
         }
 
@@ -137,7 +161,7 @@ namespace ledger::ledger_sample
         {
             LOG_ERROR << errno << ": Error creating the ledger, shard: " << std::to_string(shard_no);
             sqlite::close_db(&ctx.db);
-            hpfs::contract_fs.release_rw_session();
+            ledger_fs.release_rw_session();
             return -1;
         }
 
@@ -145,7 +169,7 @@ namespace ledger::ledger_sample
         {
             LOG_ERROR << errno << ": Error updating shard index, shard: " << std::to_string(shard_no);
             sqlite::close_db(&ctx.db);
-            hpfs::contract_fs.release_rw_session();
+            ledger_fs.release_rw_session();
             return -1;
         }
 
@@ -156,7 +180,7 @@ namespace ledger::ledger_sample
         }
 
         sqlite::close_db(&ctx.db);
-        return hpfs::contract_fs.release_rw_session();
+        return ledger_fs.release_rw_session();
     }
 
     /**
@@ -168,7 +192,7 @@ namespace ledger::ledger_sample
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
         {
-            std::string shard_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH;
+            std::string shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR;
             std::list<std::string> shards = util::fetch_dir_entries(shard_path);
             for (const std::string shard : shards)
             {
@@ -180,7 +204,7 @@ namespace ledger::ledger_sample
                     {
                         LOG_ERROR << errno << ": Error deleting shard: " << shard;
                     }
-                    shard_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH;
+                    shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR;
                 }
             }
         }
@@ -225,10 +249,10 @@ namespace ledger::ledger_sample
     int update_shard_index(const uint64_t &shard_no, std::string_view shard_path)
     {
         util::h32 shard_hash;
-        if (hpfs::contract_fs.get_hash(shard_hash, LEDGER_SESSION_NAME, shard_path) == -1)
+        if (ledger_fs.get_hash(shard_hash, LEDGER_SESSION_NAME, shard_path) == -1)
             return -1;
 
-        const std::string index_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/" + SHARD_INDEX;
+        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + SHARD_INDEX;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -255,7 +279,7 @@ namespace ledger::ledger_sample
      */
     int read_shard_index(util::h32 &shard_hash, const int64_t &shard_no)
     {
-        const std::string index_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/" + SHARD_INDEX;
+        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + SHARD_INDEX;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -281,7 +305,7 @@ namespace ledger::ledger_sample
      */
     int read_shard_index(std::string &shard_hashes)
     {
-        const std::string index_path = conf::ctx.ledger_rw_dir + hpfs::PRIMARY_DIR_PATH + "/" + SHARD_INDEX;
+        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + SHARD_INDEX;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
