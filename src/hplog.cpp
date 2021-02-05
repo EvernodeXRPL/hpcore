@@ -4,9 +4,6 @@
 
 namespace hplog
 {
-    constexpr size_t MAX_TRACE_FILESIZE = 10 * 1024 * 1024; // Maximum file size (10MB)
-    constexpr size_t MAX_TRACE_FILECOUNT = 50;              // Maximum files in a folder
-
     class plog_formatter;
 
     // Custom formatter adopted from:
@@ -50,8 +47,8 @@ namespace hplog
             ss << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_hour << PLOG_NSTR(":")
                << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_min << PLOG_NSTR(":")
                << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_sec << PLOG_NSTR(" ");
-               // Uncomment for millseconds.
-               // << std::setfill(PLOG_NSTR('0')) << std::setw(3) << record.getTime().millitm << PLOG_NSTR(" ");
+            // Uncomment for millseconds.
+            // << std::setfill(PLOG_NSTR('0')) << std::setw(3) << record.getTime().millitm << PLOG_NSTR(" ");
 
             ss << PLOG_NSTR("[") << severity_to_string(record.getSeverity()) << PLOG_NSTR("][hpc] ");
             ss << record.getMessage() << PLOG_NSTR("\n");
@@ -74,7 +71,7 @@ namespace hplog
             level = plog::Severity::error;
 
         const std::string trace_file = conf::ctx.log_dir + "/hp.log";
-        static plog::RollingFileAppender<plog_formatter> fileAppender(trace_file.c_str(), MAX_TRACE_FILESIZE, MAX_TRACE_FILECOUNT);
+        static plog::RollingFileAppender<plog_formatter> fileAppender(trace_file.c_str(), conf::cfg.log.max_mbytes_per_file * 1024 * 1024, conf::cfg.log.max_file_count);
         static plog::ConsoleAppender<plog_formatter> consoleAppender;
 
         plog::Logger<0> &logger = plog::init(level);

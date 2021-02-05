@@ -57,6 +57,8 @@ namespace conf
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
         std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
+        size_t max_mbytes_per_file;              // Max MB size of a single log file.
+        size_t max_file_count;                   // Max no. of log files to keep.
     };
 
     struct node_config
