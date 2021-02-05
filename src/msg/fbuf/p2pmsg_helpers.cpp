@@ -492,12 +492,13 @@ namespace msg::fbuf::p2pmsg
  * Create content response message from the given content response.
  * @param container_builder Flatbuffer builder for the container message.
  * @param path The path of the directory.
+ * @param mount_id The mount id of the relavent hpfs mount.
  * @param hash_nodes File or directory entries with hashes in the given parent path.
  * @param expected_hash The exptected hash of the requested path.
  * @param lcl Lcl to be include in the container msg.
  */
     void create_msg_from_fsentry_response(
-        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const int32_t mount_id,
+        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const uint32_t mount_id,
         std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -525,11 +526,12 @@ namespace msg::fbuf::p2pmsg
  * Create content response message from the given content response.
  * @param container_builder Flatbuffer builder for the container message.
  * @param path The path of the directory.
+ * @param mount_id The mount id of the relavent hpfs mount.
  * @param hashmap Hashmap of the file
  * @param lcl Lcl to be include in the container msg.
  */
     void create_msg_from_filehashmap_response(
-        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const int32_t mount_id,
+        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const uint32_t mount_id,
         std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
@@ -561,10 +563,11 @@ namespace msg::fbuf::p2pmsg
     /**
  * Create content response message from the given content response.
  * @param container_builder Flatbuffer builder for the container message.
- * @param block_resp Block response struct to place in the message
+ * @param block_resp Block response struct to place in the message.
+ * @param mount_id The mount id of the relavent hpfs mount.
  * @param lcl Lcl to be include in the container message.
  */
-    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const int32_t mount_id, std::string_view lcl)
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const uint32_t mount_id, std::string_view lcl)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);

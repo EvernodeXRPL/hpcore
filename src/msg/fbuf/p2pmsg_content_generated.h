@@ -1317,11 +1317,11 @@ struct Hpfs_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     VT_BLOCK_ID = 10,
     VT_EXPECTED_HASH = 12
   };
-  int32_t mount_id() const {
-    return GetField<int32_t>(VT_MOUNT_ID, 0);
+  uint32_t mount_id() const {
+    return GetField<uint32_t>(VT_MOUNT_ID, 0);
   }
-  bool mutate_mount_id(int32_t _mount_id) {
-    return SetField<int32_t>(VT_MOUNT_ID, _mount_id, 0);
+  bool mutate_mount_id(uint32_t _mount_id) {
+    return SetField<uint32_t>(VT_MOUNT_ID, _mount_id, 0);
   }
   const flatbuffers::String *parent_path() const {
     return GetPointer<const flatbuffers::String *>(VT_PARENT_PATH);
@@ -1349,7 +1349,7 @@ struct Hpfs_Request_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_MOUNT_ID) &&
+           VerifyField<uint32_t>(verifier, VT_MOUNT_ID) &&
            VerifyOffset(verifier, VT_PARENT_PATH) &&
            verifier.VerifyString(parent_path()) &&
            VerifyField<uint8_t>(verifier, VT_IS_FILE) &&
@@ -1364,8 +1364,8 @@ struct Hpfs_Request_MessageBuilder {
   typedef Hpfs_Request_Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_mount_id(int32_t mount_id) {
-    fbb_.AddElement<int32_t>(Hpfs_Request_Message::VT_MOUNT_ID, mount_id, 0);
+  void add_mount_id(uint32_t mount_id) {
+    fbb_.AddElement<uint32_t>(Hpfs_Request_Message::VT_MOUNT_ID, mount_id, 0);
   }
   void add_parent_path(flatbuffers::Offset<flatbuffers::String> parent_path) {
     fbb_.AddOffset(Hpfs_Request_Message::VT_PARENT_PATH, parent_path);
@@ -1392,7 +1392,7 @@ struct Hpfs_Request_MessageBuilder {
 
 inline flatbuffers::Offset<Hpfs_Request_Message> CreateHpfs_Request_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t mount_id = 0,
+    uint32_t mount_id = 0,
     flatbuffers::Offset<flatbuffers::String> parent_path = 0,
     bool is_file = false,
     int32_t block_id = 0,
@@ -1408,7 +1408,7 @@ inline flatbuffers::Offset<Hpfs_Request_Message> CreateHpfs_Request_Message(
 
 inline flatbuffers::Offset<Hpfs_Request_Message> CreateHpfs_Request_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t mount_id = 0,
+    uint32_t mount_id = 0,
     const char *parent_path = nullptr,
     bool is_file = false,
     int32_t block_id = 0,
@@ -1464,11 +1464,11 @@ struct Hpfs_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   flatbuffers::String *mutable_path() {
     return GetPointer<flatbuffers::String *>(VT_PATH);
   }
-  int32_t mount_id() const {
-    return GetField<int32_t>(VT_MOUNT_ID, 0);
+  uint32_t mount_id() const {
+    return GetField<uint32_t>(VT_MOUNT_ID, 0);
   }
-  bool mutate_mount_id(int32_t _mount_id) {
-    return SetField<int32_t>(VT_MOUNT_ID, _mount_id, 0);
+  bool mutate_mount_id(uint32_t _mount_id) {
+    return SetField<uint32_t>(VT_MOUNT_ID, _mount_id, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1479,7 +1479,7 @@ struct Hpfs_Response_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            verifier.VerifyVector(hash()) &&
            VerifyOffset(verifier, VT_PATH) &&
            verifier.VerifyString(path()) &&
-           VerifyField<int32_t>(verifier, VT_MOUNT_ID) &&
+           VerifyField<uint32_t>(verifier, VT_MOUNT_ID) &&
            verifier.EndTable();
   }
 };
@@ -1512,8 +1512,8 @@ struct Hpfs_Response_MessageBuilder {
   void add_path(flatbuffers::Offset<flatbuffers::String> path) {
     fbb_.AddOffset(Hpfs_Response_Message::VT_PATH, path);
   }
-  void add_mount_id(int32_t mount_id) {
-    fbb_.AddElement<int32_t>(Hpfs_Response_Message::VT_MOUNT_ID, mount_id, 0);
+  void add_mount_id(uint32_t mount_id) {
+    fbb_.AddElement<uint32_t>(Hpfs_Response_Message::VT_MOUNT_ID, mount_id, 0);
   }
   explicit Hpfs_Response_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1532,7 +1532,7 @@ inline flatbuffers::Offset<Hpfs_Response_Message> CreateHpfs_Response_Message(
     flatbuffers::Offset<void> hpfs_response = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash = 0,
     flatbuffers::Offset<flatbuffers::String> path = 0,
-    int32_t mount_id = 0) {
+    uint32_t mount_id = 0) {
   Hpfs_Response_MessageBuilder builder_(_fbb);
   builder_.add_mount_id(mount_id);
   builder_.add_path(path);
@@ -1548,7 +1548,7 @@ inline flatbuffers::Offset<Hpfs_Response_Message> CreateHpfs_Response_MessageDir
     flatbuffers::Offset<void> hpfs_response = 0,
     const std::vector<uint8_t> *hash = nullptr,
     const char *path = nullptr,
-    int32_t mount_id = 0) {
+    uint32_t mount_id = 0) {
   auto hash__ = hash ? _fbb.CreateVector<uint8_t>(*hash) : 0;
   auto path__ = path ? _fbb.CreateString(path) : 0;
   return msg::fbuf::p2pmsg::CreateHpfs_Response_Message(

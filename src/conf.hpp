@@ -143,18 +143,21 @@ namespace conf
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
 
-        std::string contract_dir;     // Contract base directory full path.
-        std::string full_hist_dir;    // Contract full history dir full path.
-        std::string hist_dir;         // Contract ledger history dir full path.
-        std::string hpfs_dir;         // hpfs metdata dir (The location of hpfs log file).
-        std::string hpfs_mount_dir;   // hpfs fuse file system mount path.
-        std::string hpfs_rw_dir;      // hpfs read/write fs session path.
-        std::string log_dir;          // HotPocket log dir full path.
-        std::string contract_log_dir; // Contract log dir full path.
-        std::string config_dir;       // Config dir full path.
-        std::string config_file;      // Full path to the config file.
-        std::string tls_key_file;     // Full path to the tls private key file.
-        std::string tls_cert_file;    // Full path to the tls certificate.
+        std::string contract_dir;            // Contract base directory full path.
+        std::string full_hist_dir;           // Contract full history dir full path.
+        std::string hist_dir;                // Contract ledger history dir full path.
+        std::string contract_hpfs_dir;       // Contract hpfs metdata dir (The location of hpfs log file).
+        std::string contract_hpfs_mount_dir; // Contract hpfs fuse file system mount path.
+        std::string contract_hpfs_rw_dir;    // Contract hpfs read/write fs session path.
+        std::string ledger_hpfs_dir;         // Ledger hpfs metdata dir (The location of hpfs log file).
+        std::string ledger_hpfs_mount_dir;   // Ledger hpfs fuse file system mount path.
+        std::string ledger_hpfs_rw_dir;      // Ledger hpfs read/write fs session path.
+        std::string log_dir;                 // HotPocket log dir full path.
+        std::string contract_log_dir;        // Contract log dir full path.
+        std::string config_dir;              // Config dir full path.
+        std::string config_file;             // Full path to the config file.
+        std::string tls_key_file;            // Full path to the tls private key file.
+        std::string tls_cert_file;           // Full path to the tls certificate.
 
         int config_fd;            // Config file file descriptor.
         struct flock config_lock; // Config file lock.

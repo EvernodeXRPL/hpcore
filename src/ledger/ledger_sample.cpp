@@ -4,10 +4,52 @@
 #include "../util/util.hpp"
 #include "../msg/fbuf/ledger_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
+#include "ledger_serve.hpp"
 
 // Currently this namespace is added for sqlite testing, later this can be modified and renamed as 'ledger::ledger_sample' -> 'ledger' for ledger implementations.
 namespace ledger::ledger_sample
 {
+    constexpr uint32_t LEDGER_FS_ID = 1;
+    ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
+    ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
+    ledger::ledger_serve ledger_server;     // Ledger file server instance.
+
+    /**
+     * Perform ledger related initializations.
+    */
+    int init()
+    {
+        if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, conf::cfg.node.full_history) == -1)
+        {
+            LOG_ERROR << "Ledger file system initialization failed.";
+            return -1;
+        }
+
+        if (ledger_server.init("ledger", &ledger_fs) == -1)
+        {
+            LOG_ERROR << "Ledger file system serve worker initialization failed.";
+            return -1;
+        }
+
+        if (ledger_sync_worker.init("ledger", &ledger_fs) == -1)
+        {
+            LOG_ERROR << "Ledger file system sync worker initialization failed.";
+            return -1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Perform deinit tasks related to ledger.
+    */
+    void deinit()
+    {
+        ledger_fs.deinit();
+        ledger_server.deinit();
+        ledger_sync_worker.deinit();
+    }
+
     /**
      * Create and save ledger record from the given proposal message.
      * @param proposal Consensus-reached Stage 3 proposal.
@@ -47,14 +89,14 @@ namespace ledger::ledger_sample
         // Get binary hash of the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
         const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
-        
+
         // Get binary hash of users and inputs.
         const std::string user_hash = crypto::get_hash(proposal.users);
         const std::string input_hash = crypto::get_hash(proposal.input_hashes);
 
         const std::string seq_no_str = std::to_string(seq_no);
         const std::string time_str = std::to_string(proposal.time);
-        
+
         // Contruct binary string for data hash.
         std::string data;
         data.reserve(seq_no_str.size() + time_str.size() + (32 * 5));

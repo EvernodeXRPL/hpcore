@@ -57,7 +57,6 @@ namespace hpfs
 
         LOG_INFO << "Hpfs " << name << " server started.";
 
-        std::list<std::pair<std::string, p2p::hpfs_request>> hpfs_requests;
 
         // Indicates whether any requests were processed in the previous loop iteration.
         bool prev_requests_processed = false;
@@ -68,7 +67,7 @@ namespace hpfs
             if (!prev_requests_processed)
                 util::sleep(LOOP_WAIT);
 
-            swap_collected_requests(hpfs_requests);
+            swap_collected_requests();
 
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
@@ -353,15 +352,4 @@ namespace hpfs
         return result;
     }
 
-    /**
-     * Move the collected requests from hpfs requests to the local hpfs request list.
-    */
-    void hpfs_serve::swap_collected_requests(std::list<std::pair<std::string, p2p::hpfs_request>> &hpfs_requests)
-    {
-        std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.contract_hpfs_requests_mutex);
-
-        // Move collected hpfs requests for contract fs over to local requests list.
-        if (!p2p::ctx.collected_msgs.contract_hpfs_requests.empty())
-            hpfs_requests.splice(hpfs_requests.end(), p2p::ctx.collected_msgs.contract_hpfs_requests);
-    }
 } // namespace hpfs
