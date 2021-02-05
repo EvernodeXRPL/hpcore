@@ -9,7 +9,7 @@
 // Currently this namespace is added for sqlite testing, later this can be modified and renamed as 'ledger::ledger_sample' -> 'ledger' for ledger implementations.
 namespace ledger::ledger_sample
 {
-    constexpr int32_t LEDGER_FS_ID = 1;
+    constexpr uint32_t LEDGER_FS_ID = 1;
     ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
     ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
     ledger::ledger_serve ledger_server;     // Ledger file server instance.

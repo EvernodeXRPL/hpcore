@@ -58,14 +58,14 @@ namespace msg::fbuf::p2pmsg
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl);
 
     void create_msg_from_fsentry_response(
-        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const int32_t mount_id,
+        flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const uint32_t mount_id,
         std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl);
 
     void create_msg_from_filehashmap_response(
-        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const int32_t mount_id,
+        flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const uint32_t mount_id,
         std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl);
 
-    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const int32_t mount_id, std::string_view lcl);
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const uint32_t mount_id, std::string_view lcl);
 
     void create_containermsg_from_content(
         flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const bool sign);
@@ -101,10 +101,10 @@ namespace msg::fbuf::p2pmsg
     peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port);
 
     void flatbuf_hpfsfshashentry_to_hpfsfshashentry(std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entries,
-                                                      const flatbuffers::Vector<flatbuffers::Offset<Hpfs_FS_Hash_Entry>> *fhashes);
+                                                    const flatbuffers::Vector<flatbuffers::Offset<Hpfs_FS_Hash_Entry>> *fhashes);
 
     void hpfsfilehash_to_flatbuf_hpfsfilehash(flatbuffers::FlatBufferBuilder &builder, std::vector<flatbuffers::Offset<Hpfs_FS_Hash_Entry>> &list,
-                                                std::string_view full_path, bool is_file, std::string_view hash);
+                                              std::string_view full_path, bool is_file, std::string_view hash);
 
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Hpfs_FS_Hash_Entry>>>
     hpfsfshashentry_to_flatbuff_hpfsfshashentry(

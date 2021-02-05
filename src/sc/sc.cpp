@@ -17,7 +17,7 @@ namespace sc
     constexpr const char *STDOUT_LOG = ".stdout.log";
     constexpr const char *STDERR_LOG = ".stderr.log";
 
-    constexpr int32_t CONTRACT_FS_ID = 0;
+    constexpr uint32_t CONTRACT_FS_ID = 0;
 
     sc::contract_mount contract_fs;         // Global contract file system instance.
     sc::contract_sync contract_sync_worker; // Global contract file system sync instance.

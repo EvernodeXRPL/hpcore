@@ -14,8 +14,8 @@ namespace p2p
 {
     constexpr uint16_t PROPOSAL_LIST_CAP = 64;        // Maximum proposal count.
     constexpr uint16_t NONUNL_PROPOSAL_LIST_CAP = 64; // Maximum nonunl proposal count.
-    constexpr uint16_t HPFS_REQ_LIST_CAP = 64;       // Maximum state request count.
-    constexpr uint16_t HPFS_RES_LIST_CAP = 64;       // Maximum state response count.
+    constexpr uint16_t HPFS_REQ_LIST_CAP = 64;        // Maximum state request count.
+    constexpr uint16_t HPFS_RES_LIST_CAP = 64;        // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
     struct proposal
@@ -91,7 +91,7 @@ namespace p2p
     // Represents a hpfs request sent to a peer.
     struct hpfs_request
     {
-        int32_t mount_id;        // Relavent file system id.
+        uint32_t mount_id;       // Relavent file system id.
         std::string parent_path; // The requested file or dir path.
         bool is_file = false;    // Whether the path is a file or dir.
         int32_t block_id = 0;    // Block id of the file if we are requesting for file block. Otherwise -1.

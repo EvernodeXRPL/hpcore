@@ -110,6 +110,8 @@ do
             user: ${user_json}, \
             log: {\
                 loglevel: '$loglevel', \
+                max_mbytes_per_file: 10, \
+                max_file_count": 50, \
                 loggers:['console', 'file'] \
             }\
             }, null, 2)" > hp.cfg

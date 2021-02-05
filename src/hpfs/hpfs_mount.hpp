@@ -54,9 +54,9 @@ namespace hpfs
         virtual int prepare_fs();
 
     public:
-        int32_t mount_id; // Used in hpfs serving and syncing.
+        uint32_t mount_id; // Used in hpfs serving and syncing.
         std::string rw_dir;
-        int init(const int32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history);
+        int init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history);
         void deinit();
 
         int start_hpfs_process();
