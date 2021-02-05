@@ -190,6 +190,23 @@ namespace ledger::sqlite
     }
 
     /**
+     * Closes a connection to a given databse.
+     * @param db Pointer to the db.
+     * @returns returns 0 on success, or -1 on error.
+    */
+    int close_db(sqlite3 **db)
+    {
+        if (sqlite3_close(*db) != SQLITE_OK)
+        {
+            LOG_ERROR << "Can't close database: " << sqlite3_errmsg(*db);
+            return -1;
+        }
+        
+        *db = NULL;
+        return 0;
+    }
+
+    /**
      * Creates a table for ledger records.
      * @param db Pointer to the db.
      * @returns returns 0 on success, or -1 on error.

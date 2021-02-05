@@ -16,6 +16,7 @@
 #include "hpfs/hpfs_sync.hpp"
 #include "unl.hpp"
 #include "ledger.hpp"
+#include "ledger/ledger_sample.hpp"
 #include "consensus.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
@@ -833,6 +834,9 @@ namespace consensus
 
         if (ledger::save_ledger(cons_prop, std::move(raw_inputs)) == -1)
             return -1;
+        
+        if (ledger::ledger_sample::save_ledger(cons_prop) == -1)
+            //return -1;
 
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();

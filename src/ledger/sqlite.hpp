@@ -92,6 +92,8 @@ namespace ledger::sqlite
 
     bool is_table_exists(sqlite3 *db, std::string_view table_name);
 
+    int close_db(sqlite3 **db);
+
     // Ledger specific methdods.
     int create_ledger_table(sqlite3 *db);
 

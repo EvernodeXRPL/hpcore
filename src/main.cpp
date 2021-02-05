@@ -13,6 +13,7 @@
 #include "p2p/p2p.hpp"
 #include "consensus.hpp"
 #include "ledger.hpp"
+#include "ledger/ledger_sample.hpp"
 #include "hpfs/hpfs.hpp"
 #include "unl.hpp"
 
@@ -73,6 +74,7 @@ void deinit()
     consensus::deinit();
     hpfs::deinit();
     ledger::deinit();
+    ledger::ledger_sample::deinit();
     conf::deinit();
 }
 
@@ -197,6 +199,7 @@ int main(int argc, char **argv)
 
                 if (hpfs::init() == -1 ||
                     ledger::init() == -1 ||
+                    ledger::ledger_sample::init() == -1 ||
                     unl::init() == -1 ||
                     consensus::init() == -1 ||
                     read_req::init() == -1 ||
