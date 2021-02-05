@@ -124,47 +124,59 @@ namespace conf
         //Create config file with default settings.
 
         //We populate the in-memory struct with default settings and then save it to the file.
+        {
+            hp_config cfg = {};
 
-        hp_config cfg = {};
+            crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
+            cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
+            cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
-        crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
-        cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
-        cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
+            cfg.hp_version = util::HP_VERSION;
 
-        cfg.hp_version = util::HP_VERSION;
+            cfg.node.role = ROLE::VALIDATOR;
+            cfg.node.full_history = false;
 
-        cfg.node.role = ROLE::VALIDATOR;
-        cfg.node.full_history = false;
+            cfg.contract.id = crypto::generate_uuid();
+            cfg.contract.execute = true;
+            cfg.contract.log_output = false;
+            cfg.contract.version = "1.0";
+            //Add self pubkey to the unl.
+            cfg.contract.unl.emplace(cfg.node.public_key);
+            cfg.contract.bin_path = "<your contract binary here>";
+            cfg.contract.roundtime = 1000;
+            cfg.contract.is_consensus_public = false;
+            cfg.contract.is_npl_public = false;
 
-        cfg.contract.id = crypto::generate_uuid();
-        cfg.contract.execute = true;
-        cfg.contract.log_output = false;
-        cfg.contract.version = "1.0";
-        //Add self pubkey to the unl.
-        cfg.contract.unl.emplace(cfg.node.public_key);
-        cfg.contract.bin_path = "<your contract binary here>";
-        cfg.contract.roundtime = 1000;
-        cfg.contract.is_consensus_public = false;
-        cfg.contract.is_npl_public = false;
+            cfg.mesh.port = 22860;
+            cfg.mesh.msg_forwarding = false;
+            cfg.mesh.idle_timeout = 120;
+            cfg.mesh.peer_discovery.enabled = false;
+            cfg.mesh.peer_discovery.interval = 30000;
 
-        cfg.mesh.port = 22860;
-        cfg.mesh.msg_forwarding = false;
-        cfg.mesh.idle_timeout = 120;
-        cfg.mesh.peer_discovery.enabled = false;
-        cfg.mesh.peer_discovery.interval = 30000;
+            cfg.user.port = 8080;
+            cfg.user.idle_timeout = 0;
 
-        cfg.user.port = 8080;
-        cfg.user.idle_timeout = 0;
+            cfg.log.max_file_count = 50;
+            cfg.log.max_mbytes_per_file = 10;
+            cfg.log.loglevel = "inf";
+            cfg.log.loggers.emplace("console");
+            cfg.log.loggers.emplace("file");
 
-        cfg.log.max_file_count = 50;
-        cfg.log.max_mbytes_per_file = 10;
-        cfg.log.loglevel = "inf";
-        cfg.log.loggers.emplace("console");
-        cfg.log.loggers.emplace("file");
+            //Save the default settings into the config file.
+            if (write_config(cfg) != 0)
+                return -1;
+        }
 
-        //Save the default settings into the config file.
-        if (write_config(cfg) != 0)
-            return -1;
+        // Attempt to generate tls key files if openssl command is available.
+        {
+            const std::string tls_command = "openssl req -newkey rsa:2048 -new -nodes -x509 -days 365 -keyout " +
+                                            ctx.config_dir + "/tlskey.pem" + " -out " + ctx.config_dir + "/tlscert.pem " +
+                                            "-subj \"/C=HP/ST=HP/L=HP/O=HP/CN=" + cfg.node.public_key_hex + ".hotpocket.contract\" > /dev/null 2>&1";
+            
+            // We don't mind if this command fails, because when running the contract we'll check and inform the user that
+            // tls key files are missing, so they can create them manually.
+            system(tls_command.c_str());
+        }
 
         std::cout << "Contract directory created at " << ctx.contract_dir << std::endl;
 
@@ -621,7 +633,7 @@ namespace conf
                 if (path == ctx.tls_key_file || path == ctx.tls_cert_file)
                 {
                     std::cerr << path << " does not exist. Please provide self-signed certificates. Can generate using command\n"
-                              << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem\n"
+                              << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 365 -keyout tlskey.pem -out tlscert.pem\n"
                               << "and add it to " + ctx.config_dir << std::endl;
                 }
                 else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path)
