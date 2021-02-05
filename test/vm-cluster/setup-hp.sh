@@ -42,12 +42,6 @@ $basedir/hpfiles/bin/hpcore new $contdir
 if [ -f $basedir/hpfiles/ssl/tlscert.pem ]; then
    echo "Copying ssl certs to contract directory..."
    cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/
-else
-   echo "Generating default ssl certs..."
-   pushd $contdir/cfg > /dev/null 2>&1
-   openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \
-         -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hp@example" > /dev/null 2>&1
-   popd > /dev/null 2>&1
 fi
 
 if [ $mode = "new" ] || [ $mode = "reconfig" ]; then

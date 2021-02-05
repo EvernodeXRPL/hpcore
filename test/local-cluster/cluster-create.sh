@@ -120,9 +120,6 @@ do
             }, null, 2)" > hp.cfg
     rm tmp.json
 
-    # Generate ssl certs
-    openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout tlskey.pem -out tlscert.pem \
-        -subj "/C=AU/ST=ST/L=L/O=O/OU=OU/CN=localhost/emailAddress=hpnode${n}@example" > /dev/null 2>&1
     popd > /dev/null 2>&1
 
     # Copy the contract files and appbill.

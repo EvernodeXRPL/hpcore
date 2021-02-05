@@ -110,6 +110,9 @@ sudo apt-get install -y libboost-stacktrace-dev
 # Sqlite
 sudo apt-get install -y sqlite3 libsqlite3-dev
 
+# jq command (needed for remote cluster scripts)
+sudo apt-get install -y jq
+
 # Update linker library cache.
 sudo ldconfig
 
