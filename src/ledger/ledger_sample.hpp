@@ -31,7 +31,7 @@ namespace ledger::ledger_sample
 
     int extract_lcl(const std::string &lcl, uint64_t &seq_no, std::string &hash);
 
-    int update_shard_index(const uint64_t &shard_no, std::string_view shard_path);
+    int update_shard_index(const uint64_t &shard_no);
 
     int read_shard_index(util::h32 &shard_hash, const uint64_t &shard_no);
 

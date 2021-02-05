@@ -165,7 +165,7 @@ namespace ledger::ledger_sample
             return -1;
         }
 
-        if (update_shard_index(shard_no, shard_path) == -1)
+        if (update_shard_index(shard_no) == -1)
         {
             LOG_ERROR << errno << ": Error updating shard index, shard: " << std::to_string(shard_no);
             sqlite::close_db(&ctx.db);
@@ -246,8 +246,12 @@ namespace ledger::ledger_sample
      * @param shard_path Updated shard path.
      * @return Returns 0 on success -1 on error.
      */
-    int update_shard_index(const uint64_t &shard_no, std::string_view shard_path)
+    int update_shard_index(const uint64_t &shard_no)
     {
+        std::string shard_path = hpfs::LEDGER_PRIMARY_DIR;	
+        shard_path.append("/");	
+        shard_path.append(std::to_string(shard_no));
+
         util::h32 shard_hash;
         if (ledger_fs.get_hash(shard_hash, ctx.hpfs_session_name, shard_path) == -1)
             return -1;
@@ -277,7 +281,7 @@ namespace ledger::ledger_sample
      * @param shard_no Shard number for the hash.
      * @return Returns 0 on success -1 on error.
      */
-    int read_shard_index(util::h32 &shard_hash, const int64_t &shard_no)
+    int read_shard_index(util::h32 &shard_hash, const uint64_t &shard_no)
     {
         const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + SHARD_INDEX;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
