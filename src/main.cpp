@@ -71,9 +71,9 @@ void deinit()
     p2p::deinit();
     read_req::deinit();
     consensus::deinit();
-    ledger::ledger_sample::deinit(); // Deinit method in new ledger implementation.
     sc::deinit();
     ledger::deinit();
+    ledger::ledger_sample::deinit(); // Deinit method in new ledger implementation.
     conf::deinit();
 }
 

@@ -9,12 +9,12 @@ namespace ledger::ledger_sample
     constexpr const char *DATEBASE = "ledger.sqlite";
     constexpr const char *SHARD_INDEX = "shard.idx";
     constexpr uint8_t SHARD_SIZE = 4;
-    constexpr const char *LEDGER_SESSION_NAME = "rw";
     constexpr int FILE_PERMS = 0644;
 
     struct ledger_context
     {
         sqlite3 *db = NULL;
+        std::string hpfs_session_name;
     };
 
     extern ledger_context ctx;
@@ -36,5 +36,9 @@ namespace ledger::ledger_sample
     int read_shard_index(util::h32 &shard_hash, const uint64_t &shard_no);
 
     int read_shard_index(std::string &shard_hashes);
+
+    int start_hpfs_session(ledger_context &ctx);
+
+    int stop_hpfs_session(ledger_context &ctx);
 
 } // namespace ledger::ledger_sample
