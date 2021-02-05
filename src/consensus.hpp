@@ -71,6 +71,7 @@ namespace consensus
         uint64_t round_start_time = 0;
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
+        uint64_t round_boundry_offset = 0;       // Time window boundry offset based on contract id.
 
         std::optional<sc::execution_context> contract_ctx;
         std::mutex contract_ctx_mutex;
