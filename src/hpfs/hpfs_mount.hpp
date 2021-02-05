@@ -7,10 +7,12 @@
 
 namespace hpfs
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024;        // 4MB;
-    constexpr const char *RW_SESSION_NAME = "rw";         // The built-in session name used by hpfs for RW sessions.
-    constexpr const char *STATE_DIR_PATH = "/state";      // State directory name.
-    constexpr const char *PATCH_FILE_PATH = "/patch.cfg"; // Config patch filename.
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024;         // 4MB;
+    constexpr const char *RW_SESSION_NAME = "rw";          // The built-in session name used by hpfs for RW sessions.
+    constexpr const char *STATE_DIR_PATH = "/state";       // State directory name.
+    constexpr const char *PATCH_FILE_PATH = "/patch.cfg";  // Config patch filename.
+    constexpr const char *LEDGER_PRIMARY_DIR = "/primary"; // Ledger primary directory name.
+    constexpr const char *LEDGER_BLOB_DIR = "/blob";       // Ledger blob directory name.
 
     struct child_hash_node
     {
@@ -37,7 +39,6 @@ namespace hpfs
     private:
         pid_t hpfs_pid = 0;
         std::string fs_dir;
-        std::string mount_dir;
         bool is_full_history;
         bool init_success = false;
         // Keeps the hashes of hpfs parents against its vpath.
@@ -49,12 +50,13 @@ namespace hpfs
         std::mutex rw_mutex;
 
     protected:
+        std::string mount_dir;
         virtual int prepare_fs();
 
     public:
-        int32_t mount_id; // Used in hpfs serving and syncing.
+        uint32_t mount_id; // Used in hpfs serving and syncing.
         std::string rw_dir;
-        int init(const int32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history);
+        int init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history);
         void deinit();
 
         int start_hpfs_process();

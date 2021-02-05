@@ -16,7 +16,6 @@
 #include "user_input.hpp"
 #include "read_req.hpp"
 #include "input_nonce_map.hpp"
-#include "../hpfs/hpfs.hpp"
 
 namespace usr
 {
@@ -396,7 +395,7 @@ namespace usr
             util::fork_detach();
 
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
-            const std::string appbill_dir = hpfs::contract_fs.rw_dir + hpfs::STATE_DIR_PATH;
+            const std::string appbill_dir = sc::contract_fs.rw_dir + hpfs::STATE_DIR_PATH;
             chdir(appbill_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
             std::cerr << errno << ": Appbill process execv failed.\n";

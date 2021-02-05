@@ -21,7 +21,9 @@ namespace hpfs
         void hpfs_serve_loop();
 
     protected:
-        virtual void swap_collected_requests(std::list<std::pair<std::string, p2p::hpfs_request>> &hpfs_requests); // Must override in child classes.
+        std::list<std::pair<std::string, p2p::hpfs_request>> hpfs_requests;
+        // Move the collected requests from hpfs requests to a local response list.
+        virtual void swap_collected_requests() = 0; // Must override in child classes.
 
     public:
         int init(std::string_view name, hpfs::hpfs_mount *fs_mount);

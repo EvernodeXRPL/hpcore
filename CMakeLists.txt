@@ -34,12 +34,14 @@ add_executable(hpcore
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
-    src/sc.cpp
     src/bill/corebill.cpp
-    src/hpfs/hpfs.cpp
     src/hpfs/hpfs_mount.cpp
     src/hpfs/hpfs_serve.cpp
     src/hpfs/hpfs_sync.cpp
+    src/sc/contract_mount.cpp
+    src/sc/contract_serve.cpp
+    src/sc/contract_sync.cpp
+    src/sc/sc.cpp
     src/comm/comm_session.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/p2pmsg_helpers.cpp
@@ -61,6 +63,9 @@ add_executable(hpcore
     src/usr/read_req.cpp
     src/ledger.cpp
     src/ledger/sqlite.cpp
+    src/ledger/ledger_mount.cpp
+    src/ledger/ledger_sync.cpp
+    src/ledger/ledger_serve.cpp
     src/ledger/ledger_sample.cpp
     src/consensus.cpp
     src/main.cpp

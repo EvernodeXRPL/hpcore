@@ -3,7 +3,7 @@
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
-#include "../sc.hpp"
+#include "../sc/sc.hpp"
 
 namespace hpfs
 {
@@ -23,7 +23,7 @@ namespace hpfs
     /**
      * This should be called to activate the hpfs mount process.
      */
-    int hpfs_mount::init(const int32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history)
+    int hpfs_mount::init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history)
     {
         this->mount_id = mount_id;
         this->fs_dir = fs_dir;
@@ -62,23 +62,6 @@ namespace hpfs
      */
     int hpfs_mount::prepare_fs()
     {
-        // This contract mount specific preparation logic will be moved to a seprate child class in the next PBI.
-        util::h32 initial_state_hash;
-        util::h32 initial_patch_hash;
-
-        if (acquire_rw_session() == -1 ||
-            conf::populate_patch_config() == -1 ||
-            get_hash(initial_state_hash, RW_SESSION_NAME, hpfs::STATE_DIR_PATH) == -1 ||
-            get_hash(initial_patch_hash, RW_SESSION_NAME, hpfs::PATCH_FILE_PATH) == -1 ||
-            release_rw_session() == -1)
-        {
-            LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
-            return -1;
-        }
-
-        set_parent_hash(hpfs::STATE_DIR_PATH, initial_state_hash);
-        set_parent_hash(hpfs::PATCH_FILE_PATH, initial_patch_hash);
-        LOG_INFO << "Initial state: " << initial_state_hash << " | patch: " << initial_patch_hash;
         return 0;
     }
 

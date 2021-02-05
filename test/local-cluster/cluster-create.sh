@@ -185,9 +185,9 @@ done
 for (( i=1; i<=$ncount; i++ ))
 do
 
-    mkdir -p ./node$i/hpfs/seed/ > /dev/null 2>&1
+    mkdir -p ./node$i/contract_fs/seed/ > /dev/null 2>&1
 
-    pushd ./node$i/hpfs/seed/state/ > /dev/null 2>&1
+    pushd ./node$i/contract_fs/seed/state/ > /dev/null 2>&1
     
     # Load credit balance for user for appbill testing purposes.
     >appbill.table

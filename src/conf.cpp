@@ -1,7 +1,7 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
-#include "hpfs/hpfs.hpp"
+#include "sc/sc.hpp"
 #include "util/util.hpp"
 
 namespace conf
@@ -109,9 +109,13 @@ namespace conf
         if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.contract_log_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
-            util::create_dir_tree_recursive(ctx.hpfs_mount_dir) == -1)
+            util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
+            util::create_dir_tree_recursive(ctx.contract_hpfs_mount_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + hpfs::LEDGER_PRIMARY_DIR) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + hpfs::LEDGER_BLOB_DIR) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_mount_dir) == -1 ||
+            util::create_dir_tree_recursive(ctx.contract_log_dir) == -1)
         {
             std::cerr << "ERROR: unable to create directories.\n";
             return -1;
@@ -204,9 +208,12 @@ namespace conf
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
         ctx.hist_dir = basedir + "/hist";
         ctx.full_hist_dir = basedir + "/fullhist";
-        ctx.hpfs_dir = basedir + "/hpfs";
-        ctx.hpfs_mount_dir = ctx.hpfs_dir + "/mnt";
-        ctx.hpfs_rw_dir = ctx.hpfs_mount_dir + "/rw";
+        ctx.contract_hpfs_dir = basedir + "/contract_fs";
+        ctx.contract_hpfs_mount_dir = ctx.contract_hpfs_dir + "/mnt";
+        ctx.contract_hpfs_rw_dir = ctx.contract_hpfs_mount_dir + "/rw";
+        ctx.ledger_hpfs_dir = basedir + "/ledger_fs";
+        ctx.ledger_hpfs_mount_dir = ctx.ledger_hpfs_dir + "/mnt";
+        ctx.ledger_hpfs_rw_dir = ctx.ledger_hpfs_mount_dir + "/rw";
         ctx.log_dir = basedir + "/log";
         ctx.contract_log_dir = ctx.log_dir + "/contract";
     }
@@ -595,12 +602,13 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[9] = {
+        const std::string paths[10] = {
             ctx.contract_dir,
             ctx.config_file,
             ctx.hist_dir,
             ctx.full_hist_dir,
-            ctx.hpfs_dir,
+            ctx.contract_hpfs_dir,
+            ctx.ledger_hpfs_dir,
             ctx.tls_key_file,
             ctx.tls_cert_file,
             ctx.hpfs_exe_path,
@@ -683,7 +691,7 @@ namespace conf
         jsoncons::ojson jdoc;
         populate_contract_section_json(jdoc, cfg.contract, true);
 
-        const std::string patch_file_path = hpfs::contract_fs.physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
+        const std::string patch_file_path = sc::contract_fs.physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
         return write_json_file(patch_file_path, jdoc);
     }
 
@@ -695,7 +703,7 @@ namespace conf
     */
     int apply_patch_config(std::string_view hpfs_session_name)
     {
-        const std::string path = hpfs::contract_fs.physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
+        const std::string path = sc::contract_fs.physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
         if (!util::is_file_exists(path))
             return 0;
 
@@ -918,7 +926,7 @@ namespace conf
 
         // Uncomment for docker-based execution.
         // std::string volumearg;
-        // volumearg.append("type=bind,source=").append(ctx.hpfs_dir).append(",target=/hpfs");
+        // volumearg.append("type=bind,source=").append(ctx.contract_hpfs_dir).append(",target=/hpfs");
         // const char *dockerargs[] = {"/usr/bin/docker", "run", "--rm", "-i", "--mount", volumearg.data(), contract.bin_path.data()};
         // contract.runtime_binexec_args.insert(contract.runtime_binexec_args.begin(), std::begin(dockerargs), std::end(dockerargs));
 
