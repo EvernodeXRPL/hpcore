@@ -37,7 +37,7 @@ async function main() {
         const startTimes = runPeriods.map(p => p[0]);
         const endTimes = runPeriods.map(p => p[1]);
         const minStartTime = Math.min.apply(null, startTimes);
-        const maxEndTime = Math.min.apply(null, endTimes);
+        const maxEndTime = Math.max.apply(null, endTimes);
         const duration = maxEndTime - minStartTime;
         console.log(duration + "ms");
     }
