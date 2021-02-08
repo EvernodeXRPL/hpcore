@@ -34,6 +34,11 @@ namespace consensus
         ctx.stage_time = conf::cfg.contract.roundtime / 4;
         ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
 
+        // We use a time window boundry offset based on contract id to vary the window boundries between
+        // different contracts with same round time.
+        std::hash<std::string> str_hasher;
+        ctx.round_boundry_offset = str_hasher(conf::cfg.contract.id) % conf::cfg.contract.roundtime;
+
         // Starting consensus processing thread.
         ctx.consensus_thread = std::thread(run_consensus);
 
@@ -182,7 +187,7 @@ namespace consensus
                 conf::change_role(conf::ROLE::OBSERVER);
                 // This queue holds all the sync targets which needs to get synced in ledger fs.
                 std::queue<hpfs::sync_target> sync_target_list;
-                sync_target_list.push(hpfs::sync_target{"ledger primary hash", majority_ledger_primary_hash, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                sync_target_list.push(hpfs::sync_target{"ledger primary", majority_ledger_primary_hash, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
 
                 // Set sync targets for ledger fs.
                 ledger::ledger_sync_worker.set_target(std::move(sync_target_list));
@@ -311,7 +316,7 @@ namespace consensus
         if (ctx.stage == 0)
         {
             // This gets the start time of current round window. Stage 0 must start in the window after that.
-            const uint64_t previous_round_start = (((uint64_t)(now / conf::cfg.contract.roundtime)) * conf::cfg.contract.roundtime);
+            const uint64_t previous_round_start = (((uint64_t)((now - ctx.round_boundry_offset) / conf::cfg.contract.roundtime)) * conf::cfg.contract.roundtime) + ctx.round_boundry_offset;
 
             // Stage 0 must start in the next round window.
             // (This makes sure stage 3 gets whichever the remaining time in the round after stages 0,1,2)
