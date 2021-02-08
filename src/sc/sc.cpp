@@ -2,7 +2,7 @@
 #include "../conf.hpp"
 #include "../consensus.hpp"
 #include "../hplog.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "sc.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/controlmsg_common.hpp"

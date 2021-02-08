@@ -12,8 +12,7 @@
 #include "usr/read_req.hpp"
 #include "p2p/p2p.hpp"
 #include "consensus.hpp"
-#include "ledger.hpp"
-#include "ledger/ledger_sample.hpp"
+#include "ledger/ledger.hpp"
 #include "unl.hpp"
 
 /**
@@ -73,7 +72,6 @@ void deinit()
     consensus::deinit();
     sc::deinit();
     ledger::deinit();
-    ledger::ledger_sample::deinit(); // Deinit method in new ledger implementation.
     conf::deinit();
 }
 
@@ -197,7 +195,6 @@ int main(int argc, char **argv)
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";
 
                 if (sc::init() == -1 ||
-                    ledger::ledger_sample::init() == -1 || // Init method of new ledger implementaiton.
                     ledger::init() == -1 ||
                     unl::init() == -1 ||
                     consensus::init() == -1 ||

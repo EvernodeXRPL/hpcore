@@ -3,7 +3,7 @@
 #include "../msg/fbuf/common_helpers.hpp"
 #include "../p2p/p2p.hpp"
 #include "../pchheader.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../util/h32.hpp"

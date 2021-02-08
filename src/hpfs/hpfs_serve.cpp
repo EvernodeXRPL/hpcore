@@ -5,7 +5,7 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
 #include "hpfs_serve.hpp"
 #include "hpfs_sync.hpp"

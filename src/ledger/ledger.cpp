@@ -1,5 +1,5 @@
 
-#include "ledger_sample.hpp"
+#include "ledger.hpp"
 #include "../crypto.hpp"
 #include "../conf.hpp"
 #include "../util/util.hpp"
@@ -7,8 +7,7 @@
 #include "../msg/fbuf/common_helpers.hpp"
 #include "ledger_serve.hpp"
 
-// Currently this namespace is added for sqlite testing, later this can be modified and renamed as 'ledger::ledger_sample' -> 'ledger' for ledger implementations.
-namespace ledger::ledger_sample
+namespace ledger
 {
     ledger_context ctx;
     constexpr uint32_t LEDGER_FS_ID = 1;
@@ -36,6 +35,12 @@ namespace ledger::ledger_sample
         if (ledger_sync_worker.init("ledger", &ledger_fs) == -1)
         {
             LOG_ERROR << "Ledger file system sync worker initialization failed.";
+            return -1;
+        }
+
+        if (get_last_ledger() == -1)
+        {
+            LOG_ERROR << "Getting last ledger faild.";
             return -1;
         }
 
@@ -120,7 +125,7 @@ namespace ledger::ledger_sample
 
         // Get binary hash of the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
-        const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
+        const std::string lcl_hash_hex = util::to_hex(crypto::get_hash(ledger_str_buf));
 
         // Get binary hash of users and inputs.
         const std::string user_hash = crypto::get_hash(proposal.users);
@@ -148,7 +153,7 @@ namespace ledger::ledger_sample
         const sqlite::ledger ledger(
             seq_no,
             proposal.time,
-            util::to_hex(lcl_hash),
+            lcl_hash_hex,
             hash,
             util::to_hex(data_hash),
             util::to_hex(proposal.state_hash.to_string_view()),
@@ -172,6 +177,9 @@ namespace ledger::ledger_sample
             stop_hpfs_session(ctx);
             return -1;
         }
+
+        // Update the seq_no and lcl when ledger is created.
+        ctx.set_lcl(seq_no, std::to_string(seq_no) + "-" + lcl_hash_hex);
 
         //Remove old shards that exceeds max shard range.
         if (conf::cfg.node.max_shards > 0 && shard_no >= conf::cfg.node.max_shards)
@@ -303,6 +311,42 @@ namespace ledger::ledger_sample
     }
 
     /**
+    * This function read and add all the shards from given shard number (inclusive) to the given ordered map.
+    * @param shard_hash_list The map holding shard hashes vs shard number.
+    * @param shard_no Starting shard number. 
+    * @return Returns -1 on error and 0 on success.
+    */
+    int read_shards_from_given_shard_no(std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no)
+    {
+        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
+        const int fd = open(index_path.data(), O_RDWR, FILE_PERMS);
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error opening shard index file.";
+            return -1;
+        }
+        int ret = 0;
+        do
+        {
+            util::h32 shard_hash;
+            ret = pread(fd, &shard_hash, sizeof(util::h32), shard_no * sizeof(util::h32));
+            if (ret == -1)
+            {
+                LOG_ERROR << errno << ": Error reading from shard index file.";
+                close(fd);
+                return -1;
+            }
+            if (ret != 0)
+                shard_hash_list.try_emplace(shard_no, shard_hash);
+
+            shard_no++;
+        } while (ret != 0);
+
+        close(fd);
+        return 0;
+    }
+
+    /**
      * Read whole shard index file.
      * @param shard_hash String of shard hashes to be populated.
      * @return Returns 0 on success -1 on error.
@@ -331,6 +375,61 @@ namespace ledger::ledger_sample
         }
 
         close(fd);
+        return 0;
+    }
+
+    /**
+     * Get last ledger and update the context.
+     * @return Returns 0 on success -1 on error.
+     */
+    int get_last_ledger()
+    {
+        // Aqure hpfs rw session before accessing shards and insert ledger records.
+        if (start_hpfs_session(ctx) == -1)
+            return -1;
+
+        std::string shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR;
+        std::list<std::string> shards = util::fetch_dir_entries(shard_path);
+        shards.remove(hpfs::LEDGER_SHARD_INDEX);
+
+        if (shards.size() == 0)
+        {
+            stop_hpfs_session(ctx);
+            ctx.set_lcl(0, GENESIS_LEDGER);
+        }
+        else
+        {
+            shards.sort([](std::string &a, std::string &b) {
+                uint64_t seq_no_a, seq_no_b;
+                util::stoull(a, seq_no_a);
+                util::stoull(b, seq_no_b);
+                return seq_no_a > seq_no_b;
+            });
+
+            uint64_t last_shard;
+            util::stoull(*shards.begin(), last_shard);
+            shard_path.append("/").append(*shards.begin());
+
+            //Remove old shards that exceeds max shard range.
+            if (conf::cfg.node.max_shards > 0 && last_shard >= conf::cfg.node.max_shards)
+            {
+                remove_old_shards(last_shard - conf::cfg.node.max_shards + 1);
+            }
+
+            // Open a database connection.
+            if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
+            {
+                LOG_ERROR << errno << ": Error openning the shard database, shard: " << *shards.begin();
+                stop_hpfs_session(ctx);
+                return -1;
+            }
+
+            sqlite::ledger last_ledger = sqlite::get_last_ledger(ctx.db);
+            stop_hpfs_session(ctx);
+
+            ctx.set_lcl(last_ledger.seq_no, std::to_string(last_ledger.seq_no) + "-" + last_ledger.ledger_hash_hex);
+        }
+
         return 0;
     }
 
@@ -365,4 +464,4 @@ namespace ledger::ledger_sample
 
         return ledger_fs.release_rw_session();
     }
-} // namespace ledger::ledger_sample
+} // namespace ledger

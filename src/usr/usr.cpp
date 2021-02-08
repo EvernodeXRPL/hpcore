@@ -6,7 +6,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "../util/buffer_store.hpp"
 #include "../hpfs/hpfs_mount.hpp"
 #include "usr.hpp"

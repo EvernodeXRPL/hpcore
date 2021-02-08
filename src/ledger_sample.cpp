@@ -6,12 +6,11 @@
 #include "msg/fbuf/ledger_helpers.hpp"
 #include "msg/fbuf/p2pmsg_helpers.hpp"
 #include "hplog.hpp"
-#include "ledger.hpp"
-#include "ledger/ledger_sample.hpp"
+#include "ledger_sample.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
-namespace ledger
+namespace ledger_sample
 {
     constexpr int FILE_PERMS = 0644;
     constexpr uint64_t MAX_LEDGER_SEQUENCE = 256; // Max ledger block count to keep.
@@ -299,7 +298,7 @@ namespace ledger
                 continue;
 
             p2p::history_response resp;
-            if (ledger::retrieve_ledger_history(hr, resp) != -1)
+            if (ledger_sample::retrieve_ledger_history(hr, resp) != -1)
             {
                 flatbuffers::FlatBufferBuilder fbuf(1024);
                 p2pmsg::create_msg_from_history_response(fbuf, resp);

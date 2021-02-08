@@ -4,7 +4,7 @@
 #include "pchheader.hpp"
 #include "p2p/p2p.hpp"
 
-namespace ledger
+namespace ledger_sample
 {
     constexpr const char *GENESIS_LEDGER = "0-genesis";
     constexpr uint16_t HISTORY_REQ_LIST_CAP = 64; // Maximum history request count.

@@ -12,8 +12,7 @@
 #include "crypto.hpp"
 #include "util/h32.hpp"
 #include "unl.hpp"
-#include "ledger.hpp"
-#include "ledger/ledger_sample.hpp"
+#include "ledger/ledger.hpp"
 #include "consensus.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
@@ -113,7 +112,7 @@ namespace consensus
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH);
         util::h32 patch_hash = sc::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH);
-        util::h32 ledger_primary_hash = ledger::ledger_sample::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
+        util::h32 ledger_primary_hash = ledger::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
 
         if (ctx.stage == 0)
         {
@@ -134,7 +133,6 @@ namespace consensus
             const size_t unl_count = unl::count();
             vote_counter votes;
             const int sync_status = check_sync_status(unl_count, votes);
-            check_sync_status(lcl, unl_count, votes);
 
             if (sync_status == 0)
             {
@@ -168,71 +166,6 @@ namespace consensus
 
     /**
      * Checks whether we are in sync with the received votes.
-     * @return 0 if we are in sync. -1 on lcl or hpfs desync. -2 if majority lcl unreliable.
-     */
-    int check_sync_status(std::string_view lcl, const size_t unl_count, vote_counter &votes)
-    {
-        // Check if we're ahead/behind of consensus lcl.
-        bool is_lcl_desync = false;
-        std::string majority_lcl;
-        if (check_lcl_votes(is_lcl_desync, majority_lcl, votes, lcl, unl_count))
-        {
-            // We proceed further only if lcl check was success (meaning lcl check could be reliably performed).
-
-            // State lcl sync if we are out-of-sync with majority lcl.
-            if (is_lcl_desync)
-            {
-                conf::change_role(conf::ROLE::OBSERVER);
-                ledger::set_sync_target(majority_lcl);
-            }
-
-            // Check our state with majority state.
-            bool is_state_desync = false;
-            bool is_patch_desync = false;
-            util::h32 majority_state_hash = util::h32_empty;
-            util::h32 majority_patch_hash = util::h32_empty;
-            check_patch_votes(is_patch_desync, majority_patch_hash, votes);
-            check_state_votes(is_state_desync, majority_state_hash, votes);
-
-            // Stop any patch file updates triggered from the sc. The sync is triggered because the changes
-            // done by the contract is not meeting consensus.
-            if (is_patch_desync)
-                is_patch_update_pending = false;
-
-            // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
-            if (is_state_desync || is_patch_desync)
-            {
-                conf::change_role(conf::ROLE::OBSERVER);
-
-                // This queue holds all the sync targets which needs to get synced in contract fs.
-                std::queue<hpfs::sync_target> sync_target_list;
-                if (is_patch_desync)
-                    sync_target_list.push(hpfs::sync_target{"patch", majority_patch_hash, hpfs::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
-
-                if (is_state_desync)
-                    sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
-
-                // Set sync targets for contract fs.
-                sc::contract_sync_worker.set_target(std::move(sync_target_list));
-            }
-
-            // Proceed further only if both lcl and state are in sync with majority.
-            if (!is_lcl_desync && !is_state_desync && !is_patch_desync)
-            {
-                conf::change_role(conf::ROLE::VALIDATOR);
-                return 0;
-            }
-
-            // lcl or hpfs desync.
-            return -1;
-        }
-
-        // Majority lcl couldn't be detected reliably.
-        return -2;
-    }
-
-    /**
-     * Checks whether we are in sync with the received votes.
      * @return 0 if we are in sync. -1 on ledger primary hash or hpfs desync. -2 if majority ledger primary hash unreliable.
      */
     int check_sync_status(const size_t unl_count, vote_counter &votes)
@@ -252,7 +185,7 @@ namespace consensus
                 sync_target_list.push(hpfs::sync_target{"ledger primary hash", majority_ledger_primary_hash, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
 
                 // Set sync targets for ledger fs.
-                ledger::ledger_sample::ledger_sync_worker.set_target(std::move(sync_target_list));
+                ledger::ledger_sync_worker.set_target(std::move(sync_target_list));
             }
 
             // Check our state with majority state.
@@ -306,7 +239,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::sync_ctx.is_syncing && !ledger::ledger_sample::ledger_sync_worker.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -756,68 +689,6 @@ namespace consensus
     }
 
     /**
-     * Check whether our lcl is consistent with the proposals being made by our UNL peers lcl votes.
-     * @param is_desync Indicates whether our lcl is out-of-sync with majority lcl. Only valid if this method returns True.
-     * @param majority_lcl The majority lcl based on the votes received. Only valid if this method returns True.
-     * @param votes Vote counter for this stage.
-     * @param lcl Our lcl.
-     * @return True if majority lcl could be calculated reliably. False if lcl check failed due to unreliable votes.
-     */
-    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count)
-    {
-        uint32_t total_lcl_votes = 0;
-
-        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
-        {
-            increment(votes.lcl, cp.lcl);
-            total_lcl_votes++;
-        }
-
-        // Check whether we have received enough votes in total.
-        const uint32_t min_required = ceil(MAJORITY_THRESHOLD * unl_count);
-        if (total_lcl_votes < min_required)
-        {
-            LOG_INFO << "Not enough peers proposing to perform consensus. votes:" << total_lcl_votes << " needed:" << min_required;
-            return false;
-        }
-
-        uint32_t winning_votes = 0;
-        for (const auto [lcl, votes] : votes.lcl)
-        {
-            if (votes > winning_votes)
-            {
-                winning_votes = votes;
-                majority_lcl = lcl;
-            }
-        }
-
-        // If winning lcl is not matched with our lcl, that means we are not on the consensus ledger.
-        // If that's the case we should request history straight away.
-        if (lcl != majority_lcl)
-        {
-            LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
-            is_desync = true;
-            return true;
-        }
-        else
-        {
-            // Check wheher there are enough winning votes for the lcl to be reliable.
-            const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
-            if (winning_votes < min_wins_required)
-            {
-                LOG_INFO << "No consensus on lcl. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
-                return false;
-            }
-            else
-            {
-                // Reaching here means we have reliable amount of winning lcl votes and our lcl matches with majority lcl.
-                is_desync = false;
-                return true;
-            }
-        }
-    }
-
-    /**
      * Check whether our ledger primary hash is consistent with the proposals being made by our UNL peers shard index hash votes.
      * @param is_desync Indicates whether our ledger primary hash is out-of-sync with majority ledger primary hash. Only valid if this method returns True.
      * @param majority_ledger_primary_hash The majority ledger primary hash based on the votes received. Only valid if this method returns True.
@@ -854,7 +725,7 @@ namespace consensus
 
         // If winning ledger primary hash is not matched with our ledger primary hash, that means we are not on the consensus ledger.
         // If that's the case we should request history straight away.
-        if (ledger::ledger_sample::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH) != majority_ledger_primary_hash)
+        if (ledger::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH) != majority_ledger_primary_hash)
         {
             LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
             is_desync = true;
@@ -962,11 +833,9 @@ namespace consensus
             }
         }
 
-        ledger::ledger_sample::save_ledger(cons_prop);
-        
-        if (ledger::save_ledger(cons_prop, std::move(raw_inputs)) == -1)
+        if (ledger::save_ledger(cons_prop) == -1)
             return -1;
-        
+
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 

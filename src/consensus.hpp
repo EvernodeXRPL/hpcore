@@ -107,8 +107,6 @@ namespace consensus
 
     int consensus();
 
-    int check_sync_status(std::string_view lcl, const size_t unl_count, vote_counter &votes);
-
     int check_sync_status(const size_t unl_count, vote_counter &votes);
 
     void check_sync_completion();
@@ -128,8 +126,6 @@ namespace consensus
     p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, const util::h32 ledger_primary_hash);
 
     void broadcast_proposal(const p2p::proposal &p);
-
-    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count);
 
     bool check_ledger_primary_hash_votes(bool &is_desync, util::h32 &majority_ledger_primary_hash, vote_counter &votes, const size_t unl_count);
 

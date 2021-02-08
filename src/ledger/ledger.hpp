@@ -3,7 +3,7 @@
 #include "ledger_sync.hpp"
 #include "ledger_mount.hpp"
 
-namespace ledger::ledger_sample
+namespace ledger
 {
     constexpr const char *GENESIS_LEDGER = "0-genesis";
     constexpr const char *DATEBASE = "ledger.sqlite";
@@ -12,8 +12,33 @@ namespace ledger::ledger_sample
 
     struct ledger_context
     {
+    private:
+        std::string lcl;
+        uint64_t seq_no = 0;
+        std::shared_mutex lcl_mutex;
+
+    public:
         sqlite3 *db = NULL;
         std::string hpfs_session_name;
+
+        const std::string get_lcl()
+        {
+            std::shared_lock lock(lcl_mutex);
+            return lcl;
+        }
+
+        uint64_t get_seq_no()
+        {
+            std::shared_lock lock(lcl_mutex);
+            return seq_no;
+        }
+
+        void set_lcl(const uint64_t new_seq_no, std::string_view new_lcl)
+        {
+            std::unique_lock lock(lcl_mutex);
+            lcl = new_lcl;
+            seq_no = new_seq_no;
+        }
     };
 
     extern ledger_context ctx;
@@ -34,10 +59,14 @@ namespace ledger::ledger_sample
 
     int read_shard_index(util::h32 &shard_hash, const uint64_t shard_no);
 
+    int read_shards_from_given_shard_no(std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no);
+
     int read_shard_index(std::string &shard_hashes);
+
+    int get_last_ledger();
 
     int start_hpfs_session(ledger_context &ctx);
 
     int stop_hpfs_session(ledger_context &ctx);
 
-} // namespace ledger::ledger_sample
+} // namespace ledger

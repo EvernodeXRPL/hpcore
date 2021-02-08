@@ -4,7 +4,7 @@
 #include "../util/util.hpp"
 #include "../hplog.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "p2p.hpp"
 #include "self_node.hpp"
 #include "../unl.hpp"

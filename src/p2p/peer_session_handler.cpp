@@ -9,8 +9,7 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../ledger/ledger_sample.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "peer_comm_session.hpp"
 #include "p2p.hpp"
 #include "../unl.hpp"
@@ -209,7 +208,7 @@ namespace p2p
                     LOG_DEBUG << "Hpfs contract fs request rejected. Maximum hpfs contract fs request count reached. " << session.display_name();
                 }
             }
-            else if (hr.mount_id == ledger::ledger_sample::ledger_fs.mount_id)
+            else if (hr.mount_id == ledger::ledger_fs.mount_id)
             {
                 // Check the cap and insert request with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.ledger_hpfs_requests_mutex);
@@ -247,7 +246,7 @@ namespace p2p
                     LOG_DEBUG << "Contract hpfs response rejected. Maximum contract hpfs response count reached. " << session.display_name();
                 }
             }
-            else if (ledger::ledger_sample::ledger_sync_worker.is_syncing && resp_msg->mount_id() == ledger::ledger_sample::ledger_fs.mount_id)
+            else if (ledger::ledger_sync_worker.is_syncing && resp_msg->mount_id() == ledger::ledger_fs.mount_id)
             {
                 // Check the cap and insert state_response with lock.
                 std::scoped_lock<std::mutex> lock(ctx.collected_msgs.ledger_hpfs_responses_mutex);
@@ -261,41 +260,6 @@ namespace p2p
                 else
                 {
                     LOG_DEBUG << "Ledger hpfs response rejected. Maximum ledger hpfs response count reached. " << session.display_name();
-                }
-            }
-        }
-        else if (content_message_type == p2pmsg::Message_History_Request_Message) //message is a lcl history request message
-        {
-            // Check the cap and insert request with lock.
-            std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
-
-            // If max number of history requests reached skip the rest.
-            if (ledger::sync_ctx.collected_history_requests.size() < ledger::HISTORY_REQ_LIST_CAP)
-            {
-                const p2p::history_request hr = p2pmsg::create_history_request_from_msg(*content->message_as_History_Request_Message(), container->lcl());
-                ledger::sync_ctx.collected_history_requests.push_back(std::make_pair(session.pubkey, std::move(hr)));
-            }
-            else
-            {
-                LOG_DEBUG << "History request rejected. Maximum history request count reached. " << session.display_name();
-            }
-        }
-        else if (content_message_type == p2pmsg::Message_History_Response_Message) //message is a lcl history response message
-        {
-            if (ledger::sync_ctx.is_syncing) // Only accept history responses if ledger is syncing.
-            {
-                // Check the cap and insert response with lock.
-                std::scoped_lock<std::mutex> lock(ledger::sync_ctx.list_mutex);
-
-                // If max number of history respoinses reached skip the rest.
-                if (ledger::sync_ctx.collected_history_responses.size() < ledger::HISTORY_RES_LIST_CAP)
-                {
-                    const p2p::history_response hr = p2pmsg::create_history_response_from_msg(*content->message_as_History_Response_Message());
-                    ledger::sync_ctx.collected_history_responses.push_back(std::move(hr));
-                }
-                else
-                {
-                    LOG_DEBUG << "History response rejected. Maximum history response count reached. " << session.display_name();
                 }
             }
         }
