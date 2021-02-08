@@ -59,6 +59,7 @@ table Proposal_Message { //Proposal type message schema
     output_sig:[ubyte];
     state_hash: [ubyte];
     patch_hash: [ubyte];
+    ledger_primary_hash: [ubyte];
 }
 
 table Npl_Message { //NPL type message schema

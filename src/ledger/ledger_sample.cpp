@@ -187,7 +187,7 @@ namespace ledger::ledger_sample
      * Remove old shards that exceeds max shard range from file system.
      * @param led_shard_no minimum shard number to be in history.
      */
-    void remove_old_shards(const uint64_t &led_shard_no)
+    void remove_old_shards(const uint64_t led_shard_no)
     {
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
@@ -196,7 +196,7 @@ namespace ledger::ledger_sample
             std::list<std::string> shards = util::fetch_dir_entries(shard_path);
             for (const std::string shard : shards)
             {
-                if (shard != SHARD_INDEX && std::stoi(shard) < led_shard_no)
+                if (shard != hpfs::LEDGER_SHARD_INDEX && std::stoi(shard) < led_shard_no)
                 {
                     shard_path.append("/");
                     shard_path.append(shard);
@@ -246,17 +246,17 @@ namespace ledger::ledger_sample
      * @param shard_path Updated shard path.
      * @return Returns 0 on success -1 on error.
      */
-    int update_shard_index(const uint64_t &shard_no)
+    int update_shard_index(const uint64_t shard_no)
     {
-        std::string shard_path = hpfs::LEDGER_PRIMARY_DIR;	
-        shard_path.append("/");	
+        std::string shard_path = hpfs::LEDGER_PRIMARY_DIR;
+        shard_path.append("/");
         shard_path.append(std::to_string(shard_no));
 
         util::h32 shard_hash;
         if (ledger_fs.get_hash(shard_hash, ctx.hpfs_session_name, shard_path) == -1)
             return -1;
 
-        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + SHARD_INDEX;
+        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -281,9 +281,9 @@ namespace ledger::ledger_sample
      * @param shard_no Shard number for the hash.
      * @return Returns 0 on success -1 on error.
      */
-    int read_shard_index(util::h32 &shard_hash, const uint64_t &shard_no)
+    int read_shard_index(util::h32 &shard_hash, const uint64_t shard_no)
     {
-        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + SHARD_INDEX;
+        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -309,7 +309,7 @@ namespace ledger::ledger_sample
      */
     int read_shard_index(std::string &shard_hashes)
     {
-        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + SHARD_INDEX;
+        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -333,7 +333,7 @@ namespace ledger::ledger_sample
         close(fd);
         return 0;
     }
-    
+
     /**
      * Starts the hpfs virtual filesystem session used for contract execution.
      */
@@ -349,6 +349,20 @@ namespace ledger::ledger_sample
      */
     int stop_hpfs_session(ledger_context &ctx)
     {
+        util::h32 primary_hash;
+        const int primary_hash_result = ledger_fs.get_hash(primary_hash, ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
+
+        if (primary_hash_result == -1)
+        {
+            ledger_fs.release_rw_session();
+            return -1;
+        }
+        else if (primary_hash_result == 1 && primary_hash != ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH))
+        {
+            // Update global hash tracker of contract fs with the new patch file hash.
+            ledger_fs.set_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, primary_hash);
+        }
+
         return ledger_fs.release_rw_session();
     }
 } // namespace ledger::ledger_sample

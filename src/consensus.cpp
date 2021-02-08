@@ -113,6 +113,7 @@ namespace consensus
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH);
         util::h32 patch_hash = sc::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH);
+        util::h32 ledger_primary_hash = ledger::ledger_sample::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
 
         if (ctx.stage == 0)
         {
@@ -121,7 +122,7 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
-            const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash);
+            const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash, ledger_primary_hash);
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
@@ -132,12 +133,13 @@ namespace consensus
 
             const size_t unl_count = unl::count();
             vote_counter votes;
-            const int sync_status = check_sync_status(lcl, unl_count, votes);
+            const int sync_status = check_sync_status(unl_count, votes);
+            check_sync_status(lcl, unl_count, votes);
 
             if (sync_status == 0)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash);
+                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash, ledger_primary_hash);
                 broadcast_proposal(p);
 
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
@@ -230,12 +232,81 @@ namespace consensus
     }
 
     /**
+     * Checks whether we are in sync with the received votes.
+     * @return 0 if we are in sync. -1 on ledger primary hash or hpfs desync. -2 if majority ledger primary hash unreliable.
+     */
+    int check_sync_status(const size_t unl_count, vote_counter &votes)
+    {
+        bool is_ledger_primary_hash_desync = false;
+        util::h32 majority_ledger_primary_hash;
+        if (check_ledger_primary_hash_votes(is_ledger_primary_hash_desync, majority_ledger_primary_hash, votes, unl_count))
+        {
+            // We proceed further only if ledger primary hash check was success (meaning ledger primary hash check could be reliably performed).
+
+            // Ledger primary hash sync if we are out-of-sync with majority ledger primary hash.
+            if (is_ledger_primary_hash_desync)
+            {
+                conf::change_role(conf::ROLE::OBSERVER);
+                // This queue holds all the sync targets which needs to get synced in ledger fs.
+                std::queue<hpfs::sync_target> sync_target_list;
+                sync_target_list.push(hpfs::sync_target{"ledger primary hash", majority_ledger_primary_hash, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+
+                // Set sync targets for ledger fs.
+                ledger::ledger_sample::ledger_sync_worker.set_target(std::move(sync_target_list));
+            }
+
+            // Check our state with majority state.
+            bool is_state_desync = false;
+            bool is_patch_desync = false;
+            util::h32 majority_state_hash = util::h32_empty;
+            util::h32 majority_patch_hash = util::h32_empty;
+            check_patch_votes(is_patch_desync, majority_patch_hash, votes);
+            check_state_votes(is_state_desync, majority_state_hash, votes);
+
+            // Stop any patch file updates triggered from the sc. The sync is triggered because the changes
+            // done by the contract is not meeting consensus.
+            if (is_patch_desync)
+                is_patch_update_pending = false;
+
+            // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
+            if (is_state_desync || is_patch_desync)
+            {
+                conf::change_role(conf::ROLE::OBSERVER);
+
+                // This queue holds all the sync targets which needs to get synced in contract fs.
+                std::queue<hpfs::sync_target> sync_target_list;
+                if (is_patch_desync)
+                    sync_target_list.push(hpfs::sync_target{"patch", majority_patch_hash, hpfs::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+
+                if (is_state_desync)
+                    sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+
+                // Set sync targets for contract fs.
+                sc::contract_sync_worker.set_target(std::move(sync_target_list));
+            }
+
+            // Proceed further only if both ledger primary hash, state and patch are in sync with majority.
+            if (!is_ledger_primary_hash_desync && !is_state_desync && !is_patch_desync)
+            {
+                conf::change_role(conf::ROLE::VALIDATOR);
+                return 0;
+            }
+
+            // Ledger primary hash or hpfs desync.
+            return -1;
+        }
+
+        // Majority ledger primary hash couldn't be detected reliably.
+        return -2;
+    }
+
+    /**
      * Checks whether we can switch back from currently ongoing observer-mode sync operation
      * that has been completed.
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::sync_ctx.is_syncing)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::sync_ctx.is_syncing && !ledger::ledger_sample::ledger_sync_worker.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -538,7 +609,7 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, const util::h32 ledger_primary_hash)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -548,6 +619,7 @@ namespace consensus
         p.lcl = lcl;
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
+        p.ledger_primary_hash = ledger_primary_hash;
         crypto::random_bytes(p.nonce, ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
@@ -564,13 +636,14 @@ namespace consensus
         return p;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, const util::h32 ledger_primary_hash)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
         p.stage = ctx.stage;
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
+        p.ledger_primary_hash = ledger_primary_hash;
 
         // We always vote for our current lcl and state regardless of what other peers are saying.
         // If there's a fork condition we will either request history and hpfs state from
@@ -745,6 +818,67 @@ namespace consensus
     }
 
     /**
+     * Check whether our ledger primary hash is consistent with the proposals being made by our UNL peers shard index hash votes.
+     * @param is_desync Indicates whether our ledger primary hash is out-of-sync with majority ledger primary hash. Only valid if this method returns True.
+     * @param majority_ledger_primary_hash The majority ledger primary hash based on the votes received. Only valid if this method returns True.
+     * @param votes Vote counter for this stage.
+     * @return True if majority ledger primary hash could be calculated reliably. False if shard index hash check failed due to unreliable votes.
+     */
+    bool check_ledger_primary_hash_votes(bool &is_desync, util::h32 &majority_ledger_primary_hash, vote_counter &votes, const size_t unl_count)
+    {
+        uint32_t total_ledger_primary_hash_votes = 0;
+
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            increment(votes.ledger_primary_hash, cp.ledger_primary_hash);
+            total_ledger_primary_hash_votes++;
+        }
+
+        // Check whether we have received enough votes in total.
+        const uint32_t min_required = ceil(MAJORITY_THRESHOLD * unl_count);
+        if (total_ledger_primary_hash_votes < min_required)
+        {
+            LOG_INFO << "Not enough peers proposing to perform consensus. votes:" << total_ledger_primary_hash_votes << " needed:" << min_required;
+            return false;
+        }
+
+        uint32_t winning_votes = 0;
+        for (const auto [ledger_primary_hash, votes] : votes.ledger_primary_hash)
+        {
+            if (votes > winning_votes)
+            {
+                winning_votes = votes;
+                majority_ledger_primary_hash = ledger_primary_hash;
+            }
+        }
+
+        // If winning ledger primary hash is not matched with our ledger primary hash, that means we are not on the consensus ledger.
+        // If that's the case we should request history straight away.
+        if (ledger::ledger_sample::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH) != majority_ledger_primary_hash)
+        {
+            LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
+            is_desync = true;
+            return true;
+        }
+        else
+        {
+            // Check wheher there are enough winning votes for the ledger primary hash to be reliable.
+            const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
+            if (winning_votes < min_wins_required)
+            {
+                LOG_INFO << "No consensus on ledger primary hash. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
+                return false;
+            }
+            else
+            {
+                // Reaching here means we have reliable amount of winning ledger primary hash votes and our ledger primary hash matches with majority ledger primary hash.
+                is_desync = false;
+                return true;
+            }
+        }
+    }
+
+    /**
      * Check state hash against the winning and canonical state hash.
      * @param is_state_desync Flag to determine whether contract state is out of sync.
      * @param majority_state_hash Consensused state hash.
@@ -836,7 +970,7 @@ namespace consensus
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " ledger-primary-hash:" << cons_prop.ledger_primary_hash << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
         if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)

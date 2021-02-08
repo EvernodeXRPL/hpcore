@@ -232,6 +232,7 @@ namespace msg::fbuf::p2pmsg
         p.lcl = flatbuff_bytes_to_sv(lcl);
         p.state_hash = flatbuff_bytes_to_sv(msg.state_hash());
         p.patch_hash = flatbuff_bytes_to_sv(msg.patch_hash());
+        p.ledger_primary_hash = flatbuff_bytes_to_sv(msg.ledger_primary_hash());
 
         if (msg.users())
             p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
@@ -383,7 +384,8 @@ namespace msg::fbuf::p2pmsg
                 sv_to_flatbuff_bytes(builder, p.output_hash),
                 sv_to_flatbuff_bytes(builder, p.output_sig),
                 hash_to_flatbuff_bytes(builder, p.state_hash),
-                hash_to_flatbuff_bytes(builder, p.patch_hash));
+                hash_to_flatbuff_bytes(builder, p.patch_hash),
+                hash_to_flatbuff_bytes(builder, p.ledger_primary_hash));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Proposal_Message, proposal.Union());
         builder.Finish(message); // Finished building message content to get serialised content.

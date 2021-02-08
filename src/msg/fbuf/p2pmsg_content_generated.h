@@ -807,7 +807,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_OUTPUT_HASH = 14,
     VT_OUTPUT_SIG = 16,
     VT_STATE_HASH = 18,
-    VT_PATCH_HASH = 20
+    VT_PATCH_HASH = 20,
+    VT_LEDGER_PRIMARY_HASH = 22
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -863,6 +864,12 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_patch_hash() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
   }
+  const flatbuffers::Vector<uint8_t> *ledger_primary_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LEDGER_PRIMARY_HASH);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_ledger_primary_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LEDGER_PRIMARY_HASH);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
@@ -883,6 +890,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(state_hash()) &&
            VerifyOffset(verifier, VT_PATCH_HASH) &&
            verifier.VerifyVector(patch_hash()) &&
+           VerifyOffset(verifier, VT_LEDGER_PRIMARY_HASH) &&
+           verifier.VerifyVector(ledger_primary_hash()) &&
            verifier.EndTable();
   }
 };
@@ -918,6 +927,9 @@ struct Proposal_MessageBuilder {
   void add_patch_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash) {
     fbb_.AddOffset(Proposal_Message::VT_PATCH_HASH, patch_hash);
   }
+  void add_ledger_primary_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> ledger_primary_hash) {
+    fbb_.AddOffset(Proposal_Message::VT_LEDGER_PRIMARY_HASH, ledger_primary_hash);
+  }
   explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -939,9 +951,11 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_sig = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> ledger_primary_hash = 0) {
   Proposal_MessageBuilder builder_(_fbb);
   builder_.add_time(time);
+  builder_.add_ledger_primary_hash(ledger_primary_hash);
   builder_.add_patch_hash(patch_hash);
   builder_.add_state_hash(state_hash);
   builder_.add_output_sig(output_sig);
@@ -963,7 +977,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<uint8_t> *output_hash = nullptr,
     const std::vector<uint8_t> *output_sig = nullptr,
     const std::vector<uint8_t> *state_hash = nullptr,
-    const std::vector<uint8_t> *patch_hash = nullptr) {
+    const std::vector<uint8_t> *patch_hash = nullptr,
+    const std::vector<uint8_t> *ledger_primary_hash = nullptr) {
   auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
   auto input_hashes__ = input_hashes ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*input_hashes) : 0;
@@ -971,6 +986,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
   auto output_sig__ = output_sig ? _fbb.CreateVector<uint8_t>(*output_sig) : 0;
   auto state_hash__ = state_hash ? _fbb.CreateVector<uint8_t>(*state_hash) : 0;
   auto patch_hash__ = patch_hash ? _fbb.CreateVector<uint8_t>(*patch_hash) : 0;
+  auto ledger_primary_hash__ = ledger_primary_hash ? _fbb.CreateVector<uint8_t>(*ledger_primary_hash) : 0;
   return msg::fbuf::p2pmsg::CreateProposal_Message(
       _fbb,
       stage,
@@ -981,7 +997,8 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       output_hash__,
       output_sig__,
       state_hash__,
-      patch_hash__);
+      patch_hash__,
+      ledger_primary_hash__);
 }
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
