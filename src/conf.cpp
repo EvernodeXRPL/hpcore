@@ -107,7 +107,6 @@ namespace conf
 
         // Recursivly create contract directories. Return an error if unable to create
         if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
@@ -218,7 +217,6 @@ namespace conf
         ctx.config_file = ctx.config_dir + "/hp.cfg";
         ctx.tls_key_file = ctx.config_dir + "/tlskey.pem";
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
-        ctx.hist_dir = basedir + "/hist";
         ctx.full_hist_dir = basedir + "/fullhist";
         ctx.contract_hpfs_dir = basedir + "/contract_fs";
         ctx.contract_hpfs_mount_dir = ctx.contract_hpfs_dir + "/mnt";
@@ -617,10 +615,9 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[10] = {
+        const std::string paths[9] = {
             ctx.contract_dir,
             ctx.config_file,
-            ctx.hist_dir,
             ctx.full_hist_dir,
             ctx.contract_hpfs_dir,
             ctx.ledger_hpfs_dir,

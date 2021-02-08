@@ -194,27 +194,6 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Creates a history response stuct from the given histrory response message.
- * @param msg Flatbuffer History response message received from the peer.
- * @return A History response struct representing the message.
- */
-    const p2p::history_response create_history_response_from_msg(const History_Response_Message &msg)
-    {
-        p2p::history_response hr;
-
-        if (msg.requester_lcl())
-            hr.requester_lcl = flatbuff_bytes_to_sv(msg.requester_lcl());
-
-        if (msg.hist_ledger_blocks())
-            hr.hist_ledger_blocks = flatbuf_historyledgermap_to_historyledgermap(msg.hist_ledger_blocks());
-
-        if (msg.error())
-            hr.error = (p2p::LEDGER_RESPONSE_ERROR)msg.error();
-
-        return hr;
-    }
-
-    /**
  * Creates a proposal stuct from the given proposal message.
  * @param The Flatbuffer poposal received from the peer.
  * @return A proposal struct representing the message.
@@ -247,24 +226,6 @@ namespace msg::fbuf::p2pmsg
             p.output_sig = flatbuff_bytes_to_sv(msg.output_sig());
 
         return p;
-    }
-
-    /**
- * Creates a history request struct from the given history request message.
- * @param msg Flatbuffer History request message received from the peer.
- * @return A History request struct representing the message.
- */
-    const p2p::history_request create_history_request_from_msg(const History_Request_Message &msg, const flatbuffers::Vector<uint8_t> *lcl)
-    {
-        p2p::history_request hr;
-
-        if (lcl)
-            hr.requester_lcl = flatbuff_bytes_to_sv(lcl);
-
-        if (msg.required_lcl())
-            hr.required_lcl = flatbuff_bytes_to_sv(msg.required_lcl());
-
-        return hr;
     }
 
     /**
@@ -416,52 +377,6 @@ namespace msg::fbuf::p2pmsg
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
         create_containermsg_from_content(container_builder, builder, lcl, true);
-    }
-
-    /**
- * Create history request message from the given history request struct.
- * @param container_builder Flatbuffer builder for the container message.
- * @param hr The History request struct to be placed in the container message.
- */
-    void create_msg_from_history_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_request &hr)
-    {
-        flatbuffers::FlatBufferBuilder builder(1024);
-
-        flatbuffers::Offset<History_Request_Message> hrmsg =
-            CreateHistory_Request_Message(
-                builder,
-                sv_to_flatbuff_bytes(builder, hr.required_lcl));
-
-        flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Request_Message, hrmsg.Union());
-        builder.Finish(message); // Finished building message content to get serialised content.
-
-        // Now that we have built the content message,
-        // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, hr.requester_lcl, false);
-    }
-
-    /**
- * Create history response message from the given history response struct.
- * @param container_builder Flatbuffer builder for the container message.
- * @param hr The History response struct to be placed in the container message.
- */
-    void create_msg_from_history_response(flatbuffers::FlatBufferBuilder &container_builder, const p2p::history_response &hr)
-    {
-        flatbuffers::FlatBufferBuilder builder(1024);
-
-        flatbuffers::Offset<History_Response_Message> hrmsg =
-            CreateHistory_Response_Message(
-                builder,
-                sv_to_flatbuff_bytes(builder, hr.requester_lcl),
-                historyledgermap_to_flatbuf_historyledgermap(builder, hr.hist_ledger_blocks),
-                (Ledger_Response_Error)hr.error);
-
-        flatbuffers::Offset<Content> message = CreateContent(builder, Message_History_Response_Message, hrmsg.Union());
-        builder.Finish(message); // Finished building message content to get serialised content.
-
-        // Now that we have built the content message,
-        // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -778,46 +693,6 @@ namespace msg::fbuf::p2pmsg
                 builder,
                 sv_to_flatbuff_bytes(builder, pubkey),
                 builder.CreateVector(fbmsgsvec)));
-        }
-        return builder.CreateVector(fbvec);
-    }
-
-    const std::map<uint64_t, const p2p::history_ledger_block>
-    flatbuf_historyledgermap_to_historyledgermap(const flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerBlockPair>> *fbvec)
-    {
-        std::map<uint64_t, const p2p::history_ledger_block> map;
-
-        for (const HistoryLedgerBlockPair *pair : *fbvec)
-        {
-            std::list<usr::user_input> msglist;
-
-            p2p::history_ledger_block ledger;
-
-            ledger.lcl = flatbuff_bytes_to_sv(pair->ledger()->lcl());
-            auto raw = pair->ledger()->block_buffer();
-            ledger.block_buffer = std::vector<uint8_t>(raw->begin(), raw->end());
-
-            map.emplace(pair->seq_no(), std::move(ledger));
-        }
-        return map;
-    }
-
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HistoryLedgerBlockPair>>>
-    historyledgermap_to_flatbuf_historyledgermap(flatbuffers::FlatBufferBuilder &builder, const std::map<uint64_t, const p2p::history_ledger_block> &map)
-    {
-        std::vector<flatbuffers::Offset<HistoryLedgerBlockPair>> fbvec;
-        fbvec.reserve(map.size());
-        for (auto const &[seq_no, ledger] : map)
-        {
-            flatbuffers::Offset<HistoryLedgerBlock> history_ledger = CreateHistoryLedgerBlock(
-                builder,
-                sv_to_flatbuff_bytes(builder, ledger.lcl),
-                builder.CreateVector(ledger.block_buffer));
-
-            fbvec.push_back(CreateHistoryLedgerBlockPair(
-                builder,
-                seq_no,
-                history_ledger));
         }
         return builder.CreateVector(fbvec);
     }

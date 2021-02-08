@@ -42,18 +42,6 @@ namespace p2p
         std::unordered_map<std::string, std::list<usr::user_input>> user_inputs;
     };
 
-    struct history_request
-    {
-        std::string requester_lcl;
-        std::string required_lcl;
-    };
-
-    struct history_ledger_block
-    {
-        std::string lcl;
-        std::vector<uint8_t> block_buffer;
-    };
-
     struct peer_challenge
     {
         std::string contract_id;
@@ -72,13 +60,6 @@ namespace p2p
         NONE = 0,
         INVALID_MIN_LEDGER = 1,
         REQ_LEDGER_NOT_FOUND = 2
-    };
-
-    struct history_response
-    {
-        std::string requester_lcl;
-        std::map<uint64_t, const history_ledger_block> hist_ledger_blocks;
-        LEDGER_RESPONSE_ERROR error = LEDGER_RESPONSE_ERROR::NONE;
     };
 
     // Represents an NPL message sent by a peer.

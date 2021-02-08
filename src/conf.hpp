@@ -149,7 +149,6 @@ namespace conf
 
         std::string contract_dir;            // Contract base directory full path.
         std::string full_hist_dir;           // Contract full history dir full path.
-        std::string hist_dir;                // Contract ledger history dir full path.
         std::string contract_hpfs_dir;       // Contract hpfs metdata dir (The location of hpfs log file).
         std::string contract_hpfs_mount_dir; // Contract hpfs fuse file system mount path.
         std::string contract_hpfs_rw_dir;    // Contract hpfs read/write fs session path.
