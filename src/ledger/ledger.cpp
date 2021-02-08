@@ -204,7 +204,9 @@ namespace ledger
             std::list<std::string> shards = util::fetch_dir_entries(shard_path);
             for (const std::string shard : shards)
             {
-                if (shard != hpfs::LEDGER_SHARD_INDEX && std::stoi(shard) < led_shard_no)
+                uint64_t shard_no;
+                util::stoull(shard, shard_no);
+                if (shard != hpfs::LEDGER_SHARD_INDEX && shard_no < led_shard_no)
                 {
                     shard_path.append("/");
                     shard_path.append(shard);
@@ -425,6 +427,7 @@ namespace ledger
             }
 
             sqlite::ledger last_ledger = sqlite::get_last_ledger(ctx.db);
+            sqlite::close_db(&ctx.db);
             stop_hpfs_session(ctx);
 
             ctx.set_lcl(last_ledger.seq_no, std::to_string(last_ledger.seq_no) + "-" + last_ledger.ledger_hash_hex);
