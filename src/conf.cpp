@@ -172,7 +172,7 @@ namespace conf
             const std::string tls_command = "openssl req -newkey rsa:2048 -new -nodes -x509 -days 365 -keyout " +
                                             ctx.config_dir + "/tlskey.pem" + " -out " + ctx.config_dir + "/tlscert.pem " +
                                             "-subj \"/C=HP/ST=HP/L=HP/O=HP/CN=" + cfg.node.public_key_hex + ".hotpocket.contract\" > /dev/null 2>&1";
-            
+
             // We don't mind if this command fails, because when running the contract we'll check and inform the user that
             // tls key files are missing, so they can create them manually.
             system(tls_command.c_str());
@@ -422,6 +422,20 @@ namespace conf
             }
         }
 
+        // hpfs
+        {
+            try
+            {
+                const jsoncons::ojson &hpfs = d["hpfs"];
+                cfg.hpfs.external = hpfs["external"].as<bool>();
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Required hpfs config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                return -1;
+            }
+        }
+
         // log
         {
             try
@@ -516,6 +530,13 @@ namespace conf
             user_config.insert_or_assign("enabled", cfg.user.enabled);
             user_config.insert_or_assign("concurrent_read_reqeuests", cfg.user.concurrent_read_reqeuests);
             d.insert_or_assign("user", user_config);
+        }
+
+        // hpfs configs
+        {
+            jsoncons::ojson hpfs_config;
+            hpfs_config.insert_or_assign("external", cfg.hpfs.external);
+            d.insert_or_assign("hpfs", hpfs_config);
         }
 
         // Log configs.

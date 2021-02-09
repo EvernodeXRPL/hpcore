@@ -39,7 +39,7 @@ namespace hpfs
     private:
         pid_t hpfs_pid = 0;
         std::string fs_dir;
-        bool is_full_history;
+        bool is_full_history = false;
         bool init_success = false;
         // Keeps the hashes of hpfs parents against its vpath.
         std::unordered_map<std::string, util::h32> parent_hashes;
@@ -48,6 +48,8 @@ namespace hpfs
         // We use this as a reference counting mechanism to cleanup RW session when no one requires it.
         uint32_t rw_consumers = 0;
         std::mutex rw_mutex;
+        int start_hpfs_process();
+        void stop_hpfs_process();
 
     protected:
         std::string mount_dir;
@@ -59,7 +61,6 @@ namespace hpfs
         int init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history);
         void deinit();
 
-        int start_hpfs_process();
         int acquire_rw_session();
         int release_rw_session();
         int start_ro_session(const std::string &name, const bool hmap_enabled);
