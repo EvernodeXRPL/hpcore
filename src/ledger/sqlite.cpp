@@ -5,7 +5,7 @@ namespace ledger::sqlite
     constexpr const char *LEDGER_TABLE = "ledger";
     constexpr const char *LEDGER_COLUMNS = "seq_no, time, ledger_hash, prev_ledger_hash, data_hash, state_hash, patch_hash, user_hash, input_hash, output_hash";
     constexpr const char *COLUMN_DATA_TYPES[]{"INT", "TEXT"};
-    constexpr const char *CREATE_TABLE = "CREATE TABLE ";
+    constexpr const char *CREATE_TABLE = "CREATE TABLE IF NOT EXISTS ";
     constexpr const char *INSERT_INTO = "INSERT INTO ";
     constexpr const char *PRIMARY_KEY = "PRIMARY KEY";
     constexpr const char *NOT_NULL = "NOT NULL";

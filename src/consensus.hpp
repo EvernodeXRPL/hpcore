@@ -157,6 +157,8 @@ namespace consensus
 
     int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash);
 
+    void check_shard_sync_status();
+
 } // namespace consensus
 
 #endif

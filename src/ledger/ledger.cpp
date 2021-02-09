@@ -15,6 +15,8 @@ namespace ledger
     ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
     ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
+    std::shared_mutex primary_index_file_mutex;
+
     /**
      * Perform ledger related initializations.
     */
@@ -266,22 +268,26 @@ namespace ledger
         if (ledger_fs.get_hash(shard_hash, ctx.hpfs_session_name, shard_path) == -1)
             return -1;
 
-        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
-        const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
-        if (fd == -1)
+        // Only update the index file if the shard hash is not empty.
+        if (shard_hash != util::h32_empty)
         {
-            LOG_ERROR << errno << ": Error opening shard index file.";
-            return -1;
-        }
-
-        if (pwrite(fd, shard_hash.to_string_view().data(), shard_hash.to_string_view().size(), shard_no * sizeof(util::h32)) == -1)
-        {
-            LOG_ERROR << errno << ": Error writing to shard index file.";
+            std::unique_lock lock(primary_index_file_mutex);
+            const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
+            const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+            if (fd == -1)
+            {
+                LOG_ERROR << errno << ": Error opening shard index file.";
+                return -1;
+            }
+            if (pwrite(fd, shard_hash.to_string_view().data(), shard_hash.to_string_view().size(), shard_no * sizeof(util::h32)) == -1)
+            {
+                LOG_ERROR << errno << ": Error writing to shard index file.";
+                close(fd);
+                return -1;
+            }
             close(fd);
-            return -1;
         }
 
-        close(fd);
         return 0;
     }
 
@@ -293,6 +299,7 @@ namespace ledger
      */
     int read_shard_index(util::h32 &shard_hash, const uint64_t shard_no)
     {
+        std::shared_lock lock(primary_index_file_mutex);
         const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
@@ -320,6 +327,7 @@ namespace ledger
     */
     int read_shards_from_given_shard_no(std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no)
     {
+        std::shared_lock lock(primary_index_file_mutex);
         const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
         const int fd = open(index_path.data(), O_RDWR, FILE_PERMS);
         if (fd == -1)
@@ -338,8 +346,16 @@ namespace ledger
                 close(fd);
                 return -1;
             }
-            if (ret != 0)
+            if (ret == 32)
+            {
+                if (conf::cfg.node.max_shards != 0)
+                {
+                    // Remove excess shards from list if the current shard count is larger than the max shards.
+                    if (shard_hash_list.size() >= conf::cfg.node.max_shards)
+                        shard_hash_list.erase(shard_hash_list.begin()); // Remove the first element in the list.
+                }
                 shard_hash_list.try_emplace(shard_no, shard_hash);
+            }
 
             shard_no++;
         } while (ret != 0);
@@ -355,6 +371,7 @@ namespace ledger
      */
     int read_shard_index(std::string &shard_hashes)
     {
+        std::shared_lock lock(primary_index_file_mutex);
         const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
         const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
@@ -386,7 +403,7 @@ namespace ledger
      */
     int get_last_ledger()
     {
-        // Aqure hpfs rw session before accessing shards and insert ledger records.
+        // Aquire hpfs rw session before accessing shards and insert ledger records.
         if (start_hpfs_session(ctx) == -1)
             return -1;
 
