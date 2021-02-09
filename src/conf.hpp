@@ -87,8 +87,8 @@ namespace conf
     struct contract_config
     {
         std::string id;                   // Contract guid.
-        bool execute;                     // Whether or not to execute the contract on the node.
-        bool log_output;                  // Whether to log stdout/err of the contract process.
+        bool execute = false;             // Whether or not to execute the contract on the node.
+        bool log_output = false;          // Whether to log stdout/err of the contract process.
         std::string version;              // Contract version string.
         std::set<std::string> unl;        // Unique node list (list of binary public keys)
         std::string bin_path;             // Full path to the contract binary
@@ -138,6 +138,11 @@ namespace conf
         peer_discovery_config peer_discovery;     // Peer discovery configs.
     };
 
+    struct hpfs_config
+    {
+        bool external = false; // Whether to refrain from manageing built-in hpfs process or not.
+    };
+
     // Holds contextual information about the currently loaded contract.
     struct contract_ctx
     {
@@ -169,12 +174,12 @@ namespace conf
     // Holds all the config values.
     struct hp_config
     {
-        // Config elements which are loaded from the config file.
         std::string hp_version; // Version of Hot Pocket that generated the config.
         node_config node;
         contract_config contract;
         mesh_config mesh;
         user_config user;
+        hpfs_config hpfs;
         log_config log;
     };
 
