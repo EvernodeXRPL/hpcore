@@ -82,6 +82,8 @@ namespace hpfs
 
         virtual void on_current_sync_state_acheived(const util::h32 &acheived_hash);
 
+        virtual void on_sync_abandoned();
+
         // Move the collected responses from hpfs responses to a local response list.
         virtual void swap_collected_responses() = 0; // Must override in child classes.
 

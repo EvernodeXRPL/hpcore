@@ -307,7 +307,10 @@ namespace hpfs
                         std::shared_lock lock(current_target_mutex);
                         const int result = start_syncing_next_target();
                         if (result == 0)
+                        {
+                            on_sync_abandoned();
                             return 1; // To stop syncing since we have sync all the targets.
+                        }
                         return 0;
                     }
 
@@ -606,10 +609,18 @@ namespace hpfs
     }
 
     /**
-     * This method can be used to invoke mount specific custom logic (after extending this super class) to be executed after
+     * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
      * a sync target is acheived.
     */
     void hpfs_sync::on_current_sync_state_acheived(const util::h32 &acheived_hash)
+    {
+    }
+
+    /**
+     * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
+     * a sync is abondened.
+    */
+    void hpfs_sync::on_sync_abandoned()
     {
     }
 

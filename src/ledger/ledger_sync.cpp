@@ -15,6 +15,12 @@ namespace ledger
         get_last_ledger();
     }
 
+    void ledger_sync::on_sync_abandoned()
+    {
+        // Reset shard sync status.
+        is_ledger_shard_desync = false;
+    }
+
     void ledger_sync::swap_collected_responses()
     {
         std::scoped_lock lock(p2p::ctx.collected_msgs.ledger_hpfs_responses_mutex);

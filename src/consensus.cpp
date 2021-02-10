@@ -27,7 +27,6 @@ namespace consensus
     consensus_context ctx;
     bool init_success = false;
     std::atomic<bool> is_patch_update_pending = false; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
-    std::atomic<bool> is_ledger_shard_desync = false;
 
     int init()
     {
@@ -177,7 +176,7 @@ namespace consensus
     int check_sync_status(const size_t unl_count, vote_counter &votes)
     {
         bool is_ledger_primary_hash_desync = false;
-        is_ledger_shard_desync = false;
+        ledger::ledger_sync_worker.is_ledger_shard_desync = false;
         util::h32 majority_ledger_primary_hash;
         if (check_ledger_primary_hash_votes(is_ledger_primary_hash_desync, majority_ledger_primary_hash, votes, unl_count))
         {
@@ -227,7 +226,7 @@ namespace consensus
             }
 
             // Proceed further only if both ledger primary hash, state and patch are in sync with majority.
-            if (!is_ledger_primary_hash_desync && !is_ledger_shard_desync && !is_state_desync && !is_patch_desync)
+            if (!is_ledger_primary_hash_desync && !ledger::ledger_sync_worker.is_ledger_shard_desync && !is_state_desync && !is_patch_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
@@ -247,7 +246,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_syncing && !is_ledger_shard_desync)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_ledger_shard_desync)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -1123,7 +1122,6 @@ namespace consensus
                 ledger::ledger_fs.get_hash(folder_hash, hpfs::RW_SESSION_NAME, path);
                 if (expected_hash != util::h32_empty && expected_hash != folder_hash)
                 {
-                    is_ledger_shard_desync = true;
                     out_of_sync_shard_list.try_emplace(entry, expected_hash);
                 }
             }
@@ -1142,6 +1140,7 @@ namespace consensus
             {
                 conf::change_role(conf::ROLE::OBSERVER);
                 ledger::ledger_sync_worker.set_target(sync_target_list);
+                ledger::ledger_sync_worker.is_ledger_shard_desync = true;
             }
         }
         ledger::ledger_fs.release_rw_session();

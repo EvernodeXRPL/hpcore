@@ -346,7 +346,7 @@ namespace ledger
                 close(fd);
                 return -1;
             }
-            if (ret == 32)
+            if (ret == sizeof(util::h32))
             {
                 if (conf::cfg.node.max_shards != 0)
                 {

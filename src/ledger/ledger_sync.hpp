@@ -12,7 +12,11 @@ namespace ledger
     {
     private:
         void on_current_sync_state_acheived(const util::h32 &acheived_hash);
+        void on_sync_abandoned();
         void swap_collected_responses();
+
+    public:
+        std::atomic<bool> is_ledger_shard_desync = false;
     };
 } // namespace ledger
 #endif
