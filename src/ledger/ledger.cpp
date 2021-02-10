@@ -279,12 +279,19 @@ namespace ledger
                 LOG_ERROR << errno << ": Error opening shard index file.";
                 return -1;
             }
-            if (pwrite(fd, shard_hash.to_string_view().data(), shard_hash.to_string_view().size(), shard_no * sizeof(util::h32)) == -1)
+            if (pwrite(fd, &shard_hash, sizeof(util::h32), shard_no * sizeof(util::h32)) == -1)
             {
                 LOG_ERROR << errno << ": Error writing to shard index file.";
                 close(fd);
                 return -1;
             }
+
+            // Update global hash tracker.
+            util::h32 primary_hash;
+            const int primary_hash_result = ledger_fs.get_hash(primary_hash, ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
+            if (primary_hash_result == 1)
+                ledger_fs.set_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, primary_hash);
+
             close(fd);
         }
 
@@ -293,15 +300,16 @@ namespace ledger
 
     /**
      * Get the hash of a given shard from index file.
+     * @param session_name Hpfs session name.
      * @param shard_hash Hash to be populated.
      * @param shard_no Shard number for the hash.
      * @return Returns 0 on success -1 on error.
      */
-    int read_shard_index(util::h32 &shard_hash, const uint64_t shard_no)
+    int read_shard_index(std::string_view session_name, util::h32 &shard_hash, const uint64_t shard_no)
     {
         std::shared_lock lock(primary_index_file_mutex);
-        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
-        const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+        const std::string index_path = ledger_fs.physical_path(session_name, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
+        const int fd = open(index_path.data(), O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
             LOG_ERROR << errno << ": Error opening shard index file.";
@@ -321,14 +329,15 @@ namespace ledger
 
     /**
     * This function read and add all the shards from given shard number (inclusive) to the given ordered map.
+    * @param session_name Hpfs session name.
     * @param shard_hash_list The map holding shard hashes vs shard number.
     * @param shard_no Starting shard number. 
     * @return Returns -1 on error and 0 on success.
     */
-    int read_shards_from_given_shard_no(std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no)
+    int read_shards_from_given_shard_no(std::string_view session_name, std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no)
     {
         std::shared_lock lock(primary_index_file_mutex);
-        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
+        const std::string index_path = ledger_fs.physical_path(session_name, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
         const int fd = open(index_path.data(), O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -366,14 +375,15 @@ namespace ledger
 
     /**
      * Read whole shard index file.
+     * @param session_name Hpfs session name.
      * @param shard_hash String of shard hashes to be populated.
      * @return Returns 0 on success -1 on error.
      */
-    int read_shard_index(std::string &shard_hashes)
+    int read_shard_index(std::string_view session_name, std::string &shard_hashes)
     {
         std::shared_lock lock(primary_index_file_mutex);
-        const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
-        const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+        const std::string index_path = ledger_fs.physical_path(session_name, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
+        const int fd = open(index_path.data(), O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
             LOG_ERROR << errno << ": Error opening shard index file.";
@@ -426,11 +436,11 @@ namespace ledger
             });
 
             uint64_t last_shard;
-            util::stoull(*shards.begin(), last_shard);
-            shard_path.append("/").append(*shards.begin());
+            util::stoull(shards.front(), last_shard);
+            shard_path.append("/").append(shards.front());
 
             //Remove old shards that exceeds max shard range.
-            if (conf::cfg.node.max_shards > 0 && last_shard >= conf::cfg.node.max_shards)
+            if (conf::cfg.node.max_shards > 0 && shards.size() >= conf::cfg.node.max_shards)
             {
                 remove_old_shards(last_shard - conf::cfg.node.max_shards + 1);
             }
@@ -438,7 +448,7 @@ namespace ledger
             // Open a database connection.
             if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the shard database, shard: " << *shards.begin();
+                LOG_ERROR << errno << ": Error openning the shard database, shard: " << shards.front();
                 stop_hpfs_session(ctx);
                 return -1;
             }
@@ -468,20 +478,6 @@ namespace ledger
      */
     int stop_hpfs_session(ledger_context &ctx)
     {
-        util::h32 primary_hash;
-        const int primary_hash_result = ledger_fs.get_hash(primary_hash, ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
-
-        if (primary_hash_result == -1)
-        {
-            ledger_fs.release_rw_session();
-            return -1;
-        }
-        else if (primary_hash_result == 1 && primary_hash != ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH))
-        {
-            // Update global hash tracker of contract fs with the new patch file hash.
-            ledger_fs.set_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, primary_hash);
-        }
-
         return ledger_fs.release_rw_session();
     }
 } // namespace ledger

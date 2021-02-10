@@ -1089,8 +1089,9 @@ namespace consensus
 
     void check_shard_sync_status()
     {
-        ledger::ledger_fs.acquire_rw_session();
-        std::list<std::string> list = util::fetch_dir_entries(ledger::ledger_fs.physical_path(hpfs::RW_SESSION_NAME, hpfs::LEDGER_PRIMARY_DIR));
+        const std::string session_name = "shard_sync_status";
+        ledger::ledger_fs.start_ro_session(session_name, true);
+        std::list<std::string> list = util::fetch_dir_entries(ledger::ledger_fs.physical_path(session_name, hpfs::LEDGER_PRIMARY_DIR));
         // Check for the availability of the shard.idx file.
         if (std::find(list.begin(), list.end(), hpfs::LEDGER_SHARD_INDEX) != list.end())
         {
@@ -1116,16 +1117,16 @@ namespace consensus
             for (const uint64_t entry : seq_no_list)
             {
                 util::h32 expected_hash;
-                ledger::read_shard_index(expected_hash, entry);
+                ledger::read_shard_index(session_name, expected_hash, entry);
                 util::h32 folder_hash;
                 std::string path = std::string(hpfs::LEDGER_PRIMARY_DIR).append("/").append(std::to_string(entry));
-                ledger::ledger_fs.get_hash(folder_hash, hpfs::RW_SESSION_NAME, path);
+                ledger::ledger_fs.get_hash(folder_hash, session_name, path);
                 if (expected_hash != util::h32_empty && expected_hash != folder_hash)
                 {
                     out_of_sync_shard_list.try_emplace(entry, expected_hash);
                 }
             }
-            if (ledger::read_shards_from_given_shard_no(out_of_sync_shard_list, seq_no_list.empty() ? 0 : seq_no_list.back() + 1) == -1)
+            if (ledger::read_shards_from_given_shard_no(session_name, out_of_sync_shard_list, seq_no_list.empty() ? 0 : seq_no_list.back() + 1) == -1)
             {
                 LOG_ERROR << "Error reading shard idx file.";
             }
@@ -1143,7 +1144,7 @@ namespace consensus
                 ledger::ledger_sync_worker.is_ledger_shard_desync = true;
             }
         }
-        ledger::ledger_fs.release_rw_session();
+        ledger::ledger_fs.stop_ro_session(session_name);
     }
 
 } // namespace consensus

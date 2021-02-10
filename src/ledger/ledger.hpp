@@ -57,11 +57,11 @@ namespace ledger
 
     int update_shard_index(const uint64_t shard_no);
 
-    int read_shard_index(util::h32 &shard_hash, const uint64_t shard_no);
+    int read_shard_index(std::string_view session_name, util::h32 &shard_hash, const uint64_t shard_no);
 
-    int read_shards_from_given_shard_no(std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no);
+    int read_shard_index(std::string_view session_name, std::string &shard_hashes);
 
-    int read_shard_index(std::string &shard_hashes);
+    int read_shards_from_given_shard_no(std::string_view session_name, std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no);
 
     int get_last_ledger();
 
