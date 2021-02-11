@@ -1129,6 +1129,8 @@ namespace consensus
             if (ledger::read_shards_from_given_shard_no(session_name, out_of_sync_shard_list, seq_no_list.empty() ? 0 : seq_no_list.back() + 1) == -1)
             {
                 LOG_ERROR << "Error reading shard idx file.";
+                ledger::ledger_fs.stop_ro_session(session_name);
+                return;
             }
             std::queue<hpfs::sync_target> sync_target_list;
             for (auto &[shard_no, hash] : out_of_sync_shard_list)

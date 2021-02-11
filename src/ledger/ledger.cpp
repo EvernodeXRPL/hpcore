@@ -83,7 +83,8 @@ namespace ledger
 
         // Construct shard path.
         const uint64_t shard_no = (seq_no - 1) / SHARD_SIZE;
-        const std::string shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR + "/" + std::to_string(shard_no);
+        const std::string shard_vpath = std::string(hpfs::LEDGER_PRIMARY_DIR).append("/").append(std::to_string(shard_no));
+        const std::string shard_path = ledger_fs.physical_path(ctx.hpfs_session_name, shard_vpath);
 
         // If (seq_no - 1) % SHARD_SIZE == 0 means this is the first ledger of the shard.
         // So create the shard folder and ledger table.
@@ -181,7 +182,8 @@ namespace ledger
         }
 
         // Update the seq_no and lcl when ledger is created.
-        ctx.set_lcl(seq_no, std::to_string(seq_no) + "-" + lcl_hash_hex);
+        const std::string new_lcl = std::string(std::to_string(seq_no)).append("-").append(lcl_hash_hex);
+        ctx.set_lcl(seq_no, new_lcl);
 
         //Remove old shards that exceeds max shard range.
         if (conf::cfg.node.max_shards > 0 && shard_no >= conf::cfg.node.max_shards)
@@ -202,21 +204,19 @@ namespace ledger
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
         {
-            std::string shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR;
-            std::list<std::string> shards = util::fetch_dir_entries(shard_path);
+            const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_DIR);
+            std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
             for (const std::string shard : shards)
             {
                 uint64_t shard_no;
                 util::stoull(shard, shard_no);
                 if (shard != hpfs::LEDGER_SHARD_INDEX && shard_no < led_shard_no)
                 {
-                    shard_path.append("/");
-                    shard_path.append(shard);
+                    const std::string shard_path = std::string(shard_dir_path).append("/").append(shard);
                     if (util::is_dir_exists(shard_path) && util::remove_directory_recursively(shard_path) == -1)
                     {
                         LOG_ERROR << errno << ": Error deleting shard: " << shard;
                     }
-                    shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR;
                 }
             }
         }
@@ -272,7 +272,7 @@ namespace ledger
         if (shard_hash != util::h32_empty)
         {
             std::unique_lock lock(primary_index_file_mutex);
-            const std::string index_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH;
+            const std::string index_path = ledger_fs.physical_path(ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
             const int fd = open(index_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
             if (fd == -1)
             {
@@ -355,7 +355,7 @@ namespace ledger
                 close(fd);
                 return -1;
             }
-            if (ret == sizeof(util::h32))
+            if (ret == sizeof(util::h32) && shard_hash != util::h32_empty)
             {
                 if (conf::cfg.node.max_shards != 0)
                 {
@@ -417,8 +417,8 @@ namespace ledger
         if (start_hpfs_session(ctx) == -1)
             return -1;
 
-        std::string shard_path = conf::ctx.ledger_hpfs_rw_dir + hpfs::LEDGER_PRIMARY_DIR;
-        std::list<std::string> shards = util::fetch_dir_entries(shard_path);
+        const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_DIR);
+        std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
         shards.remove(hpfs::LEDGER_SHARD_INDEX);
 
         if (shards.size() == 0)
@@ -437,7 +437,7 @@ namespace ledger
 
             uint64_t last_shard;
             util::stoull(shards.front(), last_shard);
-            shard_path.append("/").append(shards.front());
+            const std::string shard_path = std::string(shard_dir_path).append("/").append(shards.front());
 
             //Remove old shards that exceeds max shard range.
             if (conf::cfg.node.max_shards > 0 && shards.size() >= conf::cfg.node.max_shards)
