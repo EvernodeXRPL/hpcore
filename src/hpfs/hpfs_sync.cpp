@@ -132,7 +132,7 @@ namespace hpfs
                         }
                         else
                         {
-                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new target: " << current_target.hash;
+                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new " << current_target.name <<  " hash: " << current_target.hash;
                             continue;
                         }
                     }

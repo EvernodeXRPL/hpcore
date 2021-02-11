@@ -54,9 +54,9 @@ namespace ledger
     */
     void deinit()
     {
-        ledger_fs.deinit();
-        ledger_server.deinit();
         ledger_sync_worker.deinit();
+        ledger_server.deinit();
+        ledger_fs.deinit();
     }
 
     /**

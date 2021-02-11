@@ -40,7 +40,7 @@ namespace hpfs
 
         bool operator==(const sync_target &target) const
         {
-            return this->hash == target.hash;
+            return this->vpath == target.vpath && this->hash == target.hash;
         }
     };
 

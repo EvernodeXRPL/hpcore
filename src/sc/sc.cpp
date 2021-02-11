@@ -47,9 +47,9 @@ namespace sc
 
     void deinit()
     {
-        contract_fs.deinit();
-        contract_server.deinit();
         contract_sync_worker.deinit();
+        contract_server.deinit();
+        contract_fs.deinit();
     }
     /**
      * Executes the contract process and passes the specified context arguments.
