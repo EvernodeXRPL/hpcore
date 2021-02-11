@@ -11,9 +11,10 @@ namespace ledger
     class ledger_sync : public hpfs::hpfs_sync
     {
     private:
-        void on_current_sync_state_acheived(const util::h32 &acheived_hash);
         void on_sync_abandoned();
         void swap_collected_responses();
+        void check_shard_sync_status();
+        void on_sync_complete(const hpfs::sync_target &last_sync_target);
 
     public:
         std::atomic<bool> is_ledger_shard_desync = false;

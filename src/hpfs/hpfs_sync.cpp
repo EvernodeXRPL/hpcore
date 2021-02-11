@@ -96,6 +96,7 @@ namespace hpfs
             if (!is_syncing)
                 continue;
 
+            bool is_sync_complete = false;
             if (fs_mount->acquire_rw_session() != -1)
             {
                 while (!is_shutting_down)
@@ -115,12 +116,12 @@ namespace hpfs
                         break;
 
                     {
-                        std::shared_lock lock(current_target_mutex);
+                        std::unique_lock lock(current_target_mutex);
 
                         if (new_state == current_target.hash)
                         {
                             LOG_INFO << "Hpfs " << name << " sync: Target " << current_target.name << " hash achieved: " << new_state;
-                            on_current_sync_state_acheived(new_state);
+                            on_current_sync_state_acheived(current_target);
 
                             // Start syncing to next target.
                             const int result = start_syncing_next_target();
@@ -136,9 +137,8 @@ namespace hpfs
                         }
                     }
                 }
-
-                LOG_INFO << "Hpfs " << name << " sync: All parents synced.";
                 fs_mount->release_rw_session();
+                is_sync_complete = true;
             }
             else
             {
@@ -148,6 +148,10 @@ namespace hpfs
             target_list = {};
             original_target_list = {};
             is_syncing = false;
+            const sync_target last_sync_target = current_target;
+            current_target = {};
+            if (is_sync_complete)
+                on_sync_complete(last_sync_target);
         }
 
         LOG_INFO << "Hpfs " << name << " sync: Worker stopped.";
@@ -304,10 +308,11 @@ namespace hpfs
                     {
                         LOG_INFO << "Hpfs " << name << " sync: Resubmission threshold exceeded. Abandoning sync.";
 
-                        std::shared_lock lock(current_target_mutex);
+                        std::unique_lock lock(current_target_mutex);
                         const int result = start_syncing_next_target();
                         if (result == 0)
                         {
+                            current_target = {};
                             on_sync_abandoned();
                             return 1; // To stop syncing since we have sync all the targets.
                         }
@@ -612,7 +617,7 @@ namespace hpfs
      * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
      * a sync target is acheived.
     */
-    void hpfs_sync::on_current_sync_state_acheived(const util::h32 &acheived_hash)
+    void hpfs_sync::on_current_sync_state_acheived(const sync_target &synced_target)
     {
     }
 
@@ -625,6 +630,15 @@ namespace hpfs
     }
 
     /**
+     * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
+     * a full sync is complete.
+    */
+    void hpfs_sync::on_sync_complete(const sync_target &last_sync_target)
+    {
+        LOG_INFO << "Hpfs " << name << " sync: All parents synced.";
+    }
+
+    /**
      * Starts syncing next target if available after current target finishes.
      * @return returns 0 when the full sync is complete and 1 when more sync targets are available.
     */
@@ -633,7 +647,6 @@ namespace hpfs
         target_list.pop(); // Remove the synced parent from the target list.
         if (target_list.empty())
         {
-            current_target = {};
             return 0;
         }
         else

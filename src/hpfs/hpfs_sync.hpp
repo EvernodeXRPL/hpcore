@@ -49,8 +49,8 @@ namespace hpfs
     private:
         bool init_success = false;
         uint16_t REQUEST_RESUBMIT_TIMEOUT; // No. of milliseconds to wait before resubmitting a request.
-        std::string name;                  // Name used for logging.
 
+        sync_target current_target = {};
         std::queue<sync_target> target_list; // The current target hashes we are syncing towards.
 
         // Store the originally submitted sync target list. This list is used to avoid submitting same list multiple times
@@ -73,16 +73,18 @@ namespace hpfs
         int start_syncing_next_target();
 
     protected:
-        sync_target current_target = {};
+        std::string name;                  // Name used for logging.
 
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
         std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
 
         hpfs::hpfs_mount *fs_mount = NULL;
 
-        virtual void on_current_sync_state_acheived(const util::h32 &acheived_hash);
+        virtual void on_current_sync_state_acheived(const sync_target &synced_target);
 
         virtual void on_sync_abandoned();
+
+        virtual void on_sync_complete(const sync_target &last_sync_target);
 
         // Move the collected responses from hpfs responses to a local response list.
         virtual void swap_collected_responses() = 0; // Must override in child classes.
