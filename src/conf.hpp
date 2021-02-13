@@ -84,6 +84,13 @@ namespace conf
         // Config element which are initialized in memory (This is not directly loaded from the config file)
         std::vector<std::string> runtime_args; // Appbill execution args used during runtime.
     };
+
+    struct round_limits_config
+    {
+        size_t user_input_bytes = 0;
+        size_t user_output_bytes = 0;
+    };
+
     struct contract_config
     {
         std::string id;                   // Contract guid.
@@ -97,6 +104,7 @@ namespace conf
         bool is_consensus_public = false; // If true, consensus are broadcasted to non-unl nodes as well.
         bool is_npl_public = false;       // If true, npl messages are broadcasted to non-unl nodes as well.
         appbill_config appbill;
+        round_limits_config round_limits;
 
         // Config element which are initialized in memory (This is not directly loaded from the config file)
         std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.

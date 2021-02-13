@@ -28,6 +28,8 @@ namespace usr
     uint64_t metric_thresholds[5];
     bool init_success = false;
 
+    constexpr size_t MAX_INPUT_NONCE_SIZE = 128;
+
     /**
      * Initializes the usr subsystem. Must be called once during application startup.
      * @return 0 for successful initialization. -1 for failure.
@@ -128,12 +130,12 @@ namespace usr
     }
 
     /**
-     * Processes a message sent by a connected user. This will be invoked by web socket on_message handler.
+     * Processes a message sent by a authenticated user. This will be invoked by web socket on_message handler.
      * @param user The authenticated user who sent the message.
      * @param message The message sent by user.
      * @return 0 on successful processing. -1 for failure.
      */
-    int handle_user_message(connected_user &user, std::string_view message)
+    int handle_authed_user_message(connected_user &user, std::string_view message)
     {
         msg::usrmsg::usrmsg_parser parser(user.protocol);
 
@@ -175,6 +177,20 @@ namespace usr
                     uint64_t max_lcl_seqno;
                     if (parser.extract_input_container(input_data, nonce, max_lcl_seqno, input_container) != -1)
                     {
+                        // Check for max nonce size.
+                        if (nonce.size() > MAX_INPUT_NONCE_SIZE)
+                        {
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_OVERFLOW, sig);
+                            return -1;
+                        }
+
+                        // Check whether the newly received input is going to cause overflow of round input limit.
+                        if ((user.collected_input_size + input_data.size()) > conf::cfg.contract.round_limits.user_input_bytes)
+                        {
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW, sig);
+                            return -1;
+                        }
+
                         const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_lcl_seqno, true);
                         if (nonce_status == 0)
                         {
@@ -183,6 +199,10 @@ namespace usr
                                 std::move(input_container),
                                 std::move(sig),
                                 user.protocol));
+                            
+                            // Increment the collected input size counter. This will be reset whenever collected inputs are moved
+                            // to concensus candidate input set.
+                            user.collected_input_size += input_data.size();
                             return 0;
                         }
                         else

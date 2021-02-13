@@ -366,6 +366,7 @@ namespace consensus
             {
                 std::list<usr::user_input> user_inputs;
                 user_inputs.splice(user_inputs.end(), user.submitted_inputs);
+                user.collected_input_size = 0; // Reset the collected inputs size counter.
 
                 // We should create an entry for each user pubkey, even if the user has no inputs. This is
                 // because this data map will be used to track connected users as well in addition to inputs.

@@ -30,6 +30,9 @@ namespace usr
         // Holds the unprocessed user inputs collected from websocket.
         std::list<user_input> submitted_inputs;
 
+        // Total input bytes collected which are pending to be subjected to consensus.
+        size_t collected_input_size = 0;
+
         // Holds the websocket session of this user.
         // We don't need to own the session object since the lifetime of user and session are coupled.
         usr::user_comm_session &session;
@@ -70,7 +73,7 @@ namespace usr
 
     int verify_challenge(std::string_view message, usr::user_comm_session &session);
 
-    int handle_user_message(connected_user &user, std::string_view message);
+    int handle_authed_user_message(connected_user &user, std::string_view message);
 
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig);
