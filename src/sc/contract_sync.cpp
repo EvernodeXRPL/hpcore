@@ -2,13 +2,14 @@
 #include "./contract_sync.hpp"
 #include "../unl.hpp"
 #include "../hpfs/hpfs_mount.hpp"
+#include "contract_mount.hpp"
 
 namespace sc
 {
 
     void contract_sync::on_current_sync_state_acheived(const hpfs::sync_target &synced_target)
     {
-        if (synced_target.vpath == hpfs::PATCH_FILE_PATH)
+        if (synced_target.vpath == PATCH_FILE_PATH)
         {
             // Appling new patch file changes to hpcore runtime.
             if (conf::apply_patch_config(hpfs::RW_SESSION_NAME) == -1)

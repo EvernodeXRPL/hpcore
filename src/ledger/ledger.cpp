@@ -83,7 +83,7 @@ namespace ledger
 
         // Construct shard path.
         const uint64_t shard_seq_no = (seq_no - 1) / SHARD_SIZE;
-        const std::string shard_vpath = std::string(hpfs::LEDGER_PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
+        const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
         const std::string shard_path = ledger_fs.physical_path(ctx.hpfs_session_name, shard_vpath);
 
         // If (seq_no - 1) % SHARD_SIZE == 0 means this is the first ledger of the shard.
@@ -114,6 +114,33 @@ namespace ledger
                 stop_hpfs_session(ctx);
                 return -1;
             }
+
+            util::h32 prev_shard_hash;
+            if (shard_seq_no > 0)
+            {
+                const std::string prev_shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no - 1));
+                if (ledger_fs.get_hash(prev_shard_hash, ctx.hpfs_session_name, prev_shard_vpath) < 1)
+                {
+                    LOG_ERROR << errno << ": Error getting shard hash in vpath: " << prev_shard_vpath << " for previous shard hash.";
+                    stop_hpfs_session(ctx);
+                    return -1;
+                }
+            }
+            // Write the prev_shard.hash to the new folder.
+            const std::string shard_hash_file_path = shard_path + PREV_SHARD_HASH_FILENAME;
+            const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);	
+            if (fd == -1)	
+            {	
+                LOG_ERROR << errno << ": Error creating prev_shard.hash file in shard " << std::to_string(shard_seq_no);	
+                return -1;	
+            }	
+            if (write(fd, &prev_shard_hash, sizeof(util::h32)) == -1)	
+            {	
+                LOG_ERROR << errno << ": Error writing to " << shard_hash_file_path << ".";	
+                close(fd);	
+                return -1;	
+            }
+            close(fd);            
         }
         else if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
         {
@@ -208,7 +235,7 @@ namespace ledger
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
         {
-            const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_DIR);
+            const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, ledger::PRIMARY_DIR);
             std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
             for (const std::string shard : shards)
             {
@@ -266,7 +293,7 @@ namespace ledger
         if (start_hpfs_session(ctx) == -1)
             return -1;
 
-        const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, hpfs::LEDGER_PRIMARY_DIR);
+        const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, ledger::PRIMARY_DIR);
         std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
 
         if (shards.size() == 0)
@@ -307,7 +334,7 @@ namespace ledger
             ctx.set_lcl(last_ledger.seq_no, std::to_string(last_ledger.seq_no) + "-" + last_ledger.ledger_hash_hex);
 
             util::h32 last_shard_hash;
-            const std::string shard_vpath = std::string(hpfs::LEDGER_PRIMARY_DIR).append("/").append(shards.front());
+            const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(shards.front());
             const int ret = ledger_fs.get_hash(last_shard_hash, ctx.hpfs_session_name, shard_vpath);
             if (ret == -1)
             {
@@ -350,7 +377,7 @@ namespace ledger
     */
     int get_last_shard_info(std::string_view session_name, util::h32 &last_shard_hash, uint64_t &shard_seq_no)
     {
-        const std::string shard_dir_path = ledger_fs.physical_path(session_name, hpfs::LEDGER_PRIMARY_DIR);
+        const std::string shard_dir_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR);
         std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
 
         if (shards.size() > 0)
@@ -362,7 +389,7 @@ namespace ledger
                 return seq_no_a > seq_no_b;
             });
 
-            const std::string shard_path = std::string(hpfs::LEDGER_PRIMARY_DIR).append("/").append(shards.front());
+            const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(shards.front());
             if (ledger_fs.get_hash(last_shard_hash, session_name, shard_path) == -1 || util::stoull(shards.front(), shard_seq_no) == -1)
             {
                 LOG_ERROR << "Error reading last shard hash in " << shard_path;

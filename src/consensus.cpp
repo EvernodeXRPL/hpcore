@@ -115,8 +115,8 @@ namespace consensus
         // Get current lcl and state.
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
-        util::h32 state_hash = sc::contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH);
-        const util::h32 patch_hash = sc::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH);
+        util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
+        const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);
         const util::h32 last_shard_hash = ledger::ctx.get_last_shard_hash();
         const uint shard_seq_no = ledger::ctx.get_shard_seq_no();
 
@@ -189,7 +189,7 @@ namespace consensus
                 std::queue<hpfs::sync_target> sync_target_list;
                 // We first request the latest shard.
                 const std::string sync_name = "shard " + std::to_string(majority_shard_seq_no);
-                const std::string shard_path = std::string(hpfs::LEDGER_PRIMARY_DIR).append("/").append(std::to_string(majority_shard_seq_no));
+                const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(majority_shard_seq_no));
                 sync_target_list.push(hpfs::sync_target{sync_name, majority_last_shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // Set sync targets for ledger fs.
@@ -218,10 +218,10 @@ namespace consensus
                 // This queue holds all the sync targets which needs to get synced in contract fs.
                 std::queue<hpfs::sync_target> sync_target_list;
                 if (is_patch_desync)
-                    sync_target_list.push(hpfs::sync_target{"patch", majority_patch_hash, hpfs::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                    sync_target_list.push(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
 
                 if (is_state_desync)
-                    sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, hpfs::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // Set sync targets for contract fs.
                 sc::contract_sync_worker.set_target(std::move(sync_target_list));
@@ -787,7 +787,7 @@ namespace consensus
             }
         }
 
-        is_state_desync = (sc::contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH) != majority_state_hash);
+        is_state_desync = (sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH) != majority_state_hash);
     }
 
     /**
@@ -813,7 +813,7 @@ namespace consensus
             }
         }
 
-        is_patch_desync = (sc::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH) != majority_patch_hash);
+        is_patch_desync = (sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH) != majority_patch_hash);
     }
 
     /**
@@ -900,7 +900,7 @@ namespace consensus
             }
 
             // Update state hash in contract fs global hash tracker.
-            sc::contract_fs.set_parent_hash(hpfs::STATE_DIR_PATH, args.post_execution_state_hash);
+            sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, args.post_execution_state_hash);
             new_state_hash = args.post_execution_state_hash;
 
             extract_user_outputs_from_contract_bufmap(args.userbufs);

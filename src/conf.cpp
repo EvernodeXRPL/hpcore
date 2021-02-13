@@ -3,6 +3,8 @@
 #include "crypto.hpp"
 #include "sc/sc.hpp"
 #include "util/util.hpp"
+#include "ledger/ledger_mount.hpp"
+#include "sc/contract_mount.hpp"
 
 namespace conf
 {
@@ -109,10 +111,10 @@ namespace conf
         if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
+            util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + sc::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_hpfs_mount_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + hpfs::LEDGER_PRIMARY_DIR) == -1 ||
-            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + hpfs::LEDGER_BLOB_DIR) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + ledger::PRIMARY_DIR) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + ledger::BLOB_DIR) == -1 ||
             util::create_dir_tree_recursive(ctx.ledger_hpfs_mount_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_log_dir) == -1)
         {
@@ -703,7 +705,7 @@ namespace conf
         jsoncons::ojson jdoc;
         populate_contract_section_json(jdoc, cfg.contract, true);
 
-        const std::string patch_file_path = sc::contract_fs.physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
+        const std::string patch_file_path = sc::contract_fs.physical_path(hpfs::RW_SESSION_NAME, sc::PATCH_FILE_PATH);
         return write_json_file(patch_file_path, jdoc);
     }
 
@@ -715,7 +717,7 @@ namespace conf
     */
     int apply_patch_config(std::string_view hpfs_session_name)
     {
-        const std::string path = sc::contract_fs.physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
+        const std::string path = sc::contract_fs.physical_path(hpfs_session_name, sc::PATCH_FILE_PATH);
         if (!util::is_file_exists(path))
             return 0;
 
