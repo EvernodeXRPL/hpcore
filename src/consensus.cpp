@@ -116,8 +116,9 @@ namespace consensus
         std::string lcl = ledger::ctx.get_lcl();
         const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(hpfs::STATE_DIR_PATH);
-        util::h32 patch_hash = sc::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH);
-        util::h32 ledger_primary_hash = ledger::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH);
+        const util::h32 patch_hash = sc::contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH);
+        const util::h32 last_shard_hash = ledger::ctx.get_last_shard_hash();
+        const uint shard_seq_no = ledger::ctx.get_shard_seq_no();
 
         if (ctx.stage == 0)
         {
@@ -126,7 +127,7 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
                 return -1;
 
-            const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash, ledger_primary_hash);
+            const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash, shard_seq_no, last_shard_hash);
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
@@ -142,7 +143,7 @@ namespace consensus
             if (sync_status == 0)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash, ledger_primary_hash);
+                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash, shard_seq_no, last_shard_hash);
                 broadcast_proposal(p);
 
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
@@ -175,18 +176,21 @@ namespace consensus
      */
     int check_sync_status(const size_t unl_count, vote_counter &votes)
     {
-        bool is_ledger_primary_hash_desync = false;
-        util::h32 majority_ledger_primary_hash;
-        if (check_ledger_primary_hash_votes(is_ledger_primary_hash_desync, majority_ledger_primary_hash, votes, unl_count))
+        bool is_last_shard_hash_desync = false;
+        util::h32 majority_last_shard_hash;
+        uint64_t majority_shard_seq_no;
+        if (check_last_shard_hash_votes(is_last_shard_hash_desync, majority_last_shard_hash, majority_shard_seq_no, votes, unl_count))
         {
             // We proceed further only if ledger primary hash check was success (meaning ledger primary hash check could be reliably performed).
             // Ledger primary hash sync if we are out-of-sync with majority ledger primary hash.
-            if (is_ledger_primary_hash_desync)
+            if (is_last_shard_hash_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                // This queue holds all the sync targets which needs to get synced in ledger fs.
                 std::queue<hpfs::sync_target> sync_target_list;
-                sync_target_list.push(hpfs::sync_target{"ledger primary", majority_ledger_primary_hash, hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                // We first request the latest shard.
+                const std::string sync_name = "shard " + std::to_string(majority_shard_seq_no);
+                const std::string shard_path = std::string(hpfs::LEDGER_PRIMARY_DIR).append("/").append(std::to_string(majority_shard_seq_no));
+                sync_target_list.push(hpfs::sync_target{sync_name, majority_last_shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // Set sync targets for ledger fs.
                 ledger::ledger_sync_worker.is_ledger_shard_desync = true;
@@ -224,7 +228,7 @@ namespace consensus
             }
 
             // Proceed further only if both ledger primary hash, state and patch are in sync with majority.
-            if (!is_ledger_primary_hash_desync && !ledger::ledger_sync_worker.is_ledger_shard_desync && !is_state_desync && !is_patch_desync)
+            if (!is_last_shard_hash_desync && !ledger::ledger_sync_worker.is_ledger_shard_desync && !is_state_desync && !is_patch_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
@@ -406,7 +410,8 @@ namespace consensus
                   << " lcl:" << p.lcl.substr(0, 15)
                   << " state:" << p.state_hash
                   << " patch:" << p.patch_hash
-                  << " ledger_primary:" << p.ledger_primary_hash;
+                  << " shard_seq_no:" << p.shard_seq_no
+                  << " last_shard:" << p.last_shard_hash;
     }
 
     /**
@@ -548,7 +553,7 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, const util::h32 ledger_primary_hash)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, const uint64_t shard_seq_no, const util::h32 last_shard_hash)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -558,7 +563,8 @@ namespace consensus
         p.lcl = lcl;
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
-        p.ledger_primary_hash = ledger_primary_hash;
+        p.shard_seq_no = shard_seq_no;
+        p.last_shard_hash = last_shard_hash;
         crypto::random_bytes(p.nonce, ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
@@ -575,14 +581,15 @@ namespace consensus
         return p;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, const util::h32 ledger_primary_hash)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, const uint64_t shard_seq_no, const util::h32 last_shard_hash)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
         p.stage = ctx.stage;
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
-        p.ledger_primary_hash = ledger_primary_hash;
+        p.shard_seq_no = shard_seq_no;
+        p.last_shard_hash = last_shard_hash;
 
         // We always vote for our current lcl and state regardless of what other peers are saying.
         // If there's a fork condition we will either request history and hpfs state from
@@ -695,19 +702,20 @@ namespace consensus
     }
 
     /**
-     * Check whether our ledger primary hash is consistent with the proposals being made by our UNL peers shard index hash votes.
+     * Check whether our last shard hash is consistent with the proposals being made by our UNL peers last shard hash votes.
      * @param is_desync Indicates whether our ledger primary hash is out-of-sync with majority ledger primary hash. Only valid if this method returns True.
-     * @param majority_ledger_primary_hash The majority ledger primary hash based on the votes received. Only valid if this method returns True.
+     * @param majority_last_shard_hash The majority last shard hash based on the votes received. Only valid if this method returns True.
+     * @param majority_shard_seq_no Shard sequence number of the shard with the majority last shard hash.
      * @param votes Vote counter for this stage.
      * @return True if majority ledger primary hash could be calculated reliably. False if shard index hash check failed due to unreliable votes.
      */
-    bool check_ledger_primary_hash_votes(bool &is_desync, util::h32 &majority_ledger_primary_hash, vote_counter &votes, const size_t unl_count)
+    bool check_last_shard_hash_votes(bool &is_desync, util::h32 &majority_last_shard_hash, uint64_t &majority_shard_seq_no, vote_counter &votes, const size_t unl_count)
     {
         uint32_t total_ledger_primary_hash_votes = 0;
 
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
-            increment(votes.ledger_primary_hash, cp.ledger_primary_hash);
+            increment(votes.last_ledger_hash, std::make_pair(cp.last_shard_hash, cp.shard_seq_no));
             total_ledger_primary_hash_votes++;
         }
 
@@ -720,18 +728,19 @@ namespace consensus
         }
 
         uint32_t winning_votes = 0;
-        for (const auto [ledger_primary_hash, votes] : votes.ledger_primary_hash)
+        for (const auto [last_shard_pair, votes] : votes.last_ledger_hash)
         {
             if (votes > winning_votes)
             {
                 winning_votes = votes;
-                majority_ledger_primary_hash = ledger_primary_hash;
+                majority_last_shard_hash = last_shard_pair.first;
+                majority_shard_seq_no = last_shard_pair.second;
             }
         }
 
         // If winning ledger primary hash is not matched with our ledger primary hash, that means we are not on the consensus ledger.
         // If that's the case we should request history straight away.
-        if (ledger::ledger_fs.get_parent_hash(hpfs::LEDGER_PRIMARY_SHARD_INDEX_PATH) != majority_ledger_primary_hash)
+        if (ledger::ctx.get_last_shard_hash() != majority_last_shard_hash)
         {
             LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
             is_desync = true;
@@ -845,7 +854,7 @@ namespace consensus
         new_lcl = ledger::ctx.get_lcl();
         const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " ledger-primary-hash:" << cons_prop.ledger_primary_hash << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " last-shard-hash:" << cons_prop.last_shard_hash << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
         if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)

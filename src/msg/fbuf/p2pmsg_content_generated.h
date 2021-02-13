@@ -764,11 +764,12 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_NONCE = 8,
     VT_USERS = 10,
     VT_INPUT_HASHES = 12,
-    VT_OUTPUT_HASH = 14,
-    VT_OUTPUT_SIG = 16,
-    VT_STATE_HASH = 18,
-    VT_PATCH_HASH = 20,
-    VT_LEDGER_PRIMARY_HASH = 22
+    VT_SHARD_SEQ_NO = 14,
+    VT_OUTPUT_HASH = 16,
+    VT_OUTPUT_SIG = 18,
+    VT_STATE_HASH = 20,
+    VT_PATCH_HASH = 22,
+    VT_LEDGER_PRIMARY_HASH = 24
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -799,6 +800,12 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *mutable_input_hashes() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_INPUT_HASHES);
+  }
+  uint64_t shard_seq_no() const {
+    return GetField<uint64_t>(VT_SHARD_SEQ_NO, 0);
+  }
+  bool mutate_shard_seq_no(uint64_t _shard_seq_no) {
+    return SetField<uint64_t>(VT_SHARD_SEQ_NO, _shard_seq_no, 0);
   }
   const flatbuffers::Vector<uint8_t> *output_hash() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_OUTPUT_HASH);
@@ -842,6 +849,7 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_INPUT_HASHES) &&
            verifier.VerifyVector(input_hashes()) &&
            verifier.VerifyVectorOfTables(input_hashes()) &&
+           VerifyField<uint64_t>(verifier, VT_SHARD_SEQ_NO) &&
            VerifyOffset(verifier, VT_OUTPUT_HASH) &&
            verifier.VerifyVector(output_hash()) &&
            VerifyOffset(verifier, VT_OUTPUT_SIG) &&
@@ -874,6 +882,9 @@ struct Proposal_MessageBuilder {
   }
   void add_input_hashes(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> input_hashes) {
     fbb_.AddOffset(Proposal_Message::VT_INPUT_HASHES, input_hashes);
+  }
+  void add_shard_seq_no(uint64_t shard_seq_no) {
+    fbb_.AddElement<uint64_t>(Proposal_Message::VT_SHARD_SEQ_NO, shard_seq_no, 0);
   }
   void add_output_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash) {
     fbb_.AddOffset(Proposal_Message::VT_OUTPUT_HASH, output_hash);
@@ -908,12 +919,14 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> input_hashes = 0,
+    uint64_t shard_seq_no = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_sig = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> ledger_primary_hash = 0) {
   Proposal_MessageBuilder builder_(_fbb);
+  builder_.add_shard_seq_no(shard_seq_no);
   builder_.add_time(time);
   builder_.add_ledger_primary_hash(ledger_primary_hash);
   builder_.add_patch_hash(patch_hash);
@@ -934,6 +947,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<uint8_t> *nonce = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *input_hashes = nullptr,
+    uint64_t shard_seq_no = 0,
     const std::vector<uint8_t> *output_hash = nullptr,
     const std::vector<uint8_t> *output_sig = nullptr,
     const std::vector<uint8_t> *state_hash = nullptr,
@@ -954,6 +968,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       nonce__,
       users__,
       input_hashes__,
+      shard_seq_no,
       output_hash__,
       output_sig__,
       state_hash__,

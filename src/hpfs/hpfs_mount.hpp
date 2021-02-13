@@ -13,8 +13,6 @@ namespace hpfs
     constexpr const char *PATCH_FILE_PATH = "/patch.cfg";                         // Config patch filename.
     constexpr const char *LEDGER_PRIMARY_DIR = "/primary";                        // Ledger primary directory name.
     constexpr const char *LEDGER_BLOB_DIR = "/blob";                              // Ledger blob directory name.
-    constexpr const char *LEDGER_SHARD_INDEX = "shard.idx";                       // Ledger shard index file name
-    constexpr const char *LEDGER_PRIMARY_SHARD_INDEX_PATH = "/primary/shard.idx"; // Ledger shard index file path
 
     struct child_hash_node
     {

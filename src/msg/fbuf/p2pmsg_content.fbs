@@ -53,6 +53,7 @@ table Proposal_Message { //Proposal type message schema
     nonce: [ubyte];
     users:[ByteArray];
     input_hashes:[ByteArray];
+    shard_seq_no: uint64;
     output_hash:[ubyte];
     output_sig:[ubyte];
     state_hash: [ubyte];

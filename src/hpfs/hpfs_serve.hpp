@@ -30,7 +30,7 @@ namespace hpfs
 
         void deinit();
 
-        int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &sr, std::string_view lcl);
+        int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl, const util::h32 &last_shard_hash);
 
         int get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
                            const uint32_t block_id, const util::h32 expected_hash);

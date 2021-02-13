@@ -72,6 +72,7 @@ namespace hpfs
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
             const std::string lcl = ledger::ctx.get_lcl();
+            const util::h32 last_shard_hash = ledger::ctx.get_last_shard_hash();
 
             if (hpfs_requests.empty())
                 continue;
@@ -96,7 +97,7 @@ namespace hpfs
                     LOG_DEBUG << "Serving hpfs request from [" << util::to_hex(session_id).substr(2, 10) << "]";
                     flatbuffers::FlatBufferBuilder fbuf(1024);
 
-                    if (hpfs_serve::create_hpfs_response(fbuf, hr, lcl) == 1)
+                    if (hpfs_serve::create_hpfs_response(fbuf, hr, lcl, last_shard_hash) == 1)
                     {
                         // Find the peer that we should send the hpfs response to.
                         std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -125,10 +126,12 @@ namespace hpfs
      * Creates the reply message for a given hpfs request.
      * @param fbuf The flatbuffer builder to construct the reply message.
      * @param hr The hpfs request which should be replied to.
+     * @param lcl Our lcl.
+     * @param last_shard_hash Hash of the latest shard.
      * @return 1 if successful hpfs response was generated. 0 if request is invalid
      *         and no response was generated. -1 on error.
      */
-    int hpfs_serve::create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl)
+    int hpfs_serve::create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl, const util::h32 &last_shard_hash)
     {
         LOG_DEBUG << "Serving hpfs req. path:" << hr.parent_path << " block_id:" << hr.block_id;
 
@@ -153,7 +156,7 @@ namespace hpfs
                 resp.hash = hr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id, lcl);
+                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id, lcl, last_shard_hash);
                 return 1; // Success.
             }
         }
@@ -175,7 +178,7 @@ namespace hpfs
                 {
                     msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
                         fbuf, hr.parent_path, fs_mount->mount_id, block_hashes,
-                        file_length, hr.expected_hash, lcl);
+                        file_length, hr.expected_hash, lcl, last_shard_hash);
                     return 1; // Success.
                 }
             }
@@ -194,7 +197,7 @@ namespace hpfs
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash, lcl);
+                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash, lcl, last_shard_hash);
                     return 1; // Success.
                 }
             }

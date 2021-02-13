@@ -13,7 +13,6 @@ namespace ledger
     private:
         void on_sync_abandoned();
         void swap_collected_responses();
-        void check_shard_sync_status();
         void on_sync_complete(const hpfs::sync_target &last_sync_target);
 
     public:

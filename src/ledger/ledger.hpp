@@ -15,7 +15,10 @@ namespace ledger
     private:
         std::string lcl;
         uint64_t seq_no = 0;
+        uint64_t shard_seq_no = 0;
+        util::h32 last_shard_hash = util::h32_empty;
         std::shared_mutex lcl_mutex;
+        std::shared_mutex shard_mutex;
 
     public:
         sqlite3 *db = NULL;
@@ -39,6 +42,25 @@ namespace ledger
             lcl = new_lcl;
             seq_no = new_seq_no;
         }
+
+        const uint64_t get_shard_seq_no()
+        {
+            std::shared_lock lock(shard_mutex);
+            return shard_seq_no;
+        }
+
+        const util::h32 get_last_shard_hash()
+        {
+            std::shared_lock lock(shard_mutex);
+            return last_shard_hash;
+        }
+
+        void set_last_shard_hash(const uint64_t new_shard_seq_no, const util::h32 &new_last_shard_hash)
+        {
+            std::unique_lock lock(shard_mutex);
+            shard_seq_no = new_shard_seq_no;
+            last_shard_hash = new_last_shard_hash;
+        }
     };
 
     extern ledger_context ctx;
@@ -55,15 +77,9 @@ namespace ledger
 
     int extract_lcl(const std::string &lcl, uint64_t &seq_no, std::string &hash);
 
-    int update_shard_index(const uint64_t shard_no);
-
-    int read_shard_index(std::string_view session_name, util::h32 &shard_hash, const uint64_t shard_no);
-
-    int read_shard_index(std::string_view session_name, std::string &shard_hashes);
-
-    int read_shards_from_given_shard_no(std::string_view session_name, std::map<uint64_t, util::h32> &shard_hash_list, uint64_t shard_no);
-
     int get_last_ledger();
+
+    int get_last_shard_info(std::string_view session_name, util::h32 &last_shard_hash, uint64_t &shard_seq_no);
 
     int start_hpfs_session(ledger_context &ctx);
 
