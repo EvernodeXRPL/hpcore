@@ -468,37 +468,23 @@ namespace consensus
 
             // Keep track of total input length to verify against remaining balance.
             // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
-            size_t total_input_len = 0;
-            bool appbill_balance_exceeded = false;
+            size_t total_input_size = 0;
 
             for (const usr::user_input &umsg : umsgs)
             {
-                const char *reject_reason = NULL;
+                util::buffer_view input;
+                std::string hash;
+                uint64_t max_lcl_seqno;
 
-                if (appbill_balance_exceeded)
-                {
-                    reject_reason = msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
-                }
-                else
-                {
-                    util::buffer_view input;
-                    std::string hash;
-                    uint64_t max_lcl_seqno;
-                    reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_len, hash, input, max_lcl_seqno);
+                // Validate the input against all submission criteria.
+                const char *reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_size, hash, input, max_lcl_seqno);
 
-                    if (reject_reason == NULL && !input.is_null())
-                    {
-                        // No reject reason means we should go ahead and subject the input to consensus.
-                        ctx.candidate_user_inputs.try_emplace(
-                            hash,
-                            candidate_user_input(pubkey, input, max_lcl_seqno));
-                    }
-                    else if (reject_reason == msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED)
-                    {
-                        // Abandon processing further inputs from this user when we find out
-                        // an input cannot be processed with the account balance.
-                        appbill_balance_exceeded = true;
-                    }
+                if (reject_reason == NULL && !input.is_null())
+                {
+                    // No reject reason means we should go ahead and subject the input to consensus.
+                    ctx.candidate_user_inputs.try_emplace(
+                        hash,
+                        candidate_user_input(pubkey, input, max_lcl_seqno));
                 }
 
                 responses[pubkey].push_back(std::tuple<const util::PROTOCOL, const std::string, const char *>(umsg.protocol, umsg.sig, reject_reason));
