@@ -185,7 +185,8 @@ namespace usr
                         }
 
                         // Check whether the newly received input is going to cause overflow of round input limit.
-                        if ((user.collected_input_size + input_data.size()) > conf::cfg.contract.round_limits.user_input_bytes)
+                        if (conf::cfg.contract.round_limits.user_input_bytes > 0 &&
+                            (user.collected_input_size + input_data.size()) > conf::cfg.contract.round_limits.user_input_bytes)
                         {
                             send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW, sig);
                             return -1;
@@ -347,7 +348,8 @@ namespace usr
 
         // Check subtotal of inputs extracted so far with the input size limit.
         const size_t new_total_input_size = total_input_size + input_data.size();
-        if (new_total_input_size > conf::cfg.contract.round_limits.user_input_bytes)
+        if (conf::cfg.contract.round_limits.user_input_bytes > 0 &&
+            new_total_input_size > conf::cfg.contract.round_limits.user_input_bytes)
         {
             LOG_DEBUG << "User input input exceeds round limit.";
             return msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW;
