@@ -87,8 +87,8 @@ namespace conf
 
     struct round_limits_config
     {
-        size_t user_input_bytes = 0;
-        size_t user_output_bytes = 0;
+        size_t user_input_bytes = 0;  // Max contract input bytes per user per round.
+        size_t user_output_bytes = 0; // Max contract output bytes per user per round.
     };
 
     struct contract_config
