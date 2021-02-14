@@ -81,8 +81,10 @@ namespace msg::fbuf::ledger
         map.reserve(fbvec->size());
         for (auto el : *fbvec)
         {
-            usr::raw_user_input raw_user_input(flatbuff_bytes_to_sv(el->pubkey()), flatbuff_bytes_to_sv(el->input()));
-            map.emplace(flatbuff_bytes_to_sv(el->hash()), raw_user_input);
+            map.emplace(flatbuff_bytes_to_sv(el->hash()),
+                        usr::raw_user_input{
+                            std::string(flatbuff_bytes_to_sv(el->pubkey())),
+                            std::string(flatbuff_bytes_to_sv(el->input()))});
         }
         return map;
     }

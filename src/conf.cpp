@@ -849,8 +849,12 @@ namespace conf
         jsoncons::ojson appbill;
         appbill.insert_or_assign("mode", contract.appbill.mode);
         appbill.insert_or_assign("bin_args", contract.appbill.bin_args);
-
         jdoc.insert_or_assign("appbill", appbill);
+
+        jsoncons::ojson round_limits;
+        round_limits.insert_or_assign("user_input_bytes", contract.round_limits.user_input_bytes);
+        round_limits.insert_or_assign("user_output_bytes", contract.round_limits.user_output_bytes);
+        jdoc.insert_or_assign("round_limits", round_limits);
     }
 
     /**
@@ -938,6 +942,9 @@ namespace conf
                 return -1;
             }
             contract.appbill.bin_args = jdoc["appbill"]["bin_args"].as<std::string>();
+
+            contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();
+            contract.round_limits.user_output_bytes = jdoc["round_limits"]["user_output_bytes"].as<size_t>();
         }
         catch (const std::exception &e)
         {

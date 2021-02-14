@@ -66,7 +66,7 @@ namespace usr
             {
                 // This is an authed user.
                 connected_user &user = itr->second;
-                if (handle_user_message(user, message) != 0)
+                if (handle_authed_user_message(user, message) != 0)
                 {
                     session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
                     LOG_DEBUG << "Bad message from user " << session.display_name();
