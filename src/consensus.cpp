@@ -364,7 +364,7 @@ namespace consensus
             // Construct NUP.
             for (auto &[sid, user] : usr::ctx.users)
             {
-                std::list<usr::user_input> user_inputs;
+                std::list<usr::submitted_user_input> user_inputs;
                 user_inputs.splice(user_inputs.end(), user.submitted_inputs);
                 user.collected_input_size = 0; // Reset the collected inputs size counter.
 
@@ -436,95 +436,81 @@ namespace consensus
      */
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
-        // Move over NUPs collected from the network into a local list.
-        std::list<p2p::nonunl_proposal> collected_nups;
-        {
-            std::scoped_lock lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
-            collected_nups.splice(collected_nups.end(), p2p::ctx.collected_msgs.nonunl_proposals);
-        }
+        // Maintains users and any input-acceptance responses we should send to them.
+        // Key: user pubkey. Value: List of responses for that user.
+        std::unordered_map<std::string, std::vector<usr::input_status_response>> responses;
 
-        // Prepare merged list of users with each user's inputs grouped under the user.
+        // Maintains merged list of users with each user's inputs grouped under the user.
         // Key: user pubkey, Value: List of inputs from the user.
-        std::unordered_map<std::string, std::list<usr::user_input>> input_groups;
-        for (p2p::nonunl_proposal &p : collected_nups)
+        std::unordered_map<std::string, std::list<usr::submitted_user_input>> input_groups;
+
+        // Move over NUPs collected from the network input groups (grouped by user).
         {
-            for (auto &[pubkey, umsgs] : p.user_inputs)
+            std::list<p2p::nonunl_proposal> collected_nups;
             {
-                // Move any user inputs from each NUP over to the grouped inputs under the user pubkey.
-                std::list<usr::user_input> &input_list = input_groups[pubkey];
-                input_list.splice(input_list.end(), umsgs);
+                std::scoped_lock lock(p2p::ctx.collected_msgs.nonunl_proposals_mutex);
+                collected_nups.splice(collected_nups.end(), p2p::ctx.collected_msgs.nonunl_proposals);
+            }
+
+            for (p2p::nonunl_proposal &p : collected_nups)
+            {
+                for (auto &[pubkey, sbmitted_inputs] : p.user_inputs)
+                {
+                    // Move any user inputs from each NUP over to the grouped inputs under the user pubkey.
+                    std::list<usr::submitted_user_input> &input_list = input_groups[pubkey];
+                    input_list.splice(input_list.end(), sbmitted_inputs);
+                }
             }
         }
-        collected_nups.clear();
 
-        // Maintains users and any input-acceptance responses we should send to them.
-        // Key: user pubkey. Value: List of [user-protocol, msg-sig, reject-reason] tuples.
-        std::unordered_map<std::string, std::list<std::tuple<const util::PROTOCOL, const std::string, const char *>>> responses;
-
-        for (const auto &[pubkey, umsgs] : input_groups)
+        for (auto &[pubkey, submitted_inputs] : input_groups)
         {
             // Populate user list with this user's pubkey.
             ctx.candidate_users.emplace(pubkey);
+
+            std::list<usr::extracted_user_input> extracted_inputs;
+
+            for (const usr::submitted_user_input &submitted_input : submitted_inputs)
+            {
+                usr::extracted_user_input extracted = {};
+                const char *reject_reason = usr::extract_submitted_input(pubkey, submitted_input, extracted);
+
+                if (reject_reason == NULL)
+                    extracted_inputs.push_back(std::move(extracted));
+                else
+                    responses[pubkey].push_back(usr::input_status_response{submitted_input.protocol, submitted_input.sig, reject_reason});
+            }
+
+            // This will sort the inputs in nonce order so the validation will follow the same order on all nodes.
+            extracted_inputs.sort();
 
             // Keep track of total input length to verify against remaining balance.
             // We only process inputs in the submitted order that can be satisfied with the remaining account balance.
             size_t total_input_size = 0;
 
-            for (const usr::user_input &umsg : umsgs)
+            for (const usr::extracted_user_input &extracted_input : extracted_inputs)
             {
-                util::buffer_view input;
+                util::buffer_view stored_input; // Contains pointer to the input data stored in memfd accessed by the contract.
                 std::string hash;
-                uint64_t max_lcl_seqno;
 
                 // Validate the input against all submission criteria.
-                const char *reject_reason = usr::validate_user_input_submission(pubkey, umsg, lcl_seq_no, total_input_size, hash, input, max_lcl_seqno);
+                const char *reject_reason = usr::validate_user_input_submission(pubkey, extracted_input, lcl_seq_no, total_input_size, hash, stored_input);
 
-                if (reject_reason == NULL && !input.is_null())
+                if (reject_reason == NULL && !stored_input.is_null())
                 {
                     // No reject reason means we should go ahead and subject the input to consensus.
                     ctx.candidate_user_inputs.try_emplace(
                         hash,
-                        candidate_user_input(pubkey, input, max_lcl_seqno));
+                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seqno));
                 }
 
-                responses[pubkey].push_back(std::tuple<const util::PROTOCOL, const std::string, const char *>(umsg.protocol, umsg.sig, reject_reason));
+                responses[pubkey].push_back(usr::input_status_response{extracted_input.protocol, extracted_input.sig, reject_reason});
             }
         }
 
         input_groups.clear();
 
-        {
-            // Lock the user sessions.
-            std::scoped_lock lock(usr::ctx.users_mutex);
-
-            for (auto &[pubkey, user_responses] : responses)
-            {
-                // Locate this user's socket session.
-                const auto user_itr = usr::ctx.users.find(pubkey);
-                if (user_itr != usr::ctx.users.end())
-                {
-                    // Send the request status result if this user is connected to us.
-                    for (auto &resp : user_responses)
-                    {
-                        // resp: 0=protocl, 1=msg sig, 2=reject reason.
-                        const char *reject_reason = std::get<2>(resp);
-
-                        // We are not sending any status response for 'already submitted' inputs. This is because the user
-                        // would have gotten the proper status response during first submission.
-                        if (reject_reason != msg::usrmsg::REASON_ALREADY_SUBMITTED)
-                        {
-                            msg::usrmsg::usrmsg_parser parser(std::get<0>(resp));
-                            const std::string &msg_sig = std::get<1>(resp);
-                            usr::send_input_status(parser,
-                                                   user_itr->second.session,
-                                                   reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
-                                                   reject_reason == NULL ? "" : reject_reason,
-                                                   msg_sig);
-                        }
-                    }
-                }
-            }
-        }
+        usr::send_input_status_responses(responses);
 
         return 0;
     }
@@ -811,10 +797,7 @@ namespace consensus
                     // Taking the raw input string from the buffer_view.
                     std::string input;
                     if (usr::input_store.read_buf(cand_input.input, input) != -1)
-                    {
-                        usr::raw_user_input raw_input(cand_input.userpubkey, std::move(input));
-                        raw_inputs.emplace(hash, std::move(raw_input));
-                    }
+                        raw_inputs.emplace(hash, usr::raw_user_input{cand_input.userpubkey, std::move(input)});
                 }
             }
         }

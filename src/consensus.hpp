@@ -95,6 +95,7 @@ namespace consensus
         std::map<util::h32, uint32_t> state_hash;
         std::map<util::h32, uint32_t> patch_hash;
     };
+
     extern std::atomic<bool> is_patch_update_pending; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
 
     int init();
