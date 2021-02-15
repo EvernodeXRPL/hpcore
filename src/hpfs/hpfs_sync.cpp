@@ -61,7 +61,7 @@ namespace hpfs
      * Syncing happens sequentially.
      * @param target_list List of sync targets to sync towards.
      */
-    void hpfs_sync::set_target(const std::queue<sync_target> &target_list)
+    void hpfs_sync::set_target(const std::list<sync_target> &target_list)
     {
         if (target_list.empty())
             return;
@@ -646,7 +646,7 @@ namespace hpfs
     */
     int hpfs_sync::start_syncing_next_target()
     {
-        target_list.pop(); // Remove the synced parent from the target list.
+        target_list.pop_front(); // Remove the synced parent from the target list.
         if (target_list.empty())
         {
             return 0;

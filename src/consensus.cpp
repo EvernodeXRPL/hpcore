@@ -186,11 +186,11 @@ namespace consensus
             if (is_last_shard_hash_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                std::queue<hpfs::sync_target> sync_target_list;
+                std::list<hpfs::sync_target> sync_target_list;
                 // We first request the latest shard.
                 const std::string sync_name = "shard " + std::to_string(majority_shard_seq_no);
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(majority_shard_seq_no));
-                sync_target_list.push(hpfs::sync_target{sync_name, majority_last_shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                sync_target_list.push_back(hpfs::sync_target{sync_name, majority_last_shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // Set sync targets for ledger fs.
                 ledger::ledger_sync_worker.is_ledger_shard_desync = true;
@@ -216,12 +216,12 @@ namespace consensus
                 conf::change_role(conf::ROLE::OBSERVER);
 
                 // This queue holds all the sync targets which needs to get synced in contract fs.
-                std::queue<hpfs::sync_target> sync_target_list;
+                std::list<hpfs::sync_target> sync_target_list;
                 if (is_patch_desync)
-                    sync_target_list.push(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                    sync_target_list.push_back(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
 
                 if (is_state_desync)
-                    sync_target_list.push(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    sync_target_list.push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // Set sync targets for contract fs.
                 sc::contract_sync_worker.set_target(std::move(sync_target_list));

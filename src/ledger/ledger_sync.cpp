@@ -45,11 +45,11 @@ namespace ledger
 
         if (prev_shard_hash_from_file != util::h32_empty && prev_shard_hash_from_file != prev_shard_hash_from_hpfs)
         {
-            std::queue<hpfs::sync_target> sync_target_list;
+            std::list<hpfs::sync_target> sync_target_list;
             // We first request the latest shard.
             const std::string sync_name = "shard " + std::to_string(shard_seq_no);
             const std::string shard_path = std::string(PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
-            sync_target_list.push(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+            sync_target_list.push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             // Set sync targets for ledger fs.
             ledger::ledger_sync_worker.set_target(std::move(sync_target_list));
         }
