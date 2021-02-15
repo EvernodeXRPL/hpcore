@@ -589,7 +589,7 @@ namespace sc
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
      * @return 0 if no bytes were read. 1 if bytes were read.
      */
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap)
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, pollfd *pfds, contract_bufmap_t &bufmap)
     {
         bool bytes_read = false;
         int i = 0;
@@ -600,7 +600,7 @@ namespace sc
             fd_pair &fds = fdmap[pubkey];
 
             // This returns the total bytes read from the socket.
-            const int total_bytes_read = read_iosocket(true, pfds[i++], output);
+            const int total_bytes_read = (pfds[i].fd == -1) ? 0 : read_iosocket(true, pfds[i], output);
 
             if (total_bytes_read == -1)
             {
@@ -649,14 +649,29 @@ namespace sc
                         possible_read_len = total_bytes_read - pos;
                     }
                     // Extract the message chunk from the buffer.
-                    std::string msgBuf = output.substr(pos, possible_read_len);
+                    std::string msg_buf = output.substr(pos, possible_read_len);
                     pos += possible_read_len;
                     // Append the extracted message chunk to the current message.
-                    current_output.message += msgBuf;
+                    current_output.message += msg_buf;
                 }
 
-                bytes_read = true;
+                // Increment total collected output len for this user.
+                bufs.total_output_len += total_bytes_read;
+
+                // If total outputs exceeds limit for this user, close the user's out fd.
+                if (conf::cfg.contract.round_limits.user_output_bytes > 0 &&
+                    bufs.total_output_len > conf::cfg.contract.round_limits.user_output_bytes)
+                {
+                    close(pfds[i].fd);
+                    pfds[i].fd = -1;
+                }
+                else
+                {
+                    bytes_read = true;
+                }
             }
+
+            i++;
         }
 
         return bytes_read ? 1 : 0;

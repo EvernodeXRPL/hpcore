@@ -43,6 +43,9 @@ namespace sc
 
         // List of outputs from the contract.
         std::list<contract_output> outputs;
+
+        // Total output bytes accumulated so far.
+        size_t total_output_len = 0;
     };
 
     // Common typedef for a map of pubkey->fdpair.
@@ -164,7 +167,7 @@ namespace sc
 
     int create_iosockets_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, pollfd *pfds, contract_bufmap_t &bufmap);
 
     int create_contract_log_files(execution_context &ctx);
 
