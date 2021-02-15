@@ -3,12 +3,12 @@
 #include "../consensus.hpp"
 #include "../hplog.hpp"
 #include "../ledger.hpp"
-#include "sc.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/controlmsg_common.hpp"
 #include "../msg/controlmsg_parser.hpp"
 #include "../unl.hpp"
 #include "contract_serve.hpp"
+#include "sc.hpp"
 
 namespace sc
 {
@@ -351,7 +351,7 @@ namespace sc
 
             // Atempt to read messages from contract (regardless of contract terminated or not).
             const int control_read_res = read_control_outputs(ctx, out_fds[control_fd_idx]);
-            const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, out_fds[npl_fd_idx]);
+            const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, &out_fds[npl_fd_idx]);
             const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
 
             if (ctx.termination_signaled || ctx.contract_pid == 0)
@@ -500,10 +500,10 @@ namespace sc
      * @param ctx contract execution context.
      * @return 0 if no bytes were read. 1 if bytes were read.
      */
-    int read_npl_outputs(execution_context &ctx, const pollfd pfd)
+    int read_npl_outputs(execution_context &ctx, pollfd *pfd)
     {
         std::string output;
-        const int res = read_iosocket(false, pfd, output);
+        const int res = read_iosocket(false, *pfd, output);
 
         if (res == -1)
         {
@@ -511,8 +511,18 @@ namespace sc
         }
         else if (res > 0)
         {
-            // Broadcast npl messages once contract npl output is collected.
-            broadcast_npl_output(output);
+            ctx.total_npl_output_size += output.size();
+            if (conf::cfg.contract.round_limits.npl_output_bytes > 0 &&
+                ctx.total_npl_output_size > conf::cfg.contract.round_limits.npl_output_bytes)
+            {
+                close(pfd->fd);
+                pfd->fd = -1;
+            }
+            else
+            {
+                // Broadcast npl messages once contract npl output is collected.
+                broadcast_npl_output(output);
+            }
         }
 
         return (res > 0) ? 1 : 0;

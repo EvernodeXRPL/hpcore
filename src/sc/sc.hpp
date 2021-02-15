@@ -119,6 +119,8 @@ namespace sc
         // Thread to collect contract inputs and outputs and feed npl messages while contract is running.
         std::thread contract_monitor_thread;
 
+        size_t total_npl_output_size = 0;
+
         // Indicates that the contract has sent termination control message.
         bool termination_signaled = false;
 
@@ -157,7 +159,7 @@ namespace sc
 
     int read_control_outputs(execution_context &ctx, const pollfd pfd);
 
-    int read_npl_outputs(execution_context &ctx, const pollfd pfd);
+    int read_npl_outputs(execution_context &ctx, pollfd *pfd);
 
     void broadcast_npl_output(std::string_view output);
 
