@@ -98,6 +98,13 @@ namespace sc
 
             // Set up the process environment and overlay the contract binary program with execv().
 
+            // Set process resource limits.
+            if (set_process_rlimits() == -1)
+            {
+                std::cerr << errno << ": Failed to set contract process resource limits." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+
             // Close all fds unused by SC process.
             close_unused_fds(ctx, false);
 
@@ -151,6 +158,33 @@ namespace sc
             ret = -1;
 
         return ret;
+    }
+
+    int set_process_rlimits()
+    {
+        rlimit lim;
+        if (conf::cfg.contract.round_limits.proc_cpu_seconds > 0)
+        {
+            lim.rlim_cur = lim.rlim_max = conf::cfg.contract.round_limits.proc_cpu_seconds;
+            if (setrlimit(RLIMIT_CPU, &lim) == -1)
+                return -1;
+        }
+
+        if (conf::cfg.contract.round_limits.proc_mem_bytes > 0)
+        {
+            lim.rlim_cur = lim.rlim_max = conf::cfg.contract.round_limits.proc_mem_bytes;
+            if (setrlimit(RLIMIT_DATA, &lim) == -1)
+                return -1;
+        }
+
+        if (conf::cfg.contract.round_limits.proc_ofd_count > 0)
+        {
+            lim.rlim_cur = lim.rlim_max = conf::cfg.contract.round_limits.proc_ofd_count;
+            if (setrlimit(RLIMIT_NOFILE, &lim) == -1)
+                return -1;
+        }
+
+        return 0;
     }
 
     /**

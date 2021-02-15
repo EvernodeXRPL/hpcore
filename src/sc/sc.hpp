@@ -143,6 +143,8 @@ namespace sc
 
     //------Internal-use functions for this namespace.
 
+    int set_process_rlimits();
+
     int check_contract_exited(execution_context &ctx, const bool block);
 
     int start_hpfs_session(execution_context &ctx);
