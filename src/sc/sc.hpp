@@ -43,6 +43,9 @@ namespace sc
 
         // List of outputs from the contract.
         std::list<contract_output> outputs;
+
+        // Total output bytes accumulated so far.
+        size_t total_output_len = 0;
     };
 
     // Common typedef for a map of pubkey->fdpair.
@@ -116,6 +119,8 @@ namespace sc
         // Thread to collect contract inputs and outputs and feed npl messages while contract is running.
         std::thread contract_monitor_thread;
 
+        size_t total_npl_output_size = 0;
+
         // Indicates that the contract has sent termination control message.
         bool termination_signaled = false;
 
@@ -138,6 +143,8 @@ namespace sc
 
     //------Internal-use functions for this namespace.
 
+    int set_process_rlimits();
+
     int check_contract_exited(execution_context &ctx, const bool block);
 
     int start_hpfs_session(execution_context &ctx);
@@ -154,7 +161,7 @@ namespace sc
 
     int read_control_outputs(execution_context &ctx, const pollfd pfd);
 
-    int read_npl_outputs(execution_context &ctx, const pollfd pfd);
+    int read_npl_outputs(execution_context &ctx, pollfd *pfd);
 
     void broadcast_npl_output(std::string_view output);
 
@@ -164,7 +171,7 @@ namespace sc
 
     int create_iosockets_for_fdmap(contract_fdmap_t &fdmap, contract_bufmap_t &bufmap);
 
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap);
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, pollfd *pfds, contract_bufmap_t &bufmap);
 
     int create_contract_log_files(execution_context &ctx);
 

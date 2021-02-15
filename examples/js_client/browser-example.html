@@ -80,7 +80,10 @@
             console.log('HotPocket Connected.');
 
             hpc.sendContractReadRequest("Hello");
-            hpc.sendContractInput("World!")
+            hpc.sendContractInput("World!").then(status => {
+                if (status != "ok")
+                    console.log(status);
+            });
 
             // When we need to close HP connection:
             // await hpc.close();

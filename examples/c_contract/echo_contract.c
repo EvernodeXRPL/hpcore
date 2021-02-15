@@ -53,29 +53,15 @@ int main(int argc, char **argv)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
     // free(msg);
 
-    // // Test code segment - Config file will be updated with below values.
-    // struct hp_config config = {};
-    // config.version = "2.0";
-    // config.consensus = "public";
-    // config.npl = "public";
-    // config.appbill.bin_args = "123";
-    // struct hp_unl_node unl[1] = {"ed726f9f536904b125bdca10bbdd1e66591b274799b92ac8bcfc75bf45d7da4c0f"};
-    // config.unl.list = unl;
-    // config.unl.count = 1;
-    // config.roundtime = 1000;
-    // hp_update_config(&config);
-
-    // // Test code segment - Get current config file values.
-    // struct hp_config *current_config = hp_get_config();
-    // if (current_config != NULL)
-    // {
-    //     printf("\"version\": \"%s\"\n", current_config->version);
-    //     printf("\"consensus\": \"%s\"\n", current_config->consensus);
-    //     printf("\"npl\": \"%s\"\n", current_config->npl);
-    //     printf("\"appbill_bin_args\": \"%s\"\n", current_config->appbill.bin_args);
-    // }
-    // // Returned hp_config struct memory should be freed after it's been used.
-    // hp_free_config(current_config);
+    // Config update example:
+    // struct hp_config *config = hp_get_config();
+    // hp_set_config_string(&config->version, "2.0", 4);
+    // config->round_limits.user_input_bytes = 1024;
+    // struct hp_unl_node new_unl[2] = {{"ed726f9f536904b125bdca10bbdd1e66591b274799b92ac8bcfc75bf45d7da4c0f"},
+    //                                  {"ed3e63992d62804ea0c182e5b22fe43c4b652fbbf068ec7520f3020f4c3771416a"}};
+    // hp_set_config_unl(config, new_unl, 2);
+    // hp_update_config(config);
+    // hp_free_config(config);
 
     hp_deinit_user_input_mmap();
     hp_deinit_contract();

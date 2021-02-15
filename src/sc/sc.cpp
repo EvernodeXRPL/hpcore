@@ -3,12 +3,12 @@
 #include "../consensus.hpp"
 #include "../hplog.hpp"
 #include "../ledger/ledger.hpp"
-#include "sc.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/controlmsg_common.hpp"
 #include "../msg/controlmsg_parser.hpp"
 #include "../unl.hpp"
 #include "contract_serve.hpp"
+#include "sc.hpp"
 
 namespace sc
 {
@@ -98,6 +98,13 @@ namespace sc
 
             // Set up the process environment and overlay the contract binary program with execv().
 
+            // Set process resource limits.
+            if (set_process_rlimits() == -1)
+            {
+                std::cerr << errno << ": Failed to set contract process resource limits." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+
             // Close all fds unused by SC process.
             close_unused_fds(ctx, false);
 
@@ -153,6 +160,33 @@ namespace sc
         return ret;
     }
 
+    int set_process_rlimits()
+    {
+        rlimit lim;
+        if (conf::cfg.contract.round_limits.proc_cpu_seconds > 0)
+        {
+            lim.rlim_cur = lim.rlim_max = conf::cfg.contract.round_limits.proc_cpu_seconds;
+            if (setrlimit(RLIMIT_CPU, &lim) == -1)
+                return -1;
+        }
+
+        if (conf::cfg.contract.round_limits.proc_mem_bytes > 0)
+        {
+            lim.rlim_cur = lim.rlim_max = conf::cfg.contract.round_limits.proc_mem_bytes;
+            if (setrlimit(RLIMIT_DATA, &lim) == -1)
+                return -1;
+        }
+
+        if (conf::cfg.contract.round_limits.proc_ofd_count > 0)
+        {
+            lim.rlim_cur = lim.rlim_max = conf::cfg.contract.round_limits.proc_ofd_count;
+            if (setrlimit(RLIMIT_NOFILE, &lim) == -1)
+                return -1;
+        }
+
+        return 0;
+    }
+
     /**
      * Checks whether the contract process has exited.
      * @param ctx Contract execution context.
@@ -185,7 +219,7 @@ namespace sc
             }
             else
             {
-                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended with code " << WEXITSTATUS(scstatus);
+                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely with code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -351,7 +385,7 @@ namespace sc
 
             // Atempt to read messages from contract (regardless of contract terminated or not).
             const int control_read_res = read_control_outputs(ctx, out_fds[control_fd_idx]);
-            const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, out_fds[npl_fd_idx]);
+            const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, &out_fds[npl_fd_idx]);
             const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
 
             if (ctx.termination_signaled || ctx.contract_pid == 0)
@@ -500,10 +534,10 @@ namespace sc
      * @param ctx contract execution context.
      * @return 0 if no bytes were read. 1 if bytes were read.
      */
-    int read_npl_outputs(execution_context &ctx, const pollfd pfd)
+    int read_npl_outputs(execution_context &ctx, pollfd *pfd)
     {
         std::string output;
-        const int res = read_iosocket(false, pfd, output);
+        const int res = read_iosocket(false, *pfd, output);
 
         if (res == -1)
         {
@@ -511,8 +545,18 @@ namespace sc
         }
         else if (res > 0)
         {
-            // Broadcast npl messages once contract npl output is collected.
-            broadcast_npl_output(output);
+            ctx.total_npl_output_size += output.size();
+            if (conf::cfg.contract.round_limits.npl_output_bytes > 0 &&
+                ctx.total_npl_output_size > conf::cfg.contract.round_limits.npl_output_bytes)
+            {
+                close(pfd->fd);
+                pfd->fd = -1;
+            }
+            else
+            {
+                // Broadcast npl messages once contract npl output is collected.
+                broadcast_npl_output(output);
+            }
         }
 
         return (res > 0) ? 1 : 0;
@@ -589,7 +633,7 @@ namespace sc
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
      * @return 0 if no bytes were read. 1 if bytes were read.
      */
-    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, const pollfd *pfds, contract_bufmap_t &bufmap)
+    int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, pollfd *pfds, contract_bufmap_t &bufmap)
     {
         bool bytes_read = false;
         int i = 0;
@@ -600,7 +644,7 @@ namespace sc
             fd_pair &fds = fdmap[pubkey];
 
             // This returns the total bytes read from the socket.
-            const int total_bytes_read = read_iosocket(true, pfds[i++], output);
+            const int total_bytes_read = (pfds[i].fd == -1) ? 0 : read_iosocket(true, pfds[i], output);
 
             if (total_bytes_read == -1)
             {
@@ -649,14 +693,29 @@ namespace sc
                         possible_read_len = total_bytes_read - pos;
                     }
                     // Extract the message chunk from the buffer.
-                    std::string msgBuf = output.substr(pos, possible_read_len);
+                    std::string msg_buf = output.substr(pos, possible_read_len);
                     pos += possible_read_len;
                     // Append the extracted message chunk to the current message.
-                    current_output.message += msgBuf;
+                    current_output.message += msg_buf;
                 }
 
-                bytes_read = true;
+                // Increment total collected output len for this user.
+                bufs.total_output_len += total_bytes_read;
+
+                // If total outputs exceeds limit for this user, close the user's out fd.
+                if (conf::cfg.contract.round_limits.user_output_bytes > 0 &&
+                    bufs.total_output_len > conf::cfg.contract.round_limits.user_output_bytes)
+                {
+                    close(pfds[i].fd);
+                    pfds[i].fd = -1;
+                }
+                else
+                {
+                    bytes_read = true;
+                }
             }
+
+            i++;
         }
 
         return bytes_read ? 1 : 0;

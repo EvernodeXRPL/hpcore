@@ -81,26 +81,10 @@
         ptr = NULL;    \
     }
 
-#define __HP_UPDATE_CONFIG_ERROR(msg)               \
-    {                                               \
-        fprintf(stderr, "%s\n", msg);               \
-        if (fd)                                     \
-            close(fd);                              \
-        if (config)                                 \
-            __hp_free_patch_config(existing_patch); \
-                                                    \
-        return -1;                                  \
-    }
-
-/**
- * dest - Destination pointer.
- * src  - Source pointer.
-*/
-#define __HP_STRING_COPY(dest, src)              \
-    {                                            \
-        __HP_FREE(dest);                        \
-        dest = (char *)malloc(strlen(src) + 1); \
-        memcpy(dest, src, strlen(src) + 1);     \
+#define __HP_UPDATE_CONFIG_ERROR(msg) \
+    {                                 \
+        fprintf(stderr, "%s\n", msg); \
+        return -1;                    \
     }
 
 struct hp_user_input
@@ -149,6 +133,16 @@ struct hp_appbill_config
     char *bin_args;
 };
 
+struct hp_round_limits_config
+{
+    size_t user_input_bytes;
+    size_t user_output_bytes;
+    size_t npl_output_bytes;
+    size_t proc_cpu_seconds;
+    size_t proc_mem_bytes;
+    size_t proc_ofd_count;
+};
+
 struct hp_config
 {
     char *version;
@@ -159,6 +153,7 @@ struct hp_config
     char *consensus;
     char *npl;
     struct hp_appbill_config appbill;
+    struct hp_round_limits_config round_limits;
 };
 
 struct hp_contract_context
@@ -191,8 +186,10 @@ int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, con
 int hp_write_npl_msg(const void *buf, const uint32_t len);
 int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
 int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
-int hp_update_config(const struct hp_config *config);
 struct hp_config *hp_get_config();
+int hp_update_config(const struct hp_config *config);
+void hp_set_config_string(char **config_str, const char *value, const size_t value_size);
+void hp_set_config_unl(struct hp_config *config, const struct hp_unl_node *new_unl, const size_t new_unl_count);
 void hp_free_config(struct hp_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
@@ -200,7 +197,6 @@ int __hp_write_control_msg(const void *buf, const uint32_t len);
 void __hp_populate_patch_from_json_object(struct hp_config *config, const struct json_object_s *object);
 int __hp_write_to_patch_file(const int fd, const struct hp_config *config);
 struct hp_config *__hp_read_from_patch_file(const int fd);
-void __hp_free_patch_config(struct hp_config *patch_config);
 
 static struct __hp_contract __hpc = {};
 
@@ -437,125 +433,6 @@ int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
 }
 
 /**
- * Update the params of the existing config file.
- * @param config Pointer to the updated config struct. 
-*/
-int hp_update_config(const struct hp_config *config)
-{
-    struct hp_contract_context *cctx = __hpc.cctx;
-
-    if (cctx->readonly)
-    {
-        fprintf(stderr, "Config update not allowed in readonly mode.\n");
-        return -1;
-    }
-    const int fd = open(PATCH_FILE_PATH, O_RDWR);
-    if (fd == -1)
-    {
-        fprintf(stderr, "Error opening patch.cfg file.\n");
-        return -1;
-    }
-
-    struct hp_config *existing_patch = __hp_read_from_patch_file(fd);
-    if (existing_patch != NULL)
-    {
-        if (config->version)
-        {
-            if (strlen(config->version) != 0)
-            {
-                __HP_STRING_COPY(existing_patch->version, config->version);
-            }
-            else
-            {
-                __HP_UPDATE_CONFIG_ERROR("Version cannot be empty.");
-            }
-        }
-
-        if (config->unl.count)
-        {
-            for (size_t i = 0; i < config->unl.count; i++)
-            {
-                const size_t pubkey_len = strlen(config->unl.list[i].pubkey);
-                if (pubkey_len == 0)
-                {
-                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey cannot be empty.");
-                }
-
-                if (pubkey_len != HP_KEY_SIZE)
-                {
-                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid length.");
-                }
-
-                if (config->unl.list[i].pubkey[0] != 'e' || config->unl.list[i].pubkey[1] != 'd')
-                {
-                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid format.");
-                }
-                // Checking the validity of hexadecimal portion. (without 'ed').
-                for (size_t j = 2; j < HP_KEY_SIZE; j++)
-                {
-                    const char current_char = config->unl.list[i].pubkey[j];
-                    if ((current_char < 'A' || current_char > 'F') && (current_char < 'a' || current_char > 'f') && (current_char < '0' || current_char > '9'))
-                    {
-                        __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid character.");
-                    }
-                }
-            }
-            __HP_FREE(existing_patch->unl.list);
-            existing_patch->unl.list = config->unl.count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * config->unl.count) : NULL;
-            memcpy(existing_patch->unl.list, config->unl.list, sizeof(struct hp_unl_node) * config->unl.count);
-            existing_patch->unl.count = config->unl.count;
-        }
-
-        if (config->bin_path)
-            __HP_STRING_COPY(existing_patch->bin_path, config->bin_path);
-
-        if (config->bin_args)
-            __HP_STRING_COPY(existing_patch->bin_args, config->bin_args);
-
-        // if (config->roundtime)
-        //     existing_patch->roundtime = config->roundtime;
-
-        if (config->consensus)
-        {
-            if (strlen(config->consensus) == 0 || (strcmp(config->consensus, "public") != 0 && strcmp(config->consensus, "private") != 0))
-            {
-                __HP_UPDATE_CONFIG_ERROR("Invalid consensus flag. Valid values: public|private");
-            }
-            __HP_STRING_COPY(existing_patch->consensus, config->consensus);
-        }
-
-        if (config->npl)
-        {
-            if (strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
-            {
-                __HP_UPDATE_CONFIG_ERROR("Invalid npl flag. Valid values: public|private");
-            }
-            __HP_STRING_COPY(existing_patch->npl, config->npl);
-        }
-
-        if (config->appbill.mode)
-            __HP_STRING_COPY(existing_patch->appbill.mode, config->appbill.mode);
-
-        if (config->appbill.bin_args)
-            __HP_STRING_COPY(existing_patch->appbill.bin_args, config->appbill.bin_args);
-
-        if (__hp_write_to_patch_file(fd, existing_patch) == -1)
-            __HP_UPDATE_CONFIG_ERROR("Error writing updated config to patch.cfg file.");
-
-        __hp_free_patch_config(existing_patch);
-    }
-    else
-    {
-        fprintf(stderr, "Error reading patch.cfg file.\n");
-        close(fd);
-        return -1;
-    }
-
-    close(fd);
-    return 0;
-}
-
-/**
  * Get the existing config file values.
  * @return returns a pointer to a config structure, returns NULL on error.
 */
@@ -577,12 +454,119 @@ struct hp_config *hp_get_config()
 }
 
 /**
+ * Update the params of the existing config file.
+ * @param config Pointer to the updated config struct. 
+*/
+int hp_update_config(const struct hp_config *config)
+{
+    struct hp_contract_context *cctx = __hpc.cctx;
+
+    if (cctx->readonly)
+    {
+        fprintf(stderr, "Config update not allowed in readonly mode.\n");
+        return -1;
+    }
+
+    // Validate fields.
+
+    if (!config->version || strlen(config->version) == 0)
+        __HP_UPDATE_CONFIG_ERROR("Version cannot be empty.");
+
+    if (config->unl.count)
+    {
+        for (size_t i = 0; i < config->unl.count; i++)
+        {
+            const size_t pubkey_len = strlen(config->unl.list[i].pubkey);
+            if (pubkey_len == 0)
+                __HP_UPDATE_CONFIG_ERROR("Unl pubkey cannot be empty.");
+
+            if (pubkey_len != HP_KEY_SIZE)
+                __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid length.");
+
+            if (config->unl.list[i].pubkey[0] != 'e' || config->unl.list[i].pubkey[1] != 'd')
+                __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid format.");
+
+            // Checking the validity of hexadecimal portion. (without 'ed').
+            for (size_t j = 2; j < HP_KEY_SIZE; j++)
+            {
+                const char current_char = config->unl.list[i].pubkey[j];
+                if ((current_char < 'A' || current_char > 'F') && (current_char < 'a' || current_char > 'f') && (current_char < '0' || current_char > '9'))
+                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid character.");
+            }
+        }
+    }
+
+    if (!config->bin_path || strlen(config->bin_path) == 0)
+        __HP_UPDATE_CONFIG_ERROR("Binary path cannot be empty.");
+
+    if (config->roundtime <= 0)
+        __HP_UPDATE_CONFIG_ERROR("Round time must be higher than 0.");
+
+    if (!config->consensus || strlen(config->consensus) == 0 || (strcmp(config->consensus, "public") != 0 && strcmp(config->consensus, "private") != 0))
+        __HP_UPDATE_CONFIG_ERROR("Invalid consensus flag. Valid values: public|private");
+
+    if (!config->npl || strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
+        __HP_UPDATE_CONFIG_ERROR("Invalid npl flag. Valid values: public|private");
+
+    if (config->round_limits.user_input_bytes < 0 || config->round_limits.user_output_bytes < 0 || config->round_limits.npl_output_bytes < 0 ||
+        config->round_limits.proc_cpu_seconds < 0 || config->round_limits.proc_mem_bytes < 0 || config->round_limits.proc_ofd_count < 0)
+        __HP_UPDATE_CONFIG_ERROR("Invalid round limits.");
+
+    const int fd = open(PATCH_FILE_PATH, O_RDWR);
+    if (fd == -1)
+        __HP_UPDATE_CONFIG_ERROR("Error opening patch.cfg file.");
+
+    if (__hp_write_to_patch_file(fd, config) == -1)
+    {
+        close(fd);
+        __HP_UPDATE_CONFIG_ERROR("Error writing updated config to patch.cfg file.");
+    }
+
+    close(fd);
+    return 0;
+}
+
+/**
+ * Assigns the given string value to the specified config string field.
+ * @param config_str Pointer to the string field to populate the new value to.
+ * @param value New string value.
+ * @param value_size String length of the new value.
+ */
+void hp_set_config_string(char **config_str, const char *value, const size_t value_size)
+{
+    *config_str = realloc(*config_str, value_size);
+    strncpy(*config_str, value, value_size);
+}
+
+/**
+ * Populates the config unl list with the specified values.
+ * @param config The config struct to populate the unl to.
+ * @param new_unl Pointer to the new unl node array.
+ * @param new_unl_count No. of entries in the new unl node array.
+ */
+void hp_set_config_unl(struct hp_config *config, const struct hp_unl_node *new_unl, const size_t new_unl_count)
+{
+    const size_t mem_size = sizeof(struct hp_unl_node) * new_unl_count;
+    config->unl.list = realloc(config->unl.list, mem_size);
+    memcpy(config->unl.list, new_unl, mem_size);
+    config->unl.count = new_unl_count;
+}
+
+/**
  * Frees the memory allocated for the config structure.
  * @param config Pointer to the config to be freed.
 */
 void hp_free_config(struct hp_config *config)
 {
-    __hp_free_patch_config(config);
+    __HP_FREE(config->version);
+    __HP_FREE(config->unl.list);
+    __HP_FREE(config->bin_path);
+    __HP_FREE(config->bin_args);
+    __HP_FREE(config->consensus);
+    __HP_FREE(config->npl);
+    __HP_FREE(config->appbill.mode);
+    __HP_FREE(config->appbill.bin_args);
+    __HP_FREE(config);
 }
 
 /**
@@ -622,7 +606,7 @@ struct hp_config *__hp_read_from_patch_file(const int fd)
 */
 int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 {
-    struct iovec iov_vec[4];
+    struct iovec iov_vec[5];
     // {version: + newline + 4 spaces => 21;
     const size_t version_len = 21 + strlen(config->version);
     char version_buf[version_len];
@@ -652,28 +636,57 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     iov_vec[1].iov_base = unl_buf;
     iov_vec[1].iov_len = unl_buf_size;
 
-    char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %d,\n    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n";
+    // Top-level field values.
 
-    // Calculating number of digits in roundtime for json length.
-    // String length is taken after converting to string.
+    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n"
+                              "    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n";
+
     char roundtime_str[16];
     sprintf(roundtime_str, "%d", config->roundtime);
 
     const size_t json_string_len = 95 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(roundtime_str) + strlen(config->consensus) + strlen(config->npl);
     char json_buf[json_string_len];
-    sprintf(json_buf, json_string, config->bin_path, config->bin_args, config->roundtime, config->consensus, config->npl);
+    sprintf(json_buf, json_string, config->bin_path, config->bin_args, roundtime_str, config->consensus, config->npl);
     iov_vec[2].iov_base = json_buf;
     iov_vec[2].iov_len = json_string_len;
 
-    char *appbill_json = "    \"appbill\": {\n        \"mode\": \"%s\",\n        \"bin_args\": \"%s\"\n    }\n}";
+    // Appbill field valiues.
+
+    const char *appbill_json = "    \"appbill\": {\n        \"mode\": \"%s\",\n        \"bin_args\": \"%s\"\n    },\n";
     const size_t appbill_json_len = 67 + strlen(config->appbill.mode) + strlen(config->appbill.bin_args);
     char appbill_buf[appbill_json_len];
     sprintf(appbill_buf, appbill_json, config->appbill.mode, config->appbill.bin_args);
     iov_vec[3].iov_base = appbill_buf;
     iov_vec[3].iov_len = appbill_json_len;
 
+    // Round limits field valies.
+
+    const char *round_limits_json = "    \"round_limits\": {\n"
+                                    "        \"user_input_bytes\": %s,\n        \"user_output_bytes\": %s,\n        \"npl_output_bytes\": %s,\n"
+                                    "        \"proc_cpu_seconds\": %s,\n        \"proc_mem_bytes\": %s,\n        \"proc_ofd_count\": %s\n    }\n}";
+
+    char user_input_bytes_str[20], user_output_bytes_str[20], npl_output_bytes_str[20],
+        proc_cpu_seconds_str[20], proc_mem_bytes_str[20], proc_ofd_count_str[20];
+
+    sprintf(user_input_bytes_str, "%" PRIu64, config->round_limits.user_input_bytes);
+    sprintf(user_output_bytes_str, "%" PRIu64, config->round_limits.user_output_bytes);
+    sprintf(npl_output_bytes_str, "%" PRIu64, config->round_limits.npl_output_bytes);
+
+    sprintf(proc_cpu_seconds_str, "%" PRIu64, config->round_limits.proc_cpu_seconds);
+    sprintf(proc_mem_bytes_str, "%" PRIu64, config->round_limits.proc_mem_bytes);
+    sprintf(proc_ofd_count_str, "%" PRIu64, config->round_limits.proc_ofd_count);
+
+    const size_t round_limits_json_len = 205 + strlen(user_input_bytes_str) + strlen(user_output_bytes_str) + strlen(npl_output_bytes_str) +
+                                         strlen(proc_cpu_seconds_str) + strlen(proc_mem_bytes_str) + strlen(proc_ofd_count_str);
+    char round_limits_buf[round_limits_json_len];
+    sprintf(round_limits_buf, round_limits_json,
+            user_input_bytes_str, user_output_bytes_str, npl_output_bytes_str,
+            proc_cpu_seconds_str, proc_mem_bytes_str, proc_ofd_count_str);
+    iov_vec[4].iov_base = round_limits_buf;
+    iov_vec[4].iov_len = round_limits_json_len;
+
     if (ftruncate(fd, 0) == -1 ||         // Clear any previous content in the file.
-        pwritev(fd, iov_vec, 4, 0) == -1) // Start writing from begining.
+        pwritev(fd, iov_vec, 5, 0) == -1) // Start writing from begining.
         return -1;
 
     return 0;
@@ -750,6 +763,39 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                 else if (strcmp(sub_ele->name->string, "bin_args") == 0)
                 {
                     __HP_ASSIGN_CHAR_PTR(config->appbill.bin_args, sub_ele);
+                }
+                sub_ele = sub_ele->next;
+            } while (sub_ele);
+        }
+        else if (strcmp(k->string, "round_limits") == 0)
+        {
+            struct json_object_s *object = (struct json_object_s *)elem->value->payload;
+            struct json_object_element_s *sub_ele = object->start;
+            do
+            {
+                if (strcmp(sub_ele->name->string, "user_input_bytes") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.user_input_bytes, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "user_output_bytes") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.user_output_bytes, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "npl_output_bytes") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.npl_output_bytes, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "proc_cpu_seconds") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.proc_cpu_seconds, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "proc_mem_bytes") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.proc_mem_bytes, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "proc_ofd_count") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.proc_ofd_count, sub_ele);
                 }
                 sub_ele = sub_ele->next;
             } while (sub_ele);
@@ -880,23 +926,6 @@ int __hp_write_control_msg(const void *buf, const uint32_t len)
     }
 
     return write(__hpc.control_fd, buf, len);
-}
-
-/**
- * Free memory allocated for the given patch config struct.
- * @param patch_config Pointer of patch config struct to be freed.
-*/
-void __hp_free_patch_config(struct hp_config *patch_config)
-{
-    __HP_FREE(patch_config->version);
-    __HP_FREE(patch_config->unl.list);
-    __HP_FREE(patch_config->bin_path);
-    __HP_FREE(patch_config->bin_args);
-    __HP_FREE(patch_config->consensus);
-    __HP_FREE(patch_config->npl);
-    __HP_FREE(patch_config->appbill.mode);
-    __HP_FREE(patch_config->appbill.bin_args);
-    __HP_FREE(patch_config);
 }
 
 #endif

@@ -287,8 +287,12 @@ namespace conf
             return -1;
         }
 
+        std::string jpath;
+
         // node
         {
+            jpath = "node";
+
             try
             {
                 const jsoncons::ojson &node = d["node"];
@@ -325,7 +329,7 @@ namespace conf
             }
             catch (const std::exception &e)
             {
-                std::cerr << "Required node config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                print_missing_field_error(jpath, e);
                 return -1;
             }
         }
@@ -338,6 +342,8 @@ namespace conf
 
         // mesh
         {
+            jpath = "mesh";
+
             try
             {
                 const jsoncons::ojson &mesh = d["mesh"];
@@ -382,28 +388,22 @@ namespace conf
                 cfg.mesh.max_bad_msgsigs_per_min = mesh["max_bad_msgsigs_per_min"].as<uint64_t>();
                 cfg.mesh.max_dup_msgs_per_min = mesh["max_dup_msgs_per_min"].as<uint64_t>();
                 cfg.mesh.idle_timeout = mesh["idle_timeout"].as<uint16_t>();
-                if (!mesh["peer_discovery"].contains("interval"))
-                {
-                    std::cerr << "Required mesh peer discovery config field interval missing at " << ctx.config_file << std::endl;
-                    return -1;
-                }
+
+                jpath = "mesh.peer_discovery";
                 cfg.mesh.peer_discovery.interval = mesh["peer_discovery"]["interval"].as<uint16_t>();
-                if (!mesh["peer_discovery"].contains("enabled"))
-                {
-                    std::cerr << "Required mesh peer discovery config field enabled missing at " << ctx.config_file << std::endl;
-                    return -1;
-                }
                 cfg.mesh.peer_discovery.enabled = mesh["peer_discovery"]["enabled"].as<bool>();
             }
             catch (const std::exception &e)
             {
-                std::cerr << "Required mesh config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                print_missing_field_error(jpath, e);
                 return -1;
             }
         }
 
         // user
         {
+            jpath = "user";
+
             try
             {
                 const jsoncons::ojson &user = d["user"];
@@ -419,13 +419,15 @@ namespace conf
             }
             catch (const std::exception &e)
             {
-                std::cerr << "Required user config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                print_missing_field_error(jpath, e);
                 return -1;
             }
         }
 
         // hpfs
         {
+            jpath = "hpfs";
+
             try
             {
                 const jsoncons::ojson &hpfs = d["hpfs"];
@@ -433,13 +435,15 @@ namespace conf
             }
             catch (const std::exception &e)
             {
-                std::cerr << "Required hpfs config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                print_missing_field_error(jpath, e);
                 return -1;
             }
         }
 
         // log
         {
+            jpath = "log";
+
             try
             {
                 const jsoncons::ojson &log = d["log"];
@@ -453,7 +457,7 @@ namespace conf
             }
             catch (const std::exception &e)
             {
-                std::cerr << "Required log config field " << extract_missing_field(e.what()) << " missing at " << ctx.config_file << std::endl;
+                print_missing_field_error(jpath, e);
                 return -1;
             }
         }
@@ -578,19 +582,18 @@ namespace conf
 
         // Other required fields.
 
-        bool fields_missing = false;
+        bool fields_invalid = false;
+        fields_invalid |= cfg.contract.roundtime == 0 && std::cerr << "Invalid value for roundtime\n";
+        fields_invalid |= cfg.contract.unl.empty() && std::cerr << "Invalid value for unl. Unl list cannot be empty.\n";
+        fields_invalid |= cfg.contract.id.empty() && std::cerr << "Invalid value for contract id.\n";
+        fields_invalid |= cfg.mesh.port == 0 && std::cerr << "Invalid value for mesh port\n";
+        fields_invalid |= cfg.user.port == 0 && std::cerr << "Invalid value for user port\n";
+        fields_invalid |= cfg.log.loglevel.empty() && std::cerr << "Invalid value for loglevel\n";
+        fields_invalid |= cfg.log.loggers.empty() && std::cerr << "Invalid value for loggers\n";
 
-        fields_missing |= cfg.contract.roundtime == 0 && std::cerr << "Missing cfg field: roundtime\n";
-        fields_missing |= cfg.contract.unl.empty() && std::cerr << "Missing cfg field: unl. Unl list cannot be empty.\n";
-        fields_missing |= cfg.contract.id.empty() && std::cerr << "Missing cfg field: contract id.\n";
-        fields_missing |= cfg.mesh.port == 0 && std::cerr << "Missing cfg field: mesh port\n";
-        fields_missing |= cfg.user.port == 0 && std::cerr << "Missing cfg field: user port\n";
-        fields_missing |= cfg.log.loglevel.empty() && std::cerr << "Missing cfg field: loglevel\n";
-        fields_missing |= cfg.log.loggers.empty() && std::cerr << "Missing cfg field: loggers\n";
-
-        if (fields_missing)
+        if (fields_invalid)
         {
-            std::cerr << "Required configuration fields missing at " << ctx.config_file << std::endl;
+            std::cerr << "Invalid configuration values at " << ctx.config_file << std::endl;
             return -1;
         }
 
@@ -707,14 +710,15 @@ namespace conf
     }
 
     /**
-     * Extracts missing config field from the jsoncons exception message.
-     * @param err_message Jsoncons error message.
-     * @return Missing config field.
-    */
-    const std::string extract_missing_field(std::string err_message)
+     * Prints the config json parsing field missing error.
+     */
+    void print_missing_field_error(std::string_view jpath, const std::exception &e)
     {
-        err_message.erase(0, err_message.find("'") + 1);
-        return err_message.substr(0, err_message.find("'"));
+        // Extract field name from jsoncons exception message.
+        std::string msg = e.what();
+        msg.erase(0, msg.find("'") + 1);
+        const std::string field = msg.substr(0, msg.find("'"));
+        std::cerr << "Required config field '" << jpath << "." << field << "' missing at " << ctx.config_file << std::endl;
     }
 
     /**
@@ -856,6 +860,10 @@ namespace conf
         jsoncons::ojson round_limits;
         round_limits.insert_or_assign("user_input_bytes", contract.round_limits.user_input_bytes);
         round_limits.insert_or_assign("user_output_bytes", contract.round_limits.user_output_bytes);
+        round_limits.insert_or_assign("npl_output_bytes", contract.round_limits.npl_output_bytes);
+        round_limits.insert_or_assign("proc_cpu_seconds", contract.round_limits.proc_cpu_seconds);
+        round_limits.insert_or_assign("proc_mem_bytes", contract.round_limits.proc_mem_bytes);
+        round_limits.insert_or_assign("proc_ofd_count", contract.round_limits.proc_ofd_count);
         jdoc.insert_or_assign("round_limits", round_limits);
     }
 
@@ -868,6 +876,8 @@ namespace conf
      */
     int parse_contract_section_json(contract_config &contract, const jsoncons::ojson &jdoc, const bool is_patch_config)
     {
+        std::string jpath = "contract";
+
         try
         {
             if (!is_patch_config)
@@ -932,25 +942,21 @@ namespace conf
             }
             contract.is_npl_public = jdoc["npl"] == PUBLIC;
 
-            if (!jdoc["appbill"].contains("mode"))
-            {
-                std::cerr << "Required contract appbill config field mode missing at " << ctx.config_file << std::endl;
-                return -1;
-            }
+            jpath = "contract.appbill";
             contract.appbill.mode = jdoc["appbill"]["mode"].as<std::string>();
-            if (!jdoc["appbill"].contains("bin_args"))
-            {
-                std::cerr << "Required contract appbill config field bin_args missing at " << ctx.config_file << std::endl;
-                return -1;
-            }
             contract.appbill.bin_args = jdoc["appbill"]["bin_args"].as<std::string>();
 
+            jpath = "contract.round_limits";
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();
             contract.round_limits.user_output_bytes = jdoc["round_limits"]["user_output_bytes"].as<size_t>();
+            contract.round_limits.npl_output_bytes = jdoc["round_limits"]["npl_output_bytes"].as<size_t>();
+            contract.round_limits.proc_cpu_seconds = jdoc["round_limits"]["proc_cpu_seconds"].as<size_t>();
+            contract.round_limits.proc_mem_bytes = jdoc["round_limits"]["proc_mem_bytes"].as<size_t>();
+            contract.round_limits.proc_ofd_count = jdoc["round_limits"]["proc_ofd_count"].as<size_t>();
         }
         catch (const std::exception &e)
         {
-            std::cerr << "Required contract config field '" << extract_missing_field(e.what()) << "' missing at " << ctx.config_file << std::endl;
+            print_missing_field_error(jpath, e);
             return -1;
         }
 

@@ -90,6 +90,10 @@ namespace conf
     {
         size_t user_input_bytes = 0;  // Max contract input bytes per user per round.
         size_t user_output_bytes = 0; // Max contract output bytes per user per round.
+        size_t npl_output_bytes = 0;  // Max npl output bytes per round.
+        size_t proc_cpu_seconds = 0;  // Max CPU time the contract process can consume.
+        size_t proc_mem_bytes = 0;    // Max memory the contract process can allocate.
+        size_t proc_ofd_count = 0;    // Max no. of open file descriptors the contract process can allocate.
     };
 
     struct contract_config
@@ -223,7 +227,7 @@ namespace conf
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);
 
-    const std::string extract_missing_field(std::string err_message);
+    void print_missing_field_error(std::string_view jpath, const std::exception &e);
 
     int populate_patch_config();
 

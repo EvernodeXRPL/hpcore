@@ -15,6 +15,8 @@ const clientProtocols = {
 }
 Object.freeze(clientProtocols);
 
+const PATCH_CONFIG_PATH = "../patch.cfg";
+
 class HotPocketContract {
 
     #controlChannel = null;
@@ -66,140 +68,6 @@ class HotPocketContract {
     }
 }
 
-// Represents patch config.
-class PatchConfig {
-    #patchConfigPath = "../patch.cfg";
-    #version = null;
-    #binPath = null;
-    #binArgs = null;
-    #roundtime = null;
-    #consensus = null;
-    #npl = null;
-    #unl = null;
-    #appbillMode = null;
-    #appbillBinArgs = null;
-
-    // Loads the config value if there's a patch config file. Otherwise throw error.
-    readConfig() {
-        if (!fs.existsSync(this.#patchConfigPath))
-            throw "Patch config file does not exist.";
-
-        const fileContent = fs.readFileSync(this.#patchConfigPath);
-        const config = JSON.parse(fileContent);
-        this.#version = config.version;
-        this.#binPath = config.bin_path;
-        this.#binArgs = config.bin_args;
-        this.#roundtime = +config.roundtime;
-        this.#consensus = config.consensus;
-        this.#npl = config.npl;
-        this.#unl = config.unl;
-        this.#appbillMode = config.appbill.mode;
-        this.#appbillBinArgs = config.appbill.bin_args;
-    }
-
-    setVersion(version) {
-        if (!version)
-            throw "Contract version is not specified.";
-        this.#version = version;
-    }
-
-    setUnl(unl) {
-        if (!unl || !unl.length)
-            throw "UNL list cannot be empty.";
-
-        let updatedUnl = [];
-        for (let pubKey of unl) {
-            // Pubkeys are validated against length, ed prefix and hex characters.
-            if (!pubKey.length)
-                throw "UNL pubKey not specified.";
-            else if (!(/^(e|E)(d|D)[0-9a-fA-F]{64}$/g.test(pubKey)))
-                throw "Invalid UNL pubKey specified.";
-
-            updatedUnl.push(pubKey);
-        }
-        this.#unl = updatedUnl;
-    }
-
-    setBinPath(binPath) {
-        if (!binPath.length)
-            throw "Binary path cannot be empty.";
-        this.#binPath = binPath;
-    }
-
-    setBinArgs(binArgs) {
-        this.#binArgs = binArgs;
-    }
-
-    setRoundtime(roundtime) {
-        if (roundtime == 0)
-            throw "Round time cannot be zero."
-        this.#roundtime = roundtime;
-    }
-
-    setConsensus(consensus) {
-        if (consensus != "public" && consensus != "private")
-            throw "Invalid consensus flag configured in patch file. Valid values: public|private";
-        this.#consensus = consensus;
-    }
-
-    setNpl(npl) {
-        if (npl != "public" && npl != "private")
-            throw "Invalid npl flag configured in patch file. Valid values: public|private";
-        this.#npl = npl;
-    }
-
-    setAppbillMode(appbillMode) {
-        this.#appbillMode = appbillMode;
-    }
-
-    setAppbillBinArgs(appbillBinArgs) {
-        this.#appbillBinArgs = appbillBinArgs;
-    }
-
-    // Saves the config changes to tha patch config.
-    saveChanges() {
-        // Property order is simmilar to the property order of the patch.cfg created by HP at the startup.
-        const config = {
-            version: this.#version,
-            unl: this.#unl,
-            bin_path: this.#binPath,
-            bin_args: this.#binArgs ? this.#binArgs : "",
-            roundtime: this.#roundtime,
-            consensus: this.#consensus,
-            npl: this.#npl,
-            appbill: {
-                mode: this.#appbillMode ? this.#appbillMode : "",
-                bin_args: this.#appbillBinArgs ? this.#appbillBinArgs : ""
-            }
-        };
-
-        return new Promise((resolve, reject) => {
-            // Format json to match with the patch.cfg json format created by HP at the startup.
-            fs.writeFile(this.#patchConfigPath, JSON.stringify(config, null, 4), (err) => {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
-    }
-
-    // Returns patch config as a JSON object.
-    getConfig() {
-        return {
-            version: this.#version,
-            unl: this.#unl,
-            roundtime: this.#roundtime,
-            consensus: this.#consensus,
-            npl: this.#npl,
-            binPath: this.#binPath,
-            binArgs: this.#binArgs,
-            appbill: {
-                mode: this.#appbillMode,
-                binArgs: this.#appbillBinArgs
-            }
-        }
-    }
-}
-
 class ContractContext {
 
     #controlChannel = null;
@@ -215,75 +83,70 @@ class ContractContext {
         this.#patchConfig = new PatchConfig();
     }
 
-    // Updates the config with given parameters and save the patch config.
-    // Params,
-    // {
-    //     version: contract version as string,
-    //     unl: list of unl pubkeys. Expecting "ed" prefixed (ed22519 algorithm) hex pubkeys,
-    //     consensus: consensus private|public,
-    //     npl: npl private|public,
-    //     binPath: contract binary path string,
-    //     binArgs: contract binary args string,
-    //     appbillMode: appbill mode string,
-    //     appbillBinArgs: appbill binary args string
-    // }
-    async updateConfig(params) {
-        if (this.readonly)
-            throw "Config update not allowed in readonly mode.";
-
-        // Read current patch config values before update.
-        this.#patchConfig.readConfig();
-
-        if (params.hasOwnProperty('version')) {
-            this.#patchConfig.setVersion(params.version);
-        }
-        if (params.hasOwnProperty('unl')) {
-            this.#patchConfig.setUnl(params.unl);
-        }
-        // Commented and disabled updating until roundtime sniffing heuristics is implemented in HP.
-        // if (params.hasOwnProperty('roundtime')) {
-        //     this.#patchConfig.setRoundtime(params.roundtime);
-        // }
-        if (params.hasOwnProperty('consensus')) {
-            this.#patchConfig.setConsensus(params.consensus);
-        }
-        if (params.hasOwnProperty('npl')) {
-            this.#patchConfig.setNpl(params.npl);
-        }
-        if (params.hasOwnProperty('binPath')) {
-            this.#patchConfig.setBinPath(params.binPath);
-        }
-        if (params.hasOwnProperty('binArgs')) {
-            this.#patchConfig.setBinArgs(params.binArgs);
-        }
-        if (params.hasOwnProperty('appbillMode')) {
-            this.#patchConfig.setAppbillMode(params.appbillMode);
-        }
-        if (params.hasOwnProperty('appbillBinArgs')) {
-            this.#patchConfig.setAppbillBinArgs(params.appbillBinArgs);
-        }
-        await this.#patchConfig.saveChanges();
+    // Returns the config values in patch config.
+    getConfig() {
+        return this.#patchConfig.getConfig();
     }
 
-    // Returns the config values in patch config.
-    // Returns,
-    // {
-    //     version: contract version as string,
-    //     unl: list of unl pubkeys. "ed" prefixed (ed22519 algorithm) hex pubkeys,
-    //     roundtime:  roundtime as Number,
-    //     consensus: consensus private|public,
-    //     npl: npl private|public,
-    //     binPath: contract binary path string,
-    //     binArgs: contract binary args string,
-    //     appbill: {
-    //         mode: appbill mode string,
-    //         binArgs: appbill binary args string
-    //     }
-    // }
+    // Updates the config with given config object and save the patch config.
+    updateConfig(config) {
+        return this.#patchConfig.updateConfig(config);
+    }
+}
+
+// Handles patch config manipulation.
+class PatchConfig {
+
+    // Loads the config value if there's a patch config file. Otherwise throw error.
     getConfig() {
-        // Read current patch config values.
-        this.#patchConfig.readConfig()
-        return this.#patchConfig.getConfig();
+        if (!fs.existsSync(PATCH_CONFIG_PATH))
+            throw "Patch config file does not exist.";
+
+        return new Promise((resolve, reject) => {
+            fs.readFile(PATCH_CONFIG_PATH, 'utf8', function (err, data) {
+                if (err) reject(err);
+                else resolve(JSON.parse(data));
+            });
+        });
+    }
+
+    updateConfig(config) {
+
+        this.validateConfig(config);
+
+        return new Promise((resolve, reject) => {
+            // Format json to match with the patch.cfg json format created by HP at the startup.
+            fs.writeFile(PATCH_CONFIG_PATH, JSON.stringify(config, null, 4), (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    }
+
+    validateConfig(config) {
+        // Validate all config fields.
+        if (!config.version)
+            throw "Contract version is not specified.";
+        if (!config.unl || !config.unl.length)
+            throw "UNL list cannot be empty.";
+        for (let pubKey of config.unl) {
+            // Pubkeys are validated against length, ed prefix and hex characters.
+            if (!pubKey.length)
+                throw "UNL pubKey not specified.";
+            else if (!(/^(e|E)(d|D)[0-9a-fA-F]{64}$/g.test(pubKey)))
+                throw "Invalid UNL pubKey specified.";
+        }
+        if (!config.bin_path || !config.bin_path.length)
+            throw "Binary path cannot be empty.";
+        if (config.roundtime <= 0)
+            throw "Round time must be higher than zero."
+        if (config.consensus != "public" && config.consensus != "private")
+            throw "Invalid consensus flag configured in patch file. Valid values: public|private";
+        if (config.npl != "public" && config.npl != "private")
+            throw "Invalid npl flag configured in patch file. Valid values: public|private";
+        if (config.round_limits.user_input_bytes < 0 || config.round_limits.user_output_bytes < 0 || config.round_limits.npl_output_bytes < 0 ||
+            config.round_limits.proc_cpu_seconds < 0 || config.round_limits.proc_mem_bytes < 0 || config.round_limits.proc_ofd_count < 0)
+            throw "Invalid round limits.";
     }
 }
 
