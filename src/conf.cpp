@@ -854,6 +854,7 @@ namespace conf
         jsoncons::ojson round_limits;
         round_limits.insert_or_assign("user_input_bytes", contract.round_limits.user_input_bytes);
         round_limits.insert_or_assign("user_output_bytes", contract.round_limits.user_output_bytes);
+        round_limits.insert_or_assign("npl_output_bytes", contract.round_limits.npl_output_bytes);
         jdoc.insert_or_assign("round_limits", round_limits);
     }
 
@@ -945,6 +946,7 @@ namespace conf
 
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();
             contract.round_limits.user_output_bytes = jdoc["round_limits"]["user_output_bytes"].as<size_t>();
+            contract.round_limits.npl_output_bytes = jdoc["round_limits"]["npl_output_bytes"].as<size_t>();
         }
         catch (const std::exception &e)
         {

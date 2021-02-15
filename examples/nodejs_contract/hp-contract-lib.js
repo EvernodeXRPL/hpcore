@@ -144,7 +144,7 @@ class PatchConfig {
             throw "Invalid consensus flag configured in patch file. Valid values: public|private";
         if (config.npl != "public" && config.npl != "private")
             throw "Invalid npl flag configured in patch file. Valid values: public|private";
-        if (config.round_limits.user_input_bytes < 0 || config.round_limits.user_output_bytes < 0)
+        if (config.round_limits.user_input_bytes < 0 || config.round_limits.user_output_bytes < 0 || config.round_limits.npl_output_bytes < 0)
             throw "Invalid round limits.";
     }
 }
