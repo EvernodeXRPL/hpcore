@@ -78,13 +78,13 @@ namespace ledger
         seq_no++; // New lcl sequence number.
 
         // Aqure hpfs rw session before accessing shards and insert ledger records.
-        if (start_hpfs_session(ctx) == -1)
+        if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
         // Construct shard path.
         const uint64_t shard_seq_no = (seq_no - 1) / SHARD_SIZE;
         const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
-        const std::string shard_path = ledger_fs.physical_path(ctx.hpfs_session_name, shard_vpath);
+        const std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
 
         // If (seq_no - 1) % SHARD_SIZE == 0 means this is the first ledger of the shard.
         // So create the shard folder and ledger table.
@@ -94,7 +94,7 @@ namespace ledger
             if (util::create_dir_tree_recursive(shard_path) == -1)
             {
                 LOG_ERROR << errno << ": Error creating the shard, shard: " << std::to_string(shard_seq_no);
-                stop_hpfs_session(ctx);
+                ledger_fs.release_rw_session();
                 return -1;
             }
 
@@ -102,7 +102,7 @@ namespace ledger
             if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
-                stop_hpfs_session(ctx);
+                ledger_fs.release_rw_session();
                 return -1;
             }
 
@@ -111,7 +111,7 @@ namespace ledger
             {
                 LOG_ERROR << errno << ": Error creating the shard table, shard: " << std::to_string(shard_seq_no);
                 sqlite::close_db(&ctx.db);
-                stop_hpfs_session(ctx);
+                ledger_fs.release_rw_session();
                 return -1;
             }
 
@@ -119,10 +119,10 @@ namespace ledger
             if (shard_seq_no > 0)
             {
                 const std::string prev_shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no - 1));
-                if (ledger_fs.get_hash(prev_shard_hash, ctx.hpfs_session_name, prev_shard_vpath) < 1)
+                if (ledger_fs.get_hash(prev_shard_hash, hpfs::RW_SESSION_NAME, prev_shard_vpath) < 1)
                 {
                     LOG_ERROR << errno << ": Error getting shard hash in vpath: " << prev_shard_vpath << " for previous shard hash.";
-                    stop_hpfs_session(ctx);
+                    ledger_fs.release_rw_session();
                     return -1;
                 }
             }
@@ -145,7 +145,7 @@ namespace ledger
         else if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
-            stop_hpfs_session(ctx);
+            ledger_fs.release_rw_session();
             return -1;
         }
 
@@ -196,7 +196,7 @@ namespace ledger
         {
             LOG_ERROR << errno << ": Error creating the ledger, shard: " << std::to_string(shard_seq_no);
             sqlite::close_db(&ctx.db);
-            stop_hpfs_session(ctx);
+            ledger_fs.release_rw_session();
             return -1;
         }
 
@@ -205,11 +205,11 @@ namespace ledger
         ctx.set_lcl(seq_no, new_lcl);
 
         util::h32 last_shard_hash;
-        if (ledger_fs.get_hash(last_shard_hash, ctx.hpfs_session_name, shard_vpath) == -1)
+        if (ledger_fs.get_hash(last_shard_hash, hpfs::RW_SESSION_NAME, shard_vpath) == -1)
         {
             LOG_ERROR << errno << ": Error reading shard hash: " << std::to_string(shard_seq_no);
             sqlite::close_db(&ctx.db);
-            stop_hpfs_session(ctx);
+            ledger_fs.release_rw_session();
             return -1;
         }
 
@@ -223,7 +223,7 @@ namespace ledger
         }
 
         sqlite::close_db(&ctx.db);
-        return stop_hpfs_session(ctx);
+        return ledger_fs.release_rw_session();
     }
 
     /**
@@ -235,7 +235,7 @@ namespace ledger
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
         {
-            const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, ledger::PRIMARY_DIR);
+            const std::string shard_dir_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, ledger::PRIMARY_DIR);
             std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
             for (const std::string shard : shards)
             {
@@ -290,15 +290,15 @@ namespace ledger
     int get_last_ledger_and_update_context()
     {
         // Aquire hpfs rw session before accessing shards and insert ledger records.
-        if (start_hpfs_session(ctx) == -1)
+        if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
-        const std::string shard_dir_path = ledger_fs.physical_path(ctx.hpfs_session_name, ledger::PRIMARY_DIR);
+        const std::string shard_dir_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, ledger::PRIMARY_DIR);
         std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
 
         if (shards.size() == 0)
         {
-            stop_hpfs_session(ctx);
+            ledger_fs.release_rw_session();
             ctx.set_lcl(0, GENESIS_LEDGER);
         }
         else
@@ -324,7 +324,7 @@ namespace ledger
             if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database, shard: " << shards.front();
-                stop_hpfs_session(ctx);
+                ledger_fs.release_rw_session();
                 return -1;
             }
 
@@ -335,37 +335,19 @@ namespace ledger
 
             util::h32 last_shard_hash;
             const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(shards.front());
-            const int ret = ledger_fs.get_hash(last_shard_hash, ctx.hpfs_session_name, shard_vpath);
+            const int ret = ledger_fs.get_hash(last_shard_hash, hpfs::RW_SESSION_NAME, shard_vpath);
             if (ret == -1)
             {
                 LOG_ERROR << errno << ": Error reading shard hash: " << shards.front();
-                stop_hpfs_session(ctx);
+                ledger_fs.release_rw_session();
                 return -1;
             }
             if (ret == 1)
                 ctx.set_last_shard_hash(last_shard_seq_no, last_shard_hash);
-            stop_hpfs_session(ctx);
+            ledger_fs.release_rw_session();
         }
 
         return 0;
-    }
-
-    /**
-     * Starts the hpfs virtual filesystem session used for contract execution.
-     */
-    int start_hpfs_session(ledger_context &ctx)
-    {
-        ctx.hpfs_session_name = hpfs::RW_SESSION_NAME;
-
-        return ledger_fs.acquire_rw_session();
-    }
-
-    /**
-     * Stops the hpfs virtual filesystem session.
-     */
-    int stop_hpfs_session(ledger_context &ctx)
-    {
-        return ledger_fs.release_rw_session();
     }
 
     /**

@@ -118,7 +118,7 @@ namespace consensus
         util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
         const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);
         const util::h32 last_shard_hash = ledger::ctx.get_last_shard_hash();
-        const uint shard_seq_no = ledger::ctx.get_shard_seq_no();
+        const uint64_t shard_seq_no = ledger::ctx.get_shard_seq_no();
 
         if (ctx.stage == 0)
         {
@@ -181,8 +181,8 @@ namespace consensus
         uint64_t majority_shard_seq_no;
         if (check_last_shard_hash_votes(is_last_shard_hash_desync, majority_last_shard_hash, majority_shard_seq_no, votes, unl_count))
         {
-            // We proceed further only if ledger primary hash check was success (meaning ledger primary hash check could be reliably performed).
-            // Ledger primary hash sync if we are out-of-sync with majority ledger primary hash.
+            // We proceed further only if last shard hash check was success (meaning last shard hash check could be reliably performed).
+            // Last shard hash sync is commenced if we are out-of-sync with majority last shard hash.
             if (is_last_shard_hash_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
@@ -211,6 +211,7 @@ namespace consensus
             {
                 conf::change_role(conf::ROLE::OBSERVER);
 
+                // Patch file sync is prioritized, Therefore it is set in the front of the sync target list. 
                 if (is_patch_desync)
                     sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
 
@@ -218,18 +219,18 @@ namespace consensus
                     sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
-            // Proceed further only if both ledger primary hash, state and patch are in sync with majority.
+            // Proceed further only if last shard, state and patch hashes are in sync with majority.
             if (!is_last_shard_hash_desync && !is_state_desync && !is_patch_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
-            // Ledger primary hash or hpfs desync.
+            // Last shard hash, patch or state desync.
             return -1;
         }
 
-        // Majority ledger primary hash couldn't be detected reliably.
+        // Majority last shard hash couldn't be detected reliably.
         return -2;
     }
 
@@ -517,7 +518,7 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, const uint64_t shard_seq_no, const util::h32 last_shard_hash)
+    p2p::proposal create_stage0_proposal(std::string_view lcl, const util::h32 &state_hash, const util::h32 &patch_hash, const uint64_t shard_seq_no, const util::h32 &last_shard_hash)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -545,7 +546,7 @@ namespace consensus
         return p;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, const uint64_t shard_seq_no, const util::h32 last_shard_hash)
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash, const uint64_t shard_seq_no, const util::h32 &last_shard_hash)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
@@ -702,7 +703,7 @@ namespace consensus
             }
         }
 
-        // If winning ledger primary hash is not matched with our ledger primary hash, that means we are not on the consensus ledger.
+        // If winning last shard hash is not matched with our last shard hash, that means we are not on the consensus ledger.
         // If that's the case we should request history straight away.
         if (ledger::ctx.get_last_shard_hash() != majority_last_shard_hash)
         {
@@ -712,16 +713,16 @@ namespace consensus
         }
         else
         {
-            // Check wheher there are enough winning votes for the ledger primary hash to be reliable.
+            // Check wheher there are enough winning votes for the last shard to be reliable.
             const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
             if (winning_votes < min_wins_required)
             {
-                LOG_INFO << "No consensus on ledger primary hash. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
+                LOG_INFO << "No consensus on last shard hash. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
                 return false;
             }
             else
             {
-                // Reaching here means we have reliable amount of winning ledger primary hash votes and our ledger primary hash matches with majority ledger primary hash.
+                // Reaching here means we have reliable amount of winning last shard hash votes and our last shard hash matches with majority last shard hash.
                 is_desync = false;
                 return true;
             }

@@ -42,7 +42,14 @@ namespace ledger
         // If the synced shard sequence number is equal or greater than the current shard seq number,
         // then the context information should be updated.
         if (ctx.get_shard_seq_no() <= shard_seq_no)
-            get_last_ledger_and_update_context();
+        {
+            if (get_last_ledger_and_update_context() == -1)
+            {
+                LOG_ERROR << "Error updating context from the synced shard " << synced_target.name;
+                return;
+            }
+
+        }
 
         if (conf::cfg.node.max_shards == 0 || // Sync all shards if this is a full history node.
             ctx.get_shard_seq_no() - shard_seq_no <= conf::cfg.node.max_shards)

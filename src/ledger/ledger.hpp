@@ -22,7 +22,6 @@ namespace ledger
 
     public:
         sqlite3 *db = NULL;
-        std::string hpfs_session_name;
 
         const std::string get_lcl()
         {
@@ -80,9 +79,5 @@ namespace ledger
     int get_last_ledger_and_update_context();
 
     int get_last_shard_info(std::string_view session_name, util::h32 &last_shard_hash, uint64_t &shard_seq_no);
-
-    int start_hpfs_session(ledger_context &ctx);
-
-    int stop_hpfs_session(ledger_context &ctx);
 
 } // namespace ledger

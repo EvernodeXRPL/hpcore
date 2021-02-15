@@ -123,9 +123,9 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash, const uint64_t shard_seq_no, const util::h32 last_shard_hash);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, const util::h32 &state_hash, const util::h32 &patch_hash, const uint64_t shard_seq_no, const util::h32 &last_shard_hash);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash, const uint64_t shard_seq_no, const util::h32 last_shard_hash);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash, const uint64_t shard_seq_no, const util::h32 &last_shard_hash);
 
     void broadcast_proposal(const p2p::proposal &p);
 

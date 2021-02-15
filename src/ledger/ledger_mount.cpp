@@ -12,10 +12,11 @@ namespace ledger
         // Add ledger fs preparation logic here.
         util::h32 initial_last_ledger_hash;
         uint64_t initial_shard_seq_no = 0;
+        constexpr const char * session_name = "ro_ledger_prepare_fs";
 
-        if (acquire_rw_session() == -1 ||
-            get_last_shard_info(hpfs::RW_SESSION_NAME, initial_last_ledger_hash, initial_shard_seq_no) == -1 ||
-            release_rw_session() == -1)
+        if (start_ro_session(session_name, true) == -1 ||
+            get_last_shard_info(session_name, initial_last_ledger_hash, initial_shard_seq_no) == -1 ||
+            stop_ro_session(session_name) == -1)
         {
             LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
             return -1;
