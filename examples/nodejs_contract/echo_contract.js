@@ -50,13 +50,9 @@ const echoContract = async (ctx) => {
     // }
 
     // Update patch config
-    // await ctx.updateConfig({
-    //     version: "2.0",
-    //     unl: [
-    //         "edf3f3bff36e22d0e1c7abf791ca4900e717754443b8e861dcfbf1cd2bbd0f6159"
-    //     ],
-    //     consensus: "private"
-    // });
+    // const config = await ctx.getConfig();
+    // config.unl.push("edf3f3bff36e22d0e1c7abf791ca4900e717754443b8e861dcfbf1cd2bbd0f6159");
+    // await ctx.updateConfig(config);
 }
 
 const hpc = new HotPocket.Contract();
