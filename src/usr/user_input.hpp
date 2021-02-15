@@ -8,22 +8,27 @@ namespace usr
 {
 
     /**
- * Represents a signed contract input message a network user has submitted.
- */
-    struct user_input
+     * Represents a signed contract input message a network user has submitted.
+     */
+    struct submitted_user_input
     {
         const std::string input_container;
         const std::string sig;
-        const util::PROTOCOL protocol; // The encoding protocol used for the input container.
+        const util::PROTOCOL protocol; // The message protocol used by the user.
+    };
 
-        user_input(const std::string input_container, const std::string sig, const util::PROTOCOL protocol)
-            : input_container(std::move(input_container)), sig(std::move(sig)), protocol(protocol)
-        {
-        }
+    struct extracted_user_input
+    {
+        std::string input;
+        std::string nonce;
+        uint64_t max_lcl_seqno;
+        std::string sig;
+        util::PROTOCOL protocol; // The message protocol used by the user.
 
-        user_input(std::string_view input_container, std::string_view sig, const util::PROTOCOL protocol)
-            : input_container(input_container), sig(sig), protocol(protocol)
+        // Comparison operator used for sorting user's inputs in nonce order.
+        bool operator<(const extracted_user_input &other)
         {
+            return nonce < other.nonce;
         }
     };
 
@@ -31,11 +36,6 @@ namespace usr
     {
         const std::string pubkey;
         const std::string input;
-
-        raw_user_input(std::string_view pubkey, std::string_view input)
-            : pubkey(pubkey), input(input)
-        {
-        }
     };
 
 } // namespace usr

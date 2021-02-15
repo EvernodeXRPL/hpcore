@@ -28,7 +28,10 @@ namespace usr
         const std::string pubkey;
 
         // Holds the unprocessed user inputs collected from websocket.
-        std::list<user_input> submitted_inputs;
+        std::list<submitted_user_input> submitted_inputs;
+
+        // Total input bytes collected which are pending to be subjected to consensus.
+        size_t collected_input_size = 0;
 
         // Holds the websocket session of this user.
         // We don't need to own the session object since the lifetime of user and session are coupled.
@@ -59,6 +62,14 @@ namespace usr
 
         std::optional<usr::user_comm_server> server;
     };
+
+    struct input_status_response
+    {
+        const util::PROTOCOL protocol;
+        const std::string sig;
+        const char *reject_reason;
+    };
+
     extern connected_context ctx;
     extern util::buffer_store input_store;
 
@@ -70,7 +81,9 @@ namespace usr
 
     int verify_challenge(std::string_view message, usr::user_comm_session &session);
 
-    int handle_user_message(connected_user &user, std::string_view message);
+    int handle_authed_user_message(connected_user &user, std::string_view message);
+
+    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses);
 
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
                            std::string_view status, std::string_view reason, std::string_view input_sig);
@@ -79,9 +92,10 @@ namespace usr
 
     int remove_user(const std::string &pubkey);
 
-    const char *validate_user_input_submission(const std::string &user_pubkey, const usr::user_input &umsg,
-                                               const uint64_t lcl_seq_no, size_t &total_input_len,
-                                               std::string &hash, util::buffer_view &input, uint64_t &max_lcl_seqno);
+    const char *extract_submitted_input(const std::string &user_pubkey, const usr::submitted_user_input &submitted, usr::extracted_user_input &extracted);
+
+    const char *validate_user_input_submission(const std::string &user_pubkey, const usr::extracted_user_input &extracted_input,
+                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &hash, util::buffer_view &input);
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 

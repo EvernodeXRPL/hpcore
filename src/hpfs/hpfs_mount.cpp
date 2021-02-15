@@ -35,7 +35,7 @@ namespace hpfs
 
         if (prepare_fs() == -1)
         {
-            util::kill_process(hpfs_pid, true);
+            stop_hpfs_process();
             return -1;
         }
 
@@ -50,9 +50,7 @@ namespace hpfs
     {
         if (init_success)
         {
-            LOG_DEBUG << "Stopping hpfs process... pid:" << hpfs_pid;
-            if (hpfs_pid > 0 && util::kill_process(hpfs_pid, true) == 0)
-                LOG_INFO << "Stopped hpfs process.";
+            stop_hpfs_process();
         }
     }
 
@@ -70,6 +68,9 @@ namespace hpfs
      */
     int hpfs_mount::start_hpfs_process()
     {
+        if (conf::cfg.hpfs.external)
+            return 0;
+
         const pid_t pid = fork();
         if (pid > 0)
         {
@@ -146,6 +147,16 @@ namespace hpfs
         }
 
         return 0;
+    }
+
+    void hpfs_mount::stop_hpfs_process()
+    {
+        LOG_DEBUG << "Stopping hpfs process... pid:" << hpfs_pid;
+        if (!conf::cfg.hpfs.external && hpfs_pid > 0 && util::kill_process(hpfs_pid, true) == 0)
+        {
+            hpfs_pid = 0;
+            LOG_INFO << "Stopped hpfs process.";
+        }
     }
 
     /**

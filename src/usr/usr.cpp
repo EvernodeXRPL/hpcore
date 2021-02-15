@@ -28,6 +28,8 @@ namespace usr
     uint64_t metric_thresholds[5];
     bool init_success = false;
 
+    constexpr size_t MAX_INPUT_NONCE_SIZE = 128;
+
     /**
      * Initializes the usr subsystem. Must be called once during application startup.
      * @return 0 for successful initialization. -1 for failure.
@@ -128,12 +130,12 @@ namespace usr
     }
 
     /**
-     * Processes a message sent by a connected user. This will be invoked by web socket on_message handler.
+     * Processes a message sent by a authenticated user. This will be invoked by web socket on_message handler.
      * @param user The authenticated user who sent the message.
      * @param message The message sent by user.
      * @return 0 on successful processing. -1 for failure.
      */
-    int handle_user_message(connected_user &user, std::string_view message)
+    int handle_authed_user_message(connected_user &user, std::string_view message)
     {
         msg::usrmsg::usrmsg_parser parser(user.protocol);
 
@@ -175,14 +177,33 @@ namespace usr
                     uint64_t max_lcl_seqno;
                     if (parser.extract_input_container(input_data, nonce, max_lcl_seqno, input_container) != -1)
                     {
+                        // Check for max nonce size.
+                        if (nonce.size() > MAX_INPUT_NONCE_SIZE)
+                        {
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_OVERFLOW, sig);
+                            return -1;
+                        }
+
+                        // Check whether the newly received input is going to cause overflow of round input limit.
+                        if (conf::cfg.contract.round_limits.user_input_bytes > 0 &&
+                            (user.collected_input_size + input_data.size()) > conf::cfg.contract.round_limits.user_input_bytes)
+                        {
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW, sig);
+                            return -1;
+                        }
+
                         const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_lcl_seqno, true);
                         if (nonce_status == 0)
                         {
                             //Add to the submitted input list.
-                            user.submitted_inputs.push_back(user_input(
+                            user.submitted_inputs.push_back(submitted_user_input{
                                 std::move(input_container),
                                 std::move(sig),
-                                user.protocol));
+                                user.protocol});
+
+                            // Increment the collected input size counter. This will be reset whenever collected inputs are moved
+                            // to concensus candidate input set.
+                            user.collected_input_size += input_data.size();
                             return 0;
                         }
                         else
@@ -223,6 +244,39 @@ namespace usr
             // Bad message.
             send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, "");
             return -1;
+        }
+    }
+
+    /**
+     * Sends multiple user input responses grouped by user.
+     */
+    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses)
+    {
+        // Lock the user sessions.
+        std::scoped_lock lock(usr::ctx.users_mutex);
+
+        for (auto &[pubkey, user_responses] : responses)
+        {
+            // Locate this user's socket session.
+            const auto user_itr = usr::ctx.users.find(pubkey);
+            if (user_itr != usr::ctx.users.end())
+            {
+                // Send the request status result if this user is connected to us.
+                for (const input_status_response &resp : user_responses)
+                {
+                    // We are not sending any status response for 'already submitted' inputs. This is because the user
+                    // would have gotten the proper status response during first submission.
+                    if (resp.reject_reason != msg::usrmsg::REASON_ALREADY_SUBMITTED)
+                    {
+                        msg::usrmsg::usrmsg_parser parser(resp.protocol);
+                        send_input_status(parser,
+                                          user_itr->second.session,
+                                          resp.reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
+                                          resp.reject_reason == NULL ? "" : resp.reject_reason,
+                                          resp.sig);
+                    }
+                }
+            }
         }
     }
 
@@ -300,61 +354,77 @@ namespace usr
         return 0;
     }
 
+    const char *extract_submitted_input(const std::string &user_pubkey, const usr::submitted_user_input &submitted, usr::extracted_user_input &extracted)
+    {
+        // Verify the signature of the submitted input_container.
+        if (crypto::verify(submitted.input_container, submitted.sig, user_pubkey) == -1)
+        {
+            LOG_DEBUG << "User input bad signature.";
+            return msg::usrmsg::REASON_BAD_SIG;
+        }
+
+        // Extract information from input container.
+        msg::usrmsg::usrmsg_parser parser(submitted.protocol);
+        if (parser.extract_input_container(extracted.input, extracted.nonce, extracted.max_lcl_seqno, submitted.input_container) == -1)
+        {
+            LOG_DEBUG << "User input bad input container format.";
+            return msg::usrmsg::REASON_BAD_MSG_FORMAT;
+        }
+
+        extracted.sig = std::move(submitted.sig);
+        extracted.protocol = submitted.protocol;
+
+        return NULL;
+    }
+
     /**
      * Validates the provided user input message against all the required criteria.
      * @return The rejection reason if input rejected. NULL if the input can be accepted.
      */
-    const char *validate_user_input_submission(const std::string &user_pubkey, const usr::user_input &umsg,
-                                               const uint64_t lcl_seq_no, size_t &total_input_len,
-                                               std::string &hash, util::buffer_view &input, uint64_t &max_lcl_seqno)
+    const char *validate_user_input_submission(const std::string &user_pubkey, const usr::extracted_user_input &extracted_input,
+                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &hash, util::buffer_view &input)
     {
-        // Verify the signature of the input_container.
-        if (crypto::verify(umsg.input_container, umsg.sig, user_pubkey) == -1)
-        {
-            LOG_DEBUG << "User message bad signature.";
-            return msg::usrmsg::REASON_BAD_SIG;
-        }
-
-        std::string nonce;
-        msg::usrmsg::usrmsg_parser parser(umsg.protocol);
-
-        std::string input_data;
-        if (parser.extract_input_container(input_data, nonce, max_lcl_seqno, umsg.input_container) == -1)
-        {
-            LOG_DEBUG << "User message bad input format.";
-            return msg::usrmsg::REASON_BAD_MSG_FORMAT;
-        }
-
         // Ignore the input if our ledger has passed the input TTL.
-        if (max_lcl_seqno <= lcl_seq_no)
+        if (extracted_input.max_lcl_seqno <= lcl_seq_no)
         {
-            LOG_DEBUG << "User message bad max ledger seq expired.";
+            LOG_DEBUG << "User input bad max ledger seq expired.";
             return msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
         }
 
-        const int nonce_status = nonce_map.check(user_pubkey, nonce, umsg.sig, max_lcl_seqno);
+        // Check subtotal of inputs extracted so far with the input size limit.
+        const size_t new_total_input_size = total_input_size + extracted_input.input.size();
+        if (conf::cfg.contract.round_limits.user_input_bytes > 0 &&
+            new_total_input_size > conf::cfg.contract.round_limits.user_input_bytes)
+        {
+            LOG_DEBUG << "User input input exceeds round limit.";
+            return msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW;
+        }
+
+        const int nonce_status = nonce_map.check(user_pubkey, extracted_input.nonce, extracted_input.sig, extracted_input.max_lcl_seqno);
         if (nonce_status > 0)
         {
-            LOG_DEBUG << (nonce_status == 1 ? "User message nonce expired." : "User message with same nonce/sig already submitted.");
+            LOG_DEBUG << (nonce_status == 1 ? "User input nonce expired." : "User input with same nonce/sig already submitted.");
             return (nonce_status == 1 ? msg::usrmsg::REASON_NONCE_EXPIRED : msg::usrmsg::REASON_ALREADY_SUBMITTED);
         }
 
-        // Keep checking the subtotal of inputs extracted so far with the appbill account balance.
-        total_input_len += input_data.length();
-        if (!verify_appbill_check(user_pubkey, total_input_len))
+        if (!verify_appbill_check(user_pubkey, new_total_input_size))
         {
-            LOG_DEBUG << "User message app bill balance exceeded.";
+            LOG_DEBUG << "User input app bill balance exceeded.";
             return msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
         }
 
-        // Hash is prefixed with the nonce to support user-defined sort order.
-        hash = std::move(nonce);
-        // Append the hash of the message signature to get the final hash.
-        hash.append(crypto::get_hash(umsg.sig));
+        // Reaching here means the input is successfully validated and we can submit it to consensus.
 
-        // Copy the input data into the input store.
-        std::string_view s();
-        input = input_store.write_buf(input_data.data(), input_data.size());
+        // Hash is used as the globally unqiue 'key' to represent this input for this consensus round.
+        // It is prefixed with the nonce to support user-defined sort order and signature hash is appended
+        // to make it unique among inputs from all users.
+        hash = extracted_input.nonce + crypto::get_hash(extracted_input.sig);
+
+        // Copy the input data into the input store. Contract will read the input from this location.
+        input = input_store.write_buf(extracted_input.input.data(), extracted_input.input.size());
+
+        // Increment the total valid input size so far.
+        total_input_size = new_total_input_size;
 
         return NULL; // Success. No reject reason.
     }

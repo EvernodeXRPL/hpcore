@@ -96,6 +96,7 @@ namespace consensus
         std::map<util::h32, uint32_t> patch_hash;
         std::map<std::pair<util::h32, uint64_t>, uint32_t> last_ledger_hash; // Keep last shard hash and its shard sequence number as key.
     };
+
     extern std::atomic<bool> is_patch_update_pending; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
 
     int init();

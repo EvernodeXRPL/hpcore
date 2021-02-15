@@ -40,7 +40,7 @@ namespace p2p
 
     struct nonunl_proposal
     {
-        std::unordered_map<std::string, std::list<usr::user_input>> user_inputs;
+        std::unordered_map<std::string, std::list<usr::submitted_user_input>> user_inputs;
     };
 
     struct peer_challenge
