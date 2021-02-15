@@ -219,7 +219,7 @@ namespace sc
             }
             else
             {
-                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended with code " << WEXITSTATUS(scstatus);
+                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely with code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }

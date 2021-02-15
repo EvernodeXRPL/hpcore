@@ -138,6 +138,9 @@ struct hp_round_limits_config
     size_t user_input_bytes;
     size_t user_output_bytes;
     size_t npl_output_bytes;
+    size_t proc_cpu_seconds;
+    size_t proc_mem_bytes;
+    size_t proc_ofd_count;
 };
 
 struct hp_config
@@ -505,7 +508,8 @@ int hp_update_config(const struct hp_config *config)
     if (!config->npl || strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid npl flag. Valid values: public|private");
 
-    if (config->round_limits.user_input_bytes < 0 || config->round_limits.user_output_bytes < 0 || config->round_limits.npl_output_bytes < 0)
+    if (config->round_limits.user_input_bytes < 0 || config->round_limits.user_output_bytes < 0 || config->round_limits.npl_output_bytes < 0 ||
+        config->round_limits.proc_cpu_seconds < 0 || config->round_limits.proc_mem_bytes < 0 || config->round_limits.proc_ofd_count < 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid round limits.");
 
     const int fd = open(PATCH_FILE_PATH, O_RDWR);
@@ -634,7 +638,8 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     // Top-level field values.
 
-    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n";
+    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n"
+                              "    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n";
 
     char roundtime_str[16];
     sprintf(roundtime_str, "%d", config->roundtime);
@@ -656,16 +661,27 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     // Round limits field valies.
 
-    const char *round_limits_json = "    \"round_limits\": {\n        \"user_input_bytes\": %s,\n        \"user_output_bytes\": %s,\n        \"npl_output_bytes\": %s\n    }\n}";
+    const char *round_limits_json = "    \"round_limits\": {\n"
+                                    "        \"user_input_bytes\": %s,\n        \"user_output_bytes\": %s,\n        \"npl_output_bytes\": %s,\n"
+                                    "        \"proc_cpu_seconds\": %s,\n        \"proc_mem_bytes\": %s,\n        \"proc_ofd_count\": %s\n    }\n}";
 
-    char user_input_bytes_str[20], user_output_bytes_str[20], npl_output_bytes_str[20];
+    char user_input_bytes_str[20], user_output_bytes_str[20], npl_output_bytes_str[20],
+        proc_cpu_seconds_str[20], proc_mem_bytes_str[20], proc_ofd_count_str[20];
+
     sprintf(user_input_bytes_str, "%" PRIu64, config->round_limits.user_input_bytes);
     sprintf(user_output_bytes_str, "%" PRIu64, config->round_limits.user_output_bytes);
     sprintf(npl_output_bytes_str, "%" PRIu64, config->round_limits.npl_output_bytes);
 
-    const size_t round_limits_json_len = 119 + strlen(user_input_bytes_str) + strlen(user_output_bytes_str) + strlen(npl_output_bytes_str);
+    sprintf(proc_cpu_seconds_str, "%" PRIu64, config->round_limits.proc_cpu_seconds);
+    sprintf(proc_mem_bytes_str, "%" PRIu64, config->round_limits.proc_mem_bytes);
+    sprintf(proc_ofd_count_str, "%" PRIu64, config->round_limits.proc_ofd_count);
+
+    const size_t round_limits_json_len = 205 + strlen(user_input_bytes_str) + strlen(user_output_bytes_str) + strlen(npl_output_bytes_str) +
+                                         strlen(proc_cpu_seconds_str) + strlen(proc_mem_bytes_str) + strlen(proc_ofd_count_str);
     char round_limits_buf[round_limits_json_len];
-    sprintf(round_limits_buf, round_limits_json, user_input_bytes_str, user_output_bytes_str, npl_output_bytes_str);
+    sprintf(round_limits_buf, round_limits_json,
+            user_input_bytes_str, user_output_bytes_str, npl_output_bytes_str,
+            proc_cpu_seconds_str, proc_mem_bytes_str, proc_ofd_count_str);
     iov_vec[4].iov_base = round_limits_buf;
     iov_vec[4].iov_len = round_limits_json_len;
 
@@ -768,6 +784,18 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                 else if (strcmp(sub_ele->name->string, "npl_output_bytes") == 0)
                 {
                     __HP_ASSIGN_UINT64(config->round_limits.npl_output_bytes, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "proc_cpu_seconds") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.proc_cpu_seconds, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "proc_mem_bytes") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.proc_mem_bytes, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "proc_ofd_count") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->round_limits.proc_ofd_count, sub_ele);
                 }
                 sub_ele = sub_ele->next;
             } while (sub_ele);
