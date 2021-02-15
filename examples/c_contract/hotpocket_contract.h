@@ -667,7 +667,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     char round_limits_buf[round_limits_json_len];
     sprintf(round_limits_buf, round_limits_json, user_input_bytes_str, user_output_bytes_str, npl_output_bytes_str);
     iov_vec[4].iov_base = round_limits_buf;
-    iov_vec[4].iov_len = strlen(round_limits_buf);
+    iov_vec[4].iov_len = round_limits_json_len;
 
     if (ftruncate(fd, 0) == -1 ||         // Clear any previous content in the file.
         pwritev(fd, iov_vec, 5, 0) == -1) // Start writing from begining.
