@@ -186,15 +186,11 @@ namespace consensus
             if (is_last_shard_hash_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                std::list<hpfs::sync_target> sync_target_list;
+
                 // We first request the latest shard.
                 const std::string sync_name = "shard " + std::to_string(majority_shard_seq_no);
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(majority_shard_seq_no));
-                sync_target_list.push_back(hpfs::sync_target{sync_name, majority_last_shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
-
-                // Set sync targets for ledger fs.
-                ledger::ledger_sync_worker.is_ledger_shard_desync = true;
-                ledger::ledger_sync_worker.set_target(std::move(sync_target_list));
+                ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_last_shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
             // Check our state with majority state.
@@ -215,20 +211,15 @@ namespace consensus
             {
                 conf::change_role(conf::ROLE::OBSERVER);
 
-                // This queue holds all the sync targets which needs to get synced in contract fs.
-                std::list<hpfs::sync_target> sync_target_list;
                 if (is_patch_desync)
-                    sync_target_list.push_back(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                    sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
 
                 if (is_state_desync)
-                    sync_target_list.push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
-
-                // Set sync targets for contract fs.
-                sc::contract_sync_worker.set_target(std::move(sync_target_list));
+                    sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
             // Proceed further only if both ledger primary hash, state and patch are in sync with majority.
-            if (!is_last_shard_hash_desync && !ledger::ledger_sync_worker.is_ledger_shard_desync && !is_state_desync && !is_patch_desync)
+            if (!is_last_shard_hash_desync && !is_state_desync && !is_patch_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
@@ -248,7 +239,7 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_ledger_shard_desync)
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 

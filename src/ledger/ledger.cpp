@@ -40,7 +40,7 @@ namespace ledger
             return -1;
         }
 
-        if (get_last_ledger() == -1)
+        if (get_last_ledger_and_update_context() == -1)
         {
             LOG_ERROR << "Getting last ledger faild.";
             return -1;
@@ -287,7 +287,7 @@ namespace ledger
      * Get last ledger and update the context.
      * @return Returns 0 on success -1 on error.
      */
-    int get_last_ledger()
+    int get_last_ledger_and_update_context()
     {
         // Aquire hpfs rw session before accessing shards and insert ledger records.
         if (start_hpfs_session(ctx) == -1)
@@ -310,14 +310,14 @@ namespace ledger
                 return seq_no_a > seq_no_b;
             });
 
-            uint64_t last_shard;
-            util::stoull(shards.front(), last_shard);
+            uint64_t last_shard_seq_no;
+            util::stoull(shards.front(), last_shard_seq_no);
             const std::string shard_path = std::string(shard_dir_path).append("/").append(shards.front());
 
             //Remove old shards that exceeds max shard range.
             if (conf::cfg.node.max_shards > 0 && shards.size() >= conf::cfg.node.max_shards)
             {
-                remove_old_shards(last_shard - conf::cfg.node.max_shards + 1);
+                remove_old_shards(last_shard_seq_no - conf::cfg.node.max_shards + 1);
             }
 
             // Open a database connection.
@@ -343,7 +343,7 @@ namespace ledger
                 return -1;
             }
             if (ret == 1)
-                ctx.set_last_shard_hash(last_shard, last_shard_hash);
+                ctx.set_last_shard_hash(last_shard_seq_no, last_shard_hash);
             stop_hpfs_session(ctx);
         }
 

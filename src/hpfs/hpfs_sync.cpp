@@ -79,6 +79,47 @@ namespace hpfs
     }
 
     /**
+     * This sets a prioritized sync target. This target will replace current sync target.
+     * This target will immediately starting to sync and the interupted sync will resume
+     * once this sync target is acheived.
+    */
+    void hpfs_sync::set_target_push_front(const sync_target &target)
+    {
+        {
+            std::shared_lock lock(current_target_mutex);
+            if (current_target == target)
+                return;
+        }
+
+        this->target_list.push_front(target);
+        is_syncing = true;
+        std::unique_lock lock(current_target_mutex);
+        // Make the first element of the list the first target to sync.
+        current_target = target_list.front();
+    }
+
+    /**
+     * Adds a new target to the syncing list. If the list was previously empty, current target
+     * will be updated and syncing will start.
+    */
+    void hpfs_sync::set_target_push_back(const sync_target &target)
+    {
+        // Current_target_mutex is not required since this function is currently used in a unique_lock
+        // scope.
+        if (current_target == target)
+            return;
+
+        this->target_list.push_back(target);
+        if (!is_syncing)
+        {
+            std::unique_lock lock(current_target_mutex);
+            // Make the first element of the list the first target to sync.
+            current_target = target_list.front();
+            is_syncing = true;
+        }
+    }
+
+    /**
      * Runs the hpfs sync worker loop.
      */
     void hpfs_sync::hpfs_syncer_loop()

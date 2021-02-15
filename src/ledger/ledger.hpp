@@ -77,7 +77,7 @@ namespace ledger
 
     int extract_lcl(const std::string &lcl, uint64_t &seq_no, std::string &hash);
 
-    int get_last_ledger();
+    int get_last_ledger_and_update_context();
 
     int get_last_shard_info(std::string_view session_name, util::h32 &last_shard_hash, uint64_t &shard_seq_no);
 

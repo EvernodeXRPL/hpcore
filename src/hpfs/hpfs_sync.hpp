@@ -98,6 +98,10 @@ namespace hpfs
 
         void set_target(const std::list<sync_target> &target_list);
 
+        void set_target_push_front(const sync_target &target);
+        
+        void set_target_push_back(const sync_target &target);
+
         bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 
         bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const util::h32 *hashes, const size_t hash_count);
