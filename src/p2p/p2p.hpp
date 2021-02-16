@@ -183,7 +183,7 @@ namespace p2p
 
     void send_peer_list_request();
 
-    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
+    void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
 
     void merge_peer_list(const std::vector<conf::peer_properties> &peers);
 

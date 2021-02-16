@@ -44,7 +44,15 @@ namespace p2p
     void deinit()
     {
         if (init_success)
+        {
+            // Persist latest known peers information to config before the peer server is stopped.
+            {
+                std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
+                conf::persist_known_peers_config(ctx.server->req_known_remotes);
+            }
+
             ctx.server->stop();
+        }
     }
 
     int start_peer_connections()
@@ -325,7 +333,7 @@ namespace p2p
      * @param available_capacity Available capacity of the known peer, -1 if number of connections is unlimited.
      * @param timestamp Capacity announced time.
      */
-    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t &timestamp)
+    void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 

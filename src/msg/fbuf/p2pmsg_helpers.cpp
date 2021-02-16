@@ -670,7 +670,7 @@ namespace msg::fbuf::p2pmsg
      * @param skipping_peer Peer that does not need to be sent.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port, std::string_view lcl)
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port, std::string_view lcl)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -864,7 +864,7 @@ namespace msg::fbuf::p2pmsg
      * @param skipping_peer Peer that does not need to be sent.
      */
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>>>
-    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port)
+    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port)
     {
         std::vector<flatbuffers::Offset<Peer_Properties>> fbvec;
         fbvec.reserve(peers.size());

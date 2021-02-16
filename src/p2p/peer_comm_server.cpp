@@ -16,9 +16,9 @@ namespace p2p
 
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                                        const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
-                                       std::vector<conf::peer_properties> &req_known_remotes)
+                                       const std::vector<conf::peer_properties> &req_known_remotes)
         : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size, max_in_connections, max_in_connections_per_host),
-          req_known_remotes(req_known_remotes)
+          req_known_remotes(req_known_remotes) // Copy over known peers into internal collection.
     {
     }
 
@@ -115,7 +115,7 @@ namespace p2p
     void peer_comm_server::maintain_known_connections()
     {
         // Find already connected known remote parties list.
-        std::vector<conf::ip_port_prop> known_remotes;
+        std::vector<conf::peer_ip_port> known_remotes;
 
         {
             std::scoped_lock<std::mutex> lock(sessions_mutex);
