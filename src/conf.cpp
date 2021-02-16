@@ -13,8 +13,8 @@ namespace conf
     // Global configuration struct exposed to the application.
     hp_config cfg;
 
-    // Stores the initial startup mode of the node.
-    ROLE startup_mode;
+    // Stores the initial startup role of the node.
+    ROLE startup_role;
 
     constexpr int FILE_PERMS = 0644;
 
@@ -133,7 +133,7 @@ namespace conf
 
             cfg.hp_version = util::HP_VERSION;
 
-            cfg.node.role = ROLE::VALIDATOR;
+            cfg.node.role = startup_role = ROLE::VALIDATOR;
             cfg.node.full_history = false;
 
             cfg.contract.id = crypto::generate_uuid();
@@ -323,7 +323,7 @@ namespace conf
                     std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
                     return -1;
                 }
-                startup_mode = cfg.node.role;
+                startup_role = cfg.node.role;
             }
             catch (const std::exception &e)
             {
@@ -481,7 +481,8 @@ namespace conf
             jsoncons::ojson node_config;
             node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
             node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
-            node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+            // We always save the startup role to config. Not the current role which might get changed dynamically during syncing.
+            node_config.insert_or_assign("role", startup_role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
             d.insert_or_assign("node", node_config);
         }
 
@@ -682,7 +683,7 @@ namespace conf
     void change_role(const ROLE role)
     {
         // Do not allow to change the mode if the node was started as an observer.
-        if (startup_mode == ROLE::OBSERVER || cfg.node.role == role)
+        if (startup_role == ROLE::OBSERVER || cfg.node.role == role)
             return;
 
         cfg.node.role = role;
