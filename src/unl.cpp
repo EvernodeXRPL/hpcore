@@ -91,7 +91,7 @@ namespace unl
         {
             std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
-            for (auto itr = list.begin(); itr != list.end();)
+            for (auto itr = list.begin(); itr != list.end(); itr++)
             {
                 // If roundtime is 0, attempt to get from peer connection (if available).
                 if (itr->second == 0)
