@@ -6,6 +6,7 @@ namespace msg.fbuf.p2pmsg;
 
 table Peer_Challenge_Message {
     contract_id:string;
+    roundtime:uint16;
     challenge:string;
 }
 

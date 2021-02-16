@@ -846,7 +846,7 @@ namespace conf
         jdoc.insert_or_assign("unl", unl);
         jdoc.insert_or_assign("bin_path", contract.bin_path);
         jdoc.insert_or_assign("bin_args", contract.bin_args);
-        jdoc.insert_or_assign("roundtime", contract.roundtime);
+        jdoc.insert_or_assign("roundtime", contract.roundtime.load());
         jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
 

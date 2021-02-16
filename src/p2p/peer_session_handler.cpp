@@ -109,6 +109,9 @@ namespace p2p
                 return -1;
             }
 
+            // Remember the roundtime reported by this peer.
+            session.reported_roundtime = chall.roundtime;
+
             // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf(1024);
             p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);

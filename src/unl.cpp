@@ -80,6 +80,48 @@ namespace unl
         }
     }
 
+    uint16_t get_majority_roundtime()
+    {
+        std::unique_lock lock(unl_mutex);
+
+        // Vote and find majority roundtime within the unl.
+        // Fill any 0 roundtimes with information from peer connections.
+        std::map<uint16_t, uint32_t> roundtime_votes;
+
+        {
+            std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+
+            for (auto itr = list.begin(); itr != list.end();)
+            {
+                // If roundtime is 0, attempt to get from peer connection (if available).
+                if (itr->second == 0)
+                {
+                    const auto peer_itr = p2p::ctx.peer_connections.find(itr->first);
+                    if (peer_itr != p2p::ctx.peer_connections.end())
+                        itr->second = peer_itr->second->reported_roundtime;
+                }
+
+                const uint16_t roundtime = itr->second;
+                if (roundtime > 0)
+                    roundtime_votes[roundtime]++;
+            }
+        }
+
+        // Find the majority vote.
+        uint32_t highest_votes = 0;
+        uint16_t majority_roundtime = 0;
+        for (const auto [roundtime, num_votes] : roundtime_votes)
+        {
+            if (num_votes > highest_votes)
+            {
+                highest_votes = num_votes;
+                majority_roundtime = roundtime;
+            }
+        }
+
+        return majority_roundtime;
+    }
+
     /**
      * Updates the unl list using the provided new list.
      * @return Whether or not any unl list changes were made.

@@ -56,6 +56,7 @@ namespace p2p
     struct peer_challenge
     {
         std::string contract_id;
+        uint16_t roundtime = 0;
         std::string challenge;
     };
 
@@ -145,7 +146,7 @@ namespace p2p
         // Holds all the messages until they are processed by consensus.
         message_collection collected_msgs;
 
-        // Set of currently connected peer connections mapped by the pubkey of socket session.
+        // Set of currently connected peer connections mapped by the binary pubkey of socket session.
         std::unordered_map<std::string, peer_comm_session *> peer_connections;
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
@@ -192,6 +193,7 @@ namespace p2p
     int16_t get_available_capacity();
 
     void update_unl_connections();
+
 } // namespace p2p
 
 #endif

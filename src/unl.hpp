@@ -17,6 +17,7 @@ namespace unl
     bool exists(const std::string &bin_pubkey);
     int init();
     void update_unl_changes_from_patch();
+    uint16_t get_majority_roundtime();
     bool update_unl_list(const std::set<std::string> &new_list);
     const std::string prepare_json_list(const std::set<std::string> &new_list);
 
