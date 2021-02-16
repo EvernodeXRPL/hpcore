@@ -228,6 +228,7 @@ namespace msg::fbuf::p2pmsg
         p.sent_timestamp = timestamp;
         p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
+        p.roundtime = msg.roundtime();
         p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
@@ -379,6 +380,7 @@ namespace msg::fbuf::p2pmsg
                 builder,
                 p.stage,
                 p.time,
+                p.roundtime,
                 sv_to_flatbuff_bytes(builder, p.nonce),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),

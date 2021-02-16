@@ -80,6 +80,21 @@ namespace unl
         }
     }
 
+    /**
+     * Updates unl pubkey-roundtime information using the specified list of proposals.
+     */
+    void update_roundtime_stats(const std::list<p2p::proposal> &proposals)
+    {
+        std::unique_lock lock(unl_mutex);
+
+        for (const auto &p : proposals)
+        {
+            const auto itr = list.find(p.pubkey);
+            if (itr != list.end())
+                itr->second = p.roundtime;
+        }
+    }
+
     uint16_t get_majority_roundtime()
     {
         std::unique_lock lock(unl_mutex);

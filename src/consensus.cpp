@@ -267,6 +267,9 @@ namespace consensus
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
+        // Provide latest roundtime information to unl statistics.
+        unl::update_roundtime_stats(collected_proposals);
+
         // Move collected propsals to candidate set of proposals.
         // Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
         for (const auto &proposal : collected_proposals)
@@ -1058,6 +1061,10 @@ namespace consensus
         return 0;
     }
 
+    /**
+     * Updates roundtime-based calculations with the latest roundtime value.
+     * @param perform_detection Whether or not to detect roundtime from latest network information.
+     */
     void refresh_roundtime(const bool perform_detection)
     {
         if (perform_detection)
