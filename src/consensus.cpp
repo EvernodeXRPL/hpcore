@@ -24,20 +24,16 @@ namespace consensus
     constexpr size_t ROUND_NONCE_SIZE = 64;
     constexpr const char *HPFS_SESSION_NAME = "ro_patch_file_to_hp";
 
+    // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
+    constexpr uint16_t MAX_UNRELIABLE_VOTES_ATTEMPTS = 5;
+
     consensus_context ctx;
     bool init_success = false;
     std::atomic<bool> is_patch_update_pending = false; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
 
     int init()
     {
-        // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).
-        ctx.stage_time = conf::cfg.contract.roundtime / 4;
-        ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
-
-        // We use a time window boundry offset based on contract id to vary the window boundries between
-        // different contracts with same round time.
-        std::hash<std::string> str_hasher;
-        ctx.round_boundry_offset = str_hasher(conf::cfg.contract.id) % conf::cfg.contract.roundtime;
+        refresh_roundtime(false);
 
         // Starting consensus processing thread.
         ctx.consensus_thread = std::thread(run_consensus);
@@ -141,6 +137,20 @@ namespace consensus
             const size_t unl_count = unl::count();
             vote_counter votes;
             const int sync_status = check_sync_status(unl_count, votes);
+
+            if (sync_status == -2) // Unreliable votes.
+            {
+                ctx.unreliable_votes_attempts++;
+                if (ctx.unreliable_votes_attempts >= MAX_UNRELIABLE_VOTES_ATTEMPTS)
+                {
+                    refresh_roundtime(true);
+                    ctx.unreliable_votes_attempts = 0;
+                }
+            }
+            else
+            {
+                ctx.unreliable_votes_attempts = 0;
+            }
 
             if (sync_status == 0)
             {
@@ -273,6 +283,9 @@ namespace consensus
             std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
+
+        // Provide latest roundtime information to unl statistics.
+        unl::update_roundtime_stats(collected_proposals);
 
         // Move collected propsals to candidate set of proposals.
         // Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
@@ -1087,6 +1100,35 @@ namespace consensus
                 return -1;
         }
         return 0;
+    }
+
+    /**
+     * Updates roundtime-based calculations with the latest roundtime value.
+     * @param perform_detection Whether or not to detect roundtime from latest network information.
+     */
+    void refresh_roundtime(const bool perform_detection)
+    {
+        if (perform_detection)
+        {
+            LOG_DEBUG << "Detecting roundtime...";
+            const uint16_t majority_roundtime = unl::get_majority_roundtime();
+
+            if (majority_roundtime == 0 || conf::cfg.contract.roundtime == majority_roundtime)
+                return;
+
+            LOG_INFO << "New roundtime detected:" << majority_roundtime << " previous:" << conf::cfg.contract.roundtime;
+
+            conf::cfg.contract.roundtime = majority_roundtime;
+        }
+
+        // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).
+        ctx.stage_time = conf::cfg.contract.roundtime / 4;
+        ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
+
+        // We use a time window boundry offset based on contract id to vary the window boundries between
+        // different contracts with same round time.
+        std::hash<std::string> str_hasher;
+        ctx.round_boundry_offset = str_hasher(conf::cfg.contract.id) % conf::cfg.contract.roundtime;
     }
 
 } // namespace consensus

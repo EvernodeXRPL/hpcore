@@ -37,7 +37,6 @@ namespace hpfs
 
         this->name = name;
         this->fs_mount = fs_mount;
-        REQUEST_RESUBMIT_TIMEOUT = hpfs::get_request_resubmit_timeout();
         hpfs_sync_thread = std::thread(&hpfs_sync::hpfs_syncer_loop, this);
         init_success = true;
         return 0;
@@ -334,13 +333,16 @@ namespace hpfs
 
             candidate_hpfs_responses.clear();
 
+            // No. of milliseconds to wait before resubmitting a request.
+            const uint16_t request_resubmit_timeout = hpfs::get_request_resubmit_timeout();
+
             // Check for long-awaited responses and re-request them.
             for (auto &[hash, request] : submitted_requests)
             {
                 if (should_stop_request_loop(current_target_hash))
                     return 0;
 
-                if (request.waiting_time < REQUEST_RESUBMIT_TIMEOUT)
+                if (request.waiting_time < request_resubmit_timeout)
                 {
                     // Increment wait time.
                     request.waiting_time += REQUEST_LOOP_WAIT;

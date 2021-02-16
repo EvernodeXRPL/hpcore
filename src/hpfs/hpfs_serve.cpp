@@ -33,7 +33,6 @@ namespace hpfs
         this->name = name;
         this->fs_mount = fs_mount;
 
-        REQUEST_BATCH_TIMEOUT = hpfs::get_request_resubmit_timeout() * 0.9;
         hpfs_serve_thread = std::thread(&hpfs_serve::hpfs_serve_loop, this);
         init_success = true;
         return 0;
@@ -57,7 +56,6 @@ namespace hpfs
 
         LOG_INFO << "Hpfs " << name << " server started.";
 
-
         // Indicates whether any requests were processed in the previous loop iteration.
         bool prev_requests_processed = false;
 
@@ -73,6 +71,7 @@ namespace hpfs
             const uint64_t time_start = util::get_epoch_milliseconds();
             const std::string lcl = ledger::ctx.get_lcl();
             const util::h32 last_primary_shard_hash = ledger::ctx.get_last_primary_shard_hash();
+            const uint16_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
 
             if (hpfs_requests.empty())
                 continue;
@@ -87,7 +86,7 @@ namespace hpfs
                     // If we have spent too much time handling hpfs requests, abandon the entire batch
                     // because the requester would have stopped waiting for us.
                     const uint64_t time_now = util::get_epoch_milliseconds();
-                    if ((time_now - time_start) > REQUEST_BATCH_TIMEOUT)
+                    if ((time_now - time_start) > request_batch_timeout)
                     {
                         LOG_DEBUG << "Hpfs " << name << " serve batch timeout. Abandonding hpfs requests.";
                         break;

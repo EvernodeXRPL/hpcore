@@ -48,7 +48,7 @@ namespace hpfs
     {
     private:
         bool init_success = false;
-        uint16_t REQUEST_RESUBMIT_TIMEOUT; // No. of milliseconds to wait before resubmitting a request.
+        std::string name; // Name used for logging.
 
         sync_target current_target = {};
         std::list<sync_target> target_list; // The current target hashes we are syncing towards.

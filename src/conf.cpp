@@ -15,8 +15,8 @@ namespace conf
     // Global configuration struct exposed to the application.
     hp_config cfg;
 
-    // Stores the initial startup mode of the node.
-    ROLE startup_mode;
+    // Stores the initial startup role of the node.
+    ROLE startup_role;
 
     constexpr int FILE_PERMS = 0644;
 
@@ -134,7 +134,7 @@ namespace conf
 
             cfg.hp_version = util::HP_VERSION;
 
-            cfg.node.role = ROLE::VALIDATOR;
+            cfg.node.role = startup_role = ROLE::VALIDATOR;
             cfg.node.full_history = false;
 
             cfg.contract.id = crypto::generate_uuid();
@@ -149,9 +149,9 @@ namespace conf
             cfg.contract.is_npl_public = false;
 
             cfg.mesh.port = 22860;
-            cfg.mesh.msg_forwarding = false;
+            cfg.mesh.msg_forwarding = true;
             cfg.mesh.idle_timeout = 120;
-            cfg.mesh.peer_discovery.enabled = false;
+            cfg.mesh.peer_discovery.enabled = true;
             cfg.mesh.peer_discovery.interval = 30000;
 
             cfg.user.port = 8080;
@@ -323,7 +323,7 @@ namespace conf
                     std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
                     return -1;
                 }
-                startup_mode = cfg.node.role;
+                startup_role = cfg.node.role;
 
                 cfg.node.max_shards = node["max_shards"].as<uint64_t>();
             }
@@ -348,6 +348,8 @@ namespace conf
             {
                 const jsoncons::ojson &mesh = d["mesh"];
                 cfg.mesh.port = mesh["port"].as<uint16_t>();
+                cfg.mesh.listen = mesh["listen"].as<bool>();
+
                 // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
                 // seperately to retrieve easily when handling peer connections.
                 std::vector<std::string> splitted_peers;
@@ -408,6 +410,7 @@ namespace conf
             {
                 const jsoncons::ojson &user = d["user"];
                 cfg.user.port = user["port"].as<uint16_t>();
+                cfg.user.listen = user["listen"].as<bool>();
                 cfg.user.max_connections = user["max_connections"].as<uint64_t>();
                 cfg.user.max_in_connections_per_host = user["max_in_connections_per_host"].as<uint64_t>();
                 cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
@@ -415,7 +418,6 @@ namespace conf
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
                 cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
                 cfg.user.concurrent_read_reqeuests = user["concurrent_read_reqeuests"].as<uint64_t>();
-                cfg.user.enabled = user["enabled"].as<bool>();
             }
             catch (const std::exception &e)
             {
@@ -497,6 +499,7 @@ namespace conf
         {
             jsoncons::ojson mesh_config;
             mesh_config.insert_or_assign("port", cfg.mesh.port);
+            mesh_config.insert_or_assign("listen", cfg.mesh.listen);
 
             jsoncons::ojson peers(jsoncons::json_array_arg);
             for (const auto &peer : cfg.mesh.known_peers)
@@ -528,13 +531,13 @@ namespace conf
         {
             jsoncons::ojson user_config;
             user_config.insert_or_assign("port", cfg.user.port);
+            user_config.insert_or_assign("listen", cfg.user.listen);
             user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
             user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
             user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
             user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
             user_config.insert_or_assign("max_connections", cfg.user.max_connections);
             user_config.insert_or_assign("max_in_connections_per_host", cfg.user.max_in_connections_per_host);
-            user_config.insert_or_assign("enabled", cfg.user.enabled);
             user_config.insert_or_assign("concurrent_read_reqeuests", cfg.user.concurrent_read_reqeuests);
             d.insert_or_assign("user", user_config);
         }
@@ -681,7 +684,7 @@ namespace conf
     void change_role(const ROLE role)
     {
         // Do not allow to change the mode if the node was started as an observer.
-        if (startup_mode == ROLE::OBSERVER || cfg.node.role == role)
+        if (startup_role == ROLE::OBSERVER || cfg.node.role == role)
             return;
 
         cfg.node.role = role;
@@ -788,6 +791,21 @@ namespace conf
     }
 
     /**
+     * Persists the specified known peers to the config file.
+     */
+    int persist_known_peers_config(const std::vector<peer_properties> &peers)
+    {
+        if (peers.empty())
+            return 0;
+
+        const size_t max_count = conf::cfg.mesh.max_known_connections == 0
+                                     ? peers.size()
+                                     : MIN(peers.size(), conf::cfg.mesh.max_known_connections);
+        cfg.mesh.known_peers = std::vector<peer_properties>(peers.begin(), peers.begin() + max_count);
+        return write_config(cfg);
+    }
+
+    /**
      * Locks the config file. If already locked means there's another hpcore instance running in the same directory.
      * If so, log error and return, Otherwise lock the config.
      * @return Returns 0 if lock is successfully aquired, -1 on error.
@@ -848,7 +866,7 @@ namespace conf
         jdoc.insert_or_assign("unl", unl);
         jdoc.insert_or_assign("bin_path", contract.bin_path);
         jdoc.insert_or_assign("bin_args", contract.bin_args);
-        jdoc.insert_or_assign("roundtime", contract.roundtime);
+        jdoc.insert_or_assign("roundtime", contract.roundtime.load());
         jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
 

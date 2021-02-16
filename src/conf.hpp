@@ -12,17 +12,17 @@ namespace conf
     constexpr size_t CONCURRENT_READ_REQUEST_MAX_LIMIT = 32;
 
     // Struct to represent ip and port of the peer.
-    struct ip_port_prop
+    struct peer_ip_port
     {
         std::string host_address;
         uint16_t port;
 
-        bool operator==(ip_port_prop ip_port)
+        bool operator==(const peer_ip_port &ip_port)
         {
             return host_address == ip_port.host_address && port == ip_port.port;
         }
 
-        bool operator!=(ip_port_prop ip_port)
+        bool operator!=(const peer_ip_port &ip_port)
         {
             return !(host_address == ip_port.host_address && port == ip_port.port);
         }
@@ -33,7 +33,7 @@ namespace conf
     // Later it will be updated according to the capacity anouncement from the peers.
     struct peer_properties
     {
-        ip_port_prop ip_port;
+        peer_ip_port ip_port;
         int16_t available_capacity = -1;
         uint64_t timestamp = 0;
     };
@@ -98,16 +98,16 @@ namespace conf
 
     struct contract_config
     {
-        std::string id;                   // Contract guid.
-        bool execute = false;             // Whether or not to execute the contract on the node.
-        bool log_output = false;          // Whether to log stdout/err of the contract process.
-        std::string version;              // Contract version string.
-        std::set<std::string> unl;        // Unique node list (list of binary public keys)
-        std::string bin_path;             // Full path to the contract binary
-        std::string bin_args;             // CLI arguments to pass to the contract binary
-        uint16_t roundtime = 0;           // Consensus round time in ms
-        bool is_consensus_public = false; // If true, consensus are broadcasted to non-unl nodes as well.
-        bool is_npl_public = false;       // If true, npl messages are broadcasted to non-unl nodes as well.
+        std::string id;                      // Contract guid.
+        bool execute = false;                // Whether or not to execute the contract on the node.
+        bool log_output = false;             // Whether to log stdout/err of the contract process.
+        std::string version;                 // Contract version string.
+        std::set<std::string> unl;           // Unique node list (list of binary public keys)
+        std::string bin_path;                // Full path to the contract binary
+        std::string bin_args;                // CLI arguments to pass to the contract binary
+        std::atomic<uint16_t> roundtime = 0; // Consensus round time in ms
+        bool is_consensus_public = false;    // If true, consensus are broadcasted to non-unl nodes as well.
+        bool is_npl_public = false;          // If true, npl messages are broadcasted to non-unl nodes as well.
         appbill_config appbill;
         round_limits_config round_limits;
 
@@ -118,6 +118,7 @@ namespace conf
     struct user_config
     {
         uint16_t port = 0;                        // Listening port for public user connections
+        bool listen = true;                       // Whether to listen for incoming user connections.
         uint16_t idle_timeout = 0;                // Idle connection timeout for user connections in seconds.
         uint64_t max_bytes_per_msg = 0;           // User message max size in bytes
         uint64_t max_bytes_per_min = 0;           // User message rate (characters(bytes) per minute)
@@ -125,7 +126,6 @@ namespace conf
         uint16_t max_connections = 0;             // Max inbound user connections
         uint16_t max_in_connections_per_host = 0; // Max inbound user connections per remote host (IP).
         uint64_t concurrent_read_reqeuests = 10;  // Supported concurrent read requests count.
-        bool enabled = true;                      // User connections enable/disable.
     };
 
     struct peer_discovery_config
@@ -137,6 +137,7 @@ namespace conf
     struct mesh_config
     {
         uint16_t port = 0;                        // Listening port for peer connections
+        bool listen = true;                       // Whether to listen for incoming peer connections.
         std::vector<peer_properties> known_peers; // Vector of peers with ip_port, timestamp, capacity.
         bool msg_forwarding = false;              // Whether peer message forwarding is on/off.
         uint16_t max_connections = 0;             // Max peer connections.
@@ -232,6 +233,8 @@ namespace conf
     int populate_patch_config();
 
     int apply_patch_config(std::string_view hpfs_session_name);
+
+    int persist_known_peers_config(const std::vector<peer_properties> &peers);
 
     int set_config_lock();
 

@@ -20,30 +20,30 @@ namespace msg::fbuf::p2pmsg
     constexpr size_t MAX_SIZE_FOR_TIME_CHECK = 1 * 1024 * 1024; // 1 MB
 
     /**
- * This section contains Flatbuffer message reading/writing helpers.
- * These helpers are mainly used by peer_session_handler.
- * 
- * All Flatbuffer peer messages are 'Container' messages. 'Container' message is a bucket
- * which some common headers (version, singature etc..) and the message 'Content' (Proposal, NPL etc..).
- * 
- * Therefore, when constructing peer messages, we have to first construct 'Content' message and then
- * place the 'Content' inside a 'Conatiner. 'Content' and 'Container' messages are constructed using
- * Flatbuffer builders.
- * 
- * Reading is also 2 steps because of this. We have first interprit the 'Container' message from the
- * received data and then interprit the 'Content' portion of it separately to read the actual content.
- */
+     * This section contains Flatbuffer message reading/writing helpers.
+     * These helpers are mainly used by peer_session_handler.
+     * 
+     * All Flatbuffer peer messages are 'Container' messages. 'Container' message is a bucket
+     * which some common headers (version, singature etc..) and the message 'Content' (Proposal, NPL etc..).
+     * 
+     * Therefore, when constructing peer messages, we have to first construct 'Content' message and then
+     * place the 'Content' inside a 'Conatiner. 'Content' and 'Container' messages are constructed using
+     * Flatbuffer builders.
+     * 
+     * Reading is also 2 steps because of this. We have first interprit the 'Container' message from the
+     * received data and then interprit the 'Content' portion of it separately to read the actual content.
+     */
 
     //---Message validation helpers---/
 
     /**
- * Verifies Conatiner message structure and outputs faltbuffer Container pointer to access the given buffer.
- * 
- * @param container_ref A pointer reference to assign the pointer to the Container object.
- * @param container_buf The buffer containing the data that should be validated and interpreted
- *                      via the container pointer.
- * @return 0 on successful verification. -1 for failure.
- */
+     * Verifies Conatiner message structure and outputs faltbuffer Container pointer to access the given buffer.
+     * 
+     * @param container_ref A pointer reference to assign the pointer to the Container object.
+     * @param container_buf The buffer containing the data that should be validated and interpreted
+     *                      via the container pointer.
+     * @return 0 on successful verification. -1 for failure.
+     */
     int validate_and_extract_container(const Container **container_ref, std::string_view container_buf)
     {
         //Accessing message buffer
@@ -123,14 +123,14 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Verifies the Content message structure and outputs faltbuffer Content pointer to access the given buffer.
- * 
- * @param content_ref A pointer reference to assign the pointer to the Content object.
- * @param content_ptr Pointer to the buffer containing the data that should validated and interpreted
- *                      via the container pointer.
- * @param content_size Data buffer size.
- * @return 0 on successful verification. -1 for failure.
- */
+     * Verifies the Content message structure and outputs faltbuffer Content pointer to access the given buffer.
+     * 
+     * @param content_ref A pointer reference to assign the pointer to the Content object.
+     * @param content_ptr Pointer to the buffer containing the data that should validated and interpreted
+     *                      via the container pointer.
+     * @param content_size Data buffer size.
+     * @return 0 on successful verification. -1 for failure.
+     */
     int validate_and_extract_content(const Content **content_ref, const uint8_t *content_ptr, const flatbuffers::uoffset_t content_size)
     {
         //Defining Flatbuffer verifier for message content verification.
@@ -151,22 +151,23 @@ namespace msg::fbuf::p2pmsg
     //---Message reading helpers---/
 
     /**
- * Returns challenge from the peer challenge message.
- * @param The Flatbuffer peer challenge message received from the peer.
- * @return Peer challenge struct.
- */
+     * Returns challenge from the peer challenge message.
+     * @param The Flatbuffer peer challenge message received from the peer.
+     * @return Peer challenge struct.
+     */
     const p2p::peer_challenge get_peer_challenge_from_msg(const Peer_Challenge_Message &msg)
     {
         return {
             std::string(flatbuff_str_to_sv(msg.contract_id())),
+            msg.roundtime(),
             std::string(flatbuff_str_to_sv(msg.challenge()))};
     }
 
     /**
- * Creates a peer challenge response struct from the given peer challenge response message.
- * @param The Flatbuffer peer challenge response message received from the peer.
- * @return A peer challenge response struct representing the message.
- */
+     * Creates a peer challenge response struct from the given peer challenge response message.
+     * @param The Flatbuffer peer challenge response message received from the peer.
+     * @return A peer challenge response struct representing the message.
+     */
     const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const Peer_Challenge_Response_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey)
     {
         p2p::peer_challenge_response pchalresp;
@@ -179,10 +180,10 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Creates a non-unl proposal stuct from the given non-unl proposal message.
- * @param The Flatbuffer non-unl poporal received from the peer.
- * @return A non-unl proposal struct representing the message.
- */
+     * Creates a non-unl proposal stuct from the given non-unl proposal message.
+     * @param The Flatbuffer non-unl poporal received from the peer.
+     * @return A non-unl proposal struct representing the message.
+     */
     const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp)
     {
         p2p::nonunl_proposal nup;
@@ -206,6 +207,7 @@ namespace msg::fbuf::p2pmsg
         p.sent_timestamp = timestamp;
         p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
+        p.roundtime = msg.roundtime();
         p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
         p.lcl = flatbuff_bytes_to_sv(lcl);
@@ -249,10 +251,10 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Creates a peer property list from the given peer list response message.
- * @param msg Flatbuffer Peer List response message received from the peer.
- * @return A Peer list representing the message.
- */
+     * Creates a peer property list from the given peer list response message.
+     * @param msg Flatbuffer Peer List response message received from the peer.
+     * @return A Peer list representing the message.
+     */
     const std::vector<conf::peer_properties> create_peer_list_response_from_msg(const Peer_List_Response_Message &msg)
     {
         return flatbuf_peer_propertieslist_to_peer_propertiesvector(msg.peer_list());
@@ -261,10 +263,10 @@ namespace msg::fbuf::p2pmsg
     //---Message creation helpers---//
 
     /**
- * Create peer challenge message from the given challenge.
- * @param container_builder Flatbuffer builder for the container message.
- * @param challenge Challenge message needed to convert to flatbuffer message.
- */
+     * Create peer challenge message from the given challenge.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param challenge Challenge message needed to convert to flatbuffer message.
+     */
     void create_msg_from_peer_challenge(flatbuffers::FlatBufferBuilder &container_builder, std::string &challenge)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -278,6 +280,7 @@ namespace msg::fbuf::p2pmsg
             CreatePeer_Challenge_Message(
                 builder,
                 sv_to_flatbuff_str(builder, conf::cfg.contract.id),
+                conf::cfg.contract.roundtime,
                 sv_to_flatbuff_str(builder, challenge));
 
         const flatbuffers::Offset<Content> message = CreateContent(builder, Message_Peer_Challenge_Message, peer_challenge_msg.Union());
@@ -288,10 +291,10 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Create peer challenge response message from the given challenge.
- * @param container_builder Flatbuffer builder for the container message.
- * @param challenge Message which need to be signed and placed in the container message.
- */
+     * Create peer challenge response message from the given challenge.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param challenge Message which need to be signed and placed in the container message.
+     */
     void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &container_builder, const std::string &challenge)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -328,10 +331,10 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Create proposal peer message from the given proposal struct.
- * @param container_builder Flatbuffer builder for the container message.
- * @param p The proposal struct to be placed in the container message.
- */
+     * Create proposal peer message from the given proposal struct.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param p The proposal struct to be placed in the container message.
+     */
     void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::proposal &p)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
@@ -342,6 +345,7 @@ namespace msg::fbuf::p2pmsg
                 builder,
                 p.stage,
                 p.time,
+                p.roundtime,
                 sv_to_flatbuff_bytes(builder, p.nonce),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.users),
                 stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
@@ -412,14 +416,14 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Create content response message from the given content response.
- * @param container_builder Flatbuffer builder for the container message.
- * @param path The path of the directory.
- * @param mount_id The mount id of the relavent hpfs mount.
- * @param hash_nodes File or directory entries with hashes in the given parent path.
- * @param expected_hash The exptected hash of the requested path.
- * @param lcl Lcl to be include in the container msg.
- */
+     * Create content response message from the given content response.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param path The path of the directory.
+     * @param mount_id The mount id of the relavent hpfs mount.
+     * @param hash_nodes File or directory entries with hashes in the given parent path.
+     * @param expected_hash The exptected hash of the requested path.
+     * @param lcl Lcl to be include in the container msg.
+     */
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const uint32_t mount_id,
         std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl, const util::h32 &last_primary_shard_hash)
@@ -446,13 +450,13 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Create content response message from the given content response.
- * @param container_builder Flatbuffer builder for the container message.
- * @param path The path of the directory.
- * @param mount_id The mount id of the relavent hpfs mount.
- * @param hashmap Hashmap of the file
- * @param lcl Lcl to be include in the container msg.
- */
+     * Create content response message from the given content response.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param path The path of the directory.
+     * @param mount_id The mount id of the relavent hpfs mount.
+     * @param hashmap Hashmap of the file
+     * @param lcl Lcl to be include in the container msg.
+     */
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const uint32_t mount_id,
         std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl, const util::h32 &last_primary_shard_hash)
@@ -589,7 +593,7 @@ namespace msg::fbuf::p2pmsg
      * @param skipping_peer Peer that does not need to be sent.
      * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port, std::string_view lcl, const util::h32 &last_primary_shard_hash)
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port, std::string_view lcl, const util::h32 &last_primary_shard_hash)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -606,12 +610,12 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Creates a Flatbuffer container message from the given Content message.
- * @param container_builder The Flatbuffer builder to which the final container message should be written to.
- * @param content_builder The Flatbuffer builder containing the content message that should be placed
- *                        inside the container message.
- * @param sign Whether to sign the message content.
- */
+     * Creates a Flatbuffer container message from the given Content message.
+     * @param container_builder The Flatbuffer builder to which the final container message should be written to.
+     * @param content_builder The Flatbuffer builder containing the content message that should be placed
+     *                        inside the container message.
+     * @param sign Whether to sign the message content.
+     */
     void create_containermsg_from_content(
         flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const util::h32 &last_primary_shard_hash, const bool sign)
     {
@@ -741,13 +745,13 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Create peer list message from the given vector of peer properties structs.
- * @param container_builder Flatbuffer builder for the container message.
- * @param peers The Vector of peer properties to be placed in the container message.
- * @param skipping_peer Peer that does not need to be sent.
- */
+     * Create peer list message from the given vector of peer properties structs.
+     * @param container_builder Flatbuffer builder for the container message.
+     * @param peers The Vector of peer properties to be placed in the container message.
+     * @param skipping_peer Peer that does not need to be sent.
+     */
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>>>
-    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::ip_port_prop> &skipping_ip_port)
+    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port)
     {
         std::vector<flatbuffers::Offset<Peer_Properties>> fbvec;
         fbvec.reserve(peers.size());
@@ -766,9 +770,9 @@ namespace msg::fbuf::p2pmsg
     }
 
     /**
- * Create vector of peer properties structs from the given peer list message.
- * @param fbvec The peer list message to be convert to a list of peer properties structs.
- */
+     * Create vector of peer properties structs from the given peer list message.
+     * @param fbvec The peer list message to be convert to a list of peer properties structs.
+     */
     const std::vector<conf::peer_properties>
     flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<Peer_Properties>> *fbvec)
     {

@@ -272,13 +272,20 @@ struct Peer_Challenge_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   typedef Peer_Challenge_MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CONTRACT_ID = 4,
-    VT_CHALLENGE = 6
+    VT_ROUNDTIME = 6,
+    VT_CHALLENGE = 8
   };
   const flatbuffers::String *contract_id() const {
     return GetPointer<const flatbuffers::String *>(VT_CONTRACT_ID);
   }
   flatbuffers::String *mutable_contract_id() {
     return GetPointer<flatbuffers::String *>(VT_CONTRACT_ID);
+  }
+  uint16_t roundtime() const {
+    return GetField<uint16_t>(VT_ROUNDTIME, 0);
+  }
+  bool mutate_roundtime(uint16_t _roundtime) {
+    return SetField<uint16_t>(VT_ROUNDTIME, _roundtime, 0);
   }
   const flatbuffers::String *challenge() const {
     return GetPointer<const flatbuffers::String *>(VT_CHALLENGE);
@@ -290,6 +297,7 @@ struct Peer_Challenge_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_CONTRACT_ID) &&
            verifier.VerifyString(contract_id()) &&
+           VerifyField<uint16_t>(verifier, VT_ROUNDTIME) &&
            VerifyOffset(verifier, VT_CHALLENGE) &&
            verifier.VerifyString(challenge()) &&
            verifier.EndTable();
@@ -302,6 +310,9 @@ struct Peer_Challenge_MessageBuilder {
   flatbuffers::uoffset_t start_;
   void add_contract_id(flatbuffers::Offset<flatbuffers::String> contract_id) {
     fbb_.AddOffset(Peer_Challenge_Message::VT_CONTRACT_ID, contract_id);
+  }
+  void add_roundtime(uint16_t roundtime) {
+    fbb_.AddElement<uint16_t>(Peer_Challenge_Message::VT_ROUNDTIME, roundtime, 0);
   }
   void add_challenge(flatbuffers::Offset<flatbuffers::String> challenge) {
     fbb_.AddOffset(Peer_Challenge_Message::VT_CHALLENGE, challenge);
@@ -320,22 +331,26 @@ struct Peer_Challenge_MessageBuilder {
 inline flatbuffers::Offset<Peer_Challenge_Message> CreatePeer_Challenge_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> contract_id = 0,
+    uint16_t roundtime = 0,
     flatbuffers::Offset<flatbuffers::String> challenge = 0) {
   Peer_Challenge_MessageBuilder builder_(_fbb);
   builder_.add_challenge(challenge);
   builder_.add_contract_id(contract_id);
+  builder_.add_roundtime(roundtime);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Peer_Challenge_Message> CreatePeer_Challenge_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *contract_id = nullptr,
+    uint16_t roundtime = 0,
     const char *challenge = nullptr) {
   auto contract_id__ = contract_id ? _fbb.CreateString(contract_id) : 0;
   auto challenge__ = challenge ? _fbb.CreateString(challenge) : 0;
   return msg::fbuf::p2pmsg::CreatePeer_Challenge_Message(
       _fbb,
       contract_id__,
+      roundtime,
       challenge__);
 }
 
@@ -761,17 +776,18 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_STAGE = 4,
     VT_TIME = 6,
-    VT_NONCE = 8,
-    VT_USERS = 10,
-    VT_INPUT_HASHES = 12,
-    VT_PRIMARY_SHARD_SEQ_NO = 14,
-    VT_BLOB_SHARD_SEQ_NO = 16,
-    VT_LAST_BLOB_SHARD_HASH = 18,
-    VT_OUTPUT_HASH = 20,
-    VT_OUTPUT_SIG = 22,
-    VT_STATE_HASH = 24,
-    VT_PATCH_HASH = 26,
-    VT_LEDGER_PRIMARY_HASH = 28
+    VT_ROUNDTIME = 8,
+    VT_NONCE = 10,
+    VT_USERS = 12,
+    VT_INPUT_HASHES = 14,
+    VT_PRIMARY_SHARD_SEQ_NO = 16,
+    VT_BLOB_SHARD_SEQ_NO = 18,
+    VT_LAST_BLOB_SHARD_HASH = 20,
+    VT_OUTPUT_HASH = 22,
+    VT_OUTPUT_SIG = 24,
+    VT_STATE_HASH = 26,
+    VT_PATCH_HASH = 28,
+    VT_LEDGER_PRIMARY_HASH = 30
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -784,6 +800,12 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool mutate_time(uint64_t _time) {
     return SetField<uint64_t>(VT_TIME, _time, 0);
+  }
+  uint16_t roundtime() const {
+    return GetField<uint16_t>(VT_ROUNDTIME, 0);
+  }
+  bool mutate_roundtime(uint16_t _roundtime) {
+    return SetField<uint16_t>(VT_ROUNDTIME, _roundtime, 0);
   }
   const flatbuffers::Vector<uint8_t> *nonce() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_NONCE);
@@ -855,6 +877,7 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
            VerifyField<uint64_t>(verifier, VT_TIME) &&
+           VerifyField<uint16_t>(verifier, VT_ROUNDTIME) &&
            VerifyOffset(verifier, VT_NONCE) &&
            verifier.VerifyVector(nonce()) &&
            VerifyOffset(verifier, VT_USERS) &&
@@ -890,6 +913,9 @@ struct Proposal_MessageBuilder {
   }
   void add_time(uint64_t time) {
     fbb_.AddElement<uint64_t>(Proposal_Message::VT_TIME, time, 0);
+  }
+  void add_roundtime(uint16_t roundtime) {
+    fbb_.AddElement<uint16_t>(Proposal_Message::VT_ROUNDTIME, roundtime, 0);
   }
   void add_nonce(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce) {
     fbb_.AddOffset(Proposal_Message::VT_NONCE, nonce);
@@ -939,6 +965,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint8_t stage = 0,
     uint64_t time = 0,
+    uint16_t roundtime = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> input_hashes = 0,
@@ -963,6 +990,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
   builder_.add_input_hashes(input_hashes);
   builder_.add_users(users);
   builder_.add_nonce(nonce);
+  builder_.add_roundtime(roundtime);
   builder_.add_stage(stage);
   return builder_.Finish();
 }
@@ -971,6 +999,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint8_t stage = 0,
     uint64_t time = 0,
+    uint16_t roundtime = 0,
     const std::vector<uint8_t> *nonce = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *input_hashes = nullptr,
@@ -995,6 +1024,7 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       _fbb,
       stage,
       time,
+      roundtime,
       nonce__,
       users__,
       input_hashes__,

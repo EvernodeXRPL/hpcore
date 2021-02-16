@@ -23,10 +23,11 @@ namespace p2p
         std::string pubkey;
 
         uint64_t sent_timestamp = 0; // The timestamp of the sender when this proposal was sent.
-        uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for statistics)
-        uint64_t time = 0;           // The time value that is voted on.
-        uint8_t stage = 0;
-        std::string nonce; // Random nonce that is used to reduce lcl predictability.
+        uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for network statistics)
+        uint64_t time = 0;           // The descreet concensus time value that is voted on.
+        uint8_t stage = 0;           // The round-stage that this proposal belongs to.
+        uint16_t roundtime = 0;      // Roundtime of the proposer.
+        std::string nonce;           // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
         uint64_t primary_shard_seq_no; // Shard sequence number.
         util::h32 last_primary_shard_hash;
@@ -48,6 +49,7 @@ namespace p2p
     struct peer_challenge
     {
         std::string contract_id;
+        uint16_t roundtime = 0;
         std::string challenge;
     };
 
@@ -130,7 +132,7 @@ namespace p2p
         // Holds all the messages until they are processed by consensus.
         message_collection collected_msgs;
 
-        // Set of currently connected peer connections mapped by the pubkey of socket session.
+        // Set of currently connected peer connections mapped by the binary pubkey of socket session.
         std::unordered_map<std::string, peer_comm_session *> peer_connections;
 
         std::mutex peer_connections_mutex; // Mutex for peer connections access race conditions.
@@ -166,7 +168,7 @@ namespace p2p
 
     void send_peer_list_request();
 
-    void update_known_peer_available_capacity(const conf::ip_port_prop &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
+    void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
 
     void merge_peer_list(const std::vector<conf::peer_properties> &peers);
 
@@ -177,6 +179,7 @@ namespace p2p
     int16_t get_available_capacity();
 
     void update_unl_connections();
+
 } // namespace p2p
 
 #endif

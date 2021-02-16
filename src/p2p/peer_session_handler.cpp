@@ -108,6 +108,9 @@ namespace p2p
                 return -1;
             }
 
+            // Remember the roundtime reported by this peer.
+            session.reported_roundtime = chall.roundtime;
+
             // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf(1024);
             p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);
@@ -152,13 +155,9 @@ namespace p2p
             const p2pmsg::Peer_Requirement_Announcement_Message *announcement_msg = content->message_as_Peer_Requirement_Announcement_Message();
             session.need_consensus_msg_forwarding = announcement_msg->need_consensus_msg_forwarding();
             if (session.need_consensus_msg_forwarding)
-            {
                 LOG_DEBUG << "Consensus message forwaring is required for " << session.display_name();
-            }
             else
-            {
                 LOG_DEBUG << "Consensus message forwaring is not required for " << session.display_name();
-            }
         }
         else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
         {

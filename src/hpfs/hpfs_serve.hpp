@@ -11,8 +11,6 @@ namespace hpfs
     class hpfs_serve
     {
     private:
-        uint16_t REQUEST_BATCH_TIMEOUT;
-
         bool is_shutting_down = false;
         bool init_success = false;
         std::thread hpfs_serve_thread;
