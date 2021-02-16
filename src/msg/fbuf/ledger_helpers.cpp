@@ -46,32 +46,6 @@ namespace msg::fbuf::ledgermsg
         return VerifyLedgerBlockBuffer(ledger_verifier);
     }
 
-    // /**
-    //  * Create full history block from the given raw input map.
-    //  * @param map The raw input map to be placed in full history.
-    //  */
-    // void create_full_history_block_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map)
-    // {
-    //     std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawInput>> fbvec;
-    //     fbvec.reserve(map.size());
-    //     for (auto const &[key, value] : map)
-    //     {
-    //         fbvec.push_back(ledgermsg::CreateRawInput(
-    //             builder,
-    //             sv_to_flatbuff_bytes(builder, key),
-    //             sv_to_flatbuff_bytes(builder, value.pubkey),
-    //             sv_to_flatbuff_bytes(builder, value.input)));
-    //     }
-
-    //     flatbuffers::Offset<ledgermsg::FullHistoryBlock> fullhistory =
-    //         ledgermsg::CreateFullHistoryBlock(
-    //             builder,
-    //             sv_to_flatbuff_str(builder, conf::cfg.hp_version),
-    //             builder.CreateVector(fbvec));
-
-    //     builder.Finish(fullhistory); // Finished building message content to get serialised content.
-    // }
-
     /**
      * Create ledger blob msg from ledger blob struct.
      * @param ledger_blob Ledger blob to be placed in file.
@@ -120,21 +94,4 @@ namespace msg::fbuf::ledgermsg
 
         builder.Finish(blob); // Finished building message content to get serialised content.
     }
-
-    // const std::unordered_map<std::string, usr::raw_user_input> create_raw_input_map_from_full_history_block(const std::vector<uint8_t> &fullhist_buf)
-    // {
-    //     const auto fullhistory = msg::fbuf::ledgermsg::GetFullHistoryBlock(fullhist_buf.data());
-    //     const auto fbvec = fullhistory->raw_inputs();
-
-    //     std::unordered_map<std::string, usr::raw_user_input> map;
-    //     map.reserve(fbvec->size());
-    //     for (auto el : *fbvec)
-    //     {
-    //         map.emplace(flatbuff_bytes_to_sv(el->hash()),
-    //                     usr::raw_user_input{
-    //                         std::string(flatbuff_bytes_to_sv(el->pubkey())),
-    //                         std::string(flatbuff_bytes_to_sv(el->input()))});
-    //     }
-    //     return map;
-    // }
 } // namespace msg::fbuf::ledgermsg

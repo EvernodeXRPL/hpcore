@@ -193,8 +193,8 @@ namespace consensus
         uint64_t majority_primary_shard_seq_no;
         if (check_last_primary_shard_hash_votes(is_last_primary_shard_hash_desync, majority_last_primary_shard_hash, majority_primary_shard_seq_no, votes, unl_count))
         {
-            // We proceed further only if last shard hash check was success (meaning last shard hash check could be reliably performed).
-            // Last shard hash sync is commenced if we are out-of-sync with majority last shard hash.
+            // We proceed further only if last primary shard hash check was success (meaning last primary shard hash check could be reliably performed).
+            // Last primary shard hash sync is commenced if we are out-of-sync with majority last primary shard hash.
             if (is_last_primary_shard_hash_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
@@ -706,10 +706,10 @@ namespace consensus
     }
 
     /**
-     * Check whether our last shard hash is consistent with the proposals being made by our UNL peers last shard hash votes.
+     * Check whether our last primary shard hash is consistent with the proposals being made by our UNL peers last primary shard hash votes.
      * @param is_desync Indicates whether our ledger primary hash is out-of-sync with majority ledger primary hash. Only valid if this method returns True.
-     * @param majority_last_primary_shard_hash The majority last shard hash based on the votes received. Only valid if this method returns True.
-     * @param majority_primary_shard_seq_no Shard sequence number of the shard with the majority last shard hash.
+     * @param majority_last_primary_shard_hash The majority last primary shard hash based on the votes received. Only valid if this method returns True.
+     * @param majority_primary_shard_seq_no Shard sequence number of the shard with the majority last primary shard hash.
      * @param votes Vote counter for this stage.
      * @param unl_count Number of unl peers.
      * @return True if majority ledger primary hash could be calculated reliably. False if shard index hash check failed due to unreliable votes.

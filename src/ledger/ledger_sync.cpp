@@ -24,7 +24,6 @@ namespace ledger
             LOG_ERROR << errno << ": Error reading hash file. " << shard_hash_file_path;
             return;
         }
-        util::h32 prev_shard_hash_from_hpfs;
         const size_t pos = synced_target.vpath.find_last_of("/");
         if (pos == std::string::npos)
         {
@@ -39,6 +38,7 @@ namespace ledger
             return;
         }
 
+        util::h32 prev_shard_hash_from_hpfs;
         const std::string shard_parent_dir = synced_target.vpath.substr(0, pos);
 
         if (shard_parent_dir == PRIMARY_DIR)
