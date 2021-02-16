@@ -790,6 +790,21 @@ namespace conf
     }
 
     /**
+     * Persists the specified known peers to the config file.
+     */
+    int persist_known_peers_config(const std::vector<peer_properties> &peers)
+    {
+        if (peers.empty())
+            return 0;
+
+        const size_t max_count = conf::cfg.mesh.max_known_connections == 0
+                                     ? peers.size()
+                                     : MIN(peers.size(), conf::cfg.mesh.max_known_connections);
+        cfg.mesh.known_peers = std::vector<peer_properties>(peers.begin(), peers.begin() + max_count);
+        return write_config(cfg);
+    }
+
+    /**
      * Locks the config file. If already locked means there's another hpcore instance running in the same directory.
      * If so, log error and return, Otherwise lock the config.
      * @return Returns 0 if lock is successfully aquired, -1 on error.

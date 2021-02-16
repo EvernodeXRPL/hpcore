@@ -44,7 +44,15 @@ namespace p2p
     void deinit()
     {
         if (init_success)
+        {
+            // Persist latest known peers information to config before the peer server is stopped.
+            {
+                std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
+                conf::persist_known_peers_config(ctx.server->req_known_remotes);
+            }
+
             ctx.server->stop();
+        }
     }
 
     int start_peer_connections()
