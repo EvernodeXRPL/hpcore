@@ -62,6 +62,8 @@ namespace ledger
     /**
      * Create and save ledger record from the given proposal message.
      * @param proposal Consensus-reached Stage 3 proposal.
+     * @param candidate_user_inputs Raw inputs received in this consensus round.
+     * @param generated_user_outputs Generated raw outputs in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
     int save_ledger(const p2p::proposal &proposal, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
@@ -160,10 +162,13 @@ namespace ledger
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
         const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
 
-        if (save_ledger_blob(seq_no, lcl_hash, candidate_user_inputs, generated_user_outputs) == -1)
+        if (!candidate_user_inputs.empty() || !generated_user_outputs.empty())
         {
-            LOG_ERROR << errno << ": Error saving the raw inputs/outputs, shard: " << std::to_string(primary_shard_seq_no);
-            return -1;
+            if (save_ledger_blob(lcl_hash, candidate_user_inputs, generated_user_outputs) == -1)
+            {
+                LOG_ERROR << errno << ": Error saving the raw inputs/outputs, shard: " << std::to_string(primary_shard_seq_no);
+                return -1;
+            }
         }
 
         const std::string lcl_hash_hex = util::to_hex(lcl_hash);
@@ -295,21 +300,39 @@ namespace ledger
     }
 
     /**
-     * Save raw from the given proposal message.
-     * @param proposal Consensus-reached Stage 3 proposal.
+     * Save raw data from the consensused proposal. A blob file is only created if there is any user inputs or contract outputs
+     * to save disk space.
+     * @param ledger_hash Hash of this ledger we are saving.
+     * @param candidate_user_inputs Raw inputs received in this consensus round.
+     * @param generated_user_outputs Generated raw outputs in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger_blob(const uint64_t seq_no, std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger_blob(std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         // Construct shard path.
-        const uint64_t shard_seq_no = (seq_no - 1) / BLOB_SHARD_SIZE;
-        const std::string shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no));
-        const std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
+        uint64_t shard_seq_no = ctx.get_blob_shard_seq_no();
+        std::string shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no));
+        std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
 
-        // If (seq_no - 1) % BLOB_SHARD_SIZE == 0 means this is the first ledger of the shard.
-        // So create the shard folder and ledger table.
-        if ((seq_no - 1) % BLOB_SHARD_SIZE == 0)
+        bool should_create_folder = false;
+        if (util::is_dir_exists(shard_path))
+        {
+            if ((util::fetch_dir_entries(shard_path).size() - 1) >= BLOB_SHARD_SIZE)
+            {
+                should_create_folder = true;
+                shard_seq_no++;
+                shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no));
+                shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
+            }
+        }
+        else
+        {
+            should_create_folder = true;
+        }
+
+        // Create the required shard folder if not already existing.
+        if (should_create_folder)
         {
             // Creating the directory.
             if (util::create_dir_tree_recursive(shard_path) == -1)

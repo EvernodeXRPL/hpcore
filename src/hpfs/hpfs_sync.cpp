@@ -86,7 +86,7 @@ namespace hpfs
     {
         {
             std::shared_lock lock(current_target_mutex);
-            if (current_target == target)
+            if (is_shutting_down || (is_syncing && current_target == target))
                 return;
         }
 
@@ -105,7 +105,12 @@ namespace hpfs
     {
         // Current_target_mutex is not required since this function is currently used in a unique_lock
         // scope.
-        if (current_target == target)
+        if (is_shutting_down || (is_syncing && current_target == target))
+            return;
+
+        // Check whether this target is already in the sync target list.
+        const auto itr = std::find(this->target_list.begin(), this->target_list.end(), target);
+        if (itr != this->target_list.end())
             return;
 
         this->target_list.push_back(target);

@@ -106,7 +106,7 @@ namespace ledger
     int save_ledger(const p2p::proposal &proposal, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
                     const std::map<std::string, consensus::generated_user_output> &generated_user_outputs);
 
-    int save_ledger_blob(const uint64_t seq_no, std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger_blob(std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs);
 
     void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir);
