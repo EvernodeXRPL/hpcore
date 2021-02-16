@@ -2,7 +2,7 @@
 
 # Runs the specified contract directory with hpcore docker image.
 # This script assumes you already have the hpcore docker image and 'hpnet' virtual docker network.
-# Usage: ./rundir.sh 1
+# Usage: ./rundir.sh <dir path>
 
 # Validate the node count arg.
 if [ -z "$1" ]; then

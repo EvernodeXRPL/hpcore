@@ -118,7 +118,7 @@ namespace conf
     {
         uint16_t port = 0;                        // Listening port for public user connections
         bool listen = true;                       // Whether to listen for incoming user connections.
-        uint16_t idle_timeout = 0;                // Idle connection timeout for user connections in seconds.
+        uint32_t idle_timeout = 0;                // Idle connection timeout ms for user connections.
         uint64_t max_bytes_per_msg = 0;           // User message max size in bytes
         uint64_t max_bytes_per_min = 0;           // User message rate (characters(bytes) per minute)
         uint64_t max_bad_msgs_per_min = 0;        // User bad messages per minute
@@ -137,6 +137,7 @@ namespace conf
     {
         uint16_t port = 0;                        // Listening port for peer connections
         bool listen = true;                       // Whether to listen for incoming peer connections.
+        uint32_t idle_timeout = 0;                // Idle connection timeout ms for peer connections.
         std::vector<peer_properties> known_peers; // Vector of peers with ip_port, timestamp, capacity.
         bool msg_forwarding = false;              // Whether peer message forwarding is on/off.
         uint16_t max_connections = 0;             // Max peer connections.
@@ -147,7 +148,6 @@ namespace conf
         uint64_t max_bad_msgs_per_min = 0;        // Peer bad messages per minute.
         uint64_t max_bad_msgsigs_per_min = 0;     // Peer bad signatures per minute.
         uint64_t max_dup_msgs_per_min = 0;        // Peer max duplicate messages per minute.
-        uint16_t idle_timeout = 0;                // Idle connection timeout for peer connections in seconds.
         peer_discovery_config peer_discovery;     // Peer discovery configs.
     };
 

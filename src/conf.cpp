@@ -149,7 +149,7 @@ namespace conf
 
             cfg.mesh.port = 22860;
             cfg.mesh.msg_forwarding = true;
-            cfg.mesh.idle_timeout = 120;
+            cfg.mesh.idle_timeout = 120000;
             cfg.mesh.peer_discovery.enabled = true;
             cfg.mesh.peer_discovery.interval = 30000;
 
@@ -347,6 +347,7 @@ namespace conf
                 const jsoncons::ojson &mesh = d["mesh"];
                 cfg.mesh.port = mesh["port"].as<uint16_t>();
                 cfg.mesh.listen = mesh["listen"].as<bool>();
+                cfg.mesh.idle_timeout = mesh["idle_timeout"].as<uint32_t>();
 
                 // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
                 // seperately to retrieve easily when handling peer connections.
@@ -387,7 +388,6 @@ namespace conf
                 cfg.mesh.max_bad_msgs_per_min = mesh["max_bad_msgs_per_min"].as<uint64_t>();
                 cfg.mesh.max_bad_msgsigs_per_min = mesh["max_bad_msgsigs_per_min"].as<uint64_t>();
                 cfg.mesh.max_dup_msgs_per_min = mesh["max_dup_msgs_per_min"].as<uint64_t>();
-                cfg.mesh.idle_timeout = mesh["idle_timeout"].as<uint16_t>();
 
                 jpath = "mesh.peer_discovery";
                 cfg.mesh.peer_discovery.interval = mesh["peer_discovery"]["interval"].as<uint16_t>();
@@ -409,12 +409,12 @@ namespace conf
                 const jsoncons::ojson &user = d["user"];
                 cfg.user.port = user["port"].as<uint16_t>();
                 cfg.user.listen = user["listen"].as<bool>();
+                cfg.user.idle_timeout = user["idle_timeout"].as<uint32_t>();
                 cfg.user.max_connections = user["max_connections"].as<uint64_t>();
                 cfg.user.max_in_connections_per_host = user["max_in_connections_per_host"].as<uint64_t>();
                 cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
                 cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
-                cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
                 cfg.user.concurrent_read_reqeuests = user["concurrent_read_reqeuests"].as<uint64_t>();
             }
             catch (const std::exception &e)
@@ -498,6 +498,7 @@ namespace conf
             jsoncons::ojson mesh_config;
             mesh_config.insert_or_assign("port", cfg.mesh.port);
             mesh_config.insert_or_assign("listen", cfg.mesh.listen);
+            mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
 
             jsoncons::ojson peers(jsoncons::json_array_arg);
             for (const auto &peer : cfg.mesh.known_peers)
@@ -515,7 +516,6 @@ namespace conf
             mesh_config.insert_or_assign("max_bad_msgs_per_min", cfg.mesh.max_bad_msgs_per_min);
             mesh_config.insert_or_assign("max_bad_msgsigs_per_min", cfg.mesh.max_bad_msgsigs_per_min);
             mesh_config.insert_or_assign("max_dup_msgs_per_min", cfg.mesh.max_dup_msgs_per_min);
-            mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
 
             jsoncons::ojson peer_discovery_config;
             peer_discovery_config.insert_or_assign("enabled", cfg.mesh.peer_discovery.enabled);
