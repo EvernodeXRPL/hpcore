@@ -72,6 +72,7 @@ namespace consensus
         uint16_t stage_time = 0;                 // Time allocated to a consensus stage.
         uint16_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
         uint64_t round_boundry_offset = 0;       // Time window boundry offset based on contract id.
+        uint16_t unreliable_votes_attempts = 0;  // No. of times we failed to get reliable votes continously.
 
         std::optional<sc::execution_context> contract_ctx;
         std::mutex contract_ctx_mutex;
@@ -156,6 +157,8 @@ namespace consensus
     bool push_control_message(const std::string &control_msg);
 
     int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash);
+
+    void refresh_roundtime(const bool perform_detection);
 
 } // namespace consensus
 

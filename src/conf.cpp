@@ -148,9 +148,9 @@ namespace conf
             cfg.contract.is_npl_public = false;
 
             cfg.mesh.port = 22860;
-            cfg.mesh.msg_forwarding = false;
+            cfg.mesh.msg_forwarding = true;
             cfg.mesh.idle_timeout = 120;
-            cfg.mesh.peer_discovery.enabled = false;
+            cfg.mesh.peer_discovery.enabled = true;
             cfg.mesh.peer_discovery.interval = 30000;
 
             cfg.user.port = 8080;
@@ -846,7 +846,7 @@ namespace conf
         jdoc.insert_or_assign("unl", unl);
         jdoc.insert_or_assign("bin_path", contract.bin_path);
         jdoc.insert_or_assign("bin_args", contract.bin_args);
-        jdoc.insert_or_assign("roundtime", contract.roundtime);
+        jdoc.insert_or_assign("roundtime", contract.roundtime.load());
         jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
 

@@ -97,16 +97,16 @@ namespace conf
 
     struct contract_config
     {
-        std::string id;                   // Contract guid.
-        bool execute = false;             // Whether or not to execute the contract on the node.
-        bool log_output = false;          // Whether to log stdout/err of the contract process.
-        std::string version;              // Contract version string.
-        std::set<std::string> unl;        // Unique node list (list of binary public keys)
-        std::string bin_path;             // Full path to the contract binary
-        std::string bin_args;             // CLI arguments to pass to the contract binary
-        uint16_t roundtime = 0;           // Consensus round time in ms
-        bool is_consensus_public = false; // If true, consensus are broadcasted to non-unl nodes as well.
-        bool is_npl_public = false;       // If true, npl messages are broadcasted to non-unl nodes as well.
+        std::string id;                      // Contract guid.
+        bool execute = false;                // Whether or not to execute the contract on the node.
+        bool log_output = false;             // Whether to log stdout/err of the contract process.
+        std::string version;                 // Contract version string.
+        std::set<std::string> unl;           // Unique node list (list of binary public keys)
+        std::string bin_path;                // Full path to the contract binary
+        std::string bin_args;                // CLI arguments to pass to the contract binary
+        std::atomic<uint16_t> roundtime = 0; // Consensus round time in ms
+        bool is_consensus_public = false;    // If true, consensus are broadcasted to non-unl nodes as well.
+        bool is_npl_public = false;          // If true, npl messages are broadcasted to non-unl nodes as well.
         appbill_config appbill;
         round_limits_config round_limits;
 
