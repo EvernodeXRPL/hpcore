@@ -95,6 +95,9 @@ namespace unl
         }
     }
 
+    /**
+     * Returns the majority roundtime reported among the unl.
+     */
     uint16_t get_majority_roundtime()
     {
         std::unique_lock lock(unl_mutex);
