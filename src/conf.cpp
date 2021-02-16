@@ -109,7 +109,6 @@ namespace conf
 
         // Recursivly create contract directories. Return an error if unable to create
         if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + sc::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_hpfs_mount_dir) == -1 ||
@@ -220,7 +219,6 @@ namespace conf
         ctx.config_file = ctx.config_dir + "/hp.cfg";
         ctx.tls_key_file = ctx.config_dir + "/tlskey.pem";
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
-        ctx.full_hist_dir = basedir + "/fullhist";
         ctx.contract_hpfs_dir = basedir + "/contract_fs";
         ctx.contract_hpfs_mount_dir = ctx.contract_hpfs_dir + "/mnt";
         ctx.contract_hpfs_rw_dir = ctx.contract_hpfs_mount_dir + "/rw";
@@ -484,6 +482,7 @@ namespace conf
             jsoncons::ojson node_config;
             node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
             node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
+            // We always save the startup role to config. Not the current role which might get changed dynamically during syncing.
             node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
             node_config.insert_or_assign("max_shards", cfg.node.max_shards);
             d.insert_or_assign("node", node_config);
@@ -645,10 +644,9 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[9] = {
+        const std::string paths[8] = {
             ctx.contract_dir,
             ctx.config_file,
-            ctx.full_hist_dir,
             ctx.contract_hpfs_dir,
             ctx.ledger_hpfs_dir,
             ctx.tls_key_file,

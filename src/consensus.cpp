@@ -184,7 +184,7 @@ namespace consensus
 
     /**
      * Checks whether we are in sync with the received votes.
-     * @return 0 if we are in sync. -1 on ledger primary hash or hpfs desync. -2 if majority ledger primary hash unreliable.
+     * @return 0 if we are in sync. -1 on ledger or hpfs desync. -2 if majority last ledger primary shard hash unreliable.
      */
     int check_sync_status(const size_t unl_count, vote_counter &votes)
     {
@@ -236,7 +236,7 @@ namespace consensus
                 if (is_state_desync)
                     sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
-                // If ledger blob shard is desync, We first request the latest shard.
+                // If ledger blob shard is desync, We first request the latest blob shard.
                 if (is_last_blob_shard_hash_desync)
                 {
                     const std::string sync_name = "blob shard " + std::to_string(majority_blob_shard_seq_no);
@@ -245,18 +245,18 @@ namespace consensus
                 }
             }
 
-            // Proceed further only if last shard, state and patch hashes are in sync with majority.
+            // Proceed further only if last primary shard, last blob shard, state and patch hashes are in sync with majority.
             if (!is_last_primary_shard_hash_desync && !is_last_blob_shard_hash_desync && !is_state_desync && !is_patch_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
-            // Last shard hash, patch or state desync.
+            // Last primary shard hash, last blob shard hash, patch or state desync.
             return -1;
         }
 
-        // Majority last shard hash couldn't be detected reliably.
+        // Majority last primary shard hash couldn't be detected reliably.
         return -2;
     }
 
@@ -711,6 +711,7 @@ namespace consensus
      * @param majority_last_primary_shard_hash The majority last shard hash based on the votes received. Only valid if this method returns True.
      * @param majority_primary_shard_seq_no Shard sequence number of the shard with the majority last shard hash.
      * @param votes Vote counter for this stage.
+     * @param unl_count Number of unl peers.
      * @return True if majority ledger primary hash could be calculated reliably. False if shard index hash check failed due to unreliable votes.
      */
     bool check_last_primary_shard_hash_votes(bool &is_desync, util::h32 &majority_last_primary_shard_hash, uint64_t &majority_primary_shard_seq_no, vote_counter &votes, const size_t unl_count)
@@ -742,8 +743,8 @@ namespace consensus
             }
         }
 
-        // If winning last shard hash is not matched with our last shard hash, that means we are not on the consensus ledger.
-        // If that's the case we should request history straight away.
+        // If winning last primary shard hash is not matched with our last primary shard hash, that means we are not on the consensus ledger.
+        // If that's the case we should request shards straight away.
         if (ledger::ctx.get_last_primary_shard_hash() != majority_last_primary_shard_hash)
         {
             LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
