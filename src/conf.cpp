@@ -148,9 +148,9 @@ namespace conf
             cfg.contract.is_npl_public = false;
 
             cfg.mesh.port = 22860;
-            cfg.mesh.msg_forwarding = false;
+            cfg.mesh.msg_forwarding = true;
             cfg.mesh.idle_timeout = 120;
-            cfg.mesh.peer_discovery.enabled = false;
+            cfg.mesh.peer_discovery.enabled = true;
             cfg.mesh.peer_discovery.interval = 30000;
 
             cfg.user.port = 8080;

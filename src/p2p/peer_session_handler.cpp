@@ -156,13 +156,9 @@ namespace p2p
             const p2pmsg::Peer_Requirement_Announcement_Message *announcement_msg = content->message_as_Peer_Requirement_Announcement_Message();
             session.need_consensus_msg_forwarding = announcement_msg->need_consensus_msg_forwarding();
             if (session.need_consensus_msg_forwarding)
-            {
                 LOG_DEBUG << "Consensus message forwaring is required for " << session.display_name();
-            }
             else
-            {
                 LOG_DEBUG << "Consensus message forwaring is not required for " << session.display_name();
-            }
         }
         else if (content_message_type == p2pmsg::Message_Proposal_Message) // message is a proposal message
         {
