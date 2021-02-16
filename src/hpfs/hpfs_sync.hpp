@@ -73,8 +73,6 @@ namespace hpfs
         int start_syncing_next_target();
 
     protected:
-        std::string name; // Name used for logging.
-
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
         std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
 

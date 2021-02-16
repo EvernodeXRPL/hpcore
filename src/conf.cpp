@@ -136,6 +136,7 @@ namespace conf
 
             cfg.node.role = startup_role = ROLE::VALIDATOR;
             cfg.node.full_history = false;
+            cfg.node.max_shards = 4;
 
             cfg.contract.id = crypto::generate_uuid();
             cfg.contract.execute = true;
