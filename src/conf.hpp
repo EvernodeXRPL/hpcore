@@ -136,6 +136,7 @@ namespace conf
     struct mesh_config
     {
         uint16_t port = 0;                        // Listening port for peer connections
+        bool listen = true;                       // Whether to listen for incoming peer connections.
         std::vector<peer_properties> known_peers; // Vector of peers with ip_port, timestamp, capacity.
         bool msg_forwarding = false;              // Whether peer message forwarding is on/off.
         uint16_t max_connections = 0;             // Max peer connections.

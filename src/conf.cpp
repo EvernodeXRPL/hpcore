@@ -346,6 +346,8 @@ namespace conf
             {
                 const jsoncons::ojson &mesh = d["mesh"];
                 cfg.mesh.port = mesh["port"].as<uint16_t>();
+                cfg.mesh.listen = mesh["listen"].as<bool>();
+
                 // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
                 // seperately to retrieve easily when handling peer connections.
                 std::vector<std::string> splitted_peers;
@@ -406,6 +408,7 @@ namespace conf
             {
                 const jsoncons::ojson &user = d["user"];
                 cfg.user.port = user["port"].as<uint16_t>();
+                cfg.user.listen = user["listen"].as<bool>();
                 cfg.user.max_connections = user["max_connections"].as<uint64_t>();
                 cfg.user.max_in_connections_per_host = user["max_in_connections_per_host"].as<uint64_t>();
                 cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
@@ -413,7 +416,6 @@ namespace conf
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
                 cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
                 cfg.user.concurrent_read_reqeuests = user["concurrent_read_reqeuests"].as<uint64_t>();
-                cfg.user.listen = user["enabled"].as<bool>();
             }
             catch (const std::exception &e)
             {
@@ -494,6 +496,7 @@ namespace conf
         {
             jsoncons::ojson mesh_config;
             mesh_config.insert_or_assign("port", cfg.mesh.port);
+            mesh_config.insert_or_assign("listen", cfg.mesh.listen);
 
             jsoncons::ojson peers(jsoncons::json_array_arg);
             for (const auto &peer : cfg.mesh.known_peers)
@@ -525,13 +528,13 @@ namespace conf
         {
             jsoncons::ojson user_config;
             user_config.insert_or_assign("port", cfg.user.port);
+            user_config.insert_or_assign("listen", cfg.user.listen);
             user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
             user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
             user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
             user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
             user_config.insert_or_assign("max_connections", cfg.user.max_connections);
             user_config.insert_or_assign("max_in_connections_per_host", cfg.user.max_in_connections_per_host);
-            user_config.insert_or_assign("enabled", cfg.user.listen);
             user_config.insert_or_assign("concurrent_read_reqeuests", cfg.user.concurrent_read_reqeuests);
             d.insert_or_assign("user", user_config);
         }

@@ -83,7 +83,7 @@ namespace comm
                 std::optional<hpws::error> error = hpws_client->ack(data);
                 if (error.has_value())
                 {
-                    LOG_DEBUG << "hpws client ack failed:" << error.value().first << " " << error.value().second;
+                    LOG_DEBUG << "hpws client ack failed:" << error->first << " " << error->second;
                     should_disconnect = true;
                 }
             }
@@ -159,7 +159,7 @@ namespace comm
         std::optional<hpws::error> error = hpws_client->write(message);
         if (error.has_value())
         {
-            LOG_DEBUG << "hpws client write failed:" << error.value().first << " " << error.value().second;
+            LOG_DEBUG << "hpws client write failed:" << error->first << " " << error->second;
             return -1;
         }
         return 0;

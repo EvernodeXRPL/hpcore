@@ -113,7 +113,10 @@ namespace comm
 
         void check_for_new_connection()
         {
-            std::variant<hpws::client, hpws::error> accept_result = hpws_server.value().accept(true);
+            if (listen_port == 0)
+                return;
+
+            std::variant<hpws::client, hpws::error> accept_result = hpws_server->accept(true);
 
             if (std::holds_alternative<hpws::error>(accept_result))
             {
@@ -226,7 +229,7 @@ namespace comm
 
         int start()
         {
-            if (start_hpws_server() == -1)
+            if (listen_port > 0 && start_hpws_server() == -1)
                 return -1;
 
             watchdog_thread = std::thread(&comm_server<T>::connection_watchdog, this);
