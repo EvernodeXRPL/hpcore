@@ -21,10 +21,13 @@ namespace ledger
     private:
         std::string lcl;
         uint64_t seq_no = 0;
-        uint64_t shard_seq_no = 0;
-        util::h32 last_shard_hash = util::h32_empty;
+        uint64_t primary_shard_seq_no = 0;
+        util::h32 last_primary_shard_hash = util::h32_empty;
+        uint64_t blob_shard_seq_no = 0;
+        util::h32 last_blob_shard_hash = util::h32_empty;
         std::shared_mutex lcl_mutex;
-        std::shared_mutex shard_mutex;
+        std::shared_mutex primary_shard_mutex;
+        std::shared_mutex blob_shard_mutex;
 
     public:
         const std::string get_lcl()
@@ -46,23 +49,42 @@ namespace ledger
             seq_no = new_seq_no;
         }
 
-        const uint64_t get_shard_seq_no()
+        const uint64_t get_primary_shard_seq_no()
         {
-            std::shared_lock lock(shard_mutex);
-            return shard_seq_no;
+            std::shared_lock lock(primary_shard_mutex);
+            return primary_shard_seq_no;
         }
 
-        const util::h32 get_last_shard_hash()
+        const util::h32 get_last_primary_shard_hash()
         {
-            std::shared_lock lock(shard_mutex);
-            return last_shard_hash;
+            std::shared_lock lock(primary_shard_mutex);
+            return last_primary_shard_hash;
         }
 
-        void set_last_shard_hash(const uint64_t new_shard_seq_no, const util::h32 &new_last_shard_hash)
+        void set_last_primary_shard_hash(const uint64_t new_shard_seq_no, const util::h32 &new_last_shard_hash)
         {
-            std::unique_lock lock(shard_mutex);
-            shard_seq_no = new_shard_seq_no;
-            last_shard_hash = new_last_shard_hash;
+            std::unique_lock lock(primary_shard_mutex);
+            primary_shard_seq_no = new_shard_seq_no;
+            last_primary_shard_hash = new_last_shard_hash;
+        }
+
+        const uint64_t get_blob_shard_seq_no()
+        {
+            std::shared_lock lock(blob_shard_mutex);
+            return blob_shard_seq_no;
+        }
+
+        const util::h32 get_last_blob_shard_hash()
+        {
+            std::shared_lock lock(blob_shard_mutex);
+            return last_blob_shard_hash;
+        }
+
+        void set_last_blob_shard_hash(const uint64_t new_blob_shard_seq_no, const util::h32 &new_last_blob_shard_hash)
+        {
+            std::unique_lock lock(blob_shard_mutex);
+            blob_shard_seq_no = new_blob_shard_seq_no;
+            last_blob_shard_hash = new_last_blob_shard_hash;
         }
     };
 
@@ -93,7 +115,7 @@ namespace ledger
 
     int get_last_ledger_and_update_context();
 
-    int get_last_shard_info(std::string_view session_name, util::h32 &last_shard_hash, uint64_t &shard_seq_no);
+    int get_last_shard_info(std::string_view session_name, util::h32 &last_primary_shard_hash, uint64_t &primary_shard_seq_no, std::string_view shard_parent_dir);
 
 } // namespace ledger
 

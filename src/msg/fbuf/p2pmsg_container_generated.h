@@ -23,7 +23,7 @@ struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_TIMESTAMP = 6,
     VT_PUBKEY = 8,
     VT_LCL = 10,
-    VT_LAST_SHARD_HASH = 12,
+    VT_LAST_PRIMARY_SHARD_HASH = 12,
     VT_SIGNATURE = 14,
     VT_CONTENT = 16
   };
@@ -51,11 +51,11 @@ struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
-  const flatbuffers::Vector<uint8_t> *last_shard_hash() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LAST_SHARD_HASH);
+  const flatbuffers::Vector<uint8_t> *last_primary_shard_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LAST_PRIMARY_SHARD_HASH);
   }
-  flatbuffers::Vector<uint8_t> *mutable_last_shard_hash() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LAST_SHARD_HASH);
+  flatbuffers::Vector<uint8_t> *mutable_last_primary_shard_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LAST_PRIMARY_SHARD_HASH);
   }
   const flatbuffers::Vector<uint8_t> *signature() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIGNATURE);
@@ -77,8 +77,8 @@ struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(pubkey()) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
-           VerifyOffset(verifier, VT_LAST_SHARD_HASH) &&
-           verifier.VerifyVector(last_shard_hash()) &&
+           VerifyOffset(verifier, VT_LAST_PRIMARY_SHARD_HASH) &&
+           verifier.VerifyVector(last_primary_shard_hash()) &&
            VerifyOffset(verifier, VT_SIGNATURE) &&
            verifier.VerifyVector(signature()) &&
            VerifyOffset(verifier, VT_CONTENT) &&
@@ -103,8 +103,8 @@ struct ContainerBuilder {
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
     fbb_.AddOffset(Container::VT_LCL, lcl);
   }
-  void add_last_shard_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> last_shard_hash) {
-    fbb_.AddOffset(Container::VT_LAST_SHARD_HASH, last_shard_hash);
+  void add_last_primary_shard_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> last_primary_shard_hash) {
+    fbb_.AddOffset(Container::VT_LAST_PRIMARY_SHARD_HASH, last_primary_shard_hash);
   }
   void add_signature(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature) {
     fbb_.AddOffset(Container::VT_SIGNATURE, signature);
@@ -129,14 +129,14 @@ inline flatbuffers::Offset<Container> CreateContainer(
     uint64_t timestamp = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> last_shard_hash = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> last_primary_shard_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = 0) {
   ContainerBuilder builder_(_fbb);
   builder_.add_timestamp(timestamp);
   builder_.add_content(content);
   builder_.add_signature(signature);
-  builder_.add_last_shard_hash(last_shard_hash);
+  builder_.add_last_primary_shard_hash(last_primary_shard_hash);
   builder_.add_lcl(lcl);
   builder_.add_pubkey(pubkey);
   builder_.add_version(version);
@@ -149,12 +149,12 @@ inline flatbuffers::Offset<Container> CreateContainerDirect(
     uint64_t timestamp = 0,
     const std::vector<uint8_t> *pubkey = nullptr,
     const std::vector<uint8_t> *lcl = nullptr,
-    const std::vector<uint8_t> *last_shard_hash = nullptr,
+    const std::vector<uint8_t> *last_primary_shard_hash = nullptr,
     const std::vector<uint8_t> *signature = nullptr,
     const std::vector<uint8_t> *content = nullptr) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto lcl__ = lcl ? _fbb.CreateVector<uint8_t>(*lcl) : 0;
-  auto last_shard_hash__ = last_shard_hash ? _fbb.CreateVector<uint8_t>(*last_shard_hash) : 0;
+  auto last_primary_shard_hash__ = last_primary_shard_hash ? _fbb.CreateVector<uint8_t>(*last_primary_shard_hash) : 0;
   auto signature__ = signature ? _fbb.CreateVector<uint8_t>(*signature) : 0;
   auto content__ = content ? _fbb.CreateVector<uint8_t>(*content) : 0;
   return msg::fbuf::p2pmsg::CreateContainer(
@@ -163,7 +163,7 @@ inline flatbuffers::Offset<Container> CreateContainerDirect(
       timestamp,
       pubkey__,
       lcl__,
-      last_shard_hash__,
+      last_primary_shard_hash__,
       signature__,
       content__);
 }

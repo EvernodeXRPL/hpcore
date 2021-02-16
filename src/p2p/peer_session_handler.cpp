@@ -325,7 +325,7 @@ namespace p2p
             return -1;
 
         ctx.collected_msgs.proposals.push_back(
-            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl(), container->last_shard_hash()));
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl(), container->last_primary_shard_hash()));
 
         return 0;
     }

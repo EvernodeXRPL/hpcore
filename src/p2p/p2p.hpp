@@ -28,8 +28,10 @@ namespace p2p
         uint8_t stage = 0;
         std::string nonce; // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
-        util::h32 last_shard_hash;
-        uint64_t shard_seq_no; // Shard sequence number.
+        uint64_t primary_shard_seq_no; // Shard sequence number.
+        util::h32 last_primary_shard_hash;
+        uint64_t blob_shard_seq_no;
+        util::h32 last_blob_shard_hash;
         util::h32 state_hash;  // Contract state hash.
         util::h32 patch_hash;  // Patch file hash.
         std::set<std::string> users;

@@ -10,7 +10,7 @@ table Container { //root type for message
     timestamp:uint64;
     pubkey:[ubyte];
     lcl:[ubyte];
-    last_shard_hash:[ubyte];
+    last_primary_shard_hash:[ubyte];
     signature:[ubyte]; // signature of the message content
     content:[ubyte]; // message content: byte array of proposal,npl,etc
 }
