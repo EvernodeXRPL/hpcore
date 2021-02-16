@@ -117,6 +117,7 @@ namespace conf
     struct user_config
     {
         uint16_t port = 0;                        // Listening port for public user connections
+        bool listen = true;                       // Whether to listen for incoming user connections.
         uint16_t idle_timeout = 0;                // Idle connection timeout for user connections in seconds.
         uint64_t max_bytes_per_msg = 0;           // User message max size in bytes
         uint64_t max_bytes_per_min = 0;           // User message rate (characters(bytes) per minute)
@@ -124,7 +125,6 @@ namespace conf
         uint16_t max_connections = 0;             // Max inbound user connections
         uint16_t max_in_connections_per_host = 0; // Max inbound user connections per remote host (IP).
         uint64_t concurrent_read_reqeuests = 10;  // Supported concurrent read requests count.
-        bool enabled = true;                      // User connections enable/disable.
     };
 
     struct peer_discovery_config
