@@ -789,28 +789,7 @@ namespace consensus
      */
     int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state_hash, const util::h32 &patch_hash)
     {
-        // Map to temporarily store the raw inputs along with the hash.
-        std::unordered_map<std::string, usr::raw_user_input> raw_inputs;
-
-        // Add raw_inputs to the proposal if full history mode is on.
-        if (conf::cfg.node.full_history)
-        {
-            for (const auto &hash : cons_prop.input_hashes)
-            {
-                const auto itr = ctx.candidate_user_inputs.find(hash);
-                if (itr != ctx.candidate_user_inputs.end())
-                {
-                    // Add raw_input to the map along with the input hash.
-                    candidate_user_input &cand_input = itr->second;
-                    // Taking the raw input string from the buffer_view.
-                    std::string input;
-                    if (usr::input_store.read_buf(cand_input.input, input) != -1)
-                        raw_inputs.emplace(hash, usr::raw_user_input{cand_input.userpubkey, std::move(input)});
-                }
-            }
-        }
-
-        if (ledger::save_ledger(cons_prop) == -1)
+        if (ledger::save_ledger(cons_prop, ctx.candidate_user_inputs, ctx.generated_user_outputs) == -1)
             return -1;
 
         new_lcl = ledger::ctx.get_lcl();

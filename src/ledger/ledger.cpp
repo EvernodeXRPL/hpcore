@@ -64,7 +64,8 @@ namespace ledger
      * @param proposal Consensus-reached Stage 3 proposal.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger(const p2p::proposal &proposal)
+    int save_ledger(const p2p::proposal &proposal, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+                    const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         uint64_t seq_no = 0;
         std::string hash;
@@ -82,13 +83,15 @@ namespace ledger
             return -1;
 
         // Construct shard path.
-        const uint64_t shard_seq_no = (seq_no - 1) / SHARD_SIZE;
+        const uint64_t shard_seq_no = (seq_no - 1) / PRIMARY_SHARD_SIZE;
         const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
         const std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
 
-        // If (seq_no - 1) % SHARD_SIZE == 0 means this is the first ledger of the shard.
+        sqlite3 *db = NULL;
+
+        // If (seq_no - 1) % PRIMARY_SHARD_SIZE == 0 means this is the first ledger of the shard.
         // So create the shard folder and ledger table.
-        if ((seq_no - 1) % SHARD_SIZE == 0)
+        if ((seq_no - 1) % PRIMARY_SHARD_SIZE == 0)
         {
             // Creating the directory.
             if (util::create_dir_tree_recursive(shard_path) == -1)
@@ -99,7 +102,7 @@ namespace ledger
             }
 
             // Creating ledger database and open a database connection.
-            if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
+            if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
                 ledger_fs.release_rw_session();
@@ -107,10 +110,10 @@ namespace ledger
             }
 
             // Creating the ledger table.
-            if (sqlite::create_ledger_table(ctx.db) == -1)
+            if (sqlite::create_ledger_table(db) == -1)
             {
                 LOG_ERROR << errno << ": Error creating the shard table, shard: " << std::to_string(shard_seq_no);
-                sqlite::close_db(&ctx.db);
+                sqlite::close_db(&db);
                 ledger_fs.release_rw_session();
                 return -1;
             }
@@ -128,21 +131,21 @@ namespace ledger
             }
             // Write the prev_shard.hash to the new folder.
             const std::string shard_hash_file_path = shard_path + PREV_SHARD_HASH_FILENAME;
-            const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);	
-            if (fd == -1)	
-            {	
-                LOG_ERROR << errno << ": Error creating prev_shard.hash file in shard " << std::to_string(shard_seq_no);	
-                return -1;	
-            }	
-            if (write(fd, &prev_shard_hash, sizeof(util::h32)) == -1)	
-            {	
-                LOG_ERROR << errno << ": Error writing to " << shard_hash_file_path << ".";	
-                close(fd);	
-                return -1;	
+            const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+            if (fd == -1)
+            {
+                LOG_ERROR << errno << ": Error creating prev_shard.hash file in shard " << std::to_string(shard_seq_no);
+                return -1;
             }
-            close(fd);            
+            if (write(fd, &prev_shard_hash, sizeof(util::h32)) == -1)
+            {
+                LOG_ERROR << errno << ": Error writing to " << shard_hash_file_path << ".";
+                close(fd);
+                return -1;
+            }
+            close(fd);
         }
-        else if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
+        else if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
             ledger_fs.release_rw_session();
@@ -151,11 +154,19 @@ namespace ledger
 
         // Serialize lcl using flatbuffer ledger block schema.
         flatbuffers::FlatBufferBuilder builder(1024);
-        msg::fbuf::ledger::create_ledger_block_from_proposal(builder, proposal, seq_no);
+        msg::fbuf::ledgermsg::create_ledger_block_from_proposal(builder, proposal, seq_no);
 
         // Get binary hash of the serialized lcl.
         std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
-        const std::string lcl_hash_hex = util::to_hex(crypto::get_hash(ledger_str_buf));
+        const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
+
+        if (save_ledger_blob(seq_no, lcl_hash, candidate_user_inputs, generated_user_outputs) == -1)
+        {
+            LOG_ERROR << errno << ": Error saving the raw inputs/outputs, shard: " << std::to_string(shard_seq_no);
+            return -1;
+        }
+
+        const std::string lcl_hash_hex = util::to_hex(lcl_hash);
 
         // Get binary hash of users and inputs.
         const std::string user_hash = crypto::get_hash(proposal.users);
@@ -192,10 +203,10 @@ namespace ledger
             util::to_hex(input_hash),
             util::to_hex(proposal.output_hash));
 
-        if (sqlite::insert_ledger_row(ctx.db, ledger) == -1)
+        if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
             LOG_ERROR << errno << ": Error creating the ledger, shard: " << std::to_string(shard_seq_no);
-            sqlite::close_db(&ctx.db);
+            sqlite::close_db(&db);
             ledger_fs.release_rw_session();
             return -1;
         }
@@ -208,7 +219,7 @@ namespace ledger
         if (ledger_fs.get_hash(last_shard_hash, hpfs::RW_SESSION_NAME, shard_vpath) == -1)
         {
             LOG_ERROR << errno << ": Error reading shard hash: " << std::to_string(shard_seq_no);
-            sqlite::close_db(&ctx.db);
+            sqlite::close_db(&db);
             ledger_fs.release_rw_session();
             return -1;
         }
@@ -219,10 +230,10 @@ namespace ledger
         //Remove old shards that exceeds max shard range.
         if (conf::cfg.node.max_shards > 0 && shard_seq_no >= conf::cfg.node.max_shards)
         {
-            remove_old_shards(shard_seq_no - conf::cfg.node.max_shards + 1);
+            remove_old_shards(shard_seq_no - conf::cfg.node.max_shards + 1, PRIMARY_DIR);
         }
 
-        sqlite::close_db(&ctx.db);
+        sqlite::close_db(&db);
         return ledger_fs.release_rw_session();
     }
 
@@ -230,12 +241,12 @@ namespace ledger
      * Remove old shards that exceeds max shard range from file system.
      * @param led_shard_no minimum shard number to be in history.
      */
-    void remove_old_shards(const uint64_t led_shard_no)
+    void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir)
     {
         // Remove old shards if full history mode is not enabled.
         if (!conf::cfg.node.full_history)
         {
-            const std::string shard_dir_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, ledger::PRIMARY_DIR);
+            const std::string shard_dir_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir);
             std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
             for (const std::string shard : shards)
             {
@@ -284,6 +295,113 @@ namespace ledger
     }
 
     /**
+     * Save raw from the given proposal message.
+     * @param proposal Consensus-reached Stage 3 proposal.
+     * @return Returns 0 on success -1 on error.
+     */
+    int save_ledger_blob(const uint64_t seq_no, std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+                         const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
+    {
+        // Construct shard path.
+        const uint64_t shard_seq_no = (seq_no - 1) / BLOB_SHARD_SIZE;
+        const std::string shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no));
+        const std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
+
+        // If (seq_no - 1) % BLOB_SHARD_SIZE == 0 means this is the first ledger of the shard.
+        // So create the shard folder and ledger table.
+        if ((seq_no - 1) % BLOB_SHARD_SIZE == 0)
+        {
+            // Creating the directory.
+            if (util::create_dir_tree_recursive(shard_path) == -1)
+            {
+                LOG_ERROR << errno << ": Error creating the blob shard, shard: " << std::to_string(shard_seq_no);
+                ledger_fs.release_rw_session();
+                return -1;
+            }
+
+            util::h32 prev_shard_hash;
+            if (shard_seq_no > 0)
+            {
+                const std::string prev_shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no - 1));
+                if (ledger_fs.get_hash(prev_shard_hash, hpfs::RW_SESSION_NAME, prev_shard_vpath) < 1)
+                {
+                    LOG_ERROR << errno << ": Error getting blob shard hash in vpath: " << prev_shard_vpath << " for previous shard hash.";
+                    ledger_fs.release_rw_session();
+                    return -1;
+                }
+            }
+            // Write the prev_shard.hash to the new folder.
+            const std::string shard_hash_file_path = shard_path + PREV_SHARD_HASH_FILENAME;
+            const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+            if (fd == -1)
+            {
+                LOG_ERROR << errno << ": Error creating prev_shard.hash file in blob shard " << std::to_string(shard_seq_no);
+                return -1;
+            }
+            if (write(fd, &prev_shard_hash, sizeof(util::h32)) == -1)
+            {
+                LOG_ERROR << errno << ": Error writing to " << shard_hash_file_path << ".";
+                close(fd);
+                return -1;
+            }
+            close(fd);
+        }
+
+        ledger_blob blob;
+
+        blob.ledger_hash = ledger_hash;
+        for (const auto &[hash, user_input] : candidate_user_inputs)
+        {
+            std::string input;
+            if (usr::input_store.read_buf(user_input.input, input) != -1)
+            {
+                const auto itr = blob.inputs.find(user_input.userpubkey);
+                if (itr == blob.inputs.end())
+                    blob.inputs.emplace(user_input.userpubkey, std::list<std::string>());
+                itr->second.push_back(input);
+            }
+        }
+        for (const auto &[hash, user_output] : generated_user_outputs)
+        {
+            std::list<std::string> outputs;
+            for (const auto &output : user_output.outputs)
+            {
+                outputs.push_back(output.message);
+            }
+            blob.outputs.emplace(user_output.userpubkey, outputs);
+        }
+
+        flatbuffers::FlatBufferBuilder builder(1024);
+        msg::fbuf::ledgermsg::create_ledger_blob_msg_from_ledger_blob(builder, blob);
+
+        const std::string file_path = shard_path + "/" + util::to_hex(ledger_hash) + ".blob";
+
+        const int fd = open(file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error creating ledger blob file. " << file_path;
+            return -1;
+        }
+
+        if (write(fd, builder.GetBufferPointer(), builder.GetSize()) == -1)
+        {
+            LOG_ERROR << errno << ": Error writing to ledger blob file. " << file_path;
+            close(fd);
+            return -1;
+        }
+
+        close(fd);
+
+        //Remove old shards that exceeds max shard range.
+        if (shard_seq_no >= MAX_BLOB_SHARDS)
+        {
+            remove_old_shards(shard_seq_no - MAX_BLOB_SHARDS + 1, BLOB_DIR);
+        }
+
+        return 0;
+    }
+
+    /**
      * Get last ledger and update the context.
      * @return Returns 0 on success -1 on error.
      */
@@ -303,6 +421,8 @@ namespace ledger
         }
         else
         {
+            sqlite3 *db = NULL;
+
             shards.sort([](std::string &a, std::string &b) {
                 uint64_t seq_no_a, seq_no_b;
                 util::stoull(a, seq_no_a);
@@ -317,19 +437,19 @@ namespace ledger
             //Remove old shards that exceeds max shard range.
             if (conf::cfg.node.max_shards > 0 && shards.size() >= conf::cfg.node.max_shards)
             {
-                remove_old_shards(last_shard_seq_no - conf::cfg.node.max_shards + 1);
+                remove_old_shards(last_shard_seq_no - conf::cfg.node.max_shards + 1, PRIMARY_DIR);
             }
 
             // Open a database connection.
-            if (sqlite::open_db(shard_path + "/" + DATEBASE, &ctx.db) == -1)
+            if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database, shard: " << shards.front();
                 ledger_fs.release_rw_session();
                 return -1;
             }
 
-            sqlite::ledger last_ledger = sqlite::get_last_ledger(ctx.db);
-            sqlite::close_db(&ctx.db);
+            sqlite::ledger last_ledger = sqlite::get_last_ledger(db);
+            sqlite::close_db(&db);
 
             ctx.set_lcl(last_ledger.seq_no, std::to_string(last_ledger.seq_no) + "-" + last_ledger.ledger_hash_hex);
 

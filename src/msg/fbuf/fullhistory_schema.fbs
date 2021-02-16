@@ -1,4 +1,4 @@
-namespace msg.fbuf.ledger;
+namespace msg.fbuf.ledgermsg;
 
 table FullHistoryBlock {
     version:string;
