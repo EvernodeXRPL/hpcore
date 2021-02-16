@@ -115,7 +115,7 @@ namespace p2p
     void peer_comm_server::maintain_known_connections()
     {
         // Find already connected known remote parties list.
-        std::vector<conf::ip_port_prop> known_remotes;
+        std::vector<conf::peer_ip_port> known_remotes;
 
         {
             std::scoped_lock<std::mutex> lock(sessions_mutex);

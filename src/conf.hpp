@@ -12,17 +12,17 @@ namespace conf
     constexpr size_t CONCURRENT_READ_REQUEST_MAX_LIMIT = 32;
 
     // Struct to represent ip and port of the peer.
-    struct ip_port_prop
+    struct peer_ip_port
     {
         std::string host_address;
         uint16_t port;
 
-        bool operator==(ip_port_prop ip_port)
+        bool operator==(const peer_ip_port &ip_port)
         {
             return host_address == ip_port.host_address && port == ip_port.port;
         }
 
-        bool operator!=(ip_port_prop ip_port)
+        bool operator!=(const peer_ip_port &ip_port)
         {
             return !(host_address == ip_port.host_address && port == ip_port.port);
         }
@@ -33,7 +33,7 @@ namespace conf
     // Later it will be updated according to the capacity anouncement from the peers.
     struct peer_properties
     {
-        ip_port_prop ip_port;
+        peer_ip_port ip_port;
         int16_t available_capacity = -1;
         uint64_t timestamp = 0;
     };
