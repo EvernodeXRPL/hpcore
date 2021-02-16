@@ -26,7 +26,7 @@ namespace hpfs
         }
     };
 
-    inline uint16_t get_request_resubmit_timeout()
+    inline uint32_t get_request_resubmit_timeout()
     {
         return conf::cfg.contract.roundtime;
     }

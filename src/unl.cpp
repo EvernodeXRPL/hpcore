@@ -9,7 +9,7 @@
  */
 namespace unl
 {
-    std::map<std::string, uint16_t> list; // List of binary pubkeys of UNL and their latest reported roundtime.
+    std::map<std::string, uint32_t> list; // List of binary pubkeys of UNL and their latest reported roundtime.
     std::string json_list;                // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
 
@@ -98,13 +98,13 @@ namespace unl
     /**
      * Returns the majority roundtime reported among the unl.
      */
-    uint16_t get_majority_roundtime()
+    uint32_t get_majority_roundtime()
     {
         std::unique_lock lock(unl_mutex);
 
         // Vote and find majority roundtime within the unl.
         // Fill any 0 roundtimes with information from peer connections.
-        std::map<uint16_t, uint32_t> roundtime_votes;
+        std::map<uint32_t, uint32_t> roundtime_votes;
 
         {
             std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -119,7 +119,7 @@ namespace unl
                         itr->second = peer_itr->second->reported_roundtime;
                 }
 
-                const uint16_t roundtime = itr->second;
+                const uint32_t roundtime = itr->second;
                 if (roundtime > 0)
                     roundtime_votes[roundtime]++;
             }
@@ -127,7 +127,7 @@ namespace unl
 
         // Find the majority vote.
         uint32_t highest_votes = 0;
-        uint16_t majority_roundtime = 0;
+        uint32_t majority_roundtime = 0;
         for (const auto [roundtime, num_votes] : roundtime_votes)
         {
             if (num_votes > highest_votes)

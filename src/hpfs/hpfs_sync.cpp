@@ -287,7 +287,7 @@ namespace hpfs
             candidate_hpfs_responses.clear();
 
             // No. of milliseconds to wait before resubmitting a request.
-            const uint16_t request_resubmit_timeout = hpfs::get_request_resubmit_timeout();
+            const uint32_t request_resubmit_timeout = hpfs::get_request_resubmit_timeout();
 
             // Check for long-awaited responses and re-request them.
             for (auto &[hash, request] : submitted_requests)

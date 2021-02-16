@@ -28,7 +28,7 @@ namespace hpfs
 
         // No. of millisconds that this item has been waiting in pending state.
         // Used by pending_responses list to increase waiting time and resubmit request.
-        uint16_t waiting_time = 0;
+        uint32_t waiting_time = 0;
     };
 
     struct sync_target

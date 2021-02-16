@@ -938,7 +938,7 @@ namespace conf
             contract.bin_path = jdoc["bin_path"].as<std::string>();
             contract.bin_args = jdoc["bin_args"].as<std::string>();
 
-            contract.roundtime = jdoc["roundtime"].as<uint16_t>();
+            contract.roundtime = jdoc["roundtime"].as<uint32_t>();
             if (contract.roundtime == 0)
             {
                 std::cerr << "Round time cannot be zero.\n";

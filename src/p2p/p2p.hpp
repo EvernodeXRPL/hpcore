@@ -26,7 +26,7 @@ namespace p2p
         uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for network statistics)
         uint64_t time = 0;           // The descreet concensus time value that is voted on.
         uint8_t stage = 0;           // The round-stage that this proposal belongs to.
-        uint16_t roundtime = 0;      // Roundtime of the proposer.
+        uint32_t roundtime = 0;      // Roundtime of the proposer.
         std::string nonce;           // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
         util::h32 state_hash; // Contract state hash.
@@ -57,7 +57,7 @@ namespace p2p
     struct peer_challenge
     {
         std::string contract_id;
-        uint16_t roundtime = 0;
+        uint32_t roundtime = 0;
         std::string challenge;
     };
 

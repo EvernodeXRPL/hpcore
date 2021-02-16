@@ -104,7 +104,7 @@ namespace conf
         std::set<std::string> unl;           // Unique node list (list of binary public keys)
         std::string bin_path;                // Full path to the contract binary
         std::string bin_args;                // CLI arguments to pass to the contract binary
-        std::atomic<uint16_t> roundtime = 0; // Consensus round time in ms
+        std::atomic<uint32_t> roundtime = 0; // Consensus round time in ms
         bool is_consensus_public = false;    // If true, consensus are broadcasted to non-unl nodes as well.
         bool is_npl_public = false;          // If true, npl messages are broadcasted to non-unl nodes as well.
         appbill_config appbill;
