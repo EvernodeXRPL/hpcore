@@ -13,8 +13,8 @@ namespace conf
     // Global configuration struct exposed to the application.
     hp_config cfg;
 
-    // Stores the initial startup mode of the node.
-    ROLE startup_mode;
+    // Stores the initial startup role of the node.
+    ROLE startup_role;
 
     constexpr int FILE_PERMS = 0644;
 
@@ -133,7 +133,7 @@ namespace conf
 
             cfg.hp_version = util::HP_VERSION;
 
-            cfg.node.role = ROLE::VALIDATOR;
+            cfg.node.role = startup_role = ROLE::VALIDATOR;
             cfg.node.full_history = false;
 
             cfg.contract.id = crypto::generate_uuid();
@@ -323,7 +323,7 @@ namespace conf
                     std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
                     return -1;
                 }
-                startup_mode = cfg.node.role;
+                startup_role = cfg.node.role;
             }
             catch (const std::exception &e)
             {
@@ -346,6 +346,8 @@ namespace conf
             {
                 const jsoncons::ojson &mesh = d["mesh"];
                 cfg.mesh.port = mesh["port"].as<uint16_t>();
+                cfg.mesh.listen = mesh["listen"].as<bool>();
+
                 // Storing peers in unordered map keyed by the concatenated address:port and also saving address and port
                 // seperately to retrieve easily when handling peer connections.
                 std::vector<std::string> splitted_peers;
@@ -406,6 +408,7 @@ namespace conf
             {
                 const jsoncons::ojson &user = d["user"];
                 cfg.user.port = user["port"].as<uint16_t>();
+                cfg.user.listen = user["listen"].as<bool>();
                 cfg.user.max_connections = user["max_connections"].as<uint64_t>();
                 cfg.user.max_in_connections_per_host = user["max_in_connections_per_host"].as<uint64_t>();
                 cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
@@ -413,7 +416,6 @@ namespace conf
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
                 cfg.user.idle_timeout = user["idle_timeout"].as<uint16_t>();
                 cfg.user.concurrent_read_reqeuests = user["concurrent_read_reqeuests"].as<uint64_t>();
-                cfg.user.enabled = user["enabled"].as<bool>();
             }
             catch (const std::exception &e)
             {
@@ -479,7 +481,8 @@ namespace conf
             jsoncons::ojson node_config;
             node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
             node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
-            node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+            // We always save the startup role to config. Not the current role which might get changed dynamically during syncing.
+            node_config.insert_or_assign("role", startup_role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
             d.insert_or_assign("node", node_config);
         }
 
@@ -494,6 +497,7 @@ namespace conf
         {
             jsoncons::ojson mesh_config;
             mesh_config.insert_or_assign("port", cfg.mesh.port);
+            mesh_config.insert_or_assign("listen", cfg.mesh.listen);
 
             jsoncons::ojson peers(jsoncons::json_array_arg);
             for (const auto &peer : cfg.mesh.known_peers)
@@ -525,13 +529,13 @@ namespace conf
         {
             jsoncons::ojson user_config;
             user_config.insert_or_assign("port", cfg.user.port);
+            user_config.insert_or_assign("listen", cfg.user.listen);
             user_config.insert_or_assign("idle_timeout", cfg.user.idle_timeout);
             user_config.insert_or_assign("max_bytes_per_msg", cfg.user.max_bytes_per_msg);
             user_config.insert_or_assign("max_bytes_per_min", cfg.user.max_bytes_per_min);
             user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
             user_config.insert_or_assign("max_connections", cfg.user.max_connections);
             user_config.insert_or_assign("max_in_connections_per_host", cfg.user.max_in_connections_per_host);
-            user_config.insert_or_assign("enabled", cfg.user.enabled);
             user_config.insert_or_assign("concurrent_read_reqeuests", cfg.user.concurrent_read_reqeuests);
             d.insert_or_assign("user", user_config);
         }
@@ -679,7 +683,7 @@ namespace conf
     void change_role(const ROLE role)
     {
         // Do not allow to change the mode if the node was started as an observer.
-        if (startup_mode == ROLE::OBSERVER || cfg.node.role == role)
+        if (startup_role == ROLE::OBSERVER || cfg.node.role == role)
             return;
 
         cfg.node.role = role;
