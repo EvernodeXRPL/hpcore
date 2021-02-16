@@ -46,7 +46,7 @@ namespace crypto
      * @param private_key Private key bytes.
      * @return Signature bytes.
      */
-    std::string sign(std::string_view msg, std::string_view private_key)
+    const std::string sign(std::string_view msg, std::string_view private_key)
     {
         //Generate the signature using libsodium.
 
@@ -93,7 +93,7 @@ namespace crypto
      * @param data String to hash.
      * @return The blake3 hash of the given string.
      */
-    std::string get_hash(std::string_view data)
+    const std::string get_hash(std::string_view data)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
@@ -110,12 +110,12 @@ namespace crypto
     }
 
     /**
- * Generate blake3 hash for a given message.
- * @param data unsigned char array pointer to hash data.
- * @param data_length hash data length.
- * @return The blake3 hash of the pointed buffer.
- */
-    std::string get_hash(const unsigned char *data, size_t data_length)
+     * Generate blake3 hash for a given message.
+     * @param data unsigned char array pointer to hash data.
+     * @param data_length hash data length.
+     * @return The blake3 hash of the pointed buffer.
+     */
+    const std::string get_hash(const unsigned char *data, size_t data_length)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
@@ -134,7 +134,7 @@ namespace crypto
     /**
      * Generates blake3 hash for the given set of strings using stream hashing.
      */
-    std::string get_hash(std::string_view s1, std::string_view s2)
+    const std::string get_hash(std::string_view s1, std::string_view s2)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
@@ -156,7 +156,7 @@ namespace crypto
     /**
      * Generates blake3 hash for the given string view vector using stream hashing.
      */
-    std::string get_hash(const std::vector<std::string_view> &sw_vect)
+    const std::string get_hash(const std::vector<std::string_view> &sw_vect)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
@@ -178,7 +178,7 @@ namespace crypto
     /**
      * Generates blake3 hash for the given string set using stream hashing.
      */
-    std::string get_hash(const std::set<std::string> &sw_set)
+    const std::string get_hash(const std::set<std::string> &sw_set)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
@@ -197,7 +197,7 @@ namespace crypto
         return hash;
     }
 
-    std::string generate_uuid()
+    const std::string generate_uuid()
     {
         std::string rand_bytes;
         random_bytes(rand_bytes, 16);
