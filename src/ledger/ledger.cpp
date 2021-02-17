@@ -230,7 +230,7 @@ namespace ledger
         }
 
         // Update the last shard hash and shard seqence number tracker when a new ledger is created.
-        ctx.set_last_primary_shard_hash(primary_shard_seq_no, last_primary_shard_hash);
+        ctx.set_last_primary_shard_id(p2p::sequence_hash{primary_shard_seq_no, last_primary_shard_hash});
 
         //Remove old shards that exceeds max shard range.
         if (conf::cfg.node.max_shards > 0 && primary_shard_seq_no >= conf::cfg.node.max_shards)
@@ -311,8 +311,8 @@ namespace ledger
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         // Construct shard path.
-        uint64_t shard_seq_no = ctx.get_blob_shard_seq_no();
-        std::string shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no));
+        uint64_t last_blob_shard_seq_no = ctx.get_last_blob_shard_id().shard_seq_no;
+        std::string shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(last_blob_shard_seq_no));
         std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
 
         bool should_create_folder = false;
@@ -321,8 +321,8 @@ namespace ledger
             if ((util::fetch_dir_entries(shard_path).size() - 1) >= BLOB_SHARD_SIZE)
             {
                 should_create_folder = true;
-                shard_seq_no++;
-                shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no));
+                last_blob_shard_seq_no++;
+                shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(last_blob_shard_seq_no));
                 shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
             }
         }
@@ -337,15 +337,15 @@ namespace ledger
             // Creating the directory.
             if (util::create_dir_tree_recursive(shard_path) == -1)
             {
-                LOG_ERROR << errno << ": Error creating the blob shard, shard: " << std::to_string(shard_seq_no);
+                LOG_ERROR << errno << ": Error creating the blob shard, shard: " << std::to_string(last_blob_shard_seq_no);
                 ledger_fs.release_rw_session();
                 return -1;
             }
 
             util::h32 prev_shard_hash;
-            if (shard_seq_no > 0)
+            if (last_blob_shard_seq_no > 0)
             {
-                const std::string prev_shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(shard_seq_no - 1));
+                const std::string prev_shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(last_blob_shard_seq_no - 1));
                 if (ledger_fs.get_hash(prev_shard_hash, hpfs::RW_SESSION_NAME, prev_shard_vpath) < 1)
                 {
                     LOG_ERROR << errno << ": Error getting blob shard hash in vpath: " << prev_shard_vpath << " for previous shard hash.";
@@ -358,7 +358,7 @@ namespace ledger
             const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
             if (fd == -1)
             {
-                LOG_ERROR << errno << ": Error creating prev_shard.hash file in blob shard " << std::to_string(shard_seq_no);
+                LOG_ERROR << errno << ": Error creating prev_shard.hash file in blob shard " << std::to_string(last_blob_shard_seq_no);
                 return -1;
             }
             if (write(fd, &prev_shard_hash, sizeof(util::h32)) == -1)
@@ -418,18 +418,18 @@ namespace ledger
         util::h32 last_shard_hash;
         if (ledger_fs.get_hash(last_shard_hash, hpfs::RW_SESSION_NAME, shard_vpath) == -1)
         {
-            LOG_ERROR << errno << ": Error reading blob shard hash: " << std::to_string(shard_seq_no);
+            LOG_ERROR << errno << ": Error reading blob shard hash: " << std::to_string(last_blob_shard_seq_no);
             ledger_fs.release_rw_session();
             return -1;
         }
 
         // Update the last blob shard hash and blob shard seqence number tracker when a new ledger is created.
-        ctx.set_last_blob_shard_hash(shard_seq_no, last_shard_hash);
+        ctx.set_last_blob_shard_id(p2p::sequence_hash{last_blob_shard_seq_no, last_shard_hash});
 
         //Remove old shards that exceeds max shard range.
-        if (shard_seq_no >= MAX_BLOB_SHARDS)
+        if (last_blob_shard_seq_no >= MAX_BLOB_SHARDS)
         {
-            remove_old_shards(shard_seq_no - MAX_BLOB_SHARDS + 1, BLOB_DIR);
+            remove_old_shards(last_blob_shard_seq_no - MAX_BLOB_SHARDS + 1, BLOB_DIR);
         }
 
         return 0;
@@ -495,12 +495,11 @@ namespace ledger
     /**
      * Get the hash and shard sequence number of the last shard in the ledger primary directory.
      * @param session_name Hpfs session name.
-     * @param last_shard_hash Hash of the last shard.
-     * @param shard_seq_no Shard sequence number of the last shard.
+     * @param last_shard_id Struct which holds last shard data. (sequence number and hash).
      * @param shard_parent_dir Parent director vpath of the shards.
      * @return
     */
-    int get_last_shard_info(std::string_view session_name, util::h32 &last_shard_hash, uint64_t &shard_seq_no, std::string_view shard_parent_dir)
+    int get_last_shard_info(std::string_view session_name, p2p::sequence_hash &last_shard_id, std::string_view shard_parent_dir)
     {
         const std::string shard_dir_path = ledger_fs.physical_path(session_name, shard_parent_dir);
         std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
@@ -515,7 +514,7 @@ namespace ledger
             });
 
             const std::string shard_path = std::string(shard_parent_dir).append("/").append(shards.front());
-            if (ledger_fs.get_hash(last_shard_hash, session_name, shard_path) == -1 || util::stoull(shards.front(), shard_seq_no) == -1)
+            if (ledger_fs.get_hash(last_shard_id.shard_hash, session_name, shard_path) == -1 || util::stoull(shards.front(), last_shard_id.shard_seq_no) == -1)
             {
                 LOG_ERROR << "Error reading last shard hash in " << shard_path;
                 return -1;

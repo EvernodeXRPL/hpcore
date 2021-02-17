@@ -109,9 +109,9 @@ namespace hpfs
         bool should_stop_request_loop(const util::h32 &current_target_hash);
 
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                     const util::h32 expected_hash, std::string_view lcl, const util::h32 &last_primary_shard_hash, std::string &target_pubkey);
+                                            const util::h32 expected_hash, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id, std::string &target_pubkey);
 
-        void submit_request(const backlog_item &request, std::string_view lcl, const util::h32 &last_primary_shard_hash);
+        void submit_request(const backlog_item &request, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
 
         int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 

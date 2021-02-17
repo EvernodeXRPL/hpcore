@@ -33,6 +33,9 @@ struct NonUnl_Proposal_MessageBuilder;
 struct Proposal_Message;
 struct Proposal_MessageBuilder;
 
+struct Sequence_Hash;
+struct Sequence_HashBuilder;
+
 struct Npl_Message;
 struct Npl_MessageBuilder;
 
@@ -780,14 +783,11 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_NONCE = 10,
     VT_USERS = 12,
     VT_INPUT_HASHES = 14,
-    VT_PRIMARY_SHARD_SEQ_NO = 16,
-    VT_BLOB_SHARD_SEQ_NO = 18,
-    VT_LAST_BLOB_SHARD_HASH = 20,
-    VT_OUTPUT_HASH = 22,
-    VT_OUTPUT_SIG = 24,
-    VT_STATE_HASH = 26,
-    VT_PATCH_HASH = 28,
-    VT_LEDGER_PRIMARY_HASH = 30
+    VT_LAST_BLOB_SHARD_ID = 16,
+    VT_OUTPUT_HASH = 18,
+    VT_OUTPUT_SIG = 20,
+    VT_STATE_HASH = 22,
+    VT_PATCH_HASH = 24
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -825,23 +825,11 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *mutable_input_hashes() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *>(VT_INPUT_HASHES);
   }
-  uint64_t primary_shard_seq_no() const {
-    return GetField<uint64_t>(VT_PRIMARY_SHARD_SEQ_NO, 0);
+  const msg::fbuf::p2pmsg::Sequence_Hash *last_blob_shard_id() const {
+    return GetPointer<const msg::fbuf::p2pmsg::Sequence_Hash *>(VT_LAST_BLOB_SHARD_ID);
   }
-  bool mutate_primary_shard_seq_no(uint64_t _primary_shard_seq_no) {
-    return SetField<uint64_t>(VT_PRIMARY_SHARD_SEQ_NO, _primary_shard_seq_no, 0);
-  }
-  uint64_t blob_shard_seq_no() const {
-    return GetField<uint64_t>(VT_BLOB_SHARD_SEQ_NO, 0);
-  }
-  bool mutate_blob_shard_seq_no(uint64_t _blob_shard_seq_no) {
-    return SetField<uint64_t>(VT_BLOB_SHARD_SEQ_NO, _blob_shard_seq_no, 0);
-  }
-  const flatbuffers::Vector<uint8_t> *last_blob_shard_hash() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LAST_BLOB_SHARD_HASH);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_last_blob_shard_hash() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LAST_BLOB_SHARD_HASH);
+  msg::fbuf::p2pmsg::Sequence_Hash *mutable_last_blob_shard_id() {
+    return GetPointer<msg::fbuf::p2pmsg::Sequence_Hash *>(VT_LAST_BLOB_SHARD_ID);
   }
   const flatbuffers::Vector<uint8_t> *output_hash() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_OUTPUT_HASH);
@@ -867,12 +855,6 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_patch_hash() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
   }
-  const flatbuffers::Vector<uint8_t> *ledger_primary_hash() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LEDGER_PRIMARY_HASH);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_ledger_primary_hash() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LEDGER_PRIMARY_HASH);
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
@@ -886,10 +868,8 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_INPUT_HASHES) &&
            verifier.VerifyVector(input_hashes()) &&
            verifier.VerifyVectorOfTables(input_hashes()) &&
-           VerifyField<uint64_t>(verifier, VT_PRIMARY_SHARD_SEQ_NO) &&
-           VerifyField<uint64_t>(verifier, VT_BLOB_SHARD_SEQ_NO) &&
-           VerifyOffset(verifier, VT_LAST_BLOB_SHARD_HASH) &&
-           verifier.VerifyVector(last_blob_shard_hash()) &&
+           VerifyOffset(verifier, VT_LAST_BLOB_SHARD_ID) &&
+           verifier.VerifyTable(last_blob_shard_id()) &&
            VerifyOffset(verifier, VT_OUTPUT_HASH) &&
            verifier.VerifyVector(output_hash()) &&
            VerifyOffset(verifier, VT_OUTPUT_SIG) &&
@@ -898,8 +878,6 @@ struct Proposal_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(state_hash()) &&
            VerifyOffset(verifier, VT_PATCH_HASH) &&
            verifier.VerifyVector(patch_hash()) &&
-           VerifyOffset(verifier, VT_LEDGER_PRIMARY_HASH) &&
-           verifier.VerifyVector(ledger_primary_hash()) &&
            verifier.EndTable();
   }
 };
@@ -926,14 +904,8 @@ struct Proposal_MessageBuilder {
   void add_input_hashes(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> input_hashes) {
     fbb_.AddOffset(Proposal_Message::VT_INPUT_HASHES, input_hashes);
   }
-  void add_primary_shard_seq_no(uint64_t primary_shard_seq_no) {
-    fbb_.AddElement<uint64_t>(Proposal_Message::VT_PRIMARY_SHARD_SEQ_NO, primary_shard_seq_no, 0);
-  }
-  void add_blob_shard_seq_no(uint64_t blob_shard_seq_no) {
-    fbb_.AddElement<uint64_t>(Proposal_Message::VT_BLOB_SHARD_SEQ_NO, blob_shard_seq_no, 0);
-  }
-  void add_last_blob_shard_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> last_blob_shard_hash) {
-    fbb_.AddOffset(Proposal_Message::VT_LAST_BLOB_SHARD_HASH, last_blob_shard_hash);
+  void add_last_blob_shard_id(flatbuffers::Offset<msg::fbuf::p2pmsg::Sequence_Hash> last_blob_shard_id) {
+    fbb_.AddOffset(Proposal_Message::VT_LAST_BLOB_SHARD_ID, last_blob_shard_id);
   }
   void add_output_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash) {
     fbb_.AddOffset(Proposal_Message::VT_OUTPUT_HASH, output_hash);
@@ -946,9 +918,6 @@ struct Proposal_MessageBuilder {
   }
   void add_patch_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash) {
     fbb_.AddOffset(Proposal_Message::VT_PATCH_HASH, patch_hash);
-  }
-  void add_ledger_primary_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> ledger_primary_hash) {
-    fbb_.AddOffset(Proposal_Message::VT_LEDGER_PRIMARY_HASH, ledger_primary_hash);
   }
   explicit Proposal_MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -969,24 +938,18 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_Message(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::ByteArray>>> input_hashes = 0,
-    uint64_t primary_shard_seq_no = 0,
-    uint64_t blob_shard_seq_no = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> last_blob_shard_hash = 0,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::Sequence_Hash> last_blob_shard_id = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_sig = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> ledger_primary_hash = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0) {
   Proposal_MessageBuilder builder_(_fbb);
-  builder_.add_blob_shard_seq_no(blob_shard_seq_no);
-  builder_.add_primary_shard_seq_no(primary_shard_seq_no);
   builder_.add_time(time);
-  builder_.add_ledger_primary_hash(ledger_primary_hash);
   builder_.add_patch_hash(patch_hash);
   builder_.add_state_hash(state_hash);
   builder_.add_output_sig(output_sig);
   builder_.add_output_hash(output_hash);
-  builder_.add_last_blob_shard_hash(last_blob_shard_hash);
+  builder_.add_last_blob_shard_id(last_blob_shard_id);
   builder_.add_input_hashes(input_hashes);
   builder_.add_users(users);
   builder_.add_nonce(nonce);
@@ -1003,23 +966,18 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
     const std::vector<uint8_t> *nonce = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::ByteArray>> *input_hashes = nullptr,
-    uint64_t primary_shard_seq_no = 0,
-    uint64_t blob_shard_seq_no = 0,
-    const std::vector<uint8_t> *last_blob_shard_hash = nullptr,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::Sequence_Hash> last_blob_shard_id = 0,
     const std::vector<uint8_t> *output_hash = nullptr,
     const std::vector<uint8_t> *output_sig = nullptr,
     const std::vector<uint8_t> *state_hash = nullptr,
-    const std::vector<uint8_t> *patch_hash = nullptr,
-    const std::vector<uint8_t> *ledger_primary_hash = nullptr) {
+    const std::vector<uint8_t> *patch_hash = nullptr) {
   auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*users) : 0;
   auto input_hashes__ = input_hashes ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::ByteArray>>(*input_hashes) : 0;
-  auto last_blob_shard_hash__ = last_blob_shard_hash ? _fbb.CreateVector<uint8_t>(*last_blob_shard_hash) : 0;
   auto output_hash__ = output_hash ? _fbb.CreateVector<uint8_t>(*output_hash) : 0;
   auto output_sig__ = output_sig ? _fbb.CreateVector<uint8_t>(*output_sig) : 0;
   auto state_hash__ = state_hash ? _fbb.CreateVector<uint8_t>(*state_hash) : 0;
   auto patch_hash__ = patch_hash ? _fbb.CreateVector<uint8_t>(*patch_hash) : 0;
-  auto ledger_primary_hash__ = ledger_primary_hash ? _fbb.CreateVector<uint8_t>(*ledger_primary_hash) : 0;
   return msg::fbuf::p2pmsg::CreateProposal_Message(
       _fbb,
       stage,
@@ -1028,14 +986,80 @@ inline flatbuffers::Offset<Proposal_Message> CreateProposal_MessageDirect(
       nonce__,
       users__,
       input_hashes__,
-      primary_shard_seq_no,
-      blob_shard_seq_no,
-      last_blob_shard_hash__,
+      last_blob_shard_id,
       output_hash__,
       output_sig__,
       state_hash__,
-      patch_hash__,
-      ledger_primary_hash__);
+      patch_hash__);
+}
+
+struct Sequence_Hash FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Sequence_HashBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SHARD_SEQ_NO = 4,
+    VT_SHARD_HASH = 6
+  };
+  uint64_t shard_seq_no() const {
+    return GetField<uint64_t>(VT_SHARD_SEQ_NO, 0);
+  }
+  bool mutate_shard_seq_no(uint64_t _shard_seq_no) {
+    return SetField<uint64_t>(VT_SHARD_SEQ_NO, _shard_seq_no, 0);
+  }
+  const flatbuffers::Vector<uint8_t> *shard_hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SHARD_HASH);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_shard_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SHARD_HASH);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_SHARD_SEQ_NO) &&
+           VerifyOffset(verifier, VT_SHARD_HASH) &&
+           verifier.VerifyVector(shard_hash()) &&
+           verifier.EndTable();
+  }
+};
+
+struct Sequence_HashBuilder {
+  typedef Sequence_Hash Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_shard_seq_no(uint64_t shard_seq_no) {
+    fbb_.AddElement<uint64_t>(Sequence_Hash::VT_SHARD_SEQ_NO, shard_seq_no, 0);
+  }
+  void add_shard_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> shard_hash) {
+    fbb_.AddOffset(Sequence_Hash::VT_SHARD_HASH, shard_hash);
+  }
+  explicit Sequence_HashBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Sequence_Hash> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Sequence_Hash>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Sequence_Hash> CreateSequence_Hash(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t shard_seq_no = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> shard_hash = 0) {
+  Sequence_HashBuilder builder_(_fbb);
+  builder_.add_shard_seq_no(shard_seq_no);
+  builder_.add_shard_hash(shard_hash);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Sequence_Hash> CreateSequence_HashDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t shard_seq_no = 0,
+    const std::vector<uint8_t> *shard_hash = nullptr) {
+  auto shard_hash__ = shard_hash ? _fbb.CreateVector<uint8_t>(*shard_hash) : 0;
+  return msg::fbuf::p2pmsg::CreateSequence_Hash(
+      _fbb,
+      shard_seq_no,
+      shard_hash__);
 }
 
 struct Npl_Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

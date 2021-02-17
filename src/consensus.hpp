@@ -95,8 +95,8 @@ namespace consensus
         std::map<std::string, uint32_t> output_hash;
         std::map<util::h32, uint32_t> state_hash;
         std::map<util::h32, uint32_t> patch_hash;
-        std::map<std::pair<util::h32, uint64_t>, uint32_t> last_ledger_primary_hash; // Keep last primary shard hash and its shard sequence number as key.
-        std::map<std::pair<util::h32, uint64_t>, uint32_t> last_ledger_blob_hash;    // Keep last blob shard hash and its shard sequence number as key.
+        std::map<p2p::sequence_hash, uint32_t> last_ledger_primary_shard;
+        std::map<p2p::sequence_hash, uint32_t> last_ledger_blob_shard;
     };
 
     extern std::atomic<bool> is_patch_update_pending; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
@@ -126,16 +126,16 @@ namespace consensus
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
     p2p::proposal create_stage0_proposal(std::string_view lcl, const util::h32 &state_hash, const util::h32 &patch_hash,
-                                         const uint64_t primary_shard_seq_no, const util::h32 &last_primary_shard_hash, const uint64_t blob_shard_seq_no, const util::h32 &last_blob_shard_hash);
+                                         const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id);
 
     p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
-                                           const uint64_t primary_shard_seq_no, const util::h32 &last_primary_shard_hash, const uint64_t blob_shard_seq_no, const util::h32 &last_blob_shard_hash);
+                                           const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id);
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    bool check_last_primary_shard_hash_votes(bool &is_desync, util::h32 &majority_last_shard_hash, uint64_t &majority_shard_seq_no, vote_counter &votes, const size_t unl_count);
+    bool check_last_primary_shard_hash_votes(bool &is_desync, p2p::sequence_hash &majority_primary_shard_id, vote_counter &votes, const size_t unl_count);
 
-    void check_last_blob_shard_hash_votes(bool &is_ledger_blob_desync, util::h32 &majority_last_blob_shard_hash, uint64_t &majority_blob_shard_seq_no, vote_counter &votes);
+    void check_last_blob_shard_hash_votes(bool &is_ledger_blob_desync, p2p::sequence_hash &majority_blob_shard_id, vote_counter &votes);
 
     void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes);
 
