@@ -11,8 +11,8 @@ namespace ledger
 {
     constexpr const char *GENESIS_LEDGER = "0-genesis";
     constexpr const char *DATEBASE = "ledger.sqlite";
-    constexpr uint64_t PRIMARY_SHARD_SIZE = 4;
-    constexpr uint64_t BLOB_SHARD_SIZE = 4;
+    constexpr uint64_t PRIMARY_SHARD_SIZE = 4096;
+    constexpr uint64_t BLOB_SHARD_SIZE = 4096;
     constexpr int FILE_PERMS = 0644;
     constexpr uint64_t MAX_BLOB_SHARDS = 4;
 
