@@ -188,14 +188,14 @@ namespace consensus
      */
     int check_sync_status(const size_t unl_count, vote_counter &votes)
     {
-        bool is_last_primary_shard_hash_desync = false;
+        bool is_last_primary_shard_desync = false;
         util::h32 majority_last_primary_shard_hash;
         uint64_t majority_primary_shard_seq_no;
-        if (check_last_primary_shard_hash_votes(is_last_primary_shard_hash_desync, majority_last_primary_shard_hash, majority_primary_shard_seq_no, votes, unl_count))
+        if (check_last_primary_shard_hash_votes(is_last_primary_shard_desync, majority_last_primary_shard_hash, majority_primary_shard_seq_no, votes, unl_count))
         {
             // We proceed further only if last primary shard hash check was success (meaning last primary shard hash check could be reliably performed).
             // Last primary shard hash sync is commenced if we are out-of-sync with majority last primary shard hash.
-            if (is_last_primary_shard_hash_desync)
+            if (is_last_primary_shard_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
 
@@ -206,10 +206,10 @@ namespace consensus
             }
 
             // Check out blob shard hash with majority blob shard hash.
-            bool is_last_blob_shard_hash_desync = false;
+            bool is_last_blob_shard_desync = false;
             util::h32 majority_last_blob_shard_hash;
             uint64_t majority_blob_shard_seq_no;
-            check_last_blob_shard_hash_votes(is_last_blob_shard_hash_desync, majority_last_blob_shard_hash, majority_blob_shard_seq_no, votes);
+            check_last_blob_shard_hash_votes(is_last_blob_shard_desync, majority_last_blob_shard_hash, majority_blob_shard_seq_no, votes);
 
             // Check our state with majority state.
             bool is_state_desync = false;
@@ -225,7 +225,7 @@ namespace consensus
                 is_patch_update_pending = false;
 
             // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
-            if (is_state_desync || is_patch_desync || is_last_blob_shard_hash_desync)
+            if (is_state_desync || is_patch_desync || is_last_blob_shard_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
 
@@ -237,7 +237,7 @@ namespace consensus
                     sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // If ledger blob shard is desync, We first request the latest blob shard.
-                if (is_last_blob_shard_hash_desync)
+                if (is_last_blob_shard_desync)
                 {
                     const std::string sync_name = "blob shard " + std::to_string(majority_blob_shard_seq_no);
                     const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(majority_blob_shard_seq_no));
@@ -246,7 +246,7 @@ namespace consensus
             }
 
             // Proceed further only if last primary shard, last blob shard, state and patch hashes are in sync with majority.
-            if (!is_last_primary_shard_hash_desync && !is_last_blob_shard_hash_desync && !is_state_desync && !is_patch_desync)
+            if (!is_last_primary_shard_desync && !is_last_blob_shard_desync && !is_state_desync && !is_patch_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;

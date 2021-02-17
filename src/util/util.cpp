@@ -410,4 +410,35 @@ namespace util
         lock.l_type = F_UNLCK;
         return fcntl(fd, F_SETLKW, &lock);
     }
+
+    /**
+     * Convert given little endian byte stream to uint64_t.
+     * @param data Byte stream to be converted.
+     * @return Returns converted uint64_t.
+    */
+    uint64_t uint64_from_bytes(uint8_t *data)
+    {
+        return (((uint64_t)(data[0])) << 56) +
+               (((uint64_t)(data[1])) << 48) +
+               (((uint64_t)(data[2])) << 40) +
+               (((uint64_t)(data[3])) << 32) +
+               (((uint64_t)(data[4])) << 24) +
+               (((uint64_t)(data[5])) << 16) +
+               (((uint64_t)(data[6])) << 8) +
+               (((uint64_t)(data[7])));
+    }
+
+    /**
+     * Convert given uint64_t to little endian byte stream.
+     * @param dest Byte stream to be populated.
+     * @param x uint64_t to be converted.
+    */
+    void uint64_to_bytes(uint8_t *dest, uint64_t x)
+    {
+        for (int j = 0; j < 8; j++)
+        {
+            *(dest + (7 - j)) = x & 0xff;
+            x >>= 8;
+        }
+    }
 } // namespace util

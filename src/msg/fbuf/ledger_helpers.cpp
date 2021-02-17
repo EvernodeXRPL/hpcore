@@ -53,18 +53,18 @@ namespace msg::fbuf::ledgermsg
     void create_ledger_blob_msg_from_ledger_blob(flatbuffers::FlatBufferBuilder &builder, const ledger::ledger_blob &ledger_blob)
     {
         std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawInputCollection>> raw_inputs;
-        raw_inputs.resize(ledger_blob.inputs.size());
+        raw_inputs.reserve(ledger_blob.inputs.size());
         std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawOutputCollection>> raw_outputs;
-        raw_outputs.resize(ledger_blob.outputs.size());
+        raw_outputs.reserve(ledger_blob.outputs.size());
 
         for (const auto &[key, value] : ledger_blob.inputs)
         {
             std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawInput>> inputs;
-            for (const auto &input : value)
-            {
-                inputs.push_back(ledgermsg::CreateRawInput(builder, sv_to_flatbuff_bytes(builder, input)));
-            }
+            inputs.reserve(value.size());
 
+            for (const auto &input : value)
+                inputs.push_back(ledgermsg::CreateRawInput(builder, sv_to_flatbuff_bytes(builder, input)));
+            
             raw_inputs.push_back(ledgermsg::CreateRawInputCollection(
                 builder,
                 sv_to_flatbuff_bytes(builder, key),
@@ -74,11 +74,11 @@ namespace msg::fbuf::ledgermsg
         for (const auto &[key, value] : ledger_blob.outputs)
         {
             std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawOutput>> outputs;
-            for (const auto &output : value)
-            {
-                outputs.push_back(ledgermsg::CreateRawOutput(builder, sv_to_flatbuff_bytes(builder, output)));
-            }
+            outputs.reserve(value.size());
 
+            for (const auto &output : value)
+                outputs.push_back(ledgermsg::CreateRawOutput(builder, sv_to_flatbuff_bytes(builder, output)));
+            
             raw_outputs.push_back(ledgermsg::CreateRawOutputCollection(
                 builder,
                 sv_to_flatbuff_bytes(builder, key),

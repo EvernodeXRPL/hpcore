@@ -26,6 +26,7 @@ namespace ledger::sqlite
     {
         if (sqlite3_open(db_name.data(), db) != SQLITE_OK)
         {
+            *db = NULL;
             LOG_ERROR << "Can't open database: " << sqlite3_errmsg(*db);
             return -1;
         }

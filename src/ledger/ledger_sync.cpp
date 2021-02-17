@@ -57,7 +57,7 @@ namespace ledger
             }
 
             if (conf::cfg.node.max_shards == 0 || // Sync all shards if this is a full history node.
-                ctx.get_primary_shard_seq_no() - shard_seq_no <= conf::cfg.node.max_shards)
+                ctx.get_primary_shard_seq_no() - shard_seq_no + 1 < conf::cfg.node.max_shards)
             {
                 // Check whether the hash of the previous shard matches with the hash in the prev_shard.hash file.
                 const std::string prev_shard_vpath = std::string(PRIMARY_DIR).append("/").append(std::to_string(--shard_seq_no));
@@ -70,6 +70,16 @@ namespace ledger
                     const std::string shard_path = std::string(PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
+                else if (conf::cfg.node.max_shards != 0 && ctx.get_primary_shard_seq_no() >= conf::cfg.node.max_shards)
+                {
+                    // When there are no more shards to sync, Remove old shards that exceeds max shard range.
+                    remove_old_shards(ctx.get_primary_shard_seq_no() - conf::cfg.node.max_shards + 1, PRIMARY_DIR);
+                }
+            }
+            else if (ctx.get_primary_shard_seq_no() >= conf::cfg.node.max_shards)
+            {
+                // When there are no more shards to sync, Remove old shards that exceeds max shard range.
+                remove_old_shards(ctx.get_primary_shard_seq_no() - conf::cfg.node.max_shards + 1, PRIMARY_DIR);
             }
         }
         else if (shard_parent_dir == BLOB_DIR)
@@ -78,9 +88,9 @@ namespace ledger
             // then the context information should be updated.
             if (ctx.get_blob_shard_seq_no() <= shard_seq_no)
                 ctx.set_last_blob_shard_hash(shard_seq_no, synced_target.hash);
-            
+
             if (MAX_BLOB_SHARDS == 0 || // Sync all blob shards if this is a full history node.
-                ctx.get_blob_shard_seq_no() - shard_seq_no <= MAX_BLOB_SHARDS)
+                ctx.get_blob_shard_seq_no() - shard_seq_no + 1 < MAX_BLOB_SHARDS)
             {
                 // Check whether the blob hash of the previous blob shard matches with the hash in the prev_shard.hash file.
                 const std::string prev_shard_vpath = std::string(BLOB_DIR).append("/").append(std::to_string(--shard_seq_no));
@@ -93,6 +103,16 @@ namespace ledger
                     const std::string shard_path = std::string(BLOB_DIR).append("/").append(std::to_string(shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
+                else if (MAX_BLOB_SHARDS != 0 && ctx.get_blob_shard_seq_no() >= MAX_BLOB_SHARDS)
+                {
+                    // When there are no more shards to sync, Remove old shards that exceeds max shard range.
+                    remove_old_shards(ctx.get_blob_shard_seq_no() - MAX_BLOB_SHARDS + 1, BLOB_DIR);
+                }
+            }
+            else if (ctx.get_blob_shard_seq_no() >= MAX_BLOB_SHARDS)
+            {
+                // When there are no more shards to sync, Remove old shards that exceeds max shard range.
+                remove_old_shards(ctx.get_blob_shard_seq_no() - MAX_BLOB_SHARDS + 1, BLOB_DIR);
             }
         }
     }
