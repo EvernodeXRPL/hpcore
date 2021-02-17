@@ -55,14 +55,16 @@ table Proposal_Message { //Proposal type message schema
     nonce: [ubyte];
     users:[ByteArray];
     input_hashes:[ByteArray];
-    primary_shard_seq_no: uint64;
-    blob_shard_seq_no: uint64;
-    last_blob_shard_hash: [ubyte];
+    last_blob_shard_id: Sequence_Hash;
     output_hash:[ubyte];
     output_sig:[ubyte];
     state_hash: [ubyte];
     patch_hash: [ubyte];
-    ledger_primary_hash: [ubyte];
+}
+
+table Sequence_Hash {
+    shard_seq_no: uint64;
+    shard_hash: [ubyte];
 }
 
 table Npl_Message { //NPL type message schema

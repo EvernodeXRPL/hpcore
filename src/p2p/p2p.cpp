@@ -289,7 +289,7 @@ namespace p2p
     void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session)
     {
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_hash());
+        msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_id());
         if (session)
         {
             std::string_view msg = std::string_view(
@@ -310,7 +310,7 @@ namespace p2p
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_hash());
+        msg::fbuf::p2pmsg::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_id());
         broadcast_message(fbuf, false);
     }
 
@@ -321,7 +321,7 @@ namespace p2p
     void send_known_peer_list(peer_comm_session *session)
     {
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_hash());
+        msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_id());
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
         session->send(msg);
@@ -355,7 +355,7 @@ namespace p2p
     void send_peer_list_request()
     {
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_peer_list_request(fbuf, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_hash());
+        msg::fbuf::p2pmsg::create_msg_from_peer_list_request(fbuf, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_id());
         std::string target_pubkey;
         send_message_to_random_peer(fbuf, target_pubkey);
         LOG_DEBUG << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";
@@ -455,5 +455,20 @@ namespace p2p
             session->is_unl = unl::exists(session->pubkey);
         }
     }
+
+    std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash)
+    {
+        output << seq_hash.shard_seq_no << "-" << seq_hash.shard_hash;
+        return output;
+    }
+
+    // size_t sequence_hash_std_key_hasher::operator()(const sequence_hash seq_hash) const
+    // {
+    //     size_t res = 17;
+    //     res = res * 31 + std::hash<uint64_t>()(seq_hash.shard_seq_no);
+    //     std::string shard_hash(seq_hash.shard_hash.to_string_view());
+    //     res = res * 31 + std::hash<std::string>()(shard_hash);
+    //     return res;
+    // }
 
 } // namespace p2p

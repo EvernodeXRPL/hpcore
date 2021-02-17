@@ -18,6 +18,36 @@ namespace p2p
     constexpr uint16_t HPFS_RES_LIST_CAP = 64;        // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
+    struct sequence_hash
+    {
+        uint64_t shard_seq_no = 0;
+        util::h32 shard_hash = util::h32_empty;
+
+        bool operator!=(const sequence_hash seq_hash) const
+        {
+            return this->shard_seq_no != seq_hash.shard_seq_no || this->shard_hash != seq_hash.shard_hash;
+        }
+
+        bool operator==(const sequence_hash seq_hash) const
+        {
+            return this->shard_seq_no == seq_hash.shard_seq_no && this->shard_hash == seq_hash.shard_hash;
+        }
+
+        bool operator<(const sequence_hash seq_hash) const
+        {
+            return this->shard_hash < seq_hash.shard_hash;
+        }
+
+        sequence_hash &operator=(const sequence_hash seq_hash)
+        {
+            this->shard_seq_no = seq_hash.shard_seq_no;
+            this->shard_hash = seq_hash.shard_hash;
+            return *this;
+        }
+    };
+
+    std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash);
+
     struct proposal
     {
         std::string pubkey;
@@ -29,10 +59,8 @@ namespace p2p
         uint16_t roundtime = 0;      // Roundtime of the proposer.
         std::string nonce;           // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
-        uint64_t primary_shard_seq_no; // Primary shard sequence number.
-        util::h32 last_primary_shard_hash;
-        uint64_t blob_shard_seq_no; // Blob shard sequence number.
-        util::h32 last_blob_shard_hash;
+        sequence_hash last_primary_shard_id;
+        sequence_hash last_blob_shard_id;
         util::h32 state_hash; // Contract state hash.
         util::h32 patch_hash; // Patch file hash.
         std::set<std::string> users;
