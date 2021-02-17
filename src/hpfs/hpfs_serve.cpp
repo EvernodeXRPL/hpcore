@@ -70,7 +70,7 @@ namespace hpfs
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
             const std::string lcl = ledger::ctx.get_lcl();
-            const uint16_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
+            const uint32_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
 
             if (hpfs_requests.empty())
                 continue;
