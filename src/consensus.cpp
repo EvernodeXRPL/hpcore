@@ -1098,7 +1098,7 @@ namespace consensus
         if (perform_detection)
         {
             LOG_DEBUG << "Detecting roundtime...";
-            const uint16_t majority_roundtime = unl::get_majority_roundtime();
+            const uint32_t majority_roundtime = unl::get_majority_roundtime();
 
             if (majority_roundtime == 0 || conf::cfg.contract.roundtime == majority_roundtime)
                 return;

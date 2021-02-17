@@ -9,8 +9,8 @@
 namespace comm
 {
     constexpr uint32_t INTERVALMS = 60000;
-    constexpr uint16_t UNVERIFIED_INACTIVE_TIMEOUT = 5; // Time threshold for unverified inactive connections in seconds.
-    constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 64;      // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
+    constexpr uint32_t UNVERIFIED_INACTIVE_TIMEOUT = 5000; // Time threshold ms for unverified inactive connections.
+    constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 64;         // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
     comm_session::comm_session(
         std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
@@ -302,13 +302,13 @@ namespace comm
     */
     void comm_session::check_last_activity_rules()
     {
-        const uint16_t timeout_seconds = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? thresholds[SESSION_THRESHOLDS::IDLE_CONNECTION_TIMEOUT].threshold_limit : UNVERIFIED_INACTIVE_TIMEOUT);
+        const uint32_t timeout = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? thresholds[SESSION_THRESHOLDS::IDLE_CONNECTION_TIMEOUT].threshold_limit : UNVERIFIED_INACTIVE_TIMEOUT);
 
         // Timeout zero means unlimited.
-        if (timeout_seconds == 0)
+        if (timeout == 0)
             return;
 
-        if (util::get_epoch_milliseconds() - last_activity_timestamp >= (timeout_seconds * 1000))
+        if (util::get_epoch_milliseconds() - last_activity_timestamp >= timeout)
         {
             LOG_DEBUG << "Closing " << display_name() << " connection due to inactivity.";
             mark_for_closure();
