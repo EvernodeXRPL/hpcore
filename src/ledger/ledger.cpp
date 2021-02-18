@@ -352,10 +352,10 @@ namespace ledger
             std::string input;
             if (usr::input_store.read_buf(user_input.input, input) != -1)
             {
-                const auto itr = blob.inputs.find(user_input.userpubkey);
+                const auto itr = blob.inputs.find(user_input.user_pubkey);
                 if (itr == blob.inputs.end())
-                    blob.inputs.emplace(user_input.userpubkey, std::vector<std::string>());
-                blob.inputs[user_input.userpubkey].push_back(input);
+                    blob.inputs.emplace(user_input.user_pubkey, std::vector<std::string>());
+                blob.inputs[user_input.user_pubkey].push_back(input);
             }
         }
         for (const auto &[hash, user_output] : generated_user_outputs)

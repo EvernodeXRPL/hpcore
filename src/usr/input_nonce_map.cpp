@@ -15,7 +15,7 @@ namespace usr
      *         1 if nonce has expired.
      *         2 if message with same nonce/sig has already been submitted.
      */
-    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const uint64_t &max_lcl_seqno, const bool no_add)
+    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const uint64_t &max_lcl_seq_no, const bool no_add)
     {
         int result = 0;
 
@@ -25,20 +25,20 @@ namespace usr
         {
             result = 0;
             if (!no_add)
-                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, max_lcl_seqno));
+                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, max_lcl_seq_no));
         }
         else
         {
             const std::string &existing_nonce = std::get<0>(itr->second);
-            const uint64_t expire_lcl_seqno = std::get<2>(itr->second);
+            const uint64_t expire_lcl_seq_no = std::get<2>(itr->second);
 
             // Check if previous nonce has already expired or it is less than new nonce.
-            if (expire_lcl_seqno <= ledger::ctx.get_lcl_id().seq_no || existing_nonce < nonce)
+            if (expire_lcl_seq_no <= ledger::ctx.get_lcl_id().seq_no || existing_nonce < nonce)
             {
                 if (!no_add)
                 {
                     std::get<0>(itr->second) = nonce;
-                    std::get<2>(itr->second) = max_lcl_seqno;
+                    std::get<2>(itr->second) = max_lcl_seq_no;
                 }
                 result = 0;
             }

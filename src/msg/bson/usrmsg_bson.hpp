@@ -33,7 +33,7 @@ namespace msg::usrmsg::bson
                                        const jsoncons::ojson &d);
 
     int extract_input_container(std::string &input, std::string &nonce,
-                                uint64_t &max_lcl_seqno, std::string_view contentbson);
+                                uint64_t &max_lcl_seq_no, std::string_view contentbson);
 
     void populate_output_hash_array(jsoncons::bson::bson_bytes_encoder &encoder, const util::merkle_hash_node &node);
 

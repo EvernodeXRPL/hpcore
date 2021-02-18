@@ -759,7 +759,7 @@
             const inpContainer = {
                 input: this.serializeInput(input),
                 nonce: nonce,
-                max_lcl_seqno: maxLclSeqNo
+                max_lcl_seq_no: maxLclSeqNo
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);

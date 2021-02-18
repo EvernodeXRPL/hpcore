@@ -568,16 +568,16 @@ namespace msg::usrmsg::json
      * Extract the individual components of a given input container json.
      * @param input The extracted input.
      * @param nonce The extracted nonce.
-     * @param max_lcl_seqno The extracted max ledger sequence no.
+     * @param max_lcl_seq_no The extracted max ledger sequence no.
      * @param contentjson The json string containing the input container message.
      *                    {
      *                      "input": "<any string>",
      *                      "nonce": "<random string with optional sorted order>",
-     *                      "max_lcl_seqno": <integer>
+     *                      "max_lcl_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seqno, std::string_view contentjson)
+    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seq_no, std::string_view contentjson)
     {
         jsoncons::json d;
         try
@@ -604,7 +604,7 @@ namespace msg::usrmsg::json
 
         input = d[msg::usrmsg::FLD_INPUT].as<std::string>();
         nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
-        max_lcl_seqno = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
+        max_lcl_seq_no = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
 
         return 0;
     }

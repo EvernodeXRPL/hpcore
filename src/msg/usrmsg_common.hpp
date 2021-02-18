@@ -23,7 +23,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_INPUT = "input";
     constexpr const char *FLD_INPUT_CONTAINER = "input_container";
     constexpr const char *FLD_INPUT_SIG = "input_sig";
-    constexpr const char *FLD_MAX_LCL_SEQ = "max_lcl_seqno";
+    constexpr const char *FLD_MAX_LCL_SEQ = "max_lcl_seq_no";
     constexpr const char *FLD_CONTENT = "content";
     constexpr const char *FLD_OUTPUTS = "outputs";
     constexpr const char *FLD_HASHES = "hashes";

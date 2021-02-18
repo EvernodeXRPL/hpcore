@@ -37,7 +37,7 @@ namespace msg::usrmsg::json
                                        const jsoncons::json &d);
 
     int extract_input_container(std::string &input, std::string &nonce,
-                                uint64_t &max_lcl_seqno, std::string_view contentjson);
+                                uint64_t &max_lcl_seq_no, std::string_view contentjson);
 
     bool is_json_string(std::string_view content);
 

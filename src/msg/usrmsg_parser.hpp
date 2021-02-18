@@ -41,7 +41,7 @@ namespace msg::usrmsg
         int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const;
 
         int extract_input_container(std::string &input, std::string &nonce,
-                                    uint64_t &max_lcl_seqno, std::string_view encoded_content) const;
+                                    uint64_t &max_lcl_seq_no, std::string_view encoded_content) const;
     };
 
 } // namespace msg::usrmsg

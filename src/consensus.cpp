@@ -528,7 +528,7 @@ namespace consensus
                     // No reject reason means we should go ahead and subject the input to consensus.
                     ctx.candidate_user_inputs.try_emplace(
                         hash,
-                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seqno));
+                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seq_no));
                 }
 
                 responses[pubkey].push_back(usr::input_status_response{extracted_input.protocol, extracted_input.sig, reject_reason});
@@ -856,7 +856,7 @@ namespace consensus
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
-                if (itr->second.maxledgerseqno <= new_lcl_id.seq_no)
+                if (itr->second.max_ledger_seq_no <= new_lcl_id.seq_no)
                     ctx.candidate_user_inputs.erase(itr++);
                 else
                     ++itr;
@@ -1004,7 +1004,7 @@ namespace consensus
                 // Populate the input content into the bufmap.
                 // It's VERY important that we preserve the proposal input hash order when feeding to the contract as well.
                 candidate_user_input &cand_input = itr->second;
-                sc::contract_iobufs &contract_user = bufmap[cand_input.userpubkey];
+                sc::contract_iobufs &contract_user = bufmap[cand_input.user_pubkey];
                 contract_user.inputs.push_back(cand_input.input);
 
                 // Remove the input from the candidate set because we no longer need it.
