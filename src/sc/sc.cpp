@@ -16,6 +16,7 @@ namespace sc
     constexpr int FILE_PERMS = 0644;
     constexpr const char *STDOUT_LOG = ".stdout.log";
     constexpr const char *STDERR_LOG = ".stderr.log";
+    constexpr const char *POST_EXEC_SCRIPT = "post_exec.sh";
 
     constexpr uint32_t CONTRACT_FS_ID = 0;
 
@@ -61,6 +62,9 @@ namespace sc
         if (start_hpfs_session(ctx) == -1)
             return -1;
 
+        // Set contract working directory.
+        ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
+
         // Create the IO sockets for users, control channel and npl.
         // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
         if (create_iosockets_for_fdmap(ctx.user_fds, ctx.args.userbufs) == -1 ||
@@ -90,6 +94,10 @@ namespace sc
             // Wait for the contract monitor thread to gracefully stop along with the contract process.
             if (ctx.contract_monitor_thread.joinable())
                 ctx.contract_monitor_thread.join();
+
+            // After the contact exits, run the post-exec.sh script if it exists.
+            if (run_post_exec_script(ctx) == -1)
+                ret = -1;
         }
         else if (pid == 0)
         {
@@ -133,8 +141,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            const std::string current_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
-            chdir(current_dir.c_str());
+            chdir(ctx.working_dir.c_str());
 
             if (create_contract_log_files(ctx) == -1)
             {
@@ -219,7 +226,7 @@ namespace sc
             }
             else
             {
-                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely with code " << WEXITSTATUS(scstatus);
+                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely. Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -436,6 +443,47 @@ namespace sc
         }
 
         LOG_DEBUG << "Contract monitor stopped";
+    }
+
+    /**
+     * Runs the contract post execution script if exists.
+     */
+    int run_post_exec_script(const execution_context &ctx)
+    {
+        // Check whether the post-exec script exists within contract state dir.
+        const std::string script_path = ctx.working_dir + "/" + POST_EXEC_SCRIPT;
+        if (!util::is_file_exists(script_path.c_str()))
+            return 0;
+
+        // TODO:: Need to direct to log files*********************************
+
+        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + ")";
+        const int ret = system(command.c_str());
+        if (ret == -1)
+        {
+            LOG_ERROR << errno << ": Could not run post-exec script " << script_path;
+            return -1;
+        }
+        else
+        {
+            const int exit_code = WEXITSTATUS(ret);
+            if (WIFEXITED(ret))
+            {
+                LOG_INFO << "Post-exec script executed successfully. Exit code:" << exit_code;
+                // Exit code 0 means post-execution script can be deleted.
+                if (exit_code == 0 && util::remove_file(script_path) == -1)
+                {
+                    LOG_ERROR << errno << ": Error deleting post-exec script after execution.";
+                    return -1;
+                }
+            }
+            else
+            {
+                LOG_ERROR << "Post-exec script ended prematurely. Exit code:" << exit_code;
+            }
+
+            return 0;
+        }
     }
 
     /**

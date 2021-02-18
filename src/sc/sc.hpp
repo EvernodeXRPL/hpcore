@@ -121,6 +121,9 @@ namespace sc
 
         size_t total_npl_output_size = 0;
 
+        // The path set as contract working directory.
+        std::string working_dir;
+
         // Indicates that the contract has sent termination control message.
         bool termination_signaled = false;
 
@@ -154,6 +157,8 @@ namespace sc
     int write_contract_args(const execution_context &ctx, const int user_inputs_fd);
 
     void contract_monitor_loop(execution_context &ctx);
+
+    int run_post_exec_script(const execution_context &ctx);
 
     int write_control_inputs(execution_context &ctx);
 
