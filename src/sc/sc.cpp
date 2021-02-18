@@ -308,7 +308,8 @@ namespace sc
      *   "pubkey": "<this node's hex public key>",
      *   "timestamp": <this node's timestamp (unix milliseconds)>,
      *   "readonly": <true|false>,
-     *   "lcl": "<this node's last closed ledger seq no. and hash in hex>", (eg: 169-a1d82eb4c9ed005ec2c4f4f82b6f0c2fd7543d66b1a0f6b8e58ae670b3e2bcfb)
+     *   "lcl_seq_no": "<lcl sequence no>",
+     *   "lcl_hex": "<lcl hash hex>",
      *   "control_fd": fd,
      *   "npl_fd":fd,
      *   "user_in_fd":fd, // User inputs fd.
@@ -331,7 +332,8 @@ namespace sc
 
         if (!ctx.args.readonly)
         {
-            os << ",\"lcl\":\"" << ctx.args.lcl
+            os << ",\"lcl_seq_no\":" << ctx.args.lcl_id.seq_no
+               << ",\"lcl_hash\":\"" << util::to_hex(ctx.args.lcl_id.hash.to_string_view())
                << "\",\"npl_fd\":" << ctx.npl_fds.scfd;
         }
 
@@ -475,9 +477,10 @@ namespace sc
         LOG_INFO << "Running post-exec script...";
 
         const std::string log_redirect = conf::cfg.contract.log_output ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
+        const std::string script_args = " " + std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
 
-        // We set current working dir and pass lcl as command line arg to the script.
-        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + " " + ctx.args.lcl + log_redirect + ")";
+        // We set current working dir and pass command line arg to the script.
+        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + " " + script_args + log_redirect + ")";
 
         const int ret = system(command.c_str());
         if (ret == -1)
@@ -819,7 +822,7 @@ namespace sc
         // to mark the start of each execution.
         if (!ctx.args.readonly)
         {
-            const std::string header = "Execution lcl " + ctx.args.lcl + "\n";
+            const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
             if (write(outfd, header.data(), header.size()) == -1 ||
                 write(errfd, header.data(), header.size()) == -1)
             {

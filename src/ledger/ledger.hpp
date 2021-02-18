@@ -92,8 +92,6 @@ namespace ledger
 
     int get_last_shard_info(std::string_view session_name, p2p::sequence_hash &last_shard_id, std::string_view shard_parent_dir);
 
-    const std::string get_lcl_string(const p2p::sequence_hash &lcl_id);
-
 } // namespace ledger
 
 #endif

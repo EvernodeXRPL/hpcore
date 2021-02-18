@@ -149,7 +149,7 @@ namespace consensus
 
     int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id);
 
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash lcl_id);
+    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
 
     int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 

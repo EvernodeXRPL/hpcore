@@ -37,6 +37,11 @@ namespace p2p
         {
             return seq_no < seq_hash.seq_no || hash < seq_hash.hash;
         }
+
+        const std::string to_string()
+        {
+            return std::to_string(seq_no) + "-" + util::to_hex(hash.to_string_view());
+        }
     };
     // This is a helper method for sequence_hash structure which enables printing it straight away.
     std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash);

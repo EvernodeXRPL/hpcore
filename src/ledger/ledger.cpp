@@ -498,14 +498,5 @@ namespace ledger
         }
         return 0;
     }
-
-    /**
-     * This returns lcl in (seq_no-lcl_hash_hex) format.
-     * @param lcl_id Lcl id to be converted.
-     * @return Returns constructed string.
-    */
-    const std::string get_lcl_string(const p2p::sequence_hash &lcl_id)
-    {
-        return std::to_string(lcl_id.seq_no) + "-" + util::to_hex(lcl_id.hash.to_string_view());
-    }
+    
 } // namespace ledger

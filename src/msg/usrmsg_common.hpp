@@ -29,8 +29,8 @@ namespace msg::usrmsg
     constexpr const char *FLD_HASHES = "hashes";
     constexpr const char *FLD_UNL_SIG = "unl_sig";
     constexpr const char *FLD_NONCE = "nonce";
-    constexpr const char *FLD_LCL = "lcl";
-    constexpr const char *FLD_LCL_SEQ = "lcl_seqno";
+    constexpr const char *FLD_LCL_HASH = "lcl_hash";
+    constexpr const char *FLD_LCL_SEQ = "lcl_seq_no";
     constexpr const char *FLD_STATUS = "status";
     constexpr const char *FLD_REASON = "reason";
 

@@ -11,7 +11,7 @@ namespace msg::usrmsg::json
 
     void create_server_challenge_response(std::vector<uint8_t> &msg, const std::string &original_challenge);
 
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl);
+    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
                                       std::string_view input_sig);
@@ -20,7 +20,7 @@ namespace msg::usrmsg::json
 
     void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
-                                          const uint64_t lcl_seq_no, std::string_view lcl);
+                                          const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
     void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
 

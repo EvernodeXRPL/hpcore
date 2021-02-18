@@ -228,7 +228,7 @@ namespace usr
             {
                 std::vector<uint8_t> msg;
                 const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
-                parser.create_status_response(msg, lcl_id.seq_no, ledger::get_lcl_string(lcl_id));
+                parser.create_status_response(msg, lcl_id.seq_no, lcl_id.hash.to_string_view());
                 user.session.send(msg);
                 return 0;
             }
