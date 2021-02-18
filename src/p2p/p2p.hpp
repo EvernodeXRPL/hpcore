@@ -18,6 +18,29 @@ namespace p2p
     constexpr uint16_t HPFS_RES_LIST_CAP = 64;        // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
+    struct sequence_hash
+    {
+        uint64_t seq_no = 0;
+        util::h32 hash = util::h32_empty;
+
+        bool operator!=(const sequence_hash &seq_hash) const
+        {
+            return seq_no != seq_hash.seq_no || hash != seq_hash.hash;
+        }
+
+        bool operator==(const sequence_hash &seq_hash) const
+        {
+            return seq_no == seq_hash.seq_no && hash == seq_hash.hash;
+        }
+
+        bool operator<(const sequence_hash &seq_hash) const
+        {
+            return seq_no < seq_hash.seq_no || hash < seq_hash.hash;
+        }
+    };
+    // This is a helper method for sequence_hash structure which enables printing it straight away.
+    std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash);
+
     struct proposal
     {
         std::string pubkey;
@@ -29,6 +52,8 @@ namespace p2p
         uint32_t roundtime = 0;      // Roundtime of the proposer.
         std::string nonce;           // Random nonce that is used to reduce lcl predictability.
         std::string lcl;
+        sequence_hash last_primary_shard_id;
+        sequence_hash last_blob_shard_id;
         util::h32 state_hash; // Contract state hash.
         util::h32 patch_hash; // Patch file hash.
         std::set<std::string> users;
@@ -40,18 +65,6 @@ namespace p2p
     struct nonunl_proposal
     {
         std::unordered_map<std::string, std::list<usr::submitted_user_input>> user_inputs;
-    };
-
-    struct history_request
-    {
-        std::string requester_lcl;
-        std::string required_lcl;
-    };
-
-    struct history_ledger_block
-    {
-        std::string lcl;
-        std::vector<uint8_t> block_buffer;
     };
 
     struct peer_challenge
@@ -73,13 +86,6 @@ namespace p2p
         NONE = 0,
         INVALID_MIN_LEDGER = 1,
         REQ_LEDGER_NOT_FOUND = 2
-    };
-
-    struct history_response
-    {
-        std::string requester_lcl;
-        std::map<uint64_t, const history_ledger_block> hist_ledger_blocks;
-        LEDGER_RESPONSE_ERROR error = LEDGER_RESPONSE_ERROR::NONE;
     };
 
     // Represents an NPL message sent by a peer.

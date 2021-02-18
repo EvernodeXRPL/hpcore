@@ -25,7 +25,6 @@
 #include <plog/Log.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
 #include <poll.h>
-#include <queue>
 #include <readerwriterqueue/readerwriterqueue.h>
 #include <set>
 #include <shared_mutex>

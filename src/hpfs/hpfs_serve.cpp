@@ -5,7 +5,7 @@
 #include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
 #include "hpfs_serve.hpp"
 #include "hpfs_sync.hpp"
@@ -21,17 +21,17 @@ namespace hpfs
     constexpr const char *HPFS_SESSION_NAME = "rw";
 
     /**
-     * @param name The name of the serving instance. (For identification purpose)
-     * @param fs_mount The pointer to the relavent hpfs mount instance this server is serving.
+     * @param server_name The name of the serving instance. (For identification purpose)
+     * @param fs_mount_ptr The pointer to the relavent hpfs mount instance this server is serving.
      * @return This returns -1 on error and 0 on success.
     */
-    int hpfs_serve::init(std::string_view name, hpfs::hpfs_mount *fs_mount)
+    int hpfs_serve::init(std::string_view server_name, hpfs::hpfs_mount *fs_mount_ptr)
     {
-        if (fs_mount == NULL)
+        if (fs_mount_ptr == NULL)
             return -1;
 
-        this->name = name;
-        this->fs_mount = fs_mount;
+        name = server_name;
+        fs_mount = fs_mount_ptr;
 
         hpfs_serve_thread = std::thread(&hpfs_serve::hpfs_serve_loop, this);
         init_success = true;
@@ -70,6 +70,7 @@ namespace hpfs
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
             const std::string lcl = ledger::ctx.get_lcl();
+            const p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
             const uint32_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
 
             if (hpfs_requests.empty())
@@ -95,7 +96,7 @@ namespace hpfs
                     LOG_DEBUG << "Serving hpfs request from [" << util::to_hex(session_id).substr(2, 10) << "]";
                     flatbuffers::FlatBufferBuilder fbuf(1024);
 
-                    if (hpfs_serve::create_hpfs_response(fbuf, hr, lcl) == 1)
+                    if (hpfs_serve::create_hpfs_response(fbuf, hr, lcl, last_primary_shard_id) == 1)
                     {
                         // Find the peer that we should send the hpfs response to.
                         std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -124,10 +125,12 @@ namespace hpfs
      * Creates the reply message for a given hpfs request.
      * @param fbuf The flatbuffer builder to construct the reply message.
      * @param hr The hpfs request which should be replied to.
+     * @param lcl Our lcl.
+     * @param last_primary_shard_id Last primary shard id.
      * @return 1 if successful hpfs response was generated. 0 if request is invalid
      *         and no response was generated. -1 on error.
      */
-    int hpfs_serve::create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl)
+    int hpfs_serve::create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
     {
         LOG_DEBUG << "Serving hpfs req. path:" << hr.parent_path << " block_id:" << hr.block_id;
 
@@ -152,7 +155,7 @@ namespace hpfs
                 resp.hash = hr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id, lcl);
+                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id, lcl, last_primary_shard_id);
                 return 1; // Success.
             }
         }
@@ -174,7 +177,7 @@ namespace hpfs
                 {
                     msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
                         fbuf, hr.parent_path, fs_mount->mount_id, block_hashes,
-                        file_length, hr.expected_hash, lcl);
+                        file_length, hr.expected_hash, lcl, last_primary_shard_id);
                     return 1; // Success.
                 }
             }
@@ -193,7 +196,7 @@ namespace hpfs
                 else if (result == 1)
                 {
                     msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash, lcl);
+                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash, lcl, last_primary_shard_id);
                     return 1; // Success.
                 }
             }

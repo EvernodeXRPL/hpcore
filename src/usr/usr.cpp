@@ -6,7 +6,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "../util/buffer_store.hpp"
 #include "../hpfs/hpfs_mount.hpp"
 #include "usr.hpp"
@@ -464,7 +464,7 @@ namespace usr
             util::fork_detach();
 
             // before execution chdir into a valid the latest state data directory that contains an appbill.table
-            const std::string appbill_dir = sc::contract_fs.rw_dir + hpfs::STATE_DIR_PATH;
+            const std::string appbill_dir = sc::contract_fs.rw_dir + sc::STATE_DIR_PATH;
             chdir(appbill_dir.c_str());
             int ret = execv(execv_args[0], execv_args);
             std::cerr << errno << ": Appbill process execv failed.\n";

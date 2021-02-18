@@ -24,11 +24,11 @@ namespace hpfs
         virtual void swap_collected_requests() = 0; // Must override in child classes.
 
     public:
-        int init(std::string_view name, hpfs::hpfs_mount *fs_mount);
+        int init(std::string_view server_name, hpfs::hpfs_mount *fs_mount_ptr);
 
         void deinit();
 
-        int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &sr, std::string_view lcl);
+        int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
 
         int get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
                            const uint32_t block_id, const util::h32 expected_hash);

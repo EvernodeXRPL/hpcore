@@ -61,12 +61,11 @@ add_executable(hpcore
     src/usr/input_nonce_map.cpp
     src/usr/usr.cpp
     src/usr/read_req.cpp
-    src/ledger.cpp
     src/ledger/sqlite.cpp
     src/ledger/ledger_mount.cpp
     src/ledger/ledger_sync.cpp
     src/ledger/ledger_serve.cpp
-    src/ledger/ledger_sample.cpp
+    src/ledger/ledger.cpp
     src/consensus.cpp
     src/main.cpp
 )

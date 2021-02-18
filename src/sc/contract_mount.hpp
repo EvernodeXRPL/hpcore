@@ -8,6 +8,8 @@
 
 namespace sc
 {
+    constexpr const char *STATE_DIR_PATH = "/state";                              // State directory name.
+    constexpr const char *PATCH_FILE_PATH = "/patch.cfg";                         // Config patch filename.
     /**
      * Represents contract file system mount.
     */

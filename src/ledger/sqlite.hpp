@@ -54,6 +54,8 @@ namespace ledger::sqlite
         std::string input_hash_hex;
         std::string output_hash_hex;
 
+        ledger() {};
+
         ledger(
             const uint64_t seq_no,
             const uint64_t time,
@@ -92,13 +94,17 @@ namespace ledger::sqlite
 
     bool is_table_exists(sqlite3 *db, std::string_view table_name);
 
+    int close_db(sqlite3 **db);
+
     // Ledger specific methdods.
     int create_ledger_table(sqlite3 *db);
 
     int insert_ledger_row(sqlite3 *db, const ledger &ledger);
 
     bool is_ledger_table_exist(sqlite3 *db);
-    
+
+    ledger get_last_ledger(sqlite3 *db);
+
 } // namespace ledger::sqlite
 
 #endif

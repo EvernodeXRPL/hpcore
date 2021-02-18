@@ -5,7 +5,7 @@ namespace ledger::sqlite
     constexpr const char *LEDGER_TABLE = "ledger";
     constexpr const char *LEDGER_COLUMNS = "seq_no, time, ledger_hash, prev_ledger_hash, data_hash, state_hash, patch_hash, user_hash, input_hash, output_hash";
     constexpr const char *COLUMN_DATA_TYPES[]{"INT", "TEXT"};
-    constexpr const char *CREATE_TABLE = "CREATE TABLE ";
+    constexpr const char *CREATE_TABLE = "CREATE TABLE IF NOT EXISTS ";
     constexpr const char *INSERT_INTO = "INSERT INTO ";
     constexpr const char *PRIMARY_KEY = "PRIMARY KEY";
     constexpr const char *NOT_NULL = "NOT NULL";
@@ -13,6 +13,7 @@ namespace ledger::sqlite
     constexpr const char *SELECT_ALL = "SELECT * FROM ";
     constexpr const char *SQLITE_MASTER = "sqlite_master";
     constexpr const char *WHERE = " WHERE ";
+    constexpr const char *ORDER_BY = " ORDER BY ";
     constexpr const char *AND = " AND ";
 
     /**
@@ -25,6 +26,7 @@ namespace ledger::sqlite
     {
         if (sqlite3_open(db_name.data(), db) != SQLITE_OK)
         {
+            *db = NULL;
             LOG_ERROR << "Can't open database: " << sqlite3_errmsg(*db);
             return -1;
         }
@@ -179,12 +181,31 @@ namespace ledger::sqlite
         if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK &&
             stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW)
         {
-            sqlite3_reset(stmt);
+            // Finalize and distroys the statement.
+            sqlite3_finalize(stmt);
             return true;
         }
 
-        sqlite3_reset(stmt);
+        // Finalize and distroys the statement.
+        sqlite3_finalize(stmt);
         return false;
+    }
+
+    /**
+     * Closes a connection to a given databse.
+     * @param db Pointer to the db.
+     * @returns returns 0 on success, or -1 on error.
+    */
+    int close_db(sqlite3 **db)
+    {
+        if (sqlite3_close(*db) != SQLITE_OK)
+        {
+            LOG_ERROR << "Can't close database: " << sqlite3_errmsg(*db);
+            return -1;
+        }
+
+        *db = NULL;
+        return 0;
     }
 
     /**
@@ -245,5 +266,41 @@ namespace ledger::sqlite
     bool is_ledger_table_exist(sqlite3 *db)
     {
         return is_table_exists(db, LEDGER_TABLE);
+    }
+
+    /**
+     * Get the last ledger record of the given db.
+     * @param db Pointer to the db.
+     * @returns returns the last ledger as a struct.
+    */
+    ledger get_last_ledger(sqlite3 *db)
+    {
+        std::string sql;
+        sql.append(SELECT_ALL);
+        sql.append(LEDGER_TABLE);
+        sql.append(ORDER_BY);
+        sql.append("seq_no DESC LIMIT 1");
+
+        sqlite3_stmt *stmt;
+        sqlite::ledger ledger;
+
+        if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK &&
+            stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            // Finalize and distroys the statement.
+            ledger.seq_no = sqlite3_column_int64(stmt, 0);
+            ledger.time = sqlite3_column_int64(stmt, 1);
+            ledger.ledger_hash_hex = std::string((char *)sqlite3_column_text(stmt, 2));
+            ledger.prev_ledger_hash_hex = std::string((char *)sqlite3_column_text(stmt, 3));
+            ledger.data_hash_hex = std::string((char *)sqlite3_column_text(stmt, 4));
+            ledger.state_hash_hex = std::string((char *)sqlite3_column_text(stmt, 5));
+            ledger.patch_hash_hex = std::string((char *)sqlite3_column_text(stmt, 6));
+            ledger.user_hash_hex = std::string((char *)sqlite3_column_text(stmt, 7));
+            ledger.input_hash_hex = std::string((char *)sqlite3_column_text(stmt, 8));
+            ledger.output_hash_hex = std::string((char *)sqlite3_column_text(stmt, 9));
+        }
+
+        sqlite3_finalize(stmt);
+        return ledger;
     }
 } // namespace ledger::sqlite

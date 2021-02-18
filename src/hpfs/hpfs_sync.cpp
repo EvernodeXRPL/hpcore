@@ -3,7 +3,7 @@
 #include "../msg/fbuf/common_helpers.hpp"
 #include "../p2p/p2p.hpp"
 #include "../pchheader.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
@@ -30,13 +30,13 @@ namespace hpfs
     /**
      * This should be called to activate the hpfs sync.
      */
-    int hpfs_sync::init(std::string_view name, hpfs::hpfs_mount *fs_mount)
+    int hpfs_sync::init(std::string_view worker_name, hpfs::hpfs_mount *fs_mount_ptr)
     {
-        if (fs_mount == NULL)
+        if (fs_mount_ptr == NULL)
             return -1;
 
-        this->name = name;
-        this->fs_mount = fs_mount;
+        name = worker_name;
+        fs_mount = fs_mount_ptr;
         hpfs_sync_thread = std::thread(&hpfs_sync::hpfs_syncer_loop, this);
         init_success = true;
         return 0;
@@ -58,23 +58,69 @@ namespace hpfs
     /**
      * Sets a list of sync targets. Sync finishes when all the targets are synced.
      * Syncing happens sequentially.
-     * @param target_list List of sync targets to sync towards.
+     * @param sync_target_list List of sync targets to sync towards.
      */
-    void hpfs_sync::set_target(const std::queue<sync_target> &target_list)
+    void hpfs_sync::set_target(const std::list<sync_target> &sync_target_list)
     {
-        if (target_list.empty())
+        if (sync_target_list.empty())
             return;
 
         // Do not do anything if we are already syncing towards the specified target states.
-        if (is_shutting_down || (is_syncing && original_target_list == target_list))
+        if (is_shutting_down || (is_syncing && original_target_list == sync_target_list))
             return;
 
-        this->original_target_list = target_list;
-        this->target_list = std::move(target_list);
+        original_target_list = sync_target_list;
+        target_list = std::move(sync_target_list);
 
         std::unique_lock lock(current_target_mutex);
         current_target = target_list.front(); // Make the first element of the list the first target to sync.
         is_syncing = true;
+    }
+
+    /**
+     * This sets a prioritized sync target. This target will replace current sync target.
+     * This target will immediately starting to sync and the interupted sync will resume
+     * once this sync target is acheived.
+    */
+    void hpfs_sync::set_target_push_front(const sync_target &target)
+    {
+        {
+            std::shared_lock lock(current_target_mutex);
+            if (is_shutting_down || (is_syncing && current_target == target))
+                return;
+        }
+
+        target_list.push_front(target);
+        is_syncing = true;
+        std::unique_lock lock(current_target_mutex);
+        // Make the first element of the list the first target to sync.
+        current_target = target_list.front();
+    }
+
+    /**
+     * Adds a new target to the syncing list. If the list was previously empty, current target
+     * will be updated and syncing will start.
+    */
+    void hpfs_sync::set_target_push_back(const sync_target &target)
+    {
+        // Current_target_mutex is not required since this function is currently used in a unique_lock
+        // scope.
+        if (is_shutting_down || (is_syncing && current_target == target))
+            return;
+
+        // Check whether this target is already in the sync target list.
+        const auto itr = std::find(target_list.begin(), target_list.end(), target);
+        if (itr != target_list.end())
+            return;
+
+        target_list.push_back(target);
+        if (!is_syncing)
+        {
+            std::unique_lock lock(current_target_mutex);
+            // Make the first element of the list the first target to sync.
+            current_target = target_list.front();
+            is_syncing = true;
+        }
     }
 
     /**
@@ -95,6 +141,7 @@ namespace hpfs
             if (!is_syncing)
                 continue;
 
+            bool is_sync_complete = false;
             if (fs_mount->acquire_rw_session() != -1)
             {
                 while (!is_shutting_down)
@@ -114,12 +161,12 @@ namespace hpfs
                         break;
 
                     {
-                        std::shared_lock lock(current_target_mutex);
+                        std::unique_lock lock(current_target_mutex);
 
                         if (new_state == current_target.hash)
                         {
                             LOG_INFO << "Hpfs " << name << " sync: Target " << current_target.name << " hash achieved: " << new_state;
-                            on_current_sync_state_acheived(new_state);
+                            on_current_sync_state_acheived(current_target);
 
                             // Start syncing to next target.
                             const int result = start_syncing_next_target();
@@ -130,14 +177,13 @@ namespace hpfs
                         }
                         else
                         {
-                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new target: " << current_target.hash;
+                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new " << current_target.name << " hash: " << current_target.hash;
                             continue;
                         }
                     }
                 }
-
-                LOG_INFO << "Hpfs " << name << " sync: All parents synced.";
                 fs_mount->release_rw_session();
+                is_sync_complete = true;
             }
             else
             {
@@ -147,6 +193,10 @@ namespace hpfs
             target_list = {};
             original_target_list = {};
             is_syncing = false;
+            const sync_target last_sync_target = current_target;
+            current_target = {};
+            if (is_sync_complete)
+                on_sync_complete(last_sync_target);
         }
 
         LOG_INFO << "Hpfs " << name << " sync: Worker stopped.";
@@ -160,9 +210,10 @@ namespace hpfs
     int hpfs_sync::request_loop(const util::h32 current_target_hash, util::h32 &updated_state)
     {
         std::string lcl = ledger::ctx.get_lcl();
+        p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
 
         // Send the initial root hpfs request of the current target.
-        submit_request(backlog_item{this->current_target.item_type, this->current_target.vpath, -1, current_target_hash}, lcl);
+        submit_request(backlog_item{current_target.item_type, current_target.vpath, -1, current_target_hash}, lcl, last_primary_shard_id);
 
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
@@ -178,6 +229,8 @@ namespace hpfs
 
             // Get current lcl.
             std::string lcl = ledger::ctx.get_lcl();
+            // Get the current last shard information.
+            last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
 
             // Move the received hpfs responses to the local response list.
             swap_collected_responses();
@@ -270,14 +323,14 @@ namespace hpfs
 
                 // After handling each response, check whether we have reached target hpfs state.
                 // get_hash returns 0 incase target parent is not existing in our side.
-                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, this->current_target.vpath) == -1)
+                if (fs_mount->get_hash(updated_state, hpfs::RW_SESSION_NAME, current_target.vpath) == -1)
                 {
                     LOG_ERROR << "Hpfs " << name << " sync: exiting due to hash check error.";
                     return -1;
                 }
 
                 // Update the central hpfs state tracker.
-                fs_mount->set_parent_hash(this->current_target.vpath, updated_state);
+                fs_mount->set_parent_hash(current_target.vpath, updated_state);
 
                 LOG_DEBUG << "Hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target_hash;
                 if (updated_state == current_target_hash)
@@ -306,17 +359,21 @@ namespace hpfs
                     {
                         LOG_INFO << "Hpfs " << name << " sync: Resubmission threshold exceeded. Abandoning sync.";
 
-                        std::shared_lock lock(current_target_mutex);
+                        std::unique_lock lock(current_target_mutex);
                         const int result = start_syncing_next_target();
                         if (result == 0)
+                        {
+                            current_target = {};
+                            on_sync_abandoned();
                             return 1; // To stop syncing since we have sync all the targets.
+                        }
                         return 0;
                     }
 
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
                     LOG_DEBUG << "Hpfs " << name << " sync: Resubmitting request...";
-                    submit_request(request, lcl);
+                    submit_request(request, lcl, last_primary_shard_id);
                 }
             }
 
@@ -330,7 +387,7 @@ namespace hpfs
                         return 0;
 
                     const backlog_item &request = pending_requests.front();
-                    submit_request(request, lcl);
+                    submit_request(request, lcl, last_primary_shard_id);
                     pending_requests.pop_front();
                 }
             }
@@ -414,7 +471,7 @@ namespace hpfs
 
         // Stop request loop if the target has changed.
         std::shared_lock lock(current_target_mutex);
-        return current_target_hash != this->current_target.hash;
+        return current_target_hash != current_target.hash;
     }
 
     /**
@@ -423,10 +480,11 @@ namespace hpfs
      * @param is_file Whether the requested path if a file or dir.
      * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
      * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
+     * @param last_primary_shard_id The last primary shard id.
      * @param target_pubkey The peer pubkey the request was submitted to.
      */
     void hpfs_sync::request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                            const util::h32 expected_hash, std::string_view lcl, std::string &target_pubkey)
+                                            const util::h32 expected_hash, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id, std::string &target_pubkey)
     {
         p2p::hpfs_request hr;
         hr.parent_path = path;
@@ -436,14 +494,14 @@ namespace hpfs
         hr.mount_id = fs_mount->mount_id;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, lcl);
+        msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, lcl, last_primary_shard_id);
         p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority hpfs state to improve reliability of retrieving hpfs state.
     }
 
     /**
      * Submits a pending hpfs request to the peer.
      */
-    void hpfs_sync::submit_request(const backlog_item &request, std::string_view lcl)
+    void hpfs_sync::submit_request(const backlog_item &request, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
     {
         const std::string key = std::string(request.path)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(util::h32));
@@ -451,7 +509,7 @@ namespace hpfs
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
         std::string target_pubkey;
-        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, target_pubkey);
+        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, last_primary_shard_id, target_pubkey);
 
         if (!target_pubkey.empty())
             LOG_DEBUG << "Hpfs " << name << " sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
@@ -608,11 +666,28 @@ namespace hpfs
     }
 
     /**
-     * This method can be used to invoke mount specific custom logic (after extending this super class) to be executed after
+     * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
      * a sync target is acheived.
     */
-    void hpfs_sync::on_current_sync_state_acheived(const util::h32 &acheived_hash)
+    void hpfs_sync::on_current_sync_state_acheived(const sync_target &synced_target)
     {
+    }
+
+    /**
+     * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
+     * a sync is abondened.
+    */
+    void hpfs_sync::on_sync_abandoned()
+    {
+    }
+
+    /**
+     * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
+     * a full sync is complete.
+    */
+    void hpfs_sync::on_sync_complete(const sync_target &last_sync_target)
+    {
+        LOG_INFO << "Hpfs " << name << " sync: All parents synced.";
     }
 
     /**
@@ -621,10 +696,9 @@ namespace hpfs
     */
     int hpfs_sync::start_syncing_next_target()
     {
-        target_list.pop(); // Remove the synced parent from the target list.
+        target_list.pop_front(); // Remove the synced parent from the target list.
         if (target_list.empty())
         {
-            current_target = {};
             return 0;
         }
         else

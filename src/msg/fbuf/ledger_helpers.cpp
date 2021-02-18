@@ -1,11 +1,11 @@
 #include "../../pchheader.hpp"
 #include "../../p2p/p2p.hpp"
 #include "ledger_schema_generated.h"
-#include "fullhistory_schema_generated.h"
+#include "ledger_blob_schema_generated.h"
 #include "common_helpers.hpp"
 #include "ledger_helpers.hpp"
 
-namespace msg::fbuf::ledger
+namespace msg::fbuf::ledgermsg
 {
     /**
      * Create ledger block from the given proposal struct.
@@ -13,8 +13,8 @@ namespace msg::fbuf::ledger
      */
     void create_ledger_block_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p, const uint64_t seq_no)
     {
-        flatbuffers::Offset<ledger::LedgerBlock> ledger =
-            ledger::CreateLedgerBlock(
+        flatbuffers::Offset<ledgermsg::LedgerBlock> ledger =
+            ledgermsg::CreateLedgerBlock(
                 builder,
                 sv_to_flatbuff_str(builder, conf::cfg.hp_version),
                 seq_no,
@@ -31,7 +31,7 @@ namespace msg::fbuf::ledger
 
     p2p::proposal create_proposal_from_ledger_block(const std::vector<uint8_t> &ledger_buf)
     {
-        auto ledger = msg::fbuf::ledger::GetLedgerBlock(ledger_buf.data());
+        auto ledger = msg::fbuf::ledgermsg::GetLedgerBlock(ledger_buf.data());
         p2p::proposal p;
         p.lcl = flatbuff_bytes_to_sv(ledger->lcl());
         p.state_hash = flatbuff_bytes_to_hash(ledger->state_hash());
@@ -47,45 +47,51 @@ namespace msg::fbuf::ledger
     }
 
     /**
-     * Create full history block from the given raw input map.
-     * @param map The raw input map to be placed in full history.
+     * Create ledger blob msg from ledger blob struct.
+     * @param ledger_blob Ledger blob to be placed in file.
      */
-    void create_full_history_block_from_raw_input_map(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, usr::raw_user_input> &map)
+    void create_ledger_blob_msg_from_ledger_blob(flatbuffers::FlatBufferBuilder &builder, const ledger::ledger_blob &ledger_blob)
     {
-        std::vector<flatbuffers::Offset<msg::fbuf::ledger::RawInput>> fbvec;
-        fbvec.reserve(map.size());
-        for (auto const &[key, value] : map)
+        std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawInputCollection>> raw_inputs;
+        raw_inputs.reserve(ledger_blob.inputs.size());
+        std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawOutputCollection>> raw_outputs;
+        raw_outputs.reserve(ledger_blob.outputs.size());
+
+        for (const auto &[key, value] : ledger_blob.inputs)
         {
-            fbvec.push_back(ledger::CreateRawInput(
+            std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawInput>> inputs;
+            inputs.reserve(value.size());
+
+            for (const auto &input : value)
+                inputs.push_back(ledgermsg::CreateRawInput(builder, sv_to_flatbuff_bytes(builder, input)));
+            
+            raw_inputs.push_back(ledgermsg::CreateRawInputCollection(
                 builder,
                 sv_to_flatbuff_bytes(builder, key),
-                sv_to_flatbuff_bytes(builder, value.pubkey),
-                sv_to_flatbuff_bytes(builder, value.input)));
+                builder.CreateVector(inputs)));
         }
 
-        flatbuffers::Offset<ledger::FullHistoryBlock> fullhistory =
-            ledger::CreateFullHistoryBlock(
-                builder,
-                sv_to_flatbuff_str(builder, conf::cfg.hp_version),
-                builder.CreateVector(fbvec));
-
-        builder.Finish(fullhistory); // Finished building message content to get serialised content.
-    }
-
-    const std::unordered_map<std::string, usr::raw_user_input> create_raw_input_map_from_full_history_block(const std::vector<uint8_t> &fullhist_buf)
-    {
-        const auto fullhistory = msg::fbuf::ledger::GetFullHistoryBlock(fullhist_buf.data());
-        const auto fbvec = fullhistory->raw_inputs();
-
-        std::unordered_map<std::string, usr::raw_user_input> map;
-        map.reserve(fbvec->size());
-        for (auto el : *fbvec)
+        for (const auto &[key, value] : ledger_blob.outputs)
         {
-            map.emplace(flatbuff_bytes_to_sv(el->hash()),
-                        usr::raw_user_input{
-                            std::string(flatbuff_bytes_to_sv(el->pubkey())),
-                            std::string(flatbuff_bytes_to_sv(el->input()))});
+            std::vector<flatbuffers::Offset<msg::fbuf::ledgermsg::RawOutput>> outputs;
+            outputs.reserve(value.size());
+
+            for (const auto &output : value)
+                outputs.push_back(ledgermsg::CreateRawOutput(builder, sv_to_flatbuff_bytes(builder, output)));
+            
+            raw_outputs.push_back(ledgermsg::CreateRawOutputCollection(
+                builder,
+                sv_to_flatbuff_bytes(builder, key),
+                builder.CreateVector(outputs)));
         }
-        return map;
+
+        flatbuffers::Offset<ledgermsg::LedgerBlob> blob =
+            ledgermsg::CreateLedgerBlob(
+                builder,
+                sv_to_flatbuff_bytes(builder, ledger_blob.ledger_hash),
+                builder.CreateVector(raw_inputs),
+                builder.CreateVector(raw_outputs));
+
+        builder.Finish(blob); // Finished building message content to get serialised content.
     }
-} // namespace msg::fbuf::ledger
+} // namespace msg::fbuf::ledgermsg
