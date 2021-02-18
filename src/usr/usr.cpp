@@ -227,7 +227,8 @@ namespace usr
             else if (msg_type == msg::usrmsg::MSGTYPE_STAT)
             {
                 std::vector<uint8_t> msg;
-                parser.create_status_response(msg, ledger::ctx.get_seq_no(), ledger::ctx.get_lcl());
+                const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
+                parser.create_status_response(msg, lcl_id.seq_no, ledger::get_lcl_string(lcl_id));
                 user.session.send(msg);
                 return 0;
             }

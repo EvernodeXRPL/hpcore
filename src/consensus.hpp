@@ -125,10 +125,10 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, const util::h32 &state_hash, const util::h32 &patch_hash,
+    p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash,
                                          const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
+    p2p::proposal create_stage123_proposal(vote_counter &votes, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
                                            const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id);
 
     void broadcast_proposal(const p2p::proposal &p);
@@ -147,9 +147,9 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state_hash, const util::h32 &patch_hash);
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id);
 
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl);
+    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash lcl_id);
 
     int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 

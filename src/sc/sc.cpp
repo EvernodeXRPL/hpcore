@@ -474,11 +474,11 @@ namespace sc
             return 0;
 
         // Dequeue the next npl message from the queue.
-        // Check the lcl against the latest lcl.
+        // Check the last pramary shard against the latest last pramary shard.
         p2p::npl_message npl_msg;
         if (ctx.args.npl_messages.try_dequeue(npl_msg))
         {
-            if (npl_msg.lcl == ctx.args.lcl)
+            if (npl_msg.last_primary_shard_id == ctx.args.lasl_primary_shard_id)
             {
                 const std::string pubkeyhex = util::to_hex(npl_msg.pubkey);
 
@@ -500,7 +500,7 @@ namespace sc
             }
             else
             {
-                LOG_DEBUG << "NPL message dropped due to lcl mismatch.";
+                LOG_DEBUG << "NPL message dropped due to last primary shard mismatch.";
             }
         }
 
@@ -576,7 +576,7 @@ namespace sc
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_id());
+            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_last_primary_shard_id());
             p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public);
         }
     }
