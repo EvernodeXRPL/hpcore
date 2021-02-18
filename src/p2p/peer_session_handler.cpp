@@ -324,7 +324,7 @@ namespace p2p
             return -1;
 
         ctx.collected_msgs.proposals.push_back(
-            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), container->lcl(), *container->last_primary_shard_id()));
+            p2pmsg::create_proposal_from_msg(*content->message_as_Proposal_Message(), container->pubkey(), container->timestamp(), *container->last_primary_shard_id()));
 
         return 0;
     }
@@ -356,7 +356,8 @@ namespace p2p
         npl_message msg;
         msg.data = msg::fbuf::flatbuff_bytes_to_sv(npl_p2p_msg->data());
         msg.pubkey = msg::fbuf::flatbuff_bytes_to_sv(container->pubkey());
-        msg.lcl = msg::fbuf::flatbuff_bytes_to_sv(container->lcl());
+        msg.last_primary_shard_id.seq_no = container->last_primary_shard_id()->shard_seq_no();
+        msg.last_primary_shard_id.hash = msg::fbuf::flatbuff_bytes_to_hash(container->last_primary_shard_id()->shard_hash());
 
         if (!consensus::push_npl_message(msg))
         {

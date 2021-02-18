@@ -199,7 +199,7 @@ namespace msg::fbuf::p2pmsg
  * @param msg The Flatbuffer poposal received from the peer.
  * @return A proposal struct representing the message.
  */
-    const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const flatbuffers::Vector<uint8_t> *lcl, const Sequence_Hash &last_primary_shard_id_msg)
+    const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const Sequence_Hash &last_primary_shard_id_msg)
     {
         p2p::proposal p;
 
@@ -210,7 +210,6 @@ namespace msg::fbuf::p2pmsg
         p.roundtime = msg.roundtime();
         p.nonce = flatbuff_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
-        p.lcl = flatbuff_bytes_to_sv(lcl);
         p.state_hash = flatbuff_bytes_to_sv(msg.state_hash());
         p.patch_hash = flatbuff_bytes_to_sv(msg.patch_hash());
 
@@ -294,7 +293,7 @@ namespace msg::fbuf::p2pmsg
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message
-        create_containermsg_from_content(container_builder, builder, {}, {}, false);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -317,7 +316,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, {}, true);
+        create_containermsg_from_content(container_builder, builder, {}, true);
     }
 
     void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::nonunl_proposal &nup)
@@ -334,7 +333,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, {}, {}, false);
+        create_containermsg_from_content(container_builder, builder, {}, false);
     }
 
     /**
@@ -372,17 +371,16 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, p.lcl, p.last_primary_shard_id, true);
+        create_containermsg_from_content(container_builder, builder, p.last_primary_shard_id, true);
     }
 
     /**
      * Ctreat npl message from the given npl output srtuct.
      * @param container_builder Flatbuffer builder for the container message.
      * @param msg The message to be sent as NPL message.
-     * @param lcl Lcl value to be passed in the container message.
      * @param last_primary_shard_id Last primary shard id.
      */
-    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view &msg, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view &msg, const p2p::sequence_hash &last_primary_shard_id)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -396,17 +394,16 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, true);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, true);
     }
 
     /**
      * Create hpfs request message from the given hpfs request struct.
      * @param container_builder Flatbuffer builder for the container message.
      * @param hr The hpfs request struct to be placed in the container message.
-     * @param lcl Lcl to be include in the container msg.
      * @param last_primary_shard_id Last primary shard id.
      */
-    void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+    void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, const p2p::sequence_hash &last_primary_shard_id)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -424,7 +421,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, false);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, false);
     }
 
     /**
@@ -434,12 +431,11 @@ namespace msg::fbuf::p2pmsg
      * @param mount_id The mount id of the relavent hpfs mount.
      * @param hash_nodes File or directory entries with hashes in the given parent path.
      * @param expected_hash The exptected hash of the requested path.
-     * @param lcl Lcl to be include in the container msg.
      * @param last_primary_shard_id Last primary shard id.
      */
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const uint32_t mount_id,
-        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, const p2p::sequence_hash &last_primary_shard_id)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -459,7 +455,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, true);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, true);
     }
 
     /**
@@ -468,12 +464,11 @@ namespace msg::fbuf::p2pmsg
      * @param path The path of the directory.
      * @param mount_id The mount id of the relavent hpfs mount.
      * @param hashmap Hashmap of the file
-     * @param lcl Lcl to be include in the container msg.
      * @param last_primary_shard_id Last primary shard id.
      */
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const uint32_t mount_id,
-        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, const p2p::sequence_hash &last_primary_shard_id)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -498,7 +493,7 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, true);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, true);
     }
 
     /**
@@ -506,11 +501,10 @@ namespace msg::fbuf::p2pmsg
      * @param container_builder Flatbuffer builder for the container message.
      * @param block_resp Block response struct to place in the message.
      * @param mount_id The mount id of the relavent hpfs mount.
-     * @param lcl Lcl to be include in the container message.
      * @param last_primary_shard_id Last primary shard id.
      */
     void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const uint32_t mount_id,
-                                        std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+                                        const p2p::sequence_hash &last_primary_shard_id)
     {
         // todo:get a average propsal message size and allocate content builder based on that.
         flatbuffers::FlatBufferBuilder builder(1024);
@@ -533,17 +527,16 @@ namespace msg::fbuf::p2pmsg
 
         // Now that we have built the content message,
         // we need to sign it and place it inside a container message.
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, true);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, true);
     }
 
     /**
      * Create connected status announcement message.
      * @param container_builder Flatbuffer builder for the container message.
      * @param need_consensus_msg_forwarding True if number of connections are below threshold and false otherwise.
-     * @param lcl Lcl value to be passed in the container message.
      */
     void create_msg_from_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool need_consensus_msg_forwarding,
-                                                       std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+                                                       const p2p::sequence_hash &last_primary_shard_id)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -556,7 +549,7 @@ namespace msg::fbuf::p2pmsg
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message,
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, false);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, false);
     }
 
     /**
@@ -564,10 +557,9 @@ namespace msg::fbuf::p2pmsg
      * @param container_builder Flatbuffer builder for the container message.
      * @param available_capacity Number of incoming connection slots available, -1 means there's no limitation for connections.
      * @param timestamp Announced timestamp.
-     * @param lcl Lcl value to be passed in the container message.
      */
     void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &container_builder, const int16_t &available_capacity, const uint64_t &timestamp,
-                                                         std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+                                                         const p2p::sequence_hash &last_primary_shard_id)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -581,15 +573,14 @@ namespace msg::fbuf::p2pmsg
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message,
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, false);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, false);
     }
 
     /**
      * Create peer list request message.
      * @param container_builder Flatbuffer builder for the container message.
-     * @param lcl Lcl value to be passed in the container message.
      */
-    void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &container_builder, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+    void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::sequence_hash &last_primary_shard_id)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -601,7 +592,7 @@ namespace msg::fbuf::p2pmsg
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message,
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, false);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, false);
     }
 
     /**
@@ -609,10 +600,9 @@ namespace msg::fbuf::p2pmsg
      * @param container_builder Flatbuffer builder for the container message.
      * @param peers Peer list to be sent to another peer.
      * @param skipping_peer Peer that does not need to be sent.
-     * @param lcl Lcl value to be passed in the container message.
      */
     void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port,
-                                            std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+                                            const p2p::sequence_hash &last_primary_shard_id)
     {
         flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -625,7 +615,7 @@ namespace msg::fbuf::p2pmsg
         builder.Finish(message); // Finished building message content to get serialised content.
 
         // Now that we have built the content message,
-        create_containermsg_from_content(container_builder, builder, lcl, last_primary_shard_id, false);
+        create_containermsg_from_content(container_builder, builder, last_primary_shard_id, false);
     }
 
     /**
@@ -636,7 +626,7 @@ namespace msg::fbuf::p2pmsg
      * @param sign Whether to sign the message content.
      */
     void create_containermsg_from_content(
-        flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id, const bool sign)
+        flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, const p2p::sequence_hash &last_primary_shard_id, const bool sign)
     {
         const uint8_t *content_buf = content_builder.GetBufferPointer();
         const flatbuffers::uoffset_t content_size = content_builder.GetSize();
@@ -647,8 +637,6 @@ namespace msg::fbuf::p2pmsg
         flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey_offset = 0;
         flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig_offset = 0;
 
-        flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl_offset = 0;
-
         if (sign)
         {
             // Sign message content with this node's private key.
@@ -657,9 +645,6 @@ namespace msg::fbuf::p2pmsg
             sig_offset = sv_to_flatbuff_bytes(container_builder, crypto::sign(content_to_sign, conf::cfg.node.private_key));
             pubkey_offset = sv_to_flatbuff_bytes(container_builder, conf::cfg.node.public_key);
         }
-
-        if (!lcl.empty())
-            lcl_offset = sv_to_flatbuff_bytes(container_builder, lcl);
 
         const flatbuffers::Offset<Sequence_Hash> last_primary_shard_id_msg = CreateSequence_Hash(
             container_builder,
@@ -671,7 +656,7 @@ namespace msg::fbuf::p2pmsg
             util::PEERMSG_VERSION,
             util::get_epoch_milliseconds(),
             pubkey_offset,
-            lcl_offset,
+            0,
             last_primary_shard_id_msg,
             sig_offset,
             content);

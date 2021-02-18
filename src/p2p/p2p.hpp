@@ -51,7 +51,6 @@ namespace p2p
         uint8_t stage = 0;           // The round-stage that this proposal belongs to.
         uint32_t roundtime = 0;      // Roundtime of the proposer.
         std::string nonce;           // Random nonce that is used to reduce lcl predictability.
-        std::string lcl;
         sequence_hash last_primary_shard_id;
         sequence_hash last_blob_shard_id;
         util::h32 state_hash; // Contract state hash.
@@ -91,8 +90,8 @@ namespace p2p
     // Represents an NPL message sent by a peer.
     struct npl_message
     {
-        std::string pubkey; // Peer binary pubkey.
-        std::string lcl;    // LCL of the peer.
+        std::string pubkey;                       // Peer binary pubkey.
+        p2p::sequence_hash last_primary_shard_id; // Last primary shard of the peer.
         std::string data;
     };
 

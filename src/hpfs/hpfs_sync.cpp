@@ -209,11 +209,10 @@ namespace hpfs
     */
     int hpfs_sync::request_loop(const util::h32 current_target_hash, util::h32 &updated_state)
     {
-        std::string lcl = ledger::ctx.get_lcl();
         p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
 
         // Send the initial root hpfs request of the current target.
-        submit_request(backlog_item{current_target.item_type, current_target.vpath, -1, current_target_hash}, lcl, last_primary_shard_id);
+        submit_request(backlog_item{current_target.item_type, current_target.vpath, -1, current_target_hash}, last_primary_shard_id);
 
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
@@ -227,8 +226,6 @@ namespace hpfs
             if (!prev_responses_processed)
                 util::sleep(REQUEST_LOOP_WAIT);
 
-            // Get current lcl.
-            std::string lcl = ledger::ctx.get_lcl();
             // Get the current last shard information.
             last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
 
@@ -373,7 +370,7 @@ namespace hpfs
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
                     LOG_DEBUG << "Hpfs " << name << " sync: Resubmitting request...";
-                    submit_request(request, lcl, last_primary_shard_id);
+                    submit_request(request, last_primary_shard_id);
                 }
             }
 
@@ -387,7 +384,7 @@ namespace hpfs
                         return 0;
 
                     const backlog_item &request = pending_requests.front();
-                    submit_request(request, lcl, last_primary_shard_id);
+                    submit_request(request, last_primary_shard_id);
                     pending_requests.pop_front();
                 }
             }
@@ -484,7 +481,7 @@ namespace hpfs
      * @param target_pubkey The peer pubkey the request was submitted to.
      */
     void hpfs_sync::request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                            const util::h32 expected_hash, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id, std::string &target_pubkey)
+                                            const util::h32 expected_hash, const p2p::sequence_hash &last_primary_shard_id, std::string &target_pubkey)
     {
         p2p::hpfs_request hr;
         hr.parent_path = path;
@@ -494,14 +491,14 @@ namespace hpfs
         hr.mount_id = fs_mount->mount_id;
 
         flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, lcl, last_primary_shard_id);
+        msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, last_primary_shard_id);
         p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority hpfs state to improve reliability of retrieving hpfs state.
     }
 
     /**
      * Submits a pending hpfs request to the peer.
      */
-    void hpfs_sync::submit_request(const backlog_item &request, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id)
+    void hpfs_sync::submit_request(const backlog_item &request, const p2p::sequence_hash &last_primary_shard_id)
     {
         const std::string key = std::string(request.path)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(util::h32));
@@ -509,7 +506,7 @@ namespace hpfs
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
         std::string target_pubkey;
-        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, lcl, last_primary_shard_id, target_pubkey);
+        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, last_primary_shard_id, target_pubkey);
 
         if (!target_pubkey.empty())
             LOG_DEBUG << "Hpfs " << name << " sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
