@@ -456,6 +456,9 @@ namespace p2p
         }
     }
 
+    /**
+     * This is a helper method for sequence_hash structure which enables printing it straight away.
+    */
     std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash)
     {
         output << seq_hash.seq_no << "-" << seq_hash.hash;

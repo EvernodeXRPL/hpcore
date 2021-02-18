@@ -23,22 +23,22 @@ namespace p2p
         uint64_t seq_no = 0;
         util::h32 hash = util::h32_empty;
 
-        bool operator!=(const sequence_hash seq_hash) const
+        bool operator!=(const sequence_hash &seq_hash) const
         {
-            return this->seq_no != seq_hash.seq_no || this->hash != seq_hash.hash;
+            return seq_no != seq_hash.seq_no || hash != seq_hash.hash;
         }
 
-        bool operator==(const sequence_hash seq_hash) const
+        bool operator==(const sequence_hash &seq_hash) const
         {
-            return this->seq_no == seq_hash.seq_no && this->hash == seq_hash.hash;
+            return seq_no == seq_hash.seq_no && hash == seq_hash.hash;
         }
 
-        bool operator<(const sequence_hash seq_hash) const
+        bool operator<(const sequence_hash &seq_hash) const
         {
-            return this->seq_no < seq_hash.seq_no || this->hash < seq_hash.hash;
+            return seq_no < seq_hash.seq_no || hash < seq_hash.hash;
         }
     };
-
+    // This is a helper method for sequence_hash structure which enables printing it straight away.
     std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash);
 
     struct proposal
