@@ -475,7 +475,9 @@ namespace sc
         LOG_INFO << "Running post-exec script...";
 
         const std::string log_redirect = conf::cfg.contract.log_output ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
-        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + log_redirect + ")";
+
+        // We set current working dir and pass lcl as command line arg to the script.
+        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + " " + ctx.args.lcl + log_redirect + ")";
 
         const int ret = system(command.c_str());
         if (ret == -1)
