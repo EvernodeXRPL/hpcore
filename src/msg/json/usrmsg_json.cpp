@@ -130,11 +130,11 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "stat_response",
-     *              "lcl": "<lcl id>",
-     *              "lcl_seqno": <integer>
+     *              "lcl_seq_no": <lcl sequence no>,
+     *              "lcl_hash": "<lcl hash hex>"
      *            }
      */
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl)
+    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
         msg.reserve(256);
         msg += "{\"";
@@ -142,14 +142,14 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_STAT_RESPONSE;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_LCL;
-        msg += SEP_COLON;
-        msg += lcl;
-        msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(lcl_seq_no);
-        msg += "}";
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_LCL_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(lcl_hash);
+        msg += "\"}";
     }
 
     /**
@@ -235,8 +235,8 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "contract_output",
-     *              "lcl": "<lcl id>"
-     *              "lcl_seqno": <integer>,
+     *              "lcl_seq_no": <integer>,
+     *              "lcl_hash": "<lcl hash hex>",
      *              "outputs": ["<output string 1>", "<output string 2>", ...], // The output order is the hash order.
      *              "hashes": [<hex merkle hash tree>], // Always includes user's output hash [output hash = hash(pubkey+all outputs for the user)]
      *              "unl_sig": [["<pubkey hex>", "<sig hex>"], ...] // UNL pubkeys and signatures of root hash.
@@ -245,7 +245,7 @@ namespace msg::usrmsg::json
      */
     void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
-                                          const uint64_t lcl_seq_no, std::string_view lcl)
+                                          const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
         msg.reserve(1024);
         msg += "{\"";
@@ -253,14 +253,14 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_LCL;
-        msg += SEP_COLON;
-        msg += lcl;
-        msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_LCL_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(lcl_hash);
+        msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_OUTPUTS;
         msg += "\":[";
 
@@ -568,16 +568,16 @@ namespace msg::usrmsg::json
      * Extract the individual components of a given input container json.
      * @param input The extracted input.
      * @param nonce The extracted nonce.
-     * @param max_lcl_seqno The extracted max ledger sequence no.
+     * @param max_lcl_seq_no The extracted max ledger sequence no.
      * @param contentjson The json string containing the input container message.
      *                    {
      *                      "input": "<any string>",
      *                      "nonce": "<random string with optional sorted order>",
-     *                      "max_lcl_seqno": <integer>
+     *                      "max_lcl_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seqno, std::string_view contentjson)
+    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seq_no, std::string_view contentjson)
     {
         jsoncons::json d;
         try
@@ -604,7 +604,7 @@ namespace msg::usrmsg::json
 
         input = d[msg::usrmsg::FLD_INPUT].as<std::string>();
         nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
-        max_lcl_seqno = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
+        max_lcl_seq_no = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
 
         return 0;
     }

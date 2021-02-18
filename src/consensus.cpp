@@ -528,7 +528,7 @@ namespace consensus
                     // No reject reason means we should go ahead and subject the input to consensus.
                     ctx.candidate_user_inputs.try_emplace(
                         hash,
-                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seqno));
+                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seq_no));
                 }
 
                 responses[pubkey].push_back(usr::input_status_response{extracted_input.protocol, extracted_input.sig, reject_reason});
@@ -856,7 +856,7 @@ namespace consensus
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
-                if (itr->second.maxledgerseqno <= new_lcl_id.seq_no)
+                if (itr->second.max_ledger_seq_no <= new_lcl_id.seq_no)
                     ctx.candidate_user_inputs.erase(itr++);
                 else
                     ++itr;
@@ -878,7 +878,9 @@ namespace consensus
             sc::contract_execution_args &args = ctx.contract_ctx->args;
             args.readonly = false;
             args.time = cons_prop.time;
-            args.lcl = ledger::get_lcl_string(new_lcl_id);
+
+            // lcl to be passed to the contract.
+            args.lcl_id = new_lcl_id;
 
             // This is currently used for npl message checks.
             args.lasl_primary_shard_id = new_last_primary_shard_id;
@@ -924,7 +926,7 @@ namespace consensus
      * @param cons_prop The proposal that achieved consensus.
      * @param lcl_id Lcl sequnce no hash info.
      */
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash lcl_id)
+    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id)
     {
         if (cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
         {
@@ -951,7 +953,7 @@ namespace consensus
                     for (const sc::contract_output &output : user_output.outputs)
                         outputs.emplace_back(output.message);
 
-                    parser.create_contract_output_container(msg, outputs, collapsed_hash_root, ctx.user_outputs_unl_sig, lcl_id.seq_no, ledger::get_lcl_string(lcl_id));
+                    parser.create_contract_output_container(msg, outputs, collapsed_hash_root, ctx.user_outputs_unl_sig, lcl_id.seq_no, lcl_id.hash.to_string_view());
 
                     user.session.send(msg);
                 }
@@ -1002,7 +1004,7 @@ namespace consensus
                 // Populate the input content into the bufmap.
                 // It's VERY important that we preserve the proposal input hash order when feeding to the contract as well.
                 candidate_user_input &cand_input = itr->second;
-                sc::contract_iobufs &contract_user = bufmap[cand_input.userpubkey];
+                sc::contract_iobufs &contract_user = bufmap[cand_input.user_pubkey];
                 contract_user.inputs.push_back(cand_input.input);
 
                 // Remove the input from the candidate set because we no longer need it.

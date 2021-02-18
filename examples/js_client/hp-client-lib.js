@@ -498,8 +498,8 @@
             else if (m.type == "stat_response") {
                 statResponseResolvers.forEach(resolver => {
                     resolver({
-                        lcl: m.lcl,
-                        lclSeqNo: m.lcl_seqno
+                        lclSeqNo: m.lcl_seq_no,
+                        lcl_hash: m.lcl_hash
                     });
                 })
                 statResponseResolvers = [];
@@ -759,7 +759,7 @@
             const inpContainer = {
                 input: this.serializeInput(input),
                 nonce: nonce,
-                max_lcl_seqno: maxLclSeqNo
+                max_lcl_seq_no: maxLclSeqNo
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);

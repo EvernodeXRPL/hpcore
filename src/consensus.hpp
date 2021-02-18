@@ -17,12 +17,12 @@ namespace consensus
      */
     struct candidate_user_input
     {
-        const std::string userpubkey;
-        const uint64_t maxledgerseqno = 0;
+        const std::string user_pubkey;
+        const uint64_t max_ledger_seq_no = 0;
         const util::buffer_view input;
 
-        candidate_user_input(const std::string userpubkey, const util::buffer_view input, const uint64_t maxledgerseqno)
-            : userpubkey(std::move(userpubkey)), input(input), maxledgerseqno(maxledgerseqno)
+        candidate_user_input(const std::string user_pubkey, const util::buffer_view input, const uint64_t max_ledger_seq_no)
+            : user_pubkey(std::move(user_pubkey)), input(input), max_ledger_seq_no(max_ledger_seq_no)
         {
         }
     };
@@ -55,7 +55,7 @@ namespace consensus
         std::set<std::string> candidate_users;
 
         // Map of candidate user inputs with input hash as map key. Inputs will stay here until they
-        // achieve consensus or expire (due to maxledgerseqno). Input hash is globally unique among inputs
+        // achieve consensus or expire (due to max_ledger_seq_no). Input hash is globally unique among inputs
         // from all users. We will use this map to feed inputs into the contract once consensus is achieved.
         std::map<std::string, candidate_user_input> candidate_user_inputs;
 
@@ -149,7 +149,7 @@ namespace consensus
 
     int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id);
 
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash lcl_id);
+    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
 
     int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
 

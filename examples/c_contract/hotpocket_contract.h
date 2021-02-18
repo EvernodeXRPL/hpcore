@@ -20,8 +20,8 @@ const char *__HP_PATCH_FILE_PATH = "../patch.cfg";
 
 // Public constants.
 #define HP_NPL_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
-#define HP_KEY_SIZE 66 // Hex pubkey size. (64 char key + 2 chars for key type prfix)
-#define HP_HASH_SIZE 64
+#define HP_KEY_SIZE 66  // Hex pubkey size. (64 char key + 2 chars for key type prfix)
+#define HP_HASH_SIZE 64 // Hex hash size.
 const char *HP_POST_EXEC_SCRIPT_NAME = "post_exec.sh";
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                        \
@@ -165,8 +165,9 @@ struct hp_contract_context
 {
     bool readonly;
     uint64_t timestamp;
-    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.S
-    char lcl[HP_HASH_SIZE + 22];  // uint64(20 chars) + "-" + hash + nullchar
+    char pubkey[HP_KEY_SIZE + 1];    // +1 for null char.
+    uint64_t lcl_seq_no;             // lcl sequence no.
+    char lcl_hash[HP_HASH_SIZE + 1]; // +1 for null char.
     struct hp_users_collection users;
     struct hp_unl_collection unl;
 };
@@ -829,9 +830,13 @@ void __hp_parse_args_json(const struct json_object_s *object)
         {
             __HP_ASSIGN_BOOL(cctx->readonly, elem);
         }
-        else if (strcmp(k->string, "lcl") == 0)
+        else if (strcmp(k->string, "lcl_seq_no") == 0)
         {
-            __HP_ASSIGN_STRING(cctx->lcl, elem);
+            __HP_ASSIGN_UINT64(cctx->lcl_seq_no, elem);
+        }
+        else if (strcmp(k->string, "lcl_hash") == 0)
+        {
+            __HP_ASSIGN_STRING(cctx->lcl_hash, elem);
         }
         else if (strcmp(k->string, "user_in_fd") == 0)
         {

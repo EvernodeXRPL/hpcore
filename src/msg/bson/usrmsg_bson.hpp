@@ -7,7 +7,7 @@
 namespace msg::usrmsg::bson
 {
 
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl);
+    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
                                       std::string_view input_sig);
@@ -16,7 +16,7 @@ namespace msg::usrmsg::bson
 
     void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
-                                          const uint64_t lcl_seq_no, std::string_view lcl);
+                                          const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
     void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
 
@@ -33,7 +33,7 @@ namespace msg::usrmsg::bson
                                        const jsoncons::ojson &d);
 
     int extract_input_container(std::string &input, std::string &nonce,
-                                uint64_t &max_lcl_seqno, std::string_view contentbson);
+                                uint64_t &max_lcl_seq_no, std::string_view contentbson);
 
     void populate_output_hash_array(jsoncons::bson::bson_bytes_encoder &encoder, const util::merkle_hash_node &node);
 

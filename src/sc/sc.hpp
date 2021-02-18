@@ -83,7 +83,7 @@ namespace sc
         uint64_t time = 0;
 
         // Current HotPocket lcl (seq no. and ledger hash hex)
-        std::string lcl;
+        p2p::sequence_hash lcl_id;
 
         // Current HotPocket primary shard id (struct of seq no. and ledger hash)
         p2p::sequence_hash lasl_primary_shard_id;

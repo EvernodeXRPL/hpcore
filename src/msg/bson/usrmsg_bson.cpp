@@ -12,20 +12,20 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "stat_response",
-     *              "lcl": "<lcl id>",
-     *              "lcl_seqno": <integer>
+     *              "lcl_seq_no": <lcl sequence no>,
+     *              "lcl_hash": <binary lcl hash>
      *            }
      */
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl)
+    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_STAT_RESPONSE);
-        encoder.key(msg::usrmsg::FLD_LCL);
-        encoder.string_value(lcl);
         encoder.key(msg::usrmsg::FLD_LCL_SEQ);
         encoder.int64_value(lcl_seq_no);
+        encoder.key(msg::usrmsg::FLD_LCL_HASH);
+        encoder.byte_string_value(lcl_hash);
         encoder.end_object();
         encoder.flush();
     }
@@ -88,8 +88,8 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "contract_output",
-     *              "lcl": "<lcl id>"
-     *              "lcl_seqno": <integer>,
+     *              "lcl_seq_no": <integer>,
+     *              "lcl_hash": <binary lcl hash>
      *              "outputs": [<binary output 1>, <binary output 2>, ...], // The output order is the hash order.
      *              "hashes": [<binary merkle hash tree>], // Always includes user's output hash [output hash = hash(pubkey+all outputs for the user)]
      *              "unl_sig": [["<pubkey>", "<sig>"], ...] // Binary UNL pubkeys and signatures of root hash.
@@ -98,16 +98,16 @@ namespace msg::usrmsg::bson
      */
     void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
-                                          const uint64_t lcl_seq_no, std::string_view lcl)
+                                          const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT);
-        encoder.key(msg::usrmsg::FLD_LCL);
-        encoder.string_value(lcl);
         encoder.key(msg::usrmsg::FLD_LCL_SEQ);
         encoder.int64_value(lcl_seq_no);
+        encoder.key(msg::usrmsg::FLD_LCL_HASH);
+        encoder.byte_string_value(lcl_hash);
 
         encoder.key(msg::usrmsg::FLD_OUTPUTS);
         encoder.begin_array();
@@ -261,16 +261,16 @@ namespace msg::usrmsg::bson
      * Extract the individual components of a given input container bson.
      * @param input The extracted input.
      * @param nonce The extracted nonce.
-     * @param max_lcl_seqno The extracted max ledger sequence no.
+     * @param max_lcl_seq_no The extracted max ledger sequence no.
      * @param contentjson The bson input container message.
      *                    {
      *                      "input": <binary buffer>,
      *                      "nonce": "<random string with optional sorted order>",
-     *                      "max_lcl_seqno": <integer>
+     *                      "max_lcl_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seqno, std::string_view contentbson)
+    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seq_no, std::string_view contentbson)
     {
         jsoncons::ojson d;
         try
@@ -299,7 +299,7 @@ namespace msg::usrmsg::bson
         input = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
 
         nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
-        max_lcl_seqno = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
+        max_lcl_seq_no = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
         return 0;
     }
 
