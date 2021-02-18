@@ -52,6 +52,7 @@ namespace sc
         contract_server.deinit();
         contract_fs.deinit();
     }
+
     /**
      * Executes the contract process and passes the specified context arguments.
      * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -64,6 +65,21 @@ namespace sc
 
         // Set contract working directory.
         ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, STATE_DIR_PATH);
+
+        // Setup contract output log file paths.
+        if (conf::cfg.contract.log_output)
+        {
+            const time_t epoch = util::get_epoch_milliseconds() / 1000;
+            std::stringstream now_ss;
+            now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
+            const std::string now = now_ss.str();
+
+            // For consensus execution, we keep appending logs to the same out/err files.
+            // For read request executions, independent log files are created based on read request session names.
+            const std::string prefix = ctx.args.readonly ? (ctx.args.hpfs_session_name + "_" + now) : ctx.args.hpfs_session_name;
+            ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
+            ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+        }
 
         // Create the IO sockets for users, control channel and npl.
         // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
@@ -157,8 +173,8 @@ namespace sc
 
         cleanup_fds(ctx);
 
-        // If the contact finished executing successfully, run the post-exec.sh script if it exists.
-        if (ctx.exit_success && run_post_exec_script(ctx) == -1)
+        // If the consensus contact finished executing successfully, run the post-exec.sh script if it exists.
+        if (ctx.exit_success && !ctx.args.readonly && run_post_exec_script(ctx) == -1)
             ret = -1;
 
         if (stop_hpfs_session(ctx) == -1)
@@ -460,6 +476,7 @@ namespace sc
 
         const std::string log_redirect = conf::cfg.contract.log_output ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
         const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + log_redirect + ")";
+
         const int ret = system(command.c_str());
         if (ret == -1)
         {
@@ -468,8 +485,10 @@ namespace sc
         }
         else
         {
+            // If the script returns a code 0 or 3 to 125 we consider it a successful execition.
+            // If the script returns code 0, we consider script lifetime is over and delete the file. Otherwise we retain the file.
             const int exit_code = WEXITSTATUS(ret);
-            if (WIFEXITED(ret))
+            if (WIFEXITED(ret) && (exit_code == 0 || (exit_code > 2 && exit_code < 126)))
             {
                 LOG_INFO << "Post-exec script executed successfully. Exit code:" << exit_code;
                 // Exit code 0 means post-execution script can be deleted.
@@ -779,17 +798,6 @@ namespace sc
         if (!conf::cfg.contract.log_output)
             return 0;
 
-        const time_t epoch = util::get_epoch_milliseconds() / 1000;
-        std::stringstream now_ss;
-        now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
-        const std::string now = now_ss.str();
-
-        // For consensus execution, we keep appending logs to the same out/err files.
-        // For read request executions, independent log files are created based on read request session names.
-        const std::string prefix = ctx.args.readonly ? (ctx.args.hpfs_session_name + "_" + now) : ctx.args.hpfs_session_name;
-        ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
-        ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
-
         const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
         if (outfd == -1)
         {
@@ -809,7 +817,7 @@ namespace sc
         // to mark the start of each execution.
         if (!ctx.args.readonly)
         {
-            const std::string header = "Execution lcl " + ctx.args.lcl + " on " + now + "\n";
+            const std::string header = "Execution lcl " + ctx.args.lcl + "\n";
             if (write(outfd, header.data(), header.size()) == -1 ||
                 write(errfd, header.data(), header.size()) == -1)
             {

@@ -25,7 +25,7 @@ if [ "$CONTRACT" = "cecho" ]; then # C echo contract
     gcc echo_contract.c -o echo_contract
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/c_contract/echo_contract"
-    binary="/contract/bin/echo_contract"
+    binary="echo_contract"
 
 elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protocol)
     echo "Using nodejs file contract."
@@ -34,13 +34,13 @@ elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protoc
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/nodejs_contract/{node_modules,package.json,hp-contract-lib.js,file_contract.js}"
     binary="/usr/local/bin/node"
-    binargs="/contract/bin/file_contract.js"
+    binargs="file_contract.js"
 
 else # nodejs echo contract (default)
     echo "Using nodejs echo contract."
     copyfiles="$hpcore/examples/nodejs_contract/{package.json,hp-contract-lib.js,echo_contract.js}"
     binary="/usr/local/bin/node"
-    binargs="/contract/bin/echo_contract.js"
+    binargs="echo_contract.js"
 fi
 
 if [ "$loglevel" = "" ]; then
@@ -123,9 +123,8 @@ do
     popd > /dev/null 2>&1
 
     # Copy the contract files and appbill.
-    mkdir ./node$n/bin
-    eval "cp -r $copyfiles ./node$n/bin/"
-    cp ../bin/appbill ./node$n/bin/
+    eval "cp -r $copyfiles ./node$n/contract_fs/seed/state/"
+    cp ../bin/appbill ./node$n/contract_fs/seed/state/
 done
 
 # Function to generate JSON array string while skiping a given index.
