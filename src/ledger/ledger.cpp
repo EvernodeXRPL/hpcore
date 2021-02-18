@@ -77,14 +77,9 @@ namespace ledger
     int save_ledger(const p2p::proposal &proposal, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
                     const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
-        uint64_t seq_no = 0;
-        std::string prev_ledger_hash_hex;
-        if (extract_lcl(proposal.lcl, seq_no, prev_ledger_hash_hex) == -1)
-        {
-            // lcl records should follow [ledger sequnce numer]-[lcl hex] format.
-            LOG_ERROR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
-            return -1;
-        }
+        const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
+        uint64_t seq_no = lcl_id.seq_no;
+        const std::string prev_ledger_hash(lcl_id.hash.to_string_view());
 
         seq_no++; // New lcl sequence number.
 
@@ -123,7 +118,6 @@ namespace ledger
         // Combined binary hash of data fields. blake3(seq_no + time + state_hash + patch_hash + user_hash + input_hash + output_hash)
         const std::string data_hash = crypto::get_hash(data);
 
-        const std::string prev_ledger_hash = util::to_bin(prev_ledger_hash_hex);
         // Ledger hash is the combined hash of previous ledger hash and the new data hash.
         const std::string ledger_hash = crypto::get_hash(prev_ledger_hash, data_hash);
         const std::string ledger_hash_hex = util::to_hex(ledger_hash);
@@ -133,7 +127,7 @@ namespace ledger
             seq_no,
             proposal.time,
             ledger_hash_hex,
-            prev_ledger_hash_hex,
+            util::to_hex(prev_ledger_hash),
             util::to_hex(data_hash),
             util::to_hex(proposal.state_hash.to_string_view()),
             util::to_hex(proposal.patch_hash.to_string_view()),
@@ -153,9 +147,11 @@ namespace ledger
             LEDGER_CREATE_ERROR;
         }
 
-        // Update the seq_no and lcl when ledger is created.
-        const std::string new_lcl = std::string(std::to_string(seq_no)).append("-").append(ledger_hash_hex);
-        ctx.set_lcl(seq_no, new_lcl);
+        // Update the latest seq_no and lcl when ledger is created.
+        p2p::sequence_hash new_lcl_id;
+        new_lcl_id.seq_no = seq_no;
+        new_lcl_id.hash = ledger_hash;
+        ctx.set_lcl_id(new_lcl_id);
 
         const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(primary_shard_seq_no));
         util::h32 last_primary_shard_hash;
@@ -275,36 +271,6 @@ namespace ledger
                 }
             }
         }
-    }
-
-    /**
-     * Extract seq_no and hash from lcl.
-     * @param lcl lcl to be extracted.
-     * @param seq_no Extracted sequence number.
-     * @param hash Extracted hash.
-     * @return Returns 0 on success -1 on error.
-     */
-    int extract_lcl(const std::string &lcl, uint64_t &seq_no, std::string &hash)
-    {
-        if (lcl == GENESIS_LEDGER)
-        {
-            seq_no = 0;
-            hash = lcl.substr(2);
-            return 0;
-        }
-
-        const size_t pos = lcl.find("-");
-        if (pos == std::string::npos)
-            return -1;
-
-        if (util::stoull(lcl.substr(0, pos), seq_no) == -1)
-            return -1;
-
-        hash = lcl.substr(pos + 1);
-        if (hash.size() != 64)
-            return -1;
-
-        return 0;
     }
 
     /**
@@ -459,7 +425,11 @@ namespace ledger
         if (shards.size() == 0)
         {
             ledger_fs.release_rw_session();
-            ctx.set_lcl(0, GENESIS_LEDGER);
+            p2p::sequence_hash lcl_id;
+            lcl_id.seq_no = 0;
+            // This is the genesis ledger.
+            lcl_id.hash = util::h32_empty;
+            ctx.set_lcl_id(lcl_id);
         }
         else
         {
@@ -487,7 +457,11 @@ namespace ledger
             sqlite::ledger last_ledger = sqlite::get_last_ledger(db);
             sqlite::close_db(&db);
 
-            ctx.set_lcl(last_ledger.seq_no, std::to_string(last_ledger.seq_no) + "-" + last_ledger.ledger_hash_hex);
+            p2p::sequence_hash lcl_id;
+            lcl_id.seq_no = last_ledger.seq_no;
+            lcl_id.hash = util::to_bin(last_ledger.ledger_hash_hex);
+            ctx.set_lcl_id(lcl_id);
+
             ledger_fs.release_rw_session();
         }
 
@@ -523,5 +497,15 @@ namespace ledger
             }
         }
         return 0;
+    }
+
+    /**
+     * This returns lcl in (seq_no-lcl_hash_hex) format.
+     * @param lcl_id Lcl id to be converted.
+     * @return Returns constructed string.
+    */
+    const std::string get_lcl_string(const p2p::sequence_hash &lcl_id)
+    {
+        return std::to_string(lcl_id.seq_no) + "-" + util::to_hex(lcl_id.hash.to_string_view());
     }
 } // namespace ledger

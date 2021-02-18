@@ -9,7 +9,6 @@
 
 namespace ledger
 {
-    constexpr const char *GENESIS_LEDGER = "0-genesis";
     constexpr const char *DATEBASE = "ledger.sqlite";
     constexpr uint64_t PRIMARY_SHARD_SIZE = 4096;
     constexpr uint64_t BLOB_SHARD_SIZE = 4096;
@@ -20,31 +19,23 @@ namespace ledger
     {
     private:
         std::shared_mutex lcl_mutex;
-        std::string lcl;
-        uint64_t seq_no = 0;
+        p2p::sequence_hash lcl_id;
         std::shared_mutex last_primary_shard_mutex;
         p2p::sequence_hash last_primary_shard_id;
         std::shared_mutex last_blob_shard_mutex;
         p2p::sequence_hash last_blob_shard_id;
 
     public:
-        const std::string get_lcl()
+        const p2p::sequence_hash get_lcl_id()
         {
             std::shared_lock lock(lcl_mutex);
-            return lcl;
+            return lcl_id;
         }
 
-        uint64_t get_seq_no()
-        {
-            std::shared_lock lock(lcl_mutex);
-            return seq_no;
-        }
-
-        void set_lcl(const uint64_t new_seq_no, std::string_view new_lcl)
+        void set_lcl_id(const p2p::sequence_hash &sequence_hash_id)
         {
             std::unique_lock lock(lcl_mutex);
-            lcl = new_lcl;
-            seq_no = new_seq_no;
+            lcl_id = sequence_hash_id;
         }
 
         const p2p::sequence_hash get_last_primary_shard_id()
@@ -74,7 +65,7 @@ namespace ledger
 
     struct ledger_blob
     {
-        std::string ledger_hash;
+        util::h32 ledger_hash;
         std::map<std::string, std::vector<std::string>> inputs;
         std::map<std::string, std::vector<std::string>> outputs;
     };
@@ -97,11 +88,11 @@ namespace ledger
 
     void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir);
 
-    int extract_lcl(const std::string &lcl, uint64_t &seq_no, std::string &hash);
-
     int get_last_ledger_and_update_context();
 
     int get_last_shard_info(std::string_view session_name, p2p::sequence_hash &last_shard_id, std::string_view shard_parent_dir);
+
+    const std::string get_lcl_string(const p2p::sequence_hash &lcl_id);
 
 } // namespace ledger
 

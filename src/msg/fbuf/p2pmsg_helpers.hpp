@@ -30,7 +30,7 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnl_Proposal_Message &msg, const uint64_t timestamp);
 
-    const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const flatbuffers::Vector<uint8_t> *lcl, const Sequence_Hash &last_primary_shard_id_msg);
+    const p2p::proposal create_proposal_from_msg(const Proposal_Message &msg, const flatbuffers::Vector<uint8_t> *pubkey, const uint64_t timestamp, const Sequence_Hash &last_primary_shard_id_msg);
 
     const p2p::hpfs_request create_hpfs_request_from_msg(const Hpfs_Request_Message &msg);
 
@@ -45,34 +45,34 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &container_builder, const p2p::proposal &p);
 
-    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view &msg, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &container_builder, const std::string_view &msg, const p2p::sequence_hash &last_primary_shard_id);
 
-    void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+    void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::hpfs_request &hr, const p2p::sequence_hash &last_primary_shard_id);
 
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &container_builder, const std::string_view path, const uint32_t mount_id,
-        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash, const p2p::sequence_hash &last_primary_shard_id);
 
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &container_builder, std::string_view path, const uint32_t mount_id,
-        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash, const p2p::sequence_hash &last_primary_shard_id);
 
     void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &container_builder, p2p::block_response &block_resp, const uint32_t mount_id,
-                                        std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+                                        const p2p::sequence_hash &last_primary_shard_id);
 
     void create_containermsg_from_content(
-        flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id, const bool sign);
+        flatbuffers::FlatBufferBuilder &container_builder, const flatbuffers::FlatBufferBuilder &content_builder, const p2p::sequence_hash &last_primary_shard_id, const bool sign);
 
     void create_msg_from_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &container_builder, const bool need_consensus_msg_forwarding,
-                                                       std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+                                                       const p2p::sequence_hash &last_primary_shard_id);
 
     void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &container_builder, const int16_t &available_capacity, const uint64_t &timestamp,
-                                                         std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+                                                         const p2p::sequence_hash &last_primary_shard_id);
 
-    void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &container_builder, std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+    void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &container_builder, const p2p::sequence_hash &last_primary_shard_id);
 
     void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &container_builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port,
-                                            std::string_view lcl, const p2p::sequence_hash &last_primary_shard_id);
+                                            const p2p::sequence_hash &last_primary_shard_id);
 
     //---Conversion helpers from flatbuffers data types to std data types---//
 

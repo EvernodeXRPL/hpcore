@@ -108,9 +108,8 @@ namespace consensus
         // If possible, switch back to validator mode before stage processing. (if we were syncing before)
         check_sync_completion();
 
-        // Get current lcl and state.
-        std::string lcl = ledger::ctx.get_lcl();
-        const uint64_t lcl_seq_no = ledger::ctx.get_seq_no();
+        // Get current lcl, state, patch, primary shard and blob shard info.
+        p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
         const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);
         const p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
@@ -120,10 +119,10 @@ namespace consensus
         {
             // Prepare the consensus candidate user inputs that we have accumulated so far. (We receive them periodically via NUPs)
             // The candidate inputs will be included in the stage 0 proposal.
-            if (verify_and_populate_candidate_user_inputs(lcl_seq_no) == -1)
+            if (verify_and_populate_candidate_user_inputs(lcl_id.seq_no) == -1)
                 return -1;
 
-            const p2p::proposal p = create_stage0_proposal(lcl, state_hash, patch_hash, last_primary_shard_id, last_blob_shard_id);
+            const p2p::proposal p = create_stage0_proposal(state_hash, patch_hash, last_primary_shard_id, last_blob_shard_id);
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
@@ -153,11 +152,11 @@ namespace consensus
             if (sync_status == 0)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(votes, lcl, unl_count, state_hash, patch_hash, last_primary_shard_id, last_blob_shard_id);
+                const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_blob_shard_id);
                 broadcast_proposal(p);
 
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, lcl, state_hash, patch_hash) == -1)
+                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, state_hash, patch_hash, lcl_id) == -1)
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
             }
 
@@ -172,7 +171,7 @@ namespace consensus
             // We have finished a consensus stage. Transition or reset stage based on sync status.
 
             if (sync_status == -2)
-                ctx.stage = 0; // Majority lcl unreliable. Reset to stage 0.
+                ctx.stage = 0; // Majority last primary shard unreliable. Reset to stage 0.
             else
                 ctx.stage = (ctx.stage + 1) % 4; // Transition to next stage. (if at stage 3 go to next round stage 0)
         }
@@ -309,7 +308,6 @@ namespace consensus
                       << "] u/i:" << cp.users.size()
                       << "/" << cp.input_hashes.size()
                       << " ts:" << std::to_string(cp.time)
-                      << " lcl:" << cp.lcl.substr(0, 15)
                       << " state:" << cp.state_hash
                       << " patch:" << cp.patch_hash
                       << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
@@ -427,7 +425,6 @@ namespace consensus
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i:" << p.users.size()
                   << "/" << p.input_hashes.size()
                   << " ts:" << std::to_string(p.time)
-                  << " lcl:" << p.lcl.substr(0, 15)
                   << " state:" << p.state_hash
                   << " patch:" << p.patch_hash
                   << " last_primary_shard_id:" << p.last_primary_shard_id
@@ -545,7 +542,7 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, const util::h32 &state_hash, const util::h32 &patch_hash,
+    p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash,
                                          const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id)
     {
         // This is the proposal that stage 0 votes on.
@@ -553,7 +550,6 @@ namespace consensus
         p2p::proposal p;
         p.time = ctx.round_start_time;
         p.stage = 0;
-        p.lcl = lcl;
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
@@ -574,21 +570,19 @@ namespace consensus
         return p;
     }
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
+    p2p::proposal create_stage123_proposal(vote_counter &votes, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
                                            const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
         p.stage = ctx.stage;
+        // We always vote for our current information regardless of what other peers are saying.
+        // If there's a fork condition we will either request shards or hpfs state from
+        // our peers or we will halt depending on level of consensus on the sides of the fork.
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_blob_shard_id = last_blob_shard_id;
-
-        // We always vote for our current lcl and state regardless of what other peers are saying.
-        // If there's a fork condition we will either request history and hpfs state from
-        // our peers or we will halt depending on level of consensus on the sides of the fork.
-        p.lcl = lcl;
 
         const uint64_t time_now = util::get_epoch_milliseconds();
 
@@ -840,16 +834,18 @@ namespace consensus
      * @param cons_prop The proposal that reached consensus.
      * @param new_state_hash The state hash.
      * @param patch_hash The patch hash.
+     * @param lcl_id Last lcl seq_no and hash.
+     * @param last_primary_shard_id Last primary shard id.
      */
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, std::string &new_lcl, util::h32 &new_state_hash, const util::h32 &patch_hash)
+    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id)
     {
         if (ledger::save_ledger(cons_prop, ctx.candidate_user_inputs, ctx.generated_user_outputs) == -1)
             return -1;
 
-        new_lcl = ledger::ctx.get_lcl();
-        const uint64_t new_lcl_seq_no = ledger::ctx.get_seq_no();
+        new_lcl_id = ledger::ctx.get_lcl_id();
+        const p2p::sequence_hash new_last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
 
-        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl.substr(0, 15) << " lps:" << cons_prop.last_primary_shard_id << " lbs:" << cons_prop.last_blob_shard_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
+        LOG_INFO << "****Ledger created**** (lcl:" << new_lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
         if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
@@ -860,7 +856,7 @@ namespace consensus
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
-                if (itr->second.maxledgerseqno <= new_lcl_seq_no)
+                if (itr->second.maxledgerseqno <= new_lcl_id.seq_no)
                     ctx.candidate_user_inputs.erase(itr++);
                 else
                     ++itr;
@@ -868,7 +864,7 @@ namespace consensus
         }
 
         // Send any output from the previous consensus round to locally connected users.
-        if (dispatch_user_outputs(cons_prop, new_lcl_seq_no, new_lcl) == -1)
+        if (dispatch_user_outputs(cons_prop, new_lcl_id) == -1)
             return -1;
 
         // Execute the contract
@@ -882,7 +878,10 @@ namespace consensus
             sc::contract_execution_args &args = ctx.contract_ctx->args;
             args.readonly = false;
             args.time = cons_prop.time;
-            args.lcl = new_lcl;
+            args.lcl = ledger::get_lcl_string(new_lcl_id);
+
+            // This is currently used for npl message checks.
+            args.lasl_primary_shard_id = new_last_primary_shard_id;
 
             // Populate user bufs.
             if (feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop) == -1)
@@ -923,8 +922,9 @@ namespace consensus
     /**
      * Dispatch any consensus-reached outputs to matching users if they are connected to us locally.
      * @param cons_prop The proposal that achieved consensus.
+     * @param lcl_id Lcl sequnce no hash info.
      */
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const uint64_t lcl_seq_no, std::string_view lcl)
+    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash lcl_id)
     {
         if (cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
         {
@@ -951,7 +951,7 @@ namespace consensus
                     for (const sc::contract_output &output : user_output.outputs)
                         outputs.emplace_back(output.message);
 
-                    parser.create_contract_output_container(msg, outputs, collapsed_hash_root, ctx.user_outputs_unl_sig, lcl_seq_no, lcl);
+                    parser.create_contract_output_container(msg, outputs, collapsed_hash_root, ctx.user_outputs_unl_sig, lcl_id.seq_no, ledger::get_lcl_string(lcl_id));
 
                     user.session.send(msg);
                 }
