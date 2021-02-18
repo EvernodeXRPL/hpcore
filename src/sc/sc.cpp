@@ -2,7 +2,7 @@
 #include "../conf.hpp"
 #include "../consensus.hpp"
 #include "../hplog.hpp"
-#include "../ledger.hpp"
+#include "../ledger/ledger.hpp"
 #include "../msg/fbuf/p2pmsg_helpers.hpp"
 #include "../msg/controlmsg_common.hpp"
 #include "../msg/controlmsg_parser.hpp"
@@ -48,9 +48,9 @@ namespace sc
 
     void deinit()
     {
-        contract_fs.deinit();
-        contract_server.deinit();
         contract_sync_worker.deinit();
+        contract_server.deinit();
+        contract_fs.deinit();
     }
     /**
      * Executes the contract process and passes the specified context arguments.
@@ -63,7 +63,7 @@ namespace sc
             return -1;
 
         // Set contract working directory.
-        ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH);
+        ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, STATE_DIR_PATH);
 
         // Create the IO sockets for users, control channel and npl.
         // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
@@ -256,24 +256,24 @@ namespace sc
         else
         {
             // Read the state hash if not in readonly mode.
-            if (contract_fs.get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, hpfs::STATE_DIR_PATH) < 1)
+            if (contract_fs.get_hash(ctx.args.post_execution_state_hash, ctx.args.hpfs_session_name, STATE_DIR_PATH) < 1)
             {
                 contract_fs.release_rw_session();
                 return -1;
             }
 
             util::h32 patch_hash;
-            const int patch_hash_result = contract_fs.get_hash(patch_hash, ctx.args.hpfs_session_name, hpfs::PATCH_FILE_PATH);
+            const int patch_hash_result = contract_fs.get_hash(patch_hash, ctx.args.hpfs_session_name, PATCH_FILE_PATH);
 
             if (patch_hash_result == -1)
             {
                 contract_fs.release_rw_session();
                 return -1;
             }
-            else if (patch_hash_result == 1 && patch_hash != contract_fs.get_parent_hash(hpfs::PATCH_FILE_PATH))
+            else if (patch_hash_result == 1 && patch_hash != contract_fs.get_parent_hash(PATCH_FILE_PATH))
             {
                 // Update global hash tracker of contract fs with the new patch file hash.
-                contract_fs.set_parent_hash(hpfs::PATCH_FILE_PATH, patch_hash);
+                contract_fs.set_parent_hash(PATCH_FILE_PATH, patch_hash);
                 // Denote that the patch file was updated by the SC.
                 consensus::is_patch_update_pending = true;
             }
@@ -624,7 +624,7 @@ namespace sc
         if (!output.empty())
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl());
+            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl(), ledger::ctx.get_last_primary_shard_id());
             p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public);
         }
     }

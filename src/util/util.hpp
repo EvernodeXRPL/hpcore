@@ -85,6 +85,10 @@ namespace util
     int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len);
 
     int release_lock(const int fd, struct flock &lock);
+
+    uint64_t uint64_from_bytes(const uint8_t *data);
+
+    void uint64_to_bytes(uint8_t *dest, const uint64_t x);
 } // namespace util
 
 #endif

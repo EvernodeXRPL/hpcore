@@ -1,6 +1,6 @@
 include "common_schema.fbs";
 
-namespace msg.fbuf.ledger;
+namespace msg.fbuf.ledgermsg;
 
 table LedgerBlock {
     version:string;

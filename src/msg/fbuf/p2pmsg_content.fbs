@@ -34,8 +34,6 @@ union Message {
     Npl_Message,
     Hpfs_Request_Message,
     Hpfs_Response_Message,
-    History_Request_Message,
-    History_Response_Message,
     Peer_Requirement_Announcement_Message,
     Peer_List_Request_Message,
     Peer_List_Response_Message,
@@ -57,18 +55,20 @@ table Proposal_Message { //Proposal type message schema
     nonce: [ubyte];
     users:[ByteArray];
     input_hashes:[ByteArray];
+    last_blob_shard_id: Sequence_Hash;
     output_hash:[ubyte];
     output_sig:[ubyte];
     state_hash: [ubyte];
     patch_hash: [ubyte];
 }
 
-table Npl_Message { //NPL type message schema
-    data:[ubyte];
+table Sequence_Hash {
+    shard_seq_no: uint64;
+    shard_hash: [ubyte];
 }
 
-table History_Request_Message { //Ledger History request type message schema
-    required_lcl:[ubyte];
+table Npl_Message { //NPL type message schema
+    data:[ubyte];
 }
 
 enum Ledger_Response_Error : ubyte
@@ -76,22 +76,6 @@ enum Ledger_Response_Error : ubyte
     None = 0,
     Invalid_Min_Ledger = 1,
     Req_Ledger_Not_Found = 2
-}
-
-table History_Response_Message { //Ledger History request type message schema
-    requester_lcl:[ubyte];
-    hist_ledger_blocks:[HistoryLedgerBlockPair];
-    error: Ledger_Response_Error;
-}
-
-table HistoryLedgerBlockPair { //A key, value pair of byte[].
-    seq_no:uint64;
-    ledger:HistoryLedgerBlock;
-}
-
-table HistoryLedgerBlock {
-   lcl:[ubyte];
-   block_buffer:[ubyte];
 }
 
 table Hpfs_Request_Message { //Hpfs request message schema

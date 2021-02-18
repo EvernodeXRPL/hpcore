@@ -32,12 +32,6 @@ namespace usr
         }
     };
 
-    struct raw_user_input
-    {
-        const std::string pubkey;
-        const std::string input;
-    };
-
 } // namespace usr
 
 #endif

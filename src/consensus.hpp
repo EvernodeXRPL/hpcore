@@ -95,6 +95,8 @@ namespace consensus
         std::map<std::string, uint32_t> output_hash;
         std::map<util::h32, uint32_t> state_hash;
         std::map<util::h32, uint32_t> patch_hash;
+        std::map<p2p::sequence_hash, uint32_t> last_ledger_primary_shard;
+        std::map<p2p::sequence_hash, uint32_t> last_ledger_blob_shard;
     };
 
     extern std::atomic<bool> is_patch_update_pending; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
@@ -109,7 +111,7 @@ namespace consensus
 
     int consensus();
 
-    int check_sync_status(std::string_view lcl, const size_t unl_count, vote_counter &votes);
+    int check_sync_status(const size_t unl_count, vote_counter &votes);
 
     void check_sync_completion();
 
@@ -123,13 +125,17 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(std::string_view lcl, util::h32 state_hash, util::h32 patch_hash);
+    p2p::proposal create_stage0_proposal(std::string_view lcl, const util::h32 &state_hash, const util::h32 &patch_hash,
+                                         const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id);
 
-    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 state_hash, const util::h32 patch_hash);
+    p2p::proposal create_stage123_proposal(vote_counter &votes, std::string_view lcl, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
+                                           const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id);
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    bool check_lcl_votes(bool &is_desync, std::string &majority_lcl, vote_counter &votes, std::string_view lcl, const size_t unl_count);
+    bool check_last_primary_shard_hash_votes(bool &is_desync, p2p::sequence_hash &majority_primary_shard_id, vote_counter &votes, const size_t unl_count);
+
+    void check_last_blob_shard_hash_votes(bool &is_ledger_blob_desync, p2p::sequence_hash &majority_blob_shard_id, vote_counter &votes);
 
     void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes);
 

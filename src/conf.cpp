@@ -3,6 +3,8 @@
 #include "crypto.hpp"
 #include "sc/sc.hpp"
 #include "util/util.hpp"
+#include "ledger/ledger_mount.hpp"
+#include "sc/contract_mount.hpp"
 
 namespace conf
 {
@@ -107,13 +109,11 @@ namespace conf
 
         // Recursivly create contract directories. Return an error if unable to create
         if (util::create_dir_tree_recursive(ctx.config_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.hist_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.full_hist_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.log_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + hpfs::STATE_DIR_PATH) == -1 ||
+            util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + sc::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_hpfs_mount_dir) == -1 ||
-            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + hpfs::LEDGER_PRIMARY_DIR) == -1 ||
-            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + hpfs::LEDGER_BLOB_DIR) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + ledger::PRIMARY_DIR) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + ledger::BLOB_DIR) == -1 ||
             util::create_dir_tree_recursive(ctx.ledger_hpfs_mount_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_log_dir) == -1)
         {
@@ -135,6 +135,7 @@ namespace conf
 
             cfg.node.role = startup_role = ROLE::VALIDATOR;
             cfg.node.full_history = false;
+            cfg.node.max_shards = 4;
 
             cfg.contract.id = crypto::generate_uuid();
             cfg.contract.execute = true;
@@ -218,8 +219,6 @@ namespace conf
         ctx.config_file = ctx.config_dir + "/hp.cfg";
         ctx.tls_key_file = ctx.config_dir + "/tlskey.pem";
         ctx.tls_cert_file = ctx.config_dir + "/tlscert.pem";
-        ctx.hist_dir = basedir + "/hist";
-        ctx.full_hist_dir = basedir + "/fullhist";
         ctx.contract_hpfs_dir = basedir + "/contract_fs";
         ctx.contract_hpfs_mount_dir = ctx.contract_hpfs_dir + "/mnt";
         ctx.contract_hpfs_rw_dir = ctx.contract_hpfs_mount_dir + "/rw";
@@ -324,6 +323,8 @@ namespace conf
                     return -1;
                 }
                 startup_role = cfg.node.role;
+
+                cfg.node.max_shards = node["max_shards"].as<uint64_t>();
             }
             catch (const std::exception &e)
             {
@@ -482,7 +483,8 @@ namespace conf
             node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
             node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
             // We always save the startup role to config. Not the current role which might get changed dynamically during syncing.
-            node_config.insert_or_assign("role", startup_role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+            node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
+            node_config.insert_or_assign("max_shards", cfg.node.max_shards);
             d.insert_or_assign("node", node_config);
         }
 
@@ -642,11 +644,9 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[10] = {
+        const std::string paths[8] = {
             ctx.contract_dir,
             ctx.config_file,
-            ctx.hist_dir,
-            ctx.full_hist_dir,
             ctx.contract_hpfs_dir,
             ctx.ledger_hpfs_dir,
             ctx.tls_key_file,
@@ -732,7 +732,7 @@ namespace conf
         jsoncons::ojson jdoc;
         populate_contract_section_json(jdoc, cfg.contract, true);
 
-        const std::string patch_file_path = sc::contract_fs.physical_path(hpfs::RW_SESSION_NAME, hpfs::PATCH_FILE_PATH);
+        const std::string patch_file_path = sc::contract_fs.physical_path(hpfs::RW_SESSION_NAME, sc::PATCH_FILE_PATH);
         return write_json_file(patch_file_path, jdoc);
     }
 
@@ -744,7 +744,7 @@ namespace conf
     */
     int apply_patch_config(std::string_view hpfs_session_name)
     {
-        const std::string path = sc::contract_fs.physical_path(hpfs_session_name, hpfs::PATCH_FILE_PATH);
+        const std::string path = sc::contract_fs.physical_path(hpfs_session_name, sc::PATCH_FILE_PATH);
         if (!util::is_file_exists(path))
             return 0;
 

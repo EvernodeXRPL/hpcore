@@ -8,6 +8,9 @@
 
 namespace ledger
 {
+    constexpr const char *PRIMARY_DIR = "/primary";                      // Ledger primary directory name.
+    constexpr const char *BLOB_DIR = "/blob";                            // Ledger blob directory name.
+    constexpr const char *PREV_SHARD_HASH_FILENAME = "/prev_shard.hash"; // Previous shard hash file name.
     /**
      * Represents ledger file system mount.
     */

@@ -23,8 +23,9 @@ struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_TIMESTAMP = 6,
     VT_PUBKEY = 8,
     VT_LCL = 10,
-    VT_SIGNATURE = 12,
-    VT_CONTENT = 14
+    VT_LAST_PRIMARY_SHARD_ID = 12,
+    VT_SIGNATURE = 14,
+    VT_CONTENT = 16
   };
   uint16_t version() const {
     return GetField<uint16_t>(VT_VERSION, 0);
@@ -50,6 +51,12 @@ struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_lcl() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LCL);
   }
+  const msg::fbuf::p2pmsg::Sequence_Hash *last_primary_shard_id() const {
+    return GetPointer<const msg::fbuf::p2pmsg::Sequence_Hash *>(VT_LAST_PRIMARY_SHARD_ID);
+  }
+  msg::fbuf::p2pmsg::Sequence_Hash *mutable_last_primary_shard_id() {
+    return GetPointer<msg::fbuf::p2pmsg::Sequence_Hash *>(VT_LAST_PRIMARY_SHARD_ID);
+  }
   const flatbuffers::Vector<uint8_t> *signature() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIGNATURE);
   }
@@ -70,6 +77,8 @@ struct Container FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(pubkey()) &&
            VerifyOffset(verifier, VT_LCL) &&
            verifier.VerifyVector(lcl()) &&
+           VerifyOffset(verifier, VT_LAST_PRIMARY_SHARD_ID) &&
+           verifier.VerifyTable(last_primary_shard_id()) &&
            VerifyOffset(verifier, VT_SIGNATURE) &&
            verifier.VerifyVector(signature()) &&
            VerifyOffset(verifier, VT_CONTENT) &&
@@ -94,6 +103,9 @@ struct ContainerBuilder {
   void add_lcl(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl) {
     fbb_.AddOffset(Container::VT_LCL, lcl);
   }
+  void add_last_primary_shard_id(flatbuffers::Offset<msg::fbuf::p2pmsg::Sequence_Hash> last_primary_shard_id) {
+    fbb_.AddOffset(Container::VT_LAST_PRIMARY_SHARD_ID, last_primary_shard_id);
+  }
   void add_signature(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature) {
     fbb_.AddOffset(Container::VT_SIGNATURE, signature);
   }
@@ -117,12 +129,14 @@ inline flatbuffers::Offset<Container> CreateContainer(
     uint64_t timestamp = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> lcl = 0,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::Sequence_Hash> last_primary_shard_id = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> signature = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = 0) {
   ContainerBuilder builder_(_fbb);
   builder_.add_timestamp(timestamp);
   builder_.add_content(content);
   builder_.add_signature(signature);
+  builder_.add_last_primary_shard_id(last_primary_shard_id);
   builder_.add_lcl(lcl);
   builder_.add_pubkey(pubkey);
   builder_.add_version(version);
@@ -135,6 +149,7 @@ inline flatbuffers::Offset<Container> CreateContainerDirect(
     uint64_t timestamp = 0,
     const std::vector<uint8_t> *pubkey = nullptr,
     const std::vector<uint8_t> *lcl = nullptr,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::Sequence_Hash> last_primary_shard_id = 0,
     const std::vector<uint8_t> *signature = nullptr,
     const std::vector<uint8_t> *content = nullptr) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
@@ -147,6 +162,7 @@ inline flatbuffers::Offset<Container> CreateContainerDirect(
       timestamp,
       pubkey__,
       lcl__,
+      last_primary_shard_id,
       signature__,
       content__);
 }
