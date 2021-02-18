@@ -80,7 +80,8 @@ class ContractContext {
         this.timestamp = hpargs.timestamp;
         this.users = users;
         this.unl = unl; // Not available in readonly mode.
-        this.lcl = hpargs.lcl; // Not available in readonly mode.
+        this.lcl_seq_no = hpargs.lcl_seq_no; // Not available in readonly mode.
+        this.lcl_hash = hpargs.lcl_hash; // Not available in readonly mode.
         this.#patchConfig = new PatchConfig();
     }
 

@@ -498,8 +498,8 @@
             else if (m.type == "stat_response") {
                 statResponseResolvers.forEach(resolver => {
                     resolver({
-                        lcl: m.lcl,
-                        lclSeqNo: m.lcl_seqno
+                        lclSeqNo: m.lcl_seq_no,
+                        lcl_hash: m.lcl_hash
                     });
                 })
                 statResponseResolvers = [];
