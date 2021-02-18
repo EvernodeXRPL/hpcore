@@ -124,10 +124,17 @@ namespace sc
         // The path set as contract working directory.
         std::string working_dir;
 
+        // Full paths to std out/err log files for the contract execution.
+        std::string stdout_file;
+        std::string stderr_file;
+
         // Indicates that the contract has sent termination control message.
         bool termination_signaled = false;
 
-        // Indicates that the deinit procedure has begun.
+        // Indicates whether the contract exited normally without any errors.
+        bool exit_success = false;
+
+        // Indicates that the hpcore deinit procedure has begun.
         bool is_shutting_down = false;
 
         execution_context(util::buffer_store &user_input_store) : args(user_input_store)

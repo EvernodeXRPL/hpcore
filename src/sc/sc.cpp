@@ -94,10 +94,6 @@ namespace sc
             // Wait for the contract monitor thread to gracefully stop along with the contract process.
             if (ctx.contract_monitor_thread.joinable())
                 ctx.contract_monitor_thread.join();
-
-            // After the contact exits, run the post-exec.sh script if it exists.
-            if (run_post_exec_script(ctx) == -1)
-                ret = -1;
         }
         else if (pid == 0)
         {
@@ -161,6 +157,10 @@ namespace sc
 
         cleanup_fds(ctx);
 
+        // If the contact finished executing successfully, run the post-exec.sh script if it exists.
+        if (ctx.exit_success && run_post_exec_script(ctx) == -1)
+            ret = -1;
+
         if (stop_hpfs_session(ctx) == -1)
             ret = -1;
 
@@ -221,6 +221,7 @@ namespace sc
 
             if (WIFEXITED(scstatus))
             {
+                ctx.exit_success = true;
                 LOG_DEBUG << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended normally.";
                 return 1;
             }
@@ -455,9 +456,10 @@ namespace sc
         if (!util::is_file_exists(script_path.c_str()))
             return 0;
 
-        // TODO:: Need to direct to log files*********************************
+        LOG_INFO << "Running post-exec script...";
 
-        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + ")";
+        const std::string log_redirect = conf::cfg.contract.log_output ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
+        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + log_redirect + ")";
         const int ret = system(command.c_str());
         if (ret == -1)
         {
@@ -785,21 +787,21 @@ namespace sc
         // For consensus execution, we keep appending logs to the same out/err files.
         // For read request executions, independent log files are created based on read request session names.
         const std::string prefix = ctx.args.readonly ? (ctx.args.hpfs_session_name + "_" + now) : ctx.args.hpfs_session_name;
-        const std::string stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
-        const std::string stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+        ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
+        ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
 
-        const int outfd = open(stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
         if (outfd == -1)
         {
-            std::cerr << errno << ": Error opening " << stdout_file << "\n";
+            std::cerr << errno << ": Error opening " << ctx.stdout_file << "\n";
             return -1;
         }
 
-        const int errfd = open(stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
         if (errfd == -1)
         {
             close(outfd);
-            std::cerr << errno << ": Error opening " << stderr_file << "\n";
+            std::cerr << errno << ": Error opening " << ctx.stderr_file << "\n";
             return -1;
         }
 
