@@ -45,8 +45,8 @@ namespace ledger
         {
             // If the synced shard sequence number is equal or greater than the current shard seq number,
             // then the context information should be updated.
-            uint64_t last_primary_shard_seq_no = ctx.get_last_primary_shard_id().shard_seq_no;
-            if (ctx.get_last_primary_shard_id().shard_seq_no <= synced_shard_seq_no)
+            uint64_t last_primary_shard_seq_no = ctx.get_last_primary_shard_id().seq_no;
+            if (last_primary_shard_seq_no <= synced_shard_seq_no)
             {
                 if (get_last_ledger_and_update_context() == -1)
                 {
@@ -87,7 +87,7 @@ namespace ledger
         {
             // If the synced blob shard sequence number is equal or greater than the current blob shard seq number,
             // then the context information should be updated.
-            uint64_t last_blob_shard_seq_no = ctx.get_last_blob_shard_id().shard_seq_no;
+            uint64_t last_blob_shard_seq_no = ctx.get_last_blob_shard_id().seq_no;
             if (last_blob_shard_seq_no <= synced_shard_seq_no)
             {
                 last_blob_shard_seq_no = synced_shard_seq_no;

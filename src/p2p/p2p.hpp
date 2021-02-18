@@ -20,29 +20,22 @@ namespace p2p
 
     struct sequence_hash
     {
-        uint64_t shard_seq_no = 0;
-        util::h32 shard_hash = util::h32_empty;
+        uint64_t seq_no = 0;
+        util::h32 hash = util::h32_empty;
 
         bool operator!=(const sequence_hash seq_hash) const
         {
-            return this->shard_seq_no != seq_hash.shard_seq_no || this->shard_hash != seq_hash.shard_hash;
+            return this->seq_no != seq_hash.seq_no || this->hash != seq_hash.hash;
         }
 
         bool operator==(const sequence_hash seq_hash) const
         {
-            return this->shard_seq_no == seq_hash.shard_seq_no && this->shard_hash == seq_hash.shard_hash;
+            return this->seq_no == seq_hash.seq_no && this->hash == seq_hash.hash;
         }
 
         bool operator<(const sequence_hash seq_hash) const
         {
-            return this->shard_hash < seq_hash.shard_hash;
-        }
-
-        sequence_hash &operator=(const sequence_hash seq_hash)
-        {
-            this->shard_seq_no = seq_hash.shard_seq_no;
-            this->shard_hash = seq_hash.shard_hash;
-            return *this;
+            return this->seq_no < seq_hash.seq_no || this->hash < seq_hash.hash;
         }
     };
 

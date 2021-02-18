@@ -78,8 +78,8 @@ namespace ledger
                     const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         uint64_t seq_no = 0;
-        std::string hash;
-        if (extract_lcl(proposal.lcl, seq_no, hash) == -1)
+        std::string prev_ledger_hash_hex;
+        if (extract_lcl(proposal.lcl, seq_no, prev_ledger_hash_hex) == -1)
         {
             // lcl records should follow [ledger sequnce numer]-[lcl hex] format.
             LOG_ERROR << "Invalid lcl name: " << proposal.lcl << " when saving ledger.";
@@ -99,61 +99,47 @@ namespace ledger
         if (prepare_shard(&db, primary_shard_seq_no, seq_no) == -1)
             LEDGER_CREATE_ERROR;
 
-        // Serialize lcl using flatbuffer ledger block schema.
-        flatbuffers::FlatBufferBuilder builder(1024);
-        msg::fbuf::ledgermsg::create_ledger_block_from_proposal(builder, proposal, seq_no);
-
-        // Get binary hash of the serialized lcl.
-        std::string_view ledger_str_buf = msg::fbuf::flatbuff_bytes_to_sv(builder.GetBufferPointer(), builder.GetSize());
-        const std::string lcl_hash = crypto::get_hash(ledger_str_buf);
-
-        if ((!candidate_user_inputs.empty() || !generated_user_outputs.empty()) && save_ledger_blob(lcl_hash, candidate_user_inputs, generated_user_outputs) == -1)
-        {
-            LOG_ERROR << errno << ": Error saving the raw inputs/outputs, shard: " << std::to_string(primary_shard_seq_no);
-            LEDGER_CREATE_ERROR;
-        }
-
-        const std::string lcl_hash_hex = util::to_hex(lcl_hash);
-
-        // Get binary hash of users and inputs.
+        // Combined binary hash of consensus user binary pub keys.
         const std::string user_hash = crypto::get_hash(proposal.users);
+        // Combined binary hash of consensus input hashes.
         const std::string input_hash = crypto::get_hash(proposal.input_hashes);
 
         uint8_t seq_no_byte_str[8], time_byte_str[8];
-        memset(seq_no_byte_str, 0, 8);
-        memset(time_byte_str, 0, 8);
         util::uint64_to_bytes(seq_no_byte_str, seq_no);
         util::uint64_to_bytes(time_byte_str, proposal.time);
 
         // Contruct binary string for data hash.
+
         std::string data;
-        data.reserve(sizeof(seq_no_byte_str) + sizeof(time_byte_str) + (32 * 5));
+        data.reserve(sizeof(seq_no_byte_str) + sizeof(time_byte_str) + (sizeof(util::h32) * 5));
         data.append((char *)seq_no_byte_str);
-        //data.append(std::string((char *)seq_no_byte_str, 8));
         data.append((char *)time_byte_str);
-        //data.append(std::string((char *)time_byte_str, 8));
         data.append(proposal.state_hash.to_string_view());
         data.append(proposal.patch_hash.to_string_view());
         data.append(user_hash);
         data.append(input_hash);
         data.append(proposal.output_hash);
 
-        // Get binary hash of data.
+        // Combined binary hash of data fields. blake3(seq_no + time + state_hash + patch_hash + user_hash + input_hash + output_hash)
         const std::string data_hash = crypto::get_hash(data);
 
+        const std::string prev_ledger_hash = util::to_bin(prev_ledger_hash_hex);
+        // Ledger hash is the combined hash of previous ledger hash and the new data hash.
+        const std::string ledger_hash = crypto::get_hash(prev_ledger_hash, data_hash);
+        const std::string ledger_hash_hex = util::to_hex(ledger_hash);
         // Construct ledger struct.
         // Hashes are stored as hex string;
         const sqlite::ledger ledger(
             seq_no,
             proposal.time,
-            lcl_hash_hex,
-            hash,
+            ledger_hash_hex,
+            prev_ledger_hash_hex,
             util::to_hex(data_hash),
             util::to_hex(proposal.state_hash.to_string_view()),
             util::to_hex(proposal.patch_hash.to_string_view()),
             util::to_hex(user_hash),
             util::to_hex(input_hash),
-            util::to_hex(proposal.output_hash));
+            util::to_hex(proposal.output_hash)); // Merkle root output hash.
 
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
@@ -161,8 +147,14 @@ namespace ledger
             LEDGER_CREATE_ERROR;
         }
 
+        if ((!candidate_user_inputs.empty() || !generated_user_outputs.empty()) && save_ledger_blob(ledger_hash, candidate_user_inputs, generated_user_outputs) == -1)
+        {
+            LOG_ERROR << errno << ": Error saving the raw inputs/outputs, shard: " << std::to_string(primary_shard_seq_no);
+            LEDGER_CREATE_ERROR;
+        }
+
         // Update the seq_no and lcl when ledger is created.
-        const std::string new_lcl = std::string(std::to_string(seq_no)).append("-").append(lcl_hash_hex);
+        const std::string new_lcl = std::string(std::to_string(seq_no)).append("-").append(ledger_hash_hex);
         ctx.set_lcl(seq_no, new_lcl);
 
         const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(primary_shard_seq_no));
@@ -327,7 +319,7 @@ namespace ledger
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         // Construct shard path.
-        uint64_t last_blob_shard_seq_no = ctx.get_last_blob_shard_id().shard_seq_no;
+        uint64_t last_blob_shard_seq_no = ctx.get_last_blob_shard_id().seq_no;
         std::string shard_vpath = std::string(ledger::BLOB_DIR).append("/").append(std::to_string(last_blob_shard_seq_no));
         std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_vpath);
 
@@ -524,7 +516,7 @@ namespace ledger
             });
 
             const std::string shard_path = std::string(shard_parent_dir).append("/").append(shards.front());
-            if (ledger_fs.get_hash(last_shard_id.shard_hash, session_name, shard_path) == -1 || util::stoull(shards.front(), last_shard_id.shard_seq_no) == -1)
+            if (ledger_fs.get_hash(last_shard_id.hash, session_name, shard_path) == -1 || util::stoull(shards.front(), last_shard_id.seq_no) == -1)
             {
                 LOG_ERROR << "Error reading last shard hash in " << shard_path;
                 return -1;

@@ -215,14 +215,14 @@ namespace msg::fbuf::p2pmsg
         p.patch_hash = flatbuff_bytes_to_sv(msg.patch_hash());
 
         p2p::sequence_hash last_primary_shard_id;
-        last_primary_shard_id.shard_seq_no = last_primary_shard_id_msg.shard_seq_no();
-        last_primary_shard_id.shard_hash = flatbuff_bytes_to_hash(last_primary_shard_id_msg.shard_hash());
+        last_primary_shard_id.seq_no = last_primary_shard_id_msg.shard_seq_no();
+        last_primary_shard_id.hash = flatbuff_bytes_to_hash(last_primary_shard_id_msg.shard_hash());
         p.last_primary_shard_id = last_primary_shard_id;
 
         p2p::sequence_hash last_blob_shard_id;
         const Sequence_Hash &last_blob_shard_id_msg = *msg.last_blob_shard_id();
-        last_blob_shard_id.shard_seq_no = last_blob_shard_id_msg.shard_seq_no();
-        last_blob_shard_id.shard_hash = flatbuff_bytes_to_hash(last_blob_shard_id_msg.shard_hash());
+        last_blob_shard_id.seq_no = last_blob_shard_id_msg.shard_seq_no();
+        last_blob_shard_id.hash = flatbuff_bytes_to_hash(last_blob_shard_id_msg.shard_hash());
         p.last_blob_shard_id = last_blob_shard_id;
 
         if (msg.users())
@@ -349,8 +349,8 @@ namespace msg::fbuf::p2pmsg
 
         const flatbuffers::Offset<Sequence_Hash> last_blob_shard_id_msg = CreateSequence_Hash(
             builder,
-            p.last_blob_shard_id.shard_seq_no,
-            hash_to_flatbuff_bytes(builder, p.last_blob_shard_id.shard_hash));
+            p.last_blob_shard_id.seq_no,
+            hash_to_flatbuff_bytes(builder, p.last_blob_shard_id.hash));
 
         const flatbuffers::Offset<Proposal_Message> proposal =
             CreateProposal_Message(
@@ -663,8 +663,8 @@ namespace msg::fbuf::p2pmsg
 
         const flatbuffers::Offset<Sequence_Hash> last_primary_shard_id_msg = CreateSequence_Hash(
             container_builder,
-            last_primary_shard_id.shard_seq_no,
-            hash_to_flatbuff_bytes(container_builder, last_primary_shard_id.shard_hash));
+            last_primary_shard_id.seq_no,
+            hash_to_flatbuff_bytes(container_builder, last_primary_shard_id.hash));
 
         const flatbuffers::Offset<Container> container_message = CreateContainer(
             container_builder,

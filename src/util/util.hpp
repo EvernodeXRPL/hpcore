@@ -86,9 +86,9 @@ namespace util
 
     int release_lock(const int fd, struct flock &lock);
 
-    uint64_t uint64_from_bytes(uint8_t *data);
+    uint64_t uint64_from_bytes(const uint8_t *data);
 
-    void uint64_to_bytes(uint8_t *dest, uint64_t x);
+    void uint64_to_bytes(uint8_t *dest, const uint64_t x);
 } // namespace util
 
 #endif

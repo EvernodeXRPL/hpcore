@@ -197,10 +197,10 @@ namespace consensus
                 conf::change_role(conf::ROLE::OBSERVER);
 
                 // We first request the latest shard.
-                const std::string majority_shard_seq_no_str = std::to_string(majority_primary_shard_id.shard_seq_no);
+                const std::string majority_shard_seq_no_str = std::to_string(majority_primary_shard_id.seq_no);
                 const std::string sync_name = "primary shard " + majority_shard_seq_no_str;
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(majority_shard_seq_no_str);
-                ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_primary_shard_id.shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
             // Check out blob shard hash with majority blob shard hash.
@@ -236,10 +236,10 @@ namespace consensus
                 // If ledger blob shard is desync, We first request the latest blob shard.
                 if (is_last_blob_shard_desync)
                 {
-                    const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.shard_seq_no);
+                    const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.seq_no);
                     const std::string sync_name = "blob shard " + majority_shard_seq_no_str;
                     const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(majority_shard_seq_no_str);
-                    ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.shard_hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
             }
 

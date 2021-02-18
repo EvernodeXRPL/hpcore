@@ -90,11 +90,11 @@ namespace hpfs
     public:
         std::atomic<bool> is_syncing = false;
 
-        int init(std::string_view name, hpfs::hpfs_mount *fs_mount);
+        int init(std::string_view worker_name, hpfs::hpfs_mount *fs_mount_ptr);
 
         void deinit();
 
-        void set_target(const std::list<sync_target> &target_list);
+        void set_target(const std::list<sync_target> &sync_target_list);
 
         void set_target_push_front(const sync_target &target);
         

@@ -416,16 +416,16 @@ namespace util
      * @param data Byte stream to be converted.
      * @return Returns converted uint64_t.
     */
-    uint64_t uint64_from_bytes(uint8_t *data)
+    uint64_t uint64_from_bytes(const uint8_t *data)
     {
-        return (((uint64_t)(data[0])) << 56) +
-               (((uint64_t)(data[1])) << 48) +
-               (((uint64_t)(data[2])) << 40) +
-               (((uint64_t)(data[3])) << 32) +
-               (((uint64_t)(data[4])) << 24) +
-               (((uint64_t)(data[5])) << 16) +
-               (((uint64_t)(data[6])) << 8) +
-               (((uint64_t)(data[7])));
+        return ((uint64_t)data[0] << 56) +
+               ((uint64_t)data[1] << 48) +
+               ((uint64_t)data[2] << 40) +
+               ((uint64_t)data[3] << 32) +
+               ((uint64_t)data[4] << 24) +
+               ((uint64_t)data[5] << 16) +
+               ((uint64_t)data[6] << 8) +
+               ((uint64_t)data[7]);
     }
 
     /**

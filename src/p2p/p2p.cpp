@@ -458,17 +458,8 @@ namespace p2p
 
     std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash)
     {
-        output << seq_hash.shard_seq_no << "-" << seq_hash.shard_hash;
+        output << seq_hash.seq_no << "-" << seq_hash.hash;
         return output;
     }
-
-    // size_t sequence_hash_std_key_hasher::operator()(const sequence_hash seq_hash) const
-    // {
-    //     size_t res = 17;
-    //     res = res * 31 + std::hash<uint64_t>()(seq_hash.shard_seq_no);
-    //     std::string shard_hash(seq_hash.shard_hash.to_string_view());
-    //     res = res * 31 + std::hash<std::string>()(shard_hash);
-    //     return res;
-    // }
 
 } // namespace p2p

@@ -24,7 +24,7 @@ namespace hpfs
         virtual void swap_collected_requests() = 0; // Must override in child classes.
 
     public:
-        int init(std::string_view name, hpfs::hpfs_mount *fs_mount);
+        int init(std::string_view server_name, hpfs::hpfs_mount *fs_mount_ptr);
 
         void deinit();
 

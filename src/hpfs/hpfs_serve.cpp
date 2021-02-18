@@ -21,17 +21,17 @@ namespace hpfs
     constexpr const char *HPFS_SESSION_NAME = "rw";
 
     /**
-     * @param name The name of the serving instance. (For identification purpose)
-     * @param fs_mount The pointer to the relavent hpfs mount instance this server is serving.
+     * @param server_name The name of the serving instance. (For identification purpose)
+     * @param fs_mount_ptr The pointer to the relavent hpfs mount instance this server is serving.
      * @return This returns -1 on error and 0 on success.
     */
-    int hpfs_serve::init(std::string_view name, hpfs::hpfs_mount *fs_mount)
+    int hpfs_serve::init(std::string_view server_name, hpfs::hpfs_mount *fs_mount_ptr)
     {
-        if (fs_mount == NULL)
+        if (fs_mount_ptr == NULL)
             return -1;
 
-        this->name = name;
-        this->fs_mount = fs_mount;
+        name = server_name;
+        fs_mount = fs_mount_ptr;
 
         hpfs_serve_thread = std::thread(&hpfs_serve::hpfs_serve_loop, this);
         init_success = true;
@@ -70,8 +70,8 @@ namespace hpfs
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
             const std::string lcl = ledger::ctx.get_lcl();
-            const p2p::sequence_hash &last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
-            const uint16_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
+            const p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
+            const uint32_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
 
             if (hpfs_requests.empty())
                 continue;
