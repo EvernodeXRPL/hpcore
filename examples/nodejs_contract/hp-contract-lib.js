@@ -16,6 +16,7 @@ const clientProtocols = {
 Object.freeze(clientProtocols);
 
 const PATCH_CONFIG_PATH = "../patch.cfg";
+const POST_EXEC_SCRIPT_NAME = "post_exec.sh";
 
 class HotPocketContract {
 
@@ -399,5 +400,6 @@ const errHandler = (err) => console.log(err);
 
 module.exports = {
     Contract: HotPocketContract,
-    clientProtocols
+    clientProtocols,
+    POST_EXEC_SCRIPT_NAME,
 }

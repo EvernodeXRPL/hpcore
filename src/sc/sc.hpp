@@ -124,10 +124,20 @@ namespace sc
 
         size_t total_npl_output_size = 0;
 
+        // The path set as contract working directory.
+        std::string working_dir;
+
+        // Full paths to std out/err log files for the contract execution.
+        std::string stdout_file;
+        std::string stderr_file;
+
         // Indicates that the contract has sent termination control message.
         bool termination_signaled = false;
 
-        // Indicates that the deinit procedure has begun.
+        // Indicates whether the contract exited normally without any errors.
+        bool exit_success = false;
+
+        // Indicates that the hpcore deinit procedure has begun.
         bool is_shutting_down = false;
 
         execution_context(util::buffer_store &user_input_store) : args(user_input_store)
@@ -157,6 +167,8 @@ namespace sc
     int write_contract_args(const execution_context &ctx, const int user_inputs_fd);
 
     void contract_monitor_loop(execution_context &ctx);
+
+    int run_post_exec_script(const execution_context &ctx);
 
     int write_control_inputs(execution_context &ctx);
 

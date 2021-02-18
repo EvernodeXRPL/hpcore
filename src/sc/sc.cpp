@@ -16,6 +16,7 @@ namespace sc
     constexpr int FILE_PERMS = 0644;
     constexpr const char *STDOUT_LOG = ".stdout.log";
     constexpr const char *STDERR_LOG = ".stderr.log";
+    constexpr const char *POST_EXEC_SCRIPT = "post_exec.sh";
 
     constexpr uint32_t CONTRACT_FS_ID = 0;
 
@@ -51,6 +52,7 @@ namespace sc
         contract_server.deinit();
         contract_fs.deinit();
     }
+
     /**
      * Executes the contract process and passes the specified context arguments.
      * @return 0 on successful process creation. -1 on failure or contract process is already running.
@@ -60,6 +62,24 @@ namespace sc
         // Start the hpfs rw session before starting the contract process.
         if (start_hpfs_session(ctx) == -1)
             return -1;
+
+        // Set contract working directory.
+        ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, STATE_DIR_PATH);
+
+        // Setup contract output log file paths.
+        if (conf::cfg.contract.log_output)
+        {
+            const time_t epoch = util::get_epoch_milliseconds() / 1000;
+            std::stringstream now_ss;
+            now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
+            const std::string now = now_ss.str();
+
+            // For consensus execution, we keep appending logs to the same out/err files.
+            // For read request executions, independent log files are created based on read request session names.
+            const std::string prefix = ctx.args.readonly ? (ctx.args.hpfs_session_name + "_" + now) : ctx.args.hpfs_session_name;
+            ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
+            ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+        }
 
         // Create the IO sockets for users, control channel and npl.
         // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
@@ -133,8 +153,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            const std::string current_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, STATE_DIR_PATH);
-            chdir(current_dir.c_str());
+            chdir(ctx.working_dir.c_str());
 
             if (create_contract_log_files(ctx) == -1)
             {
@@ -153,6 +172,10 @@ namespace sc
         }
 
         cleanup_fds(ctx);
+
+        // If the consensus contact finished executing successfully, run the post-exec.sh script if it exists.
+        if (ctx.exit_success && !ctx.args.readonly && run_post_exec_script(ctx) == -1)
+            ret = -1;
 
         if (stop_hpfs_session(ctx) == -1)
             ret = -1;
@@ -214,12 +237,13 @@ namespace sc
 
             if (WIFEXITED(scstatus))
             {
+                ctx.exit_success = true;
                 LOG_DEBUG << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended normally.";
                 return 1;
             }
             else
             {
-                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely with code " << WEXITSTATUS(scstatus);
+                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely. Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -436,6 +460,53 @@ namespace sc
         }
 
         LOG_DEBUG << "Contract monitor stopped";
+    }
+
+    /**
+     * Runs the contract post execution script if exists.
+     */
+    int run_post_exec_script(const execution_context &ctx)
+    {
+        // Check whether the post-exec script exists within contract state dir.
+        const std::string script_path = ctx.working_dir + "/" + POST_EXEC_SCRIPT;
+        if (!util::is_file_exists(script_path.c_str()))
+            return 0;
+
+        LOG_INFO << "Running post-exec script...";
+
+        const std::string log_redirect = conf::cfg.contract.log_output ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
+
+        // We set current working dir and pass lcl as command line arg to the script.
+        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + " " + ctx.args.lcl + log_redirect + ")";
+
+        const int ret = system(command.c_str());
+        if (ret == -1)
+        {
+            LOG_ERROR << errno << ": Could not run post-exec script " << script_path;
+            return -1;
+        }
+        else
+        {
+            // If the script returns a code 0 or 3 to 125 we consider it a successful execition.
+            // If the script returns code 0, we consider script lifetime is over and delete the file. Otherwise we retain the file.
+            const int exit_code = WEXITSTATUS(ret);
+            if (WIFEXITED(ret) && (exit_code == 0 || (exit_code > 2 && exit_code < 126)))
+            {
+                LOG_INFO << "Post-exec script executed successfully. Exit code:" << exit_code;
+                // Exit code 0 means post-execution script can be deleted.
+                if (exit_code == 0 && util::remove_file(script_path) == -1)
+                {
+                    LOG_ERROR << errno << ": Error deleting post-exec script after execution.";
+                    return -1;
+                }
+            }
+            else
+            {
+                LOG_ERROR << "Post-exec script ended prematurely. Exit code:" << exit_code;
+            }
+
+            return 0;
+        }
     }
 
     /**
@@ -729,29 +800,18 @@ namespace sc
         if (!conf::cfg.contract.log_output)
             return 0;
 
-        const time_t epoch = util::get_epoch_milliseconds() / 1000;
-        std::stringstream now_ss;
-        now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
-        const std::string now = now_ss.str();
-
-        // For consensus execution, we keep appending logs to the same out/err files.
-        // For read request executions, independent log files are created based on read request session names.
-        const std::string prefix = ctx.args.readonly ? (ctx.args.hpfs_session_name + "_" + now) : ctx.args.hpfs_session_name;
-        const std::string stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
-        const std::string stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
-
-        const int outfd = open(stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
         if (outfd == -1)
         {
-            std::cerr << errno << ": Error opening " << stdout_file << "\n";
+            std::cerr << errno << ": Error opening " << ctx.stdout_file << "\n";
             return -1;
         }
 
-        const int errfd = open(stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
         if (errfd == -1)
         {
             close(outfd);
-            std::cerr << errno << ": Error opening " << stderr_file << "\n";
+            std::cerr << errno << ": Error opening " << ctx.stderr_file << "\n";
             return -1;
         }
 
@@ -759,7 +819,7 @@ namespace sc
         // to mark the start of each execution.
         if (!ctx.args.readonly)
         {
-            const std::string header = "Execution lcl " + ctx.args.lcl + " on " + now + "\n";
+            const std::string header = "Execution lcl " + ctx.args.lcl + "\n";
             if (write(outfd, header.data(), header.size()) == -1 ||
                 write(errfd, header.data(), header.size()) == -1)
             {
