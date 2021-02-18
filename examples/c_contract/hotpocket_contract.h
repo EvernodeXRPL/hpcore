@@ -11,13 +11,18 @@
 #include <sys/stat.h>
 #include "json.h"
 
+// Private constants.
 #define __HP_MMAP_BLOCK_SIZE 4096
 #define __HP_MMAP_BLOCK_ALIGN(x) (((x) + ((off_t)(__HP_MMAP_BLOCK_SIZE)-1)) & ~((off_t)(__HP_MMAP_BLOCK_SIZE)-1))
 #define __HP_STREAM_MSG_HEADER_SIZE 4
 #define __HP_SEQPKT_MAX_SIZE 131072 // 128KB to support SEQ_PACKET sockets.
+const char *__HP_PATCH_FILE_PATH = "../patch.cfg";
+
+// Public constants.
 #define HP_NPL_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
 #define HP_KEY_SIZE 66 // Hex pubkey size. (64 char key + 2 chars for key type prfix)
 #define HP_HASH_SIZE 64
+const char *HP_POST_EXEC_SCRIPT_NAME = "post_exec.sh";
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                        \
     {                                                                                         \
@@ -173,8 +178,6 @@ struct __hp_contract
     void *user_inmap;
     size_t user_inmap_size;
 };
-
-const char *PATCH_FILE_PATH = "../patch.cfg";
 
 int hp_init_contract();
 int hp_deinit_contract();
@@ -438,7 +441,7 @@ int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
 */
 struct hp_config *hp_get_config()
 {
-    const int fd = open(PATCH_FILE_PATH, O_RDONLY);
+    const int fd = open(__HP_PATCH_FILE_PATH, O_RDONLY);
     if (fd == -1)
     {
         fprintf(stderr, "Error opening patch.cfg file.\n");
@@ -512,7 +515,7 @@ int hp_update_config(const struct hp_config *config)
         config->round_limits.proc_cpu_seconds < 0 || config->round_limits.proc_mem_bytes < 0 || config->round_limits.proc_ofd_count < 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid round limits.");
 
-    const int fd = open(PATCH_FILE_PATH, O_RDWR);
+    const int fd = open(__HP_PATCH_FILE_PATH, O_RDWR);
     if (fd == -1)
         __HP_UPDATE_CONFIG_ERROR("Error opening patch.cfg file.");
 
