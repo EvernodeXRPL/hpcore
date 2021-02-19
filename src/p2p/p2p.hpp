@@ -85,11 +85,15 @@ namespace p2p
         std::string pubkey;
     };
 
-    enum LEDGER_RESPONSE_ERROR
+    struct peer_capacity_announcement
     {
-        NONE = 0,
-        INVALID_MIN_LEDGER = 1,
-        REQ_LEDGER_NOT_FOUND = 2
+        uint16_t available_capacity = 0;
+        uint64_t timestamp = 0;
+    };
+
+    struct peer_requirement_announcement
+    {
+        bool need_consensus_msg_forwarding = false;
     };
 
     // Represents an NPL message sent by a peer.

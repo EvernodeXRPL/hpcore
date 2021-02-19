@@ -58,8 +58,8 @@ struct HpfsFSHashEntryBuilder;
 struct PeerRequirementAnnouncementMsg;
 struct PeerRequirementAnnouncementMsgBuilder;
 
-struct AvailableCapacityAnnouncementMsg;
-struct AvailableCapacityAnnouncementMsgBuilder;
+struct PeerCapacityAnnouncementMsg;
+struct PeerCapacityAnnouncementMsgBuilder;
 
 struct PeerListRequestMsg;
 struct PeerListRequestMsgBuilder;
@@ -85,11 +85,11 @@ enum P2PMsgContent {
   P2PMsgContent_HpfsRequestMsg = 5,
   P2PMsgContent_HpfsResponseMsg = 6,
   P2PMsgContent_PeerRequirementAnnouncementMsg = 7,
-  P2PMsgContent_PeerListRequestMsg = 8,
-  P2PMsgContent_PeerListResponseMsg = 9,
-  P2PMsgContent_AvailableCapacityAnnouncementMsg = 10,
+  P2PMsgContent_PeerCapacityAnnouncementMsg = 8,
+  P2PMsgContent_PeerListRequestMsg = 9,
+  P2PMsgContent_PeerListResponseMsg = 10,
   P2PMsgContent_MIN = P2PMsgContent_NONE,
-  P2PMsgContent_MAX = P2PMsgContent_AvailableCapacityAnnouncementMsg
+  P2PMsgContent_MAX = P2PMsgContent_PeerListResponseMsg
 };
 
 inline const P2PMsgContent (&EnumValuesP2PMsgContent())[11] {
@@ -102,9 +102,9 @@ inline const P2PMsgContent (&EnumValuesP2PMsgContent())[11] {
     P2PMsgContent_HpfsRequestMsg,
     P2PMsgContent_HpfsResponseMsg,
     P2PMsgContent_PeerRequirementAnnouncementMsg,
+    P2PMsgContent_PeerCapacityAnnouncementMsg,
     P2PMsgContent_PeerListRequestMsg,
-    P2PMsgContent_PeerListResponseMsg,
-    P2PMsgContent_AvailableCapacityAnnouncementMsg
+    P2PMsgContent_PeerListResponseMsg
   };
   return values;
 }
@@ -119,16 +119,16 @@ inline const char * const *EnumNamesP2PMsgContent() {
     "HpfsRequestMsg",
     "HpfsResponseMsg",
     "PeerRequirementAnnouncementMsg",
+    "PeerCapacityAnnouncementMsg",
     "PeerListRequestMsg",
     "PeerListResponseMsg",
-    "AvailableCapacityAnnouncementMsg",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameP2PMsgContent(P2PMsgContent e) {
-  if (flatbuffers::IsOutRange(e, P2PMsgContent_NONE, P2PMsgContent_AvailableCapacityAnnouncementMsg)) return "";
+  if (flatbuffers::IsOutRange(e, P2PMsgContent_NONE, P2PMsgContent_PeerListResponseMsg)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesP2PMsgContent()[index];
 }
@@ -165,16 +165,16 @@ template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::PeerRequirementAnnounc
   static const P2PMsgContent enum_value = P2PMsgContent_PeerRequirementAnnouncementMsg;
 };
 
+template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::PeerCapacityAnnouncementMsg> {
+  static const P2PMsgContent enum_value = P2PMsgContent_PeerCapacityAnnouncementMsg;
+};
+
 template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::PeerListRequestMsg> {
   static const P2PMsgContent enum_value = P2PMsgContent_PeerListRequestMsg;
 };
 
 template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::PeerListResponseMsg> {
   static const P2PMsgContent enum_value = P2PMsgContent_PeerListResponseMsg;
-};
-
-template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::AvailableCapacityAnnouncementMsg> {
-  static const P2PMsgContent enum_value = P2PMsgContent_AvailableCapacityAnnouncementMsg;
 };
 
 bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMsgContent type);
@@ -269,14 +269,21 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef P2PMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HP_VERSION = 4,
-    VT_CONTENT_TYPE = 6,
-    VT_CONTENT = 8
+    VT_CREATED_ON = 6,
+    VT_CONTENT_TYPE = 8,
+    VT_CONTENT = 10
   };
   const flatbuffers::String *hp_version() const {
     return GetPointer<const flatbuffers::String *>(VT_HP_VERSION);
   }
   flatbuffers::String *mutable_hp_version() {
     return GetPointer<flatbuffers::String *>(VT_HP_VERSION);
+  }
+  uint64_t created_on() const {
+    return GetField<uint64_t>(VT_CREATED_ON, 0);
+  }
+  bool mutate_created_on(uint64_t _created_on) {
+    return SetField<uint64_t>(VT_CREATED_ON, _created_on, 0);
   }
   msg::fbuf2::p2pmsg::P2PMsgContent content_type() const {
     return static_cast<msg::fbuf2::p2pmsg::P2PMsgContent>(GetField<uint8_t>(VT_CONTENT_TYPE, 0));
@@ -306,14 +313,14 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf2::p2pmsg::PeerRequirementAnnouncementMsg *content_as_PeerRequirementAnnouncementMsg() const {
     return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_PeerRequirementAnnouncementMsg ? static_cast<const msg::fbuf2::p2pmsg::PeerRequirementAnnouncementMsg *>(content()) : nullptr;
   }
+  const msg::fbuf2::p2pmsg::PeerCapacityAnnouncementMsg *content_as_PeerCapacityAnnouncementMsg() const {
+    return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_PeerCapacityAnnouncementMsg ? static_cast<const msg::fbuf2::p2pmsg::PeerCapacityAnnouncementMsg *>(content()) : nullptr;
+  }
   const msg::fbuf2::p2pmsg::PeerListRequestMsg *content_as_PeerListRequestMsg() const {
     return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_PeerListRequestMsg ? static_cast<const msg::fbuf2::p2pmsg::PeerListRequestMsg *>(content()) : nullptr;
   }
   const msg::fbuf2::p2pmsg::PeerListResponseMsg *content_as_PeerListResponseMsg() const {
     return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_PeerListResponseMsg ? static_cast<const msg::fbuf2::p2pmsg::PeerListResponseMsg *>(content()) : nullptr;
-  }
-  const msg::fbuf2::p2pmsg::AvailableCapacityAnnouncementMsg *content_as_AvailableCapacityAnnouncementMsg() const {
-    return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_AvailableCapacityAnnouncementMsg ? static_cast<const msg::fbuf2::p2pmsg::AvailableCapacityAnnouncementMsg *>(content()) : nullptr;
   }
   void *mutable_content() {
     return GetPointer<void *>(VT_CONTENT);
@@ -322,6 +329,7 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_HP_VERSION) &&
            verifier.VerifyString(hp_version()) &&
+           VerifyField<uint64_t>(verifier, VT_CREATED_ON) &&
            VerifyField<uint8_t>(verifier, VT_CONTENT_TYPE) &&
            VerifyOffset(verifier, VT_CONTENT) &&
            VerifyP2PMsgContent(verifier, content(), content_type()) &&
@@ -357,6 +365,10 @@ template<> inline const msg::fbuf2::p2pmsg::PeerRequirementAnnouncementMsg *P2PM
   return content_as_PeerRequirementAnnouncementMsg();
 }
 
+template<> inline const msg::fbuf2::p2pmsg::PeerCapacityAnnouncementMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::PeerCapacityAnnouncementMsg>() const {
+  return content_as_PeerCapacityAnnouncementMsg();
+}
+
 template<> inline const msg::fbuf2::p2pmsg::PeerListRequestMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::PeerListRequestMsg>() const {
   return content_as_PeerListRequestMsg();
 }
@@ -365,16 +377,15 @@ template<> inline const msg::fbuf2::p2pmsg::PeerListResponseMsg *P2PMsg::content
   return content_as_PeerListResponseMsg();
 }
 
-template<> inline const msg::fbuf2::p2pmsg::AvailableCapacityAnnouncementMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::AvailableCapacityAnnouncementMsg>() const {
-  return content_as_AvailableCapacityAnnouncementMsg();
-}
-
 struct P2PMsgBuilder {
   typedef P2PMsg Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_hp_version(flatbuffers::Offset<flatbuffers::String> hp_version) {
     fbb_.AddOffset(P2PMsg::VT_HP_VERSION, hp_version);
+  }
+  void add_created_on(uint64_t created_on) {
+    fbb_.AddElement<uint64_t>(P2PMsg::VT_CREATED_ON, created_on, 0);
   }
   void add_content_type(msg::fbuf2::p2pmsg::P2PMsgContent content_type) {
     fbb_.AddElement<uint8_t>(P2PMsg::VT_CONTENT_TYPE, static_cast<uint8_t>(content_type), 0);
@@ -397,9 +408,11 @@ struct P2PMsgBuilder {
 inline flatbuffers::Offset<P2PMsg> CreateP2PMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> hp_version = 0,
+    uint64_t created_on = 0,
     msg::fbuf2::p2pmsg::P2PMsgContent content_type = msg::fbuf2::p2pmsg::P2PMsgContent_NONE,
     flatbuffers::Offset<void> content = 0) {
   P2PMsgBuilder builder_(_fbb);
+  builder_.add_created_on(created_on);
   builder_.add_content(content);
   builder_.add_hp_version(hp_version);
   builder_.add_content_type(content_type);
@@ -409,12 +422,14 @@ inline flatbuffers::Offset<P2PMsg> CreateP2PMsg(
 inline flatbuffers::Offset<P2PMsg> CreateP2PMsgDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *hp_version = nullptr,
+    uint64_t created_on = 0,
     msg::fbuf2::p2pmsg::P2PMsgContent content_type = msg::fbuf2::p2pmsg::P2PMsgContent_NONE,
     flatbuffers::Offset<void> content = 0) {
   auto hp_version__ = hp_version ? _fbb.CreateString(hp_version) : 0;
   return msg::fbuf2::p2pmsg::CreateP2PMsg(
       _fbb,
       hp_version__,
+      created_on,
       content_type,
       content);
 }
@@ -1788,8 +1803,8 @@ inline flatbuffers::Offset<PeerRequirementAnnouncementMsg> CreatePeerRequirement
   return builder_.Finish();
 }
 
-struct AvailableCapacityAnnouncementMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef AvailableCapacityAnnouncementMsgBuilder Builder;
+struct PeerCapacityAnnouncementMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PeerCapacityAnnouncementMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_AVAILABLE_CAPACITY = 4,
     VT_TIMESTAMP = 6
@@ -1814,33 +1829,33 @@ struct AvailableCapacityAnnouncementMsg FLATBUFFERS_FINAL_CLASS : private flatbu
   }
 };
 
-struct AvailableCapacityAnnouncementMsgBuilder {
-  typedef AvailableCapacityAnnouncementMsg Table;
+struct PeerCapacityAnnouncementMsgBuilder {
+  typedef PeerCapacityAnnouncementMsg Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_available_capacity(int16_t available_capacity) {
-    fbb_.AddElement<int16_t>(AvailableCapacityAnnouncementMsg::VT_AVAILABLE_CAPACITY, available_capacity, 0);
+    fbb_.AddElement<int16_t>(PeerCapacityAnnouncementMsg::VT_AVAILABLE_CAPACITY, available_capacity, 0);
   }
   void add_timestamp(uint64_t timestamp) {
-    fbb_.AddElement<uint64_t>(AvailableCapacityAnnouncementMsg::VT_TIMESTAMP, timestamp, 0);
+    fbb_.AddElement<uint64_t>(PeerCapacityAnnouncementMsg::VT_TIMESTAMP, timestamp, 0);
   }
-  explicit AvailableCapacityAnnouncementMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit PeerCapacityAnnouncementMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  AvailableCapacityAnnouncementMsgBuilder &operator=(const AvailableCapacityAnnouncementMsgBuilder &);
-  flatbuffers::Offset<AvailableCapacityAnnouncementMsg> Finish() {
+  PeerCapacityAnnouncementMsgBuilder &operator=(const PeerCapacityAnnouncementMsgBuilder &);
+  flatbuffers::Offset<PeerCapacityAnnouncementMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<AvailableCapacityAnnouncementMsg>(end);
+    auto o = flatbuffers::Offset<PeerCapacityAnnouncementMsg>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<AvailableCapacityAnnouncementMsg> CreateAvailableCapacityAnnouncementMsg(
+inline flatbuffers::Offset<PeerCapacityAnnouncementMsg> CreatePeerCapacityAnnouncementMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
     int16_t available_capacity = 0,
     uint64_t timestamp = 0) {
-  AvailableCapacityAnnouncementMsgBuilder builder_(_fbb);
+  PeerCapacityAnnouncementMsgBuilder builder_(_fbb);
   builder_.add_timestamp(timestamp);
   builder_.add_available_capacity(available_capacity);
   return builder_.Finish();
@@ -2190,16 +2205,16 @@ inline bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj
       auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::PeerRequirementAnnouncementMsg *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case P2PMsgContent_PeerCapacityAnnouncementMsg: {
+      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::PeerCapacityAnnouncementMsg *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     case P2PMsgContent_PeerListRequestMsg: {
       auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::PeerListRequestMsg *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case P2PMsgContent_PeerListResponseMsg: {
       auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::PeerListResponseMsg *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
-    case P2PMsgContent_AvailableCapacityAnnouncementMsg: {
-      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::AvailableCapacityAnnouncementMsg *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

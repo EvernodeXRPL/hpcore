@@ -2,6 +2,7 @@
 #define _HP_MSG_FBUF_P2PMSG_CONVERSION_
 
 #include "../../pchheader.hpp"
+#include "../../p2p/p2p.hpp"
 #include "p2pmsg_generated.h"
 
 namespace msg::fbuf2::p2pmsg

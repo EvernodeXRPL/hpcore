@@ -64,12 +64,12 @@ namespace msg::fbuf::p2pmsg
         const Container *container = GetContainer(container_buf_ptr);
 
         //check protocol version of message whether it is greater than minimum supported protocol version.
-        const uint16_t version = container->version();
-        if (version < util::MIN_PEERMSG_VERSION)
-        {
-            LOG_DEBUG << "Peer message is from unsupported protocol version (" << version << ").";
-            return -1;
-        }
+        // const uint16_t version = container->version();
+        // if (version < util::MIN_PEERMSG_VERSION)
+        // {
+        //     LOG_DEBUG << "Peer message is from unsupported protocol version (" << version << ").";
+        //     return -1;
+        // }
 
         //check message timestamp (ignore this for large messages).
         if (container_buf_size <= MAX_SIZE_FOR_TIME_CHECK)
@@ -653,7 +653,7 @@ namespace msg::fbuf::p2pmsg
 
         const flatbuffers::Offset<Container> container_message = CreateContainer(
             container_builder,
-            util::PEERMSG_VERSION,
+            1,
             util::get_epoch_milliseconds(),
             pubkey_offset,
             0,
