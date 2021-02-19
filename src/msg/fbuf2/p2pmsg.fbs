@@ -1,0 +1,155 @@
+// IDL file for p2p message definitions.
+// flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg.fbs
+
+namespace msg.fbuf2.p2pmsg;
+
+union P2PMsgContent {
+    PeerChallengeMsg,
+    PeerChallengeResponseMsg,
+    SignedMsg,
+    NonUnlProposalMsg,
+    HpfsRequestMsg,
+    HpfsResponseMsg,
+    PeerRequirementAnnouncementMsg,
+    PeerListRequestMsg,
+    PeerListResponseMsg,
+    AvailableCapacityAnnouncementMsg
+}
+
+table P2PMsg {
+    hp_version:string;
+    content:P2PMsgContent;
+}
+
+enum SignedMsgType : uint16 {
+    Proposal,
+    Npl,
+}
+
+table SignedMsg {
+    type:SignedMsgType; // Message type contained in signed content
+    pubkey:[ubyte];
+    sig:[ubyte]; // Signature of the content
+    content:[ubyte]; // Signed content
+}
+
+table PeerChallengeMsg {
+    contract_id:string;
+    roundtime:uint32;
+    challenge:string;
+}
+
+table PeerChallengeResponseMsg {
+    challenge:string;
+    pubkey:[ubyte];
+    sig:[ubyte];
+}
+
+table UserInput {
+    input_container:[ubyte];
+    sig:[ubyte];
+    protocol:uint8;
+}
+
+table UserInputGroup {
+    pubkey:[ubyte];
+    messages:[UserInput];
+}
+
+table NonUnlProposalMsg {
+    user_inputs:[UserInputGroup];
+}
+
+table ProposalMsg {
+    stage:uint8;
+    time:uint64;
+    roundtime:uint32;
+    nonce: [ubyte];
+    users:[ByteArray];
+    input_hashes:[ByteArray];
+    last_blob_shard_id: SequenceHash;
+    output_hash:[ubyte];
+    output_sig:[ubyte];
+    state_hash: [ubyte];
+    patch_hash: [ubyte];
+}
+
+table NplMsg {
+    data:[ubyte];
+    lcl_id:SequenceHash;
+}
+
+table HpfsRequestMsg {
+    mount_id: uint32;
+    parent_path:string;
+    is_file:bool;
+    block_id:int32;
+    expected_hash:[ubyte];
+}
+
+union HpfsResponse {
+    HpfsFileHashMapResponse,
+    HpfsBlockResponse,
+    HpfsFsEntryResponse
+}
+
+table HpfsResponseMsg{
+    hpfs_response:HpfsResponse;
+    hash:[ubyte];
+    path: string;
+    mount_id: uint32;
+}
+
+table HpfsFsEntryResponse{
+    entries: [HpfsFSHashEntry];
+}
+
+table HpfsFileHashMapResponse{
+    file_length:uint64;
+    hash_map:[ubyte];
+}
+
+table HpfsBlockResponse{
+    block_id:uint32;
+    data: [ubyte];
+}
+
+table HpfsFSHashEntry{
+    name: string;
+    is_file: bool;
+    hash: [ubyte];
+}
+
+table PeerRequirementAnnouncementMsg{
+    need_consensus_msg_forwarding: bool;
+}
+
+table AvailableCapacityAnnouncementMsg{
+    available_capacity:int16;
+    timestamp:uint64;
+}
+
+table PeerListRequestMsg{
+}
+
+table PeerListResponseMsg{
+    peer_list: [PeerProperties];
+}
+
+table PeerProperties {
+    host_address:string;
+    port:uint16;
+    available_capacity:int16;
+    timestamp:uint64;
+}
+
+table SequenceHash {
+    seq_no: uint64;
+    hash: [ubyte];
+}
+
+table ByteArray { // To help represent list of byte arrays
+    array:[ubyte];
+}
+
+root_type P2PMsg; //root type for all messages
