@@ -87,7 +87,7 @@ namespace p2p
 
     struct peer_capacity_announcement
     {
-        uint16_t available_capacity = 0;
+        int16_t available_capacity = 0;
         uint64_t timestamp = 0;
     };
 
@@ -99,8 +99,8 @@ namespace p2p
     // Represents an NPL message sent by a peer.
     struct npl_message
     {
-        std::string pubkey;                       // Peer binary pubkey.
-        p2p::sequence_hash last_primary_shard_id; // Last primary shard of the peer.
+        std::string pubkey;        // Peer binary pubkey.
+        p2p::sequence_hash lcl_id; // lcl of the peer.
         std::string data;
     };
 

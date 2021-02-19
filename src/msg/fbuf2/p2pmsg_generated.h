@@ -180,35 +180,53 @@ template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::PeerListResponseMsg> {
 bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMsgContent type);
 bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-enum SignedMsgType {
-  SignedMsgType_Proposal = 0,
-  SignedMsgType_Npl = 1,
-  SignedMsgType_MIN = SignedMsgType_Proposal,
-  SignedMsgType_MAX = SignedMsgType_Npl
+enum SignedMsgContent {
+  SignedMsgContent_NONE = 0,
+  SignedMsgContent_ProposalMsg = 1,
+  SignedMsgContent_NplMsg = 2,
+  SignedMsgContent_MIN = SignedMsgContent_NONE,
+  SignedMsgContent_MAX = SignedMsgContent_NplMsg
 };
 
-inline const SignedMsgType (&EnumValuesSignedMsgType())[2] {
-  static const SignedMsgType values[] = {
-    SignedMsgType_Proposal,
-    SignedMsgType_Npl
+inline const SignedMsgContent (&EnumValuesSignedMsgContent())[3] {
+  static const SignedMsgContent values[] = {
+    SignedMsgContent_NONE,
+    SignedMsgContent_ProposalMsg,
+    SignedMsgContent_NplMsg
   };
   return values;
 }
 
-inline const char * const *EnumNamesSignedMsgType() {
-  static const char * const names[3] = {
-    "Proposal",
-    "Npl",
+inline const char * const *EnumNamesSignedMsgContent() {
+  static const char * const names[4] = {
+    "NONE",
+    "ProposalMsg",
+    "NplMsg",
     nullptr
   };
   return names;
 }
 
-inline const char *EnumNameSignedMsgType(SignedMsgType e) {
-  if (flatbuffers::IsOutRange(e, SignedMsgType_Proposal, SignedMsgType_Npl)) return "";
+inline const char *EnumNameSignedMsgContent(SignedMsgContent e) {
+  if (flatbuffers::IsOutRange(e, SignedMsgContent_NONE, SignedMsgContent_NplMsg)) return "";
   const size_t index = static_cast<size_t>(e);
-  return EnumNamesSignedMsgType()[index];
+  return EnumNamesSignedMsgContent()[index];
 }
+
+template<typename T> struct SignedMsgContentTraits {
+  static const SignedMsgContent enum_value = SignedMsgContent_NONE;
+};
+
+template<> struct SignedMsgContentTraits<msg::fbuf2::p2pmsg::ProposalMsg> {
+  static const SignedMsgContent enum_value = SignedMsgContent_ProposalMsg;
+};
+
+template<> struct SignedMsgContentTraits<msg::fbuf2::p2pmsg::NplMsg> {
+  static const SignedMsgContent enum_value = SignedMsgContent_NplMsg;
+};
+
+bool VerifySignedMsgContent(flatbuffers::Verifier &verifier, const void *obj, SignedMsgContent type);
+bool VerifySignedMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 enum HpfsResponse {
   HpfsResponse_NONE = 0,
@@ -437,16 +455,26 @@ inline flatbuffers::Offset<P2PMsg> CreateP2PMsgDirect(
 struct SignedMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SignedMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_TYPE = 4,
-    VT_PUBKEY = 6,
-    VT_SIG = 8,
-    VT_CONTENT = 10
+    VT_CONTENT_TYPE = 4,
+    VT_CONTENT = 6,
+    VT_PUBKEY = 8,
+    VT_SIG = 10
   };
-  msg::fbuf2::p2pmsg::SignedMsgType type() const {
-    return static_cast<msg::fbuf2::p2pmsg::SignedMsgType>(GetField<uint16_t>(VT_TYPE, 0));
+  msg::fbuf2::p2pmsg::SignedMsgContent content_type() const {
+    return static_cast<msg::fbuf2::p2pmsg::SignedMsgContent>(GetField<uint8_t>(VT_CONTENT_TYPE, 0));
   }
-  bool mutate_type(msg::fbuf2::p2pmsg::SignedMsgType _type) {
-    return SetField<uint16_t>(VT_TYPE, static_cast<uint16_t>(_type), 0);
+  const void *content() const {
+    return GetPointer<const void *>(VT_CONTENT);
+  }
+  template<typename T> const T *content_as() const;
+  const msg::fbuf2::p2pmsg::ProposalMsg *content_as_ProposalMsg() const {
+    return content_type() == msg::fbuf2::p2pmsg::SignedMsgContent_ProposalMsg ? static_cast<const msg::fbuf2::p2pmsg::ProposalMsg *>(content()) : nullptr;
+  }
+  const msg::fbuf2::p2pmsg::NplMsg *content_as_NplMsg() const {
+    return content_type() == msg::fbuf2::p2pmsg::SignedMsgContent_NplMsg ? static_cast<const msg::fbuf2::p2pmsg::NplMsg *>(content()) : nullptr;
+  }
+  void *mutable_content() {
+    return GetPointer<void *>(VT_CONTENT);
   }
   const flatbuffers::Vector<uint8_t> *pubkey() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
@@ -460,40 +488,42 @@ struct SignedMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_sig() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SIG);
   }
-  const flatbuffers::Vector<uint8_t> *content() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_CONTENT);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_content() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_CONTENT);
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint16_t>(verifier, VT_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_CONTENT_TYPE) &&
+           VerifyOffset(verifier, VT_CONTENT) &&
+           VerifySignedMsgContent(verifier, content(), content_type()) &&
            VerifyOffset(verifier, VT_PUBKEY) &&
            verifier.VerifyVector(pubkey()) &&
            VerifyOffset(verifier, VT_SIG) &&
            verifier.VerifyVector(sig()) &&
-           VerifyOffset(verifier, VT_CONTENT) &&
-           verifier.VerifyVector(content()) &&
            verifier.EndTable();
   }
 };
+
+template<> inline const msg::fbuf2::p2pmsg::ProposalMsg *SignedMsg::content_as<msg::fbuf2::p2pmsg::ProposalMsg>() const {
+  return content_as_ProposalMsg();
+}
+
+template<> inline const msg::fbuf2::p2pmsg::NplMsg *SignedMsg::content_as<msg::fbuf2::p2pmsg::NplMsg>() const {
+  return content_as_NplMsg();
+}
 
 struct SignedMsgBuilder {
   typedef SignedMsg Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_type(msg::fbuf2::p2pmsg::SignedMsgType type) {
-    fbb_.AddElement<uint16_t>(SignedMsg::VT_TYPE, static_cast<uint16_t>(type), 0);
+  void add_content_type(msg::fbuf2::p2pmsg::SignedMsgContent content_type) {
+    fbb_.AddElement<uint8_t>(SignedMsg::VT_CONTENT_TYPE, static_cast<uint8_t>(content_type), 0);
+  }
+  void add_content(flatbuffers::Offset<void> content) {
+    fbb_.AddOffset(SignedMsg::VT_CONTENT, content);
   }
   void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
     fbb_.AddOffset(SignedMsg::VT_PUBKEY, pubkey);
   }
   void add_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig) {
     fbb_.AddOffset(SignedMsg::VT_SIG, sig);
-  }
-  void add_content(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content) {
-    fbb_.AddOffset(SignedMsg::VT_CONTENT, content);
   }
   explicit SignedMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -509,33 +539,32 @@ struct SignedMsgBuilder {
 
 inline flatbuffers::Offset<SignedMsg> CreateSignedMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
-    msg::fbuf2::p2pmsg::SignedMsgType type = msg::fbuf2::p2pmsg::SignedMsgType_Proposal,
+    msg::fbuf2::p2pmsg::SignedMsgContent content_type = msg::fbuf2::p2pmsg::SignedMsgContent_NONE,
+    flatbuffers::Offset<void> content = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> content = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0) {
   SignedMsgBuilder builder_(_fbb);
-  builder_.add_content(content);
   builder_.add_sig(sig);
   builder_.add_pubkey(pubkey);
-  builder_.add_type(type);
+  builder_.add_content(content);
+  builder_.add_content_type(content_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<SignedMsg> CreateSignedMsgDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    msg::fbuf2::p2pmsg::SignedMsgType type = msg::fbuf2::p2pmsg::SignedMsgType_Proposal,
+    msg::fbuf2::p2pmsg::SignedMsgContent content_type = msg::fbuf2::p2pmsg::SignedMsgContent_NONE,
+    flatbuffers::Offset<void> content = 0,
     const std::vector<uint8_t> *pubkey = nullptr,
-    const std::vector<uint8_t> *sig = nullptr,
-    const std::vector<uint8_t> *content = nullptr) {
+    const std::vector<uint8_t> *sig = nullptr) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
-  auto content__ = content ? _fbb.CreateVector<uint8_t>(*content) : 0;
   return msg::fbuf2::p2pmsg::CreateSignedMsg(
       _fbb,
-      type,
+      content_type,
+      content,
       pubkey__,
-      sig__,
-      content__);
+      sig__);
 }
 
 struct PeerChallengeMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -939,11 +968,12 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_NONCE = 10,
     VT_USERS = 12,
     VT_INPUT_HASHES = 14,
-    VT_LAST_BLOB_SHARD_ID = 16,
-    VT_OUTPUT_HASH = 18,
-    VT_OUTPUT_SIG = 20,
-    VT_STATE_HASH = 22,
-    VT_PATCH_HASH = 24
+    VT_LAST_PRIMARY_SHARD_ID = 16,
+    VT_LAST_BLOB_SHARD_ID = 18,
+    VT_OUTPUT_HASH = 20,
+    VT_OUTPUT_SIG = 22,
+    VT_STATE_HASH = 24,
+    VT_PATCH_HASH = 26
   };
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
@@ -980,6 +1010,12 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   flatbuffers::Vector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>> *mutable_input_hashes() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>> *>(VT_INPUT_HASHES);
+  }
+  const msg::fbuf2::p2pmsg::SequenceHash *last_primary_shard_id() const {
+    return GetPointer<const msg::fbuf2::p2pmsg::SequenceHash *>(VT_LAST_PRIMARY_SHARD_ID);
+  }
+  msg::fbuf2::p2pmsg::SequenceHash *mutable_last_primary_shard_id() {
+    return GetPointer<msg::fbuf2::p2pmsg::SequenceHash *>(VT_LAST_PRIMARY_SHARD_ID);
   }
   const msg::fbuf2::p2pmsg::SequenceHash *last_blob_shard_id() const {
     return GetPointer<const msg::fbuf2::p2pmsg::SequenceHash *>(VT_LAST_BLOB_SHARD_ID);
@@ -1024,6 +1060,8 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_INPUT_HASHES) &&
            verifier.VerifyVector(input_hashes()) &&
            verifier.VerifyVectorOfTables(input_hashes()) &&
+           VerifyOffset(verifier, VT_LAST_PRIMARY_SHARD_ID) &&
+           verifier.VerifyTable(last_primary_shard_id()) &&
            VerifyOffset(verifier, VT_LAST_BLOB_SHARD_ID) &&
            verifier.VerifyTable(last_blob_shard_id()) &&
            VerifyOffset(verifier, VT_OUTPUT_HASH) &&
@@ -1060,6 +1098,9 @@ struct ProposalMsgBuilder {
   void add_input_hashes(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>>> input_hashes) {
     fbb_.AddOffset(ProposalMsg::VT_INPUT_HASHES, input_hashes);
   }
+  void add_last_primary_shard_id(flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> last_primary_shard_id) {
+    fbb_.AddOffset(ProposalMsg::VT_LAST_PRIMARY_SHARD_ID, last_primary_shard_id);
+  }
   void add_last_blob_shard_id(flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> last_blob_shard_id) {
     fbb_.AddOffset(ProposalMsg::VT_LAST_BLOB_SHARD_ID, last_blob_shard_id);
   }
@@ -1095,6 +1136,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>>> input_hashes = 0,
+    flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> last_primary_shard_id = 0,
     flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> last_blob_shard_id = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_sig = 0,
@@ -1107,6 +1149,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
   builder_.add_output_sig(output_sig);
   builder_.add_output_hash(output_hash);
   builder_.add_last_blob_shard_id(last_blob_shard_id);
+  builder_.add_last_primary_shard_id(last_primary_shard_id);
   builder_.add_input_hashes(input_hashes);
   builder_.add_users(users);
   builder_.add_nonce(nonce);
@@ -1123,6 +1166,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     const std::vector<uint8_t> *nonce = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>> *input_hashes = nullptr,
+    flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> last_primary_shard_id = 0,
     flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> last_blob_shard_id = 0,
     const std::vector<uint8_t> *output_hash = nullptr,
     const std::vector<uint8_t> *output_sig = nullptr,
@@ -1143,6 +1187,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
       nonce__,
       users__,
       input_hashes__,
+      last_primary_shard_id,
       last_blob_shard_id,
       output_hash__,
       output_sig__,
@@ -2227,6 +2272,35 @@ inline bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const fla
   for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
     if (!VerifyP2PMsgContent(
         verifier,  values->Get(i), types->GetEnum<P2PMsgContent>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool VerifySignedMsgContent(flatbuffers::Verifier &verifier, const void *obj, SignedMsgContent type) {
+  switch (type) {
+    case SignedMsgContent_NONE: {
+      return true;
+    }
+    case SignedMsgContent_ProposalMsg: {
+      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::ProposalMsg *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case SignedMsgContent_NplMsg: {
+      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::NplMsg *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifySignedMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifySignedMsgContent(
+        verifier,  values->Get(i), types->GetEnum<SignedMsgContent>(i))) {
       return false;
     }
   }

@@ -1,6 +1,9 @@
-#include "common_helpers.hpp"
-#include "p2pmsg_conversion.hpp"
 #include "../../hpfs/hpfs_mount.hpp"
+#include "../../unl.hpp"
+#include "../../crypto.hpp"
+#include "common_helpers.hpp"
+#include "flatbuf_hasher.hpp"
+#include "p2pmsg_conversion.hpp"
 
 namespace msg::fbuf2::p2pmsg
 {
@@ -26,9 +29,18 @@ namespace msg::fbuf2::p2pmsg
         const std::vector<conf::peer_properties>,
         const p2p::peer_capacity_announcement,
         const p2p::peer_requirement_announcement,
+        const p2p::proposal,
+        const p2p::npl_message,
         int>
     decode_p2p_message(std::string_view message)
     {
+
+#define DECODE_ERROR(msg) \
+    {                     \
+        LOG_DEBUG << msg; \
+        return -1;        \
+    }
+
         //Accessing message buffer
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(message.data());
         const size_t buf_size = message.size();
@@ -36,42 +48,93 @@ namespace msg::fbuf2::p2pmsg
         //Verify container message using flatbuffer verifier
         flatbuffers::Verifier verifier(buf, buf_size, 16, 100);
         if (!VerifyP2PMsgBuffer(verifier))
-        {
-            LOG_DEBUG << "Flatbuffer verify: Bad peer message.";
-            return -1;
-        }
+            DECODE_ERROR("Flatbuffer verify: Bad peer message.")
 
-        const P2PMsg *pm = GetP2PMsg(buf);
+        const P2PMsg &pm = *GetP2PMsg(buf);
+        const uint64_t created_on = pm.created_on();
 
         //check message timestamp (ignore this for large messages).
         if (buf_size <= MAX_SIZE_FOR_TIME_CHECK)
         {
             const uint64_t time_now = util::get_epoch_milliseconds();
-            if (pm->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
-            {
-                LOG_DEBUG << "Peer message is too old.";
-                return -1;
-            }
+            if (created_on < (time_now - (conf::cfg.contract.roundtime * 4)))
+                DECODE_ERROR("Peer message is too old.")
         }
 
-        switch (pm->content_type())
+        switch (pm.content_type())
         {
         case P2PMsgContent_PeerChallengeMsg:
-            return create_peer_challenge_from_msg(*pm->content_as_PeerChallengeMsg());
+            return create_peer_challenge_from_msg(*pm.content_as_PeerChallengeMsg());
         case P2PMsgContent_PeerChallengeResponseMsg:
-            return create_peer_challenge_response_from_msg(*pm->content_as_PeerChallengeResponseMsg());
+            return create_peer_challenge_response_from_msg(*pm.content_as_PeerChallengeResponseMsg());
         case P2PMsgContent_NonUnlProposalMsg:
-            return create_nonunl_proposal_from_msg(*pm->content_as_NonUnlProposalMsg());
+            return create_nonunl_proposal_from_msg(*pm.content_as_NonUnlProposalMsg());
         case P2PMsgContent_PeerListResponseMsg:
-            return create_peer_list_response_from_msg(*pm->content_as_PeerListResponseMsg());
+            return create_peer_list_response_from_msg(*pm.content_as_PeerListResponseMsg());
         case P2PMsgContent_PeerCapacityAnnouncementMsg:
-            return create_peer_capacity_announcement_from_msg(*pm->content_as_PeerCapacityAnnouncementMsg());
+            return create_peer_capacity_announcement_from_msg(*pm.content_as_PeerCapacityAnnouncementMsg());
         case P2PMsgContent_PeerRequirementAnnouncementMsg:
-            return create_peer_requirement_announcement_from_msg(*pm->content_as_PeerRequirementAnnouncementMsg());
-        default:
-            LOG_DEBUG << "Unrecognized peer message type.";
-            return -1;
+            return create_peer_requirement_announcement_from_msg(*pm.content_as_PeerRequirementAnnouncementMsg());
+        case P2PMsgContent_SignedMsg:
+        {
+            const SignedMsg &sm = *pm.content_as_SignedMsg();
+            std::string_view pubkey = flatbuf_bytes_to_sv(sm.pubkey());
+            std::string_view sig = flatbuf_bytes_to_sv(sm.sig());
+            switch (sm.content_type())
+            {
+            case SignedMsgContent_ProposalMsg:
+            {
+                const ProposalMsg &prop = *sm.content_as_ProposalMsg();
+                if (crypto::verify(generate_proposal_msg_hash(prop), sig, pubkey) == -1)
+                    DECODE_ERROR("Proposal message signature verification failed.")
+
+                return create_proposal_from_msg(prop, pubkey, created_on);
+            }
+            case SignedMsgContent_NplMsg:
+            {
+                const NplMsg &npl = *sm.content_as_NplMsg();
+                if (crypto::verify(generate_npl_msg_hash(npl), sig, pubkey) == -1)
+                    DECODE_ERROR("Npl message signature verification failed.")
+
+                return create_npl_from_msg(npl, pubkey);
+            }
+            default:
+                DECODE_ERROR("Unrecognized signed peer message type.")
+            }
         }
+        default:
+            DECODE_ERROR("Unrecognized peer message type.")
+        }
+    }
+
+    const std::string generate_proposal_msg_hash(const ProposalMsg &msg)
+    {
+        // Get hash of proposal data field values.
+        flatbuf_hasher hasher;
+        hasher.add(msg.stage());
+        hasher.add(msg.time());
+        hasher.add(msg.roundtime());
+        hasher.add(msg.nonce());
+        hasher.add(msg.users());
+        hasher.add(msg.input_hashes());
+        hasher.add(msg.last_primary_shard_id());
+        hasher.add(msg.last_blob_shard_id());
+        hasher.add(msg.output_hash());
+        hasher.add(msg.output_sig());
+        hasher.add(msg.state_hash());
+        hasher.add(msg.patch_hash());
+
+        return hasher.hash();
+    }
+
+    const std::string generate_npl_msg_hash(const NplMsg &msg)
+    {
+        // Get hash of npl message data field values.
+        flatbuf_hasher hasher;
+        hasher.add(msg.data());
+        hasher.add(msg.lcl_id());
+
+        return hasher.hash();
     }
 
     const p2p::peer_challenge create_peer_challenge_from_msg(const PeerChallengeMsg &msg)
@@ -88,6 +151,45 @@ namespace msg::fbuf2::p2pmsg
             std::string(flatbuf_str_to_sv(msg.challenge())),
             std::string(flatbuf_bytes_to_sv(msg.sig())),
             std::string(flatbuf_bytes_to_sv(msg.pubkey()))};
+    }
+
+    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, std::string_view pubkey, const uint64_t timestamp)
+    {
+        p2p::proposal p;
+
+        p.pubkey = pubkey;
+        p.sent_timestamp = timestamp;
+        p.recv_timestamp = util::get_epoch_milliseconds();
+        p.time = msg.time();
+        p.roundtime = msg.roundtime();
+        p.nonce = flatbuf_bytes_to_sv(msg.nonce());
+        p.stage = msg.stage();
+        p.state_hash = flatbuf_bytes_to_sv(msg.state_hash());
+        p.patch_hash = flatbuf_bytes_to_sv(msg.patch_hash());
+        p.last_primary_shard_id = flatbuf_seqhash_to_seqhash(msg.last_primary_shard_id());
+        p.last_blob_shard_id = flatbuf_seqhash_to_seqhash(msg.last_blob_shard_id());
+
+        if (msg.users())
+            p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
+
+        if (msg.input_hashes())
+            p.input_hashes = flatbuf_bytearrayvector_to_stringlist(msg.input_hashes());
+
+        if (msg.output_hash())
+            p.output_hash = flatbuf_bytes_to_sv(msg.output_hash());
+
+        if (msg.output_sig())
+            p.output_sig = flatbuf_bytes_to_sv(msg.output_sig());
+
+        return p;
+    }
+
+    const p2p::npl_message create_npl_from_msg(const NplMsg &msg, const std::string_view pubkey)
+    {
+        return {
+            std::string(pubkey),
+            flatbuf_seqhash_to_seqhash(msg.lcl_id()),
+            std::string(flatbuf_bytes_to_sv(msg.data()))};
     }
 
     const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnlProposalMsg &msg)
@@ -129,10 +231,17 @@ namespace msg::fbuf2::p2pmsg
         return hr;
     }
 
+    p2p::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf2::p2pmsg::SequenceHash *fbseqhash)
+    {
+        return {
+            fbseqhash->seq_no(),
+            flatbuf_bytes_to_hash(fbseqhash->hash())};
+    }
+
     const std::set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec)
     {
         std::set<std::string> set;
-        for (auto el : *fbvec)
+        for (const auto el : *fbvec)
             set.emplace(std::string(flatbuf_bytes_to_sv(el->array())));
         return set;
     }

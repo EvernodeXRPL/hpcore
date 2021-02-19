@@ -882,9 +882,6 @@ namespace consensus
             // lcl to be passed to the contract.
             args.lcl_id = new_lcl_id;
 
-            // This is currently used for npl message checks.
-            args.lasl_primary_shard_id = new_last_primary_shard_id;
-
             // Populate user bufs.
             if (feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop) == -1)
                 return -1;

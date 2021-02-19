@@ -22,16 +22,15 @@ table P2PMsg {
     content:P2PMsgContent;
 }
 
-enum SignedMsgType : uint16 {
-    Proposal,
-    Npl,
+union SignedMsgContent {
+    ProposalMsg,
+    NplMsg,
 }
 
 table SignedMsg {
-    type:SignedMsgType; // Message type contained in signed content
+    content:SignedMsgContent;
     pubkey:[ubyte];
     sig:[ubyte]; // Signature of the content
-    content:[ubyte]; // Signed content
 }
 
 table PeerChallengeMsg {
@@ -68,6 +67,7 @@ table ProposalMsg {
     nonce: [ubyte];
     users:[ByteArray];
     input_hashes:[ByteArray];
+    last_primary_shard_id:SequenceHash;
     last_blob_shard_id: SequenceHash;
     output_hash:[ubyte];
     output_sig:[ubyte];

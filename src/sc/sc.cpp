@@ -552,7 +552,7 @@ namespace sc
         p2p::npl_message npl_msg;
         if (ctx.args.npl_messages.try_dequeue(npl_msg))
         {
-            if (npl_msg.last_primary_shard_id == ctx.args.lasl_primary_shard_id)
+            if (npl_msg.lcl_id == ctx.args.lcl_id)
             {
                 const std::string pubkeyhex = util::to_hex(npl_msg.pubkey);
 
