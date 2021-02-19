@@ -87,7 +87,7 @@ namespace conf
 
         std::string public_key_hex;           // Contract hex public key
         std::string private_key_hex;          // Contract hex private key
-        HISTORY history;                      // Node is a full history if history=full.
+        HISTORY history;                      // Node is a full history node if history=full.
         history_configuration history_config; // Holds history config values. Only applicable if history=custom.
     };
 
