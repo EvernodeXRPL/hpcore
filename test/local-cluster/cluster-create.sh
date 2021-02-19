@@ -83,6 +83,14 @@ do
     peers[i]="node${n}:${peerport}"
     
     # Update config.
+    node_json=$(node -p "JSON.stringify({...require('./tmp.json').node, \
+                    history: 'custom',\
+                    history_config: {\
+                        max_primary_shards: 4,\
+                        max_blob_shards: 4\
+                    }\
+                }, null, 2)")
+
     contract_json=$(node -p "JSON.stringify({...require('./tmp.json').contract, 
                     id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
                     bin_path: '$binary', \
@@ -113,6 +121,7 @@ do
                 }, null, 2)")
 
     node -p "JSON.stringify({...require('./tmp.json'), \
+                node: ${node_json},\
                 contract: ${contract_json},\
                 mesh: ${mesh_json},\
                 user: ${user_json}, \

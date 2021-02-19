@@ -271,12 +271,13 @@ namespace hpfs
                     std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
                     msg::fbuf::p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp->entries());
 
+                    // Commented for now. Need to change the way the hash is calculated once the flatbuffer re-architecture finishes.
                     // Validate received fs data against the hash.
-                    if (!validate_fs_entry_hash(vpath, hash, peer_fs_entry_map))
-                    {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to fs entry hash mismatch.";
-                        continue;
-                    }
+                    // if (!validate_fs_entry_hash(vpath, hash, peer_fs_entry_map))
+                    // {
+                    //     LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to fs entry hash mismatch.";
+                    //     continue;
+                    // }
 
                     handle_fs_entry_response(vpath, peer_fs_entry_map);
                 }
@@ -288,12 +289,13 @@ namespace hpfs
                     const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp->hash_map()->data());
                     const size_t peer_hash_count = file_resp->hash_map()->size() / sizeof(util::h32);
 
+                    // Commented for now. Need to change the way the hash is calculated once the flatbuffer re-architecture finishes.
                     // Validate received hashmap against the hash.
-                    if (!validate_file_hashmap_hash(vpath, hash, peer_hashes, peer_hash_count))
-                    {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to file hashmap hash mismatch.";
-                        continue;
-                    }
+                    // if (!validate_file_hashmap_hash(vpath, hash, peer_hashes, peer_hash_count))
+                    // {
+                    //     LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to file hashmap hash mismatch.";
+                    //     continue;
+                    // }
 
                     handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp->file_length());
                 }
@@ -305,12 +307,13 @@ namespace hpfs
                     const uint32_t block_id = block_resp->block_id();
                     std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_resp->data());
 
+                    // Commented for now. Need to change the way the hash is calculated once the flatbuffer re-architecture finishes.
                     // Validate received block data against the hash.
-                    if (!validate_file_block_hash(hash, block_id, buf))
-                    {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to file block hash mismatch.";
-                        continue;
-                    }
+                    // if (!validate_file_block_hash(hash, block_id, buf))
+                    // {
+                    //     LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to file block hash mismatch.";
+                    //     continue;
+                    // }
 
                     handle_file_block_response(vpath, block_id, buf);
                 }
