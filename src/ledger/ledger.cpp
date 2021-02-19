@@ -30,7 +30,8 @@ namespace ledger
     */
     int init()
     {
-        if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, conf::cfg.node.full_history) == -1)
+        // Full history status is always set to false since this is ledger fs. Historical checkpoints are not required in ledger fs even in full history mode.
+        if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, false) == -1)
         {
             LOG_ERROR << "Ledger file system initialization failed.";
             return -1;
@@ -165,9 +166,9 @@ namespace ledger
         ctx.set_last_primary_shard_id(p2p::sequence_hash{primary_shard_seq_no, last_primary_shard_hash});
 
         //Remove old shards that exceeds max shard range.
-        if (conf::cfg.node.max_shards > 0 && primary_shard_seq_no >= conf::cfg.node.max_shards)
+        if (conf::cfg.node.history == conf::HISTORY::CUSTOM && primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
         {
-            remove_old_shards(primary_shard_seq_no - conf::cfg.node.max_shards + 1, PRIMARY_DIR);
+            remove_old_shards(primary_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
         }
 
         sqlite::close_db(&db);
@@ -252,8 +253,8 @@ namespace ledger
      */
     void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir)
     {
-        // Remove old shards if full history mode is not enabled.
-        if (!conf::cfg.node.full_history)
+        // Remove old shards if this is not a full history node.
+        if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
         {
             const std::string shard_dir_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir);
             std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
@@ -401,9 +402,9 @@ namespace ledger
         ctx.set_last_blob_shard_id(p2p::sequence_hash{last_blob_shard_seq_no, last_shard_hash});
 
         //Remove old shards that exceeds max shard range.
-        if (last_blob_shard_seq_no >= MAX_BLOB_SHARDS)
+        if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
         {
-            remove_old_shards(last_blob_shard_seq_no - MAX_BLOB_SHARDS + 1, BLOB_DIR);
+            remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
         }
 
         return 0;
@@ -498,5 +499,4 @@ namespace ledger
         }
         return 0;
     }
-    
 } // namespace ledger
