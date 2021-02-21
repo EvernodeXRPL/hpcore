@@ -282,11 +282,11 @@ namespace msg::fbuf2::p2pmsg
         return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
     }
 
-    const std::string generate_npl_signature(const p2p::npl_message &npl)
+    const std::string generate_npl_signature(std::string_view data, const p2p::sequence_hash &lcl_id)
     {
         flatbuf_hasher hasher;
-        hasher.add(npl.data);
-        hasher.add(npl.lcl_id);
+        hasher.add(data);
+        hasher.add(lcl_id);
 
         return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
     }
@@ -355,14 +355,14 @@ namespace msg::fbuf2::p2pmsg
         create_p2p_msg(builder, P2PMsgContent_ProposalMsg, msg.Union());
     }
 
-    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, const p2p::npl_message &npl)
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const p2p::sequence_hash &lcl_id)
     {
         const auto msg = CreateNplMsg(
             builder,
             sv_to_flatbuf_bytes(builder, conf::cfg.node.public_key),
-            sv_to_flatbuf_bytes(builder, generate_npl_signature(npl)),
-            sv_to_flatbuf_bytes(builder, npl.data),
-            seqhash_to_flatbuf_seqhash(builder, npl.lcl_id));
+            sv_to_flatbuf_bytes(builder, generate_npl_signature(data, lcl_id)),
+            sv_to_flatbuf_bytes(builder, data),
+            seqhash_to_flatbuf_seqhash(builder, lcl_id));
 
         create_p2p_msg(builder, P2PMsgContent_NplMsg, msg.Union());
     }
@@ -390,11 +390,11 @@ namespace msg::fbuf2::p2pmsg
 
         const auto msg = CreateHpfsResponseMsg(
             builder,
-            HpfsResponse_HpfsFsEntryResponse,
-            child_msg.Union(),
             hash_to_flatbuf_bytes(builder, expected_hash),
             sv_to_flatbuf_str(builder, path),
-            mount_id);
+            mount_id,
+            HpfsResponse_HpfsFsEntryResponse,
+            child_msg.Union());
 
         create_p2p_msg(builder, P2PMsgContent_HpfsResponseMsg, msg.Union());
     }
@@ -412,10 +412,11 @@ namespace msg::fbuf2::p2pmsg
 
         const auto msg = CreateHpfsResponseMsg(
             builder,
-            HpfsResponse_HpfsFileHashMapResponse,
-            child_msg.Union(),
             hash_to_flatbuf_bytes(builder, expected_hash),
-            sv_to_flatbuf_str(builder, path), mount_id);
+            sv_to_flatbuf_str(builder, path),
+            mount_id,
+            HpfsResponse_HpfsFileHashMapResponse,
+            child_msg.Union());
 
         create_p2p_msg(builder, P2PMsgContent_HpfsResponseMsg, msg.Union());
     }
@@ -429,10 +430,11 @@ namespace msg::fbuf2::p2pmsg
 
         const auto msg = CreateHpfsResponseMsg(
             builder,
-            HpfsResponse_HpfsBlockResponse,
-            child_msg.Union(),
             hash_to_flatbuf_bytes(builder, block_resp.hash),
-            sv_to_flatbuf_str(builder, block_resp.path), mount_id);
+            sv_to_flatbuf_str(builder, block_resp.path),
+            mount_id,
+            HpfsResponse_HpfsBlockResponse,
+            child_msg.Union());
 
         create_p2p_msg(builder, P2PMsgContent_HpfsResponseMsg, msg.Union());
     }

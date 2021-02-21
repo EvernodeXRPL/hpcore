@@ -194,7 +194,31 @@ namespace p2p
         }
         else if (mi.type == p2pmsg2::P2PMsgContent_HpfsResponseMsg)
         {
-            // TODO
+            const p2pmsg2::HpfsResponseMsg &resp_msg = *mi.p2p_msg->content_as_HpfsResponseMsg();
+
+            // Only accept hpfs responses if hpfs fs is syncing.
+            if (sc::contract_sync_worker.is_syncing && resp_msg.mount_id() == sc::contract_fs.mount_id)
+            {
+                // Check the cap and insert state_response with lock.
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.contract_hpfs_responses_mutex);
+
+                // If max number of state responses reached skip the rest.
+                if (ctx.collected_msgs.contract_hpfs_responses.size() < p2p::HPFS_RES_LIST_CAP)
+                    ctx.collected_msgs.contract_hpfs_responses.push_back(std::make_pair(session.uniqueid, std::string(message)));
+                else
+                    LOG_DEBUG << "Contract hpfs response rejected. Maximum response count reached. " << session.display_name();
+            }
+            else if (ledger::ledger_sync_worker.is_syncing && resp_msg.mount_id() == ledger::ledger_fs.mount_id)
+            {
+                // Check the cap and insert state_response with lock.
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.ledger_hpfs_responses_mutex);
+
+                // If max number of state responses reached skip the rest.
+                if (ctx.collected_msgs.ledger_hpfs_responses.size() < p2p::HPFS_RES_LIST_CAP)
+                    ctx.collected_msgs.ledger_hpfs_responses.push_back(std::make_pair(session.uniqueid, std::string(message)));
+                else
+                    LOG_DEBUG << "Ledger hpfs response rejected. Maximum response count reached. " << session.display_name();
+            }
         }
         else
         {

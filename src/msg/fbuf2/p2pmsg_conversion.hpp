@@ -51,7 +51,7 @@ namespace msg::fbuf2::p2pmsg
 
     const std::string generate_proposal_signature(const p2p::proposal &p);
 
-    const std::string generate_npl_signature(const p2p::npl_message &npl);
+    const std::string generate_npl_signature(std::string_view data, const p2p::sequence_hash &lcl_id);
 
     void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf2::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content);
 
@@ -63,7 +63,7 @@ namespace msg::fbuf2::p2pmsg
 
     void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p);
 
-    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, const p2p::npl_message &npl);
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const p2p::sequence_hash &lcl_id);
 
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr);
 

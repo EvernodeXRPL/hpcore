@@ -93,10 +93,10 @@ union HpfsResponse {
 }
 
 table HpfsResponseMsg{
-    hpfs_response:HpfsResponse;
     hash:[ubyte];
     path: string;
     mount_id: uint32;
+    content:HpfsResponse;
 }
 
 table HpfsFsEntryResponse{
