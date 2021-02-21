@@ -5,7 +5,7 @@
 #include "../usr/user_input.hpp"
 #include "../util/h32.hpp"
 #include "../conf.hpp"
-#include "../msg/fbuf/p2pmsg_container_generated.h"
+#include "../msg/fbuf2/p2pmsg_generated.h"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
 #include "peer_session_handler.hpp"
@@ -131,6 +131,23 @@ namespace p2p
         util::h32 hash;        // Hash of the bloc data.
     };
 
+    struct decoded_peer_message
+    {
+        const std::variant<const p2p::peer_challenge,
+                           const p2p::peer_challenge_response,
+                           const p2p::nonunl_proposal,
+                           const std::vector<conf::peer_properties>,
+                           const p2p::peer_capacity_announcement,
+                           const p2p::peer_requirement_announcement,
+                           const p2p::proposal,
+                           const p2p::npl_message,
+                           const p2p::hpfs_request,
+                           std::monostate>
+            message;
+        const enum msg::fbuf2::p2pmsg::P2PMsgContent msg_type;
+        const uint64_t originated_on;
+    };
+
     struct message_collection
     {
         std::list<proposal> proposals;
@@ -187,7 +204,13 @@ namespace p2p
 
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey);
 
-    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
+    void handle_proposal_message(const p2p::proposal &p);
+
+    void handle_nonunl_proposal_message(const p2p::nonunl_proposal &nup);
+
+    void handle_npl_message(const p2p::npl_message &npl);
+
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf2::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on);
 
     void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session = NULL);
 

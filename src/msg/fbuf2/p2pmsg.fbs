@@ -65,6 +65,8 @@ table ProposalMsg {
     patch_hash: [ubyte];
     last_primary_shard_id:SequenceHash;
     last_blob_shard_id: SequenceHash;
+
+    // Make sure to update signature generation/verification whenever these fields are changed.
 }
 
 table NplMsg {
@@ -72,6 +74,8 @@ table NplMsg {
     sig:[ubyte]; // Signature of the field data.
     data:[ubyte];
     lcl_id:SequenceHash;
+
+    // Make sure to update signature generation/verification whenever these fields are changed.
 }
 
 table HpfsRequestMsg {

@@ -3,11 +3,14 @@
 #include "../crypto.hpp"
 #include "../util/util.hpp"
 #include "../hplog.hpp"
-#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/fbuf2/common_helpers.hpp"
+#include "../msg/fbuf2/p2pmsg_conversion.hpp"
 #include "../ledger/ledger.hpp"
 #include "p2p.hpp"
 #include "self_node.hpp"
 #include "../unl.hpp"
+
+namespace p2pmsg2 = msg::fbuf2::p2pmsg;
 
 namespace p2p
 {
@@ -170,10 +173,7 @@ namespace p2p
      */
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only)
     {
-        std::string_view msg = std::string_view(
-            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-
-        broadcast_message(msg, send_to_self, is_msg_forwarding, unl_only);
+        broadcast_message(msg::fbuf2::builder_to_string_view(fbuf), send_to_self, is_msg_forwarding, unl_only);
     }
 
     /**
@@ -206,11 +206,11 @@ namespace p2p
 
     /**
      * Check whether the given message is qualified to be forwarded to peers.
-     * @param container The message container.
-     * @param content_message_type The message type.
+     * @param msg_type The message type.
+     * @param originated_on The originated epoch of the received message.
      * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
     */
-    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type)
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf2::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on)
     {
         // Checking whether the message forwarding is enabled.
         if (!conf::cfg.mesh.msg_forwarding)
@@ -218,20 +218,22 @@ namespace p2p
             return false;
         }
 
+        // Only the selected types of messages are forwarded.
+        if (msg_type == p2pmsg2::P2PMsgContent_ProposalMsg ||
+            msg_type == p2pmsg2::P2PMsgContent_NonUnlProposalMsg ||
+            msg_type == p2pmsg2::P2PMsgContent_NplMsg)
+        {
+            return true;
+        }
+
         const uint64_t time_now = util::get_epoch_milliseconds();
-        // Checking the time to live of the container. The time to live for forwarding is three times the round time.
-        if (container->timestamp() < (time_now - (conf::cfg.contract.roundtime * 3)))
+        // Checking the time to live of the message. The time to live for forwarding is three times the round time.
+        if (originated_on < (time_now - (conf::cfg.contract.roundtime * 3)))
         {
             LOG_DEBUG << "Peer message is too old for forwarding.";
             return false;
         }
-        // Only the selected types of messages are forwarded.
-        if (content_message_type == msg::fbuf::p2pmsg::Message_Proposal_Message ||
-            content_message_type == msg::fbuf::p2pmsg::Message_NonUnl_Proposal_Message ||
-            content_message_type == msg::fbuf::p2pmsg::Message_Npl_Message)
-        {
-            return true;
-        }
+
         return false;
     }
 
@@ -272,13 +274,49 @@ namespace p2p
 
             //send message to selected peer.
             peer_comm_session *session = it->second;
-            std::string_view msg = std::string_view(
-                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-
-            session->send(msg);
+            session->send(msg::fbuf2::builder_to_string_view(fbuf));
             target_pubkey = session->uniqueid;
             break;
         }
+    }
+
+    /**
+     * Handle proposal message. This is called from peer and self message handlers.
+    */
+    void handle_proposal_message(const p2p::proposal &p)
+    {
+        // Check the cap and insert proposal with lock.
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.proposals_mutex);
+
+        // If max number of proposals reached skip the rest.
+        if (ctx.collected_msgs.proposals.size() == p2p::PROPOSAL_LIST_CAP)
+            LOG_DEBUG << "Proposal rejected. Maximum proposal count reached.";
+        else
+            ctx.collected_msgs.proposals.push_back(std::move(p));
+    }
+
+    /**
+     * Handle nonunl proposal message. This is called from peer and self message handlers.
+    */
+    void handle_nonunl_proposal_message(const p2p::nonunl_proposal &nup)
+    {
+        // Check the cap and insert proposal with lock.
+        std::scoped_lock<std::mutex> lock(ctx.collected_msgs.nonunl_proposals_mutex);
+
+        // If max number of nonunl proposals reached skip the rest.
+        if (ctx.collected_msgs.nonunl_proposals.size() == p2p::NONUNL_PROPOSAL_LIST_CAP)
+            LOG_DEBUG << "Nonunl proposal rejected. Maximum nonunl proposal count reached. self";
+        else
+            ctx.collected_msgs.nonunl_proposals.push_back(std::move(nup));
+    }
+
+    /**
+     * Handle npl message. This is called from peer and self message handlers.
+     */
+    void handle_npl_message(const p2p::npl_message &npl)
+    {
+        if (!consensus::push_npl_message(npl))
+            LOG_DEBUG << "NPL message from self enqueue failure.";
     }
 
     /**
@@ -288,18 +326,12 @@ namespace p2p
      */
     void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session)
     {
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding, ledger::ctx.get_last_primary_shard_id());
+        flatbuffers::FlatBufferBuilder fbuf;
+        p2pmsg2::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding);
         if (session)
-        {
-            std::string_view msg = std::string_view(
-                reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-            session->send(msg);
-        }
+            session->send(msg::fbuf2::builder_to_string_view(fbuf));
         else
-        {
             broadcast_message(fbuf, false);
-        }
     }
 
     /**
@@ -309,8 +341,8 @@ namespace p2p
     void send_available_capacity_announcement(const int16_t &available_capacity)
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now, ledger::ctx.get_last_primary_shard_id());
+        flatbuffers::FlatBufferBuilder fbuf;
+        p2pmsg2::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now);
         broadcast_message(fbuf, false);
     }
 
@@ -320,11 +352,9 @@ namespace p2p
      */
     void send_known_peer_list(peer_comm_session *session)
     {
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport, ledger::ctx.get_last_primary_shard_id());
-        std::string_view msg = std::string_view(
-            reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
-        session->send(msg);
+        flatbuffers::FlatBufferBuilder fbuf;
+        p2pmsg2::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport);
+        session->send(msg::fbuf2::builder_to_string_view(fbuf));
     }
 
     /**
@@ -354,8 +384,8 @@ namespace p2p
      */
     void send_peer_list_request()
     {
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_peer_list_request(fbuf, ledger::ctx.get_last_primary_shard_id());
+        flatbuffers::FlatBufferBuilder fbuf;
+        p2pmsg2::create_msg_from_peer_list_request(fbuf);
         std::string target_pubkey;
         send_message_to_random_peer(fbuf, target_pubkey);
         LOG_DEBUG << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";

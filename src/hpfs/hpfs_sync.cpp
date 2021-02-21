@@ -490,7 +490,7 @@ namespace hpfs
         hr.expected_hash = expected_hash;
         hr.mount_id = fs_mount->mount_id;
 
-        flatbuffers::FlatBufferBuilder fbuf(1024);
+        flatbuffers::FlatBufferBuilder fbuf;
         msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, last_primary_shard_id);
         p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority hpfs state to improve reliability of retrieving hpfs state.
     }

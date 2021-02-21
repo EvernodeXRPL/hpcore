@@ -22,24 +22,16 @@ namespace msg::fbuf2::p2pmsg
 
     //---Flatbuf to std---//
 
-    const std::variant<
-        const p2p::peer_challenge,
-        const p2p::peer_challenge_response,
-        const p2p::nonunl_proposal,
-        const std::vector<conf::peer_properties>,
-        const p2p::peer_capacity_announcement,
-        const p2p::peer_requirement_announcement,
-        const p2p::proposal,
-        const p2p::npl_message,
-        int>
-    decode_p2p_message(std::string_view message)
+    const p2p::decoded_peer_message decode_p2p_message(std::string_view message)
     {
 
-#define DECODE_ERROR(msg) \
-    {                     \
-        LOG_DEBUG << msg; \
-        return -1;        \
+#define DECODE_ERROR(error)                                                        \
+    {                                                                              \
+        LOG_DEBUG << error;                                                        \
+        return p2p::decoded_peer_message{std::monostate{}, P2PMsgContent_NONE, 0}; \
     }
+
+#define DECODE_SUCCESS(msg) return p2p::decoded_peer_message{msg, msg_type, originated_on};
 
         //Accessing message buffer
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(message.data());
@@ -51,43 +43,51 @@ namespace msg::fbuf2::p2pmsg
             DECODE_ERROR("Flatbuffer verify: Bad peer message.")
 
         const P2PMsg &pm = *GetP2PMsg(buf);
-        const uint64_t created_on = pm.created_on();
+        const enum msg::fbuf2::p2pmsg::P2PMsgContent msg_type = pm.content_type();
+        const uint64_t originated_on = pm.created_on();
 
         //check message timestamp (ignore this for large messages).
         if (buf_size <= MAX_SIZE_FOR_TIME_CHECK)
         {
             const uint64_t time_now = util::get_epoch_milliseconds();
-            if (created_on < (time_now - (conf::cfg.contract.roundtime * 4)))
+            if (originated_on < (time_now - (conf::cfg.contract.roundtime * 4)))
                 DECODE_ERROR("Peer message is too old.")
         }
 
-        switch (pm.content_type())
+        switch (msg_type)
         {
         case P2PMsgContent_PeerChallengeMsg:
-            return create_peer_challenge_from_msg(*pm.content_as_PeerChallengeMsg());
+            DECODE_SUCCESS(create_peer_challenge_from_msg(*pm.content_as_PeerChallengeMsg()))
         case P2PMsgContent_PeerChallengeResponseMsg:
-            return create_peer_challenge_response_from_msg(*pm.content_as_PeerChallengeResponseMsg());
+            DECODE_SUCCESS(create_peer_challenge_response_from_msg(*pm.content_as_PeerChallengeResponseMsg()))
         case P2PMsgContent_NonUnlProposalMsg:
-            return create_nonunl_proposal_from_msg(*pm.content_as_NonUnlProposalMsg());
+            DECODE_SUCCESS(create_nonunl_proposal_from_msg(*pm.content_as_NonUnlProposalMsg()))
         case P2PMsgContent_PeerListResponseMsg:
-            return create_peer_list_response_from_msg(*pm.content_as_PeerListResponseMsg());
+            DECODE_SUCCESS(create_peer_list_response_from_msg(*pm.content_as_PeerListResponseMsg()))
+        case P2PMsgContent_PeerListRequestMsg:
+            DECODE_SUCCESS(std::monostate{});
         case P2PMsgContent_PeerCapacityAnnouncementMsg:
-            return create_peer_capacity_announcement_from_msg(*pm.content_as_PeerCapacityAnnouncementMsg());
+            DECODE_SUCCESS(create_peer_capacity_announcement_from_msg(*pm.content_as_PeerCapacityAnnouncementMsg()))
         case P2PMsgContent_PeerRequirementAnnouncementMsg:
-            return create_peer_requirement_announcement_from_msg(*pm.content_as_PeerRequirementAnnouncementMsg());
+            DECODE_SUCCESS(create_peer_requirement_announcement_from_msg(*pm.content_as_PeerRequirementAnnouncementMsg()))
         case P2PMsgContent_ProposalMsg:
         {
             const ProposalMsg &prop = *pm.content_as_ProposalMsg();
             if (!verify_proposal_msg_signature(prop))
                 DECODE_ERROR("Proposal message signature verification failed.");
-            return create_proposal_from_msg(prop, created_on);
+            DECODE_SUCCESS(create_proposal_from_msg(prop, originated_on))
         }
         case P2PMsgContent_NplMsg:
         {
             const NplMsg &npl = *pm.content_as_NplMsg();
             if (!verify_npl_msg_signature(npl))
                 DECODE_ERROR("Npl message signature verification failed.");
-            return create_npl_from_msg(npl);
+            DECODE_SUCCESS(create_npl_from_msg(npl))
+        }
+        case P2PMsgContent_HpfsRequestMsg:
+            DECODE_SUCCESS(create_hpfs_request_from_msg(*pm.content_as_HpfsRequestMsg()))
+        case P2PMsgContent_HpfsResponseMsg:
+        {
         }
         default:
             DECODE_ERROR("Unrecognized peer message type.")
@@ -141,12 +141,12 @@ namespace msg::fbuf2::p2pmsg
             std::string(flatbuf_bytes_to_sv(msg.pubkey()))};
     }
 
-    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, const uint64_t timestamp)
+    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, const uint64_t originated_on)
     {
         p2p::proposal p;
 
         p.pubkey = flatbuf_bytes_to_sv(msg.pubkey());
-        p.sent_timestamp = timestamp;
+        p.sent_timestamp = originated_on;
         p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
         p.roundtime = msg.roundtime();

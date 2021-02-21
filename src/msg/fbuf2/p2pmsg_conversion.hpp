@@ -3,6 +3,7 @@
 
 #include "../../pchheader.hpp"
 #include "../../p2p/p2p.hpp"
+#include "../../hpfs/hpfs_mount.hpp"
 #include "p2pmsg_generated.h"
 
 namespace msg::fbuf2::p2pmsg
@@ -10,17 +11,7 @@ namespace msg::fbuf2::p2pmsg
 
     //---Flatbuf to std---//
 
-    const std::variant<
-        const p2p::peer_challenge,
-        const p2p::peer_challenge_response,
-        const p2p::nonunl_proposal,
-        const std::vector<conf::peer_properties>,
-        const p2p::peer_capacity_announcement,
-        const p2p::peer_requirement_announcement,
-        const p2p::proposal,
-        const p2p::npl_message,
-        int>
-    decode_p2p_message(std::string_view message);
+    const p2p::decoded_peer_message decode_p2p_message(std::string_view message);
 
     bool verify_proposal_msg_signature(const ProposalMsg &msg);
 
@@ -30,7 +21,7 @@ namespace msg::fbuf2::p2pmsg
 
     const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const PeerChallengeResponseMsg &msg);
 
-    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, const uint64_t timestamp);
+    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, const uint64_t originated_on);
 
     const p2p::npl_message create_npl_from_msg(const NplMsg &msg);
 

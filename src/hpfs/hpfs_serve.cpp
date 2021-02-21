@@ -94,7 +94,7 @@ namespace hpfs
 
                     // Session id is in binary format. Converting to hex before printing.
                     LOG_DEBUG << "Serving hpfs request from [" << util::to_hex(session_id).substr(2, 10) << "]";
-                    flatbuffers::FlatBufferBuilder fbuf(1024);
+                    flatbuffers::FlatBufferBuilder fbuf;
 
                     if (hpfs_serve::create_hpfs_response(fbuf, hr, last_primary_shard_id) == 1)
                     {

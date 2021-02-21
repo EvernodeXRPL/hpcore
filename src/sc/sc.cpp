@@ -649,7 +649,7 @@ namespace sc
 
         if (!output.empty())
         {
-            flatbuffers::FlatBufferBuilder fbuf(1024);
+            flatbuffers::FlatBufferBuilder fbuf;
             msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_last_primary_shard_id());
             p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public);
         }

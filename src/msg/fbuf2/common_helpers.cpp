@@ -26,6 +26,13 @@ namespace msg::fbuf2
         return *reinterpret_cast<const util::h32 *>(buffer->data());
     }
 
+    std::string_view builder_to_string_view(const flatbuffers::FlatBufferBuilder &builder)
+    {
+        std::string_view msg = std::string_view(
+            reinterpret_cast<const char *>(builder.GetBufferPointer()), builder.GetSize());
+        return msg;
+    }
+
     //---std to Flatbuf---//
 
     const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>

@@ -21,6 +21,8 @@ namespace msg::fbuf2
 
     util::h32 flatbuf_bytes_to_hash(const flatbuffers::Vector<uint8_t> *buffer);
 
+    std::string_view builder_to_string_view(const flatbuffers::FlatBufferBuilder &builder);
+
     //---std to Flatbuf---//
 
     const flatbuffers::Offset<flatbuffers::Vector<uint8_t>>
