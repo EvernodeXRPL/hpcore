@@ -1,6 +1,5 @@
 #include "../../pchheader.hpp"
 #include "../../p2p/p2p.hpp"
-#include "ledger_schema_generated.h"
 #include "ledger_blob_schema_generated.h"
 #include "common_helpers.hpp"
 #include "ledger_helpers.hpp"
@@ -25,7 +24,7 @@ namespace msg::fbuf::ledgermsg
 
             for (const auto &input : value)
                 inputs.push_back(ledgermsg::CreateRawInput(builder, sv_to_flatbuff_bytes(builder, input)));
-            
+
             raw_inputs.push_back(ledgermsg::CreateRawInputCollection(
                 builder,
                 sv_to_flatbuff_bytes(builder, key),
@@ -39,7 +38,7 @@ namespace msg::fbuf::ledgermsg
 
             for (const auto &output : value)
                 outputs.push_back(ledgermsg::CreateRawOutput(builder, sv_to_flatbuff_bytes(builder, output)));
-            
+
             raw_outputs.push_back(ledgermsg::CreateRawOutputCollection(
                 builder,
                 sv_to_flatbuff_bytes(builder, key),

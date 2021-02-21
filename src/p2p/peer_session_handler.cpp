@@ -67,8 +67,9 @@ namespace p2p
             LOG_DEBUG << "Duplicate peer message. " << session.display_name();
             return 0;
         }
+
         // Check whether the message is qualified for message forwarding.
-        else if (p2p::validate_for_peer_msg_forwarding(session, mi.type, mi.originated_on))
+        if (p2p::validate_for_peer_msg_forwarding(session, mi.type, mi.originated_on))
         {
             // Npl messages and consensus proposals are forwarded only to unl nodes if relavent flags (npl and consensus) are set to private.
             // If consensus and npl flags are public, these messages are forward to all the connected nodes.
