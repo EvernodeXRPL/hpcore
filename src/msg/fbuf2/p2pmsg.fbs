@@ -59,12 +59,12 @@ table ProposalMsg {
     nonce: [ubyte];
     users:[ByteArray];
     input_hashes:[ByteArray];
-    last_primary_shard_id:SequenceHash;
-    last_blob_shard_id: SequenceHash;
     output_hash:[ubyte];
     output_sig:[ubyte];
     state_hash: [ubyte];
     patch_hash: [ubyte];
+    last_primary_shard_id:SequenceHash;
+    last_blob_shard_id: SequenceHash;
 }
 
 table NplMsg {

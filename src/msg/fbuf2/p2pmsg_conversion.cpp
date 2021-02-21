@@ -318,6 +318,186 @@ namespace msg::fbuf2::p2pmsg
         return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
     }
 
+    void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf2::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content)
+    {
+        const auto p2pmsg = CreateP2PMsg(builder,
+                                         sv_to_flatbuf_str(builder, conf::cfg.hp_version),
+                                         util::get_epoch_milliseconds(),
+                                         content_type,
+                                         content);
+        builder.Finish(p2pmsg);
+    }
+
+    void create_msg_from_peer_challenge(flatbuffers::FlatBufferBuilder &builder, std::string &challenge)
+    {
+        // We calculate the peer challenge to be a random string.
+        crypto::random_bytes(challenge, PEERCHALLENGE_LEN);
+
+        const auto msg = CreatePeerChallengeMsg(
+            builder,
+            sv_to_flatbuf_str(builder, conf::cfg.contract.id),
+            conf::cfg.contract.roundtime,
+            sv_to_flatbuf_str(builder, challenge));
+        create_p2p_msg(builder, P2PMsgContent_PeerChallengeMsg, msg.Union());
+    }
+
+    void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &builder, const std::string &challenge)
+    {
+        const auto msg = CreatePeerChallengeResponseMsg(
+            builder,
+            sv_to_flatbuf_str(builder, challenge),
+            sv_to_flatbuf_bytes(builder, crypto::sign(challenge, conf::cfg.node.private_key)));
+
+        create_p2p_msg(builder, P2PMsgContent_PeerChallengeResponseMsg, msg.Union());
+    }
+
+    void create_msg_from_nonunl_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::nonunl_proposal &nup)
+    {
+        const auto msg = CreateNonUnlProposalMsg(
+            builder,
+            user_input_map_to_flatbuf_user_input_group(builder, nup.user_inputs));
+
+        create_p2p_msg(builder, P2PMsgContent_NonUnlProposalMsg, msg.Union());
+    }
+
+    void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p)
+    {
+        const auto msg = CreateProposalMsg(
+            builder,
+            sv_to_flatbuf_bytes(builder, conf::cfg.node.public_key),
+            sv_to_flatbuf_bytes(builder, generate_proposal_signature(p)),
+            p.stage,
+            p.time,
+            p.roundtime,
+            sv_to_flatbuf_bytes(builder, p.nonce),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.users),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
+            sv_to_flatbuf_bytes(builder, p.output_hash),
+            sv_to_flatbuf_bytes(builder, p.output_sig),
+            hash_to_flatbuf_bytes(builder, p.state_hash),
+            hash_to_flatbuf_bytes(builder, p.patch_hash),
+            seqhash_to_flatbuf_seqhash(builder, p.last_primary_shard_id),
+            seqhash_to_flatbuf_seqhash(builder, p.last_blob_shard_id));
+
+        create_p2p_msg(builder, P2PMsgContent_ProposalMsg, msg.Union());
+    }
+
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, const p2p::npl_message &npl)
+    {
+        const auto msg = CreateNplMsg(
+            builder,
+            sv_to_flatbuf_bytes(builder, conf::cfg.node.public_key),
+            sv_to_flatbuf_bytes(builder, generate_npl_signature(npl)),
+            sv_to_flatbuf_bytes(builder, npl.data),
+            seqhash_to_flatbuf_seqhash(builder, npl.lcl_id));
+
+        create_p2p_msg(builder, P2PMsgContent_NplMsg, msg.Union());
+    }
+
+    void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr)
+    {
+        const auto msg = CreateHpfsRequestMsg(
+            builder,
+            hr.mount_id,
+            sv_to_flatbuf_str(builder, hr.parent_path),
+            hr.is_file,
+            hr.block_id,
+            hash_to_flatbuf_bytes(builder, hr.expected_hash));
+
+        create_p2p_msg(builder, P2PMsgContent_HpfsRequestMsg, msg.Union());
+    }
+
+    void create_msg_from_fsentry_response(
+        flatbuffers::FlatBufferBuilder &builder, const std::string_view path, const uint32_t mount_id,
+        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash)
+    {
+        const auto child_msg = CreateHpfsFsEntryResponse(
+            builder,
+            hpfsfshashentry_to_flatbuf_hpfsfshashentry(builder, hash_nodes));
+
+        const auto msg = CreateHpfsResponseMsg(
+            builder,
+            HpfsResponse_HpfsFsEntryResponse,
+            child_msg.Union(),
+            hash_to_flatbuf_bytes(builder, expected_hash),
+            sv_to_flatbuf_str(builder, path),
+            mount_id);
+
+        create_p2p_msg(builder, P2PMsgContent_HpfsResponseMsg, msg.Union());
+    }
+
+    void create_msg_from_filehashmap_response(
+        flatbuffers::FlatBufferBuilder &builder, std::string_view path, const uint32_t mount_id,
+        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash)
+    {
+        std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(util::h32));
+
+        const auto child_msg = CreateHpfsFileHashMapResponse(
+            builder,
+            file_length,
+            sv_to_flatbuf_bytes(builder, hashmap_sv));
+
+        const auto msg = CreateHpfsResponseMsg(
+            builder,
+            HpfsResponse_HpfsFileHashMapResponse,
+            child_msg.Union(),
+            hash_to_flatbuf_bytes(builder, expected_hash),
+            sv_to_flatbuf_str(builder, path), mount_id);
+
+        create_p2p_msg(builder, P2PMsgContent_HpfsResponseMsg, msg.Union());
+    }
+
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &builder, p2p::block_response &block_resp, const uint32_t mount_id)
+    {
+        const auto child_msg = CreateHpfsBlockResponse(
+            builder,
+            block_resp.block_id,
+            sv_to_flatbuf_bytes(builder, block_resp.data));
+
+        const auto msg = CreateHpfsResponseMsg(
+            builder,
+            HpfsResponse_HpfsBlockResponse,
+            child_msg.Union(),
+            hash_to_flatbuf_bytes(builder, block_resp.hash),
+            sv_to_flatbuf_str(builder, block_resp.path), mount_id);
+
+        create_p2p_msg(builder, P2PMsgContent_HpfsResponseMsg, msg.Union());
+    }
+
+    void create_msg_from_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &builder, const bool need_consensus_msg_forwarding)
+    {
+        const auto msg = CreatePeerRequirementAnnouncementMsg(
+            builder,
+            need_consensus_msg_forwarding);
+
+        create_p2p_msg(builder, P2PMsgContent_PeerRequirementAnnouncementMsg, msg.Union());
+    }
+
+    void create_msg_from_available_capacity_announcement(flatbuffers::FlatBufferBuilder &builder, const int16_t &available_capacity, const uint64_t &timestamp)
+    {
+        const auto msg = CreatePeerCapacityAnnouncementMsg(
+            builder,
+            available_capacity,
+            timestamp);
+
+        create_p2p_msg(builder, P2PMsgContent_PeerCapacityAnnouncementMsg, msg.Union());
+    }
+
+    void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &builder)
+    {
+        const auto msg = CreatePeerListRequestMsg(builder);
+        create_p2p_msg(builder, P2PMsgContent_PeerListRequestMsg, msg.Union());
+    }
+
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port)
+    {
+        const auto msg = CreatePeerListResponseMsg(
+            builder,
+            peer_propertiesvector_to_flatbuf_peer_propertieslist(builder, peers, skipping_ip_port));
+
+        create_p2p_msg(builder, P2PMsgContent_PeerListResponseMsg, msg.Union());
+    }
+
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>
     user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::list<usr::submitted_user_input>> &map)
     {
@@ -343,7 +523,7 @@ namespace msg::fbuf2::p2pmsg
         return builder.CreateVector(fbvec);
     }
 
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>>>
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>>>
     hpfsfshashentry_to_flatbuf_hpfsfshashentry(
         flatbuffers::FlatBufferBuilder &builder,
         std::vector<hpfs::child_hash_node> &hash_nodes)
@@ -380,6 +560,12 @@ namespace msg::fbuf2::p2pmsg
                     peer.timestamp));
         }
         return builder.CreateVector(fbvec);
+    }
+
+    const flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash>
+    seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const p2p::sequence_hash &seqhash)
+    {
+        return CreateSequenceHash(builder, seqhash.seq_no, hash_to_flatbuf_bytes(builder, seqhash.hash));
     }
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
