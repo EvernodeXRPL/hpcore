@@ -75,41 +75,28 @@ namespace msg::fbuf2::p2pmsg
             return create_peer_capacity_announcement_from_msg(*pm.content_as_PeerCapacityAnnouncementMsg());
         case P2PMsgContent_PeerRequirementAnnouncementMsg:
             return create_peer_requirement_announcement_from_msg(*pm.content_as_PeerRequirementAnnouncementMsg());
-        case P2PMsgContent_SignedMsg:
+        case P2PMsgContent_ProposalMsg:
         {
-            const SignedMsg &sm = *pm.content_as_SignedMsg();
-            std::string_view pubkey = flatbuf_bytes_to_sv(sm.pubkey());
-            std::string_view sig = flatbuf_bytes_to_sv(sm.sig());
-            switch (sm.content_type())
-            {
-            case SignedMsgContent_ProposalMsg:
-            {
-                const ProposalMsg &prop = *sm.content_as_ProposalMsg();
-                if (crypto::verify(generate_proposal_msg_hash(prop), sig, pubkey) == -1)
-                    DECODE_ERROR("Proposal message signature verification failed.")
-
-                return create_proposal_from_msg(prop, pubkey, created_on);
-            }
-            case SignedMsgContent_NplMsg:
-            {
-                const NplMsg &npl = *sm.content_as_NplMsg();
-                if (crypto::verify(generate_npl_msg_hash(npl), sig, pubkey) == -1)
-                    DECODE_ERROR("Npl message signature verification failed.")
-
-                return create_npl_from_msg(npl, pubkey);
-            }
-            default:
-                DECODE_ERROR("Unrecognized signed peer message type.")
-            }
+            const ProposalMsg &prop = *pm.content_as_ProposalMsg();
+            if (!verify_proposal_msg_signature(prop))
+                DECODE_ERROR("Proposal message signature verification failed.");
+            return create_proposal_from_msg(prop, created_on);
+        }
+        case P2PMsgContent_NplMsg:
+        {
+            const NplMsg &npl = *pm.content_as_NplMsg();
+            if (!verify_npl_msg_signature(npl))
+                DECODE_ERROR("Npl message signature verification failed.");
+            return create_npl_from_msg(npl);
         }
         default:
             DECODE_ERROR("Unrecognized peer message type.")
         }
     }
 
-    const std::string generate_proposal_msg_hash(const ProposalMsg &msg)
+    bool verify_proposal_msg_signature(const ProposalMsg &msg)
     {
-        // Get hash of proposal data field values.
+        // Get hash of proposal data field values and verify the signature against the hash.
         flatbuf_hasher hasher;
         hasher.add(msg.stage());
         hasher.add(msg.time());
@@ -117,24 +104,25 @@ namespace msg::fbuf2::p2pmsg
         hasher.add(msg.nonce());
         hasher.add(msg.users());
         hasher.add(msg.input_hashes());
-        hasher.add(msg.last_primary_shard_id());
-        hasher.add(msg.last_blob_shard_id());
         hasher.add(msg.output_hash());
         hasher.add(msg.output_sig());
         hasher.add(msg.state_hash());
         hasher.add(msg.patch_hash());
+        hasher.add(msg.last_primary_shard_id());
+        hasher.add(msg.last_blob_shard_id());
 
-        return hasher.hash();
+        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), flatbuf_bytes_to_sv(msg.pubkey())) == 0;
     }
 
-    const std::string generate_npl_msg_hash(const NplMsg &msg)
+    bool verify_npl_msg_signature(const NplMsg &msg)
     {
-        // Get hash of npl message data field values.
+        // Get hash of npl message field values and verify the signature against the hash.
+
         flatbuf_hasher hasher;
         hasher.add(msg.data());
         hasher.add(msg.lcl_id());
 
-        return hasher.hash();
+        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), flatbuf_bytes_to_sv(msg.pubkey())) == 0;
     }
 
     const p2p::peer_challenge create_peer_challenge_from_msg(const PeerChallengeMsg &msg)
@@ -153,11 +141,11 @@ namespace msg::fbuf2::p2pmsg
             std::string(flatbuf_bytes_to_sv(msg.pubkey()))};
     }
 
-    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, std::string_view pubkey, const uint64_t timestamp)
+    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, const uint64_t timestamp)
     {
         p2p::proposal p;
 
-        p.pubkey = pubkey;
+        p.pubkey = flatbuf_bytes_to_sv(msg.pubkey());
         p.sent_timestamp = timestamp;
         p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
@@ -184,10 +172,10 @@ namespace msg::fbuf2::p2pmsg
         return p;
     }
 
-    const p2p::npl_message create_npl_from_msg(const NplMsg &msg, const std::string_view pubkey)
+    const p2p::npl_message create_npl_from_msg(const NplMsg &msg)
     {
         return {
-            std::string(pubkey),
+            std::string(flatbuf_bytes_to_sv(msg.pubkey())),
             flatbuf_seqhash_to_seqhash(msg.lcl_id()),
             std::string(flatbuf_bytes_to_sv(msg.data()))};
     }
@@ -301,6 +289,34 @@ namespace msg::fbuf2::p2pmsg
     }
 
     //---std to Flatbuf---//
+
+    const std::string generate_proposal_signature(const p2p::proposal &p)
+    {
+        flatbuf_hasher hasher;
+        hasher.add(p.stage);
+        hasher.add(p.time);
+        hasher.add(p.roundtime);
+        hasher.add(p.nonce);
+        hasher.add(p.users);
+        hasher.add(p.input_hashes);
+        hasher.add(p.output_hash);
+        hasher.add(p.output_sig);
+        hasher.add(p.state_hash);
+        hasher.add(p.patch_hash);
+        hasher.add(p.last_primary_shard_id);
+        hasher.add(p.last_blob_shard_id);
+
+        return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
+    }
+
+    const std::string generate_npl_signature(const p2p::npl_message &npl)
+    {
+        flatbuf_hasher hasher;
+        hasher.add(npl.data);
+        hasher.add(npl.lcl_id);
+
+        return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
+    }
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>
     user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::list<usr::submitted_user_input>> &map)

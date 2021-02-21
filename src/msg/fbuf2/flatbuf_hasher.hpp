@@ -37,6 +37,17 @@ namespace msg::fbuf2::p2pmsg
             blake3_hasher_update(&hasher, bytes, sizeof(bytes));
         }
 
+        void add(std::string_view sv)
+        {
+            blake3_hasher_update(&hasher, sv.data(), sv.size());
+        }
+
+        void add(const std::set<std::string> &sl)
+        {
+            for(const std::string &s : sl)
+                add(s);
+        }
+
         void add(const flatbuffers::Vector<uint8_t> *v)
         {
             blake3_hasher_update(&hasher, v->data(), v->size());
@@ -46,6 +57,17 @@ namespace msg::fbuf2::p2pmsg
         {
             for (const auto el : *v)
                 add(el->array());
+        }
+
+        void add(const util::h32 &h)
+        {
+            add(h.to_string_view());
+        }
+
+        void add(const p2p::sequence_hash &h)
+        {
+            add(h.seq_no);
+            add(h.hash);
         }
 
         void add(const SequenceHash *h)

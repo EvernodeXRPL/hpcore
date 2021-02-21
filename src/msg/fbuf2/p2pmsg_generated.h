@@ -13,9 +13,6 @@ namespace p2pmsg {
 struct P2PMsg;
 struct P2PMsgBuilder;
 
-struct SignedMsg;
-struct SignedMsgBuilder;
-
 struct PeerChallengeMsg;
 struct PeerChallengeMsgBuilder;
 
@@ -80,25 +77,27 @@ enum P2PMsgContent {
   P2PMsgContent_NONE = 0,
   P2PMsgContent_PeerChallengeMsg = 1,
   P2PMsgContent_PeerChallengeResponseMsg = 2,
-  P2PMsgContent_SignedMsg = 3,
-  P2PMsgContent_NonUnlProposalMsg = 4,
-  P2PMsgContent_HpfsRequestMsg = 5,
-  P2PMsgContent_HpfsResponseMsg = 6,
-  P2PMsgContent_PeerRequirementAnnouncementMsg = 7,
-  P2PMsgContent_PeerCapacityAnnouncementMsg = 8,
-  P2PMsgContent_PeerListRequestMsg = 9,
-  P2PMsgContent_PeerListResponseMsg = 10,
+  P2PMsgContent_NonUnlProposalMsg = 3,
+  P2PMsgContent_ProposalMsg = 4,
+  P2PMsgContent_NplMsg = 5,
+  P2PMsgContent_HpfsRequestMsg = 6,
+  P2PMsgContent_HpfsResponseMsg = 7,
+  P2PMsgContent_PeerRequirementAnnouncementMsg = 8,
+  P2PMsgContent_PeerCapacityAnnouncementMsg = 9,
+  P2PMsgContent_PeerListRequestMsg = 10,
+  P2PMsgContent_PeerListResponseMsg = 11,
   P2PMsgContent_MIN = P2PMsgContent_NONE,
   P2PMsgContent_MAX = P2PMsgContent_PeerListResponseMsg
 };
 
-inline const P2PMsgContent (&EnumValuesP2PMsgContent())[11] {
+inline const P2PMsgContent (&EnumValuesP2PMsgContent())[12] {
   static const P2PMsgContent values[] = {
     P2PMsgContent_NONE,
     P2PMsgContent_PeerChallengeMsg,
     P2PMsgContent_PeerChallengeResponseMsg,
-    P2PMsgContent_SignedMsg,
     P2PMsgContent_NonUnlProposalMsg,
+    P2PMsgContent_ProposalMsg,
+    P2PMsgContent_NplMsg,
     P2PMsgContent_HpfsRequestMsg,
     P2PMsgContent_HpfsResponseMsg,
     P2PMsgContent_PeerRequirementAnnouncementMsg,
@@ -110,12 +109,13 @@ inline const P2PMsgContent (&EnumValuesP2PMsgContent())[11] {
 }
 
 inline const char * const *EnumNamesP2PMsgContent() {
-  static const char * const names[12] = {
+  static const char * const names[13] = {
     "NONE",
     "PeerChallengeMsg",
     "PeerChallengeResponseMsg",
-    "SignedMsg",
     "NonUnlProposalMsg",
+    "ProposalMsg",
+    "NplMsg",
     "HpfsRequestMsg",
     "HpfsResponseMsg",
     "PeerRequirementAnnouncementMsg",
@@ -145,12 +145,16 @@ template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::PeerChallengeResponseM
   static const P2PMsgContent enum_value = P2PMsgContent_PeerChallengeResponseMsg;
 };
 
-template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::SignedMsg> {
-  static const P2PMsgContent enum_value = P2PMsgContent_SignedMsg;
-};
-
 template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::NonUnlProposalMsg> {
   static const P2PMsgContent enum_value = P2PMsgContent_NonUnlProposalMsg;
+};
+
+template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::ProposalMsg> {
+  static const P2PMsgContent enum_value = P2PMsgContent_ProposalMsg;
+};
+
+template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::NplMsg> {
+  static const P2PMsgContent enum_value = P2PMsgContent_NplMsg;
 };
 
 template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::HpfsRequestMsg> {
@@ -179,54 +183,6 @@ template<> struct P2PMsgContentTraits<msg::fbuf2::p2pmsg::PeerListResponseMsg> {
 
 bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMsgContent type);
 bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
-
-enum SignedMsgContent {
-  SignedMsgContent_NONE = 0,
-  SignedMsgContent_ProposalMsg = 1,
-  SignedMsgContent_NplMsg = 2,
-  SignedMsgContent_MIN = SignedMsgContent_NONE,
-  SignedMsgContent_MAX = SignedMsgContent_NplMsg
-};
-
-inline const SignedMsgContent (&EnumValuesSignedMsgContent())[3] {
-  static const SignedMsgContent values[] = {
-    SignedMsgContent_NONE,
-    SignedMsgContent_ProposalMsg,
-    SignedMsgContent_NplMsg
-  };
-  return values;
-}
-
-inline const char * const *EnumNamesSignedMsgContent() {
-  static const char * const names[4] = {
-    "NONE",
-    "ProposalMsg",
-    "NplMsg",
-    nullptr
-  };
-  return names;
-}
-
-inline const char *EnumNameSignedMsgContent(SignedMsgContent e) {
-  if (flatbuffers::IsOutRange(e, SignedMsgContent_NONE, SignedMsgContent_NplMsg)) return "";
-  const size_t index = static_cast<size_t>(e);
-  return EnumNamesSignedMsgContent()[index];
-}
-
-template<typename T> struct SignedMsgContentTraits {
-  static const SignedMsgContent enum_value = SignedMsgContent_NONE;
-};
-
-template<> struct SignedMsgContentTraits<msg::fbuf2::p2pmsg::ProposalMsg> {
-  static const SignedMsgContent enum_value = SignedMsgContent_ProposalMsg;
-};
-
-template<> struct SignedMsgContentTraits<msg::fbuf2::p2pmsg::NplMsg> {
-  static const SignedMsgContent enum_value = SignedMsgContent_NplMsg;
-};
-
-bool VerifySignedMsgContent(flatbuffers::Verifier &verifier, const void *obj, SignedMsgContent type);
-bool VerifySignedMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 enum HpfsResponse {
   HpfsResponse_NONE = 0,
@@ -316,11 +272,14 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf2::p2pmsg::PeerChallengeResponseMsg *content_as_PeerChallengeResponseMsg() const {
     return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_PeerChallengeResponseMsg ? static_cast<const msg::fbuf2::p2pmsg::PeerChallengeResponseMsg *>(content()) : nullptr;
   }
-  const msg::fbuf2::p2pmsg::SignedMsg *content_as_SignedMsg() const {
-    return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_SignedMsg ? static_cast<const msg::fbuf2::p2pmsg::SignedMsg *>(content()) : nullptr;
-  }
   const msg::fbuf2::p2pmsg::NonUnlProposalMsg *content_as_NonUnlProposalMsg() const {
     return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_NonUnlProposalMsg ? static_cast<const msg::fbuf2::p2pmsg::NonUnlProposalMsg *>(content()) : nullptr;
+  }
+  const msg::fbuf2::p2pmsg::ProposalMsg *content_as_ProposalMsg() const {
+    return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_ProposalMsg ? static_cast<const msg::fbuf2::p2pmsg::ProposalMsg *>(content()) : nullptr;
+  }
+  const msg::fbuf2::p2pmsg::NplMsg *content_as_NplMsg() const {
+    return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_NplMsg ? static_cast<const msg::fbuf2::p2pmsg::NplMsg *>(content()) : nullptr;
   }
   const msg::fbuf2::p2pmsg::HpfsRequestMsg *content_as_HpfsRequestMsg() const {
     return content_type() == msg::fbuf2::p2pmsg::P2PMsgContent_HpfsRequestMsg ? static_cast<const msg::fbuf2::p2pmsg::HpfsRequestMsg *>(content()) : nullptr;
@@ -363,12 +322,16 @@ template<> inline const msg::fbuf2::p2pmsg::PeerChallengeResponseMsg *P2PMsg::co
   return content_as_PeerChallengeResponseMsg();
 }
 
-template<> inline const msg::fbuf2::p2pmsg::SignedMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::SignedMsg>() const {
-  return content_as_SignedMsg();
-}
-
 template<> inline const msg::fbuf2::p2pmsg::NonUnlProposalMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::NonUnlProposalMsg>() const {
   return content_as_NonUnlProposalMsg();
+}
+
+template<> inline const msg::fbuf2::p2pmsg::ProposalMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::ProposalMsg>() const {
+  return content_as_ProposalMsg();
+}
+
+template<> inline const msg::fbuf2::p2pmsg::NplMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::NplMsg>() const {
+  return content_as_NplMsg();
 }
 
 template<> inline const msg::fbuf2::p2pmsg::HpfsRequestMsg *P2PMsg::content_as<msg::fbuf2::p2pmsg::HpfsRequestMsg>() const {
@@ -450,121 +413,6 @@ inline flatbuffers::Offset<P2PMsg> CreateP2PMsgDirect(
       created_on,
       content_type,
       content);
-}
-
-struct SignedMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef SignedMsgBuilder Builder;
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_CONTENT_TYPE = 4,
-    VT_CONTENT = 6,
-    VT_PUBKEY = 8,
-    VT_SIG = 10
-  };
-  msg::fbuf2::p2pmsg::SignedMsgContent content_type() const {
-    return static_cast<msg::fbuf2::p2pmsg::SignedMsgContent>(GetField<uint8_t>(VT_CONTENT_TYPE, 0));
-  }
-  const void *content() const {
-    return GetPointer<const void *>(VT_CONTENT);
-  }
-  template<typename T> const T *content_as() const;
-  const msg::fbuf2::p2pmsg::ProposalMsg *content_as_ProposalMsg() const {
-    return content_type() == msg::fbuf2::p2pmsg::SignedMsgContent_ProposalMsg ? static_cast<const msg::fbuf2::p2pmsg::ProposalMsg *>(content()) : nullptr;
-  }
-  const msg::fbuf2::p2pmsg::NplMsg *content_as_NplMsg() const {
-    return content_type() == msg::fbuf2::p2pmsg::SignedMsgContent_NplMsg ? static_cast<const msg::fbuf2::p2pmsg::NplMsg *>(content()) : nullptr;
-  }
-  void *mutable_content() {
-    return GetPointer<void *>(VT_CONTENT);
-  }
-  const flatbuffers::Vector<uint8_t> *pubkey() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
-  }
-  const flatbuffers::Vector<uint8_t> *sig() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIG);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_sig() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SIG);
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_CONTENT_TYPE) &&
-           VerifyOffset(verifier, VT_CONTENT) &&
-           VerifySignedMsgContent(verifier, content(), content_type()) &&
-           VerifyOffset(verifier, VT_PUBKEY) &&
-           verifier.VerifyVector(pubkey()) &&
-           VerifyOffset(verifier, VT_SIG) &&
-           verifier.VerifyVector(sig()) &&
-           verifier.EndTable();
-  }
-};
-
-template<> inline const msg::fbuf2::p2pmsg::ProposalMsg *SignedMsg::content_as<msg::fbuf2::p2pmsg::ProposalMsg>() const {
-  return content_as_ProposalMsg();
-}
-
-template<> inline const msg::fbuf2::p2pmsg::NplMsg *SignedMsg::content_as<msg::fbuf2::p2pmsg::NplMsg>() const {
-  return content_as_NplMsg();
-}
-
-struct SignedMsgBuilder {
-  typedef SignedMsg Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_content_type(msg::fbuf2::p2pmsg::SignedMsgContent content_type) {
-    fbb_.AddElement<uint8_t>(SignedMsg::VT_CONTENT_TYPE, static_cast<uint8_t>(content_type), 0);
-  }
-  void add_content(flatbuffers::Offset<void> content) {
-    fbb_.AddOffset(SignedMsg::VT_CONTENT, content);
-  }
-  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
-    fbb_.AddOffset(SignedMsg::VT_PUBKEY, pubkey);
-  }
-  void add_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig) {
-    fbb_.AddOffset(SignedMsg::VT_SIG, sig);
-  }
-  explicit SignedMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  SignedMsgBuilder &operator=(const SignedMsgBuilder &);
-  flatbuffers::Offset<SignedMsg> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<SignedMsg>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<SignedMsg> CreateSignedMsg(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    msg::fbuf2::p2pmsg::SignedMsgContent content_type = msg::fbuf2::p2pmsg::SignedMsgContent_NONE,
-    flatbuffers::Offset<void> content = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0) {
-  SignedMsgBuilder builder_(_fbb);
-  builder_.add_sig(sig);
-  builder_.add_pubkey(pubkey);
-  builder_.add_content(content);
-  builder_.add_content_type(content_type);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<SignedMsg> CreateSignedMsgDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    msg::fbuf2::p2pmsg::SignedMsgContent content_type = msg::fbuf2::p2pmsg::SignedMsgContent_NONE,
-    flatbuffers::Offset<void> content = 0,
-    const std::vector<uint8_t> *pubkey = nullptr,
-    const std::vector<uint8_t> *sig = nullptr) {
-  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
-  auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
-  return msg::fbuf2::p2pmsg::CreateSignedMsg(
-      _fbb,
-      content_type,
-      content,
-      pubkey__,
-      sig__);
 }
 
 struct PeerChallengeMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -962,19 +810,33 @@ inline flatbuffers::Offset<NonUnlProposalMsg> CreateNonUnlProposalMsgDirect(
 struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ProposalMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_STAGE = 4,
-    VT_TIME = 6,
-    VT_ROUNDTIME = 8,
-    VT_NONCE = 10,
-    VT_USERS = 12,
-    VT_INPUT_HASHES = 14,
-    VT_LAST_PRIMARY_SHARD_ID = 16,
-    VT_LAST_BLOB_SHARD_ID = 18,
-    VT_OUTPUT_HASH = 20,
-    VT_OUTPUT_SIG = 22,
-    VT_STATE_HASH = 24,
-    VT_PATCH_HASH = 26
+    VT_PUBKEY = 4,
+    VT_SIG = 6,
+    VT_STAGE = 8,
+    VT_TIME = 10,
+    VT_ROUNDTIME = 12,
+    VT_NONCE = 14,
+    VT_USERS = 16,
+    VT_INPUT_HASHES = 18,
+    VT_LAST_PRIMARY_SHARD_ID = 20,
+    VT_LAST_BLOB_SHARD_ID = 22,
+    VT_OUTPUT_HASH = 24,
+    VT_OUTPUT_SIG = 26,
+    VT_STATE_HASH = 28,
+    VT_PATCH_HASH = 30
   };
+  const flatbuffers::Vector<uint8_t> *pubkey() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
+  }
+  const flatbuffers::Vector<uint8_t> *sig() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIG);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_sig() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SIG);
+  }
   uint8_t stage() const {
     return GetField<uint8_t>(VT_STAGE, 0);
   }
@@ -1049,6 +911,10 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_PUBKEY) &&
+           verifier.VerifyVector(pubkey()) &&
+           VerifyOffset(verifier, VT_SIG) &&
+           verifier.VerifyVector(sig()) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyField<uint32_t>(verifier, VT_ROUNDTIME) &&
@@ -1080,6 +946,12 @@ struct ProposalMsgBuilder {
   typedef ProposalMsg Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
+    fbb_.AddOffset(ProposalMsg::VT_PUBKEY, pubkey);
+  }
+  void add_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig) {
+    fbb_.AddOffset(ProposalMsg::VT_SIG, sig);
+  }
   void add_stage(uint8_t stage) {
     fbb_.AddElement<uint8_t>(ProposalMsg::VT_STAGE, stage, 0);
   }
@@ -1130,6 +1002,8 @@ struct ProposalMsgBuilder {
 
 inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0,
     uint8_t stage = 0,
     uint64_t time = 0,
     uint32_t roundtime = 0,
@@ -1154,12 +1028,16 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
   builder_.add_users(users);
   builder_.add_nonce(nonce);
   builder_.add_roundtime(roundtime);
+  builder_.add_sig(sig);
+  builder_.add_pubkey(pubkey);
   builder_.add_stage(stage);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *pubkey = nullptr,
+    const std::vector<uint8_t> *sig = nullptr,
     uint8_t stage = 0,
     uint64_t time = 0,
     uint32_t roundtime = 0,
@@ -1172,6 +1050,8 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     const std::vector<uint8_t> *output_sig = nullptr,
     const std::vector<uint8_t> *state_hash = nullptr,
     const std::vector<uint8_t> *patch_hash = nullptr) {
+  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
+  auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
   auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>>(*users) : 0;
   auto input_hashes__ = input_hashes ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf2::p2pmsg::ByteArray>>(*input_hashes) : 0;
@@ -1181,6 +1061,8 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
   auto patch_hash__ = patch_hash ? _fbb.CreateVector<uint8_t>(*patch_hash) : 0;
   return msg::fbuf2::p2pmsg::CreateProposalMsg(
       _fbb,
+      pubkey__,
+      sig__,
       stage,
       time,
       roundtime,
@@ -1198,9 +1080,23 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
 struct NplMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef NplMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_DATA = 4,
-    VT_LCL_ID = 6
+    VT_PUBKEY = 4,
+    VT_SIG = 6,
+    VT_DATA = 8,
+    VT_LCL_ID = 10
   };
+  const flatbuffers::Vector<uint8_t> *pubkey() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
+  }
+  const flatbuffers::Vector<uint8_t> *sig() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_SIG);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_sig() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_SIG);
+  }
   const flatbuffers::Vector<uint8_t> *data() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_DATA);
   }
@@ -1215,6 +1111,10 @@ struct NplMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_PUBKEY) &&
+           verifier.VerifyVector(pubkey()) &&
+           VerifyOffset(verifier, VT_SIG) &&
+           verifier.VerifyVector(sig()) &&
            VerifyOffset(verifier, VT_DATA) &&
            verifier.VerifyVector(data()) &&
            VerifyOffset(verifier, VT_LCL_ID) &&
@@ -1227,6 +1127,12 @@ struct NplMsgBuilder {
   typedef NplMsg Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
+    fbb_.AddOffset(NplMsg::VT_PUBKEY, pubkey);
+  }
+  void add_sig(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig) {
+    fbb_.AddOffset(NplMsg::VT_SIG, sig);
+  }
   void add_data(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data) {
     fbb_.AddOffset(NplMsg::VT_DATA, data);
   }
@@ -1247,21 +1153,31 @@ struct NplMsgBuilder {
 
 inline flatbuffers::Offset<NplMsg> CreateNplMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> data = 0,
     flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> lcl_id = 0) {
   NplMsgBuilder builder_(_fbb);
   builder_.add_lcl_id(lcl_id);
   builder_.add_data(data);
+  builder_.add_sig(sig);
+  builder_.add_pubkey(pubkey);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<NplMsg> CreateNplMsgDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *pubkey = nullptr,
+    const std::vector<uint8_t> *sig = nullptr,
     const std::vector<uint8_t> *data = nullptr,
     flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash> lcl_id = 0) {
+  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
+  auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
   auto data__ = data ? _fbb.CreateVector<uint8_t>(*data) : 0;
   return msg::fbuf2::p2pmsg::CreateNplMsg(
       _fbb,
+      pubkey__,
+      sig__,
       data__,
       lcl_id);
 }
@@ -2230,12 +2146,16 @@ inline bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj
       auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::PeerChallengeResponseMsg *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case P2PMsgContent_SignedMsg: {
-      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::SignedMsg *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
     case P2PMsgContent_NonUnlProposalMsg: {
       auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::NonUnlProposalMsg *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case P2PMsgContent_ProposalMsg: {
+      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::ProposalMsg *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case P2PMsgContent_NplMsg: {
+      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::NplMsg *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case P2PMsgContent_HpfsRequestMsg: {
@@ -2272,35 +2192,6 @@ inline bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const fla
   for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
     if (!VerifyP2PMsgContent(
         verifier,  values->Get(i), types->GetEnum<P2PMsgContent>(i))) {
-      return false;
-    }
-  }
-  return true;
-}
-
-inline bool VerifySignedMsgContent(flatbuffers::Verifier &verifier, const void *obj, SignedMsgContent type) {
-  switch (type) {
-    case SignedMsgContent_NONE: {
-      return true;
-    }
-    case SignedMsgContent_ProposalMsg: {
-      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::ProposalMsg *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
-    case SignedMsgContent_NplMsg: {
-      auto ptr = reinterpret_cast<const msg::fbuf2::p2pmsg::NplMsg *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
-    default: return true;
-  }
-}
-
-inline bool VerifySignedMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
-  if (!values || !types) return !values && !types;
-  if (values->size() != types->size()) return false;
-  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
-    if (!VerifySignedMsgContent(
-        verifier,  values->Get(i), types->GetEnum<SignedMsgContent>(i))) {
       return false;
     }
   }

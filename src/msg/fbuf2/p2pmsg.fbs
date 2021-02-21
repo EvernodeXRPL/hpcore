@@ -6,8 +6,9 @@ namespace msg.fbuf2.p2pmsg;
 union P2PMsgContent {
     PeerChallengeMsg,
     PeerChallengeResponseMsg,
-    SignedMsg,
     NonUnlProposalMsg,
+    ProposalMsg,
+    NplMsg,
     HpfsRequestMsg,
     HpfsResponseMsg,
     PeerRequirementAnnouncementMsg,
@@ -20,17 +21,6 @@ table P2PMsg {
     hp_version:string;
     created_on:uint64;
     content:P2PMsgContent;
-}
-
-union SignedMsgContent {
-    ProposalMsg,
-    NplMsg,
-}
-
-table SignedMsg {
-    content:SignedMsgContent;
-    pubkey:[ubyte];
-    sig:[ubyte]; // Signature of the content
 }
 
 table PeerChallengeMsg {
@@ -61,6 +51,8 @@ table NonUnlProposalMsg {
 }
 
 table ProposalMsg {
+    pubkey:[ubyte]; // Sender pubkey.
+    sig:[ubyte]; // Signature of the field data.
     stage:uint8;
     time:uint64;
     roundtime:uint32;
@@ -76,6 +68,8 @@ table ProposalMsg {
 }
 
 table NplMsg {
+    pubkey:[ubyte]; // Sender pubkey.
+    sig:[ubyte]; // Signature of the field data.
     data:[ubyte];
     lcl_id:SequenceHash;
 }
