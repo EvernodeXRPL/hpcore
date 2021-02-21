@@ -14,12 +14,6 @@ namespace msg::fbuf::p2pmsg
     // Max size of messages which are subjected to time (too old) check.
     constexpr size_t MAX_SIZE_FOR_TIME_CHECK = 1 * 1024 * 1024; // 1 MB
 
-#define DECODE_ERROR(error)                                         \
-    {                                                               \
-        LOG_DEBUG << error;                                         \
-        return p2p::peer_message_info{P2PMsgContent_NONE, 0, NULL}; \
-    }
-
     /**
      * This section contains Flatbuffer message reading/writing helpers.
      * These helpers are mainly used by peer_session_handler and other components which sends outgoing p2p messages.
@@ -29,7 +23,7 @@ namespace msg::fbuf::p2pmsg
 
     //---Flatbuf to std---//
 
-    const p2p::peer_message_info get_peer_message_info(std::string_view message)
+    bool verify_peer_message(std::string_view message)
     {
         // Accessing message buffer
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(message.data());
@@ -37,22 +31,25 @@ namespace msg::fbuf::p2pmsg
 
         // Verify container message using flatbuffer verifier
         flatbuffers::Verifier verifier(buf, buf_size, 16, 100);
-        if (!VerifyP2PMsgBuffer(verifier))
-            DECODE_ERROR("Flatbuffer verify: Bad peer message.")
+        return VerifyP2PMsgBuffer(verifier);
+    }
 
-        const P2PMsg *pm = GetP2PMsg(buf);
-        const enum P2PMsgContent msg_type = pm->content_type();
-        const uint64_t originated_on = pm->created_on();
+    const p2p::peer_message_info get_peer_message_info(std::string_view message)
+    {
+        const auto p2p_msg = p2pmsg::GetP2PMsg(message.data());
 
         // Check message timestamp (ignore this for large messages).
-        if (buf_size <= MAX_SIZE_FOR_TIME_CHECK)
+        if (message.size() <= MAX_SIZE_FOR_TIME_CHECK)
         {
             const uint64_t time_now = util::get_epoch_milliseconds();
-            if (originated_on < (time_now - (conf::cfg.contract.roundtime * 4)))
-                DECODE_ERROR("Peer message is too old.")
+            if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
+            {
+                LOG_DEBUG << "Peer message is too old.";
+                return p2p::peer_message_info{NULL, P2PMsgContent_NONE, 0};
+            }
         }
 
-        return p2p::peer_message_info{msg_type, originated_on, pm};
+        return p2p::peer_message_info{p2p_msg, p2p_msg->content_type(), p2p_msg->created_on()};
     }
 
     bool verify_proposal_msg_signature(const p2p::peer_message_info &mi)
@@ -95,14 +92,14 @@ namespace msg::fbuf::p2pmsg
         return {
             std::string(flatbuf_str_to_sv(msg.contract_id())),
             msg.roundtime(),
-            std::string(flatbuf_str_to_sv(msg.challenge()))};
+            std::string(flatbuf_bytes_to_sv(msg.challenge()))};
     }
 
     const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const p2p::peer_message_info &mi)
     {
         const auto &msg = *mi.p2p_msg->content_as_PeerChallengeResponseMsg();
         return {
-            std::string(flatbuf_str_to_sv(msg.challenge())),
+            std::string(flatbuf_bytes_to_sv(msg.challenge())),
             std::string(flatbuf_bytes_to_sv(msg.sig())),
             std::string(flatbuf_bytes_to_sv(msg.pubkey()))};
     }
@@ -310,16 +307,18 @@ namespace msg::fbuf::p2pmsg
             builder,
             sv_to_flatbuf_str(builder, conf::cfg.contract.id),
             conf::cfg.contract.roundtime,
-            sv_to_flatbuf_str(builder, challenge));
+            sv_to_flatbuf_bytes(builder, challenge));
         create_p2p_msg(builder, P2PMsgContent_PeerChallengeMsg, msg.Union());
     }
 
     void create_peer_challenge_response_from_challenge(flatbuffers::FlatBufferBuilder &builder, const std::string &challenge)
     {
+        const std::string sig = crypto::sign(challenge, conf::cfg.node.private_key);
         const auto msg = CreatePeerChallengeResponseMsg(
             builder,
-            sv_to_flatbuf_str(builder, challenge),
-            sv_to_flatbuf_bytes(builder, crypto::sign(challenge, conf::cfg.node.private_key)));
+            sv_to_flatbuf_bytes(builder, challenge),
+            sv_to_flatbuf_bytes(builder, conf::cfg.node.public_key),
+            sv_to_flatbuf_bytes(builder, sig));
 
         create_p2p_msg(builder, P2PMsgContent_PeerChallengeResponseMsg, msg.Union());
     }

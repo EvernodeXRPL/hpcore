@@ -53,6 +53,13 @@ namespace p2p
         // Adding message size to peer message characters(bytes) per minute counter.
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.size());
 
+        if (!p2pmsg::verify_peer_message(message))
+        {
+            session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+            LOG_DEBUG << "Flatbuffer verify: Bad peer message.";
+            return 0;
+        }
+
         const peer_message_info mi = p2pmsg::get_peer_message_info(message);
 
         if (mi.type == p2pmsg::P2PMsgContent_NONE)
@@ -141,6 +148,10 @@ namespace p2p
             session.need_consensus_msg_forwarding = ann.need_consensus_msg_forwarding;
             LOG_DEBUG << "Peer requirement: " << session.display_name() << " consensus msg forwarding:" << ann.need_consensus_msg_forwarding;
         }
+        else if (mi.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
+        {
+            handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(mi));
+        }
         else if (mi.type == p2pmsg::P2PMsgContent_ProposalMsg)
         {
             if (!p2pmsg::verify_proposal_msg_signature(mi))
@@ -152,7 +163,7 @@ namespace p2p
 
             handle_proposal_message(p2pmsg::create_proposal_from_msg(mi));
         }
-        else if (mi.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
         {
             if (!p2pmsg::verify_npl_msg_signature(mi))
             {
@@ -161,10 +172,6 @@ namespace p2p
                 return 0;
             }
 
-            handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(mi));
-        }
-        else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
-        {
             handle_npl_message(p2pmsg::create_npl_from_msg(mi));
         }
         else if (mi.type == p2pmsg::P2PMsgContent_HpfsRequestMsg)
@@ -234,20 +241,14 @@ namespace p2p
      */
     int handle_self_message(std::string_view message)
     {
-        const peer_message_info msg = p2pmsg::get_peer_message_info(message);
+        const peer_message_info mi = p2pmsg::get_peer_message_info(message);
 
-        if (msg.type == p2pmsg::P2PMsgContent_ProposalMsg)
-        {
-            handle_proposal_message(p2pmsg::create_proposal_from_msg(msg));
-        }
-        else if (msg.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
-        {
-            handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(msg));
-        }
-        else if (msg.type == p2pmsg::P2PMsgContent_NplMsg)
-        {
-            handle_npl_message(p2pmsg::create_npl_from_msg(msg));
-        }
+        if (mi.type == p2pmsg::P2PMsgContent_ProposalMsg)
+            handle_proposal_message(p2pmsg::create_proposal_from_msg(mi));
+        else if (mi.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
+            handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(mi));
+        else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
+            handle_npl_message(p2pmsg::create_npl_from_msg(mi));
 
         return 0;
     }

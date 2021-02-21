@@ -26,11 +26,11 @@ table P2PMsg {
 table PeerChallengeMsg {
     contract_id:string;
     roundtime:uint32;
-    challenge:string;
+    challenge:[ubyte];
 }
 
 table PeerChallengeResponseMsg {
-    challenge:string;
+    challenge:[ubyte];
     pubkey:[ubyte];
     sig:[ubyte];
 }

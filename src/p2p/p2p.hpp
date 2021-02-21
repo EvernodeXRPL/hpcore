@@ -133,9 +133,9 @@ namespace p2p
 
     struct peer_message_info
     {
+        const msg::fbuf::p2pmsg::P2PMsg *p2p_msg = NULL;
         const enum msg::fbuf::p2pmsg::P2PMsgContent type = msg::fbuf::p2pmsg::P2PMsgContent_NONE;
         const uint64_t originated_on = 0;
-        const msg::fbuf::p2pmsg::P2PMsg *p2p_msg = NULL;
     };
 
     struct message_collection

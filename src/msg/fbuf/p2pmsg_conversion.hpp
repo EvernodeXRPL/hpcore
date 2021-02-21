@@ -11,6 +11,8 @@ namespace msg::fbuf::p2pmsg
 
     //---Flatbuf to std---//
 
+    bool verify_peer_message(std::string_view message);
+
     const p2p::peer_message_info get_peer_message_info(std::string_view message);
 
     bool verify_proposal_msg_signature(const p2p::peer_message_info &mi);
