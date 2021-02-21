@@ -131,21 +131,11 @@ namespace p2p
         util::h32 hash;        // Hash of the bloc data.
     };
 
-    struct decoded_peer_message
+    struct peer_message_info
     {
-        const std::variant<const p2p::peer_challenge,
-                           const p2p::peer_challenge_response,
-                           const p2p::nonunl_proposal,
-                           const std::vector<conf::peer_properties>,
-                           const p2p::peer_capacity_announcement,
-                           const p2p::peer_requirement_announcement,
-                           const p2p::proposal,
-                           const p2p::npl_message,
-                           const p2p::hpfs_request,
-                           std::monostate>
-            message;
-        const enum msg::fbuf2::p2pmsg::P2PMsgContent msg_type;
-        const uint64_t originated_on;
+        const enum msg::fbuf2::p2pmsg::P2PMsgContent type = msg::fbuf2::p2pmsg::P2PMsgContent_NONE;
+        const uint64_t originated_on = 0;
+        const msg::fbuf2::p2pmsg::P2PMsg *p2p_msg = NULL;
     };
 
     struct message_collection

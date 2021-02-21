@@ -11,29 +11,29 @@ namespace msg::fbuf2::p2pmsg
 
     //---Flatbuf to std---//
 
-    const p2p::decoded_peer_message decode_p2p_message(std::string_view message);
+    const p2p::peer_message_info get_peer_message_info(std::string_view message);
 
-    bool verify_proposal_msg_signature(const ProposalMsg &msg);
+    bool verify_proposal_msg_signature(const p2p::peer_message_info &mi);
 
-    bool verify_npl_msg_signature(const NplMsg &msg);
+    bool verify_npl_msg_signature(const p2p::peer_message_info &mi);
 
-    const p2p::peer_challenge create_peer_challenge_from_msg(const PeerChallengeMsg &msg);
+    const p2p::peer_challenge create_peer_challenge_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const PeerChallengeResponseMsg &msg);
+    const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::proposal create_proposal_from_msg(const ProposalMsg &msg, const uint64_t originated_on);
+    const p2p::proposal create_proposal_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::npl_message create_npl_from_msg(const NplMsg &msg);
+    const p2p::npl_message create_npl_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const NonUnlProposalMsg &msg);
+    const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const p2p::peer_message_info &mi);
 
-    const std::vector<conf::peer_properties> create_peer_list_response_from_msg(const PeerListResponseMsg &msg);
+    const std::vector<conf::peer_properties> create_peer_list_response_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::peer_capacity_announcement create_peer_capacity_announcement_from_msg(const PeerCapacityAnnouncementMsg &msg);
+    const p2p::peer_capacity_announcement create_peer_capacity_announcement_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::peer_requirement_announcement create_peer_requirement_announcement_from_msg(const PeerRequirementAnnouncementMsg &msg);
+    const p2p::peer_requirement_announcement create_peer_requirement_announcement_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::hpfs_request create_hpfs_request_from_msg(const HpfsRequestMsg &msg);
+    const p2p::hpfs_request create_hpfs_request_from_msg(const p2p::peer_message_info &mi);
 
     p2p::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf2::p2pmsg::SequenceHash *fbseqhash);
 
