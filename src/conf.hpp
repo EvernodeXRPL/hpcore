@@ -45,6 +45,20 @@ namespace conf
         VALIDATOR = 1 // Consensus participant mode.
     };
 
+    // History modes of the node.
+    enum HISTORY
+    {
+        FULL, // Full history mode.
+        CUSTOM
+    };
+
+    // Max number of shards to keep for primary and blob shards.
+    struct history_configuration
+    {
+        uint64_t max_primary_shards; // Maximum number of shards for primary shards.
+        uint64_t max_blob_shards; // Maximum number of shards for blob shards.
+    };
+
     // Log severity levels used in Hot Pocket.
     enum LOG_SEVERITY
     {
@@ -71,10 +85,10 @@ namespace conf
         ROLE role = ROLE::OBSERVER; // Configured startup role of the contract (Observer/validator).
         bool is_unl = false;        // Indicate whether we are a unl node or not.
 
-        std::string public_key_hex;  // Contract hex public key
-        std::string private_key_hex; // Contract hex private key
-        bool full_history = false;   // Whether full history mode is on/off.
-        uint64_t max_shards = 0;     // Maximum number of shards to store.
+        std::string public_key_hex;           // Contract hex public key
+        std::string private_key_hex;          // Contract hex private key
+        HISTORY history;                      // Node is a full history node if history=full.
+        history_configuration history_config; // Holds history config values. Only applicable if history=custom.
     };
 
     struct appbill_config

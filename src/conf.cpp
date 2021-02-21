@@ -22,6 +22,8 @@ namespace conf
 
     constexpr const char *ROLE_OBSERVER = "observer";
     constexpr const char *ROLE_VALIDATOR = "validator";
+    constexpr const char *HISTORY_FULL = "full";
+    constexpr const char *HISTORY_CUSTOM = "custom";
     constexpr const char *PUBLIC = "public";
     constexpr const char *PRIVATE = "private";
 
@@ -134,8 +136,9 @@ namespace conf
             cfg.hp_version = util::HP_VERSION;
 
             cfg.node.role = startup_role = ROLE::VALIDATOR;
-            cfg.node.full_history = false;
-            cfg.node.max_shards = 4;
+            cfg.node.history = HISTORY::CUSTOM;
+            cfg.node.history_config.max_primary_shards = 1;
+            cfg.node.history_config.max_blob_shards = 1;
 
             cfg.contract.id = crypto::generate_uuid();
             cfg.contract.execute = true;
@@ -324,7 +327,35 @@ namespace conf
                 }
                 startup_role = cfg.node.role;
 
-                cfg.node.max_shards = node["max_shards"].as<uint64_t>();
+                if (node["history"] == HISTORY_FULL)
+                    cfg.node.history = HISTORY::FULL;
+                else if (node["history"] == HISTORY_CUSTOM)
+                    cfg.node.history = HISTORY::CUSTOM;
+                else
+                {
+                    std::cerr << "Invalid history mode. 'full' or 'custom' expected.\n";
+                    return -1;
+                }
+
+                cfg.node.history_config.max_primary_shards = node["history_config"]["max_primary_shards"].as<uint64_t>();
+                cfg.node.history_config.max_blob_shards = node["history_config"]["max_blob_shards"].as<uint64_t>();
+
+                // Max shards cannot be zero for primary and blob shards if the history mode is custom.
+                // In history = full, these configs are not used.
+                if (cfg.node.history == HISTORY::CUSTOM)
+                {
+                    if (cfg.node.history_config.max_primary_shards == 0)
+                    {
+                        std::cerr << "'max_primary_shards' cannot be zero in history=custom mode.\n";
+                        return -1;
+                    }
+
+                    if (cfg.node.history_config.max_blob_shards == 0)
+                    {
+                        std::cerr << "'max_blob_shards' cannot be zero in history=custom mode.\n";
+                        return -1;
+                    }
+                }
             }
             catch (const std::exception &e)
             {
@@ -484,7 +515,13 @@ namespace conf
             node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
             // We always save the startup role to config. Not the current role which might get changed dynamically during syncing.
             node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
-            node_config.insert_or_assign("max_shards", cfg.node.max_shards);
+            node_config.insert_or_assign("history", cfg.node.history == HISTORY::FULL ? HISTORY_FULL : HISTORY_CUSTOM);
+            
+            jsoncons::ojson history_config;
+            history_config.insert_or_assign("max_primary_shards", cfg.node.history_config.max_primary_shards);
+            history_config.insert_or_assign("max_blob_shards", cfg.node.history_config.max_blob_shards);
+            node_config.insert_or_assign("history_config", history_config);
+            
             d.insert_or_assign("node", node_config);
         }
 
