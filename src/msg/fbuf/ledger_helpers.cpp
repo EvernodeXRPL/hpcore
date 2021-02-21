@@ -23,11 +23,11 @@ namespace msg::fbuf::ledgermsg
             inputs.reserve(value.size());
 
             for (const auto &input : value)
-                inputs.push_back(ledgermsg::CreateRawInput(builder, sv_to_flatbuff_bytes(builder, input)));
+                inputs.push_back(ledgermsg::CreateRawInput(builder, sv_to_flatbuf_bytes(builder, input)));
 
             raw_inputs.push_back(ledgermsg::CreateRawInputCollection(
                 builder,
-                sv_to_flatbuff_bytes(builder, key),
+                sv_to_flatbuf_bytes(builder, key),
                 builder.CreateVector(inputs)));
         }
 
@@ -37,18 +37,18 @@ namespace msg::fbuf::ledgermsg
             outputs.reserve(value.size());
 
             for (const auto &output : value)
-                outputs.push_back(ledgermsg::CreateRawOutput(builder, sv_to_flatbuff_bytes(builder, output)));
+                outputs.push_back(ledgermsg::CreateRawOutput(builder, sv_to_flatbuf_bytes(builder, output)));
 
             raw_outputs.push_back(ledgermsg::CreateRawOutputCollection(
                 builder,
-                sv_to_flatbuff_bytes(builder, key),
+                sv_to_flatbuf_bytes(builder, key),
                 builder.CreateVector(outputs)));
         }
 
         flatbuffers::Offset<ledgermsg::LedgerBlob> blob =
             ledgermsg::CreateLedgerBlob(
                 builder,
-                hash_to_flatbuff_bytes(builder, ledger_blob.ledger_hash),
+                hash_to_flatbuf_bytes(builder, ledger_blob.ledger_hash),
                 builder.CreateVector(raw_inputs),
                 builder.CreateVector(raw_outputs));
 

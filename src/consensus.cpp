@@ -4,7 +4,7 @@
 #include "usr/usr.hpp"
 #include "usr/user_input.hpp"
 #include "p2p/p2p.hpp"
-#include "msg/fbuf2/p2pmsg_conversion.hpp"
+#include "msg/fbuf/p2pmsg_conversion.hpp"
 #include "msg/usrmsg_parser.hpp"
 #include "msg/usrmsg_common.hpp"
 #include "p2p/peer_session_handler.hpp"
@@ -15,7 +15,7 @@
 #include "ledger/ledger.hpp"
 #include "consensus.hpp"
 
-namespace p2pmsg2 = msg::fbuf2::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace consensus
 {
@@ -401,7 +401,7 @@ namespace consensus
         }
 
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_nonunl_proposal(fbuf, nup);
+        p2pmsg::create_msg_from_nonunl_proposal(fbuf, nup);
         p2p::broadcast_message(fbuf, true);
 
         LOG_DEBUG << "NUP sent."
@@ -419,7 +419,7 @@ namespace consensus
             return;
 
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_proposal(fbuf, p);
+        p2pmsg::create_msg_from_proposal(fbuf, p);
         p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public);
 
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i:" << p.users.size()

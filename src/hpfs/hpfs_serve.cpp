@@ -2,13 +2,13 @@
 #include "../util/h32.hpp"
 #include "../util/util.hpp"
 #include "../p2p/p2p.hpp"
-#include "../msg/fbuf2/p2pmsg_conversion.hpp"
+#include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
 #include "hpfs_serve.hpp"
 #include "hpfs_sync.hpp"
 
-namespace p2pmsg2 = msg::fbuf2::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 /**
  * Class for serving hpfs requests from other peers.
@@ -151,7 +151,7 @@ namespace hpfs
                 resp.hash = hr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                p2pmsg2::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id);
+                p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id);
                 return 1; // Success.
             }
         }
@@ -171,7 +171,7 @@ namespace hpfs
                 }
                 else if (result == 1)
                 {
-                    p2pmsg2::create_msg_from_filehashmap_response(
+                    p2pmsg::create_msg_from_filehashmap_response(
                         fbuf, hr.parent_path, fs_mount->mount_id, block_hashes,
                         file_length, hr.expected_hash);
                     return 1; // Success.
@@ -191,7 +191,7 @@ namespace hpfs
                 }
                 else if (result == 1)
                 {
-                    p2pmsg2::create_msg_from_fsentry_response(
+                    p2pmsg::create_msg_from_fsentry_response(
                         fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash);
                     return 1; // Success.
                 }

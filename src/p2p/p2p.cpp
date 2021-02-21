@@ -3,14 +3,14 @@
 #include "../crypto.hpp"
 #include "../util/util.hpp"
 #include "../hplog.hpp"
-#include "../msg/fbuf2/common_helpers.hpp"
-#include "../msg/fbuf2/p2pmsg_conversion.hpp"
+#include "../msg/fbuf/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../ledger/ledger.hpp"
 #include "p2p.hpp"
 #include "self_node.hpp"
 #include "../unl.hpp"
 
-namespace p2pmsg2 = msg::fbuf2::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
@@ -173,7 +173,7 @@ namespace p2p
      */
     void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only)
     {
-        broadcast_message(msg::fbuf2::builder_to_string_view(fbuf), send_to_self, is_msg_forwarding, unl_only);
+        broadcast_message(msg::fbuf::builder_to_string_view(fbuf), send_to_self, is_msg_forwarding, unl_only);
     }
 
     /**
@@ -210,7 +210,7 @@ namespace p2p
      * @param originated_on The originated epoch of the received message.
      * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
     */
-    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf2::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on)
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on)
     {
         // Checking whether the message forwarding is enabled.
         if (!conf::cfg.mesh.msg_forwarding)
@@ -219,9 +219,9 @@ namespace p2p
         }
 
         // Only the selected types of messages are forwarded.
-        if (msg_type == p2pmsg2::P2PMsgContent_ProposalMsg ||
-            msg_type == p2pmsg2::P2PMsgContent_NonUnlProposalMsg ||
-            msg_type == p2pmsg2::P2PMsgContent_NplMsg)
+        if (msg_type == p2pmsg::P2PMsgContent_ProposalMsg ||
+            msg_type == p2pmsg::P2PMsgContent_NonUnlProposalMsg ||
+            msg_type == p2pmsg::P2PMsgContent_NplMsg)
         {
             return true;
         }
@@ -274,7 +274,7 @@ namespace p2p
 
             //send message to selected peer.
             peer_comm_session *session = it->second;
-            session->send(msg::fbuf2::builder_to_string_view(fbuf));
+            session->send(msg::fbuf::builder_to_string_view(fbuf));
             target_pubkey = session->uniqueid;
             break;
         }
@@ -327,9 +327,9 @@ namespace p2p
     void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session)
     {
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding);
+        p2pmsg::create_msg_from_peer_requirement_announcement(fbuf, need_consensus_msg_forwarding);
         if (session)
-            session->send(msg::fbuf2::builder_to_string_view(fbuf));
+            session->send(msg::fbuf::builder_to_string_view(fbuf));
         else
             broadcast_message(fbuf, false);
     }
@@ -342,7 +342,7 @@ namespace p2p
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now);
+        p2pmsg::create_msg_from_available_capacity_announcement(fbuf, available_capacity, time_now);
         broadcast_message(fbuf, false);
     }
 
@@ -353,8 +353,8 @@ namespace p2p
     void send_known_peer_list(peer_comm_session *session)
     {
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport);
-        session->send(msg::fbuf2::builder_to_string_view(fbuf));
+        p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport);
+        session->send(msg::fbuf::builder_to_string_view(fbuf));
     }
 
     /**
@@ -385,7 +385,7 @@ namespace p2p
     void send_peer_list_request()
     {
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_peer_list_request(fbuf);
+        p2pmsg::create_msg_from_peer_list_request(fbuf);
         std::string target_pubkey;
         send_message_to_random_peer(fbuf, target_pubkey);
         LOG_DEBUG << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";

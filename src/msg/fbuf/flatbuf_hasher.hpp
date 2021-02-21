@@ -5,7 +5,7 @@
 #include "../../util/util.hpp"
 #include "p2pmsg_generated.h"
 
-namespace msg::fbuf2::p2pmsg
+namespace msg::fbuf::p2pmsg
 {
     class flatbuf_hasher
     {

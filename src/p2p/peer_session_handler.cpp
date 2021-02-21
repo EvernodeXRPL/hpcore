@@ -5,15 +5,15 @@
 #include "../util/util.hpp"
 #include "../util/rollover_hashset.hpp"
 #include "../hplog.hpp"
-#include "../msg/fbuf2/p2pmsg_generated.h"
-#include "../msg/fbuf2/p2pmsg_conversion.hpp"
-#include "../msg/fbuf2/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_generated.h"
+#include "../msg/fbuf/p2pmsg_conversion.hpp"
+#include "../msg/fbuf/common_helpers.hpp"
 #include "../ledger/ledger.hpp"
 #include "peer_comm_session.hpp"
 #include "p2p.hpp"
 #include "../unl.hpp"
 
-namespace p2pmsg2 = msg::fbuf2::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
@@ -36,7 +36,7 @@ namespace p2p
 
         // Send peer challenge.
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
+        p2pmsg::create_msg_from_peer_challenge(fbuf, session.issued_challenge);
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
         session.send(msg);
@@ -53,9 +53,9 @@ namespace p2p
         // Adding message size to peer message characters(bytes) per minute counter.
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.size());
 
-        const peer_message_info mi = p2pmsg2::get_peer_message_info(message);
+        const peer_message_info mi = p2pmsg::get_peer_message_info(message);
 
-        if (mi.type == p2pmsg2::P2PMsgContent_NONE)
+        if (mi.type == p2pmsg::P2PMsgContent_NONE)
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
             LOG_DEBUG << "Received invalid peer message type. " << session.display_name();
@@ -73,8 +73,8 @@ namespace p2p
         {
             // Npl messages and consensus proposals are forwarded only to unl nodes if relavent flags (npl and consensus) are set to private.
             // If consensus and npl flags are public, these messages are forward to all the connected nodes.
-            const bool unl_only = (!conf::cfg.contract.is_npl_public && mi.type == p2pmsg2::P2PMsgContent_NplMsg) ||
-                                  (!conf::cfg.contract.is_consensus_public && mi.type == p2pmsg2::P2PMsgContent_ProposalMsg);
+            const bool unl_only = (!conf::cfg.contract.is_npl_public && mi.type == p2pmsg::P2PMsgContent_NplMsg) ||
+                                  (!conf::cfg.contract.is_consensus_public && mi.type == p2pmsg::P2PMsgContent_ProposalMsg);
             if (session.need_consensus_msg_forwarding)
             {
                 // Forward messages received by weakly connected nodes to other peers.
@@ -87,9 +87,9 @@ namespace p2p
             }
         }
 
-        if (mi.type == p2pmsg2::P2PMsgContent_PeerChallengeMsg)
+        if (mi.type == p2pmsg::P2PMsgContent_PeerChallengeMsg)
         {
-            const p2p::peer_challenge chall = p2pmsg2::create_peer_challenge_from_msg(mi);
+            const p2p::peer_challenge chall = p2pmsg::create_peer_challenge_from_msg(mi);
 
             // Check whether contract ids match.
             if (chall.contract_id != conf::cfg.contract.id)
@@ -103,14 +103,14 @@ namespace p2p
 
             // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf;
-            p2pmsg2::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);
-            return session.send(msg::fbuf2::builder_to_string_view(fbuf));
+            p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);
+            return session.send(msg::fbuf::builder_to_string_view(fbuf));
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_PeerChallengeResponseMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_PeerChallengeResponseMsg)
         {
             // Ignore if challenge is already resolved.
             if (session.challenge_status == comm::CHALLENGE_ISSUED)
-                return p2p::resolve_peer_challenge(session, p2pmsg2::create_peer_challenge_response_from_msg(mi));
+                return p2p::resolve_peer_challenge(session, p2pmsg::create_peer_challenge_response_from_msg(mi));
         }
 
         if (session.challenge_status != comm::CHALLENGE_VERIFIED)
@@ -119,57 +119,57 @@ namespace p2p
             return 0;
         }
 
-        if (mi.type == p2pmsg2::P2PMsgContent_PeerListResponseMsg)
+        if (mi.type == p2pmsg::P2PMsgContent_PeerListResponseMsg)
         {
-            p2p::merge_peer_list(p2pmsg2::create_peer_list_response_from_msg(mi));
+            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(mi));
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_PeerListRequestMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_PeerListRequestMsg)
         {
             p2p::send_known_peer_list(&session);
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_PeerCapacityAnnouncementMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_PeerCapacityAnnouncementMsg)
         {
             if (session.known_ipport.has_value())
             {
-                const p2p::peer_capacity_announcement ann = p2pmsg2::create_peer_capacity_announcement_from_msg(mi);
+                const p2p::peer_capacity_announcement ann = p2pmsg::create_peer_capacity_announcement_from_msg(mi);
                 p2p::update_known_peer_available_capacity(session.known_ipport.value(), ann.available_capacity, ann.timestamp);
             }
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_PeerRequirementAnnouncementMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_PeerRequirementAnnouncementMsg)
         {
-            const p2p::peer_requirement_announcement ann = p2pmsg2::create_peer_requirement_announcement_from_msg(mi);
+            const p2p::peer_requirement_announcement ann = p2pmsg::create_peer_requirement_announcement_from_msg(mi);
             session.need_consensus_msg_forwarding = ann.need_consensus_msg_forwarding;
             LOG_DEBUG << "Peer requirement: " << session.display_name() << " consensus msg forwarding:" << ann.need_consensus_msg_forwarding;
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_ProposalMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_ProposalMsg)
         {
-            if (!p2pmsg2::verify_proposal_msg_signature(mi))
+            if (!p2pmsg::verify_proposal_msg_signature(mi))
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "Proposal rejected due to trust failure. " << session.display_name();
                 return 0;
             }
 
-            handle_proposal_message(p2pmsg2::create_proposal_from_msg(mi));
+            handle_proposal_message(p2pmsg::create_proposal_from_msg(mi));
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_NonUnlProposalMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
         {
-            if (!p2pmsg2::verify_npl_msg_signature(mi))
+            if (!p2pmsg::verify_npl_msg_signature(mi))
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "Npl message rejected due to trust failure. " << session.display_name();
                 return 0;
             }
 
-            handle_nonunl_proposal_message(p2pmsg2::create_nonunl_proposal_from_msg(mi));
+            handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(mi));
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_NplMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
         {
-            handle_npl_message(p2pmsg2::create_npl_from_msg(mi));
+            handle_npl_message(p2pmsg::create_npl_from_msg(mi));
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_HpfsRequestMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_HpfsRequestMsg)
         {
-            const p2p::hpfs_request hr = p2pmsg2::create_hpfs_request_from_msg(mi);
+            const p2p::hpfs_request hr = p2pmsg::create_hpfs_request_from_msg(mi);
             if (hr.mount_id == sc::contract_fs.mount_id)
             {
                 // Check the cap and insert request with lock.
@@ -193,9 +193,9 @@ namespace p2p
                     LOG_DEBUG << "Hpfs ledger fs request rejected. Maximum hpfs ledger fs request count reached. " << session.display_name();
             }
         }
-        else if (mi.type == p2pmsg2::P2PMsgContent_HpfsResponseMsg)
+        else if (mi.type == p2pmsg::P2PMsgContent_HpfsResponseMsg)
         {
-            const p2pmsg2::HpfsResponseMsg &resp_msg = *mi.p2p_msg->content_as_HpfsResponseMsg();
+            const p2pmsg::HpfsResponseMsg &resp_msg = *mi.p2p_msg->content_as_HpfsResponseMsg();
 
             // Only accept hpfs responses if hpfs fs is syncing.
             if (sc::contract_sync_worker.is_syncing && resp_msg.mount_id() == sc::contract_fs.mount_id)
@@ -234,19 +234,19 @@ namespace p2p
      */
     int handle_self_message(std::string_view message)
     {
-        const peer_message_info msg = p2pmsg2::get_peer_message_info(message);
+        const peer_message_info msg = p2pmsg::get_peer_message_info(message);
 
-        if (msg.type == p2pmsg2::P2PMsgContent_ProposalMsg)
+        if (msg.type == p2pmsg::P2PMsgContent_ProposalMsg)
         {
-            handle_proposal_message(p2pmsg2::create_proposal_from_msg(msg));
+            handle_proposal_message(p2pmsg::create_proposal_from_msg(msg));
         }
-        else if (msg.type == p2pmsg2::P2PMsgContent_NonUnlProposalMsg)
+        else if (msg.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
         {
-            handle_nonunl_proposal_message(p2pmsg2::create_nonunl_proposal_from_msg(msg));
+            handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(msg));
         }
-        else if (msg.type == p2pmsg2::P2PMsgContent_NplMsg)
+        else if (msg.type == p2pmsg::P2PMsgContent_NplMsg)
         {
-            handle_npl_message(p2pmsg2::create_npl_from_msg(msg));
+            handle_npl_message(p2pmsg::create_npl_from_msg(msg));
         }
 
         return 0;

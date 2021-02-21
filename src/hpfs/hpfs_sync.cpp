@@ -1,7 +1,7 @@
 #include "../pchheader.hpp"
-#include "../msg/fbuf2/p2pmsg_conversion.hpp"
-#include "../msg/fbuf2/p2pmsg_generated.h"
-#include "../msg/fbuf2/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_conversion.hpp"
+#include "../msg/fbuf/p2pmsg_generated.h"
+#include "../msg/fbuf/common_helpers.hpp"
 #include "../p2p/p2p.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
@@ -9,7 +9,7 @@
 #include "../crypto.hpp"
 #include "hpfs_sync.hpp"
 
-namespace p2pmsg2 = msg::fbuf2::p2pmsg;
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace hpfs
 {
@@ -240,12 +240,12 @@ namespace hpfs
 
                 LOG_DEBUG << "Hpfs " << name << " sync: Processing hpfs response from [" << response.first.substr(2, 10) << "]";
 
-                const p2pmsg2::P2PMsg &msg = *p2pmsg2::GetP2PMsg(response.second.data());
-                const p2pmsg2::HpfsResponseMsg &resp_msg = *msg.content_as_HpfsResponseMsg();
+                const p2pmsg::P2PMsg &msg = *p2pmsg::GetP2PMsg(response.second.data());
+                const p2pmsg::HpfsResponseMsg &resp_msg = *msg.content_as_HpfsResponseMsg();
 
                 // Check whether we are actually waiting for this response. If not, ignore it.
-                std::string_view hash = msg::fbuf2::flatbuf_bytes_to_sv(resp_msg.hash());
-                std::string_view vpath = msg::fbuf2::flatbuf_str_to_sv(resp_msg.path());
+                std::string_view hash = msg::fbuf::flatbuf_bytes_to_sv(resp_msg.hash());
+                std::string_view vpath = msg::fbuf::flatbuf_str_to_sv(resp_msg.path());
 
                 const std::string key = std::string(vpath).append(hash);
                 const auto pending_resp_itr = submitted_requests.find(key);
@@ -256,15 +256,15 @@ namespace hpfs
                 }
 
                 // Process the message based on response type.
-                const p2pmsg2::HpfsResponse msg_type = resp_msg.content_type();
+                const p2pmsg::HpfsResponse msg_type = resp_msg.content_type();
 
-                if (msg_type == p2pmsg2::HpfsResponse_HpfsFsEntryResponse)
+                if (msg_type == p2pmsg::HpfsResponse_HpfsFsEntryResponse)
                 {
-                    const p2pmsg2::HpfsFsEntryResponse &fs_resp = *resp_msg.content_as_HpfsFsEntryResponse();
+                    const p2pmsg::HpfsFsEntryResponse &fs_resp = *resp_msg.content_as_HpfsFsEntryResponse();
 
                     // Get fs entries we have received.
                     std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
-                    p2pmsg2::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp.entries());
+                    p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp.entries());
 
                     // Validate received fs data against the hash.
                     if (!validate_fs_entry_hash(vpath, hash, peer_fs_entry_map))
@@ -275,9 +275,9 @@ namespace hpfs
 
                     handle_fs_entry_response(vpath, peer_fs_entry_map);
                 }
-                else if (msg_type == p2pmsg2::HpfsResponse_HpfsFileHashMapResponse)
+                else if (msg_type == p2pmsg::HpfsResponse_HpfsFileHashMapResponse)
                 {
-                    const p2pmsg2::HpfsFileHashMapResponse &file_resp = *resp_msg.content_as_HpfsFileHashMapResponse();
+                    const p2pmsg::HpfsFileHashMapResponse &file_resp = *resp_msg.content_as_HpfsFileHashMapResponse();
 
                     // File block hashes we received from the peer.
                     const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp.hash_map()->data());
@@ -292,13 +292,13 @@ namespace hpfs
 
                     handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp.file_length());
                 }
-                else if (msg_type == p2pmsg2::HpfsResponse_HpfsBlockResponse)
+                else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
-                    const p2pmsg2::HpfsBlockResponse &block_resp = *resp_msg.content_as_HpfsBlockResponse();
+                    const p2pmsg::HpfsBlockResponse &block_resp = *resp_msg.content_as_HpfsBlockResponse();
 
                     // Get the file path of the block data we have received.
                     const uint32_t block_id = block_resp.block_id();
-                    std::string_view buf = msg::fbuf2::flatbuf_bytes_to_sv(block_resp.data());
+                    std::string_view buf = msg::fbuf::flatbuf_bytes_to_sv(block_resp.data());
 
                     // Validate received block data against the hash.
                     if (!validate_file_block_hash(hash, block_id, buf))
@@ -485,7 +485,7 @@ namespace hpfs
         hr.mount_id = fs_mount->mount_id;
 
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg2::create_msg_from_hpfs_request(fbuf, hr);
+        p2pmsg::create_msg_from_hpfs_request(fbuf, hr);
         p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the expected hash to improve reliability of retrieving hpfs state.
     }
 

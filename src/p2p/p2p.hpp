@@ -5,7 +5,7 @@
 #include "../usr/user_input.hpp"
 #include "../util/h32.hpp"
 #include "../conf.hpp"
-#include "../msg/fbuf2/p2pmsg_generated.h"
+#include "../msg/fbuf/p2pmsg_generated.h"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
 #include "peer_session_handler.hpp"
@@ -133,9 +133,9 @@ namespace p2p
 
     struct peer_message_info
     {
-        const enum msg::fbuf2::p2pmsg::P2PMsgContent type = msg::fbuf2::p2pmsg::P2PMsgContent_NONE;
+        const enum msg::fbuf::p2pmsg::P2PMsgContent type = msg::fbuf::p2pmsg::P2PMsgContent_NONE;
         const uint64_t originated_on = 0;
-        const msg::fbuf2::p2pmsg::P2PMsg *p2p_msg = NULL;
+        const msg::fbuf::p2pmsg::P2PMsg *p2p_msg = NULL;
     };
 
     struct message_collection
@@ -200,7 +200,7 @@ namespace p2p
 
     void handle_npl_message(const p2p::npl_message &npl);
 
-    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf2::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on);
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on);
 
     void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session = NULL);
 

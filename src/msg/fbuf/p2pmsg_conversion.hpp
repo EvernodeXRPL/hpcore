@@ -6,7 +6,7 @@
 #include "../../hpfs/hpfs_mount.hpp"
 #include "p2pmsg_generated.h"
 
-namespace msg::fbuf2::p2pmsg
+namespace msg::fbuf::p2pmsg
 {
 
     //---Flatbuf to std---//
@@ -35,7 +35,7 @@ namespace msg::fbuf2::p2pmsg
 
     const p2p::hpfs_request create_hpfs_request_from_msg(const p2p::peer_message_info &mi);
 
-    p2p::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf2::p2pmsg::SequenceHash *fbseqhash);
+    p2p::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf::p2pmsg::SequenceHash *fbseqhash);
 
     const std::set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
 
@@ -53,7 +53,7 @@ namespace msg::fbuf2::p2pmsg
 
     const std::string generate_npl_signature(std::string_view data, const p2p::sequence_hash &lcl_id);
 
-    void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf2::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content);
+    void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content);
 
     void create_msg_from_peer_challenge(flatbuffers::FlatBufferBuilder &builder, std::string &challenge);
 
@@ -96,7 +96,7 @@ namespace msg::fbuf2::p2pmsg
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<PeerProperties>>>
     peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
 
-    const flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash>
+    const flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash>
     seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const p2p::sequence_hash &seqhash);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>

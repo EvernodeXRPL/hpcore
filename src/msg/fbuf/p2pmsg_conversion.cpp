@@ -6,7 +6,7 @@
 #include "flatbuf_hasher.hpp"
 #include "p2pmsg_conversion.hpp"
 
-namespace msg::fbuf2::p2pmsg
+namespace msg::fbuf::p2pmsg
 {
     // Length of a peer connection challange.
     constexpr size_t PEERCHALLENGE_LEN = 16;
@@ -291,7 +291,7 @@ namespace msg::fbuf2::p2pmsg
         return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
     }
 
-    void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf2::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content)
+    void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content)
     {
         const auto p2pmsg = CreateP2PMsg(builder,
                                          sv_to_flatbuf_str(builder, conf::cfg.hp_version),
@@ -537,7 +537,7 @@ namespace msg::fbuf2::p2pmsg
         return builder.CreateVector(fbvec);
     }
 
-    const flatbuffers::Offset<msg::fbuf2::p2pmsg::SequenceHash>
+    const flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash>
     seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const p2p::sequence_hash &seqhash)
     {
         return CreateSequenceHash(builder, seqhash.seq_no, hash_to_flatbuf_bytes(builder, seqhash.hash));

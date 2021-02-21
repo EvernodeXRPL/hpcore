@@ -1,7 +1,7 @@
 // IDL file for p2p message definitions.
 // flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg.fbs
 
-namespace msg.fbuf2.p2pmsg;
+namespace msg.fbuf.p2pmsg;
 
 union P2PMsgContent {
     PeerChallengeMsg,
