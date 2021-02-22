@@ -421,28 +421,28 @@ namespace ledger
     /**
      * Get last ledger and update the context.
      * @param session_name Hpfs session name.
-     * @param last_primary_shard_seq_no Last primary shard sequence number.
+     * @param last_primary_shard_id Last primary shard id.
      * @return Returns 0 on success -1 on error.
      */
-    int get_last_ledger_and_update_context(std::string_view session_name, const uint64_t last_primary_shard_seq_no)
+    int get_last_ledger_and_update_context(std::string_view session_name, const p2p::sequence_hash &last_primary_shard_id)
     {
-        if (last_primary_shard_seq_no == 0)
+        sqlite3 *db = NULL;
+        const std::string shard_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(last_primary_shard_id.seq_no);
+
+        if (last_primary_shard_id.seq_no == 0 && last_primary_shard_id.hash == util::h32_empty)
         {
-            // This is the genesis ledger.
+           // This is the genesis ledger.
             ctx.set_lcl_id(p2p::sequence_hash{0, util::h32_empty});
             return 0;
         }
 
-        sqlite3 *db = NULL;
-        const std::string shard_dir_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR);
-        const std::string shard_path = shard_dir_path + "/" + std::to_string(last_primary_shard_seq_no);
         if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
         {
-            LOG_ERROR << errno << ": Error openning the shard database, shard: " << last_primary_shard_seq_no;
+            LOG_ERROR << errno << ": Error openning the shard database, shard: " << last_primary_shard_id.seq_no;
             return -1;
         }
 
-        sqlite::ledger last_ledger = sqlite::get_last_ledger(db);
+        const sqlite::ledger last_ledger = sqlite::get_last_ledger(db);
         sqlite::close_db(&db);
 
         // Update new lcl information.

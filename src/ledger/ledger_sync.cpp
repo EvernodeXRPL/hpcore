@@ -54,13 +54,13 @@ namespace ledger
                     LOG_ERROR << "Error updating max shard meta file in primary shard sync.";
                     return;
                 }
-
-                if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, synced_shard_seq_no) == -1)
+                const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, synced_target.hash};
+                if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id) == -1)
                 {
                     LOG_ERROR << "Error updating context from the synced shard " << synced_target.name;
                     return;
                 }
-                ctx.set_last_primary_shard_id(p2p::sequence_hash{synced_shard_seq_no, synced_target.hash});
+                ctx.set_last_primary_shard_id(updated_primary_shard_id);
                 last_primary_shard_seq_no = synced_shard_seq_no;
             }
 
