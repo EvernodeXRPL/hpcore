@@ -472,7 +472,9 @@ namespace ledger
             if (errno == ENOENT)
             {
                 LOG_DEBUG << "Max shard sequence meta file not found. Starting from zero. " << last_shard_seq_no_path;
-                return 0; // Return defaults of sequence hash(0 for shard_seq_no and empty hash for shard hash).
+                // Return defaults of sequence hash(0 for shard_seq_no and empty hash for shard hash).
+                last_shard_id = {};
+                return 0;
             }
             else
             {
