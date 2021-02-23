@@ -266,13 +266,12 @@ namespace hpfs
                     std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
                     p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp.entries());
 
-                    // Commented for now. Need to change the way the hash is calculated once the flatbuffer re-architecture finishes.
                     // Validate received fs data against the hash.
-                    // if (!validate_fs_entry_hash(vpath, hash, peer_fs_entry_map))
-                    // {
-                    //     LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to fs entry hash mismatch.";
-                    //     continue;
-                    // }
+                    if (!validate_fs_entry_hash(vpath, hash, fs_resp.dir_mode(), peer_fs_entry_map))
+                    {
+                        LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to fs entry hash mismatch.";
+                        continue;
+                    }
 
                     handle_fs_entry_response(vpath, peer_fs_entry_map);
                 }
@@ -281,17 +280,17 @@ namespace hpfs
                     const p2pmsg::HpfsFileHashMapResponse &file_resp = *resp_msg.content_as_HpfsFileHashMapResponse();
 
                     // File block hashes we received from the peer.
-                    const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp.hash_map()->data());
-                    const size_t peer_hash_count = file_resp.hash_map()->size() / sizeof(util::h32);
+                    const util::h32 *block_hashes = reinterpret_cast<const util::h32 *>(file_resp.hash_map()->data());
+                    const size_t block_hash_count = file_resp.hash_map()->size() / sizeof(util::h32);
 
                     // Validate received hashmap against the hash.
-                    if (!validate_file_hashmap_hash(vpath, hash, peer_hashes, peer_hash_count))
+                    if (!validate_file_hashmap_hash(vpath, hash, file_resp.file_mode(), block_hashes, block_hash_count))
                     {
                         LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to file hashmap hash mismatch.";
                         continue;
                     }
 
-                    handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp.file_length());
+                    handle_file_hashmap_response(vpath, block_hashes, block_hash_count, file_resp.file_length());
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
@@ -392,17 +391,23 @@ namespace hpfs
      * Vadidated the received hash against the received fs entry map.
      * @param vpath Virtual path of the fs.
      * @param hash Received hash.
+     * @param dir_mode Metdata 'mode' of the directory containing the fs entries.
      * @param fs_entry_map Received fs entry map.
      * @returns true if hash is valid, otherwise false.
     */
-    bool hpfs_sync::validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
+    bool hpfs_sync::validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
+                                           const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
     {
         util::h32 content_hash;
 
         const std::string vpath_name = util::get_name(vpath);
 
-        // Initilal hash is vpath hash.
+        // Initilal hash is vpath hash + mode hash.
         content_hash = crypto::get_hash(vpath_name);
+
+        uint8_t mode_bytes[4];
+        util::uint32_to_bytes(mode_bytes, dir_mode);
+        content_hash ^= crypto::get_hash(mode_bytes, sizeof(mode_bytes));
 
         // Then XOR the file hashes to the initial hash.
         for (const auto &[name, fs_entry] : fs_entry_map)
@@ -417,18 +422,24 @@ namespace hpfs
      * Vadidated the received hash against the received file hash map.
      * @param vpath Virtual path of the file.
      * @param hash Received hash.
+     * @param Metadata 'mode' of the file.
      * @param hashes Received block hashes.
      * @param hash_count Size of the hash list.
      * @returns true if hash is valid, otherwise false.
     */
-    bool hpfs_sync::validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const util::h32 *hashes, const size_t hash_count)
+    bool hpfs_sync::validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const mode_t file_mode,
+                                               const util::h32 *hashes, const size_t hash_count)
     {
         util::h32 content_hash = util::h32_empty;
 
         const std::string vpath_name = util::get_name(vpath);
 
-        // Initilal hash is vpath hash.
+        // Initilal hash is vpath hash + mode hash.
         content_hash = crypto::get_hash(vpath_name);
+
+        uint8_t mode_bytes[4];
+        util::uint32_to_bytes(mode_bytes, file_mode);
+        content_hash ^= crypto::get_hash(mode_bytes, sizeof(mode_bytes));
 
         // Then XOR the block hashes to the initial hash.
         for (int32_t block_id = 0; block_id < hash_count; block_id++)
