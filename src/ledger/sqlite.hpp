@@ -54,7 +54,7 @@ namespace ledger::sqlite
         std::string input_hash_hex;
         std::string output_hash_hex;
 
-        ledger() {};
+        ledger(){};
 
         ledger(
             const uint64_t seq_no,

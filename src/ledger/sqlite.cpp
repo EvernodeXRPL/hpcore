@@ -287,7 +287,6 @@ namespace ledger::sqlite
         if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK &&
             stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW)
         {
-            // Finalize and distroys the statement.
             ledger.seq_no = sqlite3_column_int64(stmt, 0);
             ledger.time = sqlite3_column_int64(stmt, 1);
             ledger.ledger_hash_hex = std::string((char *)sqlite3_column_text(stmt, 2));
@@ -300,6 +299,7 @@ namespace ledger::sqlite
             ledger.output_hash_hex = std::string((char *)sqlite3_column_text(stmt, 9));
         }
 
+        // Finalize and distroys the statement.
         sqlite3_finalize(stmt);
         return ledger;
     }
