@@ -161,6 +161,11 @@ namespace crypto
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
 
+        if (sw_vect.empty())
+        {
+            return hash;
+        }
+
         // Init stream hashing.
         blake3_hasher hasher;
         blake3_hasher_init(&hasher);
@@ -182,6 +187,11 @@ namespace crypto
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
+
+        if (sw_set.empty())
+        {
+            return hash;
+        }
 
         // Init stream hashing.
         blake3_hasher hasher;
