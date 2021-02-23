@@ -411,11 +411,34 @@ namespace util
         return fcntl(fd, F_SETLKW, &lock);
     }
 
-    /**
-     * Convert given little endian byte stream to uint64_t.
-     * @param data Byte stream to be converted.
-     * @return Returns converted uint64_t.
-    */
+    void uint32_to_bytes(uint8_t *dest, const uint32_t x)
+    {
+        dest[0] = (uint8_t)((x >> 24) & 0xff);
+        dest[1] = (uint8_t)((x >> 16) & 0xff);
+        dest[2] = (uint8_t)((x >> 8) & 0xff);
+        dest[3] = (uint8_t)((x >> 0) & 0xff);
+    }
+
+    uint32_t uint32_from_bytes(const uint8_t *data)
+    {
+        return ((uint32_t)data[0] << 24) +
+               ((uint32_t)data[1] << 16) +
+               ((uint32_t)data[2] << 8) +
+               ((uint32_t)data[3]);
+    }
+
+    void uint64_to_bytes(uint8_t *dest, const uint64_t x)
+    {
+        dest[0] = (uint8_t)((x >> 56) & 0xff);
+        dest[1] = (uint8_t)((x >> 48) & 0xff);
+        dest[2] = (uint8_t)((x >> 40) & 0xff);
+        dest[3] = (uint8_t)((x >> 32) & 0xff);
+        dest[4] = (uint8_t)((x >> 24) & 0xff);
+        dest[5] = (uint8_t)((x >> 16) & 0xff);
+        dest[6] = (uint8_t)((x >> 8) & 0xff);
+        dest[7] = (uint8_t)((x >> 0) & 0xff);
+    }
+
     uint64_t uint64_from_bytes(const uint8_t *data)
     {
         return ((uint64_t)data[0] << 56) +
@@ -428,17 +451,4 @@ namespace util
                ((uint64_t)data[7]);
     }
 
-    /**
-     * Convert given uint64_t to little endian byte stream.
-     * @param dest Byte stream to be populated.
-     * @param x uint64_t to be converted.
-    */
-    void uint64_to_bytes(uint8_t *dest, uint64_t x)
-    {
-        for (int j = 0; j < 8; j++)
-        {
-            *(dest + (7 - j)) = x & 0xff;
-            x >>= 8;
-        }
-    }
 } // namespace util

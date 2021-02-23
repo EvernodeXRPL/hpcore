@@ -1,15 +1,15 @@
-#include "../msg/fbuf/p2pmsg_helpers.hpp"
-#include "../msg/fbuf/p2pmsg_content_generated.h"
+#include "../pchheader.hpp"
+#include "../msg/fbuf/p2pmsg_conversion.hpp"
+#include "../msg/fbuf/p2pmsg_generated.h"
 #include "../msg/fbuf/common_helpers.hpp"
 #include "../p2p/p2p.hpp"
-#include "../pchheader.hpp"
-#include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
+#include "../crypto.hpp"
 #include "hpfs_sync.hpp"
-#include "../sc/sc.hpp"
-#include "../unl.hpp"
+
+namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace hpfs
 {
@@ -209,10 +209,8 @@ namespace hpfs
     */
     int hpfs_sync::request_loop(const util::h32 current_target_hash, util::h32 &updated_state)
     {
-        p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
-
         // Send the initial root hpfs request of the current target.
-        submit_request(backlog_item{current_target.item_type, current_target.vpath, -1, current_target_hash}, last_primary_shard_id);
+        submit_request(backlog_item{current_target.item_type, current_target.vpath, -1, current_target_hash});
 
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
@@ -225,9 +223,6 @@ namespace hpfs
             // Wait a small delay if there were no responses processed during previous iteration.
             if (!prev_responses_processed)
                 util::sleep(REQUEST_LOOP_WAIT);
-
-            // Get the current last shard information.
-            last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
 
             // Move the received hpfs responses to the local response list.
             swap_collected_responses();
@@ -245,12 +240,12 @@ namespace hpfs
 
                 LOG_DEBUG << "Hpfs " << name << " sync: Processing hpfs response from [" << response.first.substr(2, 10) << "]";
 
-                const msg::fbuf::p2pmsg::Content *content = msg::fbuf::p2pmsg::GetContent(response.second.data());
-                const msg::fbuf::p2pmsg::Hpfs_Response_Message *resp_msg = content->message_as_Hpfs_Response_Message();
+                const p2pmsg::P2PMsg &msg = *p2pmsg::GetP2PMsg(response.second.data());
+                const p2pmsg::HpfsResponseMsg &resp_msg = *msg.content_as_HpfsResponseMsg();
 
                 // Check whether we are actually waiting for this response. If not, ignore it.
-                std::string_view hash = msg::fbuf::flatbuff_bytes_to_sv(resp_msg->hash());
-                std::string_view vpath = msg::fbuf::flatbuff_str_to_sv(resp_msg->path());
+                std::string_view hash = msg::fbuf::flatbuf_bytes_to_sv(resp_msg.hash());
+                std::string_view vpath = msg::fbuf::flatbuf_str_to_sv(resp_msg.path());
 
                 const std::string key = std::string(vpath).append(hash);
                 const auto pending_resp_itr = submitted_requests.find(key);
@@ -261,15 +256,15 @@ namespace hpfs
                 }
 
                 // Process the message based on response type.
-                const msg::fbuf::p2pmsg::Hpfs_Response msg_type = resp_msg->hpfs_response_type();
+                const p2pmsg::HpfsResponse msg_type = resp_msg.content_type();
 
-                if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Fs_Entry_Response)
+                if (msg_type == p2pmsg::HpfsResponse_HpfsFsEntryResponse)
                 {
-                    const msg::fbuf::p2pmsg::Fs_Entry_Response *fs_resp = resp_msg->hpfs_response_as_Fs_Entry_Response();
+                    const p2pmsg::HpfsFsEntryResponse &fs_resp = *resp_msg.content_as_HpfsFsEntryResponse();
 
                     // Get fs entries we have received.
                     std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
-                    msg::fbuf::p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp->entries());
+                    p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp.entries());
 
                     // Commented for now. Need to change the way the hash is calculated once the flatbuffer re-architecture finishes.
                     // Validate received fs data against the hash.
@@ -281,13 +276,13 @@ namespace hpfs
 
                     handle_fs_entry_response(vpath, peer_fs_entry_map);
                 }
-                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_File_HashMap_Response)
+                else if (msg_type == p2pmsg::HpfsResponse_HpfsFileHashMapResponse)
                 {
-                    const msg::fbuf::p2pmsg::File_HashMap_Response *file_resp = resp_msg->hpfs_response_as_File_HashMap_Response();
+                    const p2pmsg::HpfsFileHashMapResponse &file_resp = *resp_msg.content_as_HpfsFileHashMapResponse();
 
                     // File block hashes we received from the peer.
-                    const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp->hash_map()->data());
-                    const size_t peer_hash_count = file_resp->hash_map()->size() / sizeof(util::h32);
+                    const util::h32 *peer_hashes = reinterpret_cast<const util::h32 *>(file_resp.hash_map()->data());
+                    const size_t peer_hash_count = file_resp.hash_map()->size() / sizeof(util::h32);
 
                     // Commented for now. Need to change the way the hash is calculated once the flatbuffer re-architecture finishes.
                     // Validate received hashmap against the hash.
@@ -297,15 +292,15 @@ namespace hpfs
                     //     continue;
                     // }
 
-                    handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp->file_length());
+                    handle_file_hashmap_response(vpath, peer_hashes, peer_hash_count, file_resp.file_length());
                 }
-                else if (msg_type == msg::fbuf::p2pmsg::Hpfs_Response_Block_Response)
+                else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
-                    const msg::fbuf::p2pmsg::Block_Response *block_resp = resp_msg->hpfs_response_as_Block_Response();
+                    const p2pmsg::HpfsBlockResponse &block_resp = *resp_msg.content_as_HpfsBlockResponse();
 
                     // Get the file path of the block data we have received.
-                    const uint32_t block_id = block_resp->block_id();
-                    std::string_view buf = msg::fbuf::flatbuff_bytes_to_sv(block_resp->data());
+                    const uint32_t block_id = block_resp.block_id();
+                    std::string_view buf = msg::fbuf::flatbuf_bytes_to_sv(block_resp.data());
 
                     // Commented for now. Need to change the way the hash is calculated once the flatbuffer re-architecture finishes.
                     // Validate received block data against the hash.
@@ -373,7 +368,7 @@ namespace hpfs
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
                     LOG_DEBUG << "Hpfs " << name << " sync: Resubmitting request...";
-                    submit_request(request, last_primary_shard_id);
+                    submit_request(request);
                 }
             }
 
@@ -387,7 +382,7 @@ namespace hpfs
                         return 0;
 
                     const backlog_item &request = pending_requests.front();
-                    submit_request(request, last_primary_shard_id);
+                    submit_request(request);
                     pending_requests.pop_front();
                 }
             }
@@ -480,11 +475,10 @@ namespace hpfs
      * @param is_file Whether the requested path if a file or dir.
      * @param block_id The requested block id. Only relevant if requesting a file block. Otherwise -1.
      * @param expected_hash The expected hash of the requested data. The peer will ignore the request if their hash is different.
-     * @param last_primary_shard_id The last primary shard id.
      * @param target_pubkey The peer pubkey the request was submitted to.
      */
     void hpfs_sync::request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                            const util::h32 expected_hash, const p2p::sequence_hash &last_primary_shard_id, std::string &target_pubkey)
+                                            const util::h32 expected_hash, std::string &target_pubkey)
     {
         p2p::hpfs_request hr;
         hr.parent_path = path;
@@ -493,15 +487,15 @@ namespace hpfs
         hr.expected_hash = expected_hash;
         hr.mount_id = fs_mount->mount_id;
 
-        flatbuffers::FlatBufferBuilder fbuf(1024);
-        msg::fbuf::p2pmsg::create_msg_from_hpfs_request(fbuf, hr, last_primary_shard_id);
-        p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the majority hpfs state to improve reliability of retrieving hpfs state.
+        flatbuffers::FlatBufferBuilder fbuf;
+        p2pmsg::create_msg_from_hpfs_request(fbuf, hr);
+        p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the expected hash to improve reliability of retrieving hpfs state.
     }
 
     /**
      * Submits a pending hpfs request to the peer.
      */
-    void hpfs_sync::submit_request(const backlog_item &request, const p2p::sequence_hash &last_primary_shard_id)
+    void hpfs_sync::submit_request(const backlog_item &request)
     {
         const std::string key = std::string(request.path)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(util::h32));
@@ -509,7 +503,7 @@ namespace hpfs
 
         const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
         std::string target_pubkey;
-        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, last_primary_shard_id, target_pubkey);
+        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, target_pubkey);
 
         if (!target_pubkey.empty())
             LOG_DEBUG << "Hpfs " << name << " sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
