@@ -386,8 +386,11 @@ namespace hpws
 
                 // --- PARENT
 
+                // Fds are set to -1, so when error occurred these fds won't get closed again.
                 ::close(fd[1]);
+                fd[1] = -1;
                 ::close(fd[3]);
+                fd[3] = -1;
 
                 int child_fd[2] = {fd[0], fd[2]};
 
@@ -776,7 +779,7 @@ namespace hpws
                     if (HPWS_DEBUG)
                         fprintf(stderr, "[HPWS.HPP] 'r%c' received on child_fd[%d]=%d\n", rbuf[1], i, child_fd[i]);
                 }
-                
+
                 if (HPWS_DEBUG)
                     fprintf(stderr, "[HPWS.HPP] Accept[13] called %d\n", calls);
             }
@@ -886,7 +889,9 @@ namespace hpws
 
                 // --- PARENT
 
+                // Fds are set to -1, so when error occurred these fds won't get closed again.
                 ::close(fd[1]);
+                fd[1] = -1;
 
                 int flags = fcntl(fd[0], F_GETFD, NULL);
                 if (flags < 0)
