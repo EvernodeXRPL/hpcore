@@ -16,6 +16,7 @@ namespace ledger
 
         if (start_ro_session(session_name, true) == -1 ||
             get_last_shard_info(session_name, last_primary_shard_id, PRIMARY_DIR) == -1 ||
+            get_last_ledger_and_update_context(session_name, last_primary_shard_id) == -1 ||
             get_last_shard_info(session_name, last_blob_shard_id, BLOB_DIR) == -1 ||
             stop_ro_session(session_name) == -1)
         {
