@@ -177,7 +177,7 @@ namespace usr
                     if (parser.extract_input_container(input_data, nonce, max_lcl_seq_no, input_container) != -1)
                     {
                         const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
-                        // Ignore the input max ledger seq number specified is beyond the max offeset.
+                        // Ignore the input if the max ledger seq number specified is beyond the max offeset.
                         if (max_lcl_seq_no > lcl_id.seq_no + conf::cfg.contract.max_input_ledger_offset)
                         {
                             send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED, sig);
@@ -392,7 +392,7 @@ namespace usr
     const char *validate_user_input_submission(const std::string &user_pubkey, const usr::extracted_user_input &extracted_input,
                                                const uint64_t lcl_seq_no, size_t &total_input_size, std::string &hash, util::buffer_view &input)
     {
-        // Ignore the input max ledger seq number specified is beyond the max offeset.
+        // Ignore the input if the max ledger seq number specified is beyond the max offeset.
         if (extracted_input.max_lcl_seq_no > lcl_seq_no + conf::cfg.contract.max_input_ledger_offset)
         {
             LOG_INFO << "User input bad max ledger seq beyond the max offset.";
