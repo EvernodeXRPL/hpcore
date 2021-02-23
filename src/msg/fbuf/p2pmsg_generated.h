@@ -1439,8 +1439,15 @@ inline flatbuffers::Offset<HpfsResponseMsg> CreateHpfsResponseMsgDirect(
 struct HpfsFsEntryResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef HpfsFsEntryResponseBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ENTRIES = 4
+    VT_DIR_MODE = 4,
+    VT_ENTRIES = 6
   };
+  uint32_t dir_mode() const {
+    return GetField<uint32_t>(VT_DIR_MODE, 0);
+  }
+  bool mutate_dir_mode(uint32_t _dir_mode) {
+    return SetField<uint32_t>(VT_DIR_MODE, _dir_mode, 0);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *entries() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *>(VT_ENTRIES);
   }
@@ -1449,6 +1456,7 @@ struct HpfsFsEntryResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_DIR_MODE) &&
            VerifyOffset(verifier, VT_ENTRIES) &&
            verifier.VerifyVector(entries()) &&
            verifier.VerifyVectorOfTables(entries()) &&
@@ -1460,6 +1468,9 @@ struct HpfsFsEntryResponseBuilder {
   typedef HpfsFsEntryResponse Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_dir_mode(uint32_t dir_mode) {
+    fbb_.AddElement<uint32_t>(HpfsFsEntryResponse::VT_DIR_MODE, dir_mode, 0);
+  }
   void add_entries(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>>> entries) {
     fbb_.AddOffset(HpfsFsEntryResponse::VT_ENTRIES, entries);
   }
@@ -1477,18 +1488,22 @@ struct HpfsFsEntryResponseBuilder {
 
 inline flatbuffers::Offset<HpfsFsEntryResponse> CreateHpfsFsEntryResponse(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t dir_mode = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>>> entries = 0) {
   HpfsFsEntryResponseBuilder builder_(_fbb);
   builder_.add_entries(entries);
+  builder_.add_dir_mode(dir_mode);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<HpfsFsEntryResponse> CreateHpfsFsEntryResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t dir_mode = 0,
     const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *entries = nullptr) {
   auto entries__ = entries ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>>(*entries) : 0;
   return msg::fbuf::p2pmsg::CreateHpfsFsEntryResponse(
       _fbb,
+      dir_mode,
       entries__);
 }
 
@@ -1496,13 +1511,20 @@ struct HpfsFileHashMapResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   typedef HpfsFileHashMapResponseBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FILE_LENGTH = 4,
-    VT_HASH_MAP = 6
+    VT_FILE_MODE = 6,
+    VT_HASH_MAP = 8
   };
   uint64_t file_length() const {
     return GetField<uint64_t>(VT_FILE_LENGTH, 0);
   }
   bool mutate_file_length(uint64_t _file_length) {
     return SetField<uint64_t>(VT_FILE_LENGTH, _file_length, 0);
+  }
+  uint32_t file_mode() const {
+    return GetField<uint32_t>(VT_FILE_MODE, 0);
+  }
+  bool mutate_file_mode(uint32_t _file_mode) {
+    return SetField<uint32_t>(VT_FILE_MODE, _file_mode, 0);
   }
   const flatbuffers::Vector<uint8_t> *hash_map() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
@@ -1513,6 +1535,7 @@ struct HpfsFileHashMapResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_FILE_LENGTH) &&
+           VerifyField<uint32_t>(verifier, VT_FILE_MODE) &&
            VerifyOffset(verifier, VT_HASH_MAP) &&
            verifier.VerifyVector(hash_map()) &&
            verifier.EndTable();
@@ -1525,6 +1548,9 @@ struct HpfsFileHashMapResponseBuilder {
   flatbuffers::uoffset_t start_;
   void add_file_length(uint64_t file_length) {
     fbb_.AddElement<uint64_t>(HpfsFileHashMapResponse::VT_FILE_LENGTH, file_length, 0);
+  }
+  void add_file_mode(uint32_t file_mode) {
+    fbb_.AddElement<uint32_t>(HpfsFileHashMapResponse::VT_FILE_MODE, file_mode, 0);
   }
   void add_hash_map(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map) {
     fbb_.AddOffset(HpfsFileHashMapResponse::VT_HASH_MAP, hash_map);
@@ -1544,21 +1570,25 @@ struct HpfsFileHashMapResponseBuilder {
 inline flatbuffers::Offset<HpfsFileHashMapResponse> CreateHpfsFileHashMapResponse(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t file_length = 0,
+    uint32_t file_mode = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0) {
   HpfsFileHashMapResponseBuilder builder_(_fbb);
   builder_.add_file_length(file_length);
   builder_.add_hash_map(hash_map);
+  builder_.add_file_mode(file_mode);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<HpfsFileHashMapResponse> CreateHpfsFileHashMapResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t file_length = 0,
+    uint32_t file_mode = 0,
     const std::vector<uint8_t> *hash_map = nullptr) {
   auto hash_map__ = hash_map ? _fbb.CreateVector<uint8_t>(*hash_map) : 0;
   return msg::fbuf::p2pmsg::CreateHpfsFileHashMapResponse(
       _fbb,
       file_length,
+      file_mode,
       hash_map__);
 }
 
