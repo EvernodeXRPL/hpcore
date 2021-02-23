@@ -386,7 +386,7 @@ namespace hpws
 
                 // --- PARENT
 
-                // Fds are set to -1, so when error occured these fds won't get closed again.
+                // Fds are set to -1, so when error occurred these fds won't get closed again.
                 ::close(fd[1]);
                 fd[1] = -1;
                 ::close(fd[3]);
@@ -889,7 +889,7 @@ namespace hpws
 
                 // --- PARENT
 
-                // Fds are set to -1, so when error occured these fds won't get closed again.
+                // Fds are set to -1, so when error occurred these fds won't get closed again.
                 ::close(fd[1]);
                 fd[1] = -1;
 
