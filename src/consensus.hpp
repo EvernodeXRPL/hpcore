@@ -121,7 +121,7 @@ namespace consensus
 
     void broadcast_nonunl_proposal();
 
-    bool push_npl_message(p2p::npl_message &npl_message);
+    bool push_npl_message(const p2p::npl_message &npl_message);
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 

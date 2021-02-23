@@ -5,7 +5,7 @@
 #include "../usr/user_input.hpp"
 #include "../util/h32.hpp"
 #include "../conf.hpp"
-#include "../msg/fbuf/p2pmsg_container_generated.h"
+#include "../msg/fbuf/p2pmsg_generated.h"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
 #include "peer_session_handler.hpp"
@@ -85,18 +85,22 @@ namespace p2p
         std::string pubkey;
     };
 
-    enum LEDGER_RESPONSE_ERROR
+    struct peer_capacity_announcement
     {
-        NONE = 0,
-        INVALID_MIN_LEDGER = 1,
-        REQ_LEDGER_NOT_FOUND = 2
+        int16_t available_capacity = 0;
+        uint64_t timestamp = 0;
+    };
+
+    struct peer_requirement_announcement
+    {
+        bool need_consensus_msg_forwarding = false;
     };
 
     // Represents an NPL message sent by a peer.
     struct npl_message
     {
-        std::string pubkey;                       // Peer binary pubkey.
-        p2p::sequence_hash last_primary_shard_id; // Last primary shard of the peer.
+        std::string pubkey;        // Peer binary pubkey.
+        p2p::sequence_hash lcl_id; // lcl of the peer.
         std::string data;
     };
 
@@ -125,6 +129,13 @@ namespace p2p
         uint32_t block_id = 0; // Id of the block where the data belongs to.
         std::string_view data; // The block data.
         util::h32 hash;        // Hash of the bloc data.
+    };
+
+    struct peer_message_info
+    {
+        const msg::fbuf::p2pmsg::P2PMsg *p2p_msg = NULL;
+        const enum msg::fbuf::p2pmsg::P2PMsgContent type = msg::fbuf::p2pmsg::P2PMsgContent_NONE;
+        const uint64_t originated_on = 0;
     };
 
     struct message_collection
@@ -183,7 +194,13 @@ namespace p2p
 
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey);
 
-    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const msg::fbuf::p2pmsg::Container *container, const msg::fbuf::p2pmsg::Message &content_message_type);
+    void handle_proposal_message(const p2p::proposal &p);
+
+    void handle_nonunl_proposal_message(const p2p::nonunl_proposal &nup);
+
+    void handle_npl_message(const p2p::npl_message &npl);
+
+    bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on);
 
     void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session = NULL);
 

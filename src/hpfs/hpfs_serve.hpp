@@ -4,7 +4,6 @@
 #include "../util/h32.hpp"
 #include "hpfs_mount.hpp"
 #include "../p2p/p2p.hpp"
-#include "../msg/fbuf/p2pmsg_content_generated.h"
 
 namespace hpfs
 {
@@ -28,7 +27,7 @@ namespace hpfs
 
         void deinit();
 
-        int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, const p2p::sequence_hash &last_primary_shard_id);
+        int create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr);
 
         int get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
                            const uint32_t block_id, const util::h32 expected_hash);

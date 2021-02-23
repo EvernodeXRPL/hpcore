@@ -4,7 +4,6 @@
 #include "../../pchheader.hpp"
 #include "../../p2p/p2p.hpp"
 #include "../../ledger/ledger.hpp"
-#include "ledger_schema_generated.h"
 
 namespace msg::fbuf::ledgermsg
 {
