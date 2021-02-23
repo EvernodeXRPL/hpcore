@@ -273,7 +273,7 @@ namespace hpfs
                         continue;
                     }
 
-                    handle_fs_entry_response(vpath, peer_fs_entry_map);
+                    handle_fs_entry_response(vpath, fs_resp.dir_mode(), peer_fs_entry_map);
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsFileHashMapResponse)
                 {
@@ -290,7 +290,7 @@ namespace hpfs
                         continue;
                     }
 
-                    handle_file_hashmap_response(vpath, block_hashes, block_hash_count, file_resp.file_length());
+                    handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count, file_resp.file_length());
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
@@ -422,7 +422,7 @@ namespace hpfs
      * Vadidated the received hash against the received file hash map.
      * @param vpath Virtual path of the file.
      * @param hash Received hash.
-     * @param Metadata 'mode' of the file.
+     * @param mode Metadata 'mode' of the file.
      * @param hashes Received block hashes.
      * @param hash_count Size of the hash list.
      * @returns true if hash is valid, otherwise false.
@@ -525,10 +525,11 @@ namespace hpfs
     /**
      * Process dir children response.
      * @param vpath Virtual path of the fs.
+     * @param mode Metadata 'mode' of dir.
      * @param fs_entry_map Received fs entry map.
      * @returns 0 on success, otherwise -1.
      */
-    int hpfs_sync::handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
+    int hpfs_sync::handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
     {
         // Get the parent path of the fs entries we have received.
         LOG_DEBUG << "Hpfs " << name << " sync: Processing fs entries response for " << vpath;
@@ -536,6 +537,10 @@ namespace hpfs
         // Create physical directory on our side if not exist.
         std::string parent_physical_path = fs_mount->rw_dir + vpath.data();
         if (util::create_dir_tree_recursive(parent_physical_path) == -1)
+            return -1;
+
+        // Apply physical dir mode if received mode is different from our side.
+        if (apply_metdata_mode(parent_physical_path, dir_mode, true) == -1)
             return -1;
 
         // Get the children hash entries and compare with what we got from peer.
@@ -605,7 +610,7 @@ namespace hpfs
      * @param file_length Size of the file.
      * @returns 0 on success, otherwise -1.
      */
-    int hpfs_sync::handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length)
+    int hpfs_sync::handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length)
     {
         // Get the file path of the block hashes we have received.
         LOG_DEBUG << "Hpfs " << name << " sync: Processing file block hashes response for " << vpath;
@@ -633,6 +638,11 @@ namespace hpfs
             if (truncate(file_physical_path.c_str(), file_length) == -1)
                 return -1;
         }
+
+        // Apply physical file mode if received mode is different from our side.
+        std::string physical_path = fs_mount->rw_dir + vpath.data();
+        if (apply_metdata_mode(physical_path, file_mode, true) == -1)
+            return -1;
 
         return 0;
     }
@@ -665,6 +675,45 @@ namespace hpfs
         {
             LOG_ERROR << errno << " Write failed " << file_physical_path;
             return -1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Applies the specified to local file/dir if different. If it's a file, this will create the file
+     * if not exist.
+     * @returns 0 on success, otherwise -1.
+     */
+    int hpfs_sync::apply_metdata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir)
+    {
+        struct stat st;
+        if (stat(physical_path.data(), &st) == -1)
+        {
+            if (!is_dir && errno == ENONET) // File does not exist. So we must create it with the given 'mode'.
+            {
+                if (mknod(physical_path.data(), mode, 0) == -1)
+                {
+                    LOG_ERROR << errno << ": Error in creating file node. " << physical_path;
+                    return -1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+
+            LOG_ERROR << errno << ": Error in stat applying file/dir mode. " << physical_path;
+            return -1;
+        }
+
+        if (st.st_mode != ((is_dir ? S_IFDIR : S_IFREG) | mode))
+        {
+            if (chmod(physical_path.data(), mode) == -1)
+            {
+                LOG_ERROR << errno << ": Error in applying file/dir mode. " << physical_path;
+                return -1;
+            }
         }
 
         return 0;

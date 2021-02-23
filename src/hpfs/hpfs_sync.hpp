@@ -85,11 +85,13 @@ namespace hpfs
 
         void submit_request(const backlog_item &request);
 
-        int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
+        int handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
 
-        int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
+        int handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 
         int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
+
+        int apply_metdata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir);
 
     protected:
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
