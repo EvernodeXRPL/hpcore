@@ -248,7 +248,7 @@ namespace conf
 
     int apply_patch_config(std::string_view hpfs_session_name);
 
-    int persist_known_peers_config(const std::vector<peer_properties> &peers);
+    int persist_updated_configs();
 
     int set_config_lock();
 
