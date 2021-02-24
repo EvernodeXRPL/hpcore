@@ -56,6 +56,7 @@ namespace msg::usrmsg
     constexpr const char *REASON_BAD_SIG = "bad_sig";
     constexpr const char *REASON_APPBILL_BALANCE_EXCEEDED = "appbill_balance_exceeded";
     constexpr const char *REASON_MAX_LEDGER_EXPIRED = "max_ledger_expired";
+    constexpr const char *REASON_MAX_LEDGER_OFFSET_EXCEEDED = "max_ledger_offset_exceeded";
     constexpr const char *REASON_NONCE_EXPIRED = "nonce_expired";
     constexpr const char *REASON_ALREADY_SUBMITTED = "already_submitted";
     constexpr const char *REASON_NONCE_OVERFLOW = "nonce_overflow";
