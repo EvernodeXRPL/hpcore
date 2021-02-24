@@ -150,6 +150,7 @@ namespace conf
             cfg.contract.roundtime = 1000;
             cfg.contract.is_consensus_public = false;
             cfg.contract.is_npl_public = false;
+            cfg.contract.max_input_ledger_offset = 10;
 
             cfg.mesh.port = 22860;
             cfg.mesh.msg_forwarding = true;
@@ -516,12 +517,12 @@ namespace conf
             // We always save the startup role to config. Not the current role which might get changed dynamically during syncing.
             node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
             node_config.insert_or_assign("history", cfg.node.history == HISTORY::FULL ? HISTORY_FULL : HISTORY_CUSTOM);
-            
+
             jsoncons::ojson history_config;
             history_config.insert_or_assign("max_primary_shards", cfg.node.history_config.max_primary_shards);
             history_config.insert_or_assign("max_blob_shards", cfg.node.history_config.max_blob_shards);
             node_config.insert_or_assign("history_config", history_config);
-            
+
             d.insert_or_assign("node", node_config);
         }
 
@@ -905,6 +906,7 @@ namespace conf
         jdoc.insert_or_assign("roundtime", contract.roundtime.load());
         jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
+        jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
         jsoncons::ojson appbill;
         appbill.insert_or_assign("mode", contract.appbill.mode);
@@ -995,6 +997,7 @@ namespace conf
                 return -1;
             }
             contract.is_npl_public = jdoc["npl"] == PUBLIC;
+            contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
 
             jpath = "contract.appbill";
             contract.appbill.mode = jdoc["appbill"]["mode"].as<std::string>();
