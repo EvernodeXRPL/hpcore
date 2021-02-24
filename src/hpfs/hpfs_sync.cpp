@@ -606,7 +606,6 @@ namespace hpfs
      * Process file block hash map response.
      * @param vpath Virtual path of the file.
      * @param file_mode Received metadata mode of the file.
-     * @param hash Received hash.
      * @param hashes Received block hashes.
      * @param hash_count No. of received block hashes.
      * @param file_length Size of the file.
