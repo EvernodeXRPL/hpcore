@@ -100,11 +100,13 @@ table HpfsResponseMsg{
 }
 
 table HpfsFsEntryResponse{
+    dir_mode:uint32;
     entries: [HpfsFSHashEntry];
 }
 
 table HpfsFileHashMapResponse{
     file_length:uint64;
+    file_mode:uint32;
     hash_map:[ubyte];
 }
 

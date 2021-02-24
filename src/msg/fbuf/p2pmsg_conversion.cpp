@@ -380,11 +380,12 @@ namespace msg::fbuf::p2pmsg
     }
 
     void create_msg_from_fsentry_response(
-        flatbuffers::FlatBufferBuilder &builder, const std::string_view path, const uint32_t mount_id,
-        std::vector<hpfs::child_hash_node> &hash_nodes, util::h32 expected_hash)
+        flatbuffers::FlatBufferBuilder &builder, const std::string_view path, const uint32_t mount_id, const mode_t dir_mode,
+        std::vector<hpfs::child_hash_node> &hash_nodes, const util::h32 &expected_hash)
     {
         const auto child_msg = CreateHpfsFsEntryResponse(
             builder,
+            dir_mode,
             hpfsfshashentry_to_flatbuf_hpfsfshashentry(builder, hash_nodes));
 
         const auto msg = CreateHpfsResponseMsg(
@@ -400,13 +401,14 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &builder, std::string_view path, const uint32_t mount_id,
-        std::vector<util::h32> &hashmap, std::size_t file_length, util::h32 expected_hash)
+        std::vector<util::h32> &hashmap, const std::size_t file_length, const mode_t file_mode, const util::h32 &expected_hash)
     {
         std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(util::h32));
 
         const auto child_msg = CreateHpfsFileHashMapResponse(
             builder,
             file_length,
+            file_mode,
             sv_to_flatbuf_bytes(builder, hashmap_sv));
 
         const auto msg = CreateHpfsResponseMsg(

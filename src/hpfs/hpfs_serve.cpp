@@ -161,8 +161,9 @@ namespace hpfs
             if (hr.is_file)
             {
                 std::vector<util::h32> block_hashes;
-                std::size_t file_length = 0;
-                const int result = get_data_block_hashes(block_hashes, file_length, hr.parent_path, hr.expected_hash);
+                size_t file_length = 0;
+                mode_t file_mode = 0;
+                const int result = get_data_block_hashes(block_hashes, file_length, file_mode, hr.parent_path, hr.expected_hash);
 
                 if (result == -1)
                 {
@@ -173,7 +174,7 @@ namespace hpfs
                 {
                     p2pmsg::create_msg_from_filehashmap_response(
                         fbuf, hr.parent_path, fs_mount->mount_id, block_hashes,
-                        file_length, hr.expected_hash);
+                        file_length, file_mode, hr.expected_hash);
                     return 1; // Success.
                 }
             }
@@ -191,8 +192,17 @@ namespace hpfs
                 }
                 else if (result == 1)
                 {
+                    // Get dir mode.
+                    const std::string dir_path = fs_mount->rw_dir + hr.parent_path.data();
+                    struct stat st;
+                    if (stat(dir_path.data(), &st) == -1)
+                    {
+                        LOG_ERROR << errno << ": Error in getting dir metadata: " << hr.parent_path;
+                        return -1;
+                    }
+
                     p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash);
+                        fbuf, hr.parent_path, fs_mount->mount_id, st.st_mode, child_hash_nodes, hr.expected_hash);
                     return 1; // Success.
                 }
             }
@@ -283,7 +293,7 @@ namespace hpfs
      * Retrieves the specified file block hashes if expected hash matches.
      * @return 1 if block hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
      */
-    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length,
+    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
                                           const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing file hash matches expected hash.
@@ -303,15 +313,16 @@ namespace hpfs
             }
             else
             {
-                // Get actual file length.
+                // Get actual file metadata.
                 const std::string file_path = fs_mount->rw_dir + vpath.data();
                 struct stat st;
                 if (stat(file_path.c_str(), &st) == -1)
                 {
-                    LOG_ERROR << errno << ": Stat failed when getting file length. " << file_path;
+                    LOG_ERROR << errno << ": Stat failed when getting file metadata. " << file_path;
                     result = -1;
                 }
                 file_length = st.st_size;
+                file_mode = st.st_mode;
                 result = 1; // Success.
             }
         }
