@@ -154,10 +154,10 @@ struct hp_config
     struct hp_unl_collection unl;
     char *bin_path;
     char *bin_args;
-    u_int16_t roundtime;
+    uint32_t roundtime;
     char *consensus;
     char *npl;
-    u_int16_t max_input_ledger_offset;
+    uint16_t max_input_ledger_offset;
     struct hp_appbill_config appbill;
     struct hp_round_limits_config round_limits;
 };
