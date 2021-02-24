@@ -641,7 +641,7 @@ namespace hpfs
 
         // Apply physical file mode if received mode is different from our side.
         std::string physical_path = fs_mount->rw_dir + vpath.data();
-        if (apply_metdata_mode(physical_path, file_mode, true) == -1)
+        if (apply_metdata_mode(physical_path, file_mode, false) == -1)
             return -1;
 
         return 0;
@@ -687,12 +687,15 @@ namespace hpfs
      */
     int hpfs_sync::apply_metdata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir)
     {
+        // Overlay the file/dir type flags to the permission bits.
+        const mode_t full_mode = (is_dir ? S_IFDIR : S_IFREG) | mode;
+
         struct stat st;
         if (stat(physical_path.data(), &st) == -1)
         {
-            if (!is_dir && errno == ENONET) // File does not exist. So we must create it with the given 'mode'.
+            if (!is_dir && errno == ENOENT) // File does not exist. So we must create it with the given 'mode'.
             {
-                if (mknod(physical_path.data(), mode, 0) == -1)
+                if (mknod(physical_path.data(), full_mode, 0) == -1)
                 {
                     LOG_ERROR << errno << ": Error in creating file node. " << physical_path;
                     return -1;
@@ -703,11 +706,12 @@ namespace hpfs
                 }
             }
 
-            LOG_ERROR << errno << ": Error in stat applying file/dir mode. " << physical_path;
+            LOG_ERROR << errno << "," << ENOENT << ": Error in stat when applying file/dir mode. " << physical_path;
             return -1;
         }
 
-        if (st.st_mode != ((is_dir ? S_IFDIR : S_IFREG) | mode))
+        // Reaching here means file/dir already exists. So we must apply the specified mode if it's different from current value.
+        if (st.st_mode != full_mode)
         {
             if (chmod(physical_path.data(), mode) == -1)
             {
