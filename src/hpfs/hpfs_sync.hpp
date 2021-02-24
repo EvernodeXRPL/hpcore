@@ -91,7 +91,7 @@ namespace hpfs
 
         int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
 
-        int apply_metdata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir);
+        int apply_metadata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir);
 
     protected:
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.

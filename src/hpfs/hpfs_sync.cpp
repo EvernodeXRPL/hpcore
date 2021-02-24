@@ -391,7 +391,7 @@ namespace hpfs
      * Vadidated the received hash against the received fs entry map.
      * @param vpath Virtual path of the fs.
      * @param hash Received hash.
-     * @param dir_mode Metdata 'mode' of the directory containing the fs entries.
+     * @param dir_mode Metadata 'mode' of the directory containing the fs entries.
      * @param fs_entry_map Received fs entry map.
      * @returns true if hash is valid, otherwise false.
     */
@@ -422,7 +422,7 @@ namespace hpfs
      * Vadidated the received hash against the received file hash map.
      * @param vpath Virtual path of the file.
      * @param hash Received hash.
-     * @param mode Metadata 'mode' of the file.
+     * @param file_mode Metadata 'mode' of the file.
      * @param hashes Received block hashes.
      * @param hash_count Size of the hash list.
      * @returns true if hash is valid, otherwise false.
@@ -525,7 +525,7 @@ namespace hpfs
     /**
      * Process dir children response.
      * @param vpath Virtual path of the fs.
-     * @param mode Metadata 'mode' of dir.
+     * @param dir_mode Metadata 'mode' of dir.
      * @param fs_entry_map Received fs entry map.
      * @returns 0 on success, otherwise -1.
      */
@@ -540,7 +540,7 @@ namespace hpfs
             return -1;
 
         // Apply physical dir mode if received mode is different from our side.
-        if (apply_metdata_mode(parent_physical_path, dir_mode, true) == -1)
+        if (apply_metadata_mode(parent_physical_path, dir_mode, true) == -1)
             return -1;
 
         // Get the children hash entries and compare with what we got from peer.
@@ -605,8 +605,10 @@ namespace hpfs
     /**
      * Process file block hash map response.
      * @param vpath Virtual path of the file.
+     * @param file_mode Received metadata mode of the file.
      * @param hash Received hash.
      * @param hashes Received block hashes.
+     * @param hash_count No. of received block hashes.
      * @param file_length Size of the file.
      * @returns 0 on success, otherwise -1.
      */
@@ -640,8 +642,8 @@ namespace hpfs
         }
 
         // Apply physical file mode if received mode is different from our side.
-        std::string physical_path = fs_mount->rw_dir + vpath.data();
-        if (apply_metdata_mode(physical_path, file_mode, false) == -1)
+        const std::string physical_path = fs_mount->rw_dir + vpath.data();
+        if (apply_metadata_mode(physical_path, file_mode, false) == -1)
             return -1;
 
         return 0;
@@ -685,7 +687,7 @@ namespace hpfs
      * if not exist.
      * @returns 0 on success, otherwise -1.
      */
-    int hpfs_sync::apply_metdata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir)
+    int hpfs_sync::apply_metadata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir)
     {
         // Overlay the file/dir type flags to the permission bits.
         const mode_t full_mode = (is_dir ? S_IFDIR : S_IFREG) | mode;
