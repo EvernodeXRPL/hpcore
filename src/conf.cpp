@@ -828,11 +828,11 @@ namespace conf
     }
 
     /**
-     * Persists the specified known peers to the config file.
+     * Persists the specified known peers to the config file if peer disovery is enabled.
      */
     int persist_known_peers_config(const std::vector<peer_properties> &peers)
     {
-        if (peers.empty())
+        if (!conf::cfg.mesh.peer_discovery.enabled || peers.empty())
             return 0;
 
         const size_t max_count = conf::cfg.mesh.max_known_connections == 0
