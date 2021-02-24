@@ -378,7 +378,7 @@ namespace util
 
         buf.resize(st.st_size);
 
-        return read(fd, buf.data(), buf.size());
+        return pread(fd, buf.data(), buf.size(), 0);
     }
 
     /**
