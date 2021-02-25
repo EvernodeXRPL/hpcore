@@ -28,9 +28,9 @@ Run the setup script located at the repo root (tested on Ubuntu 18.04).
 ## FlatBuffers message definitions
 If you update flatbuffers message definitions, you need to run the flatbuffers code generator to update the stubs.
 
-Example: When you make a change to `p2pmsg_content.fbc` defnition file, you need to run this:
+Example: When you make a change to `p2pmsg.fbs` defnition file, you need to run this:
 
-`flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg_content.fbs`
+`flatc -o src/msg/fbuf/ --gen-mutable --cpp src/msg/fbuf/p2pmsg.fbs`
 
 ## Code structure
 Code is divided into subsystems via namespaces.

@@ -56,7 +56,7 @@ namespace conf
     struct history_configuration
     {
         uint64_t max_primary_shards; // Maximum number of shards for primary shards.
-        uint64_t max_blob_shards; // Maximum number of shards for blob shards.
+        uint64_t max_blob_shards;    // Maximum number of shards for blob shards.
     };
 
     // Log severity levels used in Hot Pocket.
@@ -122,6 +122,7 @@ namespace conf
         std::atomic<uint32_t> roundtime = 0; // Consensus round time in ms
         bool is_consensus_public = false;    // If true, consensus are broadcasted to non-unl nodes as well.
         bool is_npl_public = false;          // If true, npl messages are broadcasted to non-unl nodes as well.
+        uint16_t max_input_ledger_offset;    // Maximum ledger sequence number offset that can be specified in the input.
         appbill_config appbill;
         round_limits_config round_limits;
 
@@ -180,10 +181,10 @@ namespace conf
         std::string hpfs_exe_path; // hpfs executable file path.
 
         std::string contract_dir;            // Contract base directory full path.
-        std::string contract_hpfs_dir;       // Contract hpfs metdata dir (The location of hpfs log file).
+        std::string contract_hpfs_dir;       // Contract hpfs metadata dir (The location of hpfs log file).
         std::string contract_hpfs_mount_dir; // Contract hpfs fuse file system mount path.
         std::string contract_hpfs_rw_dir;    // Contract hpfs read/write fs session path.
-        std::string ledger_hpfs_dir;         // Ledger hpfs metdata dir (The location of hpfs log file).
+        std::string ledger_hpfs_dir;         // Ledger hpfs metadata dir (The location of hpfs log file).
         std::string ledger_hpfs_mount_dir;   // Ledger hpfs fuse file system mount path.
         std::string ledger_hpfs_rw_dir;      // Ledger hpfs read/write fs session path.
         std::string log_dir;                 // HotPocket log dir full path.

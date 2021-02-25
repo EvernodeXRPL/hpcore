@@ -17,6 +17,7 @@ namespace util
         void operator^=(const h32 rhs);
         std::string_view to_string_view() const;
         h32 &operator=(std::string_view sv);
+        void operator^=(std::string_view sv);
         bool operator<(const h32 rhs) const;
 
         h32()

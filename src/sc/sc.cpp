@@ -3,7 +3,7 @@
 #include "../consensus.hpp"
 #include "../hplog.hpp"
 #include "../ledger/ledger.hpp"
-#include "../msg/fbuf/p2pmsg_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../msg/controlmsg_common.hpp"
 #include "../msg/controlmsg_parser.hpp"
 #include "../unl.hpp"
@@ -553,7 +553,7 @@ namespace sc
         p2p::npl_message npl_msg;
         if (ctx.args.npl_messages.try_dequeue(npl_msg))
         {
-            if (npl_msg.last_primary_shard_id == ctx.args.lasl_primary_shard_id)
+            if (npl_msg.lcl_id == ctx.args.lcl_id)
             {
                 const std::string pubkeyhex = util::to_hex(npl_msg.pubkey);
 
@@ -650,8 +650,8 @@ namespace sc
 
         if (!output.empty())
         {
-            flatbuffers::FlatBufferBuilder fbuf(1024);
-            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_last_primary_shard_id());
+            flatbuffers::FlatBufferBuilder fbuf;
+            msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl_id());
             p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public);
         }
     }

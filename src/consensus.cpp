@@ -4,7 +4,7 @@
 #include "usr/usr.hpp"
 #include "usr/user_input.hpp"
 #include "p2p/p2p.hpp"
-#include "msg/fbuf/p2pmsg_helpers.hpp"
+#include "msg/fbuf/p2pmsg_conversion.hpp"
 #include "msg/usrmsg_parser.hpp"
 #include "msg/usrmsg_common.hpp"
 #include "p2p/peer_session_handler.hpp"
@@ -400,7 +400,7 @@ namespace consensus
             }
         }
 
-        flatbuffers::FlatBufferBuilder fbuf(1024);
+        flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_nonunl_proposal(fbuf, nup);
         p2p::broadcast_message(fbuf, true);
 
@@ -418,7 +418,7 @@ namespace consensus
         if (conf::cfg.node.role == conf::ROLE::OBSERVER || !conf::cfg.node.is_unl) // If we are a non-unl node, do not broadcast proposals.
             return;
 
-        flatbuffers::FlatBufferBuilder fbuf(1024);
+        flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_proposal(fbuf, p);
         p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public);
 
@@ -436,11 +436,11 @@ namespace consensus
      * @param npl_msg Constructed npl message.
      * @return Returns true if enqueue is success otherwise false.
      */
-    bool push_npl_message(p2p::npl_message &npl_msg)
+    bool push_npl_message(const p2p::npl_message &npl_msg)
     {
         std::scoped_lock lock(ctx.contract_ctx_mutex);
         if (ctx.contract_ctx)
-            return ctx.contract_ctx->args.npl_messages.try_enqueue(npl_msg);
+            return ctx.contract_ctx->args.npl_messages.try_enqueue(std::move(npl_msg));
         return false;
     }
 
@@ -881,9 +881,6 @@ namespace consensus
 
             // lcl to be passed to the contract.
             args.lcl_id = new_lcl_id;
-
-            // This is currently used for npl message checks.
-            args.lasl_primary_shard_id = new_last_primary_shard_id;
 
             // Populate user bufs.
             if (feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop) == -1)

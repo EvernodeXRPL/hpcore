@@ -18,17 +18,6 @@ namespace util
     // Minimum compatible config version (this will be used to validate configs)
     constexpr const char *MIN_CONFIG_VERSION = "0.1";
 
-    // Current version of the peer message protocol.
-    constexpr uint8_t PEERMSG_VERSION = 1;
-
-    // Minimum compatible peer message version (this will be used to accept/reject incoming peer connections)
-    // (Keeping this as int for effcient msg payload and comparison)
-    constexpr uint8_t MIN_PEERMSG_VERSION = 1;
-
-    // Minimum compatible npl contract input version (this will be used to generate the npl input to feed the contract)
-    // (Keeping this as int for effcient msg payload and comparison)
-    constexpr uint8_t MIN_NPL_INPUT_VERSION = 1;
-
     /**
      * The messaging protocol used in a web socket channel.
      */
@@ -86,9 +75,11 @@ namespace util
 
     int release_lock(const int fd, struct flock &lock);
 
+    void uint32_to_bytes(uint8_t *dest, const uint32_t x);
+    uint32_t uint32_from_bytes(const uint8_t *data);
+    void uint64_to_bytes(uint8_t *dest, const uint64_t x);
     uint64_t uint64_from_bytes(const uint8_t *data);
 
-    void uint64_to_bytes(uint8_t *dest, const uint64_t x);
 } // namespace util
 
 #endif

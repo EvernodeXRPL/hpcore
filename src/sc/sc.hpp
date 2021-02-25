@@ -85,9 +85,6 @@ namespace sc
         // Current HotPocket lcl (seq no. and ledger hash hex)
         p2p::sequence_hash lcl_id;
 
-        // Current HotPocket primary shard id (struct of seq no. and ledger hash)
-        p2p::sequence_hash lasl_primary_shard_id;
-
         // State hash after execution will be copied to this (not applicable to read only mode).
         util::h32 post_execution_state_hash = util::h32_empty;
 

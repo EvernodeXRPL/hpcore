@@ -2,9 +2,7 @@
 #include "../util/h32.hpp"
 #include "../util/util.hpp"
 #include "../p2p/p2p.hpp"
-#include "../msg/fbuf/p2pmsg_content_generated.h"
-#include "../msg/fbuf/p2pmsg_helpers.hpp"
-#include "../msg/fbuf/common_helpers.hpp"
+#include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
 #include "hpfs_serve.hpp"
@@ -94,9 +92,9 @@ namespace hpfs
 
                     // Session id is in binary format. Converting to hex before printing.
                     LOG_DEBUG << "Serving hpfs request from [" << util::to_hex(session_id).substr(2, 10) << "]";
-                    flatbuffers::FlatBufferBuilder fbuf(1024);
+                    flatbuffers::FlatBufferBuilder fbuf;
 
-                    if (hpfs_serve::create_hpfs_response(fbuf, hr, last_primary_shard_id) == 1)
+                    if (hpfs_serve::create_hpfs_response(fbuf, hr) == 1)
                     {
                         // Find the peer that we should send the hpfs response to.
                         std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -125,11 +123,10 @@ namespace hpfs
      * Creates the reply message for a given hpfs request.
      * @param fbuf The flatbuffer builder to construct the reply message.
      * @param hr The hpfs request which should be replied to.
-     * @param last_primary_shard_id Last primary shard id.
      * @return 1 if successful hpfs response was generated. 0 if request is invalid
      *         and no response was generated. -1 on error.
      */
-    int hpfs_serve::create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr, const p2p::sequence_hash &last_primary_shard_id)
+    int hpfs_serve::create_hpfs_response(flatbuffers::FlatBufferBuilder &fbuf, const p2p::hpfs_request &hr)
     {
         LOG_DEBUG << "Serving hpfs req. path:" << hr.parent_path << " block_id:" << hr.block_id;
 
@@ -154,7 +151,7 @@ namespace hpfs
                 resp.hash = hr.expected_hash;
                 resp.data = std::string_view(reinterpret_cast<const char *>(block.data()), block.size());
 
-                msg::fbuf::p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id, last_primary_shard_id);
+                p2pmsg::create_msg_from_block_response(fbuf, resp, fs_mount->mount_id);
                 return 1; // Success.
             }
         }
@@ -164,8 +161,9 @@ namespace hpfs
             if (hr.is_file)
             {
                 std::vector<util::h32> block_hashes;
-                std::size_t file_length = 0;
-                const int result = get_data_block_hashes(block_hashes, file_length, hr.parent_path, hr.expected_hash);
+                size_t file_length = 0;
+                mode_t file_mode = 0;
+                const int result = get_data_block_hashes(block_hashes, file_length, file_mode, hr.parent_path, hr.expected_hash);
 
                 if (result == -1)
                 {
@@ -174,9 +172,9 @@ namespace hpfs
                 }
                 else if (result == 1)
                 {
-                    msg::fbuf::p2pmsg::create_msg_from_filehashmap_response(
+                    p2pmsg::create_msg_from_filehashmap_response(
                         fbuf, hr.parent_path, fs_mount->mount_id, block_hashes,
-                        file_length, hr.expected_hash, last_primary_shard_id);
+                        file_length, file_mode, hr.expected_hash);
                     return 1; // Success.
                 }
             }
@@ -194,8 +192,17 @@ namespace hpfs
                 }
                 else if (result == 1)
                 {
-                    msg::fbuf::p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, hr.parent_path, fs_mount->mount_id, child_hash_nodes, hr.expected_hash, last_primary_shard_id);
+                    // Get dir mode.
+                    const std::string dir_path = fs_mount->rw_dir + hr.parent_path.data();
+                    struct stat st;
+                    if (stat(dir_path.data(), &st) == -1)
+                    {
+                        LOG_ERROR << errno << ": Error in getting dir metadata: " << hr.parent_path;
+                        return -1;
+                    }
+
+                    p2pmsg::create_msg_from_fsentry_response(
+                        fbuf, hr.parent_path, fs_mount->mount_id, st.st_mode, child_hash_nodes, hr.expected_hash);
                     return 1; // Success.
                 }
             }
@@ -286,7 +293,7 @@ namespace hpfs
      * Retrieves the specified file block hashes if expected hash matches.
      * @return 1 if block hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
      */
-    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length,
+    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
                                           const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing file hash matches expected hash.
@@ -306,15 +313,16 @@ namespace hpfs
             }
             else
             {
-                // Get actual file length.
+                // Get actual file metadata.
                 const std::string file_path = fs_mount->rw_dir + vpath.data();
                 struct stat st;
                 if (stat(file_path.c_str(), &st) == -1)
                 {
-                    LOG_ERROR << errno << ": Stat failed when getting file length. " << file_path;
+                    LOG_ERROR << errno << ": Stat failed when getting file metadata. " << file_path;
                     result = -1;
                 }
                 file_length = st.st_size;
+                file_mode = st.st_mode;
                 result = 1; // Success.
             }
         }

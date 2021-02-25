@@ -40,6 +40,16 @@ namespace util
         return *this;
     }
 
+    void h32::operator^=(std::string_view sv)
+    {
+        const uint64_t *rhs = (uint64_t *)sv.data();
+
+        this->data[0] ^= rhs[0];
+        this->data[1] ^= rhs[1];
+        this->data[2] ^= rhs[2];
+        this->data[3] ^= rhs[3];
+    }
+
     // Comparison operator for std::map key support.
     bool h32::operator<(const h32 rhs) const
     {

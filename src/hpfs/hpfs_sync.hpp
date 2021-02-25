@@ -3,9 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../p2p/p2p.hpp"
-#include "../msg/fbuf/p2pmsg_content_generated.h"
 #include "../util/h32.hpp"
-#include "../crypto.hpp"
 #include "./hpfs_mount.hpp"
 
 namespace hpfs
@@ -72,6 +70,29 @@ namespace hpfs
 
         int start_syncing_next_target();
 
+        bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
+                                    const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
+
+        bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const mode_t file_mode,
+                                        const util::h32 *hashes, const size_t hash_count);
+
+        bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
+
+        bool should_stop_request_loop(const util::h32 &current_target_hash);
+
+        void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
+                                     const util::h32 expected_hash, std::string &target_pubkey);
+
+        void submit_request(const backlog_item &request);
+
+        int handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
+
+        int handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
+
+        int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
+
+        int apply_metadata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir);
+
     protected:
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
         std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
@@ -97,27 +118,8 @@ namespace hpfs
         void set_target(const std::list<sync_target> &sync_target_list);
 
         void set_target_push_front(const sync_target &target);
-        
+
         void set_target_push_back(const sync_target &target);
-
-        bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
-
-        bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const util::h32 *hashes, const size_t hash_count);
-
-        bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
-
-        bool should_stop_request_loop(const util::h32 &current_target_hash);
-
-        void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
-                                            const util::h32 expected_hash, const p2p::sequence_hash &last_primary_shard_id, std::string &target_pubkey);
-
-        void submit_request(const backlog_item &request, const p2p::sequence_hash &last_primary_shard_id);
-
-        int handle_fs_entry_response(std::string_view vpath, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
-
-        int handle_file_hashmap_response(std::string_view vpath, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
-
-        int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
     };
 
 } // namespace hpfs

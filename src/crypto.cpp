@@ -115,7 +115,7 @@ namespace crypto
      * @param data_length hash data length.
      * @return The blake3 hash of the pointed buffer.
      */
-    const std::string get_hash(const unsigned char *data, size_t data_length)
+    const std::string get_hash(const void *data, const size_t data_length)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
