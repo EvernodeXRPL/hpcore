@@ -9,6 +9,8 @@ namespace p2p
     // Globally exposed weakly connected status variable.
     extern bool is_weakly_connected;
 
+    struct peer_properties;
+
     class peer_comm_server : public comm::comm_server<peer_comm_session>
     {
     private:
@@ -30,10 +32,10 @@ namespace p2p
     public:
         std::atomic<uint16_t> known_remote_count = 0;
         std::mutex req_known_remotes_mutex;
-        std::vector<conf::peer_properties> req_known_remotes;
+        std::vector<peer_properties> req_known_remotes;
         peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                          const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
-                         const std::vector<conf::peer_properties> &req_known_remotes);
+                         const std::vector<peer_properties> &req_known_remotes);
     };
 } // namespace p2p
 

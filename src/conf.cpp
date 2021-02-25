@@ -401,11 +401,10 @@ namespace conf
                         return -1;
                     }
 
-                    peer_properties peer;
-                    peer.ip_port.host_address = splitted_peers.front();
-                    peer.ip_port.port = std::stoi(splitted_peers.back());
-
-                    cfg.mesh.known_peers.push_back(peer);
+                    peer_ip_port ipp;
+                    ipp.host_address = splitted_peers.front();
+                    ipp.port = std::stoi(splitted_peers.back());
+                    cfg.mesh.known_peers.emplace(ipp);
                     splitted_peers.clear();
                 }
                 cfg.mesh.msg_forwarding = mesh["msg_forwarding"].as<bool>();
@@ -542,9 +541,9 @@ namespace conf
             mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
 
             jsoncons::ojson peers(jsoncons::json_array_arg);
-            for (const auto &peer : cfg.mesh.known_peers)
+            for (const auto &ipp : cfg.mesh.known_peers)
             {
-                const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
+                const std::string concat_str = std::string(ipp.host_address).append(":").append(std::to_string(ipp.port));
                 peers.push_back(concat_str);
             }
             mesh_config.insert_or_assign("known_peers", peers);
@@ -851,10 +850,7 @@ namespace conf
         // Apply known peer list updates.
         if (conf::cfg.mesh.peer_discovery.enabled && !cfg.mesh.known_peers.empty())
         {
-            const size_t max_count = conf::cfg.mesh.max_known_connections == 0
-                                         ? cfg.mesh.known_peers.size()
-                                         : MIN(cfg.mesh.known_peers.size(), conf::cfg.mesh.max_known_connections);
-            temp_cfg.mesh.known_peers = std::vector<peer_properties>(cfg.mesh.known_peers.begin(), cfg.mesh.known_peers.begin() + max_count);
+            temp_cfg.mesh.known_peers = cfg.mesh.known_peers;
             changes_made = true;
         }
 

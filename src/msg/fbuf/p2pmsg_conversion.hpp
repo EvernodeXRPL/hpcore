@@ -29,7 +29,7 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::nonunl_proposal create_nonunl_proposal_from_msg(const p2p::peer_message_info &mi);
 
-    const std::vector<conf::peer_properties> create_peer_list_response_from_msg(const p2p::peer_message_info &mi);
+    const std::vector<p2p::peer_properties> create_peer_list_response_from_msg(const p2p::peer_message_info &mi);
 
     const p2p::peer_capacity_announcement create_peer_capacity_announcement_from_msg(const p2p::peer_message_info &mi);
 
@@ -46,7 +46,7 @@ namespace msg::fbuf::p2pmsg
 
     void flatbuf_hpfsfshashentry_to_hpfsfshashentry(std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes);
 
-    const std::vector<conf::peer_properties>
+    const std::vector<p2p::peer_properties>
     flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<PeerProperties>> *fbvec);
 
     //---std to Flatbuf---//
@@ -85,7 +85,7 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_peer_list_request(flatbuffers::FlatBufferBuilder &builder);
 
-    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>
     user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::list<usr::submitted_user_input>> &map);
@@ -96,7 +96,7 @@ namespace msg::fbuf::p2pmsg
         std::vector<hpfs::child_hash_node> &hash_nodes);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<PeerProperties>>>
-    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
+    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
 
     const flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash>
     seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const p2p::sequence_hash &seqhash);

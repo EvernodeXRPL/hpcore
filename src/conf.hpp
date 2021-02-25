@@ -17,25 +17,20 @@ namespace conf
         std::string host_address;
         uint16_t port;
 
-        bool operator==(const peer_ip_port &ip_port)
+        bool operator==(const peer_ip_port &other) const
         {
-            return host_address == ip_port.host_address && port == ip_port.port;
+            return host_address == other.host_address && port == other.port;
         }
 
-        bool operator!=(const peer_ip_port &ip_port)
+        bool operator!=(const peer_ip_port &other) const
         {
-            return !(host_address == ip_port.host_address && port == ip_port.port);
+            return !(host_address == other.host_address && port == other.port);
         }
-    };
 
-    // Struct to represent information about a peer.
-    // Initially available capacity is set to -1 and timestamp is set to 0.
-    // Later it will be updated according to the capacity anouncement from the peers.
-    struct peer_properties
-    {
-        peer_ip_port ip_port;
-        int16_t available_capacity = -1;
-        uint64_t timestamp = 0;
+        bool operator<(const peer_ip_port &other) const
+        {
+            return (host_address == other.host_address) ? port < other.port : host_address < other.host_address;
+        }
     };
 
     // The role of the contract node.
@@ -154,7 +149,7 @@ namespace conf
         uint16_t port = 0;                        // Listening port for peer connections
         bool listen = true;                       // Whether to listen for incoming peer connections.
         uint32_t idle_timeout = 0;                // Idle connection timeout ms for peer connections.
-        std::vector<peer_properties> known_peers; // Vector of peers with ip_port, timestamp, capacity.
+        std::set<peer_ip_port> known_peers;       // Ordered set of peers with ip_port.
         bool msg_forwarding = false;              // Whether peer message forwarding is on/off.
         uint16_t max_connections = 0;             // Max peer connections.
         uint16_t max_known_connections = 0;       // Max known peer connections.
