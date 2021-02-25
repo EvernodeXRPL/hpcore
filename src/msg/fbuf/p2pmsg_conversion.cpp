@@ -156,7 +156,7 @@ namespace msg::fbuf::p2pmsg
         return nup;
     }
 
-    const std::vector<conf::peer_properties> create_peer_list_response_from_msg(const p2p::peer_message_info &mi)
+    const std::vector<p2p::peer_properties> create_peer_list_response_from_msg(const p2p::peer_message_info &mi)
     {
         const auto &msg = *mi.p2p_msg->content_as_PeerListResponseMsg();
         return flatbuf_peer_propertieslist_to_peer_propertiesvector(msg.peer_list());
@@ -239,14 +239,14 @@ namespace msg::fbuf::p2pmsg
         }
     }
 
-    const std::vector<conf::peer_properties>
+    const std::vector<p2p::peer_properties>
     flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<PeerProperties>> *fbvec)
     {
-        std::vector<conf::peer_properties> peers;
+        std::vector<p2p::peer_properties> peers;
 
         for (const PeerProperties *peer : *fbvec)
         {
-            conf::peer_properties properties;
+            p2p::peer_properties properties;
 
             properties.ip_port.host_address = flatbuf_str_to_sv(peer->host_address());
             properties.ip_port.port = peer->port();
@@ -465,7 +465,7 @@ namespace msg::fbuf::p2pmsg
         create_p2p_msg(builder, P2PMsgContent_PeerListRequestMsg, msg.Union());
     }
 
-    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port)
+    void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port)
     {
         const auto msg = CreatePeerListResponseMsg(
             builder,
@@ -520,7 +520,7 @@ namespace msg::fbuf::p2pmsg
     }
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<PeerProperties>>>
-    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<conf::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port)
+    peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port)
     {
         std::vector<flatbuffers::Offset<PeerProperties>> fbvec;
         fbvec.reserve(peers.size());

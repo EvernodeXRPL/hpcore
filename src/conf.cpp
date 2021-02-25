@@ -62,6 +62,9 @@ namespace conf
     {
         if (init_success)
         {
+            if (persist_updated_configs() == -1)
+                LOG_ERROR << "Failed to persist config updates.";
+
             // Releases the config file lock at the termination.
             release_config_lock();
         }
@@ -135,7 +138,7 @@ namespace conf
 
             cfg.hp_version = util::HP_VERSION;
 
-            cfg.node.role = startup_role = ROLE::VALIDATOR;
+            cfg.node.role = ROLE::VALIDATOR;
             cfg.node.history = HISTORY::CUSTOM;
             cfg.node.history_config.max_primary_shards = 1;
             cfg.node.history_config.max_blob_shards = 1;
@@ -318,15 +321,14 @@ namespace conf
                 }
 
                 if (node["role"] == ROLE_OBSERVER)
-                    cfg.node.role = ROLE::OBSERVER;
+                    startup_role = cfg.node.role = ROLE::OBSERVER;
                 else if (node["role"] == ROLE_VALIDATOR)
-                    cfg.node.role = ROLE::VALIDATOR;
+                    startup_role = cfg.node.role = ROLE::VALIDATOR;
                 else
                 {
                     std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
                     return -1;
                 }
-                startup_role = cfg.node.role;
 
                 if (node["history"] == HISTORY_FULL)
                     cfg.node.history = HISTORY::FULL;
@@ -399,11 +401,10 @@ namespace conf
                         return -1;
                     }
 
-                    peer_properties peer;
-                    peer.ip_port.host_address = splitted_peers.front();
-                    peer.ip_port.port = std::stoi(splitted_peers.back());
-
-                    cfg.mesh.known_peers.push_back(peer);
+                    peer_ip_port ipp;
+                    ipp.host_address = splitted_peers.front();
+                    ipp.port = std::stoi(splitted_peers.back());
+                    cfg.mesh.known_peers.emplace(ipp);
                     splitted_peers.clear();
                 }
                 cfg.mesh.msg_forwarding = mesh["msg_forwarding"].as<bool>();
@@ -514,7 +515,6 @@ namespace conf
             jsoncons::ojson node_config;
             node_config.insert_or_assign("public_key", cfg.node.public_key_hex);
             node_config.insert_or_assign("private_key", cfg.node.private_key_hex);
-            // We always save the startup role to config. Not the current role which might get changed dynamically during syncing.
             node_config.insert_or_assign("role", cfg.node.role == ROLE::OBSERVER ? ROLE_OBSERVER : ROLE_VALIDATOR);
             node_config.insert_or_assign("history", cfg.node.history == HISTORY::FULL ? HISTORY_FULL : HISTORY_CUSTOM);
 
@@ -541,9 +541,9 @@ namespace conf
             mesh_config.insert_or_assign("idle_timeout", cfg.mesh.idle_timeout);
 
             jsoncons::ojson peers(jsoncons::json_array_arg);
-            for (const auto &peer : cfg.mesh.known_peers)
+            for (const auto &ipp : cfg.mesh.known_peers)
             {
-                const std::string concat_str = std::string(peer.ip_port.host_address).append(":").append(std::to_string(peer.ip_port.port));
+                const std::string concat_str = std::string(ipp.host_address).append(":").append(std::to_string(ipp.port));
                 peers.push_back(concat_str);
             }
             mesh_config.insert_or_assign("known_peers", peers);
@@ -815,9 +815,12 @@ namespace conf
         }
         buf.clear();
 
-        // Persist new changes to HP config file.
-        if (parse_contract_section_json(cfg.contract, jdoc, true) == -1 ||
-            write_config(cfg) == -1)
+        // Persist new changes to config file and runtime config.
+        hp_config temp_cfg;
+        if (read_config(temp_cfg) == -1 ||
+            parse_contract_section_json(temp_cfg.contract, jdoc, true) == -1 ||
+            parse_contract_section_json(cfg.contract, jdoc, true) == -1 ||
+            write_config(temp_cfg) == -1)
         {
             LOG_ERROR << "Error applying patch config.";
             return -1;
@@ -828,18 +831,31 @@ namespace conf
     }
 
     /**
-     * Persists the specified known peers to the config file.
+     * Persists any updated config fields back to config file.
      */
-    int persist_known_peers_config(const std::vector<peer_properties> &peers)
+    int persist_updated_configs()
     {
-        if (peers.empty())
+        const bool contains_updated_config = cfg.mesh.peer_discovery.enabled;
+        bool changes_made = false;
+        if (!contains_updated_config)
             return 0;
 
-        const size_t max_count = conf::cfg.mesh.max_known_connections == 0
-                                     ? peers.size()
-                                     : MIN(peers.size(), conf::cfg.mesh.max_known_connections);
-        cfg.mesh.known_peers = std::vector<peer_properties>(peers.begin(), peers.begin() + max_count);
-        return write_config(cfg);
+        // Read the original config into a temp struct.
+        hp_config temp_cfg;
+        if (read_config(temp_cfg) == -1)
+            return -1;
+
+        // Apply any actual changes to the temp struct.
+
+        // Apply known peer list updates.
+        if (conf::cfg.mesh.peer_discovery.enabled && !cfg.mesh.known_peers.empty())
+        {
+            temp_cfg.mesh.known_peers = cfg.mesh.known_peers;
+            changes_made = true;
+        }
+
+        // Persis the temp struct if any changes made to values.
+        return changes_made ? write_config(temp_cfg) : 0;
     }
 
     /**
