@@ -12,6 +12,9 @@
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
+// Maximum no. of peers that will be persisted back to config upon exit.
+constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 50;
+
 namespace p2p
 {
 
@@ -54,7 +57,7 @@ namespace p2p
             {
                 std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
                 const std::vector<peer_properties> &peers = ctx.server->req_known_remotes;
-                const size_t count = MIN(50, peers.size());
+                const size_t count = MIN(MAX_PERSISTED_KNOWN_PEERS, peers.size());
                 conf::cfg.mesh.known_peers.clear();
                 for (size_t i = 0; i < count; i++)
                     conf::cfg.mesh.known_peers.emplace(peers[i].ip_port);
