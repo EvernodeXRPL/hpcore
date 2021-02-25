@@ -12,6 +12,9 @@
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
+// Maximum no. of peers that will be persisted back to config upon exit.
+constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 50;
+
 namespace p2p
 {
 
@@ -48,10 +51,16 @@ namespace p2p
     {
         if (init_success)
         {
-            // Persist latest known peers information to config before the peer server is stopped.
+            // If peer discovery was enabled, update latest known peers information to config
+            // before the peer server is stopped. (config will permanently save it to disk upon exit)
+            if (conf::cfg.mesh.peer_discovery.enabled)
             {
                 std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
-                conf::persist_known_peers_config(ctx.server->req_known_remotes);
+                const std::vector<peer_properties> &peers = ctx.server->req_known_remotes;
+                const size_t count = MIN(MAX_PERSISTED_KNOWN_PEERS, peers.size());
+                conf::cfg.mesh.known_peers.clear();
+                for (size_t i = 0; i < count; i++)
+                    conf::cfg.mesh.known_peers.emplace(peers[i].ip_port);
             }
 
             ctx.server->stop();
@@ -61,8 +70,11 @@ namespace p2p
     int start_peer_connections()
     {
         const uint16_t listen_port = conf::cfg.mesh.listen ? conf::cfg.mesh.port : 0;
+        std::vector<peer_properties> known_peers;
+        for (const conf::peer_ip_port &ipp : conf::cfg.mesh.known_peers)
+            known_peers.push_back(peer_properties{ipp, -1, 0});
         ctx.server.emplace(listen_port, metric_thresholds, conf::cfg.mesh.max_bytes_per_msg,
-                           conf::cfg.mesh.max_connections, conf::cfg.mesh.max_in_connections_per_host, conf::cfg.mesh.known_peers);
+                           conf::cfg.mesh.max_connections, conf::cfg.mesh.max_in_connections_per_host, std::move(known_peers));
         if (ctx.server->start() == -1)
             return -1;
 
@@ -367,7 +379,7 @@ namespace p2p
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](conf::peer_properties &p) { return p.ip_port == ip_port; });
+        const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p) { return p.ip_port == ip_port; });
         if (itr != ctx.server->req_known_remotes.end())
         {
             LOG_DEBUG << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ":" << itr->ip_port.port << ", Capacity: " << std::to_string(available_capacity);
@@ -395,13 +407,13 @@ namespace p2p
      * Merging the response peer list with the own known peer list.
      * @param peers Incoming peer list.
      */
-    void merge_peer_list(const std::vector<conf::peer_properties> &peers)
+    void merge_peer_list(const std::vector<peer_properties> &peers)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        for (const conf::peer_properties &peer : peers)
+        for (const peer_properties &peer : peers)
         {
-            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](conf::peer_properties &p) { return p.ip_port == peer.ip_port; });
+            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p) { return p.ip_port == peer.ip_port; });
 
             // If the new peer is not in the peer list then add to the req_known_remotes
             // Otherwise if new peer is recently updated (timestamp >) replace with the current one.
@@ -436,7 +448,7 @@ namespace p2p
     void sort_known_remotes()
     {
         std::sort(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
-                  [](const conf::peer_properties &p1, const conf::peer_properties &p2) {
+                  [](const peer_properties &p1, const peer_properties &p2) {
                       return get_peer_weight(p1) < 0 || get_peer_weight(p1) > get_peer_weight(p2);
                   });
     }
@@ -446,7 +458,7 @@ namespace p2p
      * @param peer Properties of the peer.
      * @returns -1 if available capacity is unlimited otherwise weight value.
      */
-    int32_t get_peer_weight(const conf::peer_properties &peer)
+    int32_t get_peer_weight(const peer_properties &peer)
     {
         const uint64_t time_now = util::get_epoch_milliseconds();
         return peer.available_capacity >= 0 ? peer.available_capacity * 1000 * 60 / ceil(time_now - peer.timestamp) : -1;

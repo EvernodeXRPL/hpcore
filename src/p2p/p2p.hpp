@@ -18,6 +18,16 @@ namespace p2p
     constexpr uint16_t HPFS_RES_LIST_CAP = 64;        // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
 
+    // Struct to represent information about a peer.
+    // Initially available capacity is set to -1 and timestamp is set to 0.
+    // Later it will be updated according to the capacity anouncement from the peers.
+    struct peer_properties
+    {
+        conf::peer_ip_port ip_port;
+        int16_t available_capacity = -1;
+        uint64_t timestamp = 0;
+    };
+
     struct sequence_hash
     {
         uint64_t seq_no = 0;
@@ -212,9 +222,9 @@ namespace p2p
 
     void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
 
-    void merge_peer_list(const std::vector<conf::peer_properties> &peers);
+    void merge_peer_list(const std::vector<peer_properties> &peers);
 
-    int32_t get_peer_weight(const conf::peer_properties &peer);
+    int32_t get_peer_weight(const peer_properties &peer);
 
     void sort_known_remotes();
 
