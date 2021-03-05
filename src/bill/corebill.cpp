@@ -47,26 +47,24 @@ namespace corebill
             // Reset counter timestamp.
             stat.timestamp = time_now;
         }
-        else
-        {
-            // Check whether we have exceeded the threshold within the monitering interval.
-            const uint64_t elapsed_time = time_now - stat.timestamp;
-            if (elapsed_time <= VIOLATION_REFRESH_INTERVAL && stat.counter > VIOLATION_THRESHOLD)
-            {
-                // IP exceeded violation threshold.
 
-                stat.timestamp = 0;
-                stat.counter = 0;
-                std::scoped_lock<std::mutex> gray_list_lock(graylist_mutex);
-                graylist.emplace(host, VIOLATION_REFRESH_INTERVAL);
-                LOG_WARNING << host << " placed on graylist.";
-            }
-            else if (elapsed_time > VIOLATION_REFRESH_INTERVAL)
-            {
-                // Start the counter fresh.
-                stat.timestamp = time_now;
-                stat.counter = 1;
-            }
+        // Check whether we have exceeded the threshold within the monitering interval.
+        const uint64_t elapsed_time = time_now - stat.timestamp;
+        if (elapsed_time <= VIOLATION_REFRESH_INTERVAL && stat.counter > VIOLATION_THRESHOLD)
+        {
+            // IP exceeded violation threshold.
+
+            stat.timestamp = 0;
+            stat.counter = 0;
+            std::scoped_lock<std::mutex> gray_list_lock(graylist_mutex);
+            graylist.emplace(host, VIOLATION_REFRESH_INTERVAL);
+            LOG_WARNING << host << " placed on graylist.";
+        }
+        else if (elapsed_time > VIOLATION_REFRESH_INTERVAL)
+        {
+            // Start the counter fresh.
+            stat.timestamp = time_now;
+            stat.counter = 1;
         }
     }
 
