@@ -84,9 +84,23 @@ namespace conf
         if (read_config(cfg) != 0)
             return -1;
 
+        // Old public key in binary format.
+        const std::string old_pub_key_bin = cfg.node.public_key;
+
         crypto::generate_signing_keys(cfg.node.public_key, cfg.node.private_key);
         cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
         cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
+
+        // Extract old pubkey from unl and re-insert the new public key in to the unl list.
+        auto extracted_public_key_node = cfg.contract.unl.extract(old_pub_key_bin);
+        if (extracted_public_key_node.empty())
+        {
+            std::cerr << "Updating public key in unl list failed.\n";
+            return -1;
+        }
+
+        extracted_public_key_node.value() = cfg.node.public_key;
+        cfg.contract.unl.insert(std::move(extracted_public_key_node));
 
         if (write_config(cfg) != 0)
             return -1;
