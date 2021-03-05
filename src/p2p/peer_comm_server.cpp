@@ -200,6 +200,7 @@ namespace p2p
     {
         if (connected_status_check_counter == 600)
         {
+            // Get the count of peers which are unl nodes.
             // One is added to session list size only if we are a unl node, to reflect the self connection.
             const int connected_peer_count = std::count_if(sessions.begin(), sessions.end(), [](const p2p::peer_comm_session &session) {
                                                  return session.is_unl;
