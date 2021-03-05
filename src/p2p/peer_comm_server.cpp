@@ -198,7 +198,7 @@ namespace p2p
     */
     void peer_comm_server::detect_if_weakly_connected()
     {
-        if (connected_status_check_counter == 10)
+        if (connected_status_check_counter == 600)
         {
             // One is added to session list size only if we are a unl node, to reflect the self connection.
             const int connected_peer_count = std::count_if(sessions.begin(), sessions.end(), [](const p2p::peer_comm_session &session) {
