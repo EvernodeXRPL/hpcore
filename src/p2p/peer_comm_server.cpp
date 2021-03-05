@@ -200,8 +200,8 @@ namespace p2p
     {
         if (connected_status_check_counter == 600)
         {
-            // One is added to session list size to reflect the loop back connection.
-            const bool current_state = (sessions.size() + 1) < (unl::count() * WEAKLY_CONNECTED_THRESHOLD);
+            // One is added to session list size only if we are a unl node, to reflect the self connection.
+            const bool current_state = (sessions.size() + (conf::cfg.node.is_unl ? 1 : 0)) < (unl::count() * WEAKLY_CONNECTED_THRESHOLD);
             if (is_weakly_connected != current_state)
             {
                 is_weakly_connected = !is_weakly_connected;
