@@ -47,7 +47,7 @@ namespace hpws
 // used when waiting for messages that should already be on the pipe
 #define HPWS_SMALL_TIMEOUT 10
 // used when waiting for server process to spawn
-#define HPWS_LONG_TIMEOUT 50
+#define HPWS_LONG_TIMEOUT 1500 // This timeout has to account the possible delays in communication via internet.
 
     typedef union
     {

@@ -275,25 +275,23 @@ namespace comm
             // Reset counter timestamp.
             t.timestamp = time_now;
         }
-        else
+    
+        // Check whether we have exceeded the threshold within the monitering interval.
+        const uint64_t elapsed_time = time_now - t.timestamp;
+        if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
         {
-            // Check whether we have exceeded the threshold within the monitering interval.
-            const uint64_t elapsed_time = time_now - t.timestamp;
-            if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
-            {
-                mark_for_closure();
+            mark_for_closure();
 
-                t.timestamp = 0;
-                t.counter_value = 0;
+            t.timestamp = 0;
+            t.counter_value = 0;
 
-                LOG_INFO << "Session " << display_name() << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-                corebill::report_violation(host_address);
-            }
-            else if (elapsed_time > t.intervalms)
-            {
-                t.timestamp = time_now;
-                t.counter_value = amount;
-            }
+            LOG_INFO << "Session " << display_name() << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
+            corebill::report_violation(host_address);
+        }
+        else if (elapsed_time > t.intervalms)
+        {
+            t.timestamp = time_now;
+            t.counter_value = amount;
         }
     }
 
