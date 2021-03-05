@@ -58,7 +58,7 @@ namespace msg::fbuf::p2pmsg
 
         std::string_view pubkey = flatbuf_bytes_to_sv(msg.pubkey());
         
-        // Before verifying the hash, Validate if the message is not from a node of current node's unl list.
+        // Before verifying the hash, Validate if the message is from a trusted node.
         if (!unl::exists(std::string(pubkey)))
         {
             LOG_DEBUG << "Peer proposal message pubkey verification failed. Not in UNL.";
@@ -89,7 +89,7 @@ namespace msg::fbuf::p2pmsg
 
         std::string_view pubkey = flatbuf_bytes_to_sv(msg.pubkey());
         
-        // Before verifying the hash, Validate if the message is not from a node of current node's unl list.
+        // Before verifying the hash, Validate if the message is from a trusted node.
         if (!unl::exists(std::string(pubkey)))
         {
             LOG_INFO << "Peer npl message pubkey verification failed. Not in UNL.";
