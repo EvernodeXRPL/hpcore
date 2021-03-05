@@ -154,7 +154,7 @@ namespace p2p
         }
         else if (mi.type == p2pmsg::P2PMsgContent_ProposalMsg)
         {
-            if (!p2pmsg::verify_proposal_msg_signature(mi))
+            if (!p2pmsg::verify_proposal_msg_trust(mi))
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "Proposal rejected due to trust failure. " << session.display_name();
@@ -165,7 +165,7 @@ namespace p2p
         }
         else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
         {
-            if (!p2pmsg::verify_npl_msg_signature(mi))
+            if (!p2pmsg::verify_npl_msg_trust(mi))
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "Npl message rejected due to trust failure. " << session.display_name();

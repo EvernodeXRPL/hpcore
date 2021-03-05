@@ -52,9 +52,18 @@ namespace msg::fbuf::p2pmsg
         return p2p::peer_message_info{p2p_msg, p2p_msg->content_type(), p2p_msg->created_on()};
     }
 
-    bool verify_proposal_msg_signature(const p2p::peer_message_info &mi)
+    bool verify_proposal_msg_trust(const p2p::peer_message_info &mi)
     {
         const auto &msg = *mi.p2p_msg->content_as_ProposalMsg();
+
+        std::string_view pubkey = flatbuf_bytes_to_sv(msg.pubkey());
+        
+        // Before verifying the hash, Validate if the message is from a trusted node.
+        if (!unl::exists(std::string(pubkey)))
+        {
+            LOG_DEBUG << "Peer proposal message pubkey verification failed. Not in UNL.";
+            return false;
+        }
 
         // Get hash of proposal data field values and verify the signature against the hash.
         flatbuf_hasher hasher;
@@ -71,19 +80,28 @@ namespace msg::fbuf::p2pmsg
         hasher.add(msg.last_primary_shard_id());
         hasher.add(msg.last_blob_shard_id());
 
-        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), flatbuf_bytes_to_sv(msg.pubkey())) == 0;
+        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), pubkey) == 0;
     }
 
-    bool verify_npl_msg_signature(const p2p::peer_message_info &mi)
+    bool verify_npl_msg_trust(const p2p::peer_message_info &mi)
     {
         const auto &msg = *mi.p2p_msg->content_as_NplMsg();
+
+        std::string_view pubkey = flatbuf_bytes_to_sv(msg.pubkey());
+        
+        // Before verifying the hash, Validate if the message is from a trusted node.
+        if (!unl::exists(std::string(pubkey)))
+        {
+            LOG_INFO << "Peer npl message pubkey verification failed. Not in UNL.";
+            return false;
+        }
 
         // Get hash of npl message field values and verify the signature against the hash.
         flatbuf_hasher hasher;
         hasher.add(msg.data());
         hasher.add(msg.lcl_id());
 
-        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), flatbuf_bytes_to_sv(msg.pubkey())) == 0;
+        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), pubkey) == 0;
     }
 
     const p2p::peer_challenge create_peer_challenge_from_msg(const p2p::peer_message_info &mi)
