@@ -425,8 +425,8 @@ namespace conf
                 cfg.mesh.max_connections = mesh["max_connections"].as<uint16_t>();
                 cfg.mesh.max_known_connections = mesh["max_known_connections"].as<uint16_t>();
                 cfg.mesh.max_in_connections_per_host = mesh["max_in_connections_per_host"].as<uint16_t>();
-                // If max_connections is greater than max_known_connections then show error and stop execution.
-                if (cfg.mesh.max_known_connections > cfg.mesh.max_connections)
+                // If a value is given for max_connections then max_known_connections value should not be 0(unlimited) and it should be less or equal than that value.
+                if (cfg.mesh.max_connections > 0 && (cfg.mesh.max_known_connections > cfg.mesh.max_connections || cfg.mesh.max_known_connections == 0))
                 {
                     std::cerr << "Invalid configuration values: mesh max_known_connections count should not exceed mesh max_connections." << '\n';
                     return -1;
