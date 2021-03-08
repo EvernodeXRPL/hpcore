@@ -257,19 +257,17 @@ namespace ledger
         // Remove old shards if this is not a full history node.
         if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
         {
-            const std::string shard_dir_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir);
-            std::list<std::string> shards = util::fetch_dir_entries(shard_dir_path);
-            for (const std::string shard : shards)
+            for (int i = led_shard_no - 1; i >= 0; i--)
             {
-                uint64_t primary_shard_seq_no;
-                util::stoull(shard, primary_shard_seq_no);
-                if (primary_shard_seq_no < led_shard_no)
+                const std::string shard_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir)).append("/").append(std::to_string(i));
+                // Break the loop if there's no sorrespondig shard.
+                // There cannot be shards which is less than this shard no since shards are continous.
+                if (!util::is_dir_exists(shard_path))
+                    break;
+                else if (util::remove_directory_recursively(shard_path) == -1)
                 {
-                    const std::string shard_path = std::string(shard_dir_path).append("/").append(shard);
-                    if (util::is_dir_exists(shard_path) && util::remove_directory_recursively(shard_path) == -1)
-                    {
-                        LOG_ERROR << errno << ": Error deleting shard: " << shard;
-                    }
+                    LOG_ERROR << errno << ": Error deleting shard: " << std::to_string(i);
+                    break;
                 }
             }
         }
@@ -431,7 +429,7 @@ namespace ledger
 
         if (last_primary_shard_id.seq_no == 0 && last_primary_shard_id.hash == util::h32_empty)
         {
-           // This is the genesis ledger.
+            // This is the genesis ledger.
             ctx.set_lcl_id(p2p::sequence_hash{0, util::h32_empty});
             return 0;
         }
@@ -502,7 +500,6 @@ namespace ledger
 
         return 0;
     }
-
 
     /**
      * Update max_shard.seq_no meta file with the given latest shard sequence number which can be used to identify last shard 

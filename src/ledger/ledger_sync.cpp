@@ -54,6 +54,18 @@ namespace ledger
                     LOG_ERROR << "Error updating max shard meta file in primary shard sync.";
                     return;
                 }
+
+                //Remove previously created old primary shards that exceeds max shard range.
+                if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
+                {
+                    // If existing max shard is older than the max we can keep. Then delete all the existing shards.
+                    if (synced_shard_seq_no - last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
+                        remove_old_shards(last_primary_shard_seq_no + 1, PRIMARY_DIR);
+                    // If existing max shard is within our max range. Then delete perviously created older shards.
+                    else if (synced_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
+                        remove_old_shards(synced_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
+                }
+
                 const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, synced_target.hash};
                 if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id) == -1)
                 {
@@ -78,16 +90,6 @@ namespace ledger
                     const std::string shard_path = std::string(PRIMARY_DIR).append("/").append(std::to_string(synced_shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
-                else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
-                {
-                    // When there are no more shards to sync, Remove old shards that exceeds max shard range.
-                    remove_old_shards(last_primary_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
-                }
-            }
-            else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
-            {
-                // When there are no more shards to sync, Remove old shards that exceeds max shard range.
-                remove_old_shards(last_primary_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
             }
         }
         else if (shard_parent_dir == BLOB_DIR)
@@ -102,6 +104,17 @@ namespace ledger
                 {
                     LOG_ERROR << "Error updating max shard meta file in blob shard sync.";
                     return;
+                }
+
+                //Remove previously created old blob shards that exceeds max shard range.
+                if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
+                {
+                    // If existing max shard is older than the max we can keep. Then delete all the existing shards.
+                    if (synced_shard_seq_no - last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
+                        remove_old_shards(last_blob_shard_seq_no + 1, BLOB_DIR);
+                    // If existing max shard is within our max range. Then delete perviously created older shards.
+                    else if (synced_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
+                        remove_old_shards(synced_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
                 }
 
                 last_blob_shard_seq_no = synced_shard_seq_no;
@@ -122,16 +135,6 @@ namespace ledger
                     const std::string shard_path = std::string(BLOB_DIR).append("/").append(std::to_string(synced_shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
-                else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
-                {
-                    // When there are no more shards to sync, Remove old shards that exceeds max shard range.
-                    remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
-                }
-            }
-            else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
-            {
-                // When there are no more shards to sync, Remove old shards that exceeds max shard range.
-                remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
             }
         }
     }
