@@ -1,3 +1,5 @@
+#include "../../conf.hpp"
+#include "../../p2p/p2p.hpp"
 #include "../../pchheader.hpp"
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
@@ -26,6 +28,31 @@ namespace msg::usrmsg::bson
         encoder.int64_value(lcl_seq_no);
         encoder.key(msg::usrmsg::FLD_LCL_HASH);
         encoder.byte_string_value(lcl_hash);
+        encoder.key(msg::usrmsg::FLD_ROUND_TIME);
+        encoder.uint64_value(conf::cfg.contract.roundtime);
+        encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
+        encoder.bool_value(conf::cfg.contract.execute);
+        encoder.key(msg::usrmsg::FLD_READ_REQUESTS_ENABLED);
+        encoder.bool_value(conf::cfg.user.concurrent_read_reqeuests);        
+        encoder.key(msg::usrmsg::FLD_IS_FULL_HISTORY_NODE);
+        encoder.bool_value(conf::cfg.node.history);
+        
+        encoder.key(msg::usrmsg::FLD_CURRENT_UNL);
+        encoder.begin_array();
+        for (std::string_view unl : conf::cfg.contract.unl)
+            encoder.byte_string_value(unl);
+        encoder.end_array();
+        encoder.key(msg::usrmsg::FLD_PEERS);
+
+        {
+            std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+
+            encoder.begin_array();
+            for (const auto &peer : p2p::ctx.peer_connections)
+                encoder.string_value(peer.second->known_ipport->host_address + ":" + std::to_string(peer.second->known_ipport->port));
+            encoder.end_array();
+        }
+
         encoder.end_object();
         encoder.flush();
     }
