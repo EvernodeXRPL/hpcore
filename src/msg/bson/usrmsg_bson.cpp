@@ -1,3 +1,5 @@
+#include "../../conf.hpp"
+#include "../../p2p/p2p.hpp"
 #include "../../pchheader.hpp"
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
@@ -16,16 +18,49 @@ namespace msg::usrmsg::bson
      *              "lcl_hash": <binary lcl hash>
      *            }
      */
+    constexpr const size_t MAX_KNOWN_PEERS_INFO = 10;
+    
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_STAT_RESPONSE);
+        encoder.key(msg::usrmsg::FLD_HP_VERSION);
+        encoder.string_value(conf::cfg.hp_version);
         encoder.key(msg::usrmsg::FLD_LCL_SEQ);
         encoder.int64_value(lcl_seq_no);
         encoder.key(msg::usrmsg::FLD_LCL_HASH);
         encoder.byte_string_value(lcl_hash);
+        encoder.key(msg::usrmsg::FLD_ROUND_TIME);
+        encoder.uint64_value(conf::cfg.contract.roundtime);
+        encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
+        encoder.bool_value(conf::cfg.contract.execute);
+        encoder.key(msg::usrmsg::FLD_READ_REQUESTS_ENABLED);
+        encoder.bool_value(conf::cfg.user.concurrent_read_reqeuests != 0);        
+        encoder.key(msg::usrmsg::FLD_IS_FULL_HISTORY_NODE);
+        encoder.bool_value(conf::cfg.node.history == conf::HISTORY::FULL);
+        
+        encoder.key(msg::usrmsg::FLD_CURRENT_UNL);
+        encoder.begin_array();
+        for (std::string_view unl : conf::cfg.contract.unl)
+            encoder.byte_string_value(unl);
+        encoder.end_array();
+        encoder.key(msg::usrmsg::FLD_PEERS);
+
+        {
+            std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+
+            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, p2p::ctx.peer_connections.size());
+            size_t count = 1;
+
+            encoder.begin_array();
+            // Currently all peers, up to a max of 10 are sent regardless of state.
+            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++, count++)
+                encoder.string_value(peer->second->known_ipport->host_address + ":" + std::to_string(peer->second->known_ipport->port));
+            encoder.end_array();
+        }
+
         encoder.end_object();
         encoder.flush();
     }
