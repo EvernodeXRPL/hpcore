@@ -13,7 +13,7 @@ namespace ledger
         p2p::sequence_hash last_primary_shard_id;
         p2p::sequence_hash last_blob_shard_id;
 
-        if (acquire_rw_session())
+        if (acquire_rw_session() == -1)
         {
             LOG_ERROR << "Failed to acquire rw session at mount " << mount_dir << ".";
             return -1;
@@ -38,7 +38,7 @@ namespace ledger
                 remove_old_shards(last_blob_shard_id.seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
         }
 
-        if (release_rw_session())
+        if (release_rw_session() == -1)
         {
             LOG_ERROR << "Failed to release rw session at mount " << mount_dir << ".";
             return -1;

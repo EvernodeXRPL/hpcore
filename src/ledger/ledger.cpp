@@ -260,13 +260,13 @@ namespace ledger
             for (int i = led_shard_no - 1; i >= 0; i--)
             {
                 const std::string shard_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir)).append("/").append(std::to_string(i));
-                // Break the loop if there's no sorrespondig shard.
+                // Break the loop if there's no corresponding shard.
                 // There cannot be shards which is less than this shard no since shards are continous.
                 if (!util::is_dir_exists(shard_path))
                     break;
                 else if (util::remove_directory_recursively(shard_path) == -1)
                 {
-                    LOG_ERROR << errno << ": Error deleting shard: " << std::to_string(i);
+                    LOG_ERROR << errno << ": Error deleting shard: " << i;
                     break;
                 }
             }
