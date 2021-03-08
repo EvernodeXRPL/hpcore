@@ -54,6 +54,11 @@ namespace ledger
                     LOG_ERROR << "Error updating max shard meta file in primary shard sync.";
                     return;
                 }
+
+                // If existing max shard is older than the max we can keep. Then delete all the existing shards.
+                if (conf::cfg.node.history == conf::HISTORY::CUSTOM && synced_shard_seq_no - last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
+                    remove_old_shards(last_primary_shard_seq_no + 1, PRIMARY_DIR);
+
                 const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, synced_target.hash};
                 if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id) == -1)
                 {
@@ -103,6 +108,10 @@ namespace ledger
                     LOG_ERROR << "Error updating max shard meta file in blob shard sync.";
                     return;
                 }
+
+                // If existing max shard is older than the max we can keep. Then delete all the existing shards.
+                if (conf::cfg.node.history == conf::HISTORY::CUSTOM && synced_shard_seq_no - last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
+                    remove_old_shards(last_blob_shard_seq_no + 1, BLOB_DIR);
 
                 last_blob_shard_seq_no = synced_shard_seq_no;
                 ctx.set_last_blob_shard_id(p2p::sequence_hash{synced_shard_seq_no, synced_target.hash});
