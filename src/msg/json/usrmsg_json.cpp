@@ -140,7 +140,7 @@ namespace msg::usrmsg::json
      */
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
-        u_int16_t msg_length = 406 + (69 * conf::cfg.contract.unl.size());
+        const uint16_t msg_length = 406 + (69 * conf::cfg.contract.unl.size());
 
         msg.reserve(msg_length);
         msg += "{\"";
@@ -200,11 +200,12 @@ namespace msg::usrmsg::json
             const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, p2p::ctx.peer_connections.size());
             size_t count = 1;
 
+            // Currently all peers, up to a max of 10 are sent regardless of state.
             for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++, count++)
             {
                 msg += DOUBLE_QUOTE + peer->second->known_ipport->host_address + ":" + std::to_string(peer->second->known_ipport->port) + DOUBLE_QUOTE;
 
-                if ( peer != p2p::ctx.peer_connections.end() && count < max_peers_count)
+                if (peer != p2p::ctx.peer_connections.end() && count < max_peers_count)
                     msg += ",";
             }
         }
