@@ -498,8 +498,15 @@
             else if (m.type == "stat_response") {
                 statResponseResolvers.forEach(resolver => {
                     resolver({
+                        hpVersion: m.hp_version,
                         lclSeqNo: m.lcl_seq_no,
-                        lcl_hash: m.lcl_hash
+                        lclHash: m.lcl_hash,
+                        roundTime: m.round_time,
+                        contractExecutionEnabled: m.contract_execution_enabled,
+                        readRequestsEnabled: m.read_requests_enabled,
+                        isFull_history_node: m.is_full_history_node,
+                        currentUnl: m.current_unl,
+                        peers: m.peers
                     });
                 })
                 statResponseResolvers = [];
