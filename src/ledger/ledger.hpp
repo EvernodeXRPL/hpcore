@@ -87,6 +87,8 @@ namespace ledger
 
     void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir);
 
+    void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir);
+
     int get_last_ledger_and_update_context(std::string_view session_name, const p2p::sequence_hash &last_primary_shard_id);
 
     int get_last_shard_info(std::string_view session_name, p2p::sequence_hash &last_shard_id, const std::string &shard_parent_dir);

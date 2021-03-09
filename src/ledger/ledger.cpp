@@ -250,7 +250,7 @@ namespace ledger
 
     /**
      * Remove old shards that exceeds max shard range from file system.
-     * @param led_shard_no minimum shard number to be in history.
+     * @param led_shard_no Minimum shard number to be in history.
      */
     void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir)
     {
@@ -270,6 +270,63 @@ namespace ledger
                     break;
                 }
             }
+        }
+    }
+
+    /**
+     * Request and remove historical shards according to the max we can keep.
+     * @param shard_seq_no Latest shard sequence number.
+     * @param shard_parent_dir Shard parent directory.
+     */
+    void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir)
+    {
+        const std::string shard_dir_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir));
+        const uint64_t max_shard_count = shard_dir_path == PRIMARY_DIR ? conf::cfg.node.history_config.max_primary_shards : conf::cfg.node.history_config.max_blob_shards;
+        const std::list<std::string> shard_list = util::fetch_dir_entries(shard_dir_path);
+        const uint64_t shard_count = shard_list.size() - 1;
+
+        // In full history mode request for all the historical nodes if not exists, Otherwise request if max count haven't reached
+        if (shard_seq_no + 1 > shard_count && (conf::cfg.node.history == conf::HISTORY::FULL || shard_count < max_shard_count))
+        {
+            const uint64_t seq_no = shard_seq_no - shard_count;
+
+            const std::string prev_shard_hash_file_path = shard_dir_path + "/" + std::to_string(seq_no + 1) + PREV_SHARD_HASH_FILENAME;
+            const int fd = open(prev_shard_hash_file_path.c_str(), O_RDONLY | O_CLOEXEC);
+            if (fd == -1)
+            {
+                LOG_DEBUG << "Cannot read " << prev_shard_hash_file_path;
+                return;
+            }
+
+            util::h32 prev_shard_hash_from_file;
+            const int res = read(fd, &prev_shard_hash_from_file, sizeof(util::h32));
+            close(fd);
+            if (res == -1)
+            {
+                LOG_ERROR << errno << ": Error reading hash file. " << prev_shard_hash_file_path;
+                return;
+            }
+
+            const std::string sync_name = (shard_parent_dir == PRIMARY_DIR ? "primary" : "blob") + std::string(" shard ") + std::to_string(seq_no);
+            const std::string shard_path = std::string(shard_parent_dir).append("/").append(std::to_string(seq_no));
+            ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+        }
+        // In custom history mode remove historical shards if max count exceeds.
+        else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && shard_count > max_shard_count)
+        {
+            // At the startup all the historical shards are removed.
+            for (const std::string shard : shard_list)
+            {
+                uint64_t seq_no;
+                util::stoull(shard, seq_no);
+                if (seq_no < (shard_seq_no - max_shard_count + 1))
+                {
+                    const std::string shard_path = std::string(shard_dir_path).append("/").append(shard);
+                    if (util::is_dir_exists(shard_path) && util::remove_directory_recursively(shard_path) == -1)
+                        LOG_ERROR << errno << ": Error deleting shard: " << shard;
+                }
+            }
+
         }
     }
 
