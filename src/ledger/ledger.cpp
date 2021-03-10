@@ -294,10 +294,14 @@ namespace ledger
         uint64_t shard_count = shard_list.size() - 1;
 
         // First, In history custom mode remove all the historical shards which is older than the min we can keep.
-        if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
+        if (conf::cfg.node.history == conf::HISTORY::CUSTOM && shard_seq_no >= max_shard_count)
         {
             for (const std::string shard : shard_list)
             {
+                // Skip the sequence no file.
+                if (("/" + shard) == SHARD_SEQ_NO_FILENAME)
+                    continue;
+                
                 uint64_t seq_no;
                 util::stoull(shard, seq_no);
                 if (seq_no <= (shard_seq_no - max_shard_count))
