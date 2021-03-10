@@ -83,20 +83,16 @@ namespace ledger
                     const std::string shard_path = std::string(PRIMARY_DIR).append("/").append(std::to_string(synced_shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
+                else if (!ctx.primary_shards_persisted)
+                {
+                    // If primary shards aren't persisted. Persist them.
+                    // Flag makes sure that if shards has been persisted once, then we won't persist again.
+                    persist_shard_history(last_primary_shard_seq_no, BLOB_DIR);
+                }
                 else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
                 {
-                    // Persisting only happens if we found synced shard at the middle.
-                    if (!ctx.primary_shards_persisted)
-                    {
-                        // If primary shards aren't persisted. Persist them.
-                        // Flag makes sure that if shards has been persisted once, then we won't persist again.
-                        persist_shard_history(last_primary_shard_seq_no, BLOB_DIR);
-                    }
-                    else
-                    {
-                        // If already persisted, we'll only remove the shards which exceed max range
-                        remove_old_shards(last_primary_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, BLOB_DIR);
-                    }
+                    // If already persisted, we'll only remove the shards which exceed max range
+                    remove_old_shards(last_primary_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, BLOB_DIR);
                 }
             }
             else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
@@ -141,20 +137,16 @@ namespace ledger
                     const std::string shard_path = std::string(BLOB_DIR).append("/").append(std::to_string(synced_shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
+                else if (!ctx.blob_shards_persisted)
+                {
+                    // If blob shards aren't persisted. Persist them.
+                    // Flag makes sure that if shards has been persisted once, then we won't persist again.
+                    persist_shard_history(last_blob_shard_seq_no, BLOB_DIR);
+                }
                 else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
                 {
-                    // Persisting only happens if we found synced shard at the middle.
-                    if (!ctx.blob_shards_persisted)
-                    {
-                        // If blob shards aren't persisted. Persist them.
-                        // Flag makes sure that if shards has been persisted once, then we won't persist again.
-                        persist_shard_history(last_blob_shard_seq_no, BLOB_DIR);
-                    }
-                    else
-                    {
-                        // If already persisted, we'll only remove the shards which exceed max range
-                        remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
-                    }
+                    // If already persisted, we'll only remove the shards which exceed max range
+                    remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
                 }
             }
             else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
