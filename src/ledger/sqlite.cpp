@@ -245,7 +245,7 @@ namespace ledger::sqlite
     int create_hp_version_table_and_update(sqlite3 *db, std::string_view version)
     {
 
-        std::vector<table_column_info> column_info{
+        const std::vector<table_column_info> column_info{
             table_column_info(HP_VERSION_COLUMN, COLUMN_DATA_TYPE::TEXT)};
 
         if (create_table(db, HP_VERSION_TABLE, column_info) == -1)
