@@ -285,7 +285,7 @@ namespace ledger
             return;
 
         // Set persisted to true.
-        // This flag makes sure that, If persisted once at the begining, then we won't persist again.
+        // Flag makes sure that if shards has been persisted once, then we won't persist again.
         shard_parent_dir == PRIMARY_DIR ? ctx.primary_shards_persisted = true : ctx.blob_shards_persisted = true;
 
         const std::string shard_dir_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir));

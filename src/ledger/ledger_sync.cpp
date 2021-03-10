@@ -89,7 +89,7 @@ namespace ledger
                     if (!ctx.primary_shards_persisted)
                     {
                         // If primary shards aren't persisted. Persist them.
-                        // Flag makes sure that, If persisted once at the begining, then we won't persist again.
+                        // Flag makes sure that if shards has been persisted once, then we won't persist again.
                         persist_shard_history(last_primary_shard_seq_no, BLOB_DIR);
                     }
                     else
@@ -147,7 +147,7 @@ namespace ledger
                     if (!ctx.blob_shards_persisted)
                     {
                         // If blob shards aren't persisted. Persist them.
-                        // Flag makes sure that, If persisted once at the begining, then we won't persist again.
+                        // Flag makes sure that if shards has been persisted once, then we won't persist again.
                         persist_shard_history(last_blob_shard_seq_no, BLOB_DIR);
                     }
                     else
