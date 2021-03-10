@@ -25,6 +25,8 @@ namespace ledger
         p2p::sequence_hash last_blob_shard_id;
 
     public:
+        std::atomic<bool> primary_shards_persisted = false;
+        std::atomic<bool> blob_shards_persisted = false;
         const p2p::sequence_hash get_lcl_id()
         {
             std::shared_lock lock(lcl_mutex);

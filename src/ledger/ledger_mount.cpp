@@ -27,11 +27,6 @@ namespace ledger
             return -1;
         }
 
-        // Persist primary shard history according to the config.
-        persist_shard_history(last_primary_shard_id.seq_no, PRIMARY_DIR);
-        // Persist blob shard history according to the config.
-        persist_shard_history(last_blob_shard_id.seq_no, BLOB_DIR);
-
         if (release_rw_session() == -1)
         {
             LOG_ERROR << "Failed to release rw session at mount " << mount_dir << ".";

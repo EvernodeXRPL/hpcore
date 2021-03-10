@@ -242,7 +242,7 @@ namespace hpfs
                 const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
                 if (fd == -1)
                 {
-                    LOG_ERROR << errno << ": Open failed. " << file_path;
+                    LOG_ERROR << errno << ": Open failed " << file_path;
                     result = -1;
                 }
                 else

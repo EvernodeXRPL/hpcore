@@ -201,11 +201,26 @@ namespace consensus
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(majority_shard_seq_no_str);
                 ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
+            else if (!ledger::ctx.primary_shards_persisted && ledger::ledger_fs.acquire_rw_session() != -1)
+            {
+                // If primary shards aren't persisted. Persist them.
+                // Flag makes sure that, If persisted once at the begining, then we won't persist again.
+                ledger::persist_shard_history(majority_primary_shard_id.seq_no, ledger::PRIMARY_DIR);
+                ledger::ledger_fs.release_rw_session();
+            }
 
             // Check out blob shard hash with majority blob shard hash.
             bool is_last_blob_shard_desync = false;
             p2p::sequence_hash majority_blob_shard_id;
             check_last_blob_shard_hash_votes(is_last_blob_shard_desync, majority_blob_shard_id, votes);
+
+            if (!is_last_blob_shard_desync && !ledger::ctx.blob_shards_persisted && ledger::ledger_fs.acquire_rw_session() != -1)
+            {
+                // If blob shards aren't persisted. Persist them.
+                // Flag makes sure that, If persisted once at the begining, then we won't persist again.
+                ledger::persist_shard_history(majority_blob_shard_id.seq_no, ledger::BLOB_DIR);
+                ledger::ledger_fs.release_rw_session();
+            }
 
             // Check our state with majority state.
             bool is_state_desync = false;
