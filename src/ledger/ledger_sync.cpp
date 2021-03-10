@@ -87,12 +87,12 @@ namespace ledger
                 {
                     // If primary shards aren't persisted. Persist them.
                     // Flag makes sure that if shards has been persisted once, then we won't persist again.
-                    persist_shard_history(last_primary_shard_seq_no, BLOB_DIR);
+                    persist_shard_history(last_primary_shard_seq_no, PRIMARY_DIR);
                 }
                 else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
                 {
-                    // If already persisted, we'll only remove the shards which exceed max range
-                    remove_old_shards(last_primary_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, BLOB_DIR);
+                    // When there are no more shards to sync and shards are already persisted, Remove old shards that exceeds max shard range.
+                    remove_old_shards(last_primary_shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
                 }
             }
             else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
@@ -145,7 +145,7 @@ namespace ledger
                 }
                 else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
                 {
-                    // If already persisted, we'll only remove the shards which exceed max range
+                    // When there are no more shards to sync and shards are already persisted, Remove old shards that exceeds max shard range.
                     remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
                 }
             }

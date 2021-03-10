@@ -219,7 +219,7 @@ namespace consensus
             {
                 // If blob shards aren't persisted. Persist them.
                 // Flag makes sure that if shards has been persisted once, then we won't persist again.
-                // If primary shards are desync persisting happens at the syc completion.
+                // If blob shards are desync persisting happens at the syc completion.
                 ledger::persist_shard_history(majority_blob_shard_id.seq_no, ledger::BLOB_DIR);
                 ledger::ledger_fs.release_rw_session();
             }
