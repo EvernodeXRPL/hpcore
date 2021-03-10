@@ -7,7 +7,6 @@ namespace msg::usrmsg
 {
     // Length of user random challenge bytes.
     constexpr size_t CHALLENGE_LEN = 16;
-    constexpr const char *USER_PROTOCOL_VERSION = "0.0";
 
     // Message field names
     constexpr const char *FLD_HP_VERSION = "hp_version";

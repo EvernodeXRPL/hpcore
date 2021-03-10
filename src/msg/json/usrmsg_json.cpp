@@ -59,7 +59,7 @@ namespace msg::usrmsg::json
         msg += "{\"";
         msg += msg::usrmsg::FLD_HP_VERSION;
         msg += SEP_COLON;
-        msg += msg::usrmsg::USER_PROTOCOL_VERSION;
+        msg += conf::cfg.hp_version;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;

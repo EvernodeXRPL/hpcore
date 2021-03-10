@@ -13,10 +13,13 @@
 namespace util
 {
     // Hot Pocket version. Displayed on 'hotpocket version' and written to new configs.
-    constexpr const char *HP_VERSION = "0.1";
+    constexpr const char *HP_VERSION = "1.0.0";
 
-    // Minimum compatible config version (this will be used to validate configs)
-    constexpr const char *MIN_CONFIG_VERSION = "0.1";
+    // Minimum compatible config version (this will be used to validate configs).
+    constexpr const char *MIN_CONFIG_VERSION = "1.0.0";
+
+    // HP version header size.
+    constexpr const int HP_VERSION_HEADER_SIZE = 16;
 
     /**
      * The messaging protocol used in a web socket channel.
@@ -75,10 +78,19 @@ namespace util
 
     int release_lock(const int fd, struct flock &lock);
 
+    void uint16_to_bytes(uint8_t *dest, const uint16_t x);
+
+    uint16_t uint16_from_bytes(const uint8_t *data);
+
     void uint32_to_bytes(uint8_t *dest, const uint32_t x);
+
     uint32_t uint32_from_bytes(const uint8_t *data);
+
     void uint64_to_bytes(uint8_t *dest, const uint64_t x);
+
     uint64_t uint64_from_bytes(const uint8_t *data);
+
+    int create_hp_version_header(uint8_t *header, std::string_view hp_version);
 
 } // namespace util
 
