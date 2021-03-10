@@ -7,7 +7,7 @@
     if (isBrowser && window.HotPocket)
         return;
 
-    const supportedHpVersion = "0.0";
+    const supportedHpVersion = "1.0.0";
     const serverChallengeSize = 16;
     const outputValidationPassThreshold = 0.8;
     const connectionCheckIntervalMs = 1000;
