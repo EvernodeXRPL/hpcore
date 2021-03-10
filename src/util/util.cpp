@@ -411,6 +411,33 @@ namespace util
         return fcntl(fd, F_SETLKW, &lock);
     }
 
+    /**
+     * Convert the given uint16_t number to bytes in big endian format.
+     * @param dest Byte array pointer.
+     * @param x Number to be converted.
+    */
+    void uint16_to_bytes(uint8_t *dest, const uint16_t x)
+    {
+        dest[0] = (uint8_t)((x >> 8) & 0xff);
+        dest[1] = (uint8_t)((x >> 0) & 0xff);
+    }
+
+    /**
+     * Read the uint16_t number from the given byte array which is in big endian format.
+     * @param data Byte array pointer.
+     * @return The uint16_t number in the given byte array.
+    */
+    uint16_t uint16_from_bytes(const uint8_t *data)
+    {
+        return ((uint16_t)data[0] << 8) +
+               (uint16_t)data[1];
+    }
+
+    /**
+     * Convert the given uint32_t number to bytes in big endian format.
+     * @param dest Byte array pointer.
+     * @param x Number to be converted.
+    */
     void uint32_to_bytes(uint8_t *dest, const uint32_t x)
     {
         dest[0] = (uint8_t)((x >> 24) & 0xff);
@@ -419,6 +446,11 @@ namespace util
         dest[3] = (uint8_t)((x >> 0) & 0xff);
     }
 
+    /**
+     * Read the uint32_t number from the given byte array which is in big endian format.
+     * @param data Byte array pointer.
+     * @return The uint32_t number in the given byte array.
+    */
     uint32_t uint32_from_bytes(const uint8_t *data)
     {
         return ((uint32_t)data[0] << 24) +
@@ -427,6 +459,11 @@ namespace util
                ((uint32_t)data[3]);
     }
 
+    /**
+     * Convert the given uint64_t number to bytes in big endian format.
+     * @param dest Byte array pointer.
+     * @param x Number to be converted.
+    */
     void uint64_to_bytes(uint8_t *dest, const uint64_t x)
     {
         dest[0] = (uint8_t)((x >> 56) & 0xff);
@@ -439,6 +476,11 @@ namespace util
         dest[7] = (uint8_t)((x >> 0) & 0xff);
     }
 
+    /**
+     * Read the uint64_t number from the given byte array which is in big endian format.
+     * @param data Byte array pointer.
+     * @return The uint64_t number in the given byte array.
+    */
     uint64_t uint64_from_bytes(const uint8_t *data)
     {
         return ((uint64_t)data[0] << 56) +
@@ -449,6 +491,44 @@ namespace util
                ((uint64_t)data[5] << 16) +
                ((uint64_t)data[6] << 8) +
                ((uint64_t)data[7]);
+    }
+
+    /**
+     * Create 16 byte hp version header. First 6 bytes contains the hp version and the 
+     * next 10 bytes are reserved for future use.
+     * @param header Header byte array to be populated with header data.
+     * @param hp_version Current hp version string.
+     * @return Returns -1 on error and 0 on success.
+    */
+    int create_hp_version_header(uint8_t *header, std::string_view hp_version)
+    {
+        const std::string delimeter = ".";
+        size_t start = 0;
+        size_t end = hp_version.find(delimeter);
+
+        if (end == std::string::npos)
+            return -1;
+
+        const uint16_t major = atoi(hp_version.substr(start, end - start).data());
+
+        start = end + delimeter.length();
+        end = hp_version.find(delimeter, start);
+
+        if (end == std::string::npos)
+            return -1;
+
+        const uint16_t minor = atoi(hp_version.substr(start, end - start).data());
+        start = end + delimeter.length();
+        end = hp_version.find(delimeter, start);
+
+        const uint16_t patch = atoi(hp_version.substr(start).data());
+        uint16_to_bytes(&header[0], major);
+        uint16_to_bytes(&header[2], minor);
+        uint16_to_bytes(&header[4], patch);
+        // Make remaining bytes to zero for future use.
+        memset(&header[6], 0, 10);
+
+        return 0;
     }
 
 } // namespace util
