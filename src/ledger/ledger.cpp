@@ -293,7 +293,7 @@ namespace ledger
         const std::list<std::string> shard_list = util::fetch_dir_entries(shard_dir_path);
         uint64_t shard_count = shard_list.size() - 1;
 
-        // First, In history custom mode remove all the historical shards which is older than the min we can keep.
+        // First, In history custom mode remove all the historical shards which are older than the min we can keep.
         if (conf::cfg.node.history == conf::HISTORY::CUSTOM && shard_seq_no >= max_shard_count)
         {
             for (const std::string shard : shard_list)
