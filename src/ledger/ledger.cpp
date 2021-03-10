@@ -288,8 +288,6 @@ namespace ledger
         // This flag makes sure that, If persisted once at the begining, then we won't persist again.
         shard_parent_dir == PRIMARY_DIR ? ctx.primary_shards_persisted = true : ctx.blob_shards_persisted = true;
 
-        LOG_ERROR << "Persisting " << shard_parent_dir;
-
         const std::string shard_dir_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir));
         const uint64_t max_shard_count = shard_dir_path == PRIMARY_DIR ? conf::cfg.node.history_config.max_primary_shards : conf::cfg.node.history_config.max_blob_shards;
         const std::list<std::string> shard_list = util::fetch_dir_entries(shard_dir_path);
