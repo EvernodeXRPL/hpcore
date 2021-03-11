@@ -304,12 +304,11 @@ namespace ledger
      */
     void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir)
     {
-        // Skip if already persisted.
+        // Skip if shard cleanup and requesting has been already done.
         if ((shard_parent_dir == PRIMARY_DIR && ctx.primary_shards_persisted) || (shard_parent_dir == BLOB_DIR && ctx.blob_shards_persisted))
             return;
 
-        // Set persisted to true.
-        // Flag makes sure that if shards has been persisted once, then we won't persist again.
+        // Set persisted flag to true. So this cleanup won't get executed again.
         shard_parent_dir == PRIMARY_DIR ? ctx.primary_shards_persisted = true : ctx.blob_shards_persisted = true;
 
         const std::string shard_dir_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir));

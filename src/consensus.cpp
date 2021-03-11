@@ -204,9 +204,8 @@ namespace consensus
             }
             else if (!ledger::ctx.primary_shards_persisted && ledger::ledger_fs.acquire_rw_session() != -1)
             {
-                // If primary shards aren't persisted. Persist them.
-                // Flag makes sure that if shards has been persisted once, then we won't persist again.
-                // If primary shards are desync persisting happens at the syc completion.
+                // If primary shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
+                // If primary shards are desync this happens at the sync completion.
                 ledger::persist_shard_history(majority_primary_shard_id.seq_no, ledger::PRIMARY_DIR);
                 ledger::ledger_fs.release_rw_session();
             }
@@ -218,9 +217,8 @@ namespace consensus
 
             if (!is_last_blob_shard_desync && !ledger::ctx.blob_shards_persisted && ledger::ledger_fs.acquire_rw_session() != -1)
             {
-                // If blob shards aren't persisted. Persist them.
-                // Flag makes sure that if shards has been persisted once, then we won't persist again.
-                // If blob shards are desync persisting happens at the syc completion.
+                // If blob shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
+                // If blob shards are desync this happens at the sync completion.
                 ledger::persist_shard_history(majority_blob_shard_id.seq_no, ledger::BLOB_DIR);
                 ledger::ledger_fs.release_rw_session();
             }
