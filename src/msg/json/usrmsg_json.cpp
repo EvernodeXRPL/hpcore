@@ -16,6 +16,10 @@ namespace msg::usrmsg::json
     constexpr const char *SEP_COMMA_NOQUOTE = ",\"";
     constexpr const char *SEP_COLON_NOQUOTE = "\":";
     constexpr const char *DOUBLE_QUOTE = "\"";
+    constexpr const char *OPEN_SQR_BRACKET = "[";
+    constexpr const char *CLOSE_SQR_BRACKET = "]";
+
+    constexpr const size_t MAX_KNOWN_PEERS_INFO = 10;
 
     // std::vector overload to concatonate string.
     std::vector<uint8_t> &operator+=(std::vector<uint8_t> &vec, std::string_view sv)
@@ -55,7 +59,7 @@ namespace msg::usrmsg::json
         msg += "{\"";
         msg += msg::usrmsg::FLD_HP_VERSION;
         msg += SEP_COLON;
-        msg += msg::usrmsg::USER_PROTOCOL_VERSION;
+        msg += conf::cfg.hp_version;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -136,11 +140,17 @@ namespace msg::usrmsg::json
      */
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
-        msg.reserve(256);
+        const uint16_t msg_length = 406 + (69 * conf::cfg.contract.unl.size());
+
+        msg.reserve(msg_length);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_STAT_RESPONSE;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_HP_VERSION;
+        msg += SEP_COLON;
+        msg += conf::cfg.hp_version;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;
@@ -149,7 +159,59 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_LCL_HASH;
         msg += SEP_COLON;
         msg += util::to_hex(lcl_hash);
-        msg += "\"}";
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_ROUND_TIME;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(conf::cfg.contract.roundtime); 
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED;
+        msg += SEP_COLON_NOQUOTE;
+        msg += conf::cfg.contract.execute ? "true" : "false";  
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_READ_REQUESTS_ENABLED;
+        msg += SEP_COLON_NOQUOTE;
+        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? "true" : "false"; 
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_IS_FULL_HISTORY_NODE;
+        msg += SEP_COLON_NOQUOTE;
+        msg += conf::cfg.node.history == conf::HISTORY::FULL ? "true" : "false";
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_CURRENT_UNL;
+        msg += SEP_COLON_NOQUOTE;
+        msg += OPEN_SQR_BRACKET;
+
+        for (auto node = conf::cfg.contract.unl.begin(); node != conf::cfg.contract.unl.end(); node++)
+        {
+            msg += DOUBLE_QUOTE + util::to_hex(*node) + DOUBLE_QUOTE;
+
+            if (std::next(node) != conf::cfg.contract.unl.end())
+                msg += ",";
+        }
+
+        msg += CLOSE_SQR_BRACKET;
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_PEERS;
+        msg += SEP_COLON_NOQUOTE;
+        msg += OPEN_SQR_BRACKET;
+
+        {
+            std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
+
+            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, p2p::ctx.peer_connections.size());
+            size_t count = 1;
+
+            // Currently all peers, up to a max of 10 are sent regardless of state.
+            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++, count++)
+            {
+                msg += DOUBLE_QUOTE + peer->second->known_ipport->host_address + ":" + std::to_string(peer->second->known_ipport->port) + DOUBLE_QUOTE;
+
+                if (peer != p2p::ctx.peer_connections.end() && count < max_peers_count)
+                    msg += ",";
+            }
+        }
+
+        msg += CLOSE_SQR_BRACKET;
+        msg += "}";
     }
 
     /**

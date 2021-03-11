@@ -12,15 +12,35 @@ namespace ledger
         // Add ledger fs preparation logic here.
         p2p::sequence_hash last_primary_shard_id;
         p2p::sequence_hash last_blob_shard_id;
-        constexpr const char *session_name = "ro_ledger_prepare_fs";
 
-        if (start_ro_session(session_name, true) == -1 ||
-            get_last_shard_info(session_name, last_primary_shard_id, PRIMARY_DIR) == -1 ||
-            get_last_ledger_and_update_context(session_name, last_primary_shard_id) == -1 ||
-            get_last_shard_info(session_name, last_blob_shard_id, BLOB_DIR) == -1 ||
-            stop_ro_session(session_name) == -1)
+        if (acquire_rw_session() == -1)
+        {
+            LOG_ERROR << "Failed to acquire rw session at mount " << mount_dir << ".";
+            return -1;
+        }
+
+        if (get_last_shard_info(hpfs::RW_SESSION_NAME, last_primary_shard_id, PRIMARY_DIR) == -1 ||
+            get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, last_primary_shard_id) == -1 ||
+            get_last_shard_info(hpfs::RW_SESSION_NAME, last_blob_shard_id, BLOB_DIR) == -1)
         {
             LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
+            return -1;
+        }
+
+        if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
+        {
+            //Remove old primary shards that exceeds max shard range.
+            if (last_primary_shard_id.seq_no >= conf::cfg.node.history_config.max_primary_shards)
+                remove_old_shards(last_primary_shard_id.seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
+
+            //Remove old blob shards that exceeds max shard range.
+            if (last_blob_shard_id.seq_no >= conf::cfg.node.history_config.max_blob_shards)
+                remove_old_shards(last_blob_shard_id.seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
+        }
+
+        if (release_rw_session() == -1)
+        {
+            LOG_ERROR << "Failed to release rw session at mount " << mount_dir << ".";
             return -1;
         }
 

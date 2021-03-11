@@ -7,7 +7,6 @@ namespace msg::usrmsg
 {
     // Length of user random challenge bytes.
     constexpr size_t CHALLENGE_LEN = 16;
-    constexpr const char *USER_PROTOCOL_VERSION = "0.0";
 
     // Message field names
     constexpr const char *FLD_HP_VERSION = "hp_version";
@@ -33,6 +32,12 @@ namespace msg::usrmsg
     constexpr const char *FLD_LCL_SEQ = "lcl_seq_no";
     constexpr const char *FLD_STATUS = "status";
     constexpr const char *FLD_REASON = "reason";
+    constexpr const char *FLD_ROUND_TIME = "round_time";
+    constexpr const char *FLD_CONTARCT_EXECUTION_ENABLED = "contract_execution_enabled";
+    constexpr const char *FLD_READ_REQUESTS_ENABLED = "read_requests_enabled";
+    constexpr const char *FLD_IS_FULL_HISTORY_NODE = "is_full_history_node";
+    constexpr const char *FLD_CURRENT_UNL = "current_unl";
+    constexpr const char *FLD_PEERS = "peers";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
