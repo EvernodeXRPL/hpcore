@@ -274,7 +274,7 @@ namespace ledger
     }
 
     /**
-     * Clenup and request historical shards according to the max we can keep.
+     * Cleanup and request historical shards according to the max we can keep.
      * @param shard_seq_no Latest shard sequence number.
      * @param shard_parent_dir Shard parent directory.
      */
@@ -303,8 +303,7 @@ namespace ledger
                     continue;
                 
                 uint64_t seq_no;
-                util::stoull(shard, seq_no);
-                if (seq_no <= (shard_seq_no - max_shard_count))
+                if (util::stoull(shard, seq_no) != -1 && seq_no <= (shard_seq_no - max_shard_count))
                 {
                     const std::string shard_path = std::string(shard_dir_path).append("/").append(shard);
                     if (util::is_dir_exists(shard_path) && util::remove_directory_recursively(shard_path) == -1)
