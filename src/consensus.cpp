@@ -199,6 +199,7 @@ namespace consensus
                 const std::string majority_shard_seq_no_str = std::to_string(majority_primary_shard_id.seq_no);
                 const std::string sync_name = "primary shard " + majority_shard_seq_no_str;
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(majority_shard_seq_no_str);
+                ledger::ledger_sync_worker.is_last_primary_shard_syncing = true;
                 ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
             else if (!ledger::ctx.primary_shards_persisted && ledger::ledger_fs.acquire_rw_session() != -1)
@@ -255,6 +256,7 @@ namespace consensus
                     const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.seq_no);
                     const std::string sync_name = "blob shard " + majority_shard_seq_no_str;
                     const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(majority_shard_seq_no_str);
+                    ledger::ledger_sync_worker.is_last_blob_shard_syncing = true;
                     ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
             }
@@ -280,7 +282,8 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_syncing)
+        // In ledger sync we only concern about last shard sync status to proceed with consensus.
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_last_primary_shard_syncing && !ledger::ledger_sync_worker.is_last_blob_shard_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 

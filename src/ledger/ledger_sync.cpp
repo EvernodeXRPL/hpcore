@@ -68,6 +68,7 @@ namespace ledger
                 }
                 ctx.set_last_primary_shard_id(updated_primary_shard_id);
                 last_primary_shard_seq_no = synced_shard_seq_no;
+                is_last_primary_shard_syncing = false;
             }
 
             if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all shards if this is a full history node.
@@ -122,6 +123,7 @@ namespace ledger
 
                 last_blob_shard_seq_no = synced_shard_seq_no;
                 ctx.set_last_blob_shard_id(p2p::sequence_hash{synced_shard_seq_no, synced_target.hash});
+                is_last_blob_shard_syncing = false;
             }
 
             if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all blob shards if this is a full history node.

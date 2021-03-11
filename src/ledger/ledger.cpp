@@ -315,6 +315,7 @@ namespace ledger
         const std::string shard_dir_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir));
         const uint64_t max_shard_count = shard_dir_path == PRIMARY_DIR ? conf::cfg.node.history_config.max_primary_shards : conf::cfg.node.history_config.max_blob_shards;
         const std::list<std::string> shard_list = util::fetch_dir_entries(shard_dir_path);
+        // Skip the sequence no file from the count.
         uint64_t shard_count = shard_list.size() - 1;
 
         // First, In history custom mode remove all the historical shards which are older than the min we can keep.
@@ -325,7 +326,7 @@ namespace ledger
                 // Skip the sequence no file.
                 if (("/" + shard) == SHARD_SEQ_NO_FILENAME)
                     continue;
-                
+
                 uint64_t seq_no;
                 if (util::stoull(shard, seq_no) != -1 && seq_no <= (shard_seq_no - max_shard_count))
                 {
@@ -352,7 +353,8 @@ namespace ledger
             }
 
             util::h32 prev_shard_hash_from_file;
-            const int res = read(fd, &prev_shard_hash_from_file, sizeof(util::h32));
+            // Start reading hash excluding hp_version header.
+            const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), util::HP_VERSION_HEADER_SIZE);
             close(fd);
             if (res == -1)
             {
