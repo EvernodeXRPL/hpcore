@@ -196,7 +196,7 @@ namespace conf
     // Holds all the config values.
     struct hp_config
     {
-        std::string hp_version; // Version of Hot Pocket that generated the config.
+        std::string hp_version; // Version of Hot Pocket that generated the config. (MAJOR.MINOR.PATCH)
         node_config node;
         contract_config contract;
         mesh_config mesh;

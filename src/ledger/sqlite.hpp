@@ -99,6 +99,8 @@ namespace ledger::sqlite
     // Ledger specific methdods.
     int create_ledger_table(sqlite3 *db);
 
+    int create_hp_version_table_and_update(sqlite3 *db, std::string_view version);
+
     int insert_ledger_row(sqlite3 *db, const ledger &ledger);
 
     bool is_ledger_table_exist(sqlite3 *db);

@@ -199,6 +199,13 @@ namespace ledger
                 return -1;
             }
 
+            // Create and update the hp_version table with current hp version.
+            if (sqlite::create_hp_version_table_and_update(*db, conf::cfg.hp_version) == -1)
+            {
+                LOG_ERROR << errno << ": Error creating and updating hp version table, shard: " << std::to_string(shard_seq_no);
+                return -1;
+            }
+
             // Creating the ledger table.
             if (sqlite::create_ledger_table(*db) == -1)
             {
@@ -216,6 +223,15 @@ namespace ledger
                     return -1;
                 }
             }
+
+            // Creating the hp_version header.
+            uint8_t hp_version_header[util::HP_VERSION_HEADER_SIZE];
+            if (util::create_hp_version_header(hp_version_header, conf::cfg.hp_version) == -1)
+            {
+                LOG_ERROR << "Error creating version header for prev_shard.hash in primary shard " << std::to_string(shard_seq_no);
+                return -1;
+            }
+
             // Write the prev_shard.hash to the new folder.
             const std::string shard_hash_file_path = shard_path + PREV_SHARD_HASH_FILENAME;
             const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
@@ -224,7 +240,15 @@ namespace ledger
                 LOG_ERROR << errno << ": Error creating prev_shard.hash file in shard " << std::to_string(shard_seq_no);
                 return -1;
             }
-            if (write(fd, &prev_shard_hash, sizeof(util::h32)) == -1)
+
+            struct iovec iov_vec[2];
+            iov_vec[0].iov_base = hp_version_header;
+            iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+
+            iov_vec[1].iov_base = &prev_shard_hash;
+            iov_vec[1].iov_len = sizeof(util::h32);
+
+            if (writev(fd, iov_vec, 2) == -1)
             {
                 LOG_ERROR << errno << ": Error writing to " << shard_hash_file_path << ".";
                 close(fd);
@@ -374,6 +398,14 @@ namespace ledger
             should_create_folder = true;
         }
 
+        // Creating the hp_version header.
+        uint8_t hp_version_header[util::HP_VERSION_HEADER_SIZE];
+        if (util::create_hp_version_header(hp_version_header, conf::cfg.hp_version) == -1)
+        {
+            LOG_ERROR << "Error creating version header for prev_shard.hash in blob shard " << std::to_string(last_blob_shard_seq_no);
+            return -1;
+        }
+
         // Create the required shard folder if not already existing.
         if (should_create_folder)
         {
@@ -404,7 +436,15 @@ namespace ledger
                 LOG_ERROR << errno << ": Error creating prev_shard.hash file in blob shard " << std::to_string(last_blob_shard_seq_no);
                 return -1;
             }
-            if (write(fd, &prev_shard_hash, sizeof(util::h32)) == -1)
+
+            struct iovec iov_vec[2];
+            iov_vec[0].iov_base = hp_version_header;
+            iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+
+            iov_vec[1].iov_base = &prev_shard_hash;
+            iov_vec[1].iov_len = sizeof(util::h32);
+
+            if (writev(fd, iov_vec, 2) == -1)
             {
                 LOG_ERROR << errno << ": Error writing to " << shard_hash_file_path << ".";
                 close(fd);
@@ -456,7 +496,14 @@ namespace ledger
             return -1;
         }
 
-        if (write(fd, builder.GetBufferPointer(), builder.GetSize()) == -1)
+        struct iovec iov_vec[2];
+        iov_vec[0].iov_base = hp_version_header;
+        iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+
+        iov_vec[1].iov_base = builder.GetBufferPointer();
+        iov_vec[1].iov_len = builder.GetSize();
+
+        if (writev(fd, iov_vec, 2) == -1)
         {
             LOG_ERROR << errno << ": Error writing to ledger blob file. " << file_path;
             close(fd);
@@ -550,9 +597,8 @@ namespace ledger
             }
         }
         uint8_t last_shard_seq_no_buf[8];
-        if (read(fd, last_shard_seq_no_buf, 8) == -1)
+        if (pread(fd, last_shard_seq_no_buf, sizeof(last_shard_seq_no_buf), util::HP_VERSION_HEADER_SIZE) == -1)
         {
-
             LOG_ERROR << errno << ": Error reading " << last_shard_seq_no_path;
             close(fd);
             return -1;
@@ -582,7 +628,15 @@ namespace ledger
         const std::string last_shard_seq_no_vpath = shard_parent_dir + SHARD_SEQ_NO_FILENAME;
         const std::string last_shard_seq_no_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, last_shard_seq_no_vpath);
 
-        // Write the prev_shard.hash to the new folder.
+        // Creating the hp_version header.
+        uint8_t hp_version_header[util::HP_VERSION_HEADER_SIZE];
+        if (util::create_hp_version_header(hp_version_header, conf::cfg.hp_version) == -1)
+        {
+            LOG_ERROR << "Error creating version header for max_shard.seq_no in " << shard_parent_dir;
+            return -1;
+        }
+
+        // Open max_shard.seq_no in given parent directory.
         const int fd = open(last_shard_seq_no_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
         {
@@ -591,7 +645,15 @@ namespace ledger
         }
         uint8_t seq_no_byte_str[8];
         util::uint64_to_bytes(seq_no_byte_str, last_shard_seq_no);
-        if (write(fd, &seq_no_byte_str, 8) == -1)
+
+        struct iovec iov_vec[2];
+        iov_vec[0].iov_base = hp_version_header;
+        iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+
+        iov_vec[1].iov_base = seq_no_byte_str;
+        iov_vec[1].iov_len = sizeof(seq_no_byte_str);
+
+        if (writev(fd, iov_vec, 2) == -1)
         {
             LOG_ERROR << errno << ": Error updating the max_shard.seq_no file for shard " << std::to_string(last_shard_seq_no);
             close(fd);

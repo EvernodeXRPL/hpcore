@@ -17,7 +17,8 @@ namespace ledger
         }
 
         util::h32 prev_shard_hash_from_file;
-        const int res = read(fd, &prev_shard_hash_from_file, sizeof(util::h32));
+        // Start reading hash excluding hp_version header.
+        const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), util::HP_VERSION_HEADER_SIZE);
         close(fd);
         if (res == -1)
         {
