@@ -25,6 +25,11 @@ namespace ledger
         p2p::sequence_hash last_blob_shard_id;
 
     public:
+        // These flags will be marked as true after doing the shards cleanup and requesting
+        // at the first consensus round to align with the max shard counts.
+        std::atomic<bool> primary_shards_persisted = false;
+        std::atomic<bool> blob_shards_persisted = false;
+
         const p2p::sequence_hash get_lcl_id()
         {
             std::shared_lock lock(lcl_mutex);
@@ -86,6 +91,8 @@ namespace ledger
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs);
 
     void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir);
+
+    void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir);
 
     int get_last_ledger_and_update_context(std::string_view session_name, const p2p::sequence_hash &last_primary_shard_id);
 

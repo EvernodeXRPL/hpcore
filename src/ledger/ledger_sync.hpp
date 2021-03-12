@@ -13,6 +13,10 @@ namespace ledger
     private:
         void swap_collected_responses();
         void on_current_sync_state_acheived(const hpfs::sync_target &synced_target);
+
+    public:
+        std::atomic<bool> is_last_primary_shard_syncing = false;
+        std::atomic<bool> is_last_blob_shard_syncing = false;
     };
 } // namespace ledger
 #endif
