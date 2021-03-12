@@ -5,6 +5,8 @@
 
 namespace p2p::self
 {
+    extern std::optional<conf::peer_ip_port> ip_port;
+
     int process_next_message();
     void send(std::string_view message);
 
