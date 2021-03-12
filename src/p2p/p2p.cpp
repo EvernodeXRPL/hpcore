@@ -127,7 +127,6 @@ namespace p2p
                                                                        }));
                     ctx.server->known_remote_count = ctx.server->req_known_remotes.size();
                 }
-                session.mark_for_closure();
                 LOG_DEBUG << "Loopback connection detected: Removed self from the peer list.";
             }
 
