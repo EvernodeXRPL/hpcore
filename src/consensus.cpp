@@ -225,12 +225,12 @@ namespace consensus
             {
                 conf::change_role(conf::ROLE::OBSERVER);
 
+                if (is_state_desync)
+                    sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+
                 // Patch file sync is prioritized, Therefore it is set in the front of the sync target list.
                 if (is_patch_desync)
                     sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
-
-                if (is_state_desync)
-                    sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // If ledger blob shard is desync, We first request the latest blob shard.
                 if (is_last_blob_shard_desync)
@@ -332,7 +332,7 @@ namespace consensus
 
         const uint64_t now = util::get_epoch_milliseconds();
 
-        // Rrounds are discreet windows of roundtime.
+        // Rounds are discreet windows of roundtime.
 
         if (ctx.stage == 0)
         {
@@ -1078,6 +1078,8 @@ namespace consensus
                 else
                 {
                     unl::update_unl_changes_from_patch();
+                    // Refresh values in consensus context to match newly synced roundtime from patch file.
+                    refresh_roundtime(false);
                     is_patch_update_pending = false;
                 }
             }
