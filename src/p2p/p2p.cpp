@@ -112,6 +112,25 @@ namespace p2p
         if (res == 0)
         {
             LOG_DEBUG << "Pubkey violation. Rejecting new peer connection [" << session.display_name() << "]";
+            
+            // It's possible, Self node might've been added to the known peers by peer discovery.
+            // If so remove the self from known peers.
+            if (session.known_ipport.has_value())
+            {
+                // We set self ip port values so that we can remove self from the future known peer responses.
+                self::ip_port = conf::peer_ip_port{session.known_ipport->host_address, session.known_ipport->port};
+                {
+                    std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
+                    ctx.server->req_known_remotes.erase(std::remove_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
+                                                                       [&](const p2p::peer_properties &peer) {
+                                                                           return peer.ip_port.port == session.known_ipport->port;
+                                                                       }));
+                    ctx.server->known_remote_count = ctx.server->req_known_remotes.size();
+                }
+                session.mark_for_closure();
+                LOG_DEBUG << "Loopback connection detected: Removed self from the peer list.";
+            }
+
             return -1;
         }
 
@@ -413,6 +432,13 @@ namespace p2p
 
         for (const peer_properties &peer : peers)
         {
+            // If the peer is self, we won't add to the known peer list.
+            if (self::ip_port.has_value() && self::ip_port == peer.ip_port)
+            {
+                LOG_DEBUG << "Rejecting " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + ". Loopback connection.";
+                continue;
+            }
+
             const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p) { return p.ip_port == peer.ip_port; });
 
             // If the new peer is not in the peer list then add to the req_known_remotes
