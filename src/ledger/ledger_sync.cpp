@@ -85,11 +85,6 @@ namespace ledger
                     const std::string shard_path = std::string(PRIMARY_DIR).append("/").append(std::to_string(synced_shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
-                else if (!ctx.primary_shards_persisted)
-                {
-                    // If primary shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
-                    persist_shard_history(last_primary_shard_seq_no, PRIMARY_DIR);
-                }
                 else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_primary_shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
                 {
                     // When there are no more shards to sync and cleanup or requesting has been already done, Remove old shards that exceeds max shard range.
@@ -138,11 +133,6 @@ namespace ledger
                     const std::string sync_name = "blob shard " + std::to_string(synced_shard_seq_no);
                     const std::string shard_path = std::string(BLOB_DIR).append("/").append(std::to_string(synced_shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
-                }
-                else if (!ctx.blob_shards_persisted)
-                {
-                    // If blob shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
-                    persist_shard_history(last_blob_shard_seq_no, BLOB_DIR);
                 }
                 else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
                 {
