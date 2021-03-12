@@ -3,6 +3,7 @@
 #include "../unl.hpp"
 #include "../hpfs/hpfs_mount.hpp"
 #include "contract_mount.hpp"
+#include "../consensus.hpp"
 
 namespace sc
 {
@@ -19,6 +20,7 @@ namespace sc
             else
             {
                 unl::update_unl_changes_from_patch();
+                consensus::refresh_roundtime(false);
 
                 // Update global hash tracker with the new patch file hash.
                 fs_mount->set_parent_hash(synced_target.vpath, synced_target.hash);
