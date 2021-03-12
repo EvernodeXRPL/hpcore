@@ -320,7 +320,7 @@ namespace ledger
         // First, In history custom mode remove all the historical shards which are older than the min we can keep.
         if (conf::cfg.node.history == conf::HISTORY::CUSTOM && shard_seq_no >= max_shard_count)
         {
-            for (const std::string shard : shard_list)
+            for (const std::string &shard : shard_list)
             {
                 // Skip the sequence no file.
                 if (("/" + shard) == SHARD_SEQ_NO_FILENAME)
