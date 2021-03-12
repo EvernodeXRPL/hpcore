@@ -90,6 +90,11 @@ namespace hpfs
                 return;
         }
 
+        // Remove any previous sync targets for the same target vpath.
+        target_list.remove_if([&target](const hpfs::sync_target &element) {
+            return element.vpath == target.vpath;
+        });
+
         target_list.push_front(target);
         is_syncing = true;
         std::unique_lock lock(current_target_mutex);
