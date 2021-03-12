@@ -206,7 +206,10 @@ namespace comm
             if (std::holds_alternative<hpws::error>(result))
             {
                 const hpws::error e = std::get<hpws::error>(result);
-                LOG_ERROR << "Error creating hpws server:" << e.first << " " << e.second;
+                // Convert first letter to lowercase.
+                std::string name_lowercase = name;
+                name_lowercase[0] = std::tolower(name_lowercase[0]);
+                LOG_ERROR << "Error creating " << name_lowercase << " hpws server:" << e.first << " " << e.second << " Port: " << std::to_string(listen_port);
                 return -1;
             }
 
