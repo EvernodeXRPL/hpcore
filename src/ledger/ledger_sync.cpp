@@ -157,4 +157,11 @@ namespace ledger
             candidate_hpfs_responses.splice(candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.ledger_hpfs_responses);
     }
 
+    void ledger_sync::on_sync_abandoned()
+    {
+        // Reset these flags since we are abandoning the sync.
+        is_last_primary_shard_syncing = false;
+        is_last_blob_shard_syncing = false;
+    }
+
 } // namespace ledger
