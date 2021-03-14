@@ -206,7 +206,7 @@ namespace comm
             if (std::holds_alternative<hpws::error>(result))
             {
                 const hpws::error e = std::get<hpws::error>(result);
-                LOG_ERROR << "Error creating hpws server:" << e.first << " " << e.second;
+                LOG_ERROR << name << " hpws server creation failed. " << e.first << " " << e.second << " Port: " << std::to_string(listen_port);
                 return -1;
             }
 
