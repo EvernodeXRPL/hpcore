@@ -27,17 +27,6 @@ namespace ledger
             return -1;
         }
 
-        if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
-        {
-            //Remove old primary shards that exceeds max shard range.
-            if (last_primary_shard_id.seq_no >= conf::cfg.node.history_config.max_primary_shards)
-                remove_old_shards(last_primary_shard_id.seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
-
-            //Remove old blob shards that exceeds max shard range.
-            if (last_blob_shard_id.seq_no >= conf::cfg.node.history_config.max_blob_shards)
-                remove_old_shards(last_blob_shard_id.seq_no - conf::cfg.node.history_config.max_blob_shards + 1, BLOB_DIR);
-        }
-
         if (release_rw_session() == -1)
         {
             LOG_ERROR << "Failed to release rw session at mount " << mount_dir << ".";

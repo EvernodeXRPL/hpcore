@@ -68,6 +68,7 @@ namespace ledger
                 }
                 ctx.set_last_primary_shard_id(updated_primary_shard_id);
                 last_primary_shard_seq_no = synced_shard_seq_no;
+                is_last_primary_shard_syncing = false;
             }
 
             if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all shards if this is a full history node.
@@ -116,6 +117,7 @@ namespace ledger
 
                 last_blob_shard_seq_no = synced_shard_seq_no;
                 ctx.set_last_blob_shard_id(p2p::sequence_hash{synced_shard_seq_no, synced_target.hash});
+                is_last_blob_shard_syncing = false;
             }
 
             if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all blob shards if this is a full history node.
@@ -153,6 +155,13 @@ namespace ledger
         // Move collected hpfs responses over to local candidate responses list.
         if (!p2p::ctx.collected_msgs.ledger_hpfs_responses.empty())
             candidate_hpfs_responses.splice(candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.ledger_hpfs_responses);
+    }
+
+    void ledger_sync::on_sync_abandoned()
+    {
+        // Reset these flags since we are abandoning the sync.
+        is_last_primary_shard_syncing = false;
+        is_last_blob_shard_syncing = false;
     }
 
 } // namespace ledger

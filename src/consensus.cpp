@@ -199,6 +199,7 @@ namespace consensus
                 const std::string majority_shard_seq_no_str = std::to_string(majority_primary_shard_id.seq_no);
                 const std::string sync_name = "primary shard " + majority_shard_seq_no_str;
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(majority_shard_seq_no_str);
+                ledger::ledger_sync_worker.is_last_primary_shard_syncing = true;
                 ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
@@ -225,12 +226,12 @@ namespace consensus
             {
                 conf::change_role(conf::ROLE::OBSERVER);
 
+                if (is_state_desync)
+                    sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+
                 // Patch file sync is prioritized, Therefore it is set in the front of the sync target list.
                 if (is_patch_desync)
                     sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
-
-                if (is_state_desync)
-                    sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
 
                 // If ledger blob shard is desync, We first request the latest blob shard.
                 if (is_last_blob_shard_desync)
@@ -238,8 +239,22 @@ namespace consensus
                     const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.seq_no);
                     const std::string sync_name = "blob shard " + majority_shard_seq_no_str;
                     const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(majority_shard_seq_no_str);
+                    ledger::ledger_sync_worker.is_last_blob_shard_syncing = true;
                     ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
+            }
+
+            // If shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
+            // In the first consensus round sync completion after the startup.
+            if (!ledger::ledger_sync_worker.is_syncing && (!ledger::ctx.primary_shards_persisted || !ledger::ctx.blob_shards_persisted) && ledger::ledger_fs.acquire_rw_session() != -1)
+            {
+                if (!ledger::ctx.primary_shards_persisted)
+                    ledger::persist_shard_history(majority_primary_shard_id.seq_no, ledger::PRIMARY_DIR);
+
+                if (!ledger::ctx.blob_shards_persisted)
+                    ledger::persist_shard_history(majority_blob_shard_id.seq_no, ledger::BLOB_DIR);
+
+                ledger::ledger_fs.release_rw_session();
             }
 
             // Proceed further only if last primary shard, last blob shard, state and patch hashes are in sync with majority.
@@ -263,7 +278,8 @@ namespace consensus
      */
     void check_sync_completion()
     {
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_syncing)
+        // In ledger sync we only concern about last shard sync status to proceed with consensus.
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_last_primary_shard_syncing && !ledger::ledger_sync_worker.is_last_blob_shard_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
@@ -332,7 +348,7 @@ namespace consensus
 
         const uint64_t now = util::get_epoch_milliseconds();
 
-        // Rrounds are discreet windows of roundtime.
+        // Rounds are discreet windows of roundtime.
 
         if (ctx.stage == 0)
         {
@@ -1078,6 +1094,8 @@ namespace consensus
                 else
                 {
                     unl::update_unl_changes_from_patch();
+                    // Refresh values in consensus context to match newly synced roundtime from patch file.
+                    refresh_roundtime(false);
                     is_patch_update_pending = false;
                 }
             }

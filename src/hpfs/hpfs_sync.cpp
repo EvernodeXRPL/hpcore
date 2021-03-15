@@ -91,7 +91,7 @@ namespace hpfs
         }
 
         // Remove any previous sync targets for the same target vpath.
-        target_list.remove_if([&target](const hpfs::sync_target &element){
+        target_list.remove_if([&target](const hpfs::sync_target &element) {
             return element.vpath == target.vpath;
         });
 
