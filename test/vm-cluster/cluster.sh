@@ -38,7 +38,7 @@ fi
 contconfig=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\") | .config" $conf)
 if [ "$contconfig" = "" ] || [ "$contconfig" = "{}" ]; then
     # Apply default config.
-    contconfig="{\"user\": {\"port\": 8080}, \"mesh\":{ \"port\": 22860}, \"contract\": {\"roundtime\": 2000 }, \"log\":{\"loglevel\": \"inf\", \"loggers\":[\"console\",\"file\"]}}"
+    contconfig="{\"user\": {\"port\": 8080}, \"mesh\":{ \"port\": 22860}, \"contract\": {\"roundtime\": 2000 }, \"log\":{\"loglevel\": \"dbg\", \"loggers\":[\"console\",\"file\"]}}"
 fi
 
 vmpass=$(jq -r '.vmpass' $conf)
