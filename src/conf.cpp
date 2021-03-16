@@ -340,7 +340,7 @@ namespace conf
                     startup_role = cfg.node.role = ROLE::VALIDATOR;
                 else
                 {
-                    std::cerr << "Invalid mode. 'observer' or 'validator' expected.\n";
+                    std::cerr << "Invalid role. 'observer' or 'validator' expected.\n";
                     return -1;
                 }
 
@@ -353,6 +353,8 @@ namespace conf
                     std::cerr << "Invalid history mode. 'full' or 'custom' expected.\n";
                     return -1;
                 }
+
+                jpath = "node.history_config";
 
                 cfg.node.history_config.max_primary_shards = node["history_config"]["max_primary_shards"].as<uint64_t>();
                 cfg.node.history_config.max_blob_shards = node["history_config"]["max_blob_shards"].as<uint64_t>();
@@ -769,10 +771,7 @@ namespace conf
     void print_missing_field_error(std::string_view jpath, const std::exception &e)
     {
         // Extract field name from jsoncons exception message.
-        std::string msg = e.what();
-        msg.erase(0, msg.find("'") + 1);
-        const std::string field = msg.substr(0, msg.find("'"));
-        std::cerr << "Required config field '" << jpath << "." << field << "' missing at " << ctx.config_file << std::endl;
+        std::cerr << "Invalid config value: " << e.what() << " in '" << jpath << "' section at " << ctx.config_file << std::endl;
     }
 
     /**
