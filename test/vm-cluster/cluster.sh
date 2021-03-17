@@ -238,18 +238,13 @@ fi
 
 if [ $mode = "lcl" ]; then
     command="$contdir/lcl.sh"
-    if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
-        do
-            vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
-            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
-        done
-        wait
-    else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
-    fi
+    for (( i=0; i<$vmcount; i++ ))
+    do
+        vmaddr=${vmaddrs[i]}
+        let nodeid=$i+1
+        echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+    done
+    wait
     exit 0
 fi
 
