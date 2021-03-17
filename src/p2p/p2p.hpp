@@ -85,6 +85,7 @@ namespace p2p
     {
         std::string contract_id;
         uint32_t roundtime = 0;
+        bool is_full_history = false;
         std::string challenge;
     };
 
@@ -202,7 +203,7 @@ namespace p2p
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
-    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey);
+    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool is_full_history_only = false);
 
     void handle_proposal_message(const p2p::proposal &p);
 

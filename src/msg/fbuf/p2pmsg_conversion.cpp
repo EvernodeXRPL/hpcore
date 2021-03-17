@@ -110,6 +110,7 @@ namespace msg::fbuf::p2pmsg
         return {
             std::string(flatbuf_str_to_sv(msg.contract_id())),
             msg.roundtime(),
+            msg.is_full_history(),
             std::string(flatbuf_bytes_to_sv(msg.challenge()))};
     }
 
@@ -325,6 +326,7 @@ namespace msg::fbuf::p2pmsg
             builder,
             sv_to_flatbuf_str(builder, conf::cfg.contract.id),
             conf::cfg.contract.roundtime,
+            conf::cfg.node.history == conf::HISTORY::FULL,
             sv_to_flatbuf_bytes(builder, challenge));
         create_p2p_msg(builder, P2PMsgContent_PeerChallengeMsg, msg.Union());
     }

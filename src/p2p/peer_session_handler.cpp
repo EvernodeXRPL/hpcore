@@ -108,6 +108,9 @@ namespace p2p
             // Remember the roundtime reported by this peer.
             session.reported_roundtime = chall.roundtime;
 
+            // Whether this node is a full history node or not.
+            session.is_full_history = chall.is_full_history;
+
             // Sending the challenge response to the sender.
             flatbuffers::FlatBufferBuilder fbuf;
             p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);

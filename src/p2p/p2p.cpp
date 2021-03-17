@@ -15,6 +15,9 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 // Maximum no. of peers that will be persisted back to config upon exit.
 constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 50;
 
+// Maximum number of tries before abandoning full history only random message sending.
+constexpr uint16_t FULL_HISTORY_MSG_THRESHOLD = 20;
+
 namespace p2p
 {
 
@@ -112,7 +115,7 @@ namespace p2p
         if (res == 0)
         {
             LOG_DEBUG << "Pubkey violation. Rejecting new peer connection [" << session.display_name() << "]";
-            
+
             // It's possible, Self node might've been added to the known peers by peer discovery.
             // If so remove the self from known peers.
             if (session.known_ipport.has_value())
@@ -282,8 +285,9 @@ namespace p2p
      * Sends the given message to a random peer (except self).
      * @param fbuf Peer outbound message to be sent to peer.
      * @param target_pubkey Randomly selected target peer pubkey.
+     * @param is_full_history_only Should send only to a random full history node.
      */
-    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey)
+    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool is_full_history_only)
     {
         //Send while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
@@ -295,6 +299,8 @@ namespace p2p
             return;
         }
 
+        int tried_full_history_attempts = 0;
+
         while (true)
         {
             // Initialize random number generator with current timestamp.
@@ -304,6 +310,17 @@ namespace p2p
 
             //send message to selected peer.
             peer_comm_session *session = it->second;
+
+            // Do the full history node check if this message is full history only.
+            if (is_full_history_only && !session->is_full_history)
+            {
+                tried_full_history_attempts++;
+                if (tried_full_history_attempts == FULL_HISTORY_MSG_THRESHOLD)
+                    break;
+
+                continue;
+            }
+
             session->send(msg::fbuf::builder_to_string_view(fbuf));
             target_pubkey = session->uniqueid;
             break;
