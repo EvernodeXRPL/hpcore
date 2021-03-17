@@ -13,6 +13,10 @@ then
    sudo swapon /swapfile  
 fi
 
+# Getting updates if any
+echo "Checking for updates..."
+sudo apt-get update
+
 if [ -x "$(command -v node)" ]; then
    echo "NodeJs already installed."
 else
@@ -32,6 +36,14 @@ else
    sudo ldconfig
    sudo cp $basedir/hpfiles/bin/fusermount3 /usr/local/bin/
 fi
+
+if [ -x "$(command -v sqlite3)" ]; then
+   echo "SQLite already installed."
+else
+   echo "Installing SQLite..."
+   sudo apt-get install -y sqlite3 libsqlite3-dev
+fi
+
 
 # Remove existing contract dir.
 sudo rm -r $contdir > /dev/null 2>&1
@@ -69,6 +81,11 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    # Create kill.sh script
    echo "sudo kill \$($contdir/getpid.sh hpcore hpfs hpws)" > $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
+
+   # Create lcl.sh script
+   echo "max_shard_no=\$(ls -v $contdir/ledger_fs/seed/primary/ | tail -2 | head -1)" > $contdir/lcl.sh
+   echo "echo \"select seq_no, ledger_hash from ledger order by seq_no DESC limit 1;\" | sqlite3 $contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite" >> $contdir/lcl.sh
+   sudo chmod +x $contdir/lcl.sh
 
    # Configure .screenrc
    pushd $contdir > /dev/null 2>&1

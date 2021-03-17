@@ -36,9 +36,9 @@ else
 fi
 
 contconfig=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\") | .config" $conf)
-if [ "$contconfig" = "" ]; then
+if [ "$contconfig" = "" ] || [ "$contconfig" = "{}" ]; then
     # Apply default config.
-    contconfig="{user: {'port': 8080 }, mesh:{ 'port': 22860}, 'contract': {'roundtime': 2000 }, 'log':{'loglevel': 'dbg', 'loggers':['console','file']}}"
+    contconfig="{\"user\": {\"port\": 8080}, \"mesh\":{ \"port\": 22860}, \"contract\": {\"roundtime\": 2000 }, \"log\":{\"loglevel\": \"dbg\", \"loggers\":[\"console\",\"file\"]}}"
 fi
 
 vmpass=$(jq -r '.vmpass' $conf)
@@ -237,11 +237,12 @@ if [ $mode = "ssl" ]; then
 fi
 
 if [ $mode = "lcl" ]; then
+    command="$contdir/lcl.sh"
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
         let nodeid=$i+1
-        echo "node$nodeid:" $(sshpass -p $vmpass ssh $vmuser@$vmaddr ls -v $contdir/hist | tail -1) &
+        echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
     done
     wait
     exit 0

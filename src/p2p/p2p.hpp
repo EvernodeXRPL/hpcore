@@ -45,7 +45,7 @@ namespace p2p
 
         bool operator<(const sequence_hash &seq_hash) const
         {
-            return seq_no < seq_hash.seq_no || hash < seq_hash.hash;
+            return (seq_no == seq_hash.seq_no) ? hash < seq_hash.hash : seq_no < seq_hash.seq_no;
         }
 
         const std::string to_string()

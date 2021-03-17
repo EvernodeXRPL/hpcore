@@ -10,7 +10,7 @@
 
 namespace comm
 {
-    constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 4 * 1024 * 1024;
+    constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 5 * 1024 * 1024;
     constexpr uint64_t DEFAULT_MAX_CONNECTIONS = 99999;
 
     template <typename T>
