@@ -12,6 +12,7 @@
     const outputValidationPassThreshold = 0.8;
     const connectionCheckIntervalMs = 1000;
     const recentActivityThresholdMs = 3000;
+    const edKeyType = 237;
     const textEncoder = new TextEncoder();
     const textDecoder = new TextDecoder();
 
@@ -40,22 +41,39 @@
     Object.freeze(events);
 
     /*--- Included in public interface. ---*/
+    // privateKeyHex: Hex private key with prefix ('ed').
+    // Returns 'ed' (237) prefixed binary public/private keys.
     const generateKeys = async (privateKeyHex = null) => {
 
         await initSodium();
 
         if (!privateKeyHex) {
             const keys = sodium.crypto_sign_keypair();
+
+            const binPrivateKey = new Uint8Array(65);
+            binPrivateKey[0] = edKeyType;
+            binPrivateKey.set(keys.privateKey, 1);
+
+            const binPublicKey = new Uint8Array(33);
+            binPublicKey[0] = edKeyType;
+            binPublicKey.set(keys.publicKey, 1);
+
             return {
-                privateKey: keys.privateKey,
-                publicKey: keys.publicKey
+                privateKey: binPrivateKey,
+                publicKey: binPublicKey
             }
         }
         else {
             const binPrivateKey = hexToUint8Array(privateKeyHex);
+            if (binPrivateKey[0] != edKeyType)
+                throw "Invaid key type. 'ed' expected.";
+
+            const binPublicKey = new Uint8Array(33);
+            binPublicKey[0] = edKeyType;
+            binPublicKey.set(binPrivateKey.slice(33), 1);
             return {
-                privateKey: Uint8Array.from(binPrivateKey),
-                publicKey: Uint8Array.from(binPrivateKey.slice(32))
+                privateKey: binPrivateKey,
+                publicKey: binPublicKey
             }
         }
     }
@@ -356,11 +374,11 @@
 
                 // Get the signature and issuer pubkey bytes based on the data type.
                 // (json encoding will use hex string and bson will use buffer)
-                const pubkey = isString(pair[0]) ? hexToUint8Array(pair[0].substring(2)) : pair[0].buffer.slice(1); // Skip prefix byte.
+                const binPubkey = isString(pair[0]) ? hexToUint8Array(pair[0]) : pair[0].buffer;
                 const sig = isString(pair[1]) ? hexToUint8Array(pair[1]) : pair[1].buffer;
 
                 // Check whether the pubkey is in unl and whether signature is valid.
-                if (!passedKeys[pubkeyHex] && unlKeysLookup[pubkeyHex] && sodium.crypto_sign_verify_detached(sig, rootHash, pubkey))
+                if (!passedKeys[pubkeyHex] && unlKeysLookup[pubkeyHex] && sodium.crypto_sign_verify_detached(sig, rootHash, binPubkey.slice(1)))
                     passedKeys[pubkeyHex] = true;
             }
 
@@ -372,7 +390,7 @@
         const validateOutput = (msg, trustedKeys) => {
 
             // Calculate combined output hash with user's pubkey.
-            const outputHash = getHash([[0xED], clientKeys.publicKey, ...msgHelper.spreadArrayField(msg.outputs)]);
+            const outputHash = getHash([clientKeys.publicKey, ...msgHelper.spreadArrayField(msg.outputs)]);
 
             const result = getMerkleHash(msg.hashes, msgHelper.stringifyValue(outputHash));
             if (result[0] == true) {
@@ -747,12 +765,12 @@
         this.createUserChallengeResponse = (userChallenge, serverChallenge, msgProtocol) => {
             // For challenge response encoding Hot Pocket always uses json.
             // Challenge response will specify the protocol to use for contract messages.
-            const sigBytes = sodium.crypto_sign_detached(userChallenge, keys.privateKey);
+            const sigBytes = sodium.crypto_sign_detached(userChallenge, keys.privateKey.slice(1));
 
             return {
                 type: "user_challenge_response",
                 sig: this.binaryEncode(sigBytes),
-                pubkey: "ed" + this.binaryEncode(keys.publicKey),
+                pubkey: this.binaryEncode(keys.publicKey),
                 server_challenge: serverChallenge,
                 protocol: msgProtocol
             }
@@ -770,7 +788,7 @@
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);
-            const sigBytes = sodium.crypto_sign_detached(serlializedInpContainer, keys.privateKey);
+            const sigBytes = sodium.crypto_sign_detached(serlializedInpContainer, keys.privateKey.slice(1));
 
             const signedInpContainer = {
                 type: "contract_input",
