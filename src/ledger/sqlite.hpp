@@ -107,6 +107,8 @@ namespace ledger::sqlite
 
     ledger get_last_ledger(sqlite3 *db);
 
+    ledger get_ledger(sqlite3 *db, const uint64_t seq_no);
+
 } // namespace ledger::sqlite
 
 #endif

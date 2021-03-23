@@ -37,6 +37,10 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::hpfs_request create_hpfs_request_from_msg(const p2p::peer_message_info &mi);
 
+    const p2p::log_record_request create_log_record_request_from_msg(const p2p::peer_message_info &mi);
+
+    const p2p::log_record_response create_log_record_response_from_msg(const p2p::peer_message_info &mi);
+
     p2p::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf::p2pmsg::SequenceHash *fbseqhash);
 
     const std::set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
@@ -48,6 +52,11 @@ namespace msg::fbuf::p2pmsg
 
     const std::vector<p2p::peer_properties>
     flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<PeerProperties>> *fbvec);
+
+    const p2p::log_record flatbuf_log_record_to_log_record(const LogRecord *fblogRec);
+
+    const std::vector<p2p::log_record>
+    flatbuf_log_record_vector_to_log_record_vector(const flatbuffers::Vector<flatbuffers::Offset<LogRecord>> *fbvec);
 
     //---std to Flatbuf---//
 
@@ -68,6 +77,10 @@ namespace msg::fbuf::p2pmsg
     void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const p2p::sequence_hash &lcl_id);
 
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr);
+
+    void create_msg_from_log_record_request(flatbuffers::FlatBufferBuilder &builder, const p2p::log_record_request &log_record_request);
+
+    void create_msg_from_log_record_response(flatbuffers::FlatBufferBuilder &builder, const p2p::log_record_response &log_record_response);
 
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &builder, const std::string_view path, const uint32_t mount_id, const mode_t dir_mode,
@@ -103,6 +116,9 @@ namespace msg::fbuf::p2pmsg
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
     stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::set<std::string> &set);
+
+    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<LogRecord>>>
+    log_record_vector_to_flatbuf_log_record_vector(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::log_record> &records);
 }
 
 #endif

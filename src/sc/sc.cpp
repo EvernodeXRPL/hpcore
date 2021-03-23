@@ -9,6 +9,7 @@
 #include "../unl.hpp"
 #include "contract_serve.hpp"
 #include "sc.hpp"
+#include "log_sync.hpp"
 
 namespace sc
 {
@@ -39,17 +40,28 @@ namespace sc
             return -1;
         }
 
-        if (contract_sync_worker.init("contract", &contract_fs) == -1)
+        if (conf::cfg.node.history == conf::HISTORY::FULL)
         {
-            LOG_ERROR << "Contract file system sync worker initialization failed.";
-            return -1;
+            log_sync::init();
+        }
+        else
+        {
+            if (contract_sync_worker.init("contract", &contract_fs) == -1)
+            {
+                LOG_ERROR << "Contract file system sync worker initialization failed.";
+                return -1;
+            }
         }
         return 0;
     }
 
     void deinit()
     {
-        contract_sync_worker.deinit();
+        if (conf::cfg.node.history == conf::HISTORY::FULL)
+            log_sync::deinit();
+        else
+            contract_sync_worker.deinit();
+
         contract_server.deinit();
         contract_fs.deinit();
     }

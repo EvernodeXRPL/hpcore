@@ -544,7 +544,7 @@ namespace ledger
         sqlite3 *db = NULL;
         const std::string shard_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(last_primary_shard_id.seq_no);
 
-        if (last_primary_shard_id.seq_no == 0 && last_primary_shard_id.hash == util::h32_empty)
+        if (last_primary_shard_id.empty())
         {
             // This is the genesis ledger.
             ctx.set_lcl_id(p2p::sequence_hash{0, util::h32_empty});
@@ -553,7 +553,7 @@ namespace ledger
 
         if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
         {
-            LOG_ERROR << errno << ": Error openning the shard database, shard: " << last_primary_shard_id.seq_no;
+            LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(last_primary_shard_id.seq_no);
             return -1;
         }
 
@@ -661,6 +661,44 @@ namespace ledger
             return -1;
         }
         close(fd);
+        return 0;
+    }
+
+    /**
+     * Calculate root hash of contract_fs from the ledger record of given seq_no.
+     * @param root_hash The calculated root hash as of the given seq_no.
+     * @param seq_no Ledger's sequence number.
+     * @return Returns -1 on error and 0 on success.
+    */
+    int get_root_hash_from_ledger(util::h32 &root_hash, const uint64_t seq_no)
+    {
+        sqlite3 *db = NULL;
+        const char *session_name = "root_hash_from_ledger";
+        if (ledger_fs.start_ro_session(session_name, false) == -1)
+            return -1;
+
+        const uint64_t shard_seq_no = (seq_no - 1) / PRIMARY_SHARD_SIZE;
+
+        const std::string shard_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no);
+
+        if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
+        {
+            LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
+            ledger_fs.stop_ro_session(session_name);
+            return -1;
+        }
+
+        const sqlite::ledger ledger = sqlite::get_ledger(db, seq_no);
+        sqlite::close_db(&db);
+        ledger_fs.stop_ro_session(session_name);
+
+        util::h32 patch_hash;
+        util::h32 state_hash;
+
+        patch_hash = util::to_bin(ledger.patch_hash_hex);
+        state_hash = util::to_bin(ledger.state_hash_hex);
+
+        root_hash = hpfs::get_root_hash(patch_hash, state_hash);
         return 0;
     }
 } // namespace ledger

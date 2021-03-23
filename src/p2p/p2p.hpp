@@ -17,6 +17,8 @@ namespace p2p
     constexpr uint16_t HPFS_REQ_LIST_CAP = 64;        // Maximum state request count.
     constexpr uint16_t HPFS_RES_LIST_CAP = 64;        // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
+    constexpr uint16_t LOG_RECORD_REQ_LIST_CAP = 64;  // Maximum history request count.
+    constexpr uint16_t LOG_RECORD_RES_LIST_CAP = 64;  // Maximum history response count.
 
     // Struct to represent information about a peer.
     // Initially available capacity is set to -1 and timestamp is set to 0.
@@ -51,6 +53,11 @@ namespace p2p
         const std::string to_string()
         {
             return std::to_string(seq_no) + "-" + util::to_hex(hash.to_string_view());
+        }
+
+        const bool empty() const
+        {
+            return seq_no == 0 && hash == util::h32_empty;
         }
     };
     // This is a helper method for sequence_hash structure which enables printing it straight away.
@@ -125,6 +132,50 @@ namespace p2p
         util::h32 expected_hash; // The expected hash of the requested result.
     };
 
+    // Represents full history log record request.
+    struct log_record_request
+    {
+        sequence_hash target_record_id;
+        sequence_hash min_record_id;
+    };
+
+    /**
+     * Duplicated enum from hpfs
+    */
+    enum FS_OPERATION
+    {
+        MKDIR = 1,
+        RMDIR = 2,
+        RENAME = 3,
+        UNLINK = 6,
+        CHMOD = 7,
+        CHOWN = 8,
+        CREATE = 10,
+        WRITE = 11,
+        TRUNCATE = 12
+    };
+
+    /**
+     * Duplicated log record header struct from hpfs
+    */
+    struct log_record
+    {
+        int64_t timestamp;
+        FS_OPERATION operation;
+        size_t vpath_len;
+        size_t payload_len;
+        size_t block_data_len;
+        util::h32 root_hash;
+    };
+
+    // Represents full history log record responses.
+    struct log_record_response
+    {
+        sequence_hash min_record_id;
+        sequence_hash max_record_id;
+        std::vector<log_record> log_records;
+    };
+
     // Represents hpfs file system entry.
     struct hpfs_fs_hash_entry
     {
@@ -172,6 +223,13 @@ namespace p2p
         // List of pairs indicating the session pubkey hex and the ledger fs hpfs responses.
         std::list<std::pair<std::string, std::string>> ledger_hpfs_responses;
         std::mutex ledger_hpfs_responses_mutex; // Mutex for ledger fs hpfs responses access race conditions.
+
+        // Lists holding log record requests and responses collected from incoming p2p messages.
+        std::list<std::pair<std::string, p2p::log_record_request>> log_record_requests;
+        std::mutex log_record_request_mutex; // Mutex for log record request access race conditions.
+
+        std::list<std::pair<std::string, p2p::log_record_response>> log_record_responses;
+        std::mutex log_record_response_mutex; // Mutex for log record responses access race conditions.
     };
 
     struct connected_context
@@ -203,7 +261,7 @@ namespace p2p
 
     void send_message_to_self(const flatbuffers::FlatBufferBuilder &fbuf);
 
-    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool is_full_history_only = false);
+    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool full_history_only = false);
 
     void handle_proposal_message(const p2p::proposal &p);
 

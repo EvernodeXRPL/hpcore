@@ -7,8 +7,8 @@
 
 namespace hpfs
 {
-    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024;                                // 4MB;
-    constexpr const char *RW_SESSION_NAME = "rw";                                 // The built-in session name used by hpfs for RW sessions.
+    constexpr size_t BLOCK_SIZE = 4 * 1024 * 1024; // 4MB;
+    constexpr const char *RW_SESSION_NAME = "rw";  // The built-in session name used by hpfs for RW sessions.
 
     struct child_hash_node
     {
@@ -26,6 +26,8 @@ namespace hpfs
     {
         return conf::cfg.contract.roundtime;
     }
+
+    const util::h32 get_root_hash(const util::h32 &patch_hash, const util::h32 &state_hash);
 
     /**
      * This class represents a hpfs file system mount.

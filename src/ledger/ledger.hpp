@@ -100,6 +100,8 @@ namespace ledger
 
     int persist_max_shard_seq_no(const std::string &shard_parent_dir, const uint64_t last_shard_seq_no);
 
+    int get_root_hash_from_ledger(util::h32 &root_hash, const uint64_t seq_no);
+
 } // namespace ledger
 
 #endif

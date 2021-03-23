@@ -4,6 +4,7 @@
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
 #include "../sc/sc.hpp"
+#include "../crypto.hpp"
 
 namespace hpfs
 {
@@ -15,6 +16,9 @@ namespace hpfs
     constexpr const char *RO_SESSION_HMAP = "/::hpfs.ro.hmap.";
     constexpr const char *HMAP_HASH = "::hpfs.hmap.hash";
     constexpr const char *HMAP_CHILDREN = "::hpfs.hmap.children";
+
+    constexpr const char *ROOT_PATH = "/";
+
     constexpr ino_t ROOT_INO = 1;
 
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
@@ -389,6 +393,25 @@ namespace hpfs
         {
             itr->second = new_state;
         }
+    }
+
+    /**
+     * Returns root hash when the two childrens are given.
+     * @param child_one First child of the root.
+     * @param child_two Second child of the root.
+     * @return Returns the calculated root hash.
+    */
+    const util::h32 get_root_hash(const util::h32 &child_one, const util::h32 &child_two)
+    {
+        util::h32 name_hash;
+        name_hash = crypto::get_hash(util::get_name(ROOT_PATH));
+
+        util::h32 root_hash = name_hash;
+        root_hash ^= util::h32_empty;
+        root_hash ^= child_one;
+        root_hash ^= child_two;
+
+        return root_hash;
     }
 
 } // namespace hpfs

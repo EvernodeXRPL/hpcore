@@ -328,4 +328,41 @@ namespace ledger::sqlite
         sqlite3_finalize(stmt);
         return ledger;
     }
+
+    /**
+     * Get the ledger record of the given sequence number from the given database.
+     * @param db Pointer to the db.
+     * @returns returns the ledger as a struct.
+    */
+    ledger get_ledger(sqlite3 *db, const uint64_t seq_no)
+    {
+        std::string sql;
+        sql.append(SELECT_ALL);
+        sql.append(LEDGER_TABLE);
+        sql.append(WHERE);
+        sql.append("seq_no =");
+        sql.append(std::to_string(seq_no));
+
+        sqlite3_stmt *stmt;
+        sqlite::ledger ledger;
+
+        if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK &&
+            stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            ledger.seq_no = sqlite3_column_int64(stmt, 0);
+            ledger.time = sqlite3_column_int64(stmt, 1);
+            ledger.ledger_hash_hex = std::string((char *)sqlite3_column_text(stmt, 2));
+            ledger.prev_ledger_hash_hex = std::string((char *)sqlite3_column_text(stmt, 3));
+            ledger.data_hash_hex = std::string((char *)sqlite3_column_text(stmt, 4));
+            ledger.state_hash_hex = std::string((char *)sqlite3_column_text(stmt, 5));
+            ledger.patch_hash_hex = std::string((char *)sqlite3_column_text(stmt, 6));
+            ledger.user_hash_hex = std::string((char *)sqlite3_column_text(stmt, 7));
+            ledger.input_hash_hex = std::string((char *)sqlite3_column_text(stmt, 8));
+            ledger.output_hash_hex = std::string((char *)sqlite3_column_text(stmt, 9));
+        }
+
+        // Finalize and distroys the statement.
+        sqlite3_finalize(stmt);
+        return ledger;
+    }
 } // namespace ledger::sqlite

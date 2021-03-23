@@ -285,9 +285,9 @@ namespace p2p
      * Sends the given message to a random peer (except self).
      * @param fbuf Peer outbound message to be sent to peer.
      * @param target_pubkey Randomly selected target peer pubkey.
-     * @param is_full_history_only Should send only to a random full history node.
+     * @param full_history_only Should send only to a random full history node.
      */
-    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool is_full_history_only)
+    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool full_history_only)
     {
         //Send while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
@@ -312,7 +312,7 @@ namespace p2p
             peer_comm_session *session = it->second;
 
             // Do the full history node check if this message is full history only.
-            if (is_full_history_only && !session->is_full_history)
+            if (full_history_only && !session->is_full_history)
             {
                 tried_full_history_attempts++;
                 if (tried_full_history_attempts == FULL_HISTORY_MSG_THRESHOLD)
