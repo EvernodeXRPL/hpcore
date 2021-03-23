@@ -1,6 +1,5 @@
 const fs = require('fs');
 const tty = require('tty');
-require('process');
 
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 const controlMessages = {
@@ -18,81 +17,89 @@ Object.freeze(clientProtocols);
 const PATCH_CONFIG_PATH = "../patch.cfg";
 const POST_EXEC_SCRIPT_NAME = "post_exec.sh";
 
+/*
+ * Class members prefixed with '__' represent private members until ES spec fully supports '#' notation.
+ */
+
 class HotPocketContract {
 
-    #controlChannel = null;
-    #clientProtocol = null;
+    constructor() {
+        this.__controlChannel = null;
+        this.__clientProtocol = null;
+
+        this.__executeContract = (hpargs, contractFunc) => {
+            // Keeps track of all the tasks (promises) that must be awaited before the termination.
+            const pendingTasks = [];
+            const nplChannel = new NplChannel(hpargs.npl_fd);
+
+            const users = new UsersCollection(hpargs.user_in_fd, hpargs.users, this.__clientProtocol);
+            const unl = new UnlCollection(hpargs.readonly, hpargs.unl, nplChannel, pendingTasks);
+            const executionContext = new ContractContext(hpargs, users, unl, this.__controlChannel);
+
+            invokeCallback(contractFunc, executionContext).catch(errHandler).finally(() => {
+                // Wait for any pending tasks added during execution.
+                Promise.all(pendingTasks).catch(errHandler).finally(() => {
+                    nplChannel.close();
+                    this.__terminate();
+                });
+            });
+        }
+
+        this.__terminate = () => {
+            this.__controlChannel.send({ type: controlMessages.contractEnd });
+            this.__controlChannel.close();
+        }
+    }
 
     init(contractFunc, clientProtocol = clientProtocols.json) {
 
-        if (this.#controlChannel) // Already initialized.
-            return false;
+        return new Promise(resolve => {
+            if (this.__controlChannel) { // Already initialized.
+                resolve(false);
+                return;
+            }
 
-        this.#clientProtocol = clientProtocol;
+            this.__clientProtocol = clientProtocol;
 
-        // Check whether we are running on a console and provide error.
-        if (tty.isatty(process.stdin.fd)) {
-            console.error("Error: Hot Pocket smart contracts must be executed via Hot Pocket.");
-            return false;
-        }
+            // Check whether we are running on a console and provide error.
+            if (tty.isatty(process.stdin.fd)) {
+                console.error("Error: Hot Pocket smart contracts must be executed via Hot Pocket.");
+                resolve(false);
+                return;
+            }
 
-        // Parse HotPocket args.
-        const argsJson = fs.readFileSync(process.stdin.fd, 'utf8');
-        const hpargs = JSON.parse(argsJson);
-
-        this.#controlChannel = new ControlChannel(hpargs.control_fd);
-        this.#executeContract(hpargs, contractFunc);
-        return true;
-    }
-
-    #executeContract = (hpargs, contractFunc) => {
-        // Keeps track of all the tasks (promises) that must be awaited before the termination.
-        const pendingTasks = [];
-        const nplChannel = new NplChannel(hpargs.npl_fd);
-
-        const users = new UsersCollection(hpargs.user_in_fd, hpargs.users, this.#clientProtocol);
-        const unl = new UnlCollection(hpargs.readonly, hpargs.unl, nplChannel, pendingTasks);
-        const executionContext = new ContractContext(hpargs, users, unl, this.#controlChannel);
-
-        invokeCallback(contractFunc, executionContext).catch(errHandler).finally(() => {
-            // Wait for any pending tasks added during execution.
-            Promise.all(pendingTasks).catch(errHandler).finally(() => {
-                nplChannel.close();
-                this.#terminate();
+            // Parse HotPocket args.
+            fs.readFile(process.stdin.fd, 'utf8', (err, argsJson) => {
+                const hpargs = JSON.parse(argsJson);
+                this.__controlChannel = new ControlChannel(hpargs.control_fd);
+                this.__executeContract(hpargs, contractFunc);
+                resolve(true);
             });
         });
-    }
-
-    #terminate = () => {
-        this.#controlChannel.send({ type: controlMessages.contractEnd });
-        this.#controlChannel.close();
     }
 }
 
 class ContractContext {
 
-    #controlChannel = null;
-    #patchConfig = null;
-
     constructor(hpargs, users, unl, controlChannel) {
-        this.#controlChannel = controlChannel;
+        this.__controlChannel = controlChannel;
         this.readonly = hpargs.readonly;
         this.timestamp = hpargs.timestamp;
         this.users = users;
         this.unl = unl; // Not available in readonly mode.
         this.lcl_seq_no = hpargs.lcl_seq_no; // Not available in readonly mode.
         this.lcl_hash = hpargs.lcl_hash; // Not available in readonly mode.
-        this.#patchConfig = new PatchConfig();
+        this.__patchConfig = new PatchConfig();
     }
 
     // Returns the config values in patch config.
     getConfig() {
-        return this.#patchConfig.getConfig();
+        return this.__patchConfig.getConfig();
     }
 
     // Updates the config with given config object and save the patch config.
     updateConfig(config) {
-        return this.#patchConfig.updateConfig(config);
+        return this.__patchConfig.updateConfig(config);
     }
 }
 
@@ -156,11 +163,9 @@ class PatchConfig {
 
 class UsersCollection {
 
-    #users = {};
-    #infd = null;
-
     constructor(userInputsFd, usersObj, clientProtocol) {
-        this.#infd = userInputsFd;
+        this.__users = {};
+        this.__infd = userInputsFd;
 
         Object.entries(usersObj).forEach(([pubKey, arr]) => {
 
@@ -168,55 +173,50 @@ class UsersCollection {
             arr.splice(0, 1); // Remove first element (output fd). The rest are pairs of msg offset/length tuples.
 
             const channel = new UserChannel(outfd, clientProtocol);
-            this.#users[pubKey] = new User(pubKey, channel, arr);
+            this.__users[pubKey] = new User(pubKey, channel, arr);
         });
     }
 
     // Returns the User for the specified pubkey. Returns null if not found.
     find(pubKey) {
-        return this.#users[pubKey]
+        return this.__users[pubKey]
     }
 
     // Returns all the currently connected users.
     list() {
-        return Object.values(this.#users);
+        return Object.values(this.__users);
     }
 
     count() {
-        return Object.keys(this.#users).length;
+        return Object.keys(this.__users).length;
     }
 
     async read(input) {
         const [offset, size] = input;
         const buf = Buffer.alloc(size);
-        await readAsync(this.#infd, buf, offset, size);
+        await readAsync(this.__infd, buf, offset, size);
         return buf;
     }
 }
 
 class User {
-    pubKey = null;
-    inputs = null;
-    #channel = null;
 
     constructor(pubKey, channel, inputs) {
         this.pubKey = pubKey;
         this.inputs = inputs;
-        this.#channel = channel;
+        this.__channel = channel;
     }
 
     async send(msg) {
-        await this.#channel.send(msg);
+        await this.__channel.send(msg);
     }
 }
 
 class UserChannel {
-    #outfd = -1;
-    #clientProtocol = null;
 
     constructor(outfd, clientProtocol) {
-        this.#outfd = outfd;
-        this.#clientProtocol = clientProtocol;
+        this.__outfd = outfd;
+        this.__clientProtocol = clientProtocol;
     }
 
     send(msg) {
@@ -224,7 +224,7 @@ class UserChannel {
         let headerBuf = Buffer.alloc(4);
         // Writing message length in big endian format.
         headerBuf.writeUInt32BE(messageBuf.byteLength)
-        return writevAsync(this.#outfd, [headerBuf, messageBuf]);
+        return writevAsync(this.__outfd, [headerBuf, messageBuf]);
     }
 
     serialize(msg) {
@@ -235,7 +235,7 @@ class UserChannel {
         if (Buffer.isBuffer(msg))
             return msg;
 
-        if (this.#clientProtocol == clientProtocols.bson) {
+        if (this.__clientProtocol == clientProtocols.bson) {
             return Buffer.from(msg);
         }
         else { // json
@@ -250,21 +250,18 @@ class UserChannel {
 }
 
 class UnlCollection {
-    nodes = {};
-    #channel = null;
-    #readonly = false;
-    #pendingTasks = null;
 
     constructor(readonly, unl, channel, pendingTasks) {
-        this.#readonly = readonly;
-        this.#pendingTasks = pendingTasks;
+        this.nodes = {};
+        this.__readonly = readonly;
+        this.__pendingTasks = pendingTasks;
 
         if (!readonly) {
             unl.forEach(pubKey => {
                 this.nodes[pubKey] = new UnlNode(pubKey);
             });
 
-            this.#channel = channel;
+            this.__channel = channel;
         }
     }
 
@@ -285,26 +282,25 @@ class UnlCollection {
     // Registers for NPL messages.
     onMessage(callback) {
 
-        if (this.#readonly)
+        if (this.__readonly)
             throw "NPL messages not available in readonly mode.";
 
-        this.#channel.consume((pubKey, msg) => {
-            this.#pendingTasks.push(invokeCallback(callback, this.nodes[pubKey], msg));
+        this.__channel.consume((pubKey, msg) => {
+            this.__pendingTasks.push(invokeCallback(callback, this.nodes[pubKey], msg));
         });
     }
 
     // Broadcasts a message to all unl nodes (including self if self is part of unl).
     async send(msg) {
-        if (this.#readonly)
+        if (this.__readonly)
             throw "NPL messages not available in readonly mode.";
 
-        await this.#channel.send(msg);
+        await this.__channel.send(msg);
     }
 }
 
 // Represents a node that's part of unl.
 class UnlNode {
-    pubKey = null;
 
     constructor(pubKey) {
         this.pubKey = pubKey;
@@ -314,23 +310,21 @@ class UnlNode {
 // Represents the node-party-line that can be used to communicate with unl nodes.
 class NplChannel {
 
-    #readStream = null;
-    #fd = -1;
-
     constructor(fd) {
-        this.#fd = fd;
+        this.__fd = fd;
+        this.__readStream = null;
     }
 
     consume(onMessage) {
 
-        this.#readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
+        this.__readStream = fs.createReadStream(null, { fd: this.__fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
 
         // From the hotpocket when sending the npl messages first it sends the pubkey of the particular node
         // and then the message, First data buffer is taken as pubkey and the second one as message,
         // then npl message object is constructed and the event is emmited.
         let pubKey = null;
 
-        this.#readStream.on("data", (data) => {
+        this.__readStream.on("data", (data) => {
             if (!pubKey) {
                 pubKey = data.toString();
             }
@@ -340,46 +334,44 @@ class NplChannel {
             }
         });
 
-        this.#readStream.on("error", (err) => { });
+        this.__readStream.on("error", (err) => { });
     }
 
     send(msg) {
         const buf = Buffer.from(msg);
         if (buf.length > MAX_SEQ_PACKET_SIZE)
             throw ("NPL message exceeds max size " + MAX_SEQ_PACKET_SIZE);
-        return writeAsync(this.#fd, buf);
+        return writeAsync(this.__fd, buf);
     }
 
     close() {
-        this.#readStream && this.#readStream.close();
+        this.__readStream && this.__readStream.close();
     }
 }
 
 
 class ControlChannel {
 
-    #readStream = null;
-    #fd = -1;
-
     constructor(fd) {
-        this.#fd = fd;
+        this.__fd = fd;
+        this.__readStream = null;
     }
 
     consume(onMessage) {
-        this.#readStream = fs.createReadStream(null, { fd: this.#fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
-        this.#readStream.on("data", onMessage);
-        this.#readStream.on("error", (err) => { });
+        this.__readStream = fs.createReadStream(null, { fd: this.__fd, highWaterMark: MAX_SEQ_PACKET_SIZE });
+        this.__readStream.on("data", onMessage);
+        this.__readStream.on("error", (err) => { });
     }
 
     send(obj) {
         const buf = Buffer.from(JSON.stringify(obj));
         if (buf.length > MAX_SEQ_PACKET_SIZE)
             throw ("Control message exceeds max size " + MAX_SEQ_PACKET_SIZE);
-        return writeAsync(this.#fd, buf);
+        return writeAsync(this.__fd, buf);
     }
 
     close() {
-        this.#readStream && this.#readStream.close();
+        this.__readStream && this.__readStream.close();
     }
 }
 
