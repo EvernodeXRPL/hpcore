@@ -163,8 +163,8 @@
         let initialConnectSuccess = null;
 
         // Tracks when was the earliest time that we were missing some required connections.
-        // 0 indicates we are no missing any connections.
-        let connectionsMissingFrom = new Date().getTime();
+        // 0 indicates we are not missing any connections. This will be initially set when connect() is called.
+        let connectionsMissingFrom = 0;
 
         // Checks for missing connections and attempts to establish them.
         const reviewConnections = () => {
@@ -249,7 +249,10 @@
             if (status > 0)
                 return;
 
+            // Start the missing-connections timer tracking from this point onwards.
+            connectionsMissingFrom = new Date().getTime();
             reviewConnections();
+
             return new Promise(resolve => {
                 initialConnectSuccess = resolve;
             })
