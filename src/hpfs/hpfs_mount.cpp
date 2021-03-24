@@ -401,7 +401,7 @@ namespace hpfs
             return -1;
         
         // We just send empty buffer with write size 1 to invoke the hpfs index update.
-        // Write syscall isn't invoking with write length 0. 
+        // Write syscall isn't invoking with write size 0. 
         if (write(fd, "", 1) == -1)
         {
             close(fd);
