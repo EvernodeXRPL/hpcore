@@ -38,6 +38,10 @@ namespace msg::usrmsg
     constexpr const char *FLD_IS_FULL_HISTORY_NODE = "is_full_history_node";
     constexpr const char *FLD_CURRENT_UNL = "current_unl";
     constexpr const char *FLD_PEERS = "peers";
+    constexpr const char *FLD_FILTER_BY = "filter_by";
+    constexpr const char *FLD_INCLUDE = "include";
+    constexpr const char *FLD_PARAMS = "params";
+    constexpr const char *FLD_SEQ_NO = "seq_no";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -51,6 +55,7 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_STAT = "stat";
     constexpr const char *MSGTYPE_STAT_RESPONSE = "stat_response";
     constexpr const char *MSGTYPE_UNL_CHANGE = "unl_change";
+    constexpr const char *MSGTYPE_LEDGER_QUERY = "ledger_query";
     constexpr const char *MSGTYPE_UNKNOWN = "unknown";
 
     // Values
@@ -66,6 +71,28 @@ namespace msg::usrmsg
     constexpr const char *REASON_ALREADY_SUBMITTED = "already_submitted";
     constexpr const char *REASON_NONCE_OVERFLOW = "nonce_overflow";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
+    constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
+    constexpr const char *QUERY_INCLUDE_SUMMARY = "summary";
+    constexpr const char *QUERY_INCLUDE_RAW_INPUTS = "raw_inputs";
+    constexpr const char *QUERY_INCLUDE_RAW_OUTPUTS = "raw_outputs";
+
+    enum LEDGER_QUERY_INCLUDE
+    {
+        SUMMARY = 0,
+        RAW_INPUTS = 1,
+        RAW_OUTPUTS = 2
+    };
+
+    /**
+     * Represents a ledger query request to filter by seq no.
+     */
+    struct ledger_query_seq_no_request
+    {
+        uint64_t seq_no = 0;
+        std::bitset<3> include;
+    };
+
+    typedef std::variant<ledger_query_seq_no_request> ledger_query_request;
 
 } // namespace msg::usrmsg
 

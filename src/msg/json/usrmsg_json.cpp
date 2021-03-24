@@ -162,15 +162,15 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(conf::cfg.contract.roundtime); 
+        msg += std::to_string(conf::cfg.contract.roundtime);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.contract.execute ? "true" : "false";  
+        msg += conf::cfg.contract.execute ? "true" : "false";
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_READ_REQUESTS_ENABLED;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? "true" : "false"; 
+        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? "true" : "false";
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_IS_FULL_HISTORY_NODE;
         msg += SEP_COLON_NOQUOTE;
@@ -669,6 +669,63 @@ namespace msg::usrmsg::json
         max_lcl_seq_no = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
 
         return 0;
+    }
+
+    int extract_ledger_query(ledger_query_request &extracted_query, const jsoncons::json &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_FILTER_BY) || !d.contains(msg::usrmsg::FLD_PARAMS) || !d.contains(msg::usrmsg::FLD_INCLUDE))
+        {
+            LOG_DEBUG << "Ledger query required fields missing.";
+            return -1;
+        }
+
+        if (!d[msg::usrmsg::FLD_FILTER_BY].is<std::string>() || !d[msg::usrmsg::FLD_PARAMS].is_object() || !d[msg::usrmsg::FLD_INCLUDE].is_array())
+        {
+            LOG_DEBUG << "Ledger query invalid field values.";
+            return -1;
+        }
+
+        // Detect includes.
+        std::bitset<3> include;
+        for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
+        {
+            if (val == msg::usrmsg::QUERY_INCLUDE_SUMMARY)
+            {
+                include.set(LEDGER_QUERY_INCLUDE::SUMMARY, true);
+            }
+            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
+            {
+                include.set(LEDGER_QUERY_INCLUDE::RAW_INPUTS, true);
+            }
+            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
+            {
+                include.set(LEDGER_QUERY_INCLUDE::RAW_OUTPUTS, true);
+            }
+            else
+            {
+                LOG_DEBUG << "Ledger query invalid include.";
+                return -1;
+            }
+        }
+
+        auto &params_field = d[msg::usrmsg::FLD_PARAMS];
+
+        if (d[msg::usrmsg::FLD_FILTER_BY] == msg::usrmsg::QUERY_FILTER_BY_SEQ_NO)
+        {
+            if (!params_field.contains(msg::usrmsg::FLD_SEQ_NO) || !params_field[msg::usrmsg::FLD_SEQ_NO].is<uint64_t>())
+            {
+                LOG_DEBUG << "Ledger query seq no filter invalid params.";
+                return -1;
+            }
+
+            extracted_query = ledger_query_seq_no_request{params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(), std::move(include)};
+            return 0;
+        }
+        else
+        {
+            LOG_DEBUG << "Ledger query invalid filter-by criteria.";
+            return -1;
+        }
     }
 
     bool is_json_string(std::string_view content)

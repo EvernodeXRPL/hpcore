@@ -1,9 +1,10 @@
 #ifndef _HP_MSG_USRMSG_PARSER_
 #define _HP_MSG_USRMSG_PARSER_
 
+#include "../pchheader.hpp"
 #include "../util/util.hpp"
 #include "../util/merkle_hash_tree.hpp"
-#include "../pchheader.hpp"
+#include "usrmsg_common.hpp"
 
 namespace msg::usrmsg
 {
@@ -42,6 +43,8 @@ namespace msg::usrmsg
 
         int extract_input_container(std::string &input, std::string &nonce,
                                     uint64_t &max_lcl_seq_no, std::string_view encoded_content) const;
+
+        int extract_ledger_query(ledger_query_request &extracted_query) const;
     };
 
 } // namespace msg::usrmsg

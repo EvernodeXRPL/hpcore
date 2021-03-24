@@ -97,4 +97,12 @@ namespace msg::usrmsg
             return busrmsg::extract_input_container(input, nonce, max_lcl_seq_no, encoded_content);
     }
 
+    int usrmsg_parser::extract_ledger_query(ledger_query_request &extracted_query) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            return jusrmsg::extract_ledger_query(extracted_query, jdoc);
+        else
+            return 0;
+    }
+
 } // namespace msg::usrmsg
