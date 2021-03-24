@@ -15,6 +15,7 @@ namespace hpfs
     constexpr const char *RO_SESSION_HMAP = "/::hpfs.ro.hmap.";
     constexpr const char *HMAP_HASH = "::hpfs.hmap.hash";
     constexpr const char *HMAP_CHILDREN = "::hpfs.hmap.children";
+    constexpr const char *INDEX_UPDATE = "/::hpfs.index";
     constexpr ino_t ROOT_INO = 1;
 
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
@@ -389,6 +390,26 @@ namespace hpfs
         {
             itr->second = new_state;
         }
+    }
+
+    int hpfs_mount::update_hpfs_log_index()
+    {
+        const std::string index_file = mount_dir + INDEX_UPDATE;
+
+        const int fd = open(index_file.c_str(), O_RDWR);
+        if (fd == -1)
+            return -1;
+        
+        // We just send empty buffer with write size 1 to invoke the hpfs index update.
+        // Write syscall isn't invoking with write length 0. 
+        if (write(fd, "", 1) == -1)
+        {
+            close(fd);
+            return -1;
+        }
+
+        close(fd);
+        return 0;
     }
 
 } // namespace hpfs
