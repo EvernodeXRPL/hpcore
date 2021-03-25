@@ -4,7 +4,7 @@
 #include "../pchheader.hpp"
 #include "../util/util.hpp"
 #include "../util/merkle_hash_tree.hpp"
-#include "usrmsg_common.hpp"
+#include "../ledger/ledger_query.hpp"
 
 namespace msg::usrmsg
 {
@@ -33,6 +33,9 @@ namespace msg::usrmsg
 
         void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const;
 
+        void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
+                                                     const std::vector<ledger::query::query_result> &results) const;
+
         int parse(std::string_view message);
 
         int extract_type(std::string &extracted_type) const;
@@ -44,7 +47,7 @@ namespace msg::usrmsg
         int extract_input_container(std::string &input, std::string &nonce,
                                     uint64_t &max_lcl_seq_no, std::string_view encoded_content) const;
 
-        int extract_ledger_query(ledger_query_request &extracted_query) const;
+        int extract_ledger_query(ledger::query::query_request &extracted_query) const;
     };
 
 } // namespace msg::usrmsg

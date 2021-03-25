@@ -56,6 +56,15 @@ namespace msg::usrmsg
             busrmsg::create_unl_list_container(msg, unl_list);
     }
 
+    void usrmsg_parser::create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
+                                                     const std::vector<ledger::query::query_result> &results) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_ledger_query_response(msg, reply_for, error, results);
+        else
+            ;
+    }
+
     int usrmsg_parser::parse(std::string_view message)
     {
         if (protocol == util::PROTOCOL::JSON)
@@ -97,7 +106,7 @@ namespace msg::usrmsg
             return busrmsg::extract_input_container(input, nonce, max_lcl_seq_no, encoded_content);
     }
 
-    int usrmsg_parser::extract_ledger_query(ledger_query_request &extracted_query) const
+    int usrmsg_parser::extract_ledger_query(ledger::query::query_request &extracted_query) const
     {
         if (protocol == util::PROTOCOL::JSON)
             return jusrmsg::extract_ledger_query(extracted_query, jdoc);

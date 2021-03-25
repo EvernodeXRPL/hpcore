@@ -411,6 +411,50 @@ namespace msg::usrmsg::json
     }
 
     /**
+     * Constructs a ledger query response.
+     * @param msg String reference to copy the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_query_result",
+     *              "reply_for": "<original query id>",
+     *              "error": "error_code" or NULL,
+     *              "results": [{}...]
+     *            }
+     * @param reply_for Original query id to associate the response with.
+     * @param error Query result error code. NULL if no error.
+     * @param results Query results to be sent in the response.
+     */
+    void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
+                                      const std::vector<ledger::query::query_result> &results)
+    {
+        msg.reserve(1024);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_LEDGER_QUERY_RESULT;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_ID;
+        msg += SEP_COLON;
+        msg += reply_for;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_ERROR;
+        if (error == NULL)
+        {
+            msg += ":null,\"";
+        }
+        else
+        {
+            msg += SEP_COLON;
+            msg += error;
+            msg += SEP_COMMA;
+        }
+        msg += msg::usrmsg::FLD_RESULTS;
+        msg += "\",:[";
+        populate_query_results(msg, results);
+        msg += "]";
+    }
+
+    /**
      * Verifies the user handshake response with the original challenge issued to the user
      * and the user public key contained in the response.
      * 
@@ -671,17 +715,26 @@ namespace msg::usrmsg::json
         return 0;
     }
 
-    int extract_ledger_query(ledger_query_request &extracted_query, const jsoncons::json &d)
+    int extract_ledger_query(ledger::query::query_request &extracted_query, const jsoncons::json &d)
     {
-        if (!d.contains(msg::usrmsg::FLD_FILTER_BY) || !d.contains(msg::usrmsg::FLD_PARAMS) || !d.contains(msg::usrmsg::FLD_INCLUDE))
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d.contains(msg::usrmsg::FLD_FILTER_BY) ||
+            !d.contains(msg::usrmsg::FLD_PARAMS) || !d.contains(msg::usrmsg::FLD_INCLUDE))
         {
             LOG_DEBUG << "Ledger query required fields missing.";
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_FILTER_BY].is<std::string>() || !d[msg::usrmsg::FLD_PARAMS].is_object() || !d[msg::usrmsg::FLD_INCLUDE].is_array())
+        if (!d[msg::usrmsg::FLD_ID].is<std::string>() || !d[msg::usrmsg::FLD_FILTER_BY].is<std::string>() ||
+            !d[msg::usrmsg::FLD_PARAMS].is_object() || !d[msg::usrmsg::FLD_INCLUDE].is_array())
         {
             LOG_DEBUG << "Ledger query invalid field values.";
+            return -1;
+        }
+
+        const std::string id = d[msg::usrmsg::FLD_ID].as<std::string>();
+        if (id.empty())
+        {
+            LOG_DEBUG << "Ledger query invalid id.";
             return -1;
         }
 
@@ -691,15 +744,15 @@ namespace msg::usrmsg::json
         {
             if (val == msg::usrmsg::QUERY_INCLUDE_SUMMARY)
             {
-                include.set(LEDGER_QUERY_INCLUDE::SUMMARY, true);
+                include.set(ledger::query::INCLUDES::SUMMARY, true);
             }
             else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
             {
-                include.set(LEDGER_QUERY_INCLUDE::RAW_INPUTS, true);
+                include.set(ledger::query::INCLUDES::RAW_INPUTS, true);
             }
             else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
             {
-                include.set(LEDGER_QUERY_INCLUDE::RAW_OUTPUTS, true);
+                include.set(ledger::query::INCLUDES::RAW_OUTPUTS, true);
             }
             else
             {
@@ -718,7 +771,10 @@ namespace msg::usrmsg::json
                 return -1;
             }
 
-            extracted_query = ledger_query_seq_no_request{params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(), std::move(include)};
+            extracted_query = ledger::query::seq_no_query{
+                std::move(id),
+                params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(),
+                std::move(include)};
             return 0;
         }
         else
@@ -775,6 +831,11 @@ namespace msg::usrmsg::json
             }
             msg += "]";
         }
+    }
+
+    void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result> &results)
+    {
+
     }
 
 } // namespace msg::usrmsg::json
