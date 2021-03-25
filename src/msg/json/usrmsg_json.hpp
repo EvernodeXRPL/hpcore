@@ -26,7 +26,7 @@ namespace msg::usrmsg::json
     void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
 
     void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
-                                      const std::vector<ledger::query::query_result> &results);
+                                      const std::vector<ledger::query::query_result_record> &results);
 
     int verify_user_challenge(std::string &extracted_pubkeyhex, std::string &extracted_protocol, std::string &extracted_server_challenge,
                               std::string_view response, std::string_view original_challenge);
@@ -49,7 +49,7 @@ namespace msg::usrmsg::json
 
     void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_node &node);
 
-    void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result> &results);
+    void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results);
 
 } // namespace msg::usrmsg::json
 

@@ -76,7 +76,6 @@ namespace msg::usrmsg
     constexpr const char *REASON_NONCE_OVERFLOW = "nonce_overflow";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
-    constexpr const char *QUERY_INCLUDE_SUMMARY = "summary";
     constexpr const char *QUERY_INCLUDE_RAW_INPUTS = "raw_inputs";
     constexpr const char *QUERY_INCLUDE_RAW_OUTPUTS = "raw_outputs";
 

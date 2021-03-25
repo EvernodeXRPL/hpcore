@@ -248,7 +248,7 @@ namespace usr
 
                 std::vector<uint8_t> resp;
                 // Get query results.
-                const std::vector<ledger::query::query_result> results;
+                const std::vector<ledger::query::query_result_record> results;
                 parser.create_ledger_query_response(resp, "1234", NULL, results);
                 user.session.send(resp);
                 return 0;

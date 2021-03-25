@@ -5,6 +5,7 @@
 #include "../../crypto.hpp"
 #include "../../hplog.hpp"
 #include "../../conf.hpp"
+#include "../../ledger/ledger_query.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
 
@@ -425,7 +426,7 @@ namespace msg::usrmsg::json
      * @param results Query results to be sent in the response.
      */
     void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
-                                      const std::vector<ledger::query::query_result> &results)
+                                      const std::vector<ledger::query::query_result_record> &results)
     {
         msg.reserve(1024);
         msg += "{\"";
@@ -739,20 +740,17 @@ namespace msg::usrmsg::json
         }
 
         // Detect includes.
-        std::bitset<3> include;
+        bool raw_inputs = false;
+        bool raw_outputs = false;
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
-            if (val == msg::usrmsg::QUERY_INCLUDE_SUMMARY)
+            if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
             {
-                include.set(ledger::query::INCLUDES::SUMMARY, true);
-            }
-            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
-            {
-                include.set(ledger::query::INCLUDES::RAW_INPUTS, true);
+                raw_inputs = true;
             }
             else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
             {
-                include.set(ledger::query::INCLUDES::RAW_OUTPUTS, true);
+                raw_outputs = false;
             }
             else
             {
@@ -774,7 +772,8 @@ namespace msg::usrmsg::json
             extracted_query = ledger::query::seq_no_query{
                 std::move(id),
                 params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(),
-                std::move(include)};
+                raw_inputs,
+                raw_outputs};
             return 0;
         }
         else
@@ -833,7 +832,7 @@ namespace msg::usrmsg::json
         }
     }
 
-    void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result> &results)
+    void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results)
     {
 
     }

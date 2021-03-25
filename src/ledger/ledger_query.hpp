@@ -6,13 +6,6 @@
 
 namespace ledger::query
 {
-    enum INCLUDES
-    {
-        SUMMARY = 0,
-        RAW_INPUTS = 1,
-        RAW_OUTPUTS = 2
-    };
-
     /**
      * Represents a ledger query request to filter by seq no.
      */
@@ -20,17 +13,20 @@ namespace ledger::query
     {
         std::string id;
         uint64_t seq_no = 0;
-        std::bitset<3> include;
+        bool raw_inputs = false;
+        bool raw_outputs = false;
     };
 
-    typedef std::variant<seq_no_query> query_request;
-
-    struct query_result
+    struct query_result_record
     {
         ledger::ledger_record ledger;
     };
 
-    int get_ledger_by_seq_no(const std::string &query_id, const uint64_t seq_no, std::vector<query_result> &results);
+    typedef std::variant<seq_no_query> query_request;
+    typedef std::variant<const char *, std::vector<query_result_record>> query_result;
+
+    const query_result execute(const query_request &q);
+    int get_ledger_by_seq_no(ledger_record &ledger, const seq_no_query &q, const std::string &fs_sess_name);
 }
 
 #endif

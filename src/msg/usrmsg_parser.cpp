@@ -57,7 +57,7 @@ namespace msg::usrmsg
     }
 
     void usrmsg_parser::create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
-                                                     const std::vector<ledger::query::query_result> &results) const
+                                                     const std::vector<ledger::query::query_result_record> &results) const
     {
         if (protocol == util::PROTOCOL::JSON)
             jusrmsg::create_ledger_query_response(msg, reply_for, error, results);

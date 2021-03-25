@@ -34,7 +34,7 @@ namespace msg::usrmsg
         void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const;
 
         void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
-                                                     const std::vector<ledger::query::query_result> &results) const;
+                                                     const std::vector<ledger::query::query_result_record> &results) const;
 
         int parse(std::string_view message);
 
