@@ -33,8 +33,8 @@ namespace msg::usrmsg
 
         void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const;
 
-        void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
-                                                     const std::vector<ledger::query::query_result_record> &results) const;
+        void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
+                                                     const ledger::query::query_result &result) const;
 
         int parse(std::string_view message);
 
@@ -47,7 +47,7 @@ namespace msg::usrmsg
         int extract_input_container(std::string &input, std::string &nonce,
                                     uint64_t &max_lcl_seq_no, std::string_view encoded_content) const;
 
-        int extract_ledger_query(ledger::query::query_request &extracted_query) const;
+        int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const;
     };
 
 } // namespace msg::usrmsg

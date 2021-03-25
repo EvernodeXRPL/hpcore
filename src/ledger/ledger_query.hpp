@@ -11,7 +11,6 @@ namespace ledger::query
      */
     struct seq_no_query
     {
-        std::string id;
         uint64_t seq_no = 0;
         bool raw_inputs = false;
         bool raw_outputs = false;
@@ -25,7 +24,7 @@ namespace ledger::query
     typedef std::variant<seq_no_query> query_request;
     typedef std::variant<const char *, std::vector<query_result_record>> query_result;
 
-    const query_result execute(const query_request &q);
+    const query_result execute(std::string_view user_pubkey, const query_request &q);
     int get_ledger_by_seq_no(ledger_record &ledger, const seq_no_query &q, const std::string &fs_sess_name);
 }
 

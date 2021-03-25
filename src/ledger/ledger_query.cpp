@@ -20,7 +20,7 @@ namespace ledger::query
         if (q.index() == 0)
         {
             ledger_record ledger;
-            int seq_no_res = get_ledger_by_seq_no(ledger, std::get<0>(q), fs_sess_name);
+            int seq_no_res = get_ledger_by_seq_no(ledger, std::get<seq_no_query>(q), fs_sess_name);
             if (seq_no_res != -1)
             {
                 if (seq_no_res == 1) // Ledger found.
@@ -53,7 +53,8 @@ namespace ledger::query
         if (sqlite::open_db(shard_path + "/" + ledger::DATABASE, &db) == -1)
             return -1;
 
-        if (sqlite::get_ledger_by_seq_no(db, q.seq_no, ledger) == -1)
+        const int sql_res = sqlite::get_ledger_by_seq_no(db, q.seq_no, ledger);
+        if (sql_res == -1)
         {
             sqlite::close_db(&db);
             return -1;
@@ -62,6 +63,6 @@ namespace ledger::query
         if (sqlite::close_db(&db) == -1)
             return -1;
 
-        return 0;
+        return sql_res;
     }
 }

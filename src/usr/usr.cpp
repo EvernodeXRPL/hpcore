@@ -243,13 +243,14 @@ namespace usr
             else if (msg_type == msg::usrmsg::MSGTYPE_LEDGER_QUERY)
             {
                 ledger::query::query_request req;
-                if (parser.extract_ledger_query(req) == -1)
+                std::string id;
+                if (parser.extract_ledger_query(req, id) == -1)
                     return -1;
 
+                const ledger::query::query_result result = ledger::query::execute(user.pubkey, req);
+
                 std::vector<uint8_t> resp;
-                // Get query results.
-                const std::vector<ledger::query::query_result_record> results;
-                parser.create_ledger_query_response(resp, "1234", NULL, results);
+                parser.create_ledger_query_response(resp, id, result);
                 user.session.send(resp);
                 return 0;
             }

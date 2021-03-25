@@ -557,6 +557,9 @@
                     validateAndEmitUnlChange(unl);
                 }
             }
+            else if (m.type == "ledger_query_result") {
+                console.log(m);
+            }
             else {
                 liblog(1, "Received unrecognized contract message: type:" + m.type);
                 return false;
@@ -739,7 +742,7 @@
             if (connectionStatus != 2)
                 return;
 
-            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, true, includeRawInputs, includeRawOutputs);
+            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, includeRawInputs, includeRawOutputs);
             wsSend(msgHelper.serializeObject(msg));
         }
     }
@@ -842,10 +845,9 @@
             return { type: "stat" };
         }
 
-        this.createLedgerQuery = (filterBy, params, includeSummary, includeRawInputs, includeRawOutputs) => {
+        this.createLedgerQuery = (filterBy, params, includeRawInputs, includeRawOutputs) => {
 
             const includes = [];
-            if (includeSummary) includes.push("summary");
             if (includeRawInputs) includes.push("raw_inputs");
             if (includeRawOutputs) includes.push("raw_outputs");
 

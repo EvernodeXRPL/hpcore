@@ -56,11 +56,11 @@ namespace msg::usrmsg
             busrmsg::create_unl_list_container(msg, unl_list);
     }
 
-    void usrmsg_parser::create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
-                                                     const std::vector<ledger::query::query_result_record> &results) const
+    void usrmsg_parser::create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
+                                                     const ledger::query::query_result &result) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_ledger_query_response(msg, reply_for, error, results);
+            jusrmsg::create_ledger_query_response(msg, reply_for, result);
         else
             ;
     }
@@ -106,10 +106,10 @@ namespace msg::usrmsg
             return busrmsg::extract_input_container(input, nonce, max_lcl_seq_no, encoded_content);
     }
 
-    int usrmsg_parser::extract_ledger_query(ledger::query::query_request &extracted_query) const
+    int usrmsg_parser::extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_ledger_query(extracted_query, jdoc);
+            return jusrmsg::extract_ledger_query(extracted_query, extracted_id, jdoc);
         else
             return 0;
     }

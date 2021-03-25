@@ -25,8 +25,8 @@ namespace msg::usrmsg::json
 
     void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
 
-    void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for, const char *error,
-                                      const std::vector<ledger::query::query_result_record> &results);
+    void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
+                                      const ledger::query::query_result &result);
 
     int verify_user_challenge(std::string &extracted_pubkeyhex, std::string &extracted_protocol, std::string &extracted_server_challenge,
                               std::string_view response, std::string_view original_challenge);
@@ -43,7 +43,7 @@ namespace msg::usrmsg::json
     int extract_input_container(std::string &input, std::string &nonce,
                                 uint64_t &max_lcl_seq_no, std::string_view contentjson);
 
-    int extract_ledger_query(ledger::query::query_request &extracted_query, const jsoncons::json &d);
+    int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::json &d);
 
     bool is_json_string(std::string_view content);
 
