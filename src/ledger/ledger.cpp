@@ -5,6 +5,7 @@
 #include "../util/util.hpp"
 #include "../msg/fbuf/ledger_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
+#include "ledger_common.hpp"
 #include "ledger_serve.hpp"
 
 #define LEDGER_CREATE_ERROR             \
@@ -24,6 +25,8 @@ namespace ledger
     ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
     std::shared_mutex primary_index_file_mutex;
+
+    constexpr int FILE_PERMS = 0644;
 
     /**
      * Perform ledger related initializations.
@@ -118,7 +121,7 @@ namespace ledger
         const std::string ledger_hash_hex = util::to_hex(ledger_hash);
         // Construct ledger struct.
         // Hashes are stored as hex string;
-        const sqlite::ledger ledger(
+        const ledger_record ledger{
             seq_no,
             proposal.time,
             ledger_hash_hex,
@@ -128,7 +131,7 @@ namespace ledger
             util::to_hex(proposal.patch_hash.to_string_view()),
             util::to_hex(user_hash),
             util::to_hex(input_hash),
-            util::to_hex(proposal.output_hash)); // Merkle root output hash.
+            util::to_hex(proposal.output_hash)}; // Merkle root output hash.
 
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
@@ -193,7 +196,7 @@ namespace ledger
             }
 
             // Creating ledger database and open a database connection.
-            if (sqlite::open_db(shard_path + "/" + DATEBASE, db) == -1)
+            if (sqlite::open_db(shard_path + "/" + DATABASE, db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
                 return -1;
@@ -263,7 +266,7 @@ namespace ledger
                 return -1;
             }
         }
-        else if (sqlite::open_db(shard_path + "/" + DATEBASE, db) == -1)
+        else if (sqlite::open_db(shard_path + "/" + DATABASE, db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
             return -1;
@@ -551,13 +554,19 @@ namespace ledger
             return 0;
         }
 
-        if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
+        if (sqlite::open_db(shard_path + "/" + DATABASE, &db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << last_primary_shard_id.seq_no;
             return -1;
         }
 
-        const sqlite::ledger last_ledger = sqlite::get_last_ledger(db);
+        ledger_record last_ledger;
+        if (sqlite::get_last_ledger(db, last_ledger) == -1)
+        {
+            sqlite::close_db(&db);
+            return -1;
+        }
+
         sqlite::close_db(&db);
 
         // Update new lcl information.

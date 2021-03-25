@@ -62,6 +62,7 @@ add_executable(hpcore
     src/usr/usr.cpp
     src/usr/read_req.cpp
     src/ledger/sqlite.cpp
+    src/ledger/ledger_query.cpp
     src/ledger/ledger_mount.cpp
     src/ledger/ledger_sync.cpp
     src/ledger/ledger_serve.cpp

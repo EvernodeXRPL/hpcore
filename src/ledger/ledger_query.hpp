@@ -2,6 +2,7 @@
 #define _HP_LEDGER_LEDGER_QUERY_
 
 #include "../pchheader.hpp"
+#include "ledger_common.hpp"
 
 namespace ledger::query
 {
@@ -26,8 +27,10 @@ namespace ledger::query
 
     struct query_result
     {
-        
+        ledger::ledger_record ledger;
     };
+
+    int get_ledger_by_seq_no(const std::string &query_id, const uint64_t seq_no, std::vector<query_result> &results);
 }
 
 #endif
