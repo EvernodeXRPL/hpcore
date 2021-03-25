@@ -440,7 +440,7 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_ERROR;
         if (error == NULL)
         {
-            msg += ":null,\"";
+            msg += "\":null,\"";
         }
         else
         {
@@ -449,9 +449,9 @@ namespace msg::usrmsg::json
             msg += SEP_COMMA;
         }
         msg += msg::usrmsg::FLD_RESULTS;
-        msg += "\",:[";
+        msg += "\":[";
         populate_query_results(msg, results);
-        msg += "]";
+        msg += "]}";
     }
 
     /**

@@ -298,6 +298,24 @@
                 n.connection.sendContractReadRequest(request);
             });
         }
+
+        this.getStatus = async () => {
+            if (status == 2)
+                return;
+
+            return await Promise.all(
+                nodes.filter(n => n.connection && n.connection.isConnected())
+                    .map(n => n.connection.getStatus()));
+        }
+
+        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
+            if (status == 2)
+                return;
+
+            nodes.filter(n => n.connection && n.connection.isConnected()).forEach(n => {
+                n.connection.getLedgerBySeqNo(seqNo, includeRawInputs, includeRawOutputs);
+            });
+        }
     }
 
     function HotPocketConnection(contractId, contractVersion, clientKeys, server, getTrustedKeys, protocol, connectionTimeoutMs, emitter) {
@@ -716,6 +734,14 @@
             const msg = msgHelper.createReadRequest(request);
             wsSend(msgHelper.serializeObject(msg));
         }
+
+        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
+            if (connectionStatus != 2)
+                return;
+
+            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, true, includeRawInputs, includeRawOutputs);
+            wsSend(msgHelper.serializeObject(msg));
+        }
     }
 
     function MessageHelper(keys, protocol) {
@@ -814,6 +840,22 @@
 
         this.createStatusRequest = () => {
             return { type: "stat" };
+        }
+
+        this.createLedgerQuery = (filterBy, params, includeSummary, includeRawInputs, includeRawOutputs) => {
+
+            const includes = [];
+            if (includeSummary) includes.push("summary");
+            if (includeRawInputs) includes.push("raw_inputs");
+            if (includeRawOutputs) includes.push("raw_outputs");
+
+            return {
+                type: "ledger_query",
+                id: "query_" + filterBy + "_" + (new Date()).getTime().toString(),
+                filter_by: filterBy,
+                params: params,
+                include: includes
+            }
         }
     }
 
