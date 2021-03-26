@@ -247,18 +247,21 @@
         /**
          * Executes the provided func on all connections and returns the collected results.
          * @param func The function taking a HP Connection as a parameter. This will get executed on all connections.
+         * @param maxConnections Maximum no. of connections to use.
          */
-        const getMultiConnectionResult = async (func) => {
+        const getMultiConnectionResult = async (func, maxConnections) => {
             if (status == 2)
                 return await Promise.resolve();
 
-            const results = await Promise.all(
-                nodes.filter(n => n.connection && n.connection.isConnected())
-                    .map(n => func(n.connection)));
+            if (maxConnections == null)
+                maxConnections = requiredConnectionCount;
+
+            const connections = nodes.filter(n => n.connection && n.connection.isConnected()).map(n => n.connection).slice(0, maxConnections);
+            const results = await Promise.all(connections.map(c => func(c)));
 
             // If we are expecting only 1 connection, then return null or single result.
             // Otherwise return the array of results.
-            if (requiredConnectionCount == 1 && results.length <= 1)
+            if (maxConnections == 1 && results.length <= 1)
                 return results.length == 0 ? null : results[0];
             else
                 return results;
@@ -267,11 +270,18 @@
         /**
          * Executes the provided func on all connections.
          * @param func The function taking a HP Connection as a parameter. This will get executed on all connections.
+         * @param maxConnections Maximum no. of connections to use.
          */
-        const executeMultiConnectionFunc = (func) => {
-            return Promise.all(
-                nodes.filter(n => n.connection && n.connection.isConnected())
-                    .forEach(n => func(n.connection)));
+        const executeMultiConnectionFunc = (func, maxConnections) => {
+
+            if (status == 2)
+                return Promise.resolve();
+
+            if (maxConnections == null)
+                maxConnections = requiredConnectionCount;
+
+            const connections = nodes.filter(n => n.connection && n.connection.isConnected()).map(n => n.connection).slice(0, maxConnections);
+            return Promise.all(connections.map(c => func(c)));
         }
 
         this.connect = () => {
@@ -312,7 +322,8 @@
         }
 
         this.sendContractInput = (input, nonce = null, maxLclOffset = null) => {
-            return getMultiConnectionResult(con => con.sendContractInput(input, nonce, maxLclOffset));
+            // We always only submit contract input to a single node (even if we are connected to multiple nodes).
+            return getMultiConnectionResult(con => con.sendContractInput(input, nonce, maxLclOffset), 1);
         }
 
         this.sendContractReadRequest = (request) => {
