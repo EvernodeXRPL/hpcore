@@ -19,6 +19,7 @@
 namespace ledger
 {
     ledger_context ctx;
+    ledger_record genesis;
     constexpr uint32_t LEDGER_FS_ID = 1;
     ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
     ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
@@ -33,6 +34,21 @@ namespace ledger
     */
     int init()
     {
+        // Setup the static genesis ledger fields.
+        {
+            const std::string empty_hex = util::to_hex(util::h32_empty.to_string_view());
+            genesis.seq_no = 0;
+            genesis.timestamp = 0;
+            genesis.ledger_hash_hex = empty_hex;
+            genesis.prev_ledger_hash_hex = empty_hex;
+            genesis.data_hash_hex = empty_hex;
+            genesis.state_hash_hex = empty_hex;
+            genesis.config_hash_hex = empty_hex;
+            genesis.user_hash_hex = empty_hex;
+            genesis.input_hash_hex = empty_hex;
+            genesis.output_hash_hex = empty_hex;
+        }
+
         // Full history status is always set to false since this is ledger fs. Historical checkpoints are not required in ledger fs even in full history mode.
         if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, false) == -1)
         {

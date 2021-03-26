@@ -26,6 +26,9 @@ namespace ledger
         std::string input_hash_hex;
         std::string output_hash_hex;
     };
+
+    // Holds the global genesis ledger.
+    extern ledger_record genesis;
 }
 
 #endif

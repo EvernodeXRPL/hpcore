@@ -42,6 +42,13 @@ namespace ledger::query
     */
     int get_ledger_by_seq_no(ledger_record &ledger, const seq_no_query &q, const std::string &fs_sess_name)
     {
+        // If seq no. is 0, return GENESIS ledger.
+        if (q.seq_no == 0)
+        {
+            ledger = ledger::genesis;
+            return 1;
+        }
+
         // Construct shard path based on provided ledger seq no.
         const uint64_t shard_seq_no = (q.seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
         const std::string db_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no)).append("/").append(ledger::DATABASE);
