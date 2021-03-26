@@ -27,10 +27,11 @@ namespace ledger::sqlite
     */
     int open_db(std::string_view db_name, sqlite3 **db)
     {
-        if (sqlite3_open(db_name.data(), db) != SQLITE_OK)
+        int ret;
+        if ((ret = sqlite3_open(db_name.data(), db)) != SQLITE_OK)
         {
             *db = NULL;
-            LOG_ERROR << "Can't open database: " << sqlite3_errmsg(*db);
+            LOG_ERROR << "Can't open database: " << ret << ", " << sqlite3_errmsg(*db);
             return -1;
         }
         return 0;

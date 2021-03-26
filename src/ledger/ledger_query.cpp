@@ -42,15 +42,18 @@ namespace ledger::query
     */
     int get_ledger_by_seq_no(ledger_record &ledger, const seq_no_query &q, const std::string &fs_sess_name)
     {
-
         // Construct shard path based on provided ledger seq no.
         const uint64_t shard_seq_no = (q.seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
-        const std::string shard_path = ledger::ledger_fs.physical_path(fs_sess_name, std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no)));
+        const std::string db_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no)).append("/").append(ledger::DATABASE);
+        const std::string dbpath = ledger::ledger_fs.physical_path(fs_sess_name, db_vpath);
+
+        if (!util::is_file_exists(dbpath))
+            return 0; // Not found.
 
         query_result_record result;
 
         sqlite3 *db = NULL;
-        if (sqlite::open_db(shard_path + "/" + ledger::DATABASE, &db) == -1)
+        if (sqlite::open_db(dbpath, &db) == -1)
             return -1;
 
         const int sql_res = sqlite::get_ledger_by_seq_no(db, q.seq_no, ledger);
