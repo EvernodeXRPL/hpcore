@@ -7,6 +7,7 @@ namespace util
 {
     merkle_hash_tree::merkle_hash_tree(const size_t block_size) : block_size(block_size)
     {
+        root.hash.resize(BLAKE3_OUT_LEN);
     }
 
     void merkle_hash_tree::create_groups(std::list<merkle_hash_node> &nodes)
@@ -76,14 +77,9 @@ namespace util
         return new_root;
     }
 
-    bool merkle_hash_tree::empty()
-    {
-        return root.hash.empty();
-    }
-
     void merkle_hash_tree::clear()
     {
-        root.hash.clear();
+        root.hash = std::string(BLAKE3_OUT_LEN, 0);
         root.children.clear();
     }
 
