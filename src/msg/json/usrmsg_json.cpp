@@ -34,7 +34,7 @@ namespace msg::usrmsg::json
      * initial user challenge handshake. This gets called when a user establishes
      * a web socket connection to HP.
      * 
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "hp_version": "<hp protocol version>",
@@ -43,7 +43,7 @@ namespace msg::usrmsg::json
      *              "contract_version": "<contract version string>",
      *              "challenge": "<challenge string>"
      *            }
-     * @param challenge_bytes String reference to copy the generated challenge bytes into.
+     * @param challenge_bytes Buffer to construct the generated challenge bytes into.
      */
     void create_user_challenge(std::vector<uint8_t> &msg, std::string &challenge)
     {
@@ -84,7 +84,7 @@ namespace msg::usrmsg::json
      * Constructs server challenge response message json. This gets sent when we receive
      * a challenge from the user.
      * 
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "server_challenge_response",
@@ -131,7 +131,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a status response message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "stat_response",
@@ -217,7 +217,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a contract input status message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "contract_input_status",
@@ -253,7 +253,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a contract read response message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "contract_read_response",
@@ -294,7 +294,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a contract output container message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "contract_output",
@@ -378,7 +378,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs unl list container message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "unl_change",
@@ -413,7 +413,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a ledger query response.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "ledger_query_result",
@@ -433,7 +433,7 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_LEDGER_QUERY_RESULT;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_ID;
+        msg += msg::usrmsg::FLD_REPLY_FOR;
         msg += SEP_COLON;
         msg += reply_for;
         msg += SEP_COMMA;
@@ -852,39 +852,39 @@ namespace msg::usrmsg::json
         for (const ledger::query::query_result_record &r : results)
         {
             msg += "{\"";
-            msg += "seq_no";
+            msg += msg::usrmsg::FLD_SEQ_NO;
             msg += SEP_COLON_NOQUOTE;
             msg += std::to_string(r.ledger.seq_no);
             msg += SEP_COMMA_NOQUOTE;
-            msg += "timestamp";
+            msg += msg::usrmsg::FLD_TIMESTAMP;
             msg += SEP_COLON_NOQUOTE;
-            msg += std::to_string(r.ledger.time);
+            msg += std::to_string(r.ledger.timestamp);
             msg += SEP_COMMA_NOQUOTE;
-            msg += "hash";
+            msg += msg::usrmsg::FLD_HASH;
             msg += SEP_COLON;
             msg += r.ledger.ledger_hash_hex;
             msg += SEP_COMMA;
-            msg += "prev_hash";
+            msg += msg::usrmsg::FLD_PREV_HASH;
             msg += SEP_COLON;
             msg += r.ledger.prev_ledger_hash_hex;
             msg += SEP_COMMA;
-            msg += "state_hash";
+            msg += msg::usrmsg::FLD_STATE_HASH;
             msg += SEP_COLON;
             msg += r.ledger.state_hash_hex;
             msg += SEP_COMMA;
-            msg += "config_hash";
+            msg += msg::usrmsg::FLD_CONFIG_HASH;
             msg += SEP_COLON;
-            msg += r.ledger.patch_hash_hex;
+            msg += r.ledger.config_hash_hex;
             msg += SEP_COMMA;
-            msg += "user_hash";
+            msg += msg::usrmsg::FLD_USER_HASH;
             msg += SEP_COLON;
             msg += r.ledger.user_hash_hex;
             msg += SEP_COMMA;
-            msg += "input_hash";
+            msg += msg::usrmsg::FLD_INPUT_HASH;
             msg += SEP_COLON;
             msg += r.ledger.input_hash_hex;
             msg += SEP_COMMA;
-            msg += "output_hash";
+            msg += msg::usrmsg::FLD_OUTPUT_HASH;
             msg += SEP_COLON;
             msg += r.ledger.output_hash_hex;
             msg += "\"}";

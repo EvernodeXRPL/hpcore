@@ -16,12 +16,12 @@ namespace ledger
     struct ledger_record
     {
         uint64_t seq_no;
-        uint64_t time;
+        uint64_t timestamp;
         std::string ledger_hash_hex;
         std::string prev_ledger_hash_hex;
         std::string data_hash_hex;
         std::string state_hash_hex;
-        std::string patch_hash_hex;
+        std::string config_hash_hex;
         std::string user_hash_hex;
         std::string input_hash_hex;
         std::string output_hash_hex;

@@ -268,12 +268,12 @@ namespace ledger::sqlite
     int insert_ledger_row(sqlite3 *db, const ledger::ledger_record &ledger)
     {
         std::string value_string = std::to_string(ledger.seq_no) + "," +
-                                   std::to_string(ledger.time) + "," +
+                                   std::to_string(ledger.timestamp) + "," +
                                    "'" + ledger.ledger_hash_hex + "'," +
                                    "'" + ledger.prev_ledger_hash_hex + "'," +
                                    "'" + ledger.data_hash_hex + "'," +
                                    "'" + ledger.state_hash_hex + "'," +
-                                   "'" + ledger.patch_hash_hex + "'," +
+                                   "'" + ledger.config_hash_hex + "'," +
                                    "'" + ledger.user_hash_hex + "'," +
                                    "'" + ledger.input_hash_hex + "'," +
                                    "'" + ledger.output_hash_hex + "'";
@@ -365,12 +365,12 @@ namespace ledger::sqlite
     void populate_ledger_from_sql_record(ledger::ledger_record &ledger, sqlite3_stmt *stmt)
     {
         ledger.seq_no = sqlite3_column_int64(stmt, 0);
-        ledger.time = sqlite3_column_int64(stmt, 1);
+        ledger.timestamp = sqlite3_column_int64(stmt, 1);
         ledger.ledger_hash_hex = std::string((char *)sqlite3_column_text(stmt, 2));
         ledger.prev_ledger_hash_hex = std::string((char *)sqlite3_column_text(stmt, 3));
         ledger.data_hash_hex = std::string((char *)sqlite3_column_text(stmt, 4));
         ledger.state_hash_hex = std::string((char *)sqlite3_column_text(stmt, 5));
-        ledger.patch_hash_hex = std::string((char *)sqlite3_column_text(stmt, 6));
+        ledger.config_hash_hex = std::string((char *)sqlite3_column_text(stmt, 6));
         ledger.user_hash_hex = std::string((char *)sqlite3_column_text(stmt, 7));
         ledger.input_hash_hex = std::string((char *)sqlite3_column_text(stmt, 8));
         ledger.output_hash_hex = std::string((char *)sqlite3_column_text(stmt, 9));

@@ -62,7 +62,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             jusrmsg::create_ledger_query_response(msg, reply_for, result);
         else
-            ;
+            busrmsg::create_ledger_query_response(msg, reply_for, result);
     }
 
     int usrmsg_parser::parse(std::string_view message)
@@ -111,7 +111,7 @@ namespace msg::usrmsg
         if (protocol == util::PROTOCOL::JSON)
             return jusrmsg::extract_ledger_query(extracted_query, extracted_id, jdoc);
         else
-            return 0;
+            return busrmsg::extract_ledger_query(extracted_query, extracted_id, bdoc);
     }
 
 } // namespace msg::usrmsg

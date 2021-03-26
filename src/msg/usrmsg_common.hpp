@@ -39,12 +39,21 @@ namespace msg::usrmsg
     constexpr const char *FLD_CURRENT_UNL = "current_unl";
     constexpr const char *FLD_PEERS = "peers";
     constexpr const char *FLD_ID = "id";
+    constexpr const char *FLD_REPLY_FOR = "reply_for";
     constexpr const char *FLD_FILTER_BY = "filter_by";
     constexpr const char *FLD_INCLUDE = "include";
     constexpr const char *FLD_PARAMS = "params";
     constexpr const char *FLD_SEQ_NO = "seq_no";
     constexpr const char *FLD_ERROR = "error";
     constexpr const char *FLD_RESULTS = "results";
+    constexpr const char *FLD_TIMESTAMP = "timestamp";
+    constexpr const char *FLD_HASH = "hash";
+    constexpr const char *FLD_PREV_HASH = "prev_hash";
+    constexpr const char *FLD_STATE_HASH = "state_hash";
+    constexpr const char *FLD_CONFIG_HASH = "config_hash";
+    constexpr const char *FLD_USER_HASH = "user_hash";
+    constexpr const char *FLD_INPUT_HASH = "input_hash";
+    constexpr const char *FLD_OUTPUT_HASH = "output_hash";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
