@@ -7,9 +7,21 @@ namespace ledger::query
 {
     constexpr const char *ERROR_EXEC_FAILURE = "exec_failure";
 
+    /**
+     * Executes the specified ledger query and returns the result.
+     * @param user_pubkey Binary pubkey of the user executing the query.
+     * @param q The query information.
+     * @returns The query result.
+     */
     const query_result execute(std::string_view user_pubkey, const query_request &q)
     {
         query_result res = ERROR_EXEC_FAILURE;
+
+        // Query the ledger with a ledger fs readonly session.
+
+        // Allocate unique readonly session name prefixed with user pubkey.
+        // There will always only be one query execution per user because each user session
+        // processes messages sequentially.
         const std::string fs_sess_name = "lqr_" + util::to_hex(user_pubkey);
 
         if (ledger::ledger_fs.start_ro_session(fs_sess_name, false) == -1)
@@ -17,7 +29,7 @@ namespace ledger::query
 
         std::vector<query_result_record> records;
 
-        if (q.index() == 0)
+        if (q.index() == 0) // Filter by seq no.
         {
             ledger_record ledger;
             int seq_no_res = get_ledger_by_seq_no(ledger, std::get<seq_no_query>(q), fs_sess_name);
@@ -64,15 +76,7 @@ namespace ledger::query
             return -1;
 
         const int sql_res = sqlite::get_ledger_by_seq_no(db, q.seq_no, ledger);
-        if (sql_res == -1)
-        {
-            sqlite::close_db(&db);
-            return -1;
-        }
-
-        if (sqlite::close_db(&db) == -1)
-            return -1;
-
+        sqlite::close_db(&db);
         return sql_res;
     }
 }

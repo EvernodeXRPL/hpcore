@@ -247,7 +247,7 @@
         /**
          * Executes the provided func on all connections and returns the collected results.
          * @param func The function taking a HP Connection as a parameter. This will get executed on all connections.
-         * @param maxConnections Maximum no. of connections to use.
+         * @param maxConnections Maximum no. of connections to use. Uses all available connections if null.
          */
         const getMultiConnectionResult = async (func, maxConnections) => {
             if (status == 2)
@@ -270,7 +270,7 @@
         /**
          * Executes the provided func on all connections.
          * @param func The function taking a HP Connection as a parameter. This will get executed on all connections.
-         * @param maxConnections Maximum no. of connections to use.
+         * @param maxConnections Maximum no. of connections to use. Uses all available connections if null.
          */
         const executeMultiConnectionFunc = (func, maxConnections) => {
 

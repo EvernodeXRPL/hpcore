@@ -420,18 +420,9 @@ namespace msg::usrmsg::bson
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
             if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
-            {
                 raw_inputs = true;
-            }
             else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
-            {
                 raw_outputs = false;
-            }
-            else
-            {
-                LOG_DEBUG << "Ledger query invalid include.";
-                return -1;
-            }
         }
 
         auto &params_field = d[msg::usrmsg::FLD_PARAMS];

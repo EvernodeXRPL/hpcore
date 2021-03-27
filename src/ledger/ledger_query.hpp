@@ -19,6 +19,9 @@ namespace ledger::query
     struct query_result_record
     {
         ledger::ledger_record ledger;
+        // TODO:
+        // RawInputs field.
+        // RawOutputs field.
     };
 
     typedef std::variant<seq_no_query> query_request;
