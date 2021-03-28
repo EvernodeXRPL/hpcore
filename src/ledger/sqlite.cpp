@@ -336,13 +336,12 @@ namespace ledger::sqlite
         std::string sql;
         sql.append(SELECT_ALL);
         sql.append(LEDGER_TABLE);
-        sql.append(" WHERE seq_no=");
-        sql.append(std::to_string(seq_no));
-        sql.append(" LIMIT 1");
+        sql.append(" WHERE seq_no=? LIMIT 1");
 
         sqlite3_stmt *stmt;
 
-        if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK && stmt != NULL)
+        if (sqlite3_prepare_v2(db, sql.data(), -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+            sqlite3_bind_int64(stmt, 1, seq_no) == SQLITE_OK)
         {
             const int result = sqlite3_step(stmt);
             if (result == SQLITE_ROW)
