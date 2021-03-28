@@ -11,20 +11,20 @@ namespace ledger
 
     /**
      * Struct to hold ledger fields read.
-     * All the hashes are stored as hex strings.
+     * All the hashes are stored as 32 byte binary data.
     */
     struct ledger_record
     {
         uint64_t seq_no;
         uint64_t timestamp;
-        std::string ledger_hash_hex;
-        std::string prev_ledger_hash_hex;
-        std::string data_hash_hex;
-        std::string state_hash_hex;
-        std::string config_hash_hex;
-        std::string user_hash_hex;
-        std::string input_hash_hex;
-        std::string output_hash_hex;
+        std::string ledger_hash;
+        std::string prev_ledger_hash;
+        std::string data_hash;
+        std::string state_hash;
+        std::string config_hash;
+        std::string user_hash;
+        std::string input_hash;
+        std::string output_hash;
     };
 
     // Holds the global genesis ledger.

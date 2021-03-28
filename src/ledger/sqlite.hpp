@@ -13,7 +13,8 @@ namespace ledger::sqlite
     enum COLUMN_DATA_TYPE
     {
         INT,
-        TEXT
+        TEXT,
+        BLOB
     };
 
     /**
@@ -45,9 +46,9 @@ namespace ledger::sqlite
 
     int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info);
 
-    int insert_values(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings);
+    int insert_rows(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings);
 
-    int insert_value(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string);
+    int insert_row(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string);
 
     bool is_table_exists(sqlite3 *db, std::string_view table_name);
 

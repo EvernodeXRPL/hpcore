@@ -474,19 +474,19 @@ namespace msg::usrmsg::bson
             encoder.key(msg::usrmsg::FLD_TIMESTAMP);
             encoder.uint64_value(r.ledger.timestamp);
             encoder.key(msg::usrmsg::FLD_HASH);
-            encoder.byte_string_value(util::to_bin(r.ledger.ledger_hash_hex));
+            encoder.byte_string_value(r.ledger.ledger_hash);
             encoder.key(msg::usrmsg::FLD_PREV_HASH);
-            encoder.byte_string_value(util::to_bin(r.ledger.prev_ledger_hash_hex));
+            encoder.byte_string_value(r.ledger.prev_ledger_hash);
             encoder.key(msg::usrmsg::FLD_STATE_HASH);
-            encoder.byte_string_value(util::to_bin(r.ledger.state_hash_hex));
+            encoder.byte_string_value(r.ledger.state_hash);
             encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
-            encoder.byte_string_value(util::to_bin(r.ledger.config_hash_hex));
+            encoder.byte_string_value(r.ledger.config_hash);
             encoder.key(msg::usrmsg::FLD_USER_HASH);
-            encoder.byte_string_value(util::to_bin(r.ledger.user_hash_hex));
+            encoder.byte_string_value(r.ledger.user_hash);
             encoder.key(msg::usrmsg::FLD_INPUT_HASH);
-            encoder.byte_string_value(util::to_bin(r.ledger.input_hash_hex));
+            encoder.byte_string_value(r.ledger.input_hash);
             encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
-            encoder.byte_string_value(util::to_bin(r.ledger.output_hash_hex));
+            encoder.byte_string_value(r.ledger.output_hash);
             encoder.end_object();
         }
     }

@@ -36,17 +36,17 @@ namespace ledger
     {
         // Setup the static genesis ledger fields.
         {
-            const std::string empty_hex = util::to_hex(util::h32_empty.to_string_view());
+            const std::string empty_hash = std::string(util::h32_empty.to_string_view());
             genesis.seq_no = 0;
             genesis.timestamp = 0;
-            genesis.ledger_hash_hex = empty_hex;
-            genesis.prev_ledger_hash_hex = empty_hex;
-            genesis.data_hash_hex = empty_hex;
-            genesis.state_hash_hex = empty_hex;
-            genesis.config_hash_hex = empty_hex;
-            genesis.user_hash_hex = empty_hex;
-            genesis.input_hash_hex = empty_hex;
-            genesis.output_hash_hex = empty_hex;
+            genesis.ledger_hash = empty_hash;
+            genesis.prev_ledger_hash = empty_hash;
+            genesis.data_hash = empty_hash;
+            genesis.state_hash = empty_hash;
+            genesis.config_hash = empty_hash;
+            genesis.user_hash = empty_hash;
+            genesis.input_hash = empty_hash;
+            genesis.output_hash = empty_hash;
         }
 
         // Full history status is always set to false since this is ledger fs. Historical checkpoints are not required in ledger fs even in full history mode.
@@ -134,20 +134,19 @@ namespace ledger
 
         // Ledger hash is the combined hash of previous ledger hash and the new data hash.
         const std::string ledger_hash = crypto::get_hash(prev_ledger_hash, data_hash);
-        const std::string ledger_hash_hex = util::to_hex(ledger_hash);
-        // Construct ledger struct.
-        // Hashes are stored as hex string;
+
+        // Construct ledger struct with binary hashes.
         const ledger_record ledger{
             seq_no,
             proposal.time,
-            ledger_hash_hex,
-            util::to_hex(prev_ledger_hash),
-            util::to_hex(data_hash),
-            util::to_hex(proposal.state_hash.to_string_view()),
-            util::to_hex(proposal.patch_hash.to_string_view()),
-            util::to_hex(user_hash),
-            util::to_hex(input_hash),
-            util::to_hex(proposal.output_hash)}; // Merkle root output hash.
+            ledger_hash,
+            prev_ledger_hash,
+            data_hash,
+            std::string(proposal.state_hash.to_string_view()),
+            std::string(proposal.patch_hash.to_string_view()),
+            user_hash,
+            input_hash,
+            proposal.output_hash}; // Merkle root output hash.
 
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
@@ -595,7 +594,7 @@ namespace ledger
         // Update new lcl information.
         p2p::sequence_hash lcl_id;
         lcl_id.seq_no = last_ledger.seq_no;
-        lcl_id.hash = util::to_bin(last_ledger.ledger_hash_hex);
+        lcl_id.hash = last_ledger.ledger_hash;
         ctx.set_lcl_id(lcl_id);
 
         return 0;
