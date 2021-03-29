@@ -69,8 +69,6 @@ namespace ledger::sqlite
 
     void populate_ledger_from_sql_record(ledger::ledger_record &ledger, sqlite3_stmt *stmt);
 
-    ledger get_ledger(sqlite3 *db, const uint64_t seq_no);
-
 } // namespace ledger::sqlite
 
 #endif

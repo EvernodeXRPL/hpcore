@@ -712,22 +712,28 @@ namespace ledger
 
         const std::string shard_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no);
 
-        if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
+        if (sqlite::open_db(shard_path + "/" + DATABASE, &db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
             ledger_fs.stop_ro_session(session_name);
             return -1;
         }
 
-        const sqlite::ledger ledger = sqlite::get_ledger(db, seq_no);
+        ledger::ledger_record ledger;
+        if (sqlite::get_ledger_by_seq_no(db, seq_no, ledger) == -1)
+        {
+            LOG_ERROR << "Error getting ledger by sequence number: " << std::to_string(seq_no);
+            sqlite::close_db(&db);
+            return -1;
+        }
         sqlite::close_db(&db);
         ledger_fs.stop_ro_session(session_name);
 
         util::h32 patch_hash;
         util::h32 state_hash;
 
-        patch_hash = util::to_bin(ledger.patch_hash_hex);
-        state_hash = util::to_bin(ledger.state_hash_hex);
+        patch_hash = ledger.config_hash;
+        state_hash = ledger.state_hash;
 
         root_hash = hpfs::get_root_hash(patch_hash, state_hash);
         return 0;
