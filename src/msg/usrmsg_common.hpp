@@ -38,6 +38,22 @@ namespace msg::usrmsg
     constexpr const char *FLD_IS_FULL_HISTORY_NODE = "is_full_history_node";
     constexpr const char *FLD_CURRENT_UNL = "current_unl";
     constexpr const char *FLD_PEERS = "peers";
+    constexpr const char *FLD_ID = "id";
+    constexpr const char *FLD_REPLY_FOR = "reply_for";
+    constexpr const char *FLD_FILTER_BY = "filter_by";
+    constexpr const char *FLD_INCLUDE = "include";
+    constexpr const char *FLD_PARAMS = "params";
+    constexpr const char *FLD_SEQ_NO = "seq_no";
+    constexpr const char *FLD_ERROR = "error";
+    constexpr const char *FLD_RESULTS = "results";
+    constexpr const char *FLD_TIMESTAMP = "timestamp";
+    constexpr const char *FLD_HASH = "hash";
+    constexpr const char *FLD_PREV_HASH = "prev_hash";
+    constexpr const char *FLD_STATE_HASH = "state_hash";
+    constexpr const char *FLD_CONFIG_HASH = "config_hash";
+    constexpr const char *FLD_USER_HASH = "user_hash";
+    constexpr const char *FLD_INPUT_HASH = "input_hash";
+    constexpr const char *FLD_OUTPUT_HASH = "output_hash";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -51,6 +67,8 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_STAT = "stat";
     constexpr const char *MSGTYPE_STAT_RESPONSE = "stat_response";
     constexpr const char *MSGTYPE_UNL_CHANGE = "unl_change";
+    constexpr const char *MSGTYPE_LEDGER_QUERY = "ledger_query";
+    constexpr const char *MSGTYPE_LEDGER_QUERY_RESULT = "ledger_query_result";
     constexpr const char *MSGTYPE_UNKNOWN = "unknown";
 
     // Values
@@ -66,6 +84,9 @@ namespace msg::usrmsg
     constexpr const char *REASON_ALREADY_SUBMITTED = "already_submitted";
     constexpr const char *REASON_NONCE_OVERFLOW = "nonce_overflow";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
+    constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
+    constexpr const char *QUERY_INCLUDE_RAW_INPUTS = "raw_inputs";
+    constexpr const char *QUERY_INCLUDE_RAW_OUTPUTS = "raw_outputs";
 
 } // namespace msg::usrmsg
 

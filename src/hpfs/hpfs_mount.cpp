@@ -19,6 +19,7 @@ namespace hpfs
 
     constexpr const char *ROOT_PATH = "/";
 
+    constexpr const char *INDEX_UPDATE = "/::hpfs.index";
     constexpr ino_t ROOT_INO = 1;
 
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
@@ -412,6 +413,44 @@ namespace hpfs
         root_hash ^= child_two;
 
         return root_hash;
+    }
+
+    int hpfs_mount::update_hpfs_log_index()
+    {
+        const std::string index_file = mount_dir + INDEX_UPDATE;
+
+        const int fd = open(index_file.c_str(), O_RDWR);
+        if (fd == -1)
+            return -1;
+        
+        // We just send empty buffer with write size 1 to invoke the hpfs index update.
+        // Write syscall isn't invoking with write size 0. 
+        if (write(fd, "", 1) == -1)
+        {
+            close(fd);
+            return -1;
+        }
+
+        close(fd);
+        return 0;
+    }
+
+    /**
+     * Invoke log file and hpfs index file starting from the given sequence number. This function is a blocking call.
+     * @param seq_no Sequence number to start truncation from.
+     * @return Returns -1 on error and 0 on success.
+    */
+    int hpfs_mount::truncate_log_file(const uint64_t seq_no)
+    {
+        const std::string file_path = mount_dir + INDEX_UPDATE + "." + std::to_string(seq_no);
+        // File /hpfs::index.<seq_no> is truncated to invoke log file truncation in hpfs.
+        // This call waits until any running RW or RO sessions stop.
+        if (truncate(file_path.c_str(), 0) == -1)
+        {
+            LOG_ERROR << errno << ": Error truncating log file for seq_no: " << std::to_string(seq_no);
+            return -1;
+        }
+        return 0;
     }
 
 } // namespace hpfs

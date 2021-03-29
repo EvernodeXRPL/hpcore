@@ -667,23 +667,20 @@ namespace consensus
             }
         }
 
-        if (!p.output_hash.empty())
+        if (ctx.stage < 3)
         {
-            if (ctx.stage < 3)
+            // If the elected hash is our output hash, then place our output signature in the proposal.
+            // We only do this if we are at stage 1 or 2.
+            if (p.output_hash == ctx.user_outputs_hashtree.root_hash())
+                p.output_sig = ctx.user_outputs_our_sig;
+        }
+        else
+        {
+            // If this is the stage 3 proposal, collect the UNL output signatures matching the elected output hash.
+            for (const auto &[pubkey, cp] : ctx.candidate_proposals)
             {
-                // If the elected hash is our output hash, then place our output signature in the proposal.
-                // We only do this if we are at stage 1 or 2.
-                if (p.output_hash == ctx.user_outputs_hashtree.root_hash())
-                    p.output_sig = ctx.user_outputs_our_sig;
-            }
-            else
-            {
-                // If this is the stage 3 proposal, collect the UNL output signatures matching the elected output hash.
-                for (const auto &[pubkey, cp] : ctx.candidate_proposals)
-                {
-                    if (cp.output_hash == p.output_hash)
-                        ctx.user_outputs_unl_sig.emplace_back(cp.pubkey, cp.output_sig);
-                }
+                if (cp.output_hash == p.output_hash)
+                    ctx.user_outputs_unl_sig.emplace_back(cp.pubkey, cp.output_sig);
             }
         }
 

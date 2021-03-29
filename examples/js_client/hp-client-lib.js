@@ -244,6 +244,46 @@
             }
         }
 
+        /**
+         * Executes the provided func on all connections and returns the collected results.
+         * @param func The function taking a HP Connection as a parameter. This will get executed on all connections.
+         * @param maxConnections Maximum no. of connections to use. Uses all available connections if null.
+         */
+        const getMultiConnectionResult = async (func, maxConnections) => {
+            if (status == 2)
+                return await Promise.resolve();
+
+            if (maxConnections == null)
+                maxConnections = requiredConnectionCount;
+
+            const connections = nodes.filter(n => n.connection && n.connection.isConnected()).map(n => n.connection).slice(0, maxConnections);
+            const results = await Promise.all(connections.map(c => func(c)));
+
+            // If we are expecting only 1 connection, then return null or single result.
+            // Otherwise return the array of results.
+            if (maxConnections == 1 && results.length <= 1)
+                return results.length == 0 ? null : results[0];
+            else
+                return results;
+        }
+
+        /**
+         * Executes the provided func on all connections.
+         * @param func The function taking a HP Connection as a parameter. This will get executed on all connections.
+         * @param maxConnections Maximum no. of connections to use. Uses all available connections if null.
+         */
+        const executeMultiConnectionFunc = (func, maxConnections) => {
+
+            if (status == 2)
+                return Promise.resolve();
+
+            if (maxConnections == null)
+                maxConnections = requiredConnectionCount;
+
+            const connections = nodes.filter(n => n.connection && n.connection.isConnected()).map(n => n.connection).slice(0, maxConnections);
+            return Promise.all(connections.map(c => func(c)));
+        }
+
         this.connect = () => {
 
             if (status > 0)
@@ -281,22 +321,21 @@
             emitter.clear(event);
         }
 
-        this.sendContractInput = async (input, nonce = null, maxLclOffset = null) => {
-            if (status == 2)
-                return;
-
-            return await Promise.all(
-                nodes.filter(n => n.connection && n.connection.isConnected())
-                    .map(n => n.connection.sendContractInput(input, nonce, maxLclOffset)));
+        this.sendContractInput = (input, nonce = null, maxLclOffset = null) => {
+            // We always only submit contract input to a single node (even if we are connected to multiple nodes).
+            return getMultiConnectionResult(con => con.sendContractInput(input, nonce, maxLclOffset), 1);
         }
 
         this.sendContractReadRequest = (request) => {
-            if (status == 2)
-                return;
+            return executeMultiConnectionFunc(con => con.sendContractReadRequest(request));
+        }
 
-            nodes.filter(n => n.connection && n.connection.isConnected()).forEach(n => {
-                n.connection.sendContractReadRequest(request);
-            });
+        this.getStatus = () => {
+            return getMultiConnectionResult(con => con.getStatus());
+        }
+
+        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
+            return getMultiConnectionResult(con => con.getLedgerBySeqNo(seqNo, includeRawInputs, includeRawOutputs));
         }
     }
 
@@ -318,6 +357,7 @@
         let closeResolver = null;
         let statResponseResolvers = [];
         let contractInputResolvers = {};
+        let ledgerQueryResolvers = {}; // Message resolvers that uses request/reply associations.
 
         // Calcualtes the blake3 hash of all array items.
         const getHash = (arr) => {
@@ -539,6 +579,27 @@
                     validateAndEmitUnlChange(unl);
                 }
             }
+            else if (m.type == "ledger_query_result") {
+                const resolver = ledgerQueryResolvers[m.reply_for];
+                if (resolver) {
+                    const results = m.results.map(r => {
+                        return {
+                            seqNo: r.seq_no,
+                            timestamp: r.timestamp,
+                            hash: r.hash,
+                            prevHash: r.prev_hash,
+                            stateHash: r.state_hash,
+                            configHash: r.config_hash,
+                            userHash: r.user_hash,
+                            inputHash: r.input_hash,
+                            outputHash: r.output_hash
+                        }
+                    });
+                    if (resolver.type == "seq_no")
+                        resolver.resolver(results.length > 0 ? results[0] : null) // Return as a single object rather than an array.
+                    delete ledgerQueryResolvers[m.reply_for];
+                }
+            }
             else {
                 liblog(1, "Received unrecognized contract message: type:" + m.type);
                 return false;
@@ -682,7 +743,7 @@
         this.sendContractInput = async (input, nonce = null, maxLclOffset = null) => {
 
             if (connectionStatus != 2)
-                return null;
+                return Promise.resolve(null);
 
             if (!maxLclOffset)
                 maxLclOffset = 10;
@@ -711,10 +772,27 @@
         this.sendContractReadRequest = (request) => {
 
             if (connectionStatus != 2)
-                return;
+                return Promise.resolve();
 
             const msg = msgHelper.createReadRequest(request);
             wsSend(msgHelper.serializeObject(msg));
+            return Promise.resolve();
+        }
+
+        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
+            if (connectionStatus != 2)
+                return Promise.resolve(null);
+
+            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, includeRawInputs, includeRawOutputs);
+            const p = new Promise(resolve => {
+                ledgerQueryResolvers[msg.id] = {
+                    type: "seq_no",
+                    resolver: resolve
+                };
+            })
+
+            wsSend(msgHelper.serializeObject(msg));
+            return p;
         }
     }
 
@@ -814,6 +892,21 @@
 
         this.createStatusRequest = () => {
             return { type: "stat" };
+        }
+
+        this.createLedgerQuery = (filterBy, params, includeRawInputs, includeRawOutputs) => {
+
+            const includes = [];
+            if (includeRawInputs) includes.push("raw_inputs");
+            if (includeRawOutputs) includes.push("raw_outputs");
+
+            return {
+                type: "ledger_query",
+                id: "query_" + filterBy + "_" + (new Date()).getTime().toString(),
+                filter_by: filterBy,
+                params: params,
+                include: includes
+            }
         }
     }
 

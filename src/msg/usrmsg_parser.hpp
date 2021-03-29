@@ -1,9 +1,10 @@
 #ifndef _HP_MSG_USRMSG_PARSER_
 #define _HP_MSG_USRMSG_PARSER_
 
+#include "../pchheader.hpp"
 #include "../util/util.hpp"
 #include "../util/merkle_hash_tree.hpp"
-#include "../pchheader.hpp"
+#include "../ledger/ledger_query.hpp"
 
 namespace msg::usrmsg
 {
@@ -32,6 +33,9 @@ namespace msg::usrmsg
 
         void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const;
 
+        void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
+                                                     const ledger::query::query_result &result) const;
+
         int parse(std::string_view message);
 
         int extract_type(std::string &extracted_type) const;
@@ -42,6 +46,8 @@ namespace msg::usrmsg
 
         int extract_input_container(std::string &input, std::string &nonce,
                                     uint64_t &max_lcl_seq_no, std::string_view encoded_content) const;
+
+        int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const;
     };
 
 } // namespace msg::usrmsg

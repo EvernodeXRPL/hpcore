@@ -26,7 +26,6 @@ namespace util
         void populate(const std::vector<std::string_view> &hashes);
         const std::string root_hash();
         const merkle_hash_node collapse(std::string_view retain_hash);
-        bool empty();
         void clear();
     };
 } // namespace util

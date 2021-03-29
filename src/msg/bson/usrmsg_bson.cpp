@@ -3,6 +3,7 @@
 #include "../../pchheader.hpp"
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
+#include "../../ledger/ledger_query.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_bson.hpp"
 
@@ -10,7 +11,7 @@ namespace msg::usrmsg::bson
 {
     /**
      * Constructs a status response message.
-     * @param msg String reference to copy the generated bson message into.
+     * @param msg Buffer to construct the generated bson message into.
      *            Message format:
      *            {
      *              "type": "stat_response",
@@ -19,7 +20,7 @@ namespace msg::usrmsg::bson
      *            }
      */
     constexpr const size_t MAX_KNOWN_PEERS_INFO = 10;
-    
+
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
@@ -37,10 +38,10 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
         encoder.bool_value(conf::cfg.contract.execute);
         encoder.key(msg::usrmsg::FLD_READ_REQUESTS_ENABLED);
-        encoder.bool_value(conf::cfg.user.concurrent_read_reqeuests != 0);        
+        encoder.bool_value(conf::cfg.user.concurrent_read_reqeuests != 0);
         encoder.key(msg::usrmsg::FLD_IS_FULL_HISTORY_NODE);
         encoder.bool_value(conf::cfg.node.history == conf::HISTORY::FULL);
-        
+
         encoder.key(msg::usrmsg::FLD_CURRENT_UNL);
         encoder.begin_array();
         for (std::string_view unl : conf::cfg.contract.unl)
@@ -67,7 +68,7 @@ namespace msg::usrmsg::bson
 
     /**
      * Constructs a contract input status message.
-     * @param msg String reference to copy the generated bson message into.
+     * @param msg Buffer to construct the generated bson message into.
      *            Message format:
      *            {
      *              "type": "contract_input_status",
@@ -97,7 +98,7 @@ namespace msg::usrmsg::bson
 
     /**
      * Constructs a contract read response message.
-     * @param msg String reference to copy the generated bson message into.
+     * @param msg Buffer to construct the generated bson message into.
      *            Message format:
      *            {
      *              "type": "contract_read_response",
@@ -119,7 +120,7 @@ namespace msg::usrmsg::bson
 
     /**
      * Constructs a contract output container message.
-     * @param msg String reference to copy the generated bson message into.
+     * @param msg Buffer to construct the generated bson message into.
      *            Message format:
      *            {
      *              "type": "contract_output",
@@ -170,7 +171,7 @@ namespace msg::usrmsg::bson
 
     /**
      * Constructs unl list container message.
-     * @param msg String reference to copy the generated bson message string into.
+     * @param msg Buffer to construct the generated bson message string into.
      *            Message format:
      *            {
      *              "type": "unl_change",
@@ -188,7 +189,43 @@ namespace msg::usrmsg::bson
         encoder.begin_array();
         for (std::string_view unl : unl_list)
             encoder.byte_string_value(unl);
-        encoder.end_array();        
+        encoder.end_array();
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
+     * Constructs a ledger query response.
+     * @param msg Buffer to construct the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_query_result",
+     *              "reply_for": "<original query id>",
+     *              "error": "error_code" or NULL,
+     *              "results": [{}...]
+     *            }
+     * @param reply_for Original query id to associate the response with.
+     * @param result Query results to be sent in the response.
+     */
+    void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
+                                      const ledger::query::query_result &result)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_LEDGER_QUERY_RESULT);
+        encoder.key(msg::usrmsg::FLD_REPLY_FOR);
+        encoder.string_value(reply_for);
+        encoder.key(msg::usrmsg::FLD_ERROR);
+        if (result.index() == 1)
+            encoder.null_value();
+        else
+            encoder.string_value(std::get<const char *>(result));
+
+        encoder.key(msg::usrmsg::FLD_RESULTS);
+        encoder.begin_array();
+        populate_query_results(encoder, std::get<std::vector<ledger::query::query_result_record>>(result));
+        encoder.end_array();
         encoder.end_object();
         encoder.flush();
     }
@@ -338,6 +375,79 @@ namespace msg::usrmsg::bson
         return 0;
     }
 
+    /**
+     * Extract query information from a ledger query request.
+     * @param extracted_query Extracted query criteria.
+     * @param extracted_id The query id.
+     * @param d The bson document holding the query.
+     *          Accepted query message format:
+     *          {
+     *            "type": "ledger_query",
+     *            "id": "<query id>",
+     *            "filter_by": "<filter by>",
+     *            "params": {...}, // Params supported by the specified filter.
+     *            "include": ["raw_inputs", "raw_outputs"]
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::ojson &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d.contains(msg::usrmsg::FLD_FILTER_BY) ||
+            !d.contains(msg::usrmsg::FLD_PARAMS) || !d.contains(msg::usrmsg::FLD_INCLUDE))
+        {
+            LOG_DEBUG << "Ledger query required fields missing.";
+            return -1;
+        }
+
+        if (!d[msg::usrmsg::FLD_ID].is<std::string>() || !d[msg::usrmsg::FLD_FILTER_BY].is<std::string>() ||
+            !d[msg::usrmsg::FLD_PARAMS].is_object() || !d[msg::usrmsg::FLD_INCLUDE].is_array())
+        {
+            LOG_DEBUG << "Ledger query invalid field values.";
+            return -1;
+        }
+
+        const std::string id = d[msg::usrmsg::FLD_ID].as<std::string>();
+        if (id.empty())
+        {
+            LOG_DEBUG << "Ledger query invalid id.";
+            return -1;
+        }
+        extracted_id = std::move(id);
+
+        // Detect includes.
+        bool raw_inputs = false;
+        bool raw_outputs = false;
+        for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
+        {
+            if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
+                raw_inputs = true;
+            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
+                raw_outputs = false;
+        }
+
+        auto &params_field = d[msg::usrmsg::FLD_PARAMS];
+
+        if (d[msg::usrmsg::FLD_FILTER_BY] == msg::usrmsg::QUERY_FILTER_BY_SEQ_NO)
+        {
+            if (!params_field.contains(msg::usrmsg::FLD_SEQ_NO) || !params_field[msg::usrmsg::FLD_SEQ_NO].is<uint64_t>())
+            {
+                LOG_DEBUG << "Ledger query seq no filter invalid params.";
+                return -1;
+            }
+
+            extracted_query = ledger::query::seq_no_query{
+                params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(),
+                raw_inputs,
+                raw_outputs};
+            return 0;
+        }
+        else
+        {
+            LOG_DEBUG << "Ledger query invalid filter-by criteria.";
+            return -1;
+        }
+    }
+
     void populate_output_hash_array(jsoncons::bson::bson_bytes_encoder &encoder, const util::merkle_hash_node &node)
     {
         if (node.children.empty())
@@ -351,6 +461,33 @@ namespace msg::usrmsg::bson
             for (const auto &child : node.children)
                 populate_output_hash_array(encoder, child);
             encoder.end_array();
+        }
+    }
+
+    void populate_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results)
+    {
+        for (const ledger::query::query_result_record &r : results)
+        {
+            encoder.begin_object();
+            encoder.key(msg::usrmsg::FLD_SEQ_NO);
+            encoder.uint64_value(r.ledger.seq_no);
+            encoder.key(msg::usrmsg::FLD_TIMESTAMP);
+            encoder.uint64_value(r.ledger.timestamp);
+            encoder.key(msg::usrmsg::FLD_HASH);
+            encoder.byte_string_value(r.ledger.ledger_hash);
+            encoder.key(msg::usrmsg::FLD_PREV_HASH);
+            encoder.byte_string_value(r.ledger.prev_ledger_hash);
+            encoder.key(msg::usrmsg::FLD_STATE_HASH);
+            encoder.byte_string_value(r.ledger.state_hash);
+            encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
+            encoder.byte_string_value(r.ledger.config_hash);
+            encoder.key(msg::usrmsg::FLD_USER_HASH);
+            encoder.byte_string_value(r.ledger.user_hash);
+            encoder.key(msg::usrmsg::FLD_INPUT_HASH);
+            encoder.byte_string_value(r.ledger.input_hash);
+            encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
+            encoder.byte_string_value(r.ledger.output_hash);
+            encoder.end_object();
         }
     }
 
