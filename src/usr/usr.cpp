@@ -234,10 +234,24 @@ namespace usr
             }
             else if (msg_type == msg::usrmsg::MSGTYPE_STAT)
             {
-                std::vector<uint8_t> msg;
+                std::vector<uint8_t> resp;
                 const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
-                parser.create_status_response(msg, lcl_id.seq_no, lcl_id.hash.to_string_view());
-                user.session.send(msg);
+                parser.create_status_response(resp, lcl_id.seq_no, lcl_id.hash.to_string_view());
+                user.session.send(resp);
+                return 0;
+            }
+            else if (msg_type == msg::usrmsg::MSGTYPE_LEDGER_QUERY)
+            {
+                ledger::query::query_request req;
+                std::string id;
+                if (parser.extract_ledger_query(req, id) == -1)
+                    return -1;
+
+                const ledger::query::query_result result = ledger::query::execute(user.pubkey, req);
+
+                std::vector<uint8_t> resp;
+                parser.create_ledger_query_response(resp, id, result);
+                user.session.send(resp);
                 return 0;
             }
             else

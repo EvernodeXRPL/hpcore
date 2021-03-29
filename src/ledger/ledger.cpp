@@ -5,6 +5,7 @@
 #include "../util/util.hpp"
 #include "../msg/fbuf/ledger_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
+#include "ledger_common.hpp"
 #include "ledger_serve.hpp"
 
 #define LEDGER_CREATE_ERROR             \
@@ -18,6 +19,7 @@
 namespace ledger
 {
     ledger_context ctx;
+    ledger_record genesis;
     constexpr uint32_t LEDGER_FS_ID = 1;
     ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
     ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
@@ -25,11 +27,28 @@ namespace ledger
 
     std::shared_mutex primary_index_file_mutex;
 
+    constexpr int FILE_PERMS = 0644;
+
     /**
      * Perform ledger related initializations.
     */
     int init()
     {
+        // Setup the static genesis ledger fields.
+        {
+            const std::string empty_hash = std::string(util::h32_empty.to_string_view());
+            genesis.seq_no = 0;
+            genesis.timestamp = 0;
+            genesis.ledger_hash = empty_hash;
+            genesis.prev_ledger_hash = empty_hash;
+            genesis.data_hash = empty_hash;
+            genesis.state_hash = empty_hash;
+            genesis.config_hash = empty_hash;
+            genesis.user_hash = empty_hash;
+            genesis.input_hash = empty_hash;
+            genesis.output_hash = empty_hash;
+        }
+
         // Full history status is always set to false since this is ledger fs. Historical checkpoints are not required in ledger fs even in full history mode.
         if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, false) == -1)
         {
@@ -115,20 +134,19 @@ namespace ledger
 
         // Ledger hash is the combined hash of previous ledger hash and the new data hash.
         const std::string ledger_hash = crypto::get_hash(prev_ledger_hash, data_hash);
-        const std::string ledger_hash_hex = util::to_hex(ledger_hash);
-        // Construct ledger struct.
-        // Hashes are stored as hex string;
-        const sqlite::ledger ledger(
+
+        // Construct ledger struct with binary hashes.
+        const ledger_record ledger{
             seq_no,
             proposal.time,
-            ledger_hash_hex,
-            util::to_hex(prev_ledger_hash),
-            util::to_hex(data_hash),
-            util::to_hex(proposal.state_hash.to_string_view()),
-            util::to_hex(proposal.patch_hash.to_string_view()),
-            util::to_hex(user_hash),
-            util::to_hex(input_hash),
-            util::to_hex(proposal.output_hash)); // Merkle root output hash.
+            ledger_hash,
+            prev_ledger_hash,
+            data_hash,
+            std::string(proposal.state_hash.to_string_view()),
+            std::string(proposal.patch_hash.to_string_view()),
+            user_hash,
+            input_hash,
+            proposal.output_hash}; // Merkle root output hash.
 
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
@@ -200,7 +218,7 @@ namespace ledger
             }
 
             // Creating ledger database and open a database connection.
-            if (sqlite::open_db(shard_path + "/" + DATEBASE, db) == -1)
+            if (sqlite::open_db(shard_path + "/" + DATABASE, db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
                 return -1;
@@ -270,7 +288,7 @@ namespace ledger
                 return -1;
             }
         }
-        else if (sqlite::open_db(shard_path + "/" + DATEBASE, db) == -1)
+        else if (sqlite::open_db(shard_path + "/" + DATABASE, db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
             return -1;
@@ -558,19 +576,25 @@ namespace ledger
             return 0;
         }
 
-        if (sqlite::open_db(shard_path + "/" + DATEBASE, &db) == -1)
+        if (sqlite::open_db(shard_path + "/" + DATABASE, &db) == -1)
         {
             LOG_ERROR << errno << ": Error openning the shard database, shard: " << last_primary_shard_id.seq_no;
             return -1;
         }
 
-        const sqlite::ledger last_ledger = sqlite::get_last_ledger(db);
+        ledger_record last_ledger;
+        if (sqlite::get_last_ledger(db, last_ledger) == -1)
+        {
+            sqlite::close_db(&db);
+            return -1;
+        }
+
         sqlite::close_db(&db);
 
         // Update new lcl information.
         p2p::sequence_hash lcl_id;
         lcl_id.seq_no = last_ledger.seq_no;
-        lcl_id.hash = util::to_bin(last_ledger.ledger_hash_hex);
+        lcl_id.hash = last_ledger.ledger_hash;
         ctx.set_lcl_id(lcl_id);
 
         return 0;

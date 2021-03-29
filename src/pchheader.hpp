@@ -4,6 +4,7 @@
 // Enable boost strack trace.
 #define BOOST_STACKTRACE_USE_BACKTRACE
 
+#include <bitset>
 #include <blake3.h>
 #include <boost/stacktrace.hpp>
 #include <chrono>

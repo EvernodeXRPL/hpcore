@@ -2,6 +2,7 @@
 #define _LEDGER_SQLITE_
 
 #include "../pchheader.hpp"
+#include "ledger_common.hpp"
 
 namespace ledger::sqlite
 {
@@ -12,7 +13,8 @@ namespace ledger::sqlite
     enum COLUMN_DATA_TYPE
     {
         INT,
-        TEXT
+        TEXT,
+        BLOB
     };
 
     /**
@@ -37,50 +39,6 @@ namespace ledger::sqlite
         }
     };
 
-    /**
-     * Struct for ledger feilds.
-     * All the hashes are stored as hex strings.
-    */
-    struct ledger
-    {
-        uint64_t seq_no;
-        uint64_t time;
-        std::string ledger_hash_hex;
-        std::string prev_ledger_hash_hex;
-        std::string data_hash_hex;
-        std::string state_hash_hex;
-        std::string patch_hash_hex;
-        std::string user_hash_hex;
-        std::string input_hash_hex;
-        std::string output_hash_hex;
-
-        ledger(){};
-
-        ledger(
-            const uint64_t seq_no,
-            const uint64_t time,
-            std::string_view ledger_hash_hex,
-            std::string_view prev_ledger_hash_hex,
-            std::string_view data_hash_hex,
-            std::string_view state_hash_hex,
-            std::string_view patch_hash_hex,
-            std::string_view user_hash_hex,
-            std::string_view input_hash_hex,
-            std::string_view output_hash_hex)
-            : seq_no(seq_no),
-              time(time),
-              ledger_hash_hex(ledger_hash_hex),
-              prev_ledger_hash_hex(prev_ledger_hash_hex),
-              data_hash_hex(data_hash_hex),
-              state_hash_hex(state_hash_hex),
-              patch_hash_hex(patch_hash_hex),
-              user_hash_hex(user_hash_hex),
-              input_hash_hex(input_hash_hex),
-              output_hash_hex(output_hash_hex)
-        {
-        }
-    };
-
     // Generic methods.
     int open_db(std::string_view db_name, sqlite3 **db);
 
@@ -88,9 +46,9 @@ namespace ledger::sqlite
 
     int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info);
 
-    int insert_values(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings);
+    int insert_rows(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings);
 
-    int insert_value(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string);
+    int insert_row(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string);
 
     bool is_table_exists(sqlite3 *db, std::string_view table_name);
 
@@ -101,11 +59,15 @@ namespace ledger::sqlite
 
     int create_hp_version_table_and_update(sqlite3 *db, std::string_view version);
 
-    int insert_ledger_row(sqlite3 *db, const ledger &ledger);
+    int insert_ledger_row(sqlite3 *db, const ledger::ledger_record &ledger);
 
     bool is_ledger_table_exist(sqlite3 *db);
 
-    ledger get_last_ledger(sqlite3 *db);
+    int get_last_ledger(sqlite3 *db, ledger::ledger_record &ledger);
+
+    int get_ledger_by_seq_no(sqlite3 *db, const uint64_t seq_no, ledger::ledger_record &ledger);
+
+    void populate_ledger_from_sql_record(ledger::ledger_record &ledger, sqlite3_stmt *stmt);
 
 } // namespace ledger::sqlite
 

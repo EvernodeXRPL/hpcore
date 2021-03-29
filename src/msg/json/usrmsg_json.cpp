@@ -5,6 +5,7 @@
 #include "../../crypto.hpp"
 #include "../../hplog.hpp"
 #include "../../conf.hpp"
+#include "../../ledger/ledger_query.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
 
@@ -33,7 +34,7 @@ namespace msg::usrmsg::json
      * initial user challenge handshake. This gets called when a user establishes
      * a web socket connection to HP.
      * 
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "hp_version": "<hp protocol version>",
@@ -42,7 +43,7 @@ namespace msg::usrmsg::json
      *              "contract_version": "<contract version string>",
      *              "challenge": "<challenge string>"
      *            }
-     * @param challenge_bytes String reference to copy the generated challenge bytes into.
+     * @param challenge_bytes Buffer to construct the generated challenge bytes into.
      */
     void create_user_challenge(std::vector<uint8_t> &msg, std::string &challenge)
     {
@@ -83,7 +84,7 @@ namespace msg::usrmsg::json
      * Constructs server challenge response message json. This gets sent when we receive
      * a challenge from the user.
      * 
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "server_challenge_response",
@@ -130,7 +131,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a status response message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "stat_response",
@@ -162,15 +163,15 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(conf::cfg.contract.roundtime); 
+        msg += std::to_string(conf::cfg.contract.roundtime);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.contract.execute ? "true" : "false";  
+        msg += conf::cfg.contract.execute ? "true" : "false";
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_READ_REQUESTS_ENABLED;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? "true" : "false"; 
+        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? "true" : "false";
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_IS_FULL_HISTORY_NODE;
         msg += SEP_COLON_NOQUOTE;
@@ -216,7 +217,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a contract input status message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "contract_input_status",
@@ -252,7 +253,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a contract read response message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "contract_read_response",
@@ -293,7 +294,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs a contract output container message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "contract_output",
@@ -377,7 +378,7 @@ namespace msg::usrmsg::json
 
     /**
      * Constructs unl list container message.
-     * @param msg String reference to copy the generated json message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "unl_change",
@@ -407,6 +408,50 @@ namespace msg::usrmsg::json
             i++;
         }
 
+        msg += "]}";
+    }
+
+    /**
+     * Constructs a ledger query response.
+     * @param msg Buffer to construct the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_query_result",
+     *              "reply_for": "<original query id>",
+     *              "error": "error_code" or NULL,
+     *              "results": [{}...]
+     *            }
+     * @param reply_for Original query id to associate the response with.
+     * @param result Query results to be sent in the response.
+     */
+    void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
+                                      const ledger::query::query_result &result)
+    {
+        msg.reserve(1024);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_LEDGER_QUERY_RESULT;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_REPLY_FOR;
+        msg += SEP_COLON;
+        msg += reply_for;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_ERROR;
+        if (result.index() == 1)
+        {
+            msg += "\":null,\"";
+        }
+        else
+        {
+            msg += SEP_COLON;
+            msg += std::get<const char *>(result);
+            msg += SEP_COMMA;
+        }
+        msg += msg::usrmsg::FLD_RESULTS;
+        msg += "\":[";
+        if (result.index() == 1)
+            populate_query_results(msg, std::get<std::vector<ledger::query::query_result_record>>(result));
         msg += "]}";
     }
 
@@ -671,6 +716,79 @@ namespace msg::usrmsg::json
         return 0;
     }
 
+    /**
+     * Extract query information from a ledger query request.
+     * @param extracted_query Extracted query criteria.
+     * @param extracted_id The query id.
+     * @param d The json document holding the query.
+     *          Accepted query message format:
+     *          {
+     *            "type": "ledger_query",
+     *            "id": "<query id>",
+     *            "filter_by": "<filter by>",
+     *            "params": {...}, // Params supported by the specified filter.
+     *            "include": ["raw_inputs", "raw_outputs"]
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::json &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d.contains(msg::usrmsg::FLD_FILTER_BY) ||
+            !d.contains(msg::usrmsg::FLD_PARAMS) || !d.contains(msg::usrmsg::FLD_INCLUDE))
+        {
+            LOG_DEBUG << "Ledger query required fields missing.";
+            return -1;
+        }
+
+        if (!d[msg::usrmsg::FLD_ID].is<std::string>() || !d[msg::usrmsg::FLD_FILTER_BY].is<std::string>() ||
+            !d[msg::usrmsg::FLD_PARAMS].is_object() || !d[msg::usrmsg::FLD_INCLUDE].is_array())
+        {
+            LOG_DEBUG << "Ledger query invalid field values.";
+            return -1;
+        }
+
+        const std::string id = d[msg::usrmsg::FLD_ID].as<std::string>();
+        if (id.empty())
+        {
+            LOG_DEBUG << "Ledger query invalid id.";
+            return -1;
+        }
+        extracted_id = std::move(id);
+
+        // Detect includes.
+        bool raw_inputs = false;
+        bool raw_outputs = false;
+        for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
+        {
+            if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
+                raw_inputs = true;
+            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
+                raw_outputs = false;
+        }
+
+        auto &params_field = d[msg::usrmsg::FLD_PARAMS];
+
+        if (d[msg::usrmsg::FLD_FILTER_BY] == msg::usrmsg::QUERY_FILTER_BY_SEQ_NO)
+        {
+            if (!params_field.contains(msg::usrmsg::FLD_SEQ_NO) || !params_field[msg::usrmsg::FLD_SEQ_NO].is<uint64_t>())
+            {
+                LOG_DEBUG << "Ledger query seq no filter invalid params.";
+                return -1;
+            }
+
+            extracted_query = ledger::query::seq_no_query{
+                params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(),
+                raw_inputs,
+                raw_outputs};
+            return 0;
+        }
+        else
+        {
+            LOG_DEBUG << "Ledger query invalid filter-by criteria.";
+            return -1;
+        }
+    }
+
     bool is_json_string(std::string_view content)
     {
         if (content.empty())
@@ -717,6 +835,50 @@ namespace msg::usrmsg::json
                     msg += ",";
             }
             msg += "]";
+        }
+    }
+
+    void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results)
+    {
+        for (const ledger::query::query_result_record &r : results)
+        {
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_SEQ_NO;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(r.ledger.seq_no);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_TIMESTAMP;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(r.ledger.timestamp);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(r.ledger.ledger_hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_PREV_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(r.ledger.prev_ledger_hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_STATE_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(r.ledger.state_hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_CONFIG_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(r.ledger.config_hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_USER_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(r.ledger.user_hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_INPUT_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(r.ledger.input_hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_OUTPUT_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(r.ledger.output_hash);
+            msg += "\"}";
         }
     }
 
