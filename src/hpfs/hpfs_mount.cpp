@@ -413,7 +413,9 @@ namespace hpfs
     }
 
     /**
-     * Invoke log file and hpfs index file starting from the given sequence number.
+     * Invoke log file and hpfs index file starting from the given sequence number. This function is a blocking call.
+     * @param seq_no Sequence number to start truncation from.
+     * @return Returns -1 on error and 0 on success.
     */
     int hpfs_mount::truncate_log_file(const uint64_t seq_no)
     {
