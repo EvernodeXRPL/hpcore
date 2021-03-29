@@ -68,6 +68,7 @@ namespace hpfs
         const util::h32 get_parent_hash(const std::string &parent_vpath);
         void set_parent_hash(const std::string &parent_vpath, const util::h32 new_state);
         int update_hpfs_log_index();
+        int truncate_log_file(const uint64_t seq_no);
     };
 
 } // namespace hpfs
