@@ -412,4 +412,20 @@ namespace hpfs
         return 0;
     }
 
+    /**
+     * Invoke log file and hpfs index file starting from the given sequence number.
+    */
+    int hpfs_mount::truncate_log_file(const uint64_t seq_no)
+    {
+        const std::string file_path = mount_dir + INDEX_UPDATE + "." + std::to_string(seq_no);
+        // File /hpfs::index.<seq_no> is truncated to invoke log file truncation in hpfs.
+        // This call waits until any running RW or RO sessions stop.
+        if (truncate(file_path.c_str(), 0) == -1)
+        {
+            LOG_ERROR << errno << ": Error truncating log file for seq_no: " << std::to_string(seq_no);
+            return -1;
+        }
+        return 0;
+    }
+
 } // namespace hpfs
