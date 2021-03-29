@@ -32,7 +32,7 @@ namespace ledger::query
         if (q.index() == 0) // Filter by seq no.
         {
             ledger_record ledger;
-            int seq_no_res = get_ledger_by_seq_no(ledger, std::get<seq_no_query>(q), fs_sess_name);
+            const int seq_no_res = get_ledger_by_seq_no(ledger, std::get<seq_no_query>(q), fs_sess_name);
             if (seq_no_res != -1)
             {
                 if (seq_no_res == 1) // Ledger found.
