@@ -368,17 +368,18 @@ namespace util
      * Reads from a given file discriptor. 
      * @param fd File descriptor to be read.
      * @param buf String buffer to be populated.
+     * @param offset Begin offset of the file to read.
      * @return Returns number of bytes read in a successful read and -1 on error.
     */
-    int read_from_fd(const int fd, std::string &buf)
+    int read_from_fd(const int fd, std::string &buf, const off_t offset)
     {
         struct stat st;
         if (fstat(fd, &st) == -1)
             return -1;
 
-        buf.resize(st.st_size);
+        buf.resize(st.st_size - offset);
 
-        return pread(fd, buf.data(), buf.size(), 0);
+        return pread(fd, buf.data(), buf.size(), offset);
     }
 
     /**

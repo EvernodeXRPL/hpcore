@@ -224,7 +224,7 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_RESULTS);
         encoder.begin_array();
-        populate_query_results(encoder, std::get<std::vector<ledger::query::query_result_record>>(result));
+        populate_ledger_query_results(encoder, std::get<std::vector<ledger::query::query_result_record>>(result));
         encoder.end_array();
         encoder.end_object();
         encoder.flush();
@@ -419,10 +419,10 @@ namespace msg::usrmsg::bson
         bool raw_outputs = false;
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
-            if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
+            if (val == msg::usrmsg::FLD_RAW_INPUTS)
                 raw_inputs = true;
-            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
-                raw_outputs = false;
+            else if (val == msg::usrmsg::FLD_RAW_OUTPUTS)
+                raw_outputs = true;
         }
 
         auto &params_field = d[msg::usrmsg::FLD_PARAMS];
@@ -464,7 +464,7 @@ namespace msg::usrmsg::bson
         }
     }
 
-    void populate_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results)
+    void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results)
     {
         for (const ledger::query::query_result_record &r : results)
         {
@@ -487,8 +487,44 @@ namespace msg::usrmsg::bson
             encoder.byte_string_value(r.ledger.input_hash);
             encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
             encoder.byte_string_value(r.ledger.output_hash);
+
+            // If raw inputs or outputs is not requested, we don't include that field at all in the response.
+            // Otherwise the field will always contain an array (empty array if no data).
+
+            if (r.raw_inputs)
+            {
+                encoder.key(msg::usrmsg::FLD_RAW_INPUTS);
+                populate_ledger_blob_map(encoder, *r.raw_inputs);
+            }
+
+            if (r.raw_outputs)
+            {
+                encoder.key(msg::usrmsg::FLD_RAW_OUTPUTS);
+                populate_ledger_blob_map(encoder, *r.raw_outputs);
+            }
+
             encoder.end_object();
         }
+    }
+
+    void populate_ledger_blob_map(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::query::blob_map &blob_map)
+    {
+        encoder.begin_array();
+        for (const auto &[pubkey, blobs] : blob_map)
+        {
+            encoder.begin_object();
+
+            encoder.key(msg::usrmsg::FLD_PUBKEY);
+            encoder.byte_string_value(pubkey);
+            encoder.key(msg::usrmsg::FLD_BLOBS);
+            encoder.begin_array();
+            for (const std::string &blob : blobs)
+                encoder.byte_string_value(blob);
+            encoder.end_array();
+
+            encoder.end_object();
+        }
+        encoder.end_array();
     }
 
 } // namespace msg::usrmsg::bson

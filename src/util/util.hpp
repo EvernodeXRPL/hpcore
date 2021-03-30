@@ -72,7 +72,7 @@ namespace util
 
     const std::string get_name(std::string_view path);
 
-    int read_from_fd(const int fd, std::string &buf);
+    int read_from_fd(const int fd, std::string &buf, const off_t offset = 0);
 
     int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len);
 
