@@ -247,11 +247,11 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_CONTENT_TYPE = 8,
     VT_CONTENT = 10
   };
-  const flatbuffers::String *hp_version() const {
-    return GetPointer<const flatbuffers::String *>(VT_HP_VERSION);
+  const flatbuffers::Vector<uint8_t> *hp_version() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HP_VERSION);
   }
-  flatbuffers::String *mutable_hp_version() {
-    return GetPointer<flatbuffers::String *>(VT_HP_VERSION);
+  flatbuffers::Vector<uint8_t> *mutable_hp_version() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_HP_VERSION);
   }
   uint64_t created_on() const {
     return GetField<uint64_t>(VT_CREATED_ON, 0);
@@ -305,7 +305,7 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_HP_VERSION) &&
-           verifier.VerifyString(hp_version()) &&
+           verifier.VerifyVector(hp_version()) &&
            VerifyField<uint64_t>(verifier, VT_CREATED_ON) &&
            VerifyField<uint8_t>(verifier, VT_CONTENT_TYPE) &&
            VerifyOffset(verifier, VT_CONTENT) &&
@@ -362,7 +362,7 @@ struct P2PMsgBuilder {
   typedef P2PMsg Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_hp_version(flatbuffers::Offset<flatbuffers::String> hp_version) {
+  void add_hp_version(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hp_version) {
     fbb_.AddOffset(P2PMsg::VT_HP_VERSION, hp_version);
   }
   void add_created_on(uint64_t created_on) {
@@ -388,7 +388,7 @@ struct P2PMsgBuilder {
 
 inline flatbuffers::Offset<P2PMsg> CreateP2PMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> hp_version = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hp_version = 0,
     uint64_t created_on = 0,
     msg::fbuf::p2pmsg::P2PMsgContent content_type = msg::fbuf::p2pmsg::P2PMsgContent_NONE,
     flatbuffers::Offset<void> content = 0) {
@@ -402,11 +402,11 @@ inline flatbuffers::Offset<P2PMsg> CreateP2PMsg(
 
 inline flatbuffers::Offset<P2PMsg> CreateP2PMsgDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const char *hp_version = nullptr,
+    const std::vector<uint8_t> *hp_version = nullptr,
     uint64_t created_on = 0,
     msg::fbuf::p2pmsg::P2PMsgContent content_type = msg::fbuf::p2pmsg::P2PMsgContent_NONE,
     flatbuffers::Offset<void> content = 0) {
-  auto hp_version__ = hp_version ? _fbb.CreateString(hp_version) : 0;
+  auto hp_version__ = hp_version ? _fbb.CreateVector<uint8_t>(*hp_version) : 0;
   return msg::fbuf::p2pmsg::CreateP2PMsg(
       _fbb,
       hp_version__,

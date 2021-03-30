@@ -9,8 +9,8 @@ namespace version
 
     int init()
     {
-        // Setup version header bytes.
-        if (set_version_bytes(HP_VERSION_BYTES, LEDGER_VERSION) == -1 ||
+        // Generate version bytes.
+        if (set_version_bytes(HP_VERSION_BYTES, HP_VERSION) == -1 ||
             set_version_bytes(LEDGER_VERSION_BYTES, LEDGER_VERSION) == -1)
             return -1;
 
