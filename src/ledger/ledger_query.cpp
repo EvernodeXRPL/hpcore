@@ -50,8 +50,18 @@ namespace ledger::query
         return res;
     }
 
+    /**
+     * Fills in the raw input/output blob data to the specified ledger query result records.
+     * @param records List of query results to fill in.
+     * @param raw_inputs Whether raw inputs must be filled.
+     * @param raw_outputs Whether raw outputs must be filled.
+     * @param fs_sess_name The ledger hosting fs session name.
+     */
     int fill_blob_data(std::vector<query_result_record> &records, const bool raw_inputs, const bool raw_outputs, const std::string &fs_sess_name)
     {
+        // If blob data is not requested to be filled, the relevant field (inputs or outputs) in each result will contain NULL.
+        // If blob data is requested to be filled, then the felevant field will contain the map of blobs or empty map.
+
         if (!raw_inputs && !raw_outputs)
             return 0; // Nothing to fill.
 

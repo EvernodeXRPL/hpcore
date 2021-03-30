@@ -451,7 +451,7 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_RESULTS;
         msg += "\":[";
         if (result.index() == 1)
-            populate_query_results(msg, std::get<std::vector<ledger::query::query_result_record>>(result));
+            populate_ledger_query_results(msg, std::get<std::vector<ledger::query::query_result_record>>(result));
         msg += "]}";
     }
 
@@ -838,7 +838,7 @@ namespace msg::usrmsg::json
         }
     }
 
-    void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results)
+    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results)
     {
         for (const ledger::query::query_result_record &r : results)
         {
@@ -879,6 +879,9 @@ namespace msg::usrmsg::json
             msg += SEP_COLON;
             msg += util::to_hex(r.ledger.output_hash);
             msg += "\"";
+
+            // If raw inputs or outputs is not requested, we don't include that field at all in the response.
+            // Otherwise the field will always contain an array (empty array if no data).
 
             if (r.raw_inputs)
             {

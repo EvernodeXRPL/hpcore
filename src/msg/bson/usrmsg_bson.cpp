@@ -224,7 +224,7 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_RESULTS);
         encoder.begin_array();
-        populate_query_results(encoder, std::get<std::vector<ledger::query::query_result_record>>(result));
+        populate_ledger_query_results(encoder, std::get<std::vector<ledger::query::query_result_record>>(result));
         encoder.end_array();
         encoder.end_object();
         encoder.flush();
@@ -464,7 +464,7 @@ namespace msg::usrmsg::bson
         }
     }
 
-    void populate_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results)
+    void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results)
     {
         for (const ledger::query::query_result_record &r : results)
         {
@@ -487,6 +487,9 @@ namespace msg::usrmsg::bson
             encoder.byte_string_value(r.ledger.input_hash);
             encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
             encoder.byte_string_value(r.ledger.output_hash);
+
+            // If raw inputs or outputs is not requested, we don't include that field at all in the response.
+            // Otherwise the field will always contain an array (empty array if no data).
 
             if (r.raw_inputs)
             {
