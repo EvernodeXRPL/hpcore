@@ -495,7 +495,7 @@ namespace util
     }
 
     /**
-     * Create 16 byte version header from version string. First 6 bytes contains the 3 version components and the 
+     * Create 8 byte version header from version string. First 6 bytes contains the 3 version components and the 
      * next 2 bytes are reserved for future use.
      * @param header Header byte array to be populated with header data.
      * @param version Version string.

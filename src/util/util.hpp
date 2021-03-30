@@ -12,7 +12,7 @@
 
 namespace util
 {
-    // Hot Pocket version. Displayed on 'hpcore version' and written to new configs.
+    // Hot Pocket version. Written to new configs and p2p/user messages.
     constexpr const char *HP_VERSION = "1.0.0";
 
     // Ledger file storage version. All nodes in a cluster MUST use the same ledger version.
