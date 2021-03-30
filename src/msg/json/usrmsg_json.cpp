@@ -760,10 +760,10 @@ namespace msg::usrmsg::json
         bool raw_outputs = false;
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
-            if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
+            if (val == msg::usrmsg::FLD_RAW_INPUTS)
                 raw_inputs = true;
-            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
-                raw_outputs = false;
+            else if (val == msg::usrmsg::FLD_RAW_OUTPUTS)
+                raw_outputs = true;
         }
 
         auto &params_field = d[msg::usrmsg::FLD_PARAMS];
@@ -878,8 +878,49 @@ namespace msg::usrmsg::json
             msg += msg::usrmsg::FLD_OUTPUT_HASH;
             msg += SEP_COLON;
             msg += util::to_hex(r.ledger.output_hash);
-            msg += "\"}";
+            msg += "\"";
+
+            if (r.raw_inputs)
+            {
+                msg += SEP_COMMA_NOQUOTE;
+                msg += msg::usrmsg::FLD_RAW_INPUTS;
+                msg += SEP_COLON_NOQUOTE;
+                populate_ledger_blob_map(msg, *r.raw_inputs);
+            }
+
+            if (r.raw_outputs)
+            {
+                msg += SEP_COMMA_NOQUOTE;
+                msg += msg::usrmsg::FLD_RAW_OUTPUTS;
+                msg += SEP_COLON_NOQUOTE;
+                populate_ledger_blob_map(msg, *r.raw_outputs);
+            }
+
+            msg += "}";
         }
+    }
+
+    void populate_ledger_blob_map(std::vector<uint8_t> &msg, const ledger::query::blob_map &blob_map)
+    {
+        msg += "[";
+        for (const auto &[pubkey, blobs] : blob_map)
+        {
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_PUBKEY;
+            msg += SEP_COLON;
+            msg += util::to_hex(pubkey);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_BLOBS;
+            msg += "\":[";
+            for (size_t i = 0; i < blobs.size(); i++)
+            {
+                msg += "\"";
+                msg += util::to_hex(blobs[i]);
+                msg += (i == (blobs.size() - 1) ? "\"" : "\",");
+            }
+            msg += "]}";
+        }
+        msg += "]";
     }
 
 } // namespace msg::usrmsg::json

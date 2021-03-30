@@ -51,6 +51,8 @@ namespace msg::usrmsg::json
 
     void populate_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results);
 
+    void populate_ledger_blob_map(std::vector<uint8_t> &msg, const ledger::query::blob_map &blob_map);
+
 } // namespace msg::usrmsg::json
 
 #endif

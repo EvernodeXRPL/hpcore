@@ -419,9 +419,9 @@ namespace msg::usrmsg::bson
         bool raw_outputs = false;
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
-            if (val == msg::usrmsg::QUERY_INCLUDE_RAW_INPUTS)
+            if (val == msg::usrmsg::FLD_RAW_INPUTS)
                 raw_inputs = true;
-            else if (val == msg::usrmsg::QUERY_INCLUDE_RAW_OUTPUTS)
+            else if (val == msg::usrmsg::FLD_RAW_OUTPUTS)
                 raw_outputs = false;
         }
 
@@ -487,8 +487,41 @@ namespace msg::usrmsg::bson
             encoder.byte_string_value(r.ledger.input_hash);
             encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
             encoder.byte_string_value(r.ledger.output_hash);
+
+            if (r.raw_inputs)
+            {
+                encoder.key(msg::usrmsg::FLD_RAW_INPUTS);
+                populate_ledger_blob_map(encoder, *r.raw_inputs);
+            }
+
+            if (r.raw_outputs)
+            {
+                encoder.key(msg::usrmsg::FLD_RAW_OUTPUTS);
+                populate_ledger_blob_map(encoder, *r.raw_outputs);
+            }
+
             encoder.end_object();
         }
+    }
+
+    void populate_ledger_blob_map(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::query::blob_map &blob_map)
+    {
+        encoder.begin_array();
+        for (const auto &[pubkey, blobs] : blob_map)
+        {
+            encoder.begin_object();
+
+            encoder.key(msg::usrmsg::FLD_PUBKEY);
+            encoder.byte_string_value(pubkey);
+            encoder.key(msg::usrmsg::FLD_BLOBS);
+            encoder.begin_array();
+            for (const std::string &blob : blobs)
+                encoder.byte_string_value(blob);
+            encoder.end_array();
+
+            encoder.end_object();
+        }
+        encoder.end_array();
     }
 
 } // namespace msg::usrmsg::bson

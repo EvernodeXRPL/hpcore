@@ -63,13 +63,6 @@ namespace ledger
         }
     };
 
-    struct ledger_blob
-    {
-        util::h32 ledger_hash;
-        std::map<std::string, std::vector<std::string>> inputs;
-        std::map<std::string, std::vector<std::string>> outputs;
-    };
-
     extern ledger_context ctx;
     extern ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
     extern ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.

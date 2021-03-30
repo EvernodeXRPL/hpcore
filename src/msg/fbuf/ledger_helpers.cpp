@@ -54,4 +54,49 @@ namespace msg::fbuf::ledgermsg
 
         builder.Finish(blob); // Finished building message content to get serialised content.
     }
+
+    const int create_ledger_blob_from_msg(ledger::ledger_blob &blob_data, const std::string &msg, const bool read_inputs, const bool read_outputs)
+    {
+        // Verify ledger blob using flatbuffer verifier
+        flatbuffers::Verifier verifier((uint8_t *)msg.data(), msg.size(), 16, 100);
+        if (!VerifyLedgerBlobBuffer(verifier))
+        {
+            LOG_ERROR << "Ledger blob flatbuffer verification failed.";
+            return -1;
+        }
+
+        const auto ledger_msg = ledgermsg::GetLedgerBlob(msg.data());
+        blob_data.ledger_hash = flatbuf_bytes_to_hash(ledger_msg->ledger_hash());
+
+        if (read_inputs)
+        {
+            std::vector<std::string> inputs;
+            for (const auto collection : *ledger_msg->raw_inputs())
+            {
+                for (const auto input_msg : *collection->inputs())
+                {
+                    inputs.push_back(std::string(flatbuf_bytes_to_sv(input_msg->input())));
+                }
+
+                blob_data.inputs.emplace(std::string(flatbuf_bytes_to_sv(collection->pubkey())), std::move(inputs));
+            }
+        }
+
+        if (read_outputs)
+        {
+            std::vector<std::string> outputs;
+            for (const auto collection : *ledger_msg->raw_outputs())
+            {
+                for (const auto output_msg : *collection->outputs())
+                {
+                    outputs.push_back(std::string(flatbuf_bytes_to_sv(output_msg->output())));
+                }
+
+                blob_data.outputs.emplace(std::string(flatbuf_bytes_to_sv(collection->pubkey())), std::move(outputs));
+            }
+        }
+
+        return 0;
+    }
+
 } // namespace msg::fbuf::ledgermsg

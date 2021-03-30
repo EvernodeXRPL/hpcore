@@ -592,7 +592,9 @@
                             configHash: r.config_hash,
                             userHash: r.user_hash,
                             inputHash: r.input_hash,
-                            outputHash: r.output_hash
+                            outputHash: r.output_hash,
+                            rawInputs: r.raw_inputs == undefined ? null : r.raw_inputs,
+                            rawOutputs: r.raw_outputs == undefined ? null : r.raw_outputs
                         }
                     });
                     if (resolver.type == "seq_no")

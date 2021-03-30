@@ -507,7 +507,7 @@ namespace ledger
             {
                 outputs.push_back(output.message);
             }
-            blob.outputs.emplace(user_output.userpubkey, outputs);
+            blob.outputs.emplace(user_output.userpubkey, std::move(outputs));
         }
 
         flatbuffers::FlatBufferBuilder builder(1024);
