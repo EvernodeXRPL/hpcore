@@ -55,42 +55,6 @@ namespace util
         std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
 
-    /**
-     * Compare two version strings in the format of "1.12.3".
-     * v1 <  v2  -> returns -1
-     * v1 == v2  -> returns  0
-     * v1 >  v2  -> returns +1
-     * Error     -> returns -2
-     * 
-     * Remark on string_view: In other places of the code-base we utilize string_view
-     * to pass immutable string references around. However in this function we keep the 'const string&'
-     * syntax because istringstream doesn't support string_view. It's not worth optmising
-     * this code as it's not being used in high-scale processing.
-     */
-    int version_compare(const std::string &x, const std::string &y)
-    {
-        std::istringstream ix(x), iy(y);
-        while (ix.good() || iy.good())
-        {
-            int cx = 0, cy = 0;
-            ix >> cx;
-            iy >> cy;
-
-            if ((!ix.eof() && !ix.good()) || (!iy.eof() && !iy.good()))
-                return -2;
-
-            if (cx > cy)
-                return 1;
-            if (cx < cy)
-                return -1;
-
-            ix.ignore();
-            iy.ignore();
-        }
-
-        return 0;
-    }
-
     // Provide a safe std::string overload for realpath
     const std::string realpath(const std::string &path)
     {
@@ -492,51 +456,6 @@ namespace util
                ((uint64_t)data[5] << 16) +
                ((uint64_t)data[6] << 8) +
                ((uint64_t)data[7]);
-    }
-
-    /**
-     * Create 8 byte version header from version string. First 6 bytes contains the 3 version components and the 
-     * next 2 bytes are reserved for future use.
-     * @param header Header byte array to be populated with header data.
-     * @param version Version string.
-     * @return Returns -1 on error and 0 on success.
-    */
-    int create_version_header(uint8_t *header, std::string_view version)
-    {
-        memset(header, 0, VERSION_HEADER_SIZE);
-
-        const std::string delimeter = ".";
-        size_t start = 0;
-        size_t end = version.find(delimeter);
-
-        if (end == std::string::npos)
-        {
-            LOG_ERROR << "Invalid version " << version;
-            return -1;
-        }
-
-        const uint16_t major = atoi(version.substr(start, end - start).data());
-
-        start = end + delimeter.length();
-        end = version.find(delimeter, start);
-
-        if (end == std::string::npos)
-        {
-            LOG_ERROR << "Invalid version " << version;
-            return -1;
-        }
-
-        const uint16_t minor = atoi(version.substr(start, end - start).data());
-        start = end + delimeter.length();
-        end = version.find(delimeter, start);
-
-        const uint16_t patch = atoi(version.substr(start).data());
-
-        uint16_to_bytes(&header[0], major);
-        uint16_to_bytes(&header[2], minor);
-        uint16_to_bytes(&header[4], patch);
-
-        return 0;
     }
 
 } // namespace util

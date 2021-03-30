@@ -2,6 +2,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "sc/sc.hpp"
+#include "util/version.hpp"
 #include "util/util.hpp"
 #include "ledger/ledger_mount.hpp"
 #include "sc/contract_mount.hpp"
@@ -285,10 +286,10 @@ namespace conf
             }
 
             // Check whether this config complies with the min version requirement.
-            const int ver_result = util::version_compare(config_version, std::string(util::MIN_CONFIG_VERSION));
+            const int ver_result = version::version_compare(config_version, std::string(version::MIN_CONFIG_VERSION));
             if (ver_result == -1)
             {
-                std::cerr << "Config version too old. Minimum " << util::MIN_CONFIG_VERSION << " required. "
+                std::cerr << "Config version too old. Minimum " << version::MIN_CONFIG_VERSION << " required. "
                           << config_version << " found.\n";
                 return -1;
             }
@@ -522,7 +523,7 @@ namespace conf
         // Popualte json document with 'cfg' values.
         // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
-        d.insert_or_assign("hp_version", util::HP_VERSION);
+        d.insert_or_assign("hp_version", version::HP_VERSION);
 
         // Node config.
         {

@@ -1,6 +1,7 @@
 
-#include "./ledger_sync.hpp"
+#include "ledger_sync.hpp"
 #include "ledger.hpp"
+#include "../util/version.hpp"
 
 namespace ledger
 {
@@ -18,7 +19,7 @@ namespace ledger
 
         util::h32 prev_shard_hash_from_file;
         // Start reading hash excluding hp_version header.
-        const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), util::VERSION_HEADER_SIZE);
+        const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), version::VERSION_BYTES_LEN);
         close(fd);
         if (res == -1)
         {

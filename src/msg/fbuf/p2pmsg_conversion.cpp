@@ -1,3 +1,4 @@
+#include "../../util/version.hpp"
 #include "../../hpfs/hpfs_mount.hpp"
 #include "../../unl.hpp"
 #include "../../crypto.hpp"
@@ -309,7 +310,7 @@ namespace msg::fbuf::p2pmsg
     void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content)
     {
         const auto p2pmsg = CreateP2PMsg(builder,
-                                         sv_to_flatbuf_str(builder, std::string(util::HP_VERSION)),
+                                         sv_to_flatbuf_str(builder, std::string(version::HP_VERSION)),
                                          util::get_epoch_milliseconds(),
                                          content_type,
                                          content);

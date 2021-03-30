@@ -2,6 +2,7 @@
 #include "ledger.hpp"
 #include "../crypto.hpp"
 #include "../conf.hpp"
+#include "../util/version.hpp"
 #include "../util/util.hpp"
 #include "../msg/fbuf/ledger_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
@@ -25,7 +26,6 @@ namespace ledger
     ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
     std::shared_mutex primary_index_file_mutex;
-    uint8_t ledger_version_header[util::VERSION_HEADER_SIZE];
 
     constexpr uint32_t LEDGER_FS_ID = 1;
     constexpr int FILE_PERMS = 0644;
@@ -35,10 +35,6 @@ namespace ledger
     */
     int init()
     {
-        // Setup version header bytes.
-        if (util::create_version_header(ledger_version_header, util::LEDGER_VERSION) == -1)
-            return -1;
-
         // Setup the static genesis ledger fields.
         {
             const std::string empty_hash = std::string(util::h32_empty.to_string_view());
@@ -230,7 +226,7 @@ namespace ledger
             }
 
             // Create and update the hp_version table with current hp version.
-            if (sqlite::create_hp_version_table_and_update(*db, util::LEDGER_VERSION) == -1)
+            if (sqlite::create_hp_version_table_and_update(*db, version::LEDGER_VERSION) == -1)
             {
                 LOG_ERROR << errno << ": Error creating and updating hp version table, shard: " << std::to_string(shard_seq_no);
                 return -1;
@@ -264,8 +260,8 @@ namespace ledger
             }
 
             struct iovec iov_vec[2];
-            iov_vec[0].iov_base = ledger_version_header;
-            iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
+            iov_vec[0].iov_base = version::LEDGER_VERSION_BYTES;
+            iov_vec[0].iov_len = version::VERSION_BYTES_LEN;
 
             iov_vec[1].iov_base = &prev_shard_hash;
             iov_vec[1].iov_len = sizeof(util::h32);
@@ -375,7 +371,7 @@ namespace ledger
 
             util::h32 prev_shard_hash_from_file;
             // Start reading hash excluding hp_version header.
-            const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), util::VERSION_HEADER_SIZE);
+            const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), version::VERSION_BYTES_LEN);
             close(fd);
             if (res == -1)
             {
@@ -453,8 +449,8 @@ namespace ledger
             }
 
             struct iovec iov_vec[2];
-            iov_vec[0].iov_base = ledger_version_header;
-            iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
+            iov_vec[0].iov_base = version::LEDGER_VERSION_BYTES;
+            iov_vec[0].iov_len = version::VERSION_BYTES_LEN;
 
             iov_vec[1].iov_base = &prev_shard_hash;
             iov_vec[1].iov_len = sizeof(util::h32);
@@ -512,8 +508,8 @@ namespace ledger
         }
 
         struct iovec iov_vec[2];
-        iov_vec[0].iov_base = ledger_version_header;
-        iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
+        iov_vec[0].iov_base = version::LEDGER_VERSION_BYTES;
+        iov_vec[0].iov_len = version::VERSION_BYTES_LEN;
 
         iov_vec[1].iov_base = builder.GetBufferPointer();
         iov_vec[1].iov_len = builder.GetSize();
@@ -618,7 +614,7 @@ namespace ledger
             }
         }
         uint8_t last_shard_seq_no_buf[8];
-        if (pread(fd, last_shard_seq_no_buf, sizeof(last_shard_seq_no_buf), util::VERSION_HEADER_SIZE) == -1)
+        if (pread(fd, last_shard_seq_no_buf, sizeof(last_shard_seq_no_buf), version::VERSION_BYTES_LEN) == -1)
         {
             LOG_ERROR << errno << ": Error reading " << last_shard_seq_no_path;
             close(fd);
@@ -660,8 +656,8 @@ namespace ledger
         util::uint64_to_bytes(seq_no_byte_str, last_shard_seq_no);
 
         struct iovec iov_vec[2];
-        iov_vec[0].iov_base = ledger_version_header;
-        iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
+        iov_vec[0].iov_base = version::LEDGER_VERSION_BYTES;
+        iov_vec[0].iov_len = version::VERSION_BYTES_LEN;
 
         iov_vec[1].iov_base = seq_no_byte_str;
         iov_vec[1].iov_len = sizeof(seq_no_byte_str);
