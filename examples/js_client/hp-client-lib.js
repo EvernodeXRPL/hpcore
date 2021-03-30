@@ -583,7 +583,7 @@
                 const resolver = ledgerQueryResolvers[m.reply_for];
                 if (resolver) {
                     const results = m.results.map(r => {
-                        return {
+                        const result = {
                             seqNo: r.seq_no,
                             timestamp: r.timestamp,
                             hash: r.hash,
@@ -592,10 +592,13 @@
                             configHash: r.config_hash,
                             userHash: r.user_hash,
                             inputHash: r.input_hash,
-                            outputHash: r.output_hash,
-                            rawInputs: r.raw_inputs == undefined ? null : r.raw_inputs,
-                            rawOutputs: r.raw_outputs == undefined ? null : r.raw_outputs
+                            outputHash: r.output_hash
                         }
+                        if (r.raw_inputs)
+                            result.rawInputs = r.raw_inputs;
+                        if (r.raw_outputs)
+                            result.rawOutputs = r.raw_outputs;
+                        return result;
                     });
                     if (resolver.type == "seq_no")
                         resolver.resolver(results.length > 0 ? results[0] : null) // Return as a single object rather than an array.

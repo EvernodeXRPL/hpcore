@@ -422,7 +422,7 @@ namespace msg::usrmsg::bson
             if (val == msg::usrmsg::FLD_RAW_INPUTS)
                 raw_inputs = true;
             else if (val == msg::usrmsg::FLD_RAW_OUTPUTS)
-                raw_outputs = false;
+                raw_outputs = true;
         }
 
         auto &params_field = d[msg::usrmsg::FLD_PARAMS];

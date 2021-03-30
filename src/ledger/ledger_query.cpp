@@ -73,6 +73,9 @@ namespace ledger::query
             if (raw_outputs)
                 r.raw_outputs = blob_map();
 
+            if (r.ledger.seq_no == 0)
+                return 0; // Nothing to fill for GENESIS ledger.
+
             const uint64_t shard_seq_no = (r.ledger.seq_no - 1) / ledger::BLOB_SHARD_SIZE;
             const std::string file_vpath = std::string(ledger::BLOB_DIR) + "/" + std::to_string(shard_seq_no) + "/" + util::to_hex(r.ledger.ledger_hash) + ".blob";
             const std::string file_path = ledger::ledger_fs.physical_path(fs_sess_name, file_vpath);

@@ -840,8 +840,10 @@ namespace msg::usrmsg::json
 
     void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results)
     {
-        for (const ledger::query::query_result_record &r : results)
+        for (size_t i = 0; i < results.size(); i++)
         {
+            const ledger::query::query_result_record &r = results[i];
+
             msg += "{\"";
             msg += msg::usrmsg::FLD_SEQ_NO;
             msg += SEP_COLON_NOQUOTE;
@@ -899,29 +901,33 @@ namespace msg::usrmsg::json
                 populate_ledger_blob_map(msg, *r.raw_outputs);
             }
 
-            msg += "}";
+            msg += (i == (results.size() - 1) ? "}" : "},");
         }
     }
 
     void populate_ledger_blob_map(std::vector<uint8_t> &msg, const ledger::query::blob_map &blob_map)
     {
         msg += "[";
-        for (const auto &[pubkey, blobs] : blob_map)
+        for (auto itr = blob_map.begin(); itr != blob_map.end();)
         {
             msg += "{\"";
             msg += msg::usrmsg::FLD_PUBKEY;
             msg += SEP_COLON;
-            msg += util::to_hex(pubkey);
+            msg += util::to_hex(itr->first);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_BLOBS;
             msg += "\":[";
+
+            const std::vector<std::string> &blobs = itr->second;
             for (size_t i = 0; i < blobs.size(); i++)
             {
                 msg += "\"";
                 msg += util::to_hex(blobs[i]);
                 msg += (i == (blobs.size() - 1) ? "\"" : "\",");
             }
-            msg += "]}";
+
+            itr++;
+            msg += (itr == blob_map.end() ? "]}" : "]},");
         }
         msg += "]";
     }
