@@ -60,7 +60,7 @@ namespace ledger::query
     int fill_blob_data(std::vector<query_result_record> &records, const bool raw_inputs, const bool raw_outputs, const std::string &fs_sess_name)
     {
         // If blob data is not requested to be filled, the relevant field (inputs or outputs) in each result will contain NULL.
-        // If blob data is requested to be filled, then the felevant field will contain the map of blobs or empty map.
+        // If blob data is requested to be filled, then the relevant field will contain the map of blobs or empty map.
 
         if (!raw_inputs && !raw_outputs)
             return 0; // Nothing to fill.
