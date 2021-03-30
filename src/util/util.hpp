@@ -12,14 +12,17 @@
 
 namespace util
 {
-    // Hot Pocket version. Displayed on 'hotpocket version' and written to new configs.
+    // Hot Pocket version. Displayed on 'hpcore version' and written to new configs.
     constexpr const char *HP_VERSION = "1.0.0";
+
+    // Ledger file storage version. All nodes in a cluster MUST use the same ledger version.
+    constexpr const char *LEDGER_VERSION = "1.0.0";
 
     // Minimum compatible config version (this will be used to validate configs).
     constexpr const char *MIN_CONFIG_VERSION = "1.0.0";
 
-    // HP version header size.
-    constexpr const int HP_VERSION_HEADER_SIZE = 16;
+    // Version header size in bytes when serialized in binary format. (applies to hp version as well as ledger version)
+    constexpr const size_t VERSION_HEADER_SIZE = 8;
 
     /**
      * The messaging protocol used in a web socket channel.
@@ -90,7 +93,7 @@ namespace util
 
     uint64_t uint64_from_bytes(const uint8_t *data);
 
-    int create_hp_version_header(uint8_t *header, std::string_view hp_version);
+    int create_version_header(uint8_t *header, std::string_view version);
 
 } // namespace util
 

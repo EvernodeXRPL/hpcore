@@ -60,7 +60,7 @@ namespace msg::usrmsg::json
         msg += "{\"";
         msg += msg::usrmsg::FLD_HP_VERSION;
         msg += SEP_COLON;
-        msg += conf::cfg.hp_version;
+        msg += util::HP_VERSION;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -151,7 +151,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_HP_VERSION;
         msg += SEP_COLON;
-        msg += conf::cfg.hp_version;
+        msg += util::HP_VERSION;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;

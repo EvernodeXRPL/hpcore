@@ -495,39 +495,46 @@ namespace util
     }
 
     /**
-     * Create 16 byte hp version header. First 6 bytes contains the hp version and the 
-     * next 10 bytes are reserved for future use.
+     * Create 16 byte version header from version string. First 6 bytes contains the 3 version components and the 
+     * next 2 bytes are reserved for future use.
      * @param header Header byte array to be populated with header data.
-     * @param hp_version Current hp version string.
+     * @param version Version string.
      * @return Returns -1 on error and 0 on success.
     */
-    int create_hp_version_header(uint8_t *header, std::string_view hp_version)
+    int create_version_header(uint8_t *header, std::string_view version)
     {
+        memset(header, 0, VERSION_HEADER_SIZE);
+
         const std::string delimeter = ".";
         size_t start = 0;
-        size_t end = hp_version.find(delimeter);
+        size_t end = version.find(delimeter);
 
         if (end == std::string::npos)
+        {
+            LOG_ERROR << "Invalid version " << version;
             return -1;
+        }
 
-        const uint16_t major = atoi(hp_version.substr(start, end - start).data());
+        const uint16_t major = atoi(version.substr(start, end - start).data());
 
         start = end + delimeter.length();
-        end = hp_version.find(delimeter, start);
+        end = version.find(delimeter, start);
 
         if (end == std::string::npos)
+        {
+            LOG_ERROR << "Invalid version " << version;
             return -1;
+        }
 
-        const uint16_t minor = atoi(hp_version.substr(start, end - start).data());
+        const uint16_t minor = atoi(version.substr(start, end - start).data());
         start = end + delimeter.length();
-        end = hp_version.find(delimeter, start);
+        end = version.find(delimeter, start);
 
-        const uint16_t patch = atoi(hp_version.substr(start).data());
+        const uint16_t patch = atoi(version.substr(start).data());
+
         uint16_to_bytes(&header[0], major);
         uint16_to_bytes(&header[2], minor);
         uint16_to_bytes(&header[4], patch);
-        // Make remaining bytes to zero for future use.
-        memset(&header[6], 0, 10);
 
         return 0;
     }

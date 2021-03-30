@@ -20,13 +20,14 @@ namespace ledger
 {
     ledger_context ctx;
     ledger_record genesis;
-    constexpr uint32_t LEDGER_FS_ID = 1;
     ledger::ledger_mount ledger_fs;         // Global ledger file system instance.
     ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
     ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
     std::shared_mutex primary_index_file_mutex;
+    uint8_t ledger_version_header[util::VERSION_HEADER_SIZE];
 
+    constexpr uint32_t LEDGER_FS_ID = 1;
     constexpr int FILE_PERMS = 0644;
 
     /**
@@ -34,6 +35,10 @@ namespace ledger
     */
     int init()
     {
+        // Setup version header bytes.
+        if (util::create_version_header(ledger_version_header, util::LEDGER_VERSION) == -1)
+            return -1;
+
         // Setup the static genesis ledger fields.
         {
             const std::string empty_hash = std::string(util::h32_empty.to_string_view());
@@ -225,7 +230,7 @@ namespace ledger
             }
 
             // Create and update the hp_version table with current hp version.
-            if (sqlite::create_hp_version_table_and_update(*db, conf::cfg.hp_version) == -1)
+            if (sqlite::create_hp_version_table_and_update(*db, util::LEDGER_VERSION) == -1)
             {
                 LOG_ERROR << errno << ": Error creating and updating hp version table, shard: " << std::to_string(shard_seq_no);
                 return -1;
@@ -249,14 +254,6 @@ namespace ledger
                 }
             }
 
-            // Creating the hp_version header.
-            uint8_t hp_version_header[util::HP_VERSION_HEADER_SIZE];
-            if (util::create_hp_version_header(hp_version_header, conf::cfg.hp_version) == -1)
-            {
-                LOG_ERROR << "Error creating version header for prev_shard.hash in primary shard " << std::to_string(shard_seq_no);
-                return -1;
-            }
-
             // Write the prev_shard.hash to the new folder.
             const std::string shard_hash_file_path = shard_path + PREV_SHARD_HASH_FILENAME;
             const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
@@ -267,8 +264,8 @@ namespace ledger
             }
 
             struct iovec iov_vec[2];
-            iov_vec[0].iov_base = hp_version_header;
-            iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+            iov_vec[0].iov_base = ledger_version_header;
+            iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
 
             iov_vec[1].iov_base = &prev_shard_hash;
             iov_vec[1].iov_len = sizeof(util::h32);
@@ -378,7 +375,7 @@ namespace ledger
 
             util::h32 prev_shard_hash_from_file;
             // Start reading hash excluding hp_version header.
-            const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), util::HP_VERSION_HEADER_SIZE);
+            const int res = pread(fd, &prev_shard_hash_from_file, sizeof(util::h32), util::VERSION_HEADER_SIZE);
             close(fd);
             if (res == -1)
             {
@@ -424,14 +421,6 @@ namespace ledger
             should_create_folder = true;
         }
 
-        // Creating the hp_version header.
-        uint8_t hp_version_header[util::HP_VERSION_HEADER_SIZE];
-        if (util::create_hp_version_header(hp_version_header, conf::cfg.hp_version) == -1)
-        {
-            LOG_ERROR << "Error creating version header for prev_shard.hash in blob shard " << std::to_string(last_blob_shard_seq_no);
-            return -1;
-        }
-
         // Create the required shard folder if not already existing.
         if (should_create_folder)
         {
@@ -464,8 +453,8 @@ namespace ledger
             }
 
             struct iovec iov_vec[2];
-            iov_vec[0].iov_base = hp_version_header;
-            iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+            iov_vec[0].iov_base = ledger_version_header;
+            iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
 
             iov_vec[1].iov_base = &prev_shard_hash;
             iov_vec[1].iov_len = sizeof(util::h32);
@@ -523,8 +512,8 @@ namespace ledger
         }
 
         struct iovec iov_vec[2];
-        iov_vec[0].iov_base = hp_version_header;
-        iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+        iov_vec[0].iov_base = ledger_version_header;
+        iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
 
         iov_vec[1].iov_base = builder.GetBufferPointer();
         iov_vec[1].iov_len = builder.GetSize();
@@ -629,7 +618,7 @@ namespace ledger
             }
         }
         uint8_t last_shard_seq_no_buf[8];
-        if (pread(fd, last_shard_seq_no_buf, sizeof(last_shard_seq_no_buf), util::HP_VERSION_HEADER_SIZE) == -1)
+        if (pread(fd, last_shard_seq_no_buf, sizeof(last_shard_seq_no_buf), util::VERSION_HEADER_SIZE) == -1)
         {
             LOG_ERROR << errno << ": Error reading " << last_shard_seq_no_path;
             close(fd);
@@ -660,14 +649,6 @@ namespace ledger
         const std::string last_shard_seq_no_vpath = shard_parent_dir + SHARD_SEQ_NO_FILENAME;
         const std::string last_shard_seq_no_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, last_shard_seq_no_vpath);
 
-        // Creating the hp_version header.
-        uint8_t hp_version_header[util::HP_VERSION_HEADER_SIZE];
-        if (util::create_hp_version_header(hp_version_header, conf::cfg.hp_version) == -1)
-        {
-            LOG_ERROR << "Error creating version header for max_shard.seq_no in " << shard_parent_dir;
-            return -1;
-        }
-
         // Open max_shard.seq_no in given parent directory.
         const int fd = open(last_shard_seq_no_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
         if (fd == -1)
@@ -679,8 +660,8 @@ namespace ledger
         util::uint64_to_bytes(seq_no_byte_str, last_shard_seq_no);
 
         struct iovec iov_vec[2];
-        iov_vec[0].iov_base = hp_version_header;
-        iov_vec[0].iov_len = util::HP_VERSION_HEADER_SIZE;
+        iov_vec[0].iov_base = ledger_version_header;
+        iov_vec[0].iov_len = util::VERSION_HEADER_SIZE;
 
         iov_vec[1].iov_base = seq_no_byte_str;
         iov_vec[1].iov_len = sizeof(seq_no_byte_str);
