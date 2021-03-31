@@ -17,8 +17,8 @@ namespace p2p
     constexpr uint16_t HPFS_REQ_LIST_CAP = 64;        // Maximum state request count.
     constexpr uint16_t HPFS_RES_LIST_CAP = 64;        // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 64;            // Maximum peer count.
-    constexpr uint16_t LOG_RECORD_REQ_LIST_CAP = 64;  // Maximum history request count.
-    constexpr uint16_t LOG_RECORD_RES_LIST_CAP = 64;  // Maximum history response count.
+    constexpr uint16_t LOG_RECORD_REQ_LIST_CAP = 64;  // Maximum log record request count.
+    constexpr uint16_t LOG_RECORD_RES_LIST_CAP = 64;  // Maximum log record response count.
 
     // Struct to represent information about a peer.
     // Initially available capacity is set to -1 and timestamp is set to 0.

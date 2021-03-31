@@ -701,6 +701,7 @@ namespace ledger
         {
             LOG_ERROR << "Error getting ledger by sequence number: " << std::to_string(seq_no);
             sqlite::close_db(&db);
+            ledger_fs.stop_ro_session(session_name);
             return -1;
         }
         sqlite::close_db(&db);

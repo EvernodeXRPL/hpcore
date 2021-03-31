@@ -18,7 +18,6 @@ namespace hpfs
     constexpr const char *HMAP_CHILDREN = "::hpfs.hmap.children";
 
     constexpr const char *ROOT_PATH = "/";
-
     constexpr const char *INDEX_UPDATE = "/::hpfs.index";
     constexpr const char *LOG_INDEX_FILENAME = "/log.hpfs.idx";
 
