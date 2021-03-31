@@ -364,8 +364,7 @@ namespace hpfs
     /**
      * This returns the hash of a given parent.
      * @param parent_vpath vpath of the parent file or directory.
-     * @return Returns the hash of the given vpath if available or 
-     * an empth h32 hash if parent vpath not available.
+     * @return The hash of the given vpath if available or an empth h32 hash if parent vpath not available.
     */
     const util::h32 hpfs_mount::get_parent_hash(const std::string &parent_vpath)
     {
@@ -420,7 +419,7 @@ namespace hpfs
     /**
      * Invoke log file and hpfs index file starting from the given sequence number. This function is a blocking call.
      * @param seq_no Sequence number to start truncation from.
-     * @return Returns -1 on error and 0 on success.
+     * @return -1 on error and 0 on success.
     */
     int hpfs_mount::truncate_log_file(const uint64_t seq_no)
     {
@@ -438,7 +437,7 @@ namespace hpfs
     /**
      * Get the last sequence number updated in the index file.
      * @param seq_no The last sequence number.
-     * @return Returns -1 on error and 0 on success.
+     * @return -1 on error and 0 on success.
     */
     int hpfs_mount::get_last_seq_no_from_index(uint64_t &seq_no)
     {
@@ -467,7 +466,7 @@ namespace hpfs
      * Get the root hash for the given sequence number from hpfs index file.
      * @param hash Root hash in the state of given sequence number.
      * @param seq_no Sequence number to get the root hash of.
-     * @return Returns -1 on error and 0 on success.
+     * @return -1 on error and 0 on success.
     */
     int hpfs_mount::get_hash_from_index_by_seq_no(util::h32 &hash, const uint64_t seq_no)
     {
@@ -494,15 +493,14 @@ namespace hpfs
      * Returns root hash when the two childrens are given.
      * @param child_one First child of the root.
      * @param child_two Second child of the root.
-     * @return Returns the calculated root hash.
+     * @return The calculated root hash.
     */
     const util::h32 get_root_hash(const util::h32 &child_one, const util::h32 &child_two)
     {
         util::h32 name_hash;
-        name_hash = crypto::get_hash(util::get_name(ROOT_PATH));
+        name_hash = crypto::get_hash(ROOT_PATH);
 
         util::h32 root_hash = name_hash;
-        root_hash ^= util::h32_empty;
         root_hash ^= child_one;
         root_hash ^= child_two;
 
@@ -513,7 +511,7 @@ namespace hpfs
      * Returns root hash when the two childrens are given.
      * @param child_one First child of the root.
      * @param child_two Second child of the root.
-     * @return Returns the calculated root hash.
+     * @return The calculated root hash.
     */
     const util::h32 get_root_hash(std::string_view child_one, std::string_view child_two)
     {

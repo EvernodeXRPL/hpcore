@@ -14,7 +14,7 @@
 #include "unl.hpp"
 #include "ledger/ledger.hpp"
 #include "consensus.hpp"
-#include "sc/log_sync.hpp"
+#include "sc/hpfs_log_sync.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -229,7 +229,7 @@ namespace consensus
 
                 if (conf::cfg.node.history == conf::HISTORY::FULL)
                 {
-                    sc::log_sync::set_sync_target(p2p::sequence_hash{ledger::ctx.get_lcl_id().seq_no + 1, hpfs::get_root_hash(majority_patch_hash, majority_state_hash)});
+                    sc::hpfs_log_sync::set_sync_target(p2p::sequence_hash{ledger::ctx.get_lcl_id().seq_no + 1, hpfs::get_root_hash(majority_patch_hash, majority_state_hash)});
                 }
                 else
                 {
@@ -287,9 +287,10 @@ namespace consensus
      */
     void check_sync_completion()
     {
+        const bool is_contract_syncing = (conf::cfg.node.history == conf::HISTORY::FULL) ? sc::hpfs_log_sync::sync_ctx.is_syncing : sc::contract_sync_worker.is_syncing;
         // In ledger sync we only concern about last shard sync status to proceed with consensus.
-        const bool is_contract_syncing = (conf::cfg.node.history == conf::HISTORY::FULL) ? sc::log_sync::sync_ctx.is_syncing : sc::contract_sync_worker.is_syncing;
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !is_contract_syncing && !ledger::ledger_sync_worker.is_last_primary_shard_syncing && !ledger::ledger_sync_worker.is_last_blob_shard_syncing)
+        const bool is_ledger_syncing = ledger::ledger_sync_worker.is_last_primary_shard_syncing || ledger::ledger_sync_worker.is_last_blob_shard_syncing;
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !is_contract_syncing && !is_ledger_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 

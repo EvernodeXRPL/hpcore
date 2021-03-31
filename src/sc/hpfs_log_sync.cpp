@@ -1,4 +1,4 @@
-#include "log_sync.hpp"
+#include "hpfs_log_sync.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../ledger/ledger.hpp"
@@ -6,10 +6,15 @@
 #include "../ledger/sqlite.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
-namespace sc::log_sync
+
+/**
+ * This namespace is responsible for contract state syncing in full history modes. Full history nodes cannot use normal hpfs sync since replay ability should be preserved.
+ * Hence log file records are requested from another full history node.
+*/
+namespace sc::hpfs_log_sync
 {
     constexpr int FILE_PERMS = 0644;
-    constexpr uint16_t SYNCER_IDLE_WAIT = 20; // lcl syncer loop sleep time (milliseconds).
+    constexpr uint16_t SYNCER_IDLE_WAIT = 20; // log syncer loop sleep time (milliseconds).
 
     // Max no. of repetitive reqeust resubmissions before abandoning the sync.
     constexpr uint16_t ABANDON_THRESHOLD = 10;
@@ -21,13 +26,13 @@ namespace sc::log_sync
     bool init_success = false;
 
     /**
-     * Retrieve ledger history information from persisted ledgers.
+     * Initialize log record syncer.
      */
     int init()
     {
         REQUEST_RESUBMIT_TIMEOUT = conf::cfg.contract.roundtime;
 
-        sync_ctx.log_record_sync_thread = std::thread(log_record_syncer_loop);
+        sync_ctx.log_record_sync_thread = std::thread(hpfs_log_syncer_loop);
 
         init_success = true;
         return 0;
@@ -61,32 +66,32 @@ namespace sc::log_sync
     }
 
     /**
-     * Runs the lcl sync worker loop.
+     * Runs the log sync worker loop.
      */
-    void log_record_syncer_loop()
+    void hpfs_log_syncer_loop()
     {
         util::mask_signal();
 
-        LOG_INFO << "log record sync: Worker started.";
+        LOG_INFO << "hpfs log sync: Worker started.";
 
         while (!sync_ctx.is_shutting_down)
         {
             // Indicates whether any requests/responses were processed in the loop iteration.
             bool processed = false;
 
-            // Perform lcl sync activities.
+            // Perform log sync activities.
             {
                 std::scoped_lock<std::mutex> lock(sync_ctx.target_log_record_mutex);
                 if (!sync_ctx.target_log_record.empty())
-                    send_log_record_sync_request(); // Send lcl requests if needed (or abandon if sync timeout).
+                    send_hpfs_log_sync_request(); // Send log record requests if needed (or abandon if sync timeout).
 
                 // Process any history responses from other nodes.
-                if (!sync_ctx.target_log_record.empty() && check_log_record_sync_responses() == 1)
+                if (!sync_ctx.target_log_record.empty() && check_hpfs_log_sync_responses() == 1)
                     processed = true;
             }
 
             // Serve any history requests from other nodes.
-            if (check_log_record_sync_requests() == 1)
+            if (check_hpfs_log_sync_requests() == 1)
                 processed = true;
 
             // Wait a small delay if there were no requests/responses processed during previous iteration.
@@ -94,13 +99,13 @@ namespace sc::log_sync
                 util::sleep(SYNCER_IDLE_WAIT);
         }
 
-        LOG_INFO << "log record sync: Worker stopped.";
+        LOG_INFO << "hpfs log sync: Worker stopped.";
     }
 
     /**
      * Submits/resubmits log record requests as needed. Abandons sync if threshold reached.
      */
-    void send_log_record_sync_request()
+    void send_hpfs_log_sync_request()
     {
         // Check whether we need to send any requests or abandon the sync due to timeout.
         const uint64_t time_now = util::get_epoch_milliseconds();
@@ -110,7 +115,7 @@ namespace sc::log_sync
             if (sync_ctx.request_submissions < ABANDON_THRESHOLD)
             {
                 flatbuffers::FlatBufferBuilder fbuf;
-                p2pmsg::create_msg_from_log_record_request(fbuf, {sync_ctx.target_log_record, sync_ctx.min_log_record});
+                p2pmsg::create_msg_from_hpfs_log_request(fbuf, {sync_ctx.target_log_record, sync_ctx.min_log_record});
                 std::string target_pubkey;
                 p2p::send_message_to_random_peer(fbuf, target_pubkey, true);
                 if (!target_pubkey.empty())
@@ -121,7 +126,7 @@ namespace sc::log_sync
             }
             else
             {
-                LOG_INFO << "log record sync: Resubmission threshold exceeded. Abandoning sync.";
+                LOG_INFO << "hpfs log sync: Resubmission threshold exceeded. Abandoning sync.";
                 sync_ctx.clear_target();
             }
         }
@@ -131,10 +136,10 @@ namespace sc::log_sync
      * Processes any log record responses we have received from other peers.
      * @return 0 if no respones were processed. 1 if at least one response was processed.
      */
-    int check_log_record_sync_responses()
+    int check_hpfs_log_sync_responses()
     {
         // Move over the collected responses to the local list.
-        std::list<std::pair<std::string, p2p::log_record_response>> log_record_responses;
+        std::list<std::pair<std::string, p2p::hpfs_log_response>> log_record_responses;
 
         {
             std::scoped_lock lock(p2p::ctx.collected_msgs.log_record_response_mutex);
@@ -148,13 +153,13 @@ namespace sc::log_sync
     }
 
     /**
-     * Serves any lcl requests we have received from other peers.
+     * Serves any log record requests we have received from other peers.
      * @return 0 if no requests were served. 1 if at least one request was served.
      */
-    int check_log_record_sync_requests()
+    int check_hpfs_log_sync_requests()
     {
         // // Move over the collected requests to the local list.
-        std::list<std::pair<std::string, p2p::log_record_request>> log_record_requests;
+        std::list<std::pair<std::string, p2p::hpfs_log_request>> log_record_requests;
 
         {
             std::scoped_lock lock(p2p::ctx.collected_msgs.log_record_request_mutex);
@@ -167,11 +172,11 @@ namespace sc::log_sync
         for (const auto &[session_id, lr] : log_record_requests)
         {
             flatbuffers::FlatBufferBuilder fbuf(1024);
-            p2p::log_record_response resp;
+            p2p::hpfs_log_response resp;
             resp.max_record_id = lr.target_record_id;
             resp.min_record_id = lr.min_record_id;
             resp.log_record_bytes = std::vector<uint8_t>();
-            p2pmsg::create_msg_from_log_record_response(fbuf, resp);
+            p2pmsg::create_msg_from_hpfs_log_response(fbuf, resp);
             std::string_view msg = std::string_view(reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
             // Find the peer that we should send the history response to.
@@ -189,9 +194,9 @@ namespace sc::log_sync
     }
 
     /**
-     * Check requested lcl is in node's lcl history cache.
-     * @param hr lcl history request information.
-     * @return true if requested lcl is in lcl history cache.
+     * Check requested sequence number is in node's log file.
+     * @param lr log record request information.
+     * @return true if requested sequence number is in node's log file.
      */
     bool check_required_log_record_availability(const p2p::sequence_hash &min_log_record)
     {
@@ -200,17 +205,17 @@ namespace sc::log_sync
 
     /**
      * Handle recieved ledger history response.
-     * @param hr lcl history request information.
-     * @return 0 on successful lcl update. -1 on failure.
+     * @param lr log record request information.
+     * @return 0 on successful log update. -1 on failure.
      */
-    int handle_ledger_history_response(const p2p::log_record_response &hr, std::string &new_lcl)
+    int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &hr, std::string &new_log_record_seqno)
     {
         return 0;
     }
 
     /**
      * Get the verified minimum required ledger.
-     * @return Returns -1 on error, 0 on successfully setting minimum target and returns 1 if already in sync.
+     * @return -1 on error, 0 on successfully setting minimum target and returns 1 if already in sync.
     */
     int get_verified_min_record()
     {
@@ -249,34 +254,14 @@ namespace sc::log_sync
         }
         else if (last_from_ledger.seq_no > last_from_index.seq_no)
         {
-            sqlite3 *db = NULL;
-            const char *session_name = "get_min_verified_ledger_record";
-            if (ledger::ledger_fs.start_ro_session(session_name, false) == -1)
-                return -1;
-
-            const uint64_t shard_seq_no = (last_from_index.seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
-
-            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no);
-
-            if (ledger::sqlite::open_db(shard_path + "/" + ledger::DATABASE, &db) == -1)
+            util::h32 root_hash_from_ledger;
+            if (ledger::get_root_hash_from_ledger(root_hash_from_ledger, last_from_index.seq_no) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
-                ledger::ledger_fs.stop_ro_session(session_name);
+                LOG_ERROR << "Error getting root hash from ledger for sequence number: " << last_from_index.seq_no;
                 return -1;
             }
 
-            ledger::ledger_record ledger;
-            if (ledger::sqlite::get_ledger_by_seq_no(db, last_from_index.seq_no, ledger) == -1)
-            {
-                LOG_ERROR << "Error getting ledger by sequence number: " << std::to_string(last_from_index.seq_no);
-                ledger::sqlite::close_db(&db);
-                ledger::ledger_fs.stop_ro_session(session_name);
-                return -1;
-            }
-            ledger::sqlite::close_db(&db);
-            ledger::ledger_fs.stop_ro_session(session_name);
-
-            if (hpfs::get_root_hash(ledger.config_hash, ledger.state_hash) == last_from_index.hash)
+            if (root_hash_from_ledger == last_from_index.hash)
             {
                 std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
                 sync_ctx.min_log_record = last_from_index;
@@ -308,7 +293,7 @@ namespace sc::log_sync
      * Set the joining point as the minimum log record in a case of fork condition by checking index file data
      * against synced ledger data.
      * @param starting_point Starting sequence number to backtrack until a joining state is found. If no joining point is found, min is set to genesis.
-     * @return Returns -1 on error and 0 on success.
+     * @return -1 on error and 0 on success.
     */
     int set_joining_point_for_fork(const uint64_t starting_point)
     {
@@ -345,7 +330,7 @@ namespace sc::log_sync
 
                 if (ledger::sqlite::open_db(shard_path + "/" + ledger::DATABASE, &db) == -1)
                 {
-                    LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
+                    LOG_ERROR << errno << ": Error openning the shard database, shard: " << shard_seq_no;
                     ledger::ledger_fs.stop_ro_session(session_name);
                     return -1;
                 }
@@ -356,7 +341,7 @@ namespace sc::log_sync
             ledger::ledger_record ledger;
             if (ledger::sqlite::get_ledger_by_seq_no(db, current_seq_no, ledger) == -1)
             {
-                LOG_ERROR << "Error getting ledger by sequence number: " << std::to_string(current_seq_no);
+                LOG_ERROR << "Error getting ledger by sequence number: " << current_seq_no;
                 ledger::sqlite::close_db(&db);
                 ledger::ledger_fs.stop_ro_session(session_name);
                 return -1;
@@ -367,7 +352,7 @@ namespace sc::log_sync
             // Get root hash for the current seq number from index file.
             if (sc::contract_fs.get_hash_from_index_by_seq_no(index_root_hash, current_seq_no) == -1)
             {
-                LOG_ERROR << "Error getting hash from index by sequence number: " << std::to_string(current_seq_no);
+                LOG_ERROR << "Error getting hash from index by sequence number: " << current_seq_no;
                 ledger::sqlite::close_db(&db);
                 ledger::ledger_fs.stop_ro_session(session_name);
                 return -1;
@@ -385,7 +370,7 @@ namespace sc::log_sync
             // Remove the full log and index file data and start from scratch.
             if (sc::contract_fs.truncate_log_file(1) == -1)
             {
-                LOG_ERROR << "Error truncating hpfs log file and index file from : " << std::to_string(current_seq_no - 1);
+                LOG_ERROR << "Error truncating hpfs log file and index file from : " << (current_seq_no - 1);
                 return -1;
             }
             // Request full ledger
@@ -400,7 +385,7 @@ namespace sc::log_sync
             // We have to truncate keeping the joining record. +1 is added to account that.
             if (sc::contract_fs.truncate_log_file(current_seq_no + 1) == -1)
             {
-                LOG_ERROR << "Error truncating hpfs log file and index file from : " << std::to_string(current_seq_no + 1);
+                LOG_ERROR << "Error truncating hpfs log file and index file from : " << (current_seq_no + 1);
                 return -1;
             }
             // we have found the joining point

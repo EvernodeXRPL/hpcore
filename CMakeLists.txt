@@ -43,7 +43,7 @@ add_executable(hpcore
     src/sc/contract_serve.cpp
     src/sc/contract_sync.cpp
     src/sc/sc.cpp
-    src/sc/log_sync.cpp
+    src/sc/hpfs_log_sync.cpp
     src/comm/comm_session.cpp
     src/msg/fbuf/common_helpers.cpp
     src/msg/fbuf/ledger_helpers.cpp

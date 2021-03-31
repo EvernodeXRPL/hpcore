@@ -10,7 +10,7 @@
 #include "../util/version.hpp"
 #include "contract_serve.hpp"
 #include "sc.hpp"
-#include "log_sync.hpp"
+#include "hpfs_log_sync.hpp"
 
 namespace sc
 {
@@ -43,7 +43,7 @@ namespace sc
 
         if (conf::cfg.node.history == conf::HISTORY::FULL)
         {
-            log_sync::init();
+            hpfs_log_sync::init();
         }
         else
         {
@@ -59,7 +59,7 @@ namespace sc
     void deinit()
     {
         if (conf::cfg.node.history == conf::HISTORY::FULL)
-            log_sync::deinit();
+            hpfs_log_sync::deinit();
         else
             contract_sync_worker.deinit();
 

@@ -27,7 +27,7 @@ namespace hpfs
         return conf::cfg.contract.roundtime;
     }
 
-    const util::h32 get_root_hash(const util::h32 &patch_hash, const util::h32 &state_hash);
+    const util::h32 get_root_hash(const util::h32 &child_one, const util::h32 &child_two);
 
     const util::h32 get_root_hash(std::string_view child_one, std::string_view child_two);
 

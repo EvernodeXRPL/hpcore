@@ -132,15 +132,15 @@ namespace p2p
         util::h32 expected_hash; // The expected hash of the requested result.
     };
 
-    // Represents full history log record request.
-    struct log_record_request
+    // Represents hpfs log sync request.
+    struct hpfs_log_request
     {
         sequence_hash target_record_id;
         sequence_hash min_record_id;
     };
 
-    // Represents full history log record responses.
-    struct log_record_response
+    // Represents hpfs log sync response.
+    struct hpfs_log_response
     {
         sequence_hash min_record_id;
         sequence_hash max_record_id;
@@ -195,12 +195,12 @@ namespace p2p
         std::list<std::pair<std::string, std::string>> ledger_hpfs_responses;
         std::mutex ledger_hpfs_responses_mutex; // Mutex for ledger fs hpfs responses access race conditions.
 
-        // Lists holding log record requests and responses collected from incoming p2p messages.
-        std::list<std::pair<std::string, p2p::log_record_request>> log_record_requests;
-        std::mutex log_record_request_mutex; // Mutex for log record request access race conditions.
+        // Lists holding hpfs log requests and responses collected from incoming p2p messages.
+        std::list<std::pair<std::string, p2p::hpfs_log_request>> log_record_requests;
+        std::mutex log_record_request_mutex; // Mutex for hpfs log request access race conditions.
 
-        std::list<std::pair<std::string, p2p::log_record_response>> log_record_responses;
-        std::mutex log_record_response_mutex; // Mutex for log record responses access race conditions.
+        std::list<std::pair<std::string, p2p::hpfs_log_response>> log_record_responses;
+        std::mutex log_record_response_mutex; // Mutex for hpfs log responses access race conditions.
     };
 
     struct connected_context

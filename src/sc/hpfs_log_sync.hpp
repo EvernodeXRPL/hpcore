@@ -1,10 +1,14 @@
-#ifndef _HP_SC_FULL_HISTORY_SYNC
-#define _HP_SC_FULL_HISTORY_SYNC
+#ifndef _HP_SC_HPFS_LOG_SYNC
+#define _HP_SC_HPFS_LOG_SYNC
 
 #include "../pchheader.hpp"
 #include "../p2p/p2p.hpp"
 
-namespace sc::log_sync
+/**
+ * This namespace is responsible for contract state syncing in full history modes. Full history nodes cannot use normal hpfs sync since replay ability should be preserved.
+ * Hence log file records are requested from another full history node.
+*/
+namespace sc::hpfs_log_sync
 {
     struct sync_context
     {
@@ -37,17 +41,17 @@ namespace sc::log_sync
 
     void set_sync_target(const p2p::sequence_hash target);
 
-    void log_record_syncer_loop();
+    void hpfs_log_syncer_loop();
 
-    void send_log_record_sync_request();
+    void send_hpfs_log_sync_request();
 
-    int check_log_record_sync_responses();
+    int check_hpfs_log_sync_responses();
 
-    int check_log_record_sync_requests();
+    int check_hpfs_log_sync_requests();
 
     bool check_required_log_record_availability(const p2p::sequence_hash &min_log_record);
 
-    int handle_ledger_history_response(const p2p::log_record_response &hr, std::string &new_lcl);
+    int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &hr, std::string &new_lcl);
 
     int get_verified_min_record();
 
