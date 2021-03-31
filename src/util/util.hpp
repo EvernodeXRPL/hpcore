@@ -12,15 +12,6 @@
 
 namespace util
 {
-    // Hot Pocket version. Displayed on 'hotpocket version' and written to new configs.
-    constexpr const char *HP_VERSION = "1.0.0";
-
-    // Minimum compatible config version (this will be used to validate configs).
-    constexpr const char *MIN_CONFIG_VERSION = "1.0.0";
-
-    // HP version header size.
-    constexpr const int HP_VERSION_HEADER_SIZE = 16;
-
     /**
      * The messaging protocol used in a web socket channel.
      */
@@ -37,8 +28,6 @@ namespace util
     uint64_t get_epoch_milliseconds();
 
     void sleep(const uint64_t milliseconds);
-
-    int version_compare(const std::string &x, const std::string &y);
 
     const std::string realpath(const std::string &path);
 
@@ -72,7 +61,7 @@ namespace util
 
     const std::string get_name(std::string_view path);
 
-    int read_from_fd(const int fd, std::string &buf);
+    int read_from_fd(const int fd, std::string &buf, const off_t offset = 0);
 
     int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len);
 
@@ -89,8 +78,6 @@ namespace util
     void uint64_to_bytes(uint8_t *dest, const uint64_t x);
 
     uint64_t uint64_from_bytes(const uint8_t *data);
-
-    int create_hp_version_header(uint8_t *header, std::string_view hp_version);
 
 } // namespace util
 

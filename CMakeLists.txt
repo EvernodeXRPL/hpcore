@@ -24,6 +24,7 @@ add_executable(appbill
 #-------hpcore-------
 
 add_executable(hpcore
+    src/util/version.cpp
     src/util/util.cpp
     src/util/rollover_hashset.cpp
     src/util/ttl_set.cpp

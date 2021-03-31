@@ -55,42 +55,6 @@ namespace util
         std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
     }
 
-    /**
-     * Compare two version strings in the format of "1.12.3".
-     * v1 <  v2  -> returns -1
-     * v1 == v2  -> returns  0
-     * v1 >  v2  -> returns +1
-     * Error     -> returns -2
-     * 
-     * Remark on string_view: In other places of the code-base we utilize string_view
-     * to pass immutable string references around. However in this function we keep the 'const string&'
-     * syntax because istringstream doesn't support string_view. It's not worth optmising
-     * this code as it's not being used in high-scale processing.
-     */
-    int version_compare(const std::string &x, const std::string &y)
-    {
-        std::istringstream ix(x), iy(y);
-        while (ix.good() || iy.good())
-        {
-            int cx = 0, cy = 0;
-            ix >> cx;
-            iy >> cy;
-
-            if ((!ix.eof() && !ix.good()) || (!iy.eof() && !iy.good()))
-                return -2;
-
-            if (cx > cy)
-                return 1;
-            if (cx < cy)
-                return -1;
-
-            ix.ignore();
-            iy.ignore();
-        }
-
-        return 0;
-    }
-
     // Provide a safe std::string overload for realpath
     const std::string realpath(const std::string &path)
     {
@@ -368,17 +332,18 @@ namespace util
      * Reads from a given file discriptor. 
      * @param fd File descriptor to be read.
      * @param buf String buffer to be populated.
+     * @param offset Begin offset of the file to read.
      * @return Returns number of bytes read in a successful read and -1 on error.
     */
-    int read_from_fd(const int fd, std::string &buf)
+    int read_from_fd(const int fd, std::string &buf, const off_t offset)
     {
         struct stat st;
         if (fstat(fd, &st) == -1)
             return -1;
 
-        buf.resize(st.st_size);
+        buf.resize(st.st_size - offset);
 
-        return pread(fd, buf.data(), buf.size(), 0);
+        return pread(fd, buf.data(), buf.size(), offset);
     }
 
     /**
@@ -491,44 +456,6 @@ namespace util
                ((uint64_t)data[5] << 16) +
                ((uint64_t)data[6] << 8) +
                ((uint64_t)data[7]);
-    }
-
-    /**
-     * Create 16 byte hp version header. First 6 bytes contains the hp version and the 
-     * next 10 bytes are reserved for future use.
-     * @param header Header byte array to be populated with header data.
-     * @param hp_version Current hp version string.
-     * @return Returns -1 on error and 0 on success.
-    */
-    int create_hp_version_header(uint8_t *header, std::string_view hp_version)
-    {
-        const std::string delimeter = ".";
-        size_t start = 0;
-        size_t end = hp_version.find(delimeter);
-
-        if (end == std::string::npos)
-            return -1;
-
-        const uint16_t major = atoi(hp_version.substr(start, end - start).data());
-
-        start = end + delimeter.length();
-        end = hp_version.find(delimeter, start);
-
-        if (end == std::string::npos)
-            return -1;
-
-        const uint16_t minor = atoi(hp_version.substr(start, end - start).data());
-        start = end + delimeter.length();
-        end = hp_version.find(delimeter, start);
-
-        const uint16_t patch = atoi(hp_version.substr(start).data());
-        uint16_to_bytes(&header[0], major);
-        uint16_to_bytes(&header[2], minor);
-        uint16_to_bytes(&header[4], patch);
-        // Make remaining bytes to zero for future use.
-        memset(&header[6], 0, 10);
-
-        return 0;
     }
 
 } // namespace util

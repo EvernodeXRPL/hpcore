@@ -20,7 +20,7 @@ union P2PMsgContent {
 }
 
 table P2PMsg {
-    hp_version:string;
+    hp_version:[ubyte];
     created_on:uint64;
     content:P2PMsgContent;
 }

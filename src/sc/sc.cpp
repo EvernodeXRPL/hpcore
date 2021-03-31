@@ -7,6 +7,7 @@
 #include "../msg/controlmsg_common.hpp"
 #include "../msg/controlmsg_parser.hpp"
 #include "../unl.hpp"
+#include "../util/version.hpp"
 #include "contract_serve.hpp"
 #include "sc.hpp"
 #include "log_sync.hpp"
@@ -337,7 +338,7 @@ namespace sc
         // json string manually.
 
         std::ostringstream os;
-        os << "{\"hp_version\":\"" << util::HP_VERSION
+        os << "{\"hp_version\":\"" << version::HP_VERSION
            << "\",\"contract_id\":\"" << conf::cfg.contract.id
            << "\",\"pubkey\":\"" << conf::cfg.node.public_key_hex
            << "\",\"timestamp\":" << ctx.args.time

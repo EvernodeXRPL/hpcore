@@ -2,6 +2,7 @@
 #define _HP_LEDGER_LEDGER_COMMON_
 
 #include "../pchheader.hpp"
+#include "../util/h32.hpp"
 
 namespace ledger
 {
@@ -25,6 +26,17 @@ namespace ledger
         std::string user_hash;
         std::string input_hash;
         std::string output_hash;
+    };
+
+    /**
+     * Struct to hold ledger raw inputs and outputs.
+     * This is used with flatbuffers to persist to disk.
+     */
+    struct ledger_blob
+    {
+        util::h32 ledger_hash;
+        std::map<std::string, std::vector<std::string>> inputs;
+        std::map<std::string, std::vector<std::string>> outputs;
     };
 
     // Holds the global genesis ledger.

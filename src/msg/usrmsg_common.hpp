@@ -54,6 +54,9 @@ namespace msg::usrmsg
     constexpr const char *FLD_USER_HASH = "user_hash";
     constexpr const char *FLD_INPUT_HASH = "input_hash";
     constexpr const char *FLD_OUTPUT_HASH = "output_hash";
+    constexpr const char *FLD_RAW_INPUTS = "raw_inputs";
+    constexpr const char *FLD_RAW_OUTPUTS = "raw_outputs";
+    constexpr const char *FLD_BLOBS = "blobs";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -85,8 +88,6 @@ namespace msg::usrmsg
     constexpr const char *REASON_NONCE_OVERFLOW = "nonce_overflow";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
-    constexpr const char *QUERY_INCLUDE_RAW_INPUTS = "raw_inputs";
-    constexpr const char *QUERY_INCLUDE_RAW_OUTPUTS = "raw_outputs";
 
 } // namespace msg::usrmsg
 

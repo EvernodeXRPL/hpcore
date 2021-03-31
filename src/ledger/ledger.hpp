@@ -9,7 +9,6 @@
 
 namespace ledger
 {
-
     struct ledger_context
     {
     private:
@@ -61,13 +60,6 @@ namespace ledger
             std::unique_lock lock(last_blob_shard_mutex);
             last_blob_shard_id = sequence_hash_id;
         }
-    };
-
-    struct ledger_blob
-    {
-        util::h32 ledger_hash;
-        std::map<std::string, std::vector<std::string>> inputs;
-        std::map<std::string, std::vector<std::string>> outputs;
     };
 
     extern ledger_context ctx;
