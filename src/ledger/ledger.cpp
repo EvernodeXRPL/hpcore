@@ -729,13 +729,7 @@ namespace ledger
         sqlite::close_db(&db);
         ledger_fs.stop_ro_session(session_name);
 
-        util::h32 patch_hash;
-        util::h32 state_hash;
-
-        patch_hash = ledger.config_hash;
-        state_hash = ledger.state_hash;
-
-        root_hash = hpfs::get_root_hash(patch_hash, state_hash);
+        root_hash = hpfs::get_root_hash(ledger.config_hash, ledger.state_hash);
         return 0;
     }
 } // namespace ledger

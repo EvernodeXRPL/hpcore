@@ -50,5 +50,7 @@ namespace sc::log_sync
     int handle_ledger_history_response(const p2p::log_record_response &hr, std::string &new_lcl);
 
     int get_verified_min_record();
+
+    int set_joining_point_for_fork(const uint64_t starting_point);
 }
 #endif

@@ -223,34 +223,10 @@ namespace msg::fbuf::p2pmsg
         p2p::log_record_response log_record_response;
         log_record_response.min_record_id = flatbuf_seqhash_to_seqhash(msg.min_record_id());
         log_record_response.max_record_id = flatbuf_seqhash_to_seqhash(msg.max_record_id());
-        log_record_response.log_records = flatbuf_log_record_vector_to_log_record_vector(msg.log_records());
+        log_record_response.log_record_bytes.reserve(msg.log_record_bytes()->size());
+        for (const auto byte: *msg.log_record_bytes())
+            log_record_response.log_record_bytes.push_back(byte);
         return log_record_response;
-    }
-
-    const p2p::log_record flatbuf_log_record_to_log_record(const LogRecord *fblogRec)
-    {
-        p2p::log_record log_record;
-        log_record.timestamp = fblogRec->timestamp();
-        log_record.operation = (p2p::FS_OPERATION)fblogRec->operation();
-        log_record.vpath_len = fblogRec->vpath_len();
-        log_record.payload_len = fblogRec->payload_len();
-        log_record.block_data_len = fblogRec->block_data_len();
-        log_record.root_hash = flatbuf_bytes_to_sv(fblogRec->root_hash());
-
-        return log_record;
-    }
-
-    const std::vector<p2p::log_record>
-    flatbuf_log_record_vector_to_log_record_vector(const flatbuffers::Vector<flatbuffers::Offset<LogRecord>> *fbvec)
-    {
-        std::vector<p2p::log_record> records;
-
-        for (const LogRecord *record : *fbvec)
-        {
-            p2p::log_record log_record = flatbuf_log_record_to_log_record(record);
-            records.push_back(log_record);
-        }
-        return records;
     }
 
     p2p::sequence_hash flatbuf_seqhash_to_seqhash(const SequenceHash *fbseqhash)
@@ -460,7 +436,7 @@ namespace msg::fbuf::p2pmsg
             builder,
             seqhash_to_flatbuf_seqhash(builder, log_record_response.min_record_id),
             seqhash_to_flatbuf_seqhash(builder, log_record_response.max_record_id),
-            log_record_vector_to_flatbuf_log_record_vector(builder, log_record_response.log_records));
+            builder.CreateVector<uint8_t>(log_record_response.log_record_bytes));
 
         create_p2p_msg(builder, P2PMsgContent_LogRecordResponse, msg.Union());
     }
@@ -620,25 +596,6 @@ namespace msg::fbuf::p2pmsg
                     peer.ip_port.port,
                     peer.available_capacity,
                     peer.timestamp));
-        }
-        return builder.CreateVector(fbvec);
-    }
-
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<LogRecord>>>
-    log_record_vector_to_flatbuf_log_record_vector(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::log_record> &records)
-    {
-        std::vector<flatbuffers::Offset<LogRecord>> fbvec;
-        fbvec.reserve(records.size());
-        for (auto record : records)
-        {
-            fbvec.push_back(CreateLogRecord(
-                builder,
-                record.timestamp,
-                (uint8_t)record.operation,
-                record.vpath_len,
-                record.payload_len,
-                record.block_data_len,
-                hash_to_flatbuf_bytes(builder, record.root_hash)));
         }
         return builder.CreateVector(fbvec);
     }

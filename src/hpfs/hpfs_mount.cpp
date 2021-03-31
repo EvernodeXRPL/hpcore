@@ -20,6 +20,8 @@ namespace hpfs
     constexpr const char *ROOT_PATH = "/";
 
     constexpr const char *INDEX_UPDATE = "/::hpfs.index";
+    constexpr const char *LOG_INDEX_FILENAME = "/log.hpfs.idx";
+
     constexpr ino_t ROOT_INO = 1;
 
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
@@ -396,25 +398,6 @@ namespace hpfs
         }
     }
 
-    /**
-     * Returns root hash when the two childrens are given.
-     * @param child_one First child of the root.
-     * @param child_two Second child of the root.
-     * @return Returns the calculated root hash.
-    */
-    const util::h32 get_root_hash(const util::h32 &child_one, const util::h32 &child_two)
-    {
-        util::h32 name_hash;
-        name_hash = crypto::get_hash(util::get_name(ROOT_PATH));
-
-        util::h32 root_hash = name_hash;
-        root_hash ^= util::h32_empty;
-        root_hash ^= child_one;
-        root_hash ^= child_two;
-
-        return root_hash;
-    }
-
     int hpfs_mount::update_hpfs_log_index()
     {
         const std::string index_file = mount_dir + INDEX_UPDATE;
@@ -422,9 +405,9 @@ namespace hpfs
         const int fd = open(index_file.c_str(), O_RDWR);
         if (fd == -1)
             return -1;
-        
+
         // We just send empty buffer with write size 1 to invoke the hpfs index update.
-        // Write syscall isn't invoking with write size 0. 
+        // Write syscall isn't invoking with write size 0.
         if (write(fd, "", 1) == -1)
         {
             close(fd);
@@ -451,6 +434,98 @@ namespace hpfs
             return -1;
         }
         return 0;
+    }
+
+    /**
+     * Get the last sequence number updated in the index file.
+     * @param seq_no The last sequence number.
+     * @return Returns -1 on error and 0 on success.
+    */
+    int hpfs_mount::get_last_seq_no_from_index(uint64_t &seq_no)
+    {
+        const std::string path = fs_dir + "/" + LOG_INDEX_FILENAME;
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error opening hpfs index file " << path;
+            return -1;
+        }
+
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+        {
+            close(fd);
+            LOG_ERROR << errno << ": Error reading hpfs index file " << path;
+            return -1;
+        }
+        close(fd);
+        seq_no = st.st_size / (sizeof(uint64_t) + sizeof(util::h32));
+        return 0;
+    }
+
+    /**
+     * Get the root hash for the given sequence number from hpfs index file.
+     * @param hash Root hash in the state of given sequence number.
+     * @param seq_no Sequence number to get the root hash of.
+     * @return Returns -1 on error and 0 on success.
+    */
+    int hpfs_mount::get_hash_from_index_by_seq_no(util::h32 &hash, const uint64_t seq_no)
+    {
+        const std::string path = fs_dir + "/" + LOG_INDEX_FILENAME;
+        const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Error opening hpfs index file " << path;
+            return -1;
+        }
+        const off_t offset = ((seq_no - 1) * (sizeof(uint64_t) + sizeof(util::h32))) + sizeof(uint64_t);
+        if (pread(fd, &hash, sizeof(util::h32), offset) < sizeof(util::h32))
+        {
+            LOG_ERROR << errno << ": Error reading hash from the given offset " << std::to_string(offset);
+            close(fd);
+            return -1;
+        }
+        close(fd);
+        return 0;
+    }
+
+    /**
+     * Returns root hash when the two childrens are given.
+     * @param child_one First child of the root.
+     * @param child_two Second child of the root.
+     * @return Returns the calculated root hash.
+    */
+    const util::h32 get_root_hash(const util::h32 &child_one, const util::h32 &child_two)
+    {
+        util::h32 name_hash;
+        name_hash = crypto::get_hash(util::get_name(ROOT_PATH));
+
+        util::h32 root_hash = name_hash;
+        root_hash ^= util::h32_empty;
+        root_hash ^= child_one;
+        root_hash ^= child_two;
+
+        return root_hash;
+    }
+
+    /**
+     * Returns root hash when the two childrens are given.
+     * @param child_one First child of the root.
+     * @param child_two Second child of the root.
+     * @return Returns the calculated root hash.
+    */
+    const util::h32 get_root_hash(std::string_view child_one, std::string_view child_two)
+    {
+
+        util::h32 h32_child_one;
+        util::h32 h32_child_two;
+
+        h32_child_one = child_one;
+        h32_child_two = child_two;
+
+        return get_root_hash(h32_child_one, h32_child_two);
     }
 
 } // namespace hpfs

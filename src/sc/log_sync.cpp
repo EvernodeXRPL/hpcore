@@ -3,6 +3,7 @@
 #include "../crypto.hpp"
 #include "../ledger/ledger.hpp"
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
+#include "../ledger/sqlite.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 namespace sc::log_sync
@@ -54,8 +55,6 @@ namespace sc::log_sync
         if (get_verified_min_record() == -1)
             return;
 
-        LOG_INFO << "target: " << target;
-
         sync_ctx.target_requested_on = 0;
         sync_ctx.request_submissions = 0;
         sync_ctx.is_syncing = true;
@@ -99,7 +98,7 @@ namespace sc::log_sync
     }
 
     /**
-     * Submits/resubmits lcl history requests as needed. Abandons sync if threshold reached.
+     * Submits/resubmits log record requests as needed. Abandons sync if threshold reached.
      */
     void send_log_record_sync_request()
     {
@@ -116,21 +115,20 @@ namespace sc::log_sync
                 p2p::send_message_to_random_peer(fbuf, target_pubkey, true);
                 if (!target_pubkey.empty())
                 {
-                    LOG_WARNING << "log sync: Requested log record from: " << target_pubkey.substr(2, 10);
                     sync_ctx.target_requested_on = time_now;
                     sync_ctx.request_submissions++;
                 }
             }
             else
             {
-                LOG_INFO << "log sync: Resubmission threshold exceeded. Abandoning sync.";
+                LOG_INFO << "log record sync: Resubmission threshold exceeded. Abandoning sync.";
                 sync_ctx.clear_target();
             }
         }
     }
 
     /**
-     * Processes any lcl responses we have received from other peers.
+     * Processes any log record responses we have received from other peers.
      * @return 0 if no respones were processed. 1 if at least one response was processed.
      */
     int check_log_record_sync_responses()
@@ -145,25 +143,6 @@ namespace sc::log_sync
             if (!p2p::ctx.collected_msgs.log_record_responses.empty())
                 log_record_responses.splice(log_record_responses.end(), p2p::ctx.collected_msgs.log_record_responses);
         }
-
-        // const std::string current_lcl = ctx.get_lcl();
-
-        // // Scan any queued lcl history responses.
-        // // Only process the first successful item which matches with our current lcl.
-        // for (const p2p::history_response &hr : history_responses)
-        // {
-        //     if (hr.requester_lcl == current_lcl)
-        //     {
-        //         std::string new_lcl;
-        //         if (handle_ledger_history_response(hr, new_lcl) != -1)
-        //         {
-        //             LOG_INFO << "lcl sync: Sync complete. New lcl:" << new_lcl.substr(0, 15);
-        //             sync_ctx.clear_target();
-
-        //             break;
-        //         }
-        //     }
-        // }
 
         return log_record_responses.empty() ? 0 : 1;
     }
@@ -185,44 +164,13 @@ namespace sc::log_sync
                 log_record_requests.splice(log_record_requests.end(), p2p::ctx.collected_msgs.log_record_requests);
         }
 
-        // util::h32 root_hash;
-        // if (ledger::get_root_hash_from_ledger(root_hash, sync_ctx.target_log_record.seq_no) == -1)
-        //     LOG_ERROR << "error getting root hash from ledger for: " << std::to_string(sync_ctx.target_log_record.seq_no);
-
-        // LOG_WARNING << "root hash for " << std::to_string(sync_ctx.target_log_record.seq_no) << ": " << root_hash;
-
-        // // Acquire lock so consensus does not update the ledger while we are reading the ledger.
-        // std::scoped_lock<std::mutex> ledger_lock(ctx.ledger_mutex);
-
         for (const auto &[session_id, lr] : log_record_requests)
         {
-
-            // // First check whether we have the required lcl available.
-            // if (!check_required_log_record_availability(hr.required_lcl))
-            //     continue;
-
-            // p2p::history_response resp;
-            // if (ledger::retrieve_ledger_history(hr, resp) != -1)
-            // {
-            //     flatbuffers::FlatBufferBuilder fbuf(1024);
-            //     p2pmsg::create_msg_from_history_response(fbuf, resp);
-            //     std::string_view msg = msg::fbuf::flatbuff_bytes_to_sv(fbuf.GetBufferPointer(), fbuf.GetSize());
-
-            //     // Find the peer that we should send the history response to.
-            //     std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-            //     const auto peer_itr = p2p::ctx.peer_connections.find(session_id);
-
-            //     if (peer_itr != p2p::ctx.peer_connections.end())
-            //     {
-            //         comm::comm_session *session = peer_itr->second;
-            //         session->send(msg);
-            //     }
-            // }
             flatbuffers::FlatBufferBuilder fbuf(1024);
             p2p::log_record_response resp;
             resp.max_record_id = lr.target_record_id;
             resp.min_record_id = lr.min_record_id;
-            resp.log_records = std::vector<p2p::log_record>();
+            resp.log_record_bytes = std::vector<uint8_t>();
             p2pmsg::create_msg_from_log_record_response(fbuf, resp);
             std::string_view msg = std::string_view(reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
@@ -257,130 +205,208 @@ namespace sc::log_sync
      */
     int handle_ledger_history_response(const p2p::log_record_response &hr, std::string &new_lcl)
     {
-        // if (hr.error == p2p::LEDGER_RESPONSE_ERROR::INVALID_MIN_LEDGER)
-        // {
-        //     // This means we are in a fork ledger. Remove/rollback current top ledger.
-        //     // Basically in the long run we'll rolback one by one untill we catch up to valid minimum ledger.
-        //     remove_ledger(ctx.get_lcl());
-        //     ctx.cache.erase(ctx.cache.rbegin()->first);
-
-        //     const auto [seq_no, lcl] = get_ledger_cache_top();
-        //     ctx.set_lcl(seq_no, lcl);
-
-        //     new_lcl = lcl;
-        //     LOG_INFO << "lcl sync: Fork detected. Removed last ledger. New lcl:" << lcl.substr(0, 15);
-        //     return 0;
-        // }
-        // else
-        // {
-        //     // Check whether recieved lcl history contains the current lcl node required.
-        //     bool contains_requested_lcl = false;
-        //     for (auto &[seq_no, ledger] : hr.hist_ledger_blocks)
-        //     {
-        //         if (sync_ctx.target_lcl == ledger.lcl)
-        //         {
-        //             contains_requested_lcl = true;
-        //             break;
-        //         }
-        //     }
-
-        //     if (!contains_requested_lcl)
-        //     {
-        //         LOG_INFO << "lcl sync: Peer sent us a history response but not containing the lcl we asked for.";
-        //         return -1;
-        //     }
-
-        //     // Check integrity of recieved lcl list.
-        //     // By checking recieved lcl hashes matches lcl content by applying hashing for each raw content.
-        //     std::string previous_history_block_lcl;
-        //     uint64_t previous_history_block_seq_no;
-        //     for (auto &[seq_no, ledger] : hr.hist_ledger_blocks)
-        //     {
-        //         // Individually check each ledger entry's integrity before the chain check.
-        //         uint64_t lcl_seq_no;
-        //         std::string lcl_hash;
-        //         if (extract_lcl(ledger.lcl, lcl_seq_no, lcl_hash) == -1)
-        //         {
-        //             LOG_INFO << "lcl sync: Error when parsing lcl " << ledger.lcl;
-        //             return -1;
-        //         }
-
-        //         if (!check_block_integrity(lcl_hash, ledger.block_buffer))
-        //         {
-        //             LOG_INFO << "lcl sync: Peer sent us a history response but the ledger data does not match the hashes.";
-        //             // todo: we should penalize peer who sent this.
-        //             return -1;
-        //         }
-
-        //         // Ledger chain integrity check.
-        //         if (!previous_history_block_lcl.empty())
-        //         {
-        //             const p2p::proposal proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(ledger.block_buffer);
-        //             if ((seq_no - previous_history_block_seq_no != 1) && (previous_history_block_lcl != proposal.lcl))
-        //             {
-        //                 LOG_INFO << "Ledger block chain-link verification failed. " << ledger.lcl;
-        //                 return -1;
-        //             }
-        //         }
-        //         previous_history_block_lcl = ledger.lcl;
-        //         previous_history_block_seq_no = seq_no;
-        //     }
-        // }
-
-        // // Performing ledger history joining check.
-        // if (!ctx.cache.empty())
-        // {
-        //     const auto history_itr = hr.hist_ledger_blocks.begin();
-        //     const p2p::proposal history_first_proposal = msg::fbuf::ledger::create_proposal_from_ledger_block(history_itr->second.block_buffer);
-
-        //     // Removing ledger blocks upto the received histroy response starting point.
-        //     const uint64_t joining_seq_no = history_itr->first;
-        //     if (ctx.cache.count(joining_seq_no) == 1)
-        //     {
-        //         // If cache ledger and history ledger are overlapping, remove blocks from end until the
-        //         // cache end at the state where history ledger can be straightly joined.
-        //         auto it = ctx.cache.rbegin();
-        //         while (it != ctx.cache.rend() && it->first >= joining_seq_no)
-        //         {
-        //             remove_ledger(it->second);
-
-        //             // Erase and advance the reverse iterator.
-        //             ctx.cache.erase((--it.base()));
-        //         }
-
-        //         auto &[cache_seq_no, cache_lcl] = get_ledger_cache_top();
-        //         ctx.set_lcl(cache_seq_no, cache_lcl);
-
-        //         // Comparing the sequence number and the lcl to validate the joining point.
-        //         if ((history_itr->first - cache_seq_no != 1) || (history_first_proposal.lcl != cache_lcl))
-        //         {
-        //             LOG_ERROR << "lcl sync: Ledger integrity check at history joining point failed.";
-        //             return -1;
-        //         }
-        //     }
-        // }
-
-        // // Execution to here means the history data sent checks out.
-        // // Save recieved lcl in file system and update lcl history cache.
-        // for (auto &[seq_no, ledger] : hr.hist_ledger_blocks)
-        // {
-        //     write_ledger(ledger.lcl, ledger.block_buffer.data(), ledger.block_buffer.size());
-        //     ctx.cache.emplace(seq_no, ledger.lcl);
-        // }
-
-        // const auto [seq_no, lcl] = get_ledger_cache_top();
-        // ctx.set_lcl(seq_no, lcl);
-
-        // new_lcl = lcl;
         return 0;
     }
 
+    /**
+     * Get the verified minimum required ledger.
+     * @return Returns -1 on error, 0 on successfully setting minimum target and returns 1 if already in sync.
+    */
     int get_verified_min_record()
     {
-        std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
-        // Represent the very first log record corresponding to the first sequence number;
-        sync_ctx.min_log_record = {1, util::h32_empty};
+        p2p::sequence_hash last_from_index;
+        if (sc::contract_fs.get_last_seq_no_from_index(last_from_index.seq_no) == -1 ||
+            sc::contract_fs.get_hash_from_index_by_seq_no(last_from_index.hash, last_from_index.seq_no) == -1)
+        {
+            LOG_ERROR << "Error getting last ledger record data from index file.";
+            return -1;
+        }
 
+        const p2p::sequence_hash last_from_ledger = ledger::ctx.get_lcl_id();
+
+        if (last_from_index.seq_no == 0)
+        {
+            // Request full ledger.
+            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
+            sync_ctx.min_log_record = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
+            return 0;
+        }
+
+        if (last_from_index == last_from_ledger)
+        {
+            // In sync. No need to sync.
+            return 1;
+        }
+
+        if (last_from_index.seq_no == last_from_ledger.seq_no)
+        {
+            // In a fork because hashes are not equal though the sequence numbers are equal.
+            if (set_joining_point_for_fork(last_from_index.seq_no - 1) == -1)
+            {
+                LOG_ERROR << "Error detecting forked position";
+                return -1;
+            }
+        }
+        else if (last_from_ledger.seq_no > last_from_index.seq_no)
+        {
+            sqlite3 *db = NULL;
+            const char *session_name = "get_min_verified_ledger_record";
+            if (ledger::ledger_fs.start_ro_session(session_name, false) == -1)
+                return -1;
+
+            const uint64_t shard_seq_no = (last_from_index.seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
+
+            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no);
+
+            if (ledger::sqlite::open_db(shard_path + "/" + ledger::DATABASE, &db) == -1)
+            {
+                LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
+                ledger::ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            ledger::ledger_record ledger;
+            if (ledger::sqlite::get_ledger_by_seq_no(db, last_from_index.seq_no, ledger) == -1)
+            {
+                LOG_ERROR << "Error getting ledger by sequence number: " << std::to_string(last_from_index.seq_no);
+                ledger::sqlite::close_db(&db);
+                ledger::ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+            ledger::sqlite::close_db(&db);
+            ledger::ledger_fs.stop_ro_session(session_name);
+
+            if (hpfs::get_root_hash(ledger.config_hash, ledger.state_hash) == last_from_index.hash)
+            {
+                std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
+                sync_ctx.min_log_record = last_from_index;
+            }
+            else
+            {
+                // Fork.
+                if (set_joining_point_for_fork(last_from_index.seq_no - 1) == -1)
+                {
+                    LOG_ERROR << "Error detecting forked position";
+                    return -1;
+                }
+            }
+        }
+        else
+        {
+            // When index seq is greater than ledger, start from ledger and go back.
+            if (set_joining_point_for_fork(last_from_ledger.seq_no - 1) == -1)
+            {
+                LOG_ERROR << "Error detecting forked position";
+                return -1;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Set the joining point as the minimum log record in a case of fork condition by checking index file data
+     * against synced ledger data.
+     * @param starting_point Starting sequence number to backtrack until a joining state is found. If no joining point is found, min is set to genesis.
+     * @return Returns -1 on error and 0 on success.
+    */
+    int set_joining_point_for_fork(const uint64_t starting_point)
+    {
+        if (starting_point == 0)
+        {
+            // Request full ledger.
+            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
+            sync_ctx.min_log_record = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
+            return 0;
+        }
+
+        const char *session_name = "get_min_verified_ledger_record";
+        if (ledger::ledger_fs.start_ro_session(session_name, false) == -1)
+            return -1;
+
+        std::string prev_shard_path;
+        sqlite3 *db = NULL;
+
+        util::h32 ledger_root_hash;
+        util::h32 index_root_hash;
+        uint64_t current_seq_no = starting_point;
+
+        do
+        {
+            const uint64_t shard_seq_no = (current_seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
+            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no);
+
+            // Change db connection if the shard changes.
+            if (prev_shard_path != shard_path)
+            {
+                // Close previous session if any.
+                if (db != NULL)
+                    ledger::sqlite::close_db(&db);
+
+                if (ledger::sqlite::open_db(shard_path + "/" + ledger::DATABASE, &db) == -1)
+                {
+                    LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
+                    ledger::ledger_fs.stop_ro_session(session_name);
+                    return -1;
+                }
+                prev_shard_path = shard_path;
+            }
+
+            // Get root hash for the current sequence number from the ledger.
+            ledger::ledger_record ledger;
+            if (ledger::sqlite::get_ledger_by_seq_no(db, current_seq_no, ledger) == -1)
+            {
+                LOG_ERROR << "Error getting ledger by sequence number: " << std::to_string(current_seq_no);
+                ledger::sqlite::close_db(&db);
+                ledger::ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+            // Root hash is calculated from its children(patch and state).
+            ledger_root_hash = hpfs::get_root_hash(ledger.config_hash, ledger.state_hash);
+
+            // Get root hash for the current seq number from index file.
+            if (sc::contract_fs.get_hash_from_index_by_seq_no(index_root_hash, current_seq_no) == -1)
+            {
+                LOG_ERROR << "Error getting hash from index by sequence number: " << std::to_string(current_seq_no);
+                ledger::sqlite::close_db(&db);
+                ledger::ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            current_seq_no--;
+        } while (current_seq_no > 0 && ledger_root_hash != index_root_hash);
+
+        ledger::sqlite::close_db(&db);
+        ledger::ledger_fs.stop_ro_session(session_name);
+
+        // Didn't found a match point until it reaches genesis. Request full ledger.
+        if (ledger_root_hash != index_root_hash)
+        {
+            // Remove the full log and index file data and start from scratch.
+            if (sc::contract_fs.truncate_log_file(1) == -1)
+            {
+                LOG_ERROR << "Error truncating hpfs log file and index file from : " << std::to_string(current_seq_no - 1);
+                return -1;
+            }
+            // Request full ledger
+            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
+            sync_ctx.min_log_record = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
+        }
+        else
+        {
+            // To account current_seq_no-- at the loop end.
+            current_seq_no++;
+
+            // We have to truncate keeping the joining record. +1 is added to account that.
+            if (sc::contract_fs.truncate_log_file(current_seq_no + 1) == -1)
+            {
+                LOG_ERROR << "Error truncating hpfs log file and index file from : " << std::to_string(current_seq_no + 1);
+                return -1;
+            }
+            // we have found the joining point
+            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
+            sync_ctx.min_log_record = {current_seq_no, ledger_root_hash};
+        }
         return 0;
     }
 

@@ -139,41 +139,12 @@ namespace p2p
         sequence_hash min_record_id;
     };
 
-    /**
-     * Duplicated enum from hpfs
-    */
-    enum FS_OPERATION
-    {
-        MKDIR = 1,
-        RMDIR = 2,
-        RENAME = 3,
-        UNLINK = 6,
-        CHMOD = 7,
-        CHOWN = 8,
-        CREATE = 10,
-        WRITE = 11,
-        TRUNCATE = 12
-    };
-
-    /**
-     * Duplicated log record header struct from hpfs
-    */
-    struct log_record
-    {
-        int64_t timestamp;
-        FS_OPERATION operation;
-        size_t vpath_len;
-        size_t payload_len;
-        size_t block_data_len;
-        util::h32 root_hash;
-    };
-
     // Represents full history log record responses.
     struct log_record_response
     {
         sequence_hash min_record_id;
         sequence_hash max_record_id;
-        std::vector<log_record> log_records;
+        std::vector<uint8_t> log_record_bytes;
     };
 
     // Represents hpfs file system entry.

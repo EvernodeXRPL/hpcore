@@ -58,9 +58,6 @@ struct LogRecordRequestBuilder;
 struct LogRecordResponse;
 struct LogRecordResponseBuilder;
 
-struct LogRecord;
-struct LogRecordBuilder;
-
 struct PeerRequirementAnnouncementMsg;
 struct PeerRequirementAnnouncementMsgBuilder;
 
@@ -1851,7 +1848,7 @@ struct LogRecordResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MIN_RECORD_ID = 4,
     VT_MAX_RECORD_ID = 6,
-    VT_LOG_RECORDS = 8
+    VT_LOG_RECORD_BYTES = 8
   };
   const msg::fbuf::p2pmsg::SequenceHash *min_record_id() const {
     return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_MIN_RECORD_ID);
@@ -1865,11 +1862,11 @@ struct LogRecordResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   msg::fbuf::p2pmsg::SequenceHash *mutable_max_record_id() {
     return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_MAX_RECORD_ID);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>> *log_records() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>> *>(VT_LOG_RECORDS);
+  const flatbuffers::Vector<uint8_t> *log_record_bytes() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LOG_RECORD_BYTES);
   }
-  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>> *mutable_log_records() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>> *>(VT_LOG_RECORDS);
+  flatbuffers::Vector<uint8_t> *mutable_log_record_bytes() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_LOG_RECORD_BYTES);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1877,9 +1874,8 @@ struct LogRecordResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(min_record_id()) &&
            VerifyOffset(verifier, VT_MAX_RECORD_ID) &&
            verifier.VerifyTable(max_record_id()) &&
-           VerifyOffset(verifier, VT_LOG_RECORDS) &&
-           verifier.VerifyVector(log_records()) &&
-           verifier.VerifyVectorOfTables(log_records()) &&
+           VerifyOffset(verifier, VT_LOG_RECORD_BYTES) &&
+           verifier.VerifyVector(log_record_bytes()) &&
            verifier.EndTable();
   }
 };
@@ -1894,8 +1890,8 @@ struct LogRecordResponseBuilder {
   void add_max_record_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> max_record_id) {
     fbb_.AddOffset(LogRecordResponse::VT_MAX_RECORD_ID, max_record_id);
   }
-  void add_log_records(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>>> log_records) {
-    fbb_.AddOffset(LogRecordResponse::VT_LOG_RECORDS, log_records);
+  void add_log_record_bytes(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> log_record_bytes) {
+    fbb_.AddOffset(LogRecordResponse::VT_LOG_RECORD_BYTES, log_record_bytes);
   }
   explicit LogRecordResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1912,9 +1908,9 @@ inline flatbuffers::Offset<LogRecordResponse> CreateLogRecordResponse(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> max_record_id = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>>> log_records = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> log_record_bytes = 0) {
   LogRecordResponseBuilder builder_(_fbb);
-  builder_.add_log_records(log_records);
+  builder_.add_log_record_bytes(log_record_bytes);
   builder_.add_max_record_id(max_record_id);
   builder_.add_min_record_id(min_record_id);
   return builder_.Finish();
@@ -1924,142 +1920,13 @@ inline flatbuffers::Offset<LogRecordResponse> CreateLogRecordResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> max_record_id = 0,
-    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>> *log_records = nullptr) {
-  auto log_records__ = log_records ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::LogRecord>>(*log_records) : 0;
+    const std::vector<uint8_t> *log_record_bytes = nullptr) {
+  auto log_record_bytes__ = log_record_bytes ? _fbb.CreateVector<uint8_t>(*log_record_bytes) : 0;
   return msg::fbuf::p2pmsg::CreateLogRecordResponse(
       _fbb,
       min_record_id,
       max_record_id,
-      log_records__);
-}
-
-struct LogRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef LogRecordBuilder Builder;
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_TIMESTAMP = 4,
-    VT_OPERATION = 6,
-    VT_VPATH_LEN = 8,
-    VT_PAYLOAD_LEN = 10,
-    VT_BLOCK_DATA_LEN = 12,
-    VT_ROOT_HASH = 14
-  };
-  int64_t timestamp() const {
-    return GetField<int64_t>(VT_TIMESTAMP, 0);
-  }
-  bool mutate_timestamp(int64_t _timestamp) {
-    return SetField<int64_t>(VT_TIMESTAMP, _timestamp, 0);
-  }
-  uint8_t operation() const {
-    return GetField<uint8_t>(VT_OPERATION, 0);
-  }
-  bool mutate_operation(uint8_t _operation) {
-    return SetField<uint8_t>(VT_OPERATION, _operation, 0);
-  }
-  uint32_t vpath_len() const {
-    return GetField<uint32_t>(VT_VPATH_LEN, 0);
-  }
-  bool mutate_vpath_len(uint32_t _vpath_len) {
-    return SetField<uint32_t>(VT_VPATH_LEN, _vpath_len, 0);
-  }
-  uint32_t payload_len() const {
-    return GetField<uint32_t>(VT_PAYLOAD_LEN, 0);
-  }
-  bool mutate_payload_len(uint32_t _payload_len) {
-    return SetField<uint32_t>(VT_PAYLOAD_LEN, _payload_len, 0);
-  }
-  uint32_t block_data_len() const {
-    return GetField<uint32_t>(VT_BLOCK_DATA_LEN, 0);
-  }
-  bool mutate_block_data_len(uint32_t _block_data_len) {
-    return SetField<uint32_t>(VT_BLOCK_DATA_LEN, _block_data_len, 0);
-  }
-  const flatbuffers::Vector<uint8_t> *root_hash() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_ROOT_HASH);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_root_hash() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_ROOT_HASH);
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyField<int64_t>(verifier, VT_TIMESTAMP) &&
-           VerifyField<uint8_t>(verifier, VT_OPERATION) &&
-           VerifyField<uint32_t>(verifier, VT_VPATH_LEN) &&
-           VerifyField<uint32_t>(verifier, VT_PAYLOAD_LEN) &&
-           VerifyField<uint32_t>(verifier, VT_BLOCK_DATA_LEN) &&
-           VerifyOffset(verifier, VT_ROOT_HASH) &&
-           verifier.VerifyVector(root_hash()) &&
-           verifier.EndTable();
-  }
-};
-
-struct LogRecordBuilder {
-  typedef LogRecord Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_timestamp(int64_t timestamp) {
-    fbb_.AddElement<int64_t>(LogRecord::VT_TIMESTAMP, timestamp, 0);
-  }
-  void add_operation(uint8_t operation) {
-    fbb_.AddElement<uint8_t>(LogRecord::VT_OPERATION, operation, 0);
-  }
-  void add_vpath_len(uint32_t vpath_len) {
-    fbb_.AddElement<uint32_t>(LogRecord::VT_VPATH_LEN, vpath_len, 0);
-  }
-  void add_payload_len(uint32_t payload_len) {
-    fbb_.AddElement<uint32_t>(LogRecord::VT_PAYLOAD_LEN, payload_len, 0);
-  }
-  void add_block_data_len(uint32_t block_data_len) {
-    fbb_.AddElement<uint32_t>(LogRecord::VT_BLOCK_DATA_LEN, block_data_len, 0);
-  }
-  void add_root_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> root_hash) {
-    fbb_.AddOffset(LogRecord::VT_ROOT_HASH, root_hash);
-  }
-  explicit LogRecordBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  flatbuffers::Offset<LogRecord> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<LogRecord>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<LogRecord> CreateLogRecord(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    int64_t timestamp = 0,
-    uint8_t operation = 0,
-    uint32_t vpath_len = 0,
-    uint32_t payload_len = 0,
-    uint32_t block_data_len = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> root_hash = 0) {
-  LogRecordBuilder builder_(_fbb);
-  builder_.add_timestamp(timestamp);
-  builder_.add_root_hash(root_hash);
-  builder_.add_block_data_len(block_data_len);
-  builder_.add_payload_len(payload_len);
-  builder_.add_vpath_len(vpath_len);
-  builder_.add_operation(operation);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<LogRecord> CreateLogRecordDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    int64_t timestamp = 0,
-    uint8_t operation = 0,
-    uint32_t vpath_len = 0,
-    uint32_t payload_len = 0,
-    uint32_t block_data_len = 0,
-    const std::vector<uint8_t> *root_hash = nullptr) {
-  auto root_hash__ = root_hash ? _fbb.CreateVector<uint8_t>(*root_hash) : 0;
-  return msg::fbuf::p2pmsg::CreateLogRecord(
-      _fbb,
-      timestamp,
-      operation,
-      vpath_len,
-      payload_len,
-      block_data_len,
-      root_hash__);
+      log_record_bytes__);
 }
 
 struct PeerRequirementAnnouncementMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

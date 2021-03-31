@@ -134,17 +134,7 @@ table LogRecordResponse
 {
     min_record_id:SequenceHash;
     max_record_id:SequenceHash;
-    log_records:[LogRecord];
-}
-
-table LogRecord
-{
-    timestamp:int64;
-    operation:uint8;
-    vpath_len:uint32;
-    payload_len:uint32;
-    block_data_len:uint32;
-    root_hash:[ubyte];
+    log_record_bytes:[ubyte];
 }
 
 table PeerRequirementAnnouncementMsg{

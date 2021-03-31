@@ -53,11 +53,6 @@ namespace msg::fbuf::p2pmsg
     const std::vector<p2p::peer_properties>
     flatbuf_peer_propertieslist_to_peer_propertiesvector(const flatbuffers::Vector<flatbuffers::Offset<PeerProperties>> *fbvec);
 
-    const p2p::log_record flatbuf_log_record_to_log_record(const LogRecord *fblogRec);
-
-    const std::vector<p2p::log_record>
-    flatbuf_log_record_vector_to_log_record_vector(const flatbuffers::Vector<flatbuffers::Offset<LogRecord>> *fbvec);
-
     //---std to Flatbuf---//
 
     const std::string generate_proposal_signature(const p2p::proposal &p);
@@ -116,9 +111,6 @@ namespace msg::fbuf::p2pmsg
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
     stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::set<std::string> &set);
-
-    const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<LogRecord>>>
-    log_record_vector_to_flatbuf_log_record_vector(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::log_record> &records);
 }
 
 #endif
