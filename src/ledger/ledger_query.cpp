@@ -3,6 +3,7 @@
 #include "ledger.hpp"
 #include "sqlite.hpp"
 #include "../msg/fbuf/ledger_helpers.hpp"
+#include "../util/version.hpp"
 
 namespace ledger::query
 {
@@ -86,7 +87,7 @@ namespace ledger::query
             if (fd == -1 && errno == ENOENT)
                 continue;
 
-            if (fd != -1 && util::read_from_fd(fd, blob_msg, util::HP_VERSION_HEADER_SIZE) > 0)
+            if (fd != -1 && util::read_from_fd(fd, blob_msg, version::VERSION_BYTES_LEN) > 0)
             {
                 ledger_blob raw_data;
                 if (msg::fbuf::ledgermsg::create_ledger_blob_from_msg(raw_data, blob_msg, raw_inputs, raw_outputs) != -1)

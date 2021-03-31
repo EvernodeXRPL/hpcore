@@ -3,6 +3,7 @@
 **/
 
 #include "pchheader.hpp"
+#include "util/version.hpp"
 #include "util/util.hpp"
 #include "conf.hpp"
 #include "crypto.hpp"
@@ -142,6 +143,9 @@ int main(int argc, char **argv)
         pthread_sigmask(SIG_BLOCK, &mask, NULL);
     }
 
+    if (version::init() == -1)
+        return -1;
+
     // Extract the CLI args
     // This call will populate conf::ctx
     if (parse_cmd(argc, argv) != 0)
@@ -150,7 +154,7 @@ int main(int argc, char **argv)
     if (conf::ctx.command == "version")
     {
         // Print the version
-        std::cout << util::HP_VERSION << std::endl;
+        std::cout << "HotPocket " << version::HP_VERSION << " (ledger version " << version::LEDGER_VERSION << ")" << std::endl;
     }
     else
     {
@@ -189,7 +193,7 @@ int main(int argc, char **argv)
 
                 hplog::init();
 
-                LOG_INFO << "Hot Pocket " << util::HP_VERSION;
+                LOG_INFO << "Hot Pocket " << version::HP_VERSION;
                 LOG_INFO << "Role: " << (conf::cfg.node.role == conf::ROLE::OBSERVER ? "Observer" : "Validator");
                 LOG_INFO << "Public key: " << conf::cfg.node.public_key_hex;
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";

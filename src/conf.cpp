@@ -2,6 +2,7 @@
 #include "conf.hpp"
 #include "crypto.hpp"
 #include "sc/sc.hpp"
+#include "util/version.hpp"
 #include "util/util.hpp"
 #include "ledger/ledger_mount.hpp"
 #include "sc/contract_mount.hpp"
@@ -150,8 +151,6 @@ namespace conf
             cfg.node.public_key_hex = util::to_hex(cfg.node.public_key);
             cfg.node.private_key_hex = util::to_hex(cfg.node.private_key);
 
-            cfg.hp_version = util::HP_VERSION;
-
             cfg.node.role = ROLE::VALIDATOR;
             cfg.node.history = HISTORY::CUSTOM;
             cfg.node.history_config.max_primary_shards = 1;
@@ -279,27 +278,28 @@ namespace conf
         try
         {
             // Check whether the hp version is specified.
-            cfg.hp_version = d["hp_version"].as<std::string>();
-            if (cfg.hp_version.empty())
+            const std::string config_version = d["hp_version"].as<std::string>();
+            if (config_version.empty())
             {
                 std::cerr << "Config HP version missing.\n";
                 return -1;
             }
 
             // Check whether this config complies with the min version requirement.
-            int verresult = util::version_compare(cfg.hp_version, std::string(util::MIN_CONFIG_VERSION));
-            if (verresult == -1)
+            const int ver_result = version::version_compare(config_version, std::string(version::MIN_CONFIG_VERSION));
+            if (ver_result == -1)
             {
-                std::cerr << "Config version too old. Minimum "
-                          << util::MIN_CONFIG_VERSION << " required. "
-                          << cfg.hp_version << " found.\n";
+                std::cerr << "Config version too old. Minimum " << version::MIN_CONFIG_VERSION << " required. "
+                          << config_version << " found.\n";
                 return -1;
             }
-            else if (verresult == -2)
+            else if (ver_result == -2)
             {
                 std::cerr << "Malformed version string.\n";
                 return -1;
             }
+
+            // TODO: If our version and config version is different, we need to upgrade the contract dir.
         }
         catch (const std::exception &e)
         {
@@ -523,7 +523,7 @@ namespace conf
         // Popualte json document with 'cfg' values.
         // ojson is used instead of json to preserve insertion order.
         jsoncons::ojson d;
-        d.insert_or_assign("hp_version", cfg.hp_version);
+        d.insert_or_assign("hp_version", version::HP_VERSION);
 
         // Node config.
         {

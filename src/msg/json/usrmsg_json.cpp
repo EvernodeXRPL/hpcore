@@ -1,4 +1,5 @@
 #include "../../pchheader.hpp"
+#include "../../util/version.hpp"
 #include "../../util/util.hpp"
 #include "../../util/merkle_hash_tree.hpp"
 #include "../../unl.hpp"
@@ -60,7 +61,7 @@ namespace msg::usrmsg::json
         msg += "{\"";
         msg += msg::usrmsg::FLD_HP_VERSION;
         msg += SEP_COLON;
-        msg += conf::cfg.hp_version;
+        msg += version::HP_VERSION;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -151,7 +152,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_HP_VERSION;
         msg += SEP_COLON;
-        msg += conf::cfg.hp_version;
+        msg += version::HP_VERSION;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LCL_SEQ;
         msg += SEP_COLON_NOQUOTE;

@@ -1,6 +1,7 @@
 #include "../../conf.hpp"
 #include "../../p2p/p2p.hpp"
 #include "../../pchheader.hpp"
+#include "../../util/version.hpp"
 #include "../../util/util.hpp"
 #include "../../hplog.hpp"
 #include "../../ledger/ledger_query.hpp"
@@ -28,7 +29,7 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_STAT_RESPONSE);
         encoder.key(msg::usrmsg::FLD_HP_VERSION);
-        encoder.string_value(conf::cfg.hp_version);
+        encoder.string_value(version::HP_VERSION);
         encoder.key(msg::usrmsg::FLD_LCL_SEQ);
         encoder.int64_value(lcl_seq_no);
         encoder.key(msg::usrmsg::FLD_LCL_HASH);

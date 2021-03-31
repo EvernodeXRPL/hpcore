@@ -9,7 +9,6 @@
 
 namespace ledger
 {
-
     struct ledger_context
     {
     private:
