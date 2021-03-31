@@ -599,6 +599,7 @@ namespace consensus
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_blob_shard_id = last_blob_shard_id;
+        p.output_hash.resize(BLAKE3_OUT_LEN); // Default empty hash.
 
         const uint64_t time_now = util::get_epoch_milliseconds();
 
@@ -1036,18 +1037,20 @@ namespace consensus
         {
             if (!bufs.outputs.empty())
             {
-                std::vector<std::string_view> vect;
-                // Adding public key.
-                vect.push_back(pubkey);
-                // Only using message to generate hash for output messages. Length is not needed.
-                for (sc::contract_output &output : bufs.outputs)
-                {
-                    vect.push_back(output.message);
-                }
+                // Generate hash of all sorted outputs combined with user pubkey.
 
-                const std::string hash = crypto::get_hash(vect);
+                std::vector<std::string_view> vect;
+                for (sc::contract_output &output : bufs.outputs)
+                    vect.push_back(output.message);
+
+                // We sort all outputs so every node calculates the final hash the same way.
+                std::sort(vect.begin(), vect.end());
+
+                // Adding user public key.
+                vect.push_back(pubkey);
+
                 ctx.generated_user_outputs.try_emplace(
-                    std::move(hash),
+                    crypto::get_hash(vect),
                     generated_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
