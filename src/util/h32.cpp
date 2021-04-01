@@ -61,10 +61,15 @@ namespace util
 
     std::ostream &operator<<(std::ostream &output, const h32 &h)
     {
+        std::ios_base::fmtflags stream_flags(output.flags());
+        output << std::hex;
+
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(&h);
         for (int i = 0; i < 5; i++) // Only print first 5 bytes in hex.
-            output << std::hex << std::setfill('0') << std::setw(2) << (int)buf[i];
+            output << std::setfill('0') << std::setw(2) << (int)buf[i];
 
+        // Reset the ostream flags because we set std::hex at the begining.
+        output.flags(stream_flags);
         return output;
     }
 

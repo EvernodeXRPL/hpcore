@@ -117,6 +117,10 @@ namespace consensus
 
         if (ctx.stage == 0)
         {
+            // Broadcast non-unl proposal (NUP) containing inputs from locally connected users.
+            // This is performed at stage 0, so we need to make sure this happens regardless of whether we are sync or not.
+            broadcast_nonunl_proposal();
+
             // Prepare the consensus candidate user inputs that we have accumulated so far. (We receive them periodically via NUPs)
             // The candidate inputs will be included in the stage 0 proposal.
             if (verify_and_populate_candidate_user_inputs(lcl_id.seq_no) == -1)
@@ -160,13 +164,6 @@ namespace consensus
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
             }
 
-            if (ctx.stage == 2)
-            {
-                // At end of stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
-                // This will be captured and verified during every round stage 0.
-                // (We broadcast this at stage 2 in order to give it enough time to reach others before next round stage 0)
-                broadcast_nonunl_proposal();
-            }
 
             // We have finished a consensus stage. Transition or reset stage based on sync status.
 
@@ -308,31 +305,34 @@ namespace consensus
             ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
         }
 
-        // Prune any outdated proposals.
-        auto itr = ctx.candidate_proposals.begin();
-        const uint64_t time_now = util::get_epoch_milliseconds();
-        while (itr != ctx.candidate_proposals.end())
+        // Prune any outdated proposals on stage 1,2,3.
+        if (ctx.stage != 0)
         {
-            const p2p::proposal &cp = itr->second;
-            const uint64_t time_diff = (time_now > cp.sent_timestamp) ? (time_now - cp.sent_timestamp) : 0;
-            const int8_t stage_diff = ctx.stage - cp.stage;
+            auto itr = ctx.candidate_proposals.begin();
+            const uint64_t time_now = util::get_epoch_milliseconds();
+            while (itr != ctx.candidate_proposals.end())
+            {
+                const p2p::proposal &cp = itr->second;
+                const uint64_t time_diff = (time_now > cp.sent_timestamp) ? (time_now - cp.sent_timestamp) : 0;
+                const int8_t stage_diff = ctx.stage - cp.stage;
 
-            // only consider recent proposals and proposals from previous stage and current stage.
-            const bool keep_candidate = (time_diff < (conf::cfg.contract.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
-            LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
-                      << " [s" << std::to_string(cp.stage)
-                      << "] u/i:" << cp.users.size()
-                      << "/" << cp.input_hashes.size()
-                      << " ts:" << std::to_string(cp.time)
-                      << " state:" << cp.state_hash
-                      << " patch:" << cp.patch_hash
-                      << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
-                      << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
+                // Only consider recent proposals from current round timestamp and previous stage only.
+                const bool keep_candidate = (time_diff < (conf::cfg.contract.roundtime * 4)) && (cp.time == ctx.round_start_time && cp.stage == (ctx.stage - 1));
+                LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
+                          << " [s" << std::to_string(cp.stage)
+                          << "] u/i:" << cp.users.size()
+                          << "/" << cp.input_hashes.size()
+                          << " ts:" << std::to_string(cp.time)
+                          << " state:" << cp.state_hash
+                          << " patch:" << cp.patch_hash
+                          << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
+                          << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)\n";
 
-            if (keep_candidate)
-                ++itr;
-            else
-                ctx.candidate_proposals.erase(itr++);
+                if (keep_candidate)
+                    ++itr;
+                else
+                    ctx.candidate_proposals.erase(itr++);
+            }
         }
     }
 
@@ -743,7 +743,7 @@ namespace consensus
         // If that's the case we should request shards straight away.
         if (ledger::ctx.get_last_primary_shard_id() != majority_primary_shard_id)
         {
-            LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
+            LOG_INFO << "We are not on the consensus ledger, we must request history from a peer.";
             is_desync = true;
             return true;
         }
