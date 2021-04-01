@@ -75,6 +75,8 @@ namespace hpfs
         int truncate_log_file(const uint64_t seq_no);
         int get_last_seq_no_from_index(uint64_t &seq_no);
         int get_hash_from_index_by_seq_no(util::h32 &hash, const uint64_t seq_no);
+        int read_hpfs_logs(const uint64_t min_ledger_seq_no, const uint64_t max_ledger_seq_no, std::vector<uint8_t> &buf);
+        int append_hpfs_log_records(const std::vector<uint8_t> &buf);
     };
 
 } // namespace hpfs

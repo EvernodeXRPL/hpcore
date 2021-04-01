@@ -88,6 +88,15 @@ namespace sc::hpfs_log_sync
                 // Process any history responses from other nodes.
                 if (!sync_ctx.target_log_record.empty() && check_hpfs_log_sync_responses() == 1)
                     processed = true;
+
+                // Here we check for the updated log records to check whether target has archived.
+                if (sync_ctx.is_syncing && get_verified_min_record() == 1)
+                {
+                    LOG_INFO << "Hpfs log sync: sync target archived " << sync_ctx.target_log_record;
+                    sync_ctx.target_log_record = {};
+                    sync_ctx.min_log_record = {};
+                    sync_ctx.is_syncing = false;
+                }
             }
 
             // Serve any history requests from other nodes.
@@ -151,6 +160,9 @@ namespace sc::hpfs_log_sync
                 log_record_responses.splice(log_record_responses.end(), p2p::ctx.collected_msgs.log_record_responses);
         }
 
+        for (const auto &[sess_id, log_response] : log_record_responses)
+            handle_hpfs_log_sync_response(log_response);
+        
         return log_record_responses.empty() ? 0 : 1;
     }
 
@@ -173,11 +185,16 @@ namespace sc::hpfs_log_sync
 
         for (const auto &[session_id, lr] : log_record_requests)
         {
-            flatbuffers::FlatBufferBuilder fbuf(1024);
+            // Before serving the request check whether we have the requested min seq_no.
+            // And requested min hash matches with our corresponding hash.
+            if (!check_required_log_record_availability(lr))
+                continue;
+
             p2p::hpfs_log_response resp;
-            resp.max_record_id = lr.target_record_id;
+            if (sc::contract_fs.read_hpfs_logs(lr.min_record_id.seq_no, lr.target_record_id.seq_no, resp.log_record_bytes) == -1)
+                continue;
             resp.min_record_id = lr.min_record_id;
-            resp.log_record_bytes = std::vector<uint8_t>();
+            flatbuffers::FlatBufferBuilder fbuf(1024);
             p2pmsg::create_msg_from_hpfs_log_response(fbuf, resp);
             std::string_view msg = std::string_view(reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
 
@@ -197,21 +214,55 @@ namespace sc::hpfs_log_sync
 
     /**
      * Check requested sequence number is in node's log file.
-     * @param lr log record request information.
-     * @return true if requested sequence number is in node's log file.
+     * @param log_request log record request information.
+     * @return true if requested sequence number is in node's log file and requested hash mathces with ours.
      */
-    bool check_required_log_record_availability(const p2p::sequence_hash &min_log_record)
+    bool check_required_log_record_availability(const p2p::hpfs_log_request &log_request)
     {
+        // If requested min is the genesis we serve without checking.
+        const p2p::sequence_hash genesis{ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
+        if (log_request.min_record_id == genesis)
+            return true;
+
+        util::h32 root_hash;
+        if (sc::contract_fs.get_hash_from_index_by_seq_no(root_hash, log_request.min_record_id.seq_no) == -1)
+            return false;
+
+        if (root_hash != log_request.min_record_id.hash)
+        {
+            LOG_DEBUG << "Requested root hash does not match with ours: seq no " << log_request.min_record_id.seq_no;
+            return false;
+        }
+
         return true;
     }
 
     /**
      * Handle recieved ledger history response.
-     * @param lr log record request information.
+     * @param log_response log record response information.
      * @return 0 on successful log update. -1 on failure.
      */
-    int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &hr, std::string &new_log_record_seqno)
+    int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &log_response)
     {
+        p2p::sequence_hash requested_min_seq_id;
+        {
+            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
+            requested_min_seq_id = sync_ctx.min_log_record;
+        }
+
+        // Append only if the response contains min_seq_no staring from requested min seq_no.
+        const p2p::sequence_hash genesis{ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
+        if (log_response.min_record_id != requested_min_seq_id)
+        {
+            LOG_DEBUG << "Invalid joining point in the received hpfs log response";
+            return -1;
+        }
+
+        if (sc::contract_fs.append_hpfs_log_records(log_response.log_record_bytes) == -1)
+        {
+            LOG_ERROR << errno << ": Error persisting hpfs log responses";
+            return -1;
+        }
         return 0;
     }
 
@@ -229,14 +280,19 @@ namespace sc::hpfs_log_sync
             return -1;
         }
 
-        const p2p::sequence_hash last_from_ledger = ledger::ctx.get_lcl_id();
-
-        if (last_from_index.seq_no == 0)
+        p2p::sequence_hash last_from_ledger = ledger::ctx.get_lcl_id();
+        if (last_from_index.seq_no == ledger::genesis.seq_no || last_from_ledger.seq_no == ledger::genesis.seq_no)
         {
             // Request full ledger.
             std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
             sync_ctx.min_log_record = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
             return 0;
+        }
+
+        if (ledger::get_root_hash_from_ledger(last_from_ledger.hash, last_from_ledger.seq_no) == -1)
+        {
+            LOG_ERROR << "Error getting root hash from ledger for sequence number: " << last_from_index.seq_no;
+            return -1;
         }
 
         if (last_from_index == last_from_ledger)

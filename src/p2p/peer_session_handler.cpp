@@ -232,7 +232,7 @@ namespace p2p
                     LOG_DEBUG << "Ledger hpfs response rejected. Maximum response count reached. " << session.display_name();
             }
         }
-        else if (mi.type == p2pmsg::P2PMsgContent_LogRecordRequest)
+        else if (mi.type == p2pmsg::P2PMsgContent_HpfsLogRequest)
         {
             if (conf::cfg.node.history == conf::HISTORY::FULL)
             {
@@ -249,7 +249,7 @@ namespace p2p
                     LOG_DEBUG << "Hpfs log request rejected. Maximum request count reached. " << session.display_name();
             }
         }
-        else if (mi.type == p2pmsg::P2PMsgContent_LogRecordResponse)
+        else if (mi.type == p2pmsg::P2PMsgContent_HpfsLogResponse)
         {
             if (conf::cfg.node.history == conf::HISTORY::FULL && sc::hpfs_log_sync::sync_ctx.is_syncing)
             {

@@ -143,7 +143,6 @@ namespace p2p
     struct hpfs_log_response
     {
         sequence_hash min_record_id;
-        sequence_hash max_record_id;
         std::vector<uint8_t> log_record_bytes;
     };
 
