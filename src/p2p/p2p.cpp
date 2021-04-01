@@ -15,9 +15,6 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 // Maximum no. of peers that will be persisted back to config upon exit.
 constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 50;
 
-// Maximum number of tries before abandoning full history only random message sending.
-constexpr uint16_t FULL_HISTORY_MSG_THRESHOLD = 20;
-
 namespace p2p
 {
 
@@ -299,32 +296,41 @@ namespace p2p
             return;
         }
 
-        int tried_full_history_attempts = 0;
+        peer_comm_session *session = NULL;
 
-        while (true)
+        if (full_history_only)
         {
-            // Initialize random number generator with current timestamp.
-            const int random_peer_index = (rand() % connected_peers); // select a random peer index.
-            auto it = ctx.peer_connections.begin();
-            std::advance(it, random_peer_index); //move iterator to point to random selected peer.
-
-            //send message to selected peer.
-            peer_comm_session *session = it->second;
-
-            // Do the full history node check if this message is full history only.
-            if (full_history_only && !session->is_full_history)
+            // Stores full history session list.
+            std::vector<peer_comm_session *> full_history_sessions;
+            for (auto [key, session] : ctx.peer_connections)
             {
-                tried_full_history_attempts++;
-                if (tried_full_history_attempts == FULL_HISTORY_MSG_THRESHOLD)
-                    break;
-
-                continue;
+                if (session->is_full_history)
+                    full_history_sessions.push_back(session);
             }
 
-            session->send(msg::fbuf::builder_to_string_view(fbuf));
-            target_pubkey = session->uniqueid;
-            break;
+            if (full_history_sessions.size() == 0)
+            {
+                LOG_DEBUG << "No full history peers to random send.";
+                return;
+            }
+            auto it = full_history_sessions.begin();
+            // Initialize random number generator with current timestamp.
+            const int random_peer_index = (rand() % full_history_sessions.size()); // Select a random peer index.
+            std::advance(it, random_peer_index);                                   // Move iterator to point to random selected peer.
+            session = *it;
         }
+        else
+        {
+            // Initialize random number generator with current timestamp.
+            auto it = ctx.peer_connections.begin();
+            const int random_peer_index = (rand() % connected_peers); // Select a random peer index.
+            std::advance(it, random_peer_index);                      // Move iterator to point to random selected peer.
+            session = it->second;
+        }
+
+        //send message to selected peer.
+        session->send(msg::fbuf::builder_to_string_view(fbuf));
+        target_pubkey = session->uniqueid;
     }
 
     /**
