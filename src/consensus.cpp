@@ -118,7 +118,7 @@ namespace consensus
         if (ctx.stage == 0)
         {
             // Broadcast non-unl proposal (NUP) containing inputs from locally connected users.
-            // This is performed at stage 0, so we need to make sure this happens regardless of whether we are sync or not.
+            // This is performed at stage 0, so we can to make sure this happens regardless of whether we are in-sync or not.
             broadcast_nonunl_proposal();
 
             // Prepare the consensus candidate user inputs that we have accumulated so far. (We receive them periodically via NUPs)
@@ -322,7 +322,7 @@ namespace consensus
                       << " state:" << cp.state_hash
                       << " patch:" << cp.patch_hash
                       << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
-                      << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)\n";
+                      << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
 
             if (keep_candidate)
                 ++itr;
