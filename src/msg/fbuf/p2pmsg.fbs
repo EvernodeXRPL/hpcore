@@ -15,8 +15,8 @@ union P2PMsgContent {
     PeerCapacityAnnouncementMsg,
     PeerListRequestMsg,
     PeerListResponseMsg,
-    LogRecordRequest,
-    LogRecordResponse
+    HpfsLogRequest,
+    HpfsLogResponse
 }
 
 table P2PMsg {
@@ -124,16 +124,15 @@ table HpfsFSHashEntry{
     hash: [ubyte];
 }
 
-table LogRecordRequest
+table HpfsLogRequest
 {
     target_record_id:SequenceHash;
     min_record_id:SequenceHash;
 }
 
-table LogRecordResponse
+table HpfsLogResponse
 {
     min_record_id:SequenceHash;
-    max_record_id:SequenceHash;
     log_record_bytes:[ubyte];
 }
 

@@ -49,9 +49,9 @@ namespace sc::hpfs_log_sync
 
     int check_hpfs_log_sync_requests();
 
-    bool check_required_log_record_availability(const p2p::sequence_hash &min_log_record);
+    bool check_required_log_record_availability(const p2p::hpfs_log_request &log_request);
 
-    int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &hr, std::string &new_lcl);
+    int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &log_response);
 
     int get_verified_min_record();
 

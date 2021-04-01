@@ -211,7 +211,7 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::hpfs_log_request create_hpfs_log_request_from_msg(const p2p::peer_message_info &mi)
     {
-        const auto &msg = *mi.p2p_msg->content_as_LogRecordRequest();
+        const auto &msg = *mi.p2p_msg->content_as_HpfsLogRequest();
         p2p::hpfs_log_request log_record;
         log_record.target_record_id = flatbuf_seqhash_to_seqhash(msg.target_record_id());
         log_record.min_record_id = flatbuf_seqhash_to_seqhash(msg.min_record_id());
@@ -220,10 +220,9 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::hpfs_log_response create_hpfs_log_response_from_msg(const p2p::peer_message_info &mi)
     {
-        const auto &msg = *mi.p2p_msg->content_as_LogRecordResponse();
+        const auto &msg = *mi.p2p_msg->content_as_HpfsLogResponse();
         p2p::hpfs_log_response hpfs_log_response;
         hpfs_log_response.min_record_id = flatbuf_seqhash_to_seqhash(msg.min_record_id());
-        hpfs_log_response.max_record_id = flatbuf_seqhash_to_seqhash(msg.max_record_id());
         hpfs_log_response.log_record_bytes.reserve(msg.log_record_bytes()->size());
         for (const auto byte: *msg.log_record_bytes())
             hpfs_log_response.log_record_bytes.push_back(byte);
@@ -424,23 +423,22 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_hpfs_log_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_request &hpfs_log_request)
     {
-        const auto msg = CreateLogRecordRequest(
+        const auto msg = CreateHpfsLogRequest(
             builder,
             seqhash_to_flatbuf_seqhash(builder, hpfs_log_request.target_record_id),
             seqhash_to_flatbuf_seqhash(builder, hpfs_log_request.min_record_id));
 
-        create_p2p_msg(builder, P2PMsgContent_LogRecordRequest, msg.Union());
+        create_p2p_msg(builder, P2PMsgContent_HpfsLogRequest, msg.Union());
     }
 
     void create_msg_from_hpfs_log_response(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_response &hpfs_log_response)
     {
-        const auto msg = CreateLogRecordResponse(
+        const auto msg = CreateHpfsLogResponse(
             builder,
             seqhash_to_flatbuf_seqhash(builder, hpfs_log_response.min_record_id),
-            seqhash_to_flatbuf_seqhash(builder, hpfs_log_response.max_record_id),
             builder.CreateVector<uint8_t>(hpfs_log_response.log_record_bytes));
 
-        create_p2p_msg(builder, P2PMsgContent_LogRecordResponse, msg.Union());
+        create_p2p_msg(builder, P2PMsgContent_HpfsLogResponse, msg.Union());
     }
 
     void create_msg_from_fsentry_response(

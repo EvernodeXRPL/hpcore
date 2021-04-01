@@ -52,11 +52,11 @@ struct HpfsBlockResponseBuilder;
 struct HpfsFSHashEntry;
 struct HpfsFSHashEntryBuilder;
 
-struct LogRecordRequest;
-struct LogRecordRequestBuilder;
+struct HpfsLogRequest;
+struct HpfsLogRequestBuilder;
 
-struct LogRecordResponse;
-struct LogRecordResponseBuilder;
+struct HpfsLogResponse;
+struct HpfsLogResponseBuilder;
 
 struct PeerRequirementAnnouncementMsg;
 struct PeerRequirementAnnouncementMsgBuilder;
@@ -79,7 +79,7 @@ struct SequenceHashBuilder;
 struct ByteArray;
 struct ByteArrayBuilder;
 
-enum P2PMsgContent : uint8_t {
+enum P2PMsgContent {
   P2PMsgContent_NONE = 0,
   P2PMsgContent_PeerChallengeMsg = 1,
   P2PMsgContent_PeerChallengeResponseMsg = 2,
@@ -92,10 +92,10 @@ enum P2PMsgContent : uint8_t {
   P2PMsgContent_PeerCapacityAnnouncementMsg = 9,
   P2PMsgContent_PeerListRequestMsg = 10,
   P2PMsgContent_PeerListResponseMsg = 11,
-  P2PMsgContent_LogRecordRequest = 12,
-  P2PMsgContent_LogRecordResponse = 13,
+  P2PMsgContent_HpfsLogRequest = 12,
+  P2PMsgContent_HpfsLogResponse = 13,
   P2PMsgContent_MIN = P2PMsgContent_NONE,
-  P2PMsgContent_MAX = P2PMsgContent_LogRecordResponse
+  P2PMsgContent_MAX = P2PMsgContent_HpfsLogResponse
 };
 
 inline const P2PMsgContent (&EnumValuesP2PMsgContent())[14] {
@@ -112,8 +112,8 @@ inline const P2PMsgContent (&EnumValuesP2PMsgContent())[14] {
     P2PMsgContent_PeerCapacityAnnouncementMsg,
     P2PMsgContent_PeerListRequestMsg,
     P2PMsgContent_PeerListResponseMsg,
-    P2PMsgContent_LogRecordRequest,
-    P2PMsgContent_LogRecordResponse
+    P2PMsgContent_HpfsLogRequest,
+    P2PMsgContent_HpfsLogResponse
   };
   return values;
 }
@@ -132,15 +132,15 @@ inline const char * const *EnumNamesP2PMsgContent() {
     "PeerCapacityAnnouncementMsg",
     "PeerListRequestMsg",
     "PeerListResponseMsg",
-    "LogRecordRequest",
-    "LogRecordResponse",
+    "HpfsLogRequest",
+    "HpfsLogResponse",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameP2PMsgContent(P2PMsgContent e) {
-  if (flatbuffers::IsOutRange(e, P2PMsgContent_NONE, P2PMsgContent_LogRecordResponse)) return "";
+  if (flatbuffers::IsOutRange(e, P2PMsgContent_NONE, P2PMsgContent_HpfsLogResponse)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesP2PMsgContent()[index];
 }
@@ -193,18 +193,18 @@ template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::PeerListResponseMsg> {
   static const P2PMsgContent enum_value = P2PMsgContent_PeerListResponseMsg;
 };
 
-template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::LogRecordRequest> {
-  static const P2PMsgContent enum_value = P2PMsgContent_LogRecordRequest;
+template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::HpfsLogRequest> {
+  static const P2PMsgContent enum_value = P2PMsgContent_HpfsLogRequest;
 };
 
-template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::LogRecordResponse> {
-  static const P2PMsgContent enum_value = P2PMsgContent_LogRecordResponse;
+template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::HpfsLogResponse> {
+  static const P2PMsgContent enum_value = P2PMsgContent_HpfsLogResponse;
 };
 
 bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMsgContent type);
 bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-enum HpfsResponse : uint8_t {
+enum HpfsResponse {
   HpfsResponse_NONE = 0,
   HpfsResponse_HpfsFileHashMapResponse = 1,
   HpfsResponse_HpfsBlockResponse = 2,
@@ -319,11 +319,11 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf::p2pmsg::PeerListResponseMsg *content_as_PeerListResponseMsg() const {
     return content_type() == msg::fbuf::p2pmsg::P2PMsgContent_PeerListResponseMsg ? static_cast<const msg::fbuf::p2pmsg::PeerListResponseMsg *>(content()) : nullptr;
   }
-  const msg::fbuf::p2pmsg::LogRecordRequest *content_as_LogRecordRequest() const {
-    return content_type() == msg::fbuf::p2pmsg::P2PMsgContent_LogRecordRequest ? static_cast<const msg::fbuf::p2pmsg::LogRecordRequest *>(content()) : nullptr;
+  const msg::fbuf::p2pmsg::HpfsLogRequest *content_as_HpfsLogRequest() const {
+    return content_type() == msg::fbuf::p2pmsg::P2PMsgContent_HpfsLogRequest ? static_cast<const msg::fbuf::p2pmsg::HpfsLogRequest *>(content()) : nullptr;
   }
-  const msg::fbuf::p2pmsg::LogRecordResponse *content_as_LogRecordResponse() const {
-    return content_type() == msg::fbuf::p2pmsg::P2PMsgContent_LogRecordResponse ? static_cast<const msg::fbuf::p2pmsg::LogRecordResponse *>(content()) : nullptr;
+  const msg::fbuf::p2pmsg::HpfsLogResponse *content_as_HpfsLogResponse() const {
+    return content_type() == msg::fbuf::p2pmsg::P2PMsgContent_HpfsLogResponse ? static_cast<const msg::fbuf::p2pmsg::HpfsLogResponse *>(content()) : nullptr;
   }
   void *mutable_content() {
     return GetPointer<void *>(VT_CONTENT);
@@ -384,12 +384,12 @@ template<> inline const msg::fbuf::p2pmsg::PeerListResponseMsg *P2PMsg::content_
   return content_as_PeerListResponseMsg();
 }
 
-template<> inline const msg::fbuf::p2pmsg::LogRecordRequest *P2PMsg::content_as<msg::fbuf::p2pmsg::LogRecordRequest>() const {
-  return content_as_LogRecordRequest();
+template<> inline const msg::fbuf::p2pmsg::HpfsLogRequest *P2PMsg::content_as<msg::fbuf::p2pmsg::HpfsLogRequest>() const {
+  return content_as_HpfsLogRequest();
 }
 
-template<> inline const msg::fbuf::p2pmsg::LogRecordResponse *P2PMsg::content_as<msg::fbuf::p2pmsg::LogRecordResponse>() const {
-  return content_as_LogRecordResponse();
+template<> inline const msg::fbuf::p2pmsg::HpfsLogResponse *P2PMsg::content_as<msg::fbuf::p2pmsg::HpfsLogResponse>() const {
+  return content_as_HpfsLogResponse();
 }
 
 struct P2PMsgBuilder {
@@ -412,6 +412,7 @@ struct P2PMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  P2PMsgBuilder &operator=(const P2PMsgBuilder &);
   flatbuffers::Offset<P2PMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<P2PMsg>(end);
@@ -512,6 +513,7 @@ struct PeerChallengeMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PeerChallengeMsgBuilder &operator=(const PeerChallengeMsgBuilder &);
   flatbuffers::Offset<PeerChallengeMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PeerChallengeMsg>(end);
@@ -603,6 +605,7 @@ struct PeerChallengeResponseMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PeerChallengeResponseMsgBuilder &operator=(const PeerChallengeResponseMsgBuilder &);
   flatbuffers::Offset<PeerChallengeResponseMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PeerChallengeResponseMsg>(end);
@@ -690,6 +693,7 @@ struct UserInputBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  UserInputBuilder &operator=(const UserInputBuilder &);
   flatbuffers::Offset<UserInput> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<UserInput>(end);
@@ -766,6 +770,7 @@ struct UserInputGroupBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  UserInputGroupBuilder &operator=(const UserInputGroupBuilder &);
   flatbuffers::Offset<UserInputGroup> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<UserInputGroup>(end);
@@ -826,6 +831,7 @@ struct NonUnlProposalMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  NonUnlProposalMsgBuilder &operator=(const NonUnlProposalMsgBuilder &);
   flatbuffers::Offset<NonUnlProposalMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<NonUnlProposalMsg>(end);
@@ -1035,6 +1041,7 @@ struct ProposalMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  ProposalMsgBuilder &operator=(const ProposalMsgBuilder &);
   flatbuffers::Offset<ProposalMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<ProposalMsg>(end);
@@ -1185,6 +1192,7 @@ struct NplMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  NplMsgBuilder &operator=(const NplMsgBuilder &);
   flatbuffers::Offset<NplMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<NplMsg>(end);
@@ -1298,6 +1306,7 @@ struct HpfsRequestMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  HpfsRequestMsgBuilder &operator=(const HpfsRequestMsgBuilder &);
   flatbuffers::Offset<HpfsRequestMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HpfsRequestMsg>(end);
@@ -1434,6 +1443,7 @@ struct HpfsResponseMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  HpfsResponseMsgBuilder &operator=(const HpfsResponseMsgBuilder &);
   flatbuffers::Offset<HpfsResponseMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HpfsResponseMsg>(end);
@@ -1517,6 +1527,7 @@ struct HpfsFsEntryResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  HpfsFsEntryResponseBuilder &operator=(const HpfsFsEntryResponseBuilder &);
   flatbuffers::Offset<HpfsFsEntryResponse> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HpfsFsEntryResponse>(end);
@@ -1597,6 +1608,7 @@ struct HpfsFileHashMapResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  HpfsFileHashMapResponseBuilder &operator=(const HpfsFileHashMapResponseBuilder &);
   flatbuffers::Offset<HpfsFileHashMapResponse> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HpfsFileHashMapResponse>(end);
@@ -1670,6 +1682,7 @@ struct HpfsBlockResponseBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  HpfsBlockResponseBuilder &operator=(const HpfsBlockResponseBuilder &);
   flatbuffers::Offset<HpfsBlockResponse> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HpfsBlockResponse>(end);
@@ -1751,6 +1764,7 @@ struct HpfsFSHashEntryBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  HpfsFSHashEntryBuilder &operator=(const HpfsFSHashEntryBuilder &);
   flatbuffers::Offset<HpfsFSHashEntry> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<HpfsFSHashEntry>(end);
@@ -1784,8 +1798,8 @@ inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntryDirect(
       hash__);
 }
 
-struct LogRecordRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef LogRecordRequestBuilder Builder;
+struct HpfsLogRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HpfsLogRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TARGET_RECORD_ID = 4,
     VT_MIN_RECORD_ID = 6
@@ -1812,55 +1826,49 @@ struct LogRecordRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct LogRecordRequestBuilder {
-  typedef LogRecordRequest Table;
+struct HpfsLogRequestBuilder {
+  typedef HpfsLogRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_target_record_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> target_record_id) {
-    fbb_.AddOffset(LogRecordRequest::VT_TARGET_RECORD_ID, target_record_id);
+    fbb_.AddOffset(HpfsLogRequest::VT_TARGET_RECORD_ID, target_record_id);
   }
   void add_min_record_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id) {
-    fbb_.AddOffset(LogRecordRequest::VT_MIN_RECORD_ID, min_record_id);
+    fbb_.AddOffset(HpfsLogRequest::VT_MIN_RECORD_ID, min_record_id);
   }
-  explicit LogRecordRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit HpfsLogRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<LogRecordRequest> Finish() {
+  HpfsLogRequestBuilder &operator=(const HpfsLogRequestBuilder &);
+  flatbuffers::Offset<HpfsLogRequest> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<LogRecordRequest>(end);
+    auto o = flatbuffers::Offset<HpfsLogRequest>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<LogRecordRequest> CreateLogRecordRequest(
+inline flatbuffers::Offset<HpfsLogRequest> CreateHpfsLogRequest(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> target_record_id = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id = 0) {
-  LogRecordRequestBuilder builder_(_fbb);
+  HpfsLogRequestBuilder builder_(_fbb);
   builder_.add_min_record_id(min_record_id);
   builder_.add_target_record_id(target_record_id);
   return builder_.Finish();
 }
 
-struct LogRecordResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef LogRecordResponseBuilder Builder;
+struct HpfsLogResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HpfsLogResponseBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MIN_RECORD_ID = 4,
-    VT_MAX_RECORD_ID = 6,
-    VT_LOG_RECORD_BYTES = 8
+    VT_LOG_RECORD_BYTES = 6
   };
   const msg::fbuf::p2pmsg::SequenceHash *min_record_id() const {
     return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_MIN_RECORD_ID);
   }
   msg::fbuf::p2pmsg::SequenceHash *mutable_min_record_id() {
     return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_MIN_RECORD_ID);
-  }
-  const msg::fbuf::p2pmsg::SequenceHash *max_record_id() const {
-    return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_MAX_RECORD_ID);
-  }
-  msg::fbuf::p2pmsg::SequenceHash *mutable_max_record_id() {
-    return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_MAX_RECORD_ID);
   }
   const flatbuffers::Vector<uint8_t> *log_record_bytes() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_LOG_RECORD_BYTES);
@@ -1872,60 +1880,52 @@ struct LogRecordResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_MIN_RECORD_ID) &&
            verifier.VerifyTable(min_record_id()) &&
-           VerifyOffset(verifier, VT_MAX_RECORD_ID) &&
-           verifier.VerifyTable(max_record_id()) &&
            VerifyOffset(verifier, VT_LOG_RECORD_BYTES) &&
            verifier.VerifyVector(log_record_bytes()) &&
            verifier.EndTable();
   }
 };
 
-struct LogRecordResponseBuilder {
-  typedef LogRecordResponse Table;
+struct HpfsLogResponseBuilder {
+  typedef HpfsLogResponse Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_min_record_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id) {
-    fbb_.AddOffset(LogRecordResponse::VT_MIN_RECORD_ID, min_record_id);
-  }
-  void add_max_record_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> max_record_id) {
-    fbb_.AddOffset(LogRecordResponse::VT_MAX_RECORD_ID, max_record_id);
+    fbb_.AddOffset(HpfsLogResponse::VT_MIN_RECORD_ID, min_record_id);
   }
   void add_log_record_bytes(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> log_record_bytes) {
-    fbb_.AddOffset(LogRecordResponse::VT_LOG_RECORD_BYTES, log_record_bytes);
+    fbb_.AddOffset(HpfsLogResponse::VT_LOG_RECORD_BYTES, log_record_bytes);
   }
-  explicit LogRecordResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit HpfsLogResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<LogRecordResponse> Finish() {
+  HpfsLogResponseBuilder &operator=(const HpfsLogResponseBuilder &);
+  flatbuffers::Offset<HpfsLogResponse> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<LogRecordResponse>(end);
+    auto o = flatbuffers::Offset<HpfsLogResponse>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<LogRecordResponse> CreateLogRecordResponse(
+inline flatbuffers::Offset<HpfsLogResponse> CreateHpfsLogResponse(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id = 0,
-    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> max_record_id = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> log_record_bytes = 0) {
-  LogRecordResponseBuilder builder_(_fbb);
+  HpfsLogResponseBuilder builder_(_fbb);
   builder_.add_log_record_bytes(log_record_bytes);
-  builder_.add_max_record_id(max_record_id);
   builder_.add_min_record_id(min_record_id);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<LogRecordResponse> CreateLogRecordResponseDirect(
+inline flatbuffers::Offset<HpfsLogResponse> CreateHpfsLogResponseDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id = 0,
-    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> max_record_id = 0,
     const std::vector<uint8_t> *log_record_bytes = nullptr) {
   auto log_record_bytes__ = log_record_bytes ? _fbb.CreateVector<uint8_t>(*log_record_bytes) : 0;
-  return msg::fbuf::p2pmsg::CreateLogRecordResponse(
+  return msg::fbuf::p2pmsg::CreateHpfsLogResponse(
       _fbb,
       min_record_id,
-      max_record_id,
       log_record_bytes__);
 }
 
@@ -1958,6 +1958,7 @@ struct PeerRequirementAnnouncementMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PeerRequirementAnnouncementMsgBuilder &operator=(const PeerRequirementAnnouncementMsgBuilder &);
   flatbuffers::Offset<PeerRequirementAnnouncementMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PeerRequirementAnnouncementMsg>(end);
@@ -2013,6 +2014,7 @@ struct PeerCapacityAnnouncementMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PeerCapacityAnnouncementMsgBuilder &operator=(const PeerCapacityAnnouncementMsgBuilder &);
   flatbuffers::Offset<PeerCapacityAnnouncementMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PeerCapacityAnnouncementMsg>(end);
@@ -2046,6 +2048,7 @@ struct PeerListRequestMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PeerListRequestMsgBuilder &operator=(const PeerListRequestMsgBuilder &);
   flatbuffers::Offset<PeerListRequestMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PeerListRequestMsg>(end);
@@ -2090,6 +2093,7 @@ struct PeerListResponseMsgBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PeerListResponseMsgBuilder &operator=(const PeerListResponseMsgBuilder &);
   flatbuffers::Offset<PeerListResponseMsg> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PeerListResponseMsg>(end);
@@ -2177,6 +2181,7 @@ struct PeerPropertiesBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PeerPropertiesBuilder &operator=(const PeerPropertiesBuilder &);
   flatbuffers::Offset<PeerProperties> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PeerProperties>(end);
@@ -2254,6 +2259,7 @@ struct SequenceHashBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  SequenceHashBuilder &operator=(const SequenceHashBuilder &);
   flatbuffers::Offset<SequenceHash> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SequenceHash>(end);
@@ -2312,6 +2318,7 @@ struct ByteArrayBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  ByteArrayBuilder &operator=(const ByteArrayBuilder &);
   flatbuffers::Offset<ByteArray> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<ByteArray>(end);
@@ -2385,12 +2392,12 @@ inline bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::PeerListResponseMsg *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case P2PMsgContent_LogRecordRequest: {
-      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::LogRecordRequest *>(obj);
+    case P2PMsgContent_HpfsLogRequest: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsLogRequest *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case P2PMsgContent_LogRecordResponse: {
-      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::LogRecordResponse *>(obj);
+    case P2PMsgContent_HpfsLogResponse: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsLogResponse *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
