@@ -89,9 +89,10 @@ namespace sc::hpfs_log_sync
                 if (!sync_ctx.target_log_record.empty() && check_hpfs_log_sync_responses() == 1)
                     processed = true;
 
-                // Here we check for the updated log records to check whether target has archieved.
+                // Here we check for the updated log records to check whether target has archived.
                 if (sync_ctx.is_syncing && get_verified_min_record() == 1)
                 {
+                    LOG_INFO << "Hpfs log sync: sync target archived " << sync_ctx.target_log_record;
                     sync_ctx.target_log_record = {};
                     sync_ctx.min_log_record = {};
                     sync_ctx.is_syncing = false;

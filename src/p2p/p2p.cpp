@@ -15,9 +15,6 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 // Maximum no. of peers that will be persisted back to config upon exit.
 constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 50;
 
-// Maximum number of tries before abandoning full history only random message sending.
-constexpr uint16_t FULL_HISTORY_MSG_THRESHOLD = 20;
-
 namespace p2p
 {
 
