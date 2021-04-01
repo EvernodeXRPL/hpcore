@@ -25,6 +25,7 @@ namespace p2p
         bool need_consensus_msg_forwarding = false;     // Holds whether this node requires consensus message forwarding.
         bool is_unl = false;                            // Whether this session's pubkey is in unl list.
         uint32_t reported_roundtime = 0;                // Initial roundtime reported by this peer on peer challenge.
+        bool is_full_history;                           // Stores whether the connection is to a full history node or not.
     };
 
 } // namespace p2p

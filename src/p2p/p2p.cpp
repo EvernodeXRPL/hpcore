@@ -112,7 +112,7 @@ namespace p2p
         if (res == 0)
         {
             LOG_DEBUG << "Pubkey violation. Rejecting new peer connection [" << session.display_name() << "]";
-            
+
             // It's possible, Self node might've been added to the known peers by peer discovery.
             // If so remove the self from known peers.
             if (session.known_ipport.has_value())
@@ -282,8 +282,9 @@ namespace p2p
      * Sends the given message to a random peer (except self).
      * @param fbuf Peer outbound message to be sent to peer.
      * @param target_pubkey Randomly selected target peer pubkey.
+     * @param full_history_only Should send only to a random full history node.
      */
-    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey)
+    void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool full_history_only)
     {
         //Send while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
@@ -295,19 +296,41 @@ namespace p2p
             return;
         }
 
-        while (true)
+        peer_comm_session *session = NULL;
+
+        if (full_history_only)
+        {
+            // Stores full history session list.
+            std::vector<peer_comm_session *> full_history_sessions;
+            for (auto [key, session] : ctx.peer_connections)
+            {
+                if (session->is_full_history)
+                    full_history_sessions.push_back(session);
+            }
+
+            if (full_history_sessions.size() == 0)
+            {
+                LOG_DEBUG << "No full history peers to random send.";
+                return;
+            }
+            auto it = full_history_sessions.begin();
+            // Initialize random number generator with current timestamp.
+            const int random_peer_index = (rand() % full_history_sessions.size()); // Select a random peer index.
+            std::advance(it, random_peer_index);                                   // Move iterator to point to random selected peer.
+            session = *it;
+        }
+        else
         {
             // Initialize random number generator with current timestamp.
-            const int random_peer_index = (rand() % connected_peers); // select a random peer index.
             auto it = ctx.peer_connections.begin();
-            std::advance(it, random_peer_index); //move iterator to point to random selected peer.
-
-            //send message to selected peer.
-            peer_comm_session *session = it->second;
-            session->send(msg::fbuf::builder_to_string_view(fbuf));
-            target_pubkey = session->uniqueid;
-            break;
+            const int random_peer_index = (rand() % connected_peers); // Select a random peer index.
+            std::advance(it, random_peer_index);                      // Move iterator to point to random selected peer.
+            session = it->second;
         }
+
+        //send message to selected peer.
+        session->send(msg::fbuf::builder_to_string_view(fbuf));
+        target_pubkey = session->uniqueid;
     }
 
     /**

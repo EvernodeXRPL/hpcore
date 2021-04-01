@@ -37,6 +37,10 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::hpfs_request create_hpfs_request_from_msg(const p2p::peer_message_info &mi);
 
+    const p2p::hpfs_log_request create_hpfs_log_request_from_msg(const p2p::peer_message_info &mi);
+
+    const p2p::hpfs_log_response create_hpfs_log_response_from_msg(const p2p::peer_message_info &mi);
+
     p2p::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf::p2pmsg::SequenceHash *fbseqhash);
 
     const std::set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
@@ -68,6 +72,10 @@ namespace msg::fbuf::p2pmsg
     void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const p2p::sequence_hash &lcl_id);
 
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr);
+
+    void create_msg_from_hpfs_log_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_request &hpfs_log_request);
+
+    void create_msg_from_hpfs_log_response(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_response &hpfs_log_response);
 
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &builder, const std::string_view path, const uint32_t mount_id, const mode_t dir_mode,

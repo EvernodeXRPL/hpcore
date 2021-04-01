@@ -14,7 +14,9 @@ union P2PMsgContent {
     PeerRequirementAnnouncementMsg,
     PeerCapacityAnnouncementMsg,
     PeerListRequestMsg,
-    PeerListResponseMsg
+    PeerListResponseMsg,
+    LogRecordRequest,
+    LogRecordResponse
 }
 
 table P2PMsg {
@@ -26,6 +28,7 @@ table P2PMsg {
 table PeerChallengeMsg {
     contract_id:string;
     roundtime:uint32;
+    is_full_history:bool;
     challenge:[ubyte];
 }
 
@@ -119,6 +122,19 @@ table HpfsFSHashEntry{
     name: string;
     is_file: bool;
     hash: [ubyte];
+}
+
+table LogRecordRequest
+{
+    target_record_id:SequenceHash;
+    min_record_id:SequenceHash;
+}
+
+table LogRecordResponse
+{
+    min_record_id:SequenceHash;
+    max_record_id:SequenceHash;
+    log_record_bytes:[ubyte];
 }
 
 table PeerRequirementAnnouncementMsg{

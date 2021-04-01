@@ -58,7 +58,7 @@ namespace msg::fbuf::p2pmsg
         const auto &msg = *mi.p2p_msg->content_as_ProposalMsg();
 
         std::string_view pubkey = flatbuf_bytes_to_sv(msg.pubkey());
-        
+
         // Before verifying the hash, Validate if the message is from a trusted node.
         if (!unl::exists(std::string(pubkey)))
         {
@@ -89,7 +89,7 @@ namespace msg::fbuf::p2pmsg
         const auto &msg = *mi.p2p_msg->content_as_NplMsg();
 
         std::string_view pubkey = flatbuf_bytes_to_sv(msg.pubkey());
-        
+
         // Before verifying the hash, Validate if the message is from a trusted node.
         if (!unl::exists(std::string(pubkey)))
         {
@@ -111,6 +111,7 @@ namespace msg::fbuf::p2pmsg
         return {
             std::string(flatbuf_str_to_sv(msg.contract_id())),
             msg.roundtime(),
+            msg.is_full_history(),
             std::string(flatbuf_bytes_to_sv(msg.challenge()))};
     }
 
@@ -206,6 +207,27 @@ namespace msg::fbuf::p2pmsg
         hr.parent_path = flatbuf_str_to_sv(msg.parent_path());
         hr.expected_hash = flatbuf_bytes_to_hash(msg.expected_hash());
         return hr;
+    }
+
+    const p2p::hpfs_log_request create_hpfs_log_request_from_msg(const p2p::peer_message_info &mi)
+    {
+        const auto &msg = *mi.p2p_msg->content_as_LogRecordRequest();
+        p2p::hpfs_log_request log_record;
+        log_record.target_record_id = flatbuf_seqhash_to_seqhash(msg.target_record_id());
+        log_record.min_record_id = flatbuf_seqhash_to_seqhash(msg.min_record_id());
+        return log_record;
+    }
+
+    const p2p::hpfs_log_response create_hpfs_log_response_from_msg(const p2p::peer_message_info &mi)
+    {
+        const auto &msg = *mi.p2p_msg->content_as_LogRecordResponse();
+        p2p::hpfs_log_response hpfs_log_response;
+        hpfs_log_response.min_record_id = flatbuf_seqhash_to_seqhash(msg.min_record_id());
+        hpfs_log_response.max_record_id = flatbuf_seqhash_to_seqhash(msg.max_record_id());
+        hpfs_log_response.log_record_bytes.reserve(msg.log_record_bytes()->size());
+        for (const auto byte: *msg.log_record_bytes())
+            hpfs_log_response.log_record_bytes.push_back(byte);
+        return hpfs_log_response;
     }
 
     p2p::sequence_hash flatbuf_seqhash_to_seqhash(const SequenceHash *fbseqhash)
@@ -327,6 +349,7 @@ namespace msg::fbuf::p2pmsg
             builder,
             sv_to_flatbuf_str(builder, conf::cfg.contract.id),
             conf::cfg.contract.roundtime,
+            conf::cfg.node.history == conf::HISTORY::FULL,
             sv_to_flatbuf_bytes(builder, challenge));
         create_p2p_msg(builder, P2PMsgContent_PeerChallengeMsg, msg.Union());
     }
@@ -397,6 +420,27 @@ namespace msg::fbuf::p2pmsg
             hash_to_flatbuf_bytes(builder, hr.expected_hash));
 
         create_p2p_msg(builder, P2PMsgContent_HpfsRequestMsg, msg.Union());
+    }
+
+    void create_msg_from_hpfs_log_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_request &hpfs_log_request)
+    {
+        const auto msg = CreateLogRecordRequest(
+            builder,
+            seqhash_to_flatbuf_seqhash(builder, hpfs_log_request.target_record_id),
+            seqhash_to_flatbuf_seqhash(builder, hpfs_log_request.min_record_id));
+
+        create_p2p_msg(builder, P2PMsgContent_LogRecordRequest, msg.Union());
+    }
+
+    void create_msg_from_hpfs_log_response(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_response &hpfs_log_response)
+    {
+        const auto msg = CreateLogRecordResponse(
+            builder,
+            seqhash_to_flatbuf_seqhash(builder, hpfs_log_response.min_record_id),
+            seqhash_to_flatbuf_seqhash(builder, hpfs_log_response.max_record_id),
+            builder.CreateVector<uint8_t>(hpfs_log_response.log_record_bytes));
+
+        create_p2p_msg(builder, P2PMsgContent_LogRecordResponse, msg.Union());
     }
 
     void create_msg_from_fsentry_response(

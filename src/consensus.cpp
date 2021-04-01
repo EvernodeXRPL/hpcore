@@ -14,6 +14,7 @@
 #include "unl.hpp"
 #include "ledger/ledger.hpp"
 #include "consensus.hpp"
+#include "sc/hpfs_log_sync.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -222,26 +223,34 @@ namespace consensus
                 is_patch_update_pending = false;
 
             // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
-            if (is_state_desync || is_patch_desync || is_last_blob_shard_desync)
+            if (is_state_desync || is_patch_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
 
-                if (is_state_desync)
-                    sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
-
-                // Patch file sync is prioritized, Therefore it is set in the front of the sync target list.
-                if (is_patch_desync)
-                    sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
-
-                // If ledger blob shard is desync, We first request the latest blob shard.
-                if (is_last_blob_shard_desync)
+                if (conf::cfg.node.history == conf::HISTORY::FULL)
                 {
-                    const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.seq_no);
-                    const std::string sync_name = "blob shard " + majority_shard_seq_no_str;
-                    const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(majority_shard_seq_no_str);
-                    ledger::ledger_sync_worker.is_last_blob_shard_syncing = true;
-                    ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    sc::hpfs_log_sync::set_sync_target(p2p::sequence_hash{ledger::ctx.get_lcl_id().seq_no + 1, hpfs::get_root_hash(majority_patch_hash, majority_state_hash)});
                 }
+                else
+                {
+                    if (is_state_desync)
+                        sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+
+                    // Patch file sync is prioritized, Therefore it is set in the front of the sync target list.
+                    if (is_patch_desync)
+                        sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                }
+            }
+
+            // If ledger blob shard is desync, We first request the latest blob shard.
+            if (is_last_blob_shard_desync)
+            {
+                conf::change_role(conf::ROLE::OBSERVER);
+                const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.seq_no);
+                const std::string sync_name = "blob shard " + majority_shard_seq_no_str;
+                const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(majority_shard_seq_no_str);
+                ledger::ledger_sync_worker.is_last_blob_shard_syncing = true;
+                ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
             // If shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
@@ -278,8 +287,10 @@ namespace consensus
      */
     void check_sync_completion()
     {
+        const bool is_contract_syncing = (conf::cfg.node.history == conf::HISTORY::FULL) ? sc::hpfs_log_sync::sync_ctx.is_syncing : sc::contract_sync_worker.is_syncing;
         // In ledger sync we only concern about last shard sync status to proceed with consensus.
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !sc::contract_sync_worker.is_syncing && !ledger::ledger_sync_worker.is_last_primary_shard_syncing && !ledger::ledger_sync_worker.is_last_blob_shard_syncing)
+        const bool is_ledger_syncing = ledger::ledger_sync_worker.is_last_primary_shard_syncing || ledger::ledger_sync_worker.is_last_blob_shard_syncing;
+        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !is_contract_syncing && !is_ledger_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
 
