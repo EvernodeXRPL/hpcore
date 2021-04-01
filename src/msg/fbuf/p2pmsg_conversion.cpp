@@ -31,7 +31,7 @@ namespace msg::fbuf::p2pmsg
         const size_t buf_size = message.size();
 
         // Verify container message using flatbuffer verifier
-        flatbuffers::Verifier verifier(buf, buf_size, 16, 100);
+        flatbuffers::Verifier verifier(buf, buf_size);
         return VerifyP2PMsgBuffer(verifier);
     }
 

@@ -118,6 +118,10 @@ namespace consensus
 
         if (ctx.stage == 0)
         {
+            // Broadcast non-unl proposal (NUP) containing inputs from locally connected users.
+            // This is performed at stage 0, so we can to make sure this happens regardless of whether we are in-sync or not.
+            broadcast_nonunl_proposal();
+
             // Prepare the consensus candidate user inputs that we have accumulated so far. (We receive them periodically via NUPs)
             // The candidate inputs will be included in the stage 0 proposal.
             if (verify_and_populate_candidate_user_inputs(lcl_id.seq_no) == -1)
@@ -159,14 +163,6 @@ namespace consensus
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
                 if (ctx.stage == 3 && update_ledger_and_execute_contract(p, state_hash, patch_hash, lcl_id) == -1)
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
-            }
-
-            if (ctx.stage == 2)
-            {
-                // At end of stage 2, broadcast non-unl proposal (NUP) containing inputs from locally connected users.
-                // This will be captured and verified during every round stage 0.
-                // (We broadcast this at stage 2 in order to give it enough time to reach others before next round stage 0)
-                broadcast_nonunl_proposal();
             }
 
             // We have finished a consensus stage. Transition or reset stage based on sync status.
@@ -319,7 +315,6 @@ namespace consensus
             ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
         }
 
-        // Prune any outdated proposals.
         auto itr = ctx.candidate_proposals.begin();
         const uint64_t time_now = util::get_epoch_milliseconds();
         while (itr != ctx.candidate_proposals.end())
@@ -610,6 +605,7 @@ namespace consensus
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_blob_shard_id = last_blob_shard_id;
+        p.output_hash.resize(BLAKE3_OUT_LEN); // Default empty hash.
 
         const uint64_t time_now = util::get_epoch_milliseconds();
 
@@ -753,7 +749,7 @@ namespace consensus
         // If that's the case we should request shards straight away.
         if (ledger::ctx.get_last_primary_shard_id() != majority_primary_shard_id)
         {
-            LOG_DEBUG << "We are not on the consensus ledger, we must request history from a peer.";
+            LOG_INFO << "We are not on the consensus ledger, we must request history from a peer.";
             is_desync = true;
             return true;
         }
@@ -1047,18 +1043,20 @@ namespace consensus
         {
             if (!bufs.outputs.empty())
             {
-                std::vector<std::string_view> vect;
-                // Adding public key.
-                vect.push_back(pubkey);
-                // Only using message to generate hash for output messages. Length is not needed.
-                for (sc::contract_output &output : bufs.outputs)
-                {
-                    vect.push_back(output.message);
-                }
+                // Generate hash of all sorted outputs combined with user pubkey.
 
-                const std::string hash = crypto::get_hash(vect);
+                std::vector<std::string_view> vect;
+                for (sc::contract_output &output : bufs.outputs)
+                    vect.push_back(output.message);
+
+                // We sort all outputs so every node calculates the final hash the same way.
+                std::sort(vect.begin(), vect.end());
+
+                // Adding user public key.
+                vect.push_back(pubkey);
+
                 ctx.generated_user_outputs.try_emplace(
-                    std::move(hash),
+                    crypto::get_hash(vect),
                     generated_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
