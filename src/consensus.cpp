@@ -164,7 +164,6 @@ namespace consensus
                     LOG_ERROR << "Error occured in Stage 3 consensus execution.";
             }
 
-
             // We have finished a consensus stage. Transition or reset stage based on sync status.
 
             if (sync_status == -2)
@@ -305,34 +304,30 @@ namespace consensus
             ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
         }
 
-        // Prune any outdated proposals on stage 1,2,3.
-        if (ctx.stage != 0)
+        auto itr = ctx.candidate_proposals.begin();
+        const uint64_t time_now = util::get_epoch_milliseconds();
+        while (itr != ctx.candidate_proposals.end())
         {
-            auto itr = ctx.candidate_proposals.begin();
-            const uint64_t time_now = util::get_epoch_milliseconds();
-            while (itr != ctx.candidate_proposals.end())
-            {
-                const p2p::proposal &cp = itr->second;
-                const uint64_t time_diff = (time_now > cp.sent_timestamp) ? (time_now - cp.sent_timestamp) : 0;
-                const int8_t stage_diff = ctx.stage - cp.stage;
+            const p2p::proposal &cp = itr->second;
+            const uint64_t time_diff = (time_now > cp.sent_timestamp) ? (time_now - cp.sent_timestamp) : 0;
+            const int8_t stage_diff = ctx.stage - cp.stage;
 
-                // Only consider recent proposals from current round timestamp and previous stage only.
-                const bool keep_candidate = (time_diff < (conf::cfg.contract.roundtime * 4)) && (cp.time == ctx.round_start_time && cp.stage == (ctx.stage - 1));
-                LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
-                          << " [s" << std::to_string(cp.stage)
-                          << "] u/i:" << cp.users.size()
-                          << "/" << cp.input_hashes.size()
-                          << " ts:" << std::to_string(cp.time)
-                          << " state:" << cp.state_hash
-                          << " patch:" << cp.patch_hash
-                          << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
-                          << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)\n";
+            // only consider recent proposals and proposals from previous stage and current stage.
+            const bool keep_candidate = (time_diff < (conf::cfg.contract.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
+            LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
+                      << " [s" << std::to_string(cp.stage)
+                      << "] u/i:" << cp.users.size()
+                      << "/" << cp.input_hashes.size()
+                      << " ts:" << std::to_string(cp.time)
+                      << " state:" << cp.state_hash
+                      << " patch:" << cp.patch_hash
+                      << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
+                      << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)\n";
 
-                if (keep_candidate)
-                    ++itr;
-                else
-                    ctx.candidate_proposals.erase(itr++);
-            }
+            if (keep_candidate)
+                ++itr;
+            else
+                ctx.candidate_proposals.erase(itr++);
         }
     }
 
