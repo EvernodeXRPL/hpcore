@@ -72,7 +72,7 @@ namespace sc::hpfs_log_sync
     {
         util::mask_signal();
 
-        LOG_INFO << "hpfs log sync: Worker started.";
+        LOG_INFO << "Hpfs log sync: Worker started.";
 
         while (!sync_ctx.is_shutting_down)
         {
@@ -99,7 +99,7 @@ namespace sc::hpfs_log_sync
                 util::sleep(SYNCER_IDLE_WAIT);
         }
 
-        LOG_INFO << "hpfs log sync: Worker stopped.";
+        LOG_INFO << "Hpfs log sync: Worker stopped.";
     }
 
     /**
@@ -119,14 +119,16 @@ namespace sc::hpfs_log_sync
                 std::string target_pubkey;
                 p2p::send_message_to_random_peer(fbuf, target_pubkey, true);
                 if (!target_pubkey.empty())
-                {
-                    sync_ctx.target_requested_on = time_now;
-                    sync_ctx.request_submissions++;
-                }
+                    LOG_DEBUG << "Hpfs log sync: Requesting from [" << target_pubkey.substr(2, 10) << "]."
+                              << " min:" << sync_ctx.min_log_record
+                              << " target:" << sync_ctx.target_log_record;
+
+                sync_ctx.target_requested_on = time_now;
+                sync_ctx.request_submissions++;
             }
             else
             {
-                LOG_INFO << "hpfs log sync: Resubmission threshold exceeded. Abandoning sync.";
+                LOG_INFO << "Hpfs log sync: Resubmission threshold exceeded. Abandoning sync.";
                 sync_ctx.clear_target();
             }
         }
