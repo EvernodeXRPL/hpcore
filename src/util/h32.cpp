@@ -61,7 +61,7 @@ namespace util
 
     std::ostream &operator<<(std::ostream &output, const h32 &h)
     {
-        std::ios_base::fmtflags stream_flags(output.flags());
+        const std::ios_base::fmtflags stream_flags(output.flags());
         output << std::hex;
 
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(&h);
