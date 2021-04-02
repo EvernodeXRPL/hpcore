@@ -154,13 +154,14 @@ namespace crypto
     }
 
     /**
-     * Generates blake3 hash for the given string view vector using stream hashing.
+     * Generates blake3 hash for the given list of strings using stream hashing.
      */
-    const std::string get_hash(const std::vector<std::string_view> &str_list)
+    template <typename T>
+    const std::string get_list_hash(const T &str_list)
     {
         std::string hash;
         hash.resize(BLAKE3_OUT_LEN);
-
+        
         if (str_list.empty())
         {
             return hash;
@@ -179,33 +180,10 @@ namespace crypto
 
         return hash;
     }
-
-    /**
-     * Generates blake3 hash for the given string set using stream hashing.
-     */
-    const std::string get_hash(const std::set<std::string> &str_list)
-    {
-        std::string hash;
-        hash.resize(BLAKE3_OUT_LEN);
-
-        if (str_list.empty())
-        {
-            return hash;
-        }
-
-        // Init stream hashing.
-        blake3_hasher hasher;
-        blake3_hasher_init(&hasher);
-
-        // Hash is generated only using message in contract output struct.
-        for (std::string_view sv : str_list)
-            blake3_hasher_update(&hasher, reinterpret_cast<const unsigned char *>(sv.data()), sv.length());
-
-        // Get the final hash.
-        blake3_hasher_finalize(&hasher, reinterpret_cast<unsigned char *>(hash.data()), hash.length());
-
-        return hash;
-    }
+    template const std::string get_list_hash<std::set<std::string>>(const std::set<std::string> &str_list);
+    template const std::string get_list_hash<std::list<std::string>>(const std::list<std::string> &str_list);
+    template const std::string get_list_hash<std::vector<std::string>>(const std::vector<std::string> &str_list);
+    template const std::string get_list_hash<std::vector<std::string_view>>(const std::vector<std::string_view> &str_list);
 
     const std::string generate_uuid()
     {

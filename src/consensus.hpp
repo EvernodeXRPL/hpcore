@@ -55,11 +55,11 @@ namespace consensus
      */
     struct generated_user_output
     {
-        const std::string userpubkey;
+        const std::string user_pubkey;
         std::list<sc::contract_output> outputs;
 
-        generated_user_output(const std::string userpubkey, const std::list<sc::contract_output> outputs)
-            : userpubkey(std::move(userpubkey)), outputs(std::move(outputs))
+        generated_user_output(const std::string &user_pubkey, const std::list<sc::contract_output> &&outputs)
+            : user_pubkey(user_pubkey), outputs(outputs)
         {
         }
     };

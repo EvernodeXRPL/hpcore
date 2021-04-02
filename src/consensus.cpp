@@ -342,11 +342,13 @@ namespace consensus
                       << " [s" << std::to_string(cp.stage)
                       << "] u/i:" << cp.users.size()
                       << "/" << cp.input_ordered_hashes.size()
-                      << " ts:" << std::to_string(cp.time)
+                      << " ts:" << cp.time
                       << " state:" << cp.state_hash
                       << " patch:" << cp.patch_hash
+                      << " lps:" << cp.last_primary_shard_id
+                      << " lbs:" << cp.last_blob_shard_id
                       << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
-                      << "(" << std::to_string(cp.recv_timestamp > cp.sent_timestamp ? cp.recv_timestamp - cp.sent_timestamp : 0) << "ms)";
+                      << "(" << (cp.recv_timestamp > cp.sent_timestamp ? (cp.recv_timestamp - cp.sent_timestamp) : 0) << "ms)";
 
             if (keep_candidate)
                 ++itr;
@@ -523,7 +525,7 @@ namespace consensus
 
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i:" << p.users.size()
                   << "/" << p.input_ordered_hashes.size()
-                  << " ts:" << std::to_string(p.time)
+                  << " ts:" << p.time
                   << " state:" << p.state_hash
                   << " patch:" << p.patch_hash
                   << " last_primary_shard_id:" << p.last_primary_shard_id
@@ -1032,6 +1034,8 @@ namespace consensus
             std::scoped_lock lock(ctx.contract_ctx_mutex);
             ctx.contract_ctx.reset();
         }
+
+        return 0;
     }
 
     /**
@@ -1050,7 +1054,7 @@ namespace consensus
             for (auto &[hash, user_output] : ctx.generated_user_outputs)
             {
                 // Find user to send by pubkey.
-                const auto user_itr = usr::ctx.users.find(user_output.userpubkey);
+                const auto user_itr = usr::ctx.users.find(user_output.user_pubkey);
                 if (user_itr != usr::ctx.users.end()) // match found
                 {
                     const usr::connected_user &user = user_itr->second;
@@ -1117,22 +1121,19 @@ namespace consensus
     {
         for (auto &[pubkey, bufs] : bufmap)
         {
+            // For each user calculate the total hash of their outputs.
+            // Final hash for user = hash(pubkey + hash(outputs))
+
             if (!bufs.outputs.empty())
             {
-                // Generate hash of all sorted outputs combined with user pubkey.
-
-                std::vector<std::string_view> vect;
-                for (sc::contract_output &output : bufs.outputs)
-                    vect.push_back(output.message);
-
                 // We sort all outputs so every node calculates the final hash the same way.
-                std::sort(vect.begin(), vect.end());
+                bufs.outputs.sort();
 
-                // Adding user public key.
-                vect.push_back(pubkey);
+                // Generate hash of all sorted outputs combined with user pubkey.
+                const std::string combined_hash = crypto::get_hash(pubkey, crypto::get_list_hash(bufs.outputs));
 
                 ctx.generated_user_outputs.try_emplace(
-                    crypto::get_hash(vect),
+                    combined_hash,
                     generated_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
