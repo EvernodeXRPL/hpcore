@@ -140,6 +140,10 @@ namespace consensus
 
     void revise_candidate_proposals();
 
+    int prepare_consensed_users_and_inputs(consensed_user_map &consensed_users, const p2p::proposal &cons_prop);
+
+    int purge_user_input_buffers(const consensed_user_map &consensed_users);
+
     bool wait_and_proceed_stage();
 
     void broadcast_nonunl_proposal();
@@ -170,7 +174,9 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id);
+    int update_ledger(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id);
+
+    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
 
     int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
 

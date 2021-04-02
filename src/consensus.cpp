@@ -165,8 +165,17 @@ namespace consensus
                 broadcast_proposal(p);
 
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-                if (ctx.stage == 3 && update_ledger_and_execute_contract(p, state_hash, patch_hash, lcl_id) == -1)
-                    LOG_ERROR << "Error occured in Stage 3 consensus execution.";
+                if (ctx.stage == 3)
+                {
+                    consensed_user_map consensed_users;
+                    if (prepare_consensed_users_and_inputs(consensed_users, p) == -1 ||
+                        update_ledger(p, consensed_users, patch_hash, lcl_id) == -1 ||
+                        execute_contract(p, consensed_users, lcl_id) == -1)
+                        LOG_ERROR << "Error occured in Stage 3 consensus execution.";
+
+                    // Cleanup any buffers occupied by consensed inputs regardless of any errors occured.
+                    purge_user_input_buffers(consensed_users);
+                }
             }
 
             // We have finished a consensus stage. Transition or reset stage based on sync status.
@@ -344,6 +353,70 @@ namespace consensus
             else
                 ctx.candidate_proposals.erase(itr++);
         }
+    }
+
+    /**
+     * Prepare the consensed user map including the consensed user inputs based on the consensus proposal.
+     * @param consensed_users The consensed user map to populate.
+     * @param cons_prop The proposal that reached consensus.
+     * @return 0 on success. -1 on failure.
+     */
+    int prepare_consensed_users_and_inputs(consensed_user_map &consensed_users, const p2p::proposal &cons_prop)
+    {
+        // Prepare consensed user input set by joining consensus proposal input ordered hashes and candidate user input set.
+        // consensed inputs are removed from the candidate set.
+
+        int ret = 0;
+
+        // Populate the users map with all consensed users regardless of whether they have inputs or not.
+        for (const std::string &pubkey : cons_prop.users)
+            consensed_users.try_emplace(pubkey, std::vector<consensed_user_input>());
+
+        for (const std::string &ordered_hash : cons_prop.input_ordered_hashes)
+        {
+            // For each consensus input ordered hash, we need to find the candidate input.
+            const auto itr = ctx.candidate_user_inputs.find(ordered_hash);
+            const bool hash_found = (itr != ctx.candidate_user_inputs.end());
+            if (!hash_found)
+            {
+                LOG_ERROR << "Input required but wasn't in our candidate inputs map, this will potentially cause desync.";
+
+                // We set error return value but keep on moving candidate inputs to consensed inputs.
+                // This is so that their underlying buffers can get deallocated during stage 3 execution steps.
+                ret = -1;
+            }
+            else
+            {
+                candidate_user_input &ci = itr->second;
+                consensed_users[ci.user_pubkey].emplace_back(ordered_hash, ci.input, ci.protocol);
+
+                // Erase the consensed input from the candidate set.
+                ctx.candidate_user_inputs.erase(itr);
+            }
+        }
+
+        return ret;
+    }
+
+    /**
+     * Purges the underyling buffers that belong to provided consensed user inputs.
+     * @param consensed_users The consensed user map that contains input pointers.
+     * @return 0 on success. -1 on failure.
+     */
+    int purge_user_input_buffers(const consensed_user_map &consensed_users)
+    {
+        int ret = 0;
+
+        for (const auto &[pubkey, inputs] : consensed_users)
+        {
+            for (const consensed_user_input &ci : inputs)
+            {
+                if (usr::input_store.purge(ci.input) == -1)
+                    ret = -1;
+            }
+        }
+
+        return ret;
     }
 
     /**
@@ -856,45 +929,15 @@ namespace consensus
     }
 
     /**
-     * Update the ledger and execute the contract after consensus.
+     * Update the ledger after reaching consensus.
      * @param cons_prop The proposal that reached consensus.
-     * @param new_state_hash The state hash.
+     * @param consensed_users Consensed users and their inputs.
      * @param patch_hash The patch hash.
      * @param lcl_id Last lcl seq_no and hash.
-     * @param last_primary_shard_id Last primary shard id.
+     * @return 0 on success. -1 on error.
      */
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id)
+    int update_ledger(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id)
     {
-        // Prepare consensed user input set by joining consensus proposal input ordered hashes and candidate user input set.
-        // consensed inputs are removed from the candidate set.
-
-        // Map of consensed users keyed by user binary pubkey mapped to their inputs (if any).
-        consensed_user_map consensed_users;
-
-        // Populate the users map with all consensed users regardless of whether they have inputs or not.
-        for (const std::string &pubkey : cons_prop.users)
-            consensed_users.try_emplace(pubkey, std::vector<consensed_user_input>());
-
-        for (const std::string &ordered_hash : cons_prop.input_ordered_hashes)
-        {
-            // For each consensus input ordered hash, we need to find the candidate input.
-            const auto itr = ctx.candidate_user_inputs.find(ordered_hash);
-            const bool hash_found = (itr != ctx.candidate_user_inputs.end());
-            if (!hash_found)
-            {
-                LOG_ERROR << "Input required but wasn't in our candidate inputs map, this will potentially cause desync.";
-                return -1;
-            }
-            else
-            {
-                candidate_user_input &ci = itr->second;
-                consensed_users[ci.user_pubkey].emplace_back(ordered_hash, ci.input, ci.protocol);
-
-                // Erase the consensed input from the candidate set.
-                ctx.candidate_user_inputs.erase(itr);
-            }
-        }
-
         if (ledger::save_ledger(cons_prop, consensed_users, ctx.generated_user_outputs) == -1)
             return -1;
 
@@ -903,76 +946,92 @@ namespace consensus
 
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
+        // Send back the inputs "accepted" responses to the user.
+
+        // Send any output from the previous consensus round to locally connected users.
+        if (dispatch_user_outputs(cons_prop, new_lcl_id) == -1)
+            return -1;
+
+        // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
+        if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
+            return -1;
+
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
             auto itr = ctx.candidate_user_inputs.begin();
             while (itr != ctx.candidate_user_inputs.end())
             {
                 if (itr->second.max_ledger_seq_no <= new_lcl_id.seq_no)
+                {
+                    // Erase the candidate input along with its data buffer in the input store.
+                    usr::input_store.purge(itr->second.input);
                     ctx.candidate_user_inputs.erase(itr++);
+                }
                 else
+                {
                     ++itr;
-            }
-        }
-
-        // Send back the inputs "accepted" responses to the user.
-
-        // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
-        if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
-            return -1;
-
-        // Send any output from the previous consensus round to locally connected users.
-        if (dispatch_user_outputs(cons_prop, new_lcl_id) == -1)
-            return -1;
-
-        // Execute the contract
-        if (conf::cfg.contract.execute && !ctx.is_shutting_down)
-        {
-            {
-                std::scoped_lock lock(ctx.contract_ctx_mutex);
-                ctx.contract_ctx.emplace(usr::input_store);
-            }
-
-            sc::contract_execution_args &args = ctx.contract_ctx->args;
-            args.readonly = false;
-            args.time = cons_prop.time;
-
-            // lcl to be passed to the contract.
-            args.lcl_id = new_lcl_id;
-
-            // Populate contract user bufs.
-            feed_user_inputs_to_contract_bufmap(args.userbufs, consensed_users);
-
-            if (sc::execute_contract(ctx.contract_ctx.value()) == -1)
-            {
-                LOG_ERROR << "Contract execution failed.";
-                return -1;
-            }
-
-            // Update state hash in contract fs global hash tracker.
-            sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, args.post_execution_state_hash);
-            new_state_hash = args.post_execution_state_hash;
-
-            extract_user_outputs_from_contract_bufmap(args.userbufs);
-
-            // Generate user output hash merkle tree and signature with state hash included.
-            if (!ctx.generated_user_outputs.empty())
-            {
-                std::vector<std::string_view> hashes;
-                for (const auto &[hash, output] : ctx.generated_user_outputs)
-                    hashes.push_back(hash);
-                hashes.push_back(new_state_hash.to_string_view());
-                ctx.user_outputs_hashtree.populate(hashes);
-                ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root_hash(), conf::cfg.node.private_key);
-            }
-
-            {
-                std::scoped_lock lock(ctx.contract_ctx_mutex);
-                ctx.contract_ctx.reset();
+                }
             }
         }
 
         return 0;
+    }
+
+    /**
+     * Executes the contract after consensus.
+     * @param cons_prop The proposal that reached consensus.
+     * @param consensed_users Consensed users and their inputs.
+     * @param lcl_id Current lcl id of the node.
+     */
+    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    {
+        if (!conf::cfg.contract.execute || ctx.is_shutting_down)
+            return 0;
+
+        {
+            std::scoped_lock lock(ctx.contract_ctx_mutex);
+            ctx.contract_ctx.emplace(usr::input_store);
+        }
+
+        sc::contract_execution_args &args = ctx.contract_ctx->args;
+        args.readonly = false;
+        args.time = cons_prop.time;
+
+        // lcl to be passed to the contract.
+        args.lcl_id = lcl_id;
+
+        // Populate contract user bufs.
+        feed_user_inputs_to_contract_bufmap(args.userbufs, consensed_users);
+
+        if (sc::execute_contract(ctx.contract_ctx.value()) == -1)
+        {
+            LOG_ERROR << "Consensus contract execution failed.";
+            return -1;
+        }
+
+        // Get the new state hash after contract execution.
+        const util::h32 &new_state_hash = args.post_execution_state_hash;
+
+        // Update state hash in contract fs global hash tracker.
+        sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, new_state_hash);
+
+        extract_user_outputs_from_contract_bufmap(args.userbufs);
+
+        // Generate user output hash merkle tree and signature with state hash included.
+        if (!ctx.generated_user_outputs.empty())
+        {
+            std::vector<std::string_view> hashes;
+            for (const auto &[hash, output] : ctx.generated_user_outputs)
+                hashes.push_back(hash);
+            hashes.push_back(new_state_hash.to_string_view());
+            ctx.user_outputs_hashtree.populate(hashes);
+            ctx.user_outputs_our_sig = crypto::sign(ctx.user_outputs_hashtree.root_hash(), conf::cfg.node.private_key);
+        }
+
+        {
+            std::scoped_lock lock(ctx.contract_ctx_mutex);
+            ctx.contract_ctx.reset();
+        }
     }
 
     /**

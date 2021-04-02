@@ -64,7 +64,7 @@ namespace util
         const size_t purge_size = BLOCK_ALIGN(buf.size);
         if (fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, buf.offset, purge_size) == -1)
         {
-            LOG_ERROR << errno << ": Error when purging buffer store fd " << fd;
+            LOG_ERROR << errno << ": Error when purging buffer store fd " << fd << " (" << buf.offset << "," << buf.size << ")";
             return -1;
         }
         return 0;
