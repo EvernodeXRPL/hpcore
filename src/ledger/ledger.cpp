@@ -85,11 +85,11 @@ namespace ledger
     /**
      * Create and save ledger record from the given proposal message.
      * @param proposal Consensus-reached Stage 3 proposal.
-     * @param candidate_user_inputs Raw inputs received in this consensus round.
+     * @param consensed_users Users and their raw inputs received in this consensus round.
      * @param generated_user_outputs Generated raw outputs in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger(const p2p::proposal &proposal, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users,
                     const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
@@ -160,7 +160,7 @@ namespace ledger
             LEDGER_CREATE_ERROR;
         }
 
-        if ((!candidate_user_inputs.empty() || !generated_user_outputs.empty()) && save_ledger_blob(ledger_hash, candidate_user_inputs, generated_user_outputs) == -1)
+        if ((!proposal.input_ordered_hashes.empty() || !generated_user_outputs.empty()) && save_ledger_blob(ledger_hash, consensed_users, generated_user_outputs) == -1)
         {
             LOG_ERROR << errno << ": Error saving the raw inputs/outputs, shard: " << std::to_string(primary_shard_seq_no);
             LEDGER_CREATE_ERROR;
@@ -391,14 +391,14 @@ namespace ledger
     }
 
     /**
-     * Save raw data from the consensused proposal. A blob file is only created if there is any user inputs or contract outputs
+     * Save raw data from the consensed proposal. A blob file is only created if there is any user inputs or contract outputs
      * to save disk space.
      * @param ledger_hash Hash of this ledger we are saving.
-     * @param candidate_user_inputs Raw inputs received in this consensus round.
+     * @param consensed_users Users and their raw inputs consensed in this consensus round.
      * @param generated_user_outputs Generated raw outputs in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger_blob(std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger_blob(std::string_view ledger_hash, const consensus::consensed_user_map &consensed_users,
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         // Construct shard path.
@@ -479,17 +479,21 @@ namespace ledger
         ledger_blob blob;
 
         blob.ledger_hash = ledger_hash;
-        for (const auto &[hash, user_input] : candidate_user_inputs)
+
+        // Include consensed user inputs.
+        for (const auto &[pubkey, inputs] : consensed_users)
         {
-            std::string input;
-            if (usr::input_store.read_buf(user_input.input, input) != -1)
+            const auto [itr, success] = blob.inputs.try_emplace(pubkey, std::vector<std::string>());
+
+            for (const consensus::consensed_user_input &ci : inputs)
             {
-                const auto itr = blob.inputs.find(user_input.user_pubkey);
-                if (itr == blob.inputs.end())
-                    blob.inputs.emplace(user_input.user_pubkey, std::vector<std::string>());
-                blob.inputs[user_input.user_pubkey].push_back(input);
+                std::string input;
+                if (usr::input_store.read_buf(ci.input, input) != -1)
+                    itr->second.push_back(input);
             }
         }
+
+        // Include consensed user outputs.
         for (const auto &[hash, user_output] : generated_user_outputs)
         {
             std::vector<std::string> outputs;

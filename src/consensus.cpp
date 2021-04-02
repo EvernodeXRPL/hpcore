@@ -531,7 +531,7 @@ namespace consensus
                 if (reject_reason == NULL)
                     extracted_inputs.push_back(std::move(extracted));
                 else
-                    responses[pubkey].push_back(usr::input_status_response{submitted_input.protocol, submitted_input.sig, reject_reason});
+                    responses[pubkey].push_back(usr::input_status_response{submitted_input.protocol, crypto::get_hash(submitted_input.sig), reject_reason});
             }
 
             // This will sort the inputs in nonce order so the validation will follow the same order on all nodes.
@@ -554,10 +554,12 @@ namespace consensus
                     // No reject reason means we should go ahead and subject the input to consensus.
                     ctx.candidate_user_inputs.try_emplace(
                         ordered_hash,
-                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seq_no));
+                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seq_no, extracted_input.protocol));
                 }
 
-                responses[pubkey].push_back(usr::input_status_response{extracted_input.protocol, extracted_input.sig, reject_reason});
+                // If the input was rejected we need to inform the user.
+                if (reject_reason != NULL)
+                    responses[pubkey].push_back(usr::input_status_response{extracted_input.protocol, ordered_hash.substr(ordered_hash.size() - BLAKE3_OUT_LEN), reject_reason});
             }
         }
 
@@ -804,7 +806,7 @@ namespace consensus
     /**
      * Check state hash against the winning and canonical state hash.
      * @param is_state_desync Flag to determine whether contract state is out of sync.
-     * @param majority_state_hash Consensused state hash.
+     * @param majority_state_hash consensed state hash.
      * @param votes The voting table.
      */
     void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes)
@@ -830,7 +832,7 @@ namespace consensus
     /**
      * Check state hash against the winning and canonical state hash.
      * @param is_patch_desync Flag to determine whether patch file is out of sync.
-     * @param majority_patch_hash Consensused patch hash.
+     * @param majority_patch_hash consensed patch hash.
      * @param votes The voting table.
      */
     void check_patch_votes(bool &is_patch_desync, util::h32 &majority_patch_hash, vote_counter &votes)
@@ -863,17 +865,43 @@ namespace consensus
      */
     int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id)
     {
-        if (ledger::save_ledger(cons_prop, ctx.candidate_user_inputs, ctx.generated_user_outputs) == -1)
+        // Prepare consensed user input set by joining consensus proposal input ordered hashes and candidate user input set.
+        // consensed inputs are removed from the candidate set.
+
+        // Map of consensed users keyed by user binary pubkey mapped to their inputs (if any).
+        consensed_user_map consensed_users;
+
+        // Populate the users map with all consensed users regardless of whether they have inputs or not.
+        for (const std::string &pubkey : cons_prop.users)
+            consensed_users.try_emplace(pubkey, std::vector<consensed_user_input>());
+
+        for (const std::string &ordered_hash : cons_prop.input_ordered_hashes)
+        {
+            // For each consensus input ordered hash, we need to find the candidate input.
+            const auto itr = ctx.candidate_user_inputs.find(ordered_hash);
+            const bool hash_found = (itr != ctx.candidate_user_inputs.end());
+            if (!hash_found)
+            {
+                LOG_ERROR << "Input required but wasn't in our candidate inputs map, this will potentially cause desync.";
+                return -1;
+            }
+            else
+            {
+                candidate_user_input &ci = itr->second;
+                consensed_users[ci.user_pubkey].emplace_back(ordered_hash, ci.input, ci.protocol);
+
+                // Erase the consensed input from the candidate set.
+                ctx.candidate_user_inputs.erase(itr);
+            }
+        }
+
+        if (ledger::save_ledger(cons_prop, consensed_users, ctx.generated_user_outputs) == -1)
             return -1;
 
         new_lcl_id = ledger::ctx.get_lcl_id();
         const p2p::sequence_hash new_last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
 
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
-
-        // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
-        if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
-            return -1;
 
         // After the current ledger seq no is updated, we remove any newly expired inputs from candidate set.
         {
@@ -886,6 +914,12 @@ namespace consensus
                     ++itr;
             }
         }
+
+        // Send back the inputs "accepted" responses to the user.
+
+        // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
+        if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
+            return -1;
 
         // Send any output from the previous consensus round to locally connected users.
         if (dispatch_user_outputs(cons_prop, new_lcl_id) == -1)
@@ -906,9 +940,8 @@ namespace consensus
             // lcl to be passed to the contract.
             args.lcl_id = new_lcl_id;
 
-            // Populate user bufs.
-            if (feed_user_inputs_to_contract_bufmap(args.userbufs, cons_prop) == -1)
-                return -1;
+            // Populate contract user bufs.
+            feed_user_inputs_to_contract_bufmap(args.userbufs, consensed_users);
 
             if (sc::execute_contract(ctx.contract_ctx.value()) == -1)
             {
@@ -999,41 +1032,21 @@ namespace consensus
     /**
      * Transfers consensus-reached inputs into the provided contract buf map so it can be fed into the contract process.
      * @param bufmap The contract bufmap which needs to be populated with inputs.
-     * @param cons_prop The proposal that achieved consensus.
+     * @param consensed_users Set of consensed users keyed by user binary pubkey and any inputs.
      */
-    int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop)
+    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const consensed_user_map &consensed_users)
     {
-        // Populate the buf map with all currently connected users regardless of whether they have inputs or not.
-        // This is in case the contract wanted to emit some data to a user without needing any input.
-        for (const std::string &pubkey : cons_prop.users)
+        for (const auto &[pubkey, inputs] : consensed_users)
         {
-            bufmap.try_emplace(pubkey, sc::contract_iobufs());
+            // Populate the buf map with user pubkey regardless of whether user has any inputs or not.
+            // This is in case the contract wanted to emit some data to a user without needing any input.
+            const auto [itr, success] = bufmap.emplace(pubkey, sc::contract_iobufs());
+
+            // Populate the input contents into the bufmap.
+            // It's VERY important that we preserve the original input order when feeding to the contract as well.
+            for (const consensed_user_input &ci : inputs)
+                itr->second.inputs.push_back(ci.input);
         }
-
-        for (const std::string &ordered_hash : cons_prop.input_ordered_hashes)
-        {
-            // For each consensus input ordered hash, we need to find the actual input content to feed the contract.
-            const auto itr = ctx.candidate_user_inputs.find(ordered_hash);
-            const bool hash_found = (itr != ctx.candidate_user_inputs.end());
-            if (!hash_found)
-            {
-                LOG_ERROR << "Input required but wasn't in our candidate inputs map, this will potentially cause desync.";
-                return -1;
-            }
-            else
-            {
-                // Populate the input content into the bufmap.
-                // It's VERY important that we preserve the proposal input hash order when feeding to the contract as well.
-                candidate_user_input &cand_input = itr->second;
-                sc::contract_iobufs &contract_user = bufmap[cand_input.user_pubkey];
-                contract_user.inputs.push_back(cand_input.input);
-
-                // Remove the input from the candidate set because we no longer need it.
-                ctx.candidate_user_inputs.erase(itr);
-            }
-        }
-
-        return 0;
     }
 
     /**

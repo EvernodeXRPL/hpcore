@@ -14,18 +14,41 @@ namespace consensus
 {
     /**
      * Represents a contract input that takes part in consensus.
+     * This is used in a map keyed by input ordered hash.
      */
     struct candidate_user_input
     {
         const std::string user_pubkey;
-        const uint64_t max_ledger_seq_no = 0;
         const util::buffer_view input;
+        const uint64_t max_ledger_seq_no = 0;
+        const util::PROTOCOL protocol;
 
-        candidate_user_input(const std::string user_pubkey, const util::buffer_view input, const uint64_t max_ledger_seq_no)
-            : user_pubkey(std::move(user_pubkey)), input(input), max_ledger_seq_no(max_ledger_seq_no)
+        candidate_user_input(const std::string &user_pubkey, const util::buffer_view input, const uint64_t max_ledger_seq_no, const util::PROTOCOL protocol)
+            : user_pubkey(user_pubkey), input(input), max_ledger_seq_no(max_ledger_seq_no), protocol(protocol)
         {
         }
     };
+
+    /**
+     * Represents consensus reached user input.
+     * This is used in a map keyed by user pubkey.
+     */
+    struct consensed_user_input
+    {
+        const std::string ordered_hash;
+        const util::buffer_view input;
+        const util::PROTOCOL protocol;
+
+        consensed_user_input(const std::string &ordered_hash, const util::buffer_view input, const util::PROTOCOL protocol)
+            : ordered_hash(ordered_hash), input(input), protocol(protocol)
+        {
+        }
+    };
+
+    /**
+     * Consensed inputs map keyed by user binary pubkey.
+     */
+    typedef std::map<std::string, std::vector<consensed_user_input>> consensed_user_map;
 
     /**
      * Represents a contract-generated user output that takes part in consensus.
@@ -151,7 +174,7 @@ namespace consensus
 
     int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
 
-    int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
+    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const consensed_user_map &consensed_users);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 

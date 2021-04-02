@@ -66,7 +66,7 @@ namespace usr
     struct input_status_response
     {
         const util::PROTOCOL protocol;
-        const std::string sig;
+        const std::string input_hash;
         const char *reject_reason;
     };
 
@@ -86,7 +86,7 @@ namespace usr
     void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses);
 
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
-                           std::string_view status, std::string_view reason, std::string_view input_sig);
+                           std::string_view status, std::string_view reason, std::string_view input_hash);
 
     int add_user(usr::user_comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
 

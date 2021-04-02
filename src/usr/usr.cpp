@@ -180,14 +180,14 @@ namespace usr
                         // Ignore the input if the max ledger seq number specified is beyond the max offeset.
                         if (conf::cfg.contract.max_input_ledger_offset != 0 && max_lcl_seq_no > lcl_id.seq_no + conf::cfg.contract.max_input_ledger_offset)
                         {
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED, crypto::get_hash(sig));
                             return -1;
                         }
 
                         // Check for max nonce size.
                         if (nonce.size() > MAX_INPUT_NONCE_SIZE)
                         {
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_OVERFLOW, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_OVERFLOW, crypto::get_hash(sig));
                             return -1;
                         }
 
@@ -195,7 +195,7 @@ namespace usr
                         if (conf::cfg.contract.round_limits.user_input_bytes > 0 &&
                             (user.collected_input_size + input_data.size()) > conf::cfg.contract.round_limits.user_input_bytes)
                         {
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW, crypto::get_hash(sig));
                             return -1;
                         }
 
@@ -216,19 +216,19 @@ namespace usr
                         else
                         {
                             const char *reason = nonce_status == 1 ? msg::usrmsg::REASON_NONCE_EXPIRED : msg::usrmsg::REASON_ALREADY_SUBMITTED;
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, reason, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, reason, crypto::get_hash(sig));
                             return -1;
                         }
                     }
                     else
                     {
-                        send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, sig);
+                        send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, crypto::get_hash(sig));
                         return -1;
                     }
                 }
                 else
                 {
-                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, sig);
+                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, crypto::get_hash(sig));
                     return -1;
                 }
             }
@@ -295,7 +295,7 @@ namespace usr
                                           user_itr->second.session,
                                           resp.reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                           resp.reject_reason == NULL ? "" : resp.reject_reason,
-                                          resp.sig);
+                                          resp.input_hash);
                     }
                 }
             }
@@ -306,10 +306,10 @@ namespace usr
      * Send the specified contract input status result via the provided session.
      */
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
-                           std::string_view status, std::string_view reason, std::string_view input_sig)
+                           std::string_view status, std::string_view reason, std::string_view input_hash)
     {
         std::vector<uint8_t> msg;
-        parser.create_contract_input_status(msg, status, reason, input_sig);
+        parser.create_contract_input_status(msg, status, reason, input_hash);
         session.send(msg);
     }
 
