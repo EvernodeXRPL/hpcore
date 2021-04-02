@@ -18,6 +18,10 @@ namespace version
     // 2 bytes each for 3 version components. 2 bytes reserved.
     constexpr const size_t VERSION_BYTES_LEN = 8;
 
+    // Hpfs version header length. This is currently same lenght as hpcore version header.
+    // This value needs to be updated when hpfs version header lenght changes.
+    constexpr const size_t HPFS_VERSION_BYTES_LEN = 8;
+
     // Binary representations of the versions. (populated during version init)
     extern uint8_t HP_VERSION_BYTES[VERSION_BYTES_LEN];
     extern uint8_t LEDGER_VERSION_BYTES[VERSION_BYTES_LEN];
