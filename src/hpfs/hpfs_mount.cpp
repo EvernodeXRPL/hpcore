@@ -5,6 +5,7 @@
 #include "../util/h32.hpp"
 #include "../sc/sc.hpp"
 #include "../crypto.hpp"
+#include "../util/version.hpp"
 
 namespace hpfs
 {
@@ -523,7 +524,7 @@ namespace hpfs
             return -1;
         }
         close(fd);
-        seq_no = st.st_size / (sizeof(uint64_t) + sizeof(util::h32));
+        seq_no = (st.st_size - version::HPFS_VERSION_BYTES_LEN) / (sizeof(uint64_t) + sizeof(util::h32));
         return 0;
     }
 
@@ -551,7 +552,7 @@ namespace hpfs
             return -1;
         }
 
-        const off_t offset = ((seq_no - 1) * (sizeof(uint64_t) + sizeof(util::h32))) + sizeof(uint64_t);
+        const off_t offset = version::HPFS_VERSION_BYTES_LEN + ((seq_no - 1) * (sizeof(uint64_t) + sizeof(util::h32))) + sizeof(uint64_t);
         // If calculated offset is beyond our file size means,
         // Requested seq_no is invalid or we do not have that seq_no in our hpfs log file.
         if (offset >= st.st_size)
