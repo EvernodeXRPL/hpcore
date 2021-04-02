@@ -155,6 +155,8 @@ namespace crypto
 
     /**
      * Generates blake3 hash for the given list of strings using stream hashing.
+     * @param str_list Any list container of list of strings or string_views.
+     * @return The combined blake32 hash of elements in listed order.
      */
     template <typename T>
     const std::string get_list_hash(const T &str_list)
@@ -181,7 +183,6 @@ namespace crypto
         return hash;
     }
     template const std::string get_list_hash<std::set<std::string>>(const std::set<std::string> &str_list);
-    template const std::string get_list_hash<std::list<std::string>>(const std::list<std::string> &str_list);
     template const std::string get_list_hash<std::vector<std::string>>(const std::vector<std::string> &str_list);
     template const std::string get_list_hash<std::vector<std::string_view>>(const std::vector<std::string_view> &str_list);
 

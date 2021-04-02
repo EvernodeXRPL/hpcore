@@ -520,10 +520,8 @@ namespace ledger
         {
             std::vector<std::string> outputs;
             for (const auto &output : user_output.outputs)
-            {
-                std::cout << output.message << "\n";
                 outputs.push_back(std::move(output.message));
-            }
+
             blob.outputs.emplace(user_output.user_pubkey, std::move(outputs));
         }
 

@@ -1126,14 +1126,17 @@ namespace consensus
 
             if (!bufs.outputs.empty())
             {
-                // We sort all outputs so every node calculates the final hash the same way.
+                // We sort all outputs so every node keeps the outputs in the same order.
                 bufs.outputs.sort();
 
                 // Generate hash of all sorted outputs combined with user pubkey.
-                const std::string combined_hash = crypto::get_hash(pubkey, crypto::get_list_hash(bufs.outputs));
+                std::vector<std::string_view> to_hash;
+                to_hash.push_back(pubkey);
+                for(const sc::contract_output &con_out : bufs.outputs)
+                    to_hash.push_back(con_out.message);
 
                 ctx.generated_user_outputs.try_emplace(
-                    combined_hash,
+                    crypto::get_list_hash(to_hash),
                     generated_user_output(pubkey, std::move(bufs.outputs)));
             }
         }
