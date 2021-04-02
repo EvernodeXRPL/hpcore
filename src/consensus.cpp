@@ -116,12 +116,16 @@ namespace consensus
         const p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
         const p2p::sequence_hash last_blob_shard_id = ledger::ctx.get_last_blob_shard_id();
 
-        if (ctx.stage == 0)
+        if (ctx.stage == 0 || ctx.stage == 2)
         {
             // Broadcast non-unl proposal (NUP) containing inputs from locally connected users.
-            // This is performed at stage 0, so we can to make sure this happens regardless of whether we are in-sync or not.
+            // This is performed at stage 0 so we can to make sure this happens regardless of whether we are in-sync or not.
+            // This is also performed at stage 2, so the next round receieves the inputs before it starts.
             broadcast_nonunl_proposal();
+        }
 
+        if (ctx.stage == 0)
+        {
             // Prepare the consensus candidate user inputs that we have accumulated so far. (We receive them periodically via NUPs)
             // The candidate inputs will be included in the stage 0 proposal.
             if (verify_and_populate_candidate_user_inputs(lcl_id.seq_no) == -1)
@@ -328,7 +332,7 @@ namespace consensus
             LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                       << " [s" << std::to_string(cp.stage)
                       << "] u/i:" << cp.users.size()
-                      << "/" << cp.input_hashes.size()
+                      << "/" << cp.input_ordered_hashes.size()
                       << " ts:" << std::to_string(cp.time)
                       << " state:" << cp.state_hash
                       << " patch:" << cp.patch_hash
@@ -445,7 +449,7 @@ namespace consensus
         p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public);
 
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i:" << p.users.size()
-                  << "/" << p.input_hashes.size()
+                  << "/" << p.input_ordered_hashes.size()
                   << " ts:" << std::to_string(p.time)
                   << " state:" << p.state_hash
                   << " patch:" << p.patch_hash
@@ -540,16 +544,16 @@ namespace consensus
             for (const usr::extracted_user_input &extracted_input : extracted_inputs)
             {
                 util::buffer_view stored_input; // Contains pointer to the input data stored in memfd accessed by the contract.
-                std::string hash;
+                std::string ordered_hash;
 
                 // Validate the input against all submission criteria.
-                const char *reject_reason = usr::validate_user_input_submission(pubkey, extracted_input, lcl_seq_no, total_input_size, hash, stored_input);
+                const char *reject_reason = usr::validate_user_input_submission(pubkey, extracted_input, lcl_seq_no, total_input_size, ordered_hash, stored_input);
 
                 if (reject_reason == NULL && !stored_input.is_null())
                 {
                     // No reject reason means we should go ahead and subject the input to consensus.
                     ctx.candidate_user_inputs.try_emplace(
-                        hash,
+                        ordered_hash,
                         candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seq_no));
                 }
 
@@ -583,7 +587,7 @@ namespace consensus
 
         // Populate the proposal with hashes of user inputs.
         for (const auto &[hash, cand_input] : ctx.candidate_user_inputs)
-            p.input_hashes.emplace(hash);
+            p.input_ordered_hashes.emplace(hash);
 
         // Populate the output hash and our signature. This is the merkle tree root hash of user outputs and state hash.
         p.output_hash = ctx.user_outputs_hashtree.root_hash();
@@ -625,9 +629,9 @@ namespace consensus
                 increment(votes.users, pubkey);
 
             // Vote for user inputs (hashes). Only vote for the inputs that are in our candidate_inputs set.
-            for (const std::string &hash : cp.input_hashes)
-                if (ctx.candidate_user_inputs.count(hash) > 0)
-                    increment(votes.inputs, hash);
+            for (const std::string &ordered_hash : cp.input_ordered_hashes)
+                if (ctx.candidate_user_inputs.count(ordered_hash) > 0)
+                    increment(votes.inputs, ordered_hash);
 
             // Vote for contract output hash.
             increment(votes.output_hash, cp.output_hash);
@@ -648,7 +652,7 @@ namespace consensus
         // Add inputs which have votes over stage threshold to proposal.
         for (const auto &[hash, numvotes] : votes.inputs)
             if (numvotes >= required_votes || (ctx.stage == 1 && numvotes > 0))
-                p.input_hashes.emplace(hash);
+                p.input_ordered_hashes.emplace(hash);
 
         // Reset required votes for majority votes.
         required_votes = ceil(MAJORITY_THRESHOLD * unl_count);
@@ -1006,12 +1010,12 @@ namespace consensus
             bufmap.try_emplace(pubkey, sc::contract_iobufs());
         }
 
-        for (const std::string &hash : cons_prop.input_hashes)
+        for (const std::string &ordered_hash : cons_prop.input_ordered_hashes)
         {
-            // For each consensus input hash, we need to find the actual input content to feed the contract.
-            const auto itr = ctx.candidate_user_inputs.find(hash);
-            const bool hashfound = (itr != ctx.candidate_user_inputs.end());
-            if (!hashfound)
+            // For each consensus input ordered hash, we need to find the actual input content to feed the contract.
+            const auto itr = ctx.candidate_user_inputs.find(ordered_hash);
+            const bool hash_found = (itr != ctx.candidate_user_inputs.end());
+            if (!hash_found)
             {
                 LOG_ERROR << "Input required but wasn't in our candidate inputs map, this will potentially cause desync.";
                 return -1;

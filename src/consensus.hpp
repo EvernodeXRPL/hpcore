@@ -54,8 +54,8 @@ namespace consensus
         // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
         std::set<std::string> candidate_users;
 
-        // Map of candidate user inputs with input hash as map key. Inputs will stay here until they
-        // achieve consensus or expire (due to max_ledger_seq_no). Input hash is globally unique among inputs
+        // Map of candidate user inputs with ordered hash as map key. Inputs will stay here until they
+        // achieve consensus or expire (due to max_ledger_seq_no). Ordered hash is globally unique among inputs
         // from all users. We will use this map to feed inputs into the contract once consensus is achieved.
         std::map<std::string, candidate_user_input> candidate_user_inputs;
 

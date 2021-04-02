@@ -111,8 +111,13 @@ namespace ledger
 
         // Combined binary hash of consensus user binary pub keys.
         const std::string user_hash = crypto::get_hash(proposal.users);
+
         // Combined binary hash of consensus input hashes.
-        const std::string input_hash = crypto::get_hash(proposal.input_hashes);
+        // We need to consider the last 32 bytes of each ordered hash to get input hash without the nonce prefix.
+        std::vector<std::string_view> inp_hashes;
+        for (const std::string &oh : proposal.input_ordered_hashes)
+            inp_hashes.push_back(oh.substr(oh.size() - BLAKE3_OUT_LEN));
+        const std::string input_hash = crypto::get_hash(inp_hashes);
 
         uint8_t seq_no_byte_str[8], time_byte_str[8];
         util::uint64_to_bytes(seq_no_byte_str, seq_no);

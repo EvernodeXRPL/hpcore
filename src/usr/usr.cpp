@@ -404,7 +404,7 @@ namespace usr
      * @return The rejection reason if input rejected. NULL if the input can be accepted.
      */
     const char *validate_user_input_submission(const std::string &user_pubkey, const usr::extracted_user_input &extracted_input,
-                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &hash, util::buffer_view &input)
+                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &ordered_hash, util::buffer_view &input)
     {
         // Ignore the input if the max ledger seq number specified is beyond the max offeset.
         if (conf::cfg.contract.max_input_ledger_offset != 0 && extracted_input.max_lcl_seq_no > lcl_seq_no + conf::cfg.contract.max_input_ledger_offset)
@@ -444,10 +444,13 @@ namespace usr
 
         // Reaching here means the input is successfully validated and we can submit it to consensus.
 
-        // Hash is used as the globally unqiue 'key' to represent this input for this consensus round.
-        // It is prefixed with the nonce to support user-defined sort order and signature hash is appended
+        // Ordered hash is used as the globally unqiue 'key' to represent this input for this consensus round.
+        // It is prefixed with the nonce to support user-defined sort order and the input hash is appended
         // to make it unique among inputs from all users.
-        hash = extracted_input.nonce + crypto::get_hash(extracted_input.sig);
+        // Ordered hash = nonce + input hash
+        // Nonce length is not fixed. So last 32 bytes of ordered hash always contains the input hash.
+        // In the ledger, we will store the nonce and input hash separately.
+        ordered_hash = extracted_input.nonce + crypto::get_hash(extracted_input.sig);
 
         // Copy the input data into the input store. Contract will read the input from this location.
         input = input_store.write_buf(extracted_input.input.data(), extracted_input.input.size());
