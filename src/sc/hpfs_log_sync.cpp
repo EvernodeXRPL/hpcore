@@ -55,10 +55,18 @@ namespace sc::hpfs_log_sync
                 return;
 
             sync_ctx.target_log_record = target;
+
+            const int res = get_verified_min_record();
+            if (res == -1)
+                return;
+            else if (res == 1)
+            {
+                sync_ctx.clear_target();
+                return;
+            }
         }
 
-        if (get_verified_min_record() == -1)
-            return;
+        LOG_INFO << "Hpfs log sync: Starting sync for target: max: " << sync_ctx.target_log_record << " min: " << sync_ctx.min_log_record;
 
         sync_ctx.target_requested_on = 0;
         sync_ctx.request_submissions = 0;
@@ -92,10 +100,15 @@ namespace sc::hpfs_log_sync
                 // Here we check for the updated log records to check whether target has archived.
                 if (sync_ctx.is_syncing && get_verified_min_record() == 1)
                 {
-                    LOG_INFO << "Hpfs log sync: sync target archived " << sync_ctx.target_log_record;
-                    sync_ctx.target_log_record = {};
-                    sync_ctx.min_log_record = {};
-                    sync_ctx.is_syncing = false;
+                    LOG_INFO << "Hpfs log sync: sync target archived: " << sync_ctx.target_log_record;
+                    util::h32 state_hash;
+                    std::string sess_name = "hpfs_log_sync";
+                    sc::contract_fs.start_ro_session(sess_name, true);
+                    sc::contract_fs.get_hash(state_hash, sess_name, sc::STATE_DIR_PATH);
+                    LOG_WARNING << "Hash " << state_hash;
+                    sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
+                    sc::contract_fs.stop_ro_session(sess_name);
+                    sync_ctx.clear_target();
                 }
             }
 
@@ -162,7 +175,7 @@ namespace sc::hpfs_log_sync
 
         for (const auto &[sess_id, log_response] : log_record_responses)
             handle_hpfs_log_sync_response(log_response);
-        
+
         return log_record_responses.empty() ? 0 : 1;
     }
 
