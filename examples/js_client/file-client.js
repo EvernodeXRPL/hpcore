@@ -98,7 +98,7 @@ async function main() {
                     content: fileContent
                 }), null, 100);
 
-                if (submissionStatus && submissionStatus != "accepted")
+                if (submissionStatus.status != "accepted")
                     console.log("Upload failed. reason: " + submissionStatus.reason);
             }
             else if (inp.startsWith("delete ")) {
@@ -109,7 +109,7 @@ async function main() {
                     fileName: fileName
                 }));
 
-                if (submissionStatus && submissionStatus.status != "accepted")
+                if (submissionStatus.status != "accepted")
                     console.log("Delete failed. reason: " + submissionStatus.reason);
             }
             else if (inp.startsWith("download ")) {

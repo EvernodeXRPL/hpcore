@@ -686,7 +686,10 @@
             statResponseResolvers.forEach(resolver => resolver(null));
             statResponseResolvers = [];
 
-            Object.values(contractInputResolvers).forEach(resolver => resolver(null));
+            Object.values(contractInputResolvers).forEach(resolver => resolver({
+                status: "failed",
+                reason: "connection_error"
+            }));
             contractInputResolvers = {};
 
             this.onClose && this.onClose();
@@ -755,7 +758,10 @@
         this.sendContractInput = async (input, nonce = null, maxLclOffset = null) => {
 
             if (connectionStatus != 2)
-                return Promise.resolve(null);
+                return Promise.resolve({
+                    status: "failed",
+                    reason: "connection_error"
+                });
 
             if (!maxLclOffset)
                 maxLclOffset = 10;
@@ -767,8 +773,12 @@
 
             // Acquire the current lcl and add the specified offset.
             const stat = await this.getStatus();
-            if (!stat)
-                return new Promise(resolve => resolve("ledger_status_error"));
+            if (!stat) {
+                return new Promise(resolve => resolve({
+                    status: "failed",
+                    reason: "ledger_status_error"
+                }));
+            }
             const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
 
             let { hash, message } = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
