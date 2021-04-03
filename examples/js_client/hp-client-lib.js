@@ -356,7 +356,7 @@
         let handshakeResolver = null;
         let closeResolver = null;
         let statResponseResolvers = [];
-        let contractInputResolvers = {};
+        let contractInputResolvers = {}; // Contract input status-awaiting resolvers (keyed by input hash).
         let ledgerQueryResolvers = {}; // Message resolvers that uses request/reply associations.
 
         // Calcualtes the blake3 hash of all array items.
@@ -536,14 +536,21 @@
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
             }
             else if (m.type == "contract_input_status") {
-                const sigKey = msgHelper.stringifyValue(m.input_sig);
-                const resolver = contractInputResolvers[sigKey];
+                const inputHashHex = msgHelper.stringifyValue(m.input_hash);
+                const resolver = contractInputResolvers[inputHashHex];
                 if (resolver) {
-                    if (m.status == "accepted")
-                        resolver("ok");
-                    else
-                        resolver(m.reason);
-                    delete contractInputResolvers[sigKey];
+                    const result = { status: m.status }
+
+                    if (m.status == "accepted") {
+                        result.ledgerSeqNo = m.ledger_seq_no;
+                        result.ledgerHash = m.ledger_hash;
+                    }
+                    else {
+                        result.reason = m.reason;
+                    }
+
+                    resolver(result);
+                    delete contractInputResolvers[inputHashHex];
                 }
             }
             else if (m.type == "contract_output") {
@@ -764,13 +771,15 @@
                 return new Promise(resolve => resolve("ledger_status_error"));
             const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
 
-            const msg = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
-            const sigKey = msgHelper.stringifyValue(msg.sig);
+            let { hash, message } = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
+            inputHashHex = msgHelper.stringifyValue(hash);
+
+            // Start waiting for this input's accept/rejected status response.
             const p = new Promise(resolve => {
-                contractInputResolvers[sigKey] = resolve;
+                contractInputResolvers[inputHashHex] = resolve;
             });
 
-            wsSend(msgHelper.serializeObject(msg));
+            wsSend(msgHelper.serializeObject(message));
             return p;
         }
 
@@ -876,13 +885,20 @@
             const serlializedInpContainer = this.serializeObject(inpContainer);
             const sigBytes = sodium.crypto_sign_detached(serlializedInpContainer, keys.privateKey.slice(1));
 
+            // Input hash is the blake3 hash of the input signature.
+            // The input hash can later be used to query input details from the ledger.
+            const inputHash = this.binaryEncode(blake3.hash(sigBytes));
+
             const signedInpContainer = {
                 type: "contract_input",
                 input_container: serlializedInpContainer,
                 sig: this.binaryEncode(sigBytes)
             }
 
-            return signedInpContainer;
+            return {
+                hash: inputHash,
+                message: signedInpContainer
+            };
         }
 
         this.createReadRequest = (request) => {

@@ -93,9 +93,9 @@ async function main() {
                 if (inp.startsWith("read "))
                     hpc.sendContractReadRequest(inp.substr(5));
                 else {
-                    hpc.sendContractInput(inp).then(status => {
-                        if (status != "ok")
-                            console.log(status);
+                    hpc.sendContractInput(inp).then(submissionStatus => {
+                        if (submissionStatus.status != "accepted")
+                            console.log(submissionStatus.reason);
                     });
                 }
             }
