@@ -178,7 +178,9 @@ namespace consensus
 
     int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
 
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
+    int dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+
+    void dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
 
     void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const consensed_user_map &consensed_users);
 

@@ -333,11 +333,10 @@ namespace consensus
         while (itr != ctx.candidate_proposals.end())
         {
             const p2p::proposal &cp = itr->second;
-            const uint64_t time_diff = (time_now > cp.sent_timestamp) ? (time_now - cp.sent_timestamp) : 0;
             const int8_t stage_diff = ctx.stage - cp.stage;
 
-            // only consider recent proposals and proposals from previous stage and current stage.
-            const bool keep_candidate = (time_diff < (conf::cfg.contract.roundtime * 4)) && (stage_diff == -3 || stage_diff <= 1);
+            // Only consider this round's proposals which are from previous stage.
+            const bool keep_candidate = (ctx.round_start_time == cp.time) && (stage_diff == 1);
             LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                       << " [s" << std::to_string(cp.stage)
                       << "] u/i:" << cp.users.size()
@@ -949,10 +948,11 @@ namespace consensus
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Send back the inputs "accepted" responses to the user.
+        // if (dispatch_consensed_user_input_responses(consensed_users, new_lcl_id) == -1)
+        //     return -1;
 
         // Send any output from the previous consensus round to locally connected users.
-        if (dispatch_user_outputs(cons_prop, new_lcl_id) == -1)
-            return -1;
+        dispatch_user_outputs(cons_prop, new_lcl_id);
 
         // Apply consensed patch file changes to the hpcore runtime and hp.cfg.
         if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
@@ -1039,11 +1039,22 @@ namespace consensus
     }
 
     /**
+     * Dispatch acceptence status responses to consensed user inputs, if the receipients are connected to us locally.
+     * @param consensed_users The map of consensed users and their inputs.
+     * @param lcl_id The ledger the inputs got included in.
+     * @return 0 on success. -1 on failure.
+     */
+    int dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    {
+        return 0;
+    }
+
+    /**
      * Dispatch any consensus-reached outputs to matching users if they are connected to us locally.
      * @param cons_prop The proposal that achieved consensus.
      * @param lcl_id Lcl sequnce no hash info.
      */
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id)
+    void dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id)
     {
         if (cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
         {
@@ -1088,8 +1099,6 @@ namespace consensus
         ctx.user_outputs_our_sig.clear();
         ctx.user_outputs_unl_sig.clear();
         ctx.generated_user_outputs.clear();
-
-        return 0;
     }
 
     /**
@@ -1126,13 +1135,10 @@ namespace consensus
 
             if (!bufs.outputs.empty())
             {
-                // We sort all outputs so every node keeps the outputs in the same order.
-                bufs.outputs.sort();
-
                 // Generate hash of all sorted outputs combined with user pubkey.
                 std::vector<std::string_view> to_hash;
                 to_hash.push_back(pubkey);
-                for(const sc::contract_output &con_out : bufs.outputs)
+                for (const sc::contract_output &con_out : bufs.outputs)
                     to_hash.push_back(con_out.message);
 
                 ctx.generated_user_outputs.try_emplace(
