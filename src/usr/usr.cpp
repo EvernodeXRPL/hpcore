@@ -272,8 +272,12 @@ namespace usr
     /**
      * Sends multiple user input responses grouped by user.
      */
-    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses)
+    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses,
+                                     const uint64_t ledger_seq_no, const util::h32 &ledger_hash)
     {
+        if (responses.empty())
+            return;
+
         // Lock the user sessions.
         std::scoped_lock lock(usr::ctx.users_mutex);
 
@@ -295,7 +299,9 @@ namespace usr
                                           user_itr->second.session,
                                           resp.reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                           resp.reject_reason == NULL ? "" : resp.reject_reason,
-                                          resp.input_hash);
+                                          resp.input_hash,
+                                          ledger_seq_no,
+                                          ledger_hash);
                     }
                 }
             }
@@ -306,10 +312,11 @@ namespace usr
      * Send the specified contract input status result via the provided session.
      */
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
-                           std::string_view status, std::string_view reason, std::string_view input_hash)
+                           std::string_view status, std::string_view reason, std::string_view input_hash,
+                           const uint64_t ledger_seq_no, const util::h32 &ledger_hash)
     {
         std::vector<uint8_t> msg;
-        parser.create_contract_input_status(msg, status, reason, input_hash);
+        parser.create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
         session.send(msg);
     }
 

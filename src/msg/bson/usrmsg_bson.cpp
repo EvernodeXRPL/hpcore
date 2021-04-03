@@ -75,13 +75,17 @@ namespace msg::usrmsg::bson
      *              "type": "contract_input_status",
      *              "status": "<accepted|rejected>",
      *              "reason": "<reson>",
-     *              "input_sig": <signature of original input message>
+     *              "input_hash": <hash of original input signature>,
+     *              "ledger_seq_no": <sequence no of the ledger that the input got included in>,
+     *              "ledger_hash": "<hash no of the ledger that the input got included in>"
      *            }
      * @param is_accepted Whether the original message was accepted or not.
      * @param reason Rejected reason. Empty if accepted.
-     * @param input_sig Binary signature of the original input message which generated this result.
+     * @param input_hash Binary Hash of the original input signature. This is used by user
+     *                   to tie the response with the input submission.
      */
-    void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
+    void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
+                                      std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -89,10 +93,26 @@ namespace msg::usrmsg::bson
         encoder.string_value(msg::usrmsg::MSGTYPE_CONTRACT_INPUT_STATUS);
         encoder.key(msg::usrmsg::FLD_STATUS);
         encoder.string_value(status);
-        encoder.key(msg::usrmsg::FLD_REASON);
-        encoder.string_value(reason);
-        encoder.key(msg::usrmsg::FLD_INPUT_SIG);
-        encoder.byte_string_value(input_sig);
+
+        // Reject reason is only included for rejected inputs.
+        if (!reason.empty())
+        {
+            encoder.key(msg::usrmsg::FLD_REASON);
+            encoder.string_value(reason);
+        }
+
+        encoder.key(msg::usrmsg::FLD_INPUT_HASH);
+        encoder.byte_string_value(input_hash);
+
+        // Ledger information is only included in 'accepted' input statuses.
+        if (ledger_seq_no > 0)
+        {
+            encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
+            encoder.uint64_value(ledger_seq_no);
+            encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
+            encoder.byte_string_value(ledger_hash.to_string_view());
+        }
+
         encoder.end_object();
         encoder.flush();
     }

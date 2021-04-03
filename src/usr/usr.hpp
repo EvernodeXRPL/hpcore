@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../util/util.hpp"
+#include "../util/h32.hpp"
 #include "../util/rollover_hashset.hpp"
 #include "../util/buffer_store.hpp"
 #include "../msg/usrmsg_parser.hpp"
@@ -83,10 +84,12 @@ namespace usr
 
     int handle_authed_user_message(connected_user &user, std::string_view message);
 
-    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses);
+    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses,
+                                     const uint64_t ledger_seq_no = 0, const util::h32 &ledger_hash = util::h32_empty);
 
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
-                           std::string_view status, std::string_view reason, std::string_view input_hash);
+                           std::string_view status, std::string_view reason, std::string_view input_hash,
+                           const uint64_t ledger_seq_no = 0, const util::h32 &ledger_hash = util::h32_empty);
 
     int add_user(usr::user_comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
 

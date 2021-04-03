@@ -458,4 +458,12 @@ namespace util
                ((uint64_t)data[7]);
     }
 
+    /**
+     * Rerturns the substring view from the end of the provided string view.
+     */
+    std::string_view get_string_suffix(std::string_view sv, const size_t suffix_len)
+    {
+        return sv.substr(sv.size() - suffix_len, suffix_len);
+    }
+
 } // namespace util

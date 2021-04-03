@@ -563,9 +563,9 @@ namespace consensus
      */
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no)
     {
-        // Maintains users and any input-acceptance responses we should send to them.
+        // Maintains users and any input-rejected responses we should send to them.
         // Key: user pubkey. Value: List of responses for that user.
-        std::unordered_map<std::string, std::vector<usr::input_status_response>> responses;
+        std::unordered_map<std::string, std::vector<usr::input_status_response>> rejections;
 
         // Maintains merged list of users with each user's inputs grouped under the user.
         // Key: user pubkey, Value: List of inputs from the user.
@@ -605,7 +605,7 @@ namespace consensus
                 if (reject_reason == NULL)
                     extracted_inputs.push_back(std::move(extracted));
                 else
-                    responses[pubkey].push_back(usr::input_status_response{submitted_input.protocol, crypto::get_hash(submitted_input.sig), reject_reason});
+                    rejections[pubkey].push_back(usr::input_status_response{submitted_input.protocol, crypto::get_hash(submitted_input.sig), reject_reason});
             }
 
             // This will sort the inputs in nonce order so the validation will follow the same order on all nodes.
@@ -633,13 +633,17 @@ namespace consensus
 
                 // If the input was rejected we need to inform the user.
                 if (reject_reason != NULL)
-                    responses[pubkey].push_back(usr::input_status_response{extracted_input.protocol, ordered_hash.substr(ordered_hash.size() - BLAKE3_OUT_LEN), reject_reason});
+                {
+                    // We need to consider the last 32 bytes of each ordered hash to get input hash without the nonce prefix.
+                    const std::string input_hash = std::string(util::get_string_suffix(ordered_hash, BLAKE3_OUT_LEN));
+                    rejections[pubkey].push_back(usr::input_status_response{extracted_input.protocol, std::move(input_hash), reject_reason});
+                }
             }
         }
 
         input_groups.clear();
 
-        usr::send_input_status_responses(responses);
+        usr::send_input_status_responses(rejections);
 
         return 0;
     }
@@ -948,8 +952,8 @@ namespace consensus
         LOG_INFO << "****Ledger created**** (lcl:" << new_lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Send back the inputs "accepted" responses to the user.
-        // if (dispatch_consensed_user_input_responses(consensed_users, new_lcl_id) == -1)
-        //     return -1;
+        if (dispatch_consensed_user_input_responses(consensed_users, new_lcl_id) == -1)
+            return -1;
 
         // Send any output from the previous consensus round to locally connected users.
         dispatch_user_outputs(cons_prop, new_lcl_id);
@@ -1039,13 +1043,32 @@ namespace consensus
     }
 
     /**
-     * Dispatch acceptence status responses to consensed user inputs, if the receipients are connected to us locally.
+     * Dispatch acceptence status responses to consensed user inputs, if the recipients are connected to us locally.
      * @param consensed_users The map of consensed users and their inputs.
      * @param lcl_id The ledger the inputs got included in.
      * @return 0 on success. -1 on failure.
      */
     int dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
     {
+        std::unordered_map<std::string, std::vector<usr::input_status_response>> responses;
+
+        for (const auto &[pubkey, inputs] : consensed_users)
+        {
+            if (inputs.empty())
+                continue;
+
+            const auto [itr, success] = responses.emplace(pubkey, std::vector<usr::input_status_response>());
+
+            for (const consensed_user_input &ci : inputs)
+            {
+                // We need to consider the last 32 bytes of each ordered hash to get input hash without the nonce prefix.
+                const std::string input_hash = std::string(util::get_string_suffix(ci.ordered_hash, BLAKE3_OUT_LEN));
+                itr->second.push_back(usr::input_status_response{ci.protocol, input_hash, NULL});
+            }
+        }
+
+        usr::send_input_status_responses(responses, lcl_id.seq_no, lcl_id.hash);
+
         return 0;
     }
 

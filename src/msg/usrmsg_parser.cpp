@@ -21,13 +21,13 @@ namespace msg::usrmsg
             busrmsg::create_status_response(msg, lcl_seq_no, lcl_hash);
     }
 
-    void usrmsg_parser::create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status,
-                                                     std::string_view reason, std::string_view input_sig) const
+    void usrmsg_parser::create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
+                                                     std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_contract_input_status(msg, status, reason, input_sig);
+            jusrmsg::create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
         else
-            busrmsg::create_contract_input_status(msg, status, reason, input_sig);
+            busrmsg::create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
     }
 
     void usrmsg_parser::create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content) const

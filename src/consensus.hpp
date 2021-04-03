@@ -35,9 +35,9 @@ namespace consensus
      */
     struct consensed_user_input
     {
-        const std::string ordered_hash;
-        const util::buffer_view input;
-        const util::PROTOCOL protocol;
+        const std::string ordered_hash; // [nonce] + [input signature hash]
+        const util::buffer_view input;  // The input data buffer pointer.
+        const util::PROTOCOL protocol;  // json/bson protocol used by the user when submitting the input.
 
         consensed_user_input(const std::string &ordered_hash, const util::buffer_view input, const util::PROTOCOL protocol)
             : ordered_hash(ordered_hash), input(input), protocol(protocol)

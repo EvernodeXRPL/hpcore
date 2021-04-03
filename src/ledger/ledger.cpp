@@ -171,8 +171,7 @@ namespace ledger
         for (const std::string &o_hash : proposal.input_ordered_hashes)
         {
             // We need to consider the last 32 bytes of each ordered hash to get input hash without the nonce prefix.
-            std::string_view inp_hash((o_hash.data() + o_hash.size() - BLAKE3_OUT_LEN), BLAKE3_OUT_LEN);
-            inp_hashes.push_back(inp_hash);
+            inp_hashes.push_back(util::get_string_suffix(o_hash, BLAKE3_OUT_LEN));
         }
         const std::string input_hash = crypto::get_list_hash(inp_hashes);
 
