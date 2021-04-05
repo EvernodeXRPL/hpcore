@@ -225,8 +225,11 @@ namespace consensus
 
                 if (conf::cfg.node.history == conf::HISTORY::FULL)
                 {
+                    // If state or patch is desync set target for the hpfs log sync with the next lcl seq_no.
+                    // When requesting the next seq_no, serving peer will give all the hpfs logs upto it's latest.
+                    // So hash mismatch won't happen in the next round.
                     if (!ledger::ledger_sync_worker.is_last_primary_shard_syncing)
-                        sc::hpfs_log_sync::set_sync_target(p2p::sequence_hash{ledger::ctx.get_lcl_id().seq_no, hpfs::get_root_hash(majority_patch_hash, majority_state_hash)});
+                        sc::hpfs_log_sync::set_sync_target(p2p::sequence_hash{ledger::ctx.get_lcl_id().seq_no + 1, hpfs::get_root_hash(majority_patch_hash, majority_state_hash)});
                 }
                 else
                 {
@@ -822,11 +825,6 @@ namespace consensus
         }
 
         is_state_desync = (sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH) != majority_state_hash);
-
-        if (is_state_desync)
-        {
-            LOG_ERROR << sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH) << " " << majority_state_hash;
-        }
     }
 
     /**

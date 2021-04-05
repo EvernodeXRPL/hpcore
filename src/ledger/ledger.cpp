@@ -25,8 +25,6 @@ namespace ledger
     ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
     ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
-    std::shared_mutex primary_index_file_mutex;
-
     constexpr uint32_t LEDGER_FS_ID = 1;
     constexpr int FILE_PERMS = 0644;
 

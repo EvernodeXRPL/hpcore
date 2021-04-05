@@ -101,14 +101,28 @@ namespace sc::hpfs_log_sync
                 if (sync_ctx.is_syncing && get_verified_min_record() == 1)
                 {
                     LOG_INFO << "Hpfs log sync: sync target archived: " << sync_ctx.target_log_record;
-                    util::h32 state_hash;
-                    std::string sess_name = "hpfs_log_sync";
-                    sc::contract_fs.start_ro_session(sess_name, true);
-                    sc::contract_fs.get_hash(state_hash, sess_name, sc::STATE_DIR_PATH);
-                    LOG_WARNING << "Hash " << state_hash;
-                    sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
-                    sc::contract_fs.stop_ro_session(sess_name);
                     sync_ctx.clear_target();
+
+                    // After archiving the target, update latest state and patch hash in the in memory map.
+                    util::h32 state_hash, patch_hash;
+                    const std::string session_name = "hpfs_log_sync";
+
+                    if (sc::contract_fs.start_ro_session(session_name, true) != -1)
+                    {
+                        if (sc::contract_fs.get_hash(state_hash, session_name, sc::STATE_DIR_PATH) != -1)
+                            sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
+                        else
+                            LOG_ERROR << "Hpfs log sync: error taking the updated state hash";
+
+                        if (sc::contract_fs.get_hash(patch_hash, session_name, sc::PATCH_FILE_PATH) != -1)
+                            sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
+                        else
+                            LOG_ERROR << "Hpfs log sync: error taking the updated patch hash";
+
+                        sc::contract_fs.stop_ro_session(session_name);
+                    }
+                    else
+                        LOG_ERROR << "Hpfs log sync: error starting the hpfs ro session";
                 }
             }
 
