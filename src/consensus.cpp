@@ -628,7 +628,7 @@ namespace consensus
                     // No reject reason means we should go ahead and subject the input to consensus.
                     ctx.candidate_user_inputs.try_emplace(
                         ordered_hash,
-                        candidate_user_input(pubkey, stored_input, extracted_input.max_lcl_seq_no, extracted_input.protocol));
+                        candidate_user_input(pubkey, stored_input, extracted_input.max_ledger_seq_no, extracted_input.protocol));
                 }
 
                 // If the input was rejected we need to inform the user.

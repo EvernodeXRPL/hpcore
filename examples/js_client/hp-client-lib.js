@@ -794,6 +794,8 @@
 
             const msg = msgHelper.createContractInputMessage(inp.container, inp.sig);
             wsSend(msgHelper.serializeObject(msg));
+
+            // We return the input hash and a promise which can be resolved to get the input submission status.
             return {
                 hash: msgHelper.binaryEncode(inp.hash),
                 submissionStatus: p
@@ -897,7 +899,7 @@
             const inpContainer = {
                 input: this.serializeInput(input),
                 nonce: nonce,
-                max_lcl_seq_no: maxLedgerSeqNo
+                max_ledger_seq_no: maxLedgerSeqNo
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);

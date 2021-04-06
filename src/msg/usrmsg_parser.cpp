@@ -98,12 +98,12 @@ namespace msg::usrmsg
     }
 
     int usrmsg_parser::extract_input_container(std::string &input, std::string &nonce,
-                                               uint64_t &max_lcl_seq_no, std::string_view encoded_content) const
+                                               uint64_t &max_ledger_seq_no, std::string_view encoded_content) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_input_container(input, nonce, max_lcl_seq_no, encoded_content);
+            return jusrmsg::extract_input_container(input, nonce, max_ledger_seq_no, encoded_content);
         else
-            return busrmsg::extract_input_container(input, nonce, max_lcl_seq_no, encoded_content);
+            return busrmsg::extract_input_container(input, nonce, max_ledger_seq_no, encoded_content);
     }
 
     int usrmsg_parser::extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const

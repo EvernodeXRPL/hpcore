@@ -700,16 +700,16 @@ namespace msg::usrmsg::json
      * Extract the individual components of a given input container json.
      * @param input The extracted input.
      * @param nonce The extracted nonce.
-     * @param max_lcl_seq_no The extracted max ledger sequence no.
+     * @param max_ledger_seq_no The extracted max ledger sequence no.
      * @param contentjson The json string containing the input container message.
      *                    {
      *                      "input": "<any string>",
      *                      "nonce": "<random string with optional sorted order>",
-     *                      "max_lcl_seq_no": <integer>
+     *                      "max_ledger_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seq_no, std::string_view contentjson)
+    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_ledger_seq_no, std::string_view contentjson)
     {
         jsoncons::json d;
         try
@@ -722,13 +722,13 @@ namespace msg::usrmsg::json
             return -1;
         }
 
-        if (!d.contains(msg::usrmsg::FLD_INPUT) || !d.contains(msg::usrmsg::FLD_NONCE) || !d.contains(msg::usrmsg::FLD_MAX_LCL_SEQ))
+        if (!d.contains(msg::usrmsg::FLD_INPUT) || !d.contains(msg::usrmsg::FLD_NONCE) || !d.contains(msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO))
         {
             LOG_DEBUG << "User input container required fields missing.";
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<std::string>() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].is<uint64_t>())
+        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<std::string>() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is<uint64_t>())
         {
             LOG_DEBUG << "User input container invalid field values.";
             return -1;
@@ -736,7 +736,7 @@ namespace msg::usrmsg::json
 
         input = d[msg::usrmsg::FLD_INPUT].as<std::string>();
         nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
-        max_lcl_seq_no = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
+        max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
 
         return 0;
     }

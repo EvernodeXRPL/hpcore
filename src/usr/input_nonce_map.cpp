@@ -15,7 +15,7 @@ namespace usr
      *         1 if nonce has expired.
      *         2 if message with same nonce/sig has already been submitted.
      */
-    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const uint64_t &max_lcl_seq_no, const bool no_add)
+    int input_nonce_map::check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const uint64_t &max_ledger_seq_no, const bool no_add)
     {
         int result = 0;
 
@@ -25,7 +25,7 @@ namespace usr
         {
             result = 0;
             if (!no_add)
-                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, max_lcl_seq_no));
+                nonce_map.emplace(pubkey, std::tuple<std::string, std::string, uint64_t>(nonce, sig, max_ledger_seq_no));
         }
         else
         {
@@ -38,7 +38,7 @@ namespace usr
                 if (!no_add)
                 {
                     std::get<0>(itr->second) = nonce;
-                    std::get<2>(itr->second) = max_lcl_seq_no;
+                    std::get<2>(itr->second) = max_ledger_seq_no;
                 }
                 result = 0;
             }

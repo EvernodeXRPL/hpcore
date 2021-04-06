@@ -173,19 +173,19 @@ namespace usr
 
                     std::string input_data;
                     std::string nonce;
-                    uint64_t max_lcl_seq_no;
-                    if (parser.extract_input_container(input_data, nonce, max_lcl_seq_no, input_container) != -1)
+                    uint64_t max_ledger_seq_no;
+                    if (parser.extract_input_container(input_data, nonce, max_ledger_seq_no, input_container) != -1)
                     {
                         const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
                         // Ignore the input if the max ledger seq number specified is beyond the max offeset.
-                        if (conf::cfg.contract.max_input_ledger_offset != 0 && max_lcl_seq_no > lcl_id.seq_no + conf::cfg.contract.max_input_ledger_offset)
+                        if (conf::cfg.contract.max_input_ledger_offset != 0 && max_ledger_seq_no > lcl_id.seq_no + conf::cfg.contract.max_input_ledger_offset)
                         {
                             send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED, crypto::get_hash(sig));
                             return -1;
                         }
 
                         // Ignore the input if our ledger has passed the input TTL.
-                        if (max_lcl_seq_no <= lcl_id.seq_no)
+                        if (max_ledger_seq_no <= lcl_id.seq_no)
                         {
                             send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_EXPIRED, crypto::get_hash(sig));
                             return -1;
@@ -206,7 +206,7 @@ namespace usr
                             return -1;
                         }
 
-                        const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_lcl_seq_no, true);
+                        const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_ledger_seq_no, true);
                         if (nonce_status == 0)
                         {
                             //Add to the submitted input list.
@@ -401,7 +401,7 @@ namespace usr
 
         // Extract information from input container.
         msg::usrmsg::usrmsg_parser parser(submitted.protocol);
-        if (parser.extract_input_container(extracted.input, extracted.nonce, extracted.max_lcl_seq_no, submitted.input_container) == -1)
+        if (parser.extract_input_container(extracted.input, extracted.nonce, extracted.max_ledger_seq_no, submitted.input_container) == -1)
         {
             LOG_DEBUG << "User input bad input container format.";
             return msg::usrmsg::REASON_BAD_MSG_FORMAT;
@@ -429,14 +429,14 @@ namespace usr
         ordered_hash = extracted_input.nonce + crypto::get_hash(extracted_input.sig);
 
         // Ignore the input if the max ledger seq number specified is beyond the max offeset.
-        if (conf::cfg.contract.max_input_ledger_offset != 0 && extracted_input.max_lcl_seq_no > lcl_seq_no + conf::cfg.contract.max_input_ledger_offset)
+        if (conf::cfg.contract.max_input_ledger_offset != 0 && extracted_input.max_ledger_seq_no > lcl_seq_no + conf::cfg.contract.max_input_ledger_offset)
         {
             LOG_DEBUG << "User input bad max ledger seq beyond the max offset.";
             return msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED;
         }
 
         // Ignore the input if our ledger has passed the input TTL.
-        if (extracted_input.max_lcl_seq_no <= lcl_seq_no)
+        if (extracted_input.max_ledger_seq_no <= lcl_seq_no)
         {
             LOG_DEBUG << "User input bad max ledger seq expired.";
             return msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
@@ -451,7 +451,7 @@ namespace usr
             return msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW;
         }
 
-        const int nonce_status = nonce_map.check(user_pubkey, extracted_input.nonce, extracted_input.sig, extracted_input.max_lcl_seq_no);
+        const int nonce_status = nonce_map.check(user_pubkey, extracted_input.nonce, extracted_input.sig, extracted_input.max_ledger_seq_no);
         if (nonce_status > 0)
         {
             LOG_DEBUG << (nonce_status == 1 ? "User input nonce expired." : "User input with same nonce/sig already submitted.");

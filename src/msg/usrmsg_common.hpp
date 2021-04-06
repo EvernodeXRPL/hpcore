@@ -25,7 +25,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_INPUT_HASH = "input_hash";
     constexpr const char *FLD_LEDGER_SEQ_NO = "ledger_seq_no";
     constexpr const char *FLD_LEDGER_HASH = "ledger_hash";
-    constexpr const char *FLD_MAX_LCL_SEQ = "max_lcl_seq_no";
+    constexpr const char *FLD_MAX_LEDGER_SEQ_NO = "max_ledger_seq_no";
     constexpr const char *FLD_CONTENT = "content";
     constexpr const char *FLD_OUTPUTS = "outputs";
     constexpr const char *FLD_HASHES = "hashes";
