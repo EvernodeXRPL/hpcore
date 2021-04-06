@@ -321,9 +321,9 @@
             emitter.clear(event);
         }
 
-        this.sendContractInput = (input, nonce = null, maxLclOffset = null) => {
+        this.submitContractInput = (input, nonce = null, maxLedger = null, isOffset = true) => {
             // We always only submit contract input to a single node (even if we are connected to multiple nodes).
-            return getMultiConnectionResult(con => con.sendContractInput(input, nonce, maxLclOffset), 1);
+            return getMultiConnectionResult(con => con.submitContractInput(input, nonce, maxLedger, isOffset), 1);
         }
 
         this.sendContractReadRequest = (request) => {
@@ -755,42 +755,49 @@
             return p;
         }
 
-        this.sendContractInput = async (input, nonce = null, maxLclOffset = null) => {
+        this.submitContractInput = async (input, nonce, maxLedger, isOffset) => {
 
             if (connectionStatus != 2)
-                return Promise.resolve({
-                    status: "failed",
-                    reason: "connection_error"
-                });
+                throw "Connection error.";
+            if (maxLedger == 0)
+                throw "Max ledger seq no. or offset cannot be 0.";
+            if (!isOffset && !maxLedger)
+                throw "Max ledger seq. no not specified.";
 
-            if (!maxLclOffset)
-                maxLclOffset = 10;
-
+            // Use time-based incrementing nonce if not specified.
             if (!nonce)
                 nonce = (new Date()).getTime().toString();
             else
                 nonce = nonce.toString();
 
-            // Acquire the current lcl and add the specified offset.
-            const stat = await this.getStatus();
-            if (!stat) {
-                return new Promise(resolve => resolve({
-                    status: "failed",
-                    reason: "ledger_status_error"
-                }));
-            }
-            const maxLclSeqNo = stat.lclSeqNo + maxLclOffset;
+            // If max ledger is specified as offset, we need to get current ledger status and add the offset to it.
+            if (isOffset) {
+                if (!maxLedger)
+                    maxLedger = 10; // Default offset applied if not specified.
 
-            let { hash, message } = msgHelper.createContractInput(input, nonce, maxLclSeqNo);
-            inputHashHex = msgHelper.stringifyValue(hash);
+                // Acquire the current ledger status and add the specified offset.
+                const stat = await this.getStatus();
+                if (!stat)
+                    throw "Error retrieving ledger status."
+
+                maxLedger += stat.lclSeqNo;
+            }
+
+            const inp = msgHelper.createContractInputComponents(input, nonce, maxLedger);
+
+            const inputHashHex = msgHelper.stringifyValue(inp.hash);
 
             // Start waiting for this input's accept/rejected status response.
             const p = new Promise(resolve => {
                 contractInputResolvers[inputHashHex] = resolve;
             });
 
-            wsSend(msgHelper.serializeObject(message));
-            return p;
+            const msg = msgHelper.createContractInputMessage(inp.container, inp.sig);
+            wsSend(msgHelper.serializeObject(msg));
+            return {
+                hash: msgHelper.binaryEncode(inp.hash),
+                submissionStatus: p
+            };
         }
 
         this.sendContractReadRequest = (request) => {
@@ -881,7 +888,8 @@
             }
         }
 
-        this.createContractInput = (input, nonce, maxLclSeqNo) => {
+        // Creates a signed contract input components
+        this.createContractInputComponents = (input, nonce, maxLedgerSeqNo) => {
 
             if (input.length == 0)
                 return null;
@@ -889,7 +897,7 @@
             const inpContainer = {
                 input: this.serializeInput(input),
                 nonce: nonce,
-                max_lcl_seq_no: maxLclSeqNo
+                max_lcl_seq_no: maxLedgerSeqNo
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);
@@ -897,18 +905,22 @@
 
             // Input hash is the blake3 hash of the input signature.
             // The input hash can later be used to query input details from the ledger.
-            const inputHash = this.binaryEncode(blake3.hash(sigBytes));
-
-            const signedInpContainer = {
-                type: "contract_input",
-                input_container: serlializedInpContainer,
-                sig: this.binaryEncode(sigBytes)
-            }
+            const inputHash = new Uint8Array(blake3.hash(sigBytes));
 
             return {
                 hash: inputHash,
-                message: signedInpContainer
-            };
+                container: serlializedInpContainer,
+                sig: sigBytes
+            }
+        }
+
+        this.createContractInputMessage = (container, sig) => {
+
+            return {
+                type: "contract_input",
+                input_container: container,
+                sig: this.binaryEncode(sig)
+            }
         }
 
         this.createReadRequest = (request) => {

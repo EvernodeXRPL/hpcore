@@ -78,7 +78,7 @@ async function main() {
             console.log("Unknown read request result.");
         }
     })
-    
+
     console.log("Ready to accept inputs.");
 
     const input_pump = () => {
@@ -92,25 +92,27 @@ async function main() {
                 const sizeKB = Math.round(fileContent.length / 1024);
                 console.log("Uploading file " + fileName + " (" + sizeKB + " KB)");
 
-                const submissionStatus = await hpc.sendContractInput(bson.serialize({
+                const input = await hpc.submitContractInput(bson.serialize({
                     type: "upload",
                     fileName: fileName,
                     content: fileContent
-                }), null, 100);
+                }));
 
-                if (submissionStatus.status != "accepted")
-                    console.log("Upload failed. reason: " + submissionStatus.reason);
+                const submission = await input.submissionStatus;
+                if (submission.status != "accepted")
+                    console.log("Upload failed. reason: " + submission.reason);
             }
             else if (inp.startsWith("delete ")) {
 
                 const fileName = inp.substr(7);
-                const submissionStatus = await hpc.sendContractInput(bson.serialize({
+                const input = await hpc.submitContractInput(bson.serialize({
                     type: "delete",
                     fileName: fileName
                 }));
 
-                if (submissionStatus.status != "accepted")
-                    console.log("Delete failed. reason: " + submissionStatus.reason);
+                const submission = await input.submissionStatus;
+                if (submission.status != "accepted")
+                    console.log("Delete failed. reason: " + submission.reason);
             }
             else if (inp.startsWith("download ")) {
 

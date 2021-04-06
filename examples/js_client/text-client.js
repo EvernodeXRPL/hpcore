@@ -1,6 +1,7 @@
 const readline = require('readline');
 const HotPocket = require('./hp-client-lib');
 
+
 async function main() {
 
     const keys = await HotPocket.generateKeys();
@@ -93,10 +94,14 @@ async function main() {
                 if (inp.startsWith("read "))
                     hpc.sendContractReadRequest(inp.substr(5));
                 else {
-                    hpc.sendContractInput(inp).then(submissionStatus => {
-                        if (submissionStatus.status != "accepted")
-                            console.log(submissionStatus.reason);
-                    });
+                    hpc.submitContractInput(inp).then(input => {
+                        // console.log(input.hash);
+                        input.submissionStatus.then(s => {
+                            if (s.status != "accepted")
+                                console.log(s.reason);
+                        });
+                    })
+
                 }
             }
 
