@@ -1154,7 +1154,7 @@ namespace consensus
         for (auto &[pubkey, bufs] : bufmap)
         {
             // For each user calculate the total hash of their outputs.
-            // Final hash for user = hash(pubkey + hash(outputs))
+            // Final hash for user = hash(pubkey + outputs...)
 
             if (!bufs.outputs.empty())
             {
