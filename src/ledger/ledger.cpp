@@ -175,24 +175,22 @@ namespace ledger
         }
         const std::string input_hash = crypto::get_list_hash(inp_hashes);
 
-        uint8_t seq_no_byte_str[8], time_byte_str[8];
-        util::uint64_to_bytes(seq_no_byte_str, current_lcl_id.seq_no);
-        util::uint64_to_bytes(time_byte_str, proposal.time);
+        uint8_t seq_no_bytes[8], time_bytes[8];
+        util::uint64_to_bytes(seq_no_bytes, current_lcl_id.seq_no);
+        util::uint64_to_bytes(time_bytes, proposal.time);
 
         // Contruct binary string for data hash.
-
-        std::string data;
-        data.reserve(sizeof(seq_no_byte_str) + sizeof(time_byte_str) + (sizeof(util::h32) * 5));
-        data.append((char *)seq_no_byte_str, 8);
-        data.append((char *)time_byte_str, 8);
-        data.append(proposal.state_hash.to_string_view());
-        data.append(proposal.patch_hash.to_string_view());
-        data.append(user_hash);
-        data.append(input_hash);
-        data.append(proposal.output_hash);
+        std::vector<std::string_view> data;
+        data.emplace_back((char *)seq_no_bytes, sizeof(seq_no_bytes));
+        data.emplace_back((char *)time_bytes, sizeof(time_bytes));
+        data.push_back(proposal.state_hash.to_string_view());
+        data.push_back(proposal.patch_hash.to_string_view());
+        data.push_back(user_hash);
+        data.push_back(input_hash);
+        data.push_back(proposal.output_hash);
 
         // Combined binary hash of data fields. blake3(seq_no + time + state_hash + patch_hash + user_hash + input_hash + output_hash)
-        const std::string data_hash = crypto::get_hash(data);
+        const std::string data_hash = crypto::get_list_hash(data);
 
         const std::string prev_ledger_hash(current_lcl_id.hash.to_string_view());
 
