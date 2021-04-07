@@ -1054,13 +1054,15 @@ namespace consensus
             return -1;
         }
 
+        // Cleanup the fed inputs and extract the generated outputs.
+        cleanup_consensed_user_inputs(consensed_users);
+        extract_user_outputs_from_contract_bufmap(args.userbufs);
+
         // Get the new state hash after contract execution.
         const util::h32 &new_state_hash = args.post_execution_state_hash;
 
         // Update state hash in contract fs global hash tracker.
         sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, new_state_hash);
-
-        extract_user_outputs_from_contract_bufmap(args.userbufs);
 
         // Generate user output hash merkle tree and signature with state hash included.
         if (!ctx.generated_user_outputs.empty())
@@ -1170,8 +1172,6 @@ namespace consensus
             for (const consensed_user_input &ci : user.consensed_inputs)
                 itr->second.inputs.push_back(ci.input);
         }
-
-        cleanup_consensed_user_inputs(consensed_users);
     }
 
     /**

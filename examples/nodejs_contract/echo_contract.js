@@ -17,23 +17,23 @@ const echoContract = async (ctx) => {
         // This user's hex pubkey can be accessed from 'user.pubKey'
 
         // For each user we add a promise to list of promises.
+        userHandlers.push(new Promise(async (resolve) => {
 
             // The contract need to ensure that all outputs for a particular user is emitted
             // in deterministic order. Hence, we are processing all inputs for each user sequentially.
             for (const input of user.inputs) {
 
-        userHandlers.push(new Promise(async (resolve) => {
-            const buf = await ctx.users.read(input);
+                const buf = await ctx.users.read(input);
                 const msg = buf.toString();
 
                 const output = (msg == "ts") ? fs.readFileSync("exects.txt").toString() : ("Echoing: " + msg);
                 await user.send(output);
-                // The promise gets complete when all inputs for this user are processed.
-            resolve();
-        }));
+
             }
 
-            
+            // The promise gets complete when all inputs for this user are processed.
+            resolve();
+        }));
     }
 
     // Wait until all user promises are complete.
