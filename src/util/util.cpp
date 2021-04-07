@@ -459,7 +459,7 @@ namespace util
     }
 
     /**
-     * Rerturns the substring view from the end of the provided string view.
+     * Returns the substring view from the end of the provided string view.
      */
     std::string_view get_string_suffix(std::string_view sv, const size_t suffix_len)
     {

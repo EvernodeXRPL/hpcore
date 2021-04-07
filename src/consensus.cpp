@@ -120,7 +120,7 @@ namespace consensus
         {
             // Broadcast non-unl proposal (NUP) containing inputs from locally connected users.
             // This is performed at stage 0 so we can to make sure this happens regardless of whether we are in-sync or not.
-            // This is also performed at stage 2, so the next round receieves the inputs before it starts.
+            // This is also performed at stage 2, so the next round receives the inputs before it starts.
             broadcast_nonunl_proposal();
         }
 
@@ -1043,7 +1043,7 @@ namespace consensus
     }
 
     /**
-     * Dispatch acceptence status responses to consensed user inputs, if the recipients are connected to us locally.
+     * Dispatch acceptance status responses to consensed user inputs, if the recipients are connected to us locally.
      * @param consensed_users The map of consensed users and their inputs.
      * @param lcl_id The ledger the inputs got included in.
      * @return 0 on success. -1 on failure.
@@ -1151,7 +1151,7 @@ namespace consensus
      */
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap)
     {
-        for (auto &[pubkey, bufs] : bufmap)
+        for (const auto &[pubkey, bufs] : bufmap)
         {
             // For each user calculate the total hash of their outputs.
             // Final hash for user = hash(pubkey + outputs...)
