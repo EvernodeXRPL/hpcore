@@ -85,12 +85,10 @@ namespace ledger
     /**
      * Create and save ledger record from the given proposal message.
      * @param proposal Consensus-reached Stage 3 proposal.
-     * @param consensed_users Users and their raw inputs received in this consensus round.
-     * @param generated_user_outputs Generated raw outputs in this consensus round.
+     * @param consensed_users Users and their raw inputs/outputs received in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users,
-                    const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
+    int save_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users)
     {
         // Aqure hpfs rw session before accessing shards and insert ledger records.
         if (ledger_fs.acquire_rw_session() == -1)
@@ -113,8 +111,8 @@ namespace ledger
             LEDGER_CREATE_ERROR;
 
         // Save blob data.
-        if ((!proposal.input_ordered_hashes.empty() || !generated_user_outputs.empty()) &&
-            save_ledger_blob(new_ledger_hash, consensed_users, generated_user_outputs) == -1)
+        if ((!proposal.input_ordered_hashes.empty() || proposal.output_hash != util::h32_empty.to_string_view()) &&
+            save_ledger_blob(new_ledger_hash, consensed_users) == -1)
             LEDGER_CREATE_ERROR;
 
         // Update the latest seq_no and lcl when ledger is created.
@@ -410,15 +408,13 @@ namespace ledger
     }
 
     /**
-     * Save raw data from the consensed proposal. A blob file is only created if there is any user inputs or contract outputs
+     * Save raw data from the consensed proposal. A blob file is only created if there is any user inputs or outputs
      * to save disk space.
      * @param ledger_hash Hash of this ledger we are saving.
-     * @param consensed_users Users and their raw inputs consensed in this consensus round.
-     * @param generated_user_outputs Generated raw outputs in this consensus round.
+     * @param consensed_users Users and their raw inputs/outputs consensed in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger_blob(std::string_view ledger_hash, const consensus::consensed_user_map &consensed_users,
-                         const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
+    int save_ledger_blob(std::string_view ledger_hash, const consensus::consensed_user_map &consensed_users)
     {
         // Construct shard path.
         uint64_t last_blob_shard_seq_no = ctx.get_last_blob_shard_id().seq_no;
@@ -500,11 +496,11 @@ namespace ledger
         blob.ledger_hash = ledger_hash;
 
         // Include consensed user inputs.
-        for (const auto &[pubkey, inputs] : consensed_users)
+        for (const auto &[pubkey, user] : consensed_users)
         {
             const auto [itr, success] = blob.inputs.try_emplace(pubkey, std::vector<std::string>());
 
-            for (const consensus::consensed_user_input &ci : inputs)
+            for (const consensus::consensed_user_input &ci : user.consensed_inputs)
             {
                 std::string input;
                 if (usr::input_store.read_buf(ci.input, input) != -1)
@@ -513,13 +509,13 @@ namespace ledger
         }
 
         // Include consensed user outputs.
-        for (const auto &[hash, user_output] : generated_user_outputs)
+        for (const auto &[pubkey, user] : consensed_users)
         {
             std::vector<std::string> outputs;
-            for (const auto &output : user_output.outputs)
-                outputs.push_back(std::move(output.message));
+            for (const std::string &output : user.consensed_outputs.outputs)
+                outputs.push_back(std::move(output));
 
-            blob.outputs.emplace(user_output.user_pubkey, std::move(outputs));
+            blob.outputs.emplace(pubkey, std::move(outputs));
         }
 
         flatbuffers::FlatBufferBuilder builder(1024);

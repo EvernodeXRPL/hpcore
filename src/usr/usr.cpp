@@ -294,6 +294,8 @@ namespace usr
             const auto user_itr = usr::ctx.users.find(pubkey);
             if (user_itr != usr::ctx.users.end())
             {
+                msg::usrmsg::usrmsg_parser parser(user_itr->second.protocol);
+
                 // Send the request status result if this user is connected to us.
                 for (const input_status_response &resp : user_responses)
                 {
@@ -301,7 +303,6 @@ namespace usr
                     // would have gotten the proper status response during first submission.
                     if (resp.reject_reason != msg::usrmsg::REASON_ALREADY_SUBMITTED)
                     {
-                        msg::usrmsg::usrmsg_parser parser(resp.protocol);
                         send_input_status(parser,
                                           user_itr->second.session,
                                           resp.reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
@@ -408,7 +409,6 @@ namespace usr
         }
 
         extracted.sig = std::move(submitted.sig);
-        extracted.protocol = submitted.protocol;
 
         return NULL;
     }
