@@ -16,8 +16,8 @@ namespace ledger
     */
     struct ledger_record
     {
-        uint64_t seq_no;
-        uint64_t timestamp;
+        uint64_t seq_no = 0;
+        uint64_t timestamp = 0;
         std::string ledger_hash;
         std::string prev_ledger_hash;
         std::string data_hash;

@@ -109,8 +109,8 @@ function singleUserInputOutput(payloadKB, requestCount) {
         for (let i = 0; i < requestCount; i++) {
             const nonce = i.toString().padStart(5);
             hpc.sendContractInput(payload, nonce, 10).then(r => {
-                if (r != "ok")
-                    console.log(r);
+                if (r.status != "ok")
+                    console.log(r.reason);
             });
         }
     })
@@ -152,8 +152,8 @@ function largePayload(payloadMB) {
 
         timer.start();
         await hpc.sendContractInput(payload).then(r => {
-            if (r != "ok")
-                console.log(r);
+            if (r.status != "ok")
+                console.log(r.reason);
         });;
     })
 }

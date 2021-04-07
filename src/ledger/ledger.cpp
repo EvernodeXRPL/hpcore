@@ -85,22 +85,20 @@ namespace ledger
     /**
      * Create and save ledger record from the given proposal message.
      * @param proposal Consensus-reached Stage 3 proposal.
-     * @param candidate_user_inputs Raw inputs received in this consensus round.
+     * @param consensed_users Users and their raw inputs received in this consensus round.
      * @param generated_user_outputs Generated raw outputs in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger(const p2p::proposal &proposal, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users,
                     const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
-        const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
-        uint64_t seq_no = lcl_id.seq_no;
-        const std::string prev_ledger_hash(lcl_id.hash.to_string_view());
-
-        seq_no++; // New lcl sequence number.
-
         // Aqure hpfs rw session before accessing shards and insert ledger records.
         if (ledger_fs.acquire_rw_session() == -1)
             return -1;
+
+        const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
+        uint64_t seq_no = lcl_id.seq_no;
+        seq_no++; // New ledger sequence number.
 
         sqlite3 *db = NULL;
 
@@ -109,62 +107,20 @@ namespace ledger
         if (prepare_shard(&db, primary_shard_seq_no, seq_no) == -1)
             LEDGER_CREATE_ERROR;
 
-        // Combined binary hash of consensus user binary pub keys.
-        const std::string user_hash = crypto::get_hash(proposal.users);
-        // Combined binary hash of consensus input hashes.
-        const std::string input_hash = crypto::get_hash(proposal.input_hashes);
-
-        uint8_t seq_no_byte_str[8], time_byte_str[8];
-        util::uint64_to_bytes(seq_no_byte_str, seq_no);
-        util::uint64_to_bytes(time_byte_str, proposal.time);
-
-        // Contruct binary string for data hash.
-
-        std::string data;
-        data.reserve(sizeof(seq_no_byte_str) + sizeof(time_byte_str) + (sizeof(util::h32) * 5));
-        data.append((char *)seq_no_byte_str);
-        data.append((char *)time_byte_str);
-        data.append(proposal.state_hash.to_string_view());
-        data.append(proposal.patch_hash.to_string_view());
-        data.append(user_hash);
-        data.append(input_hash);
-        data.append(proposal.output_hash);
-
-        // Combined binary hash of data fields. blake3(seq_no + time + state_hash + patch_hash + user_hash + input_hash + output_hash)
-        const std::string data_hash = crypto::get_hash(data);
-
-        // Ledger hash is the combined hash of previous ledger hash and the new data hash.
-        const std::string ledger_hash = crypto::get_hash(prev_ledger_hash, data_hash);
-
-        // Construct ledger struct with binary hashes.
-        const ledger_record ledger{
-            seq_no,
-            proposal.time,
-            ledger_hash,
-            prev_ledger_hash,
-            data_hash,
-            std::string(proposal.state_hash.to_string_view()),
-            std::string(proposal.patch_hash.to_string_view()),
-            user_hash,
-            input_hash,
-            proposal.output_hash}; // Merkle root output hash.
-
-        if (sqlite::insert_ledger_row(db, ledger) == -1)
-        {
-            LOG_ERROR << errno << ": Error creating the ledger, shard: " << std::to_string(primary_shard_seq_no);
+        // Insert primary ledger record.
+        std::string new_ledger_hash;
+        if (insert_ledger_record(db, lcl_id, primary_shard_seq_no, proposal, new_ledger_hash) == -1)
             LEDGER_CREATE_ERROR;
-        }
 
-        if ((!candidate_user_inputs.empty() || !generated_user_outputs.empty()) && save_ledger_blob(ledger_hash, candidate_user_inputs, generated_user_outputs) == -1)
-        {
-            LOG_ERROR << errno << ": Error saving the raw inputs/outputs, shard: " << std::to_string(primary_shard_seq_no);
+        // Save blob data.
+        if ((!proposal.input_ordered_hashes.empty() || !generated_user_outputs.empty()) &&
+            save_ledger_blob(new_ledger_hash, consensed_users, generated_user_outputs) == -1)
             LEDGER_CREATE_ERROR;
-        }
 
         // Update the latest seq_no and lcl when ledger is created.
         p2p::sequence_hash new_lcl_id;
         new_lcl_id.seq_no = seq_no;
-        new_lcl_id.hash = ledger_hash;
+        new_lcl_id.hash = new_ledger_hash;
         ctx.set_lcl_id(new_lcl_id);
 
         const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(primary_shard_seq_no));
@@ -196,10 +152,78 @@ namespace ledger
     }
 
     /**
+     * Inserts new ledger record to the sqlite database.
+     * @param db Database connection to use.
+     * @param current_lcl_id Current lcl id.
+     * @param primary_shard_seq_no Current primary shard seq no.
+     * @param proposal The consensus proposal.
+     * @param new_ledger_hash Hash of the ledger that got isnerted.
+     * @return 0 on success. -1 on failure.
+     */
+    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t primary_shard_seq_no,
+                             const p2p::proposal &proposal, std::string &new_ledger_hash)
+    {
+        // Combined binary hash of consensus user binary pub keys.
+        const std::string user_hash = crypto::get_list_hash(proposal.users);
+
+        // Combined binary hash of consensus input hashes.
+        std::vector<std::string_view> inp_hashes;
+        for (const std::string &o_hash : proposal.input_ordered_hashes)
+        {
+            // We need to consider the last 32 bytes of each ordered hash to get input hash without the nonce prefix.
+            inp_hashes.push_back(util::get_string_suffix(o_hash, BLAKE3_OUT_LEN));
+        }
+        const std::string input_hash = crypto::get_list_hash(inp_hashes);
+
+        uint8_t seq_no_bytes[8], time_bytes[8];
+        util::uint64_to_bytes(seq_no_bytes, current_lcl_id.seq_no);
+        util::uint64_to_bytes(time_bytes, proposal.time);
+
+        // Contruct binary string for data hash.
+        std::vector<std::string_view> data;
+        data.emplace_back((char *)seq_no_bytes, sizeof(seq_no_bytes));
+        data.emplace_back((char *)time_bytes, sizeof(time_bytes));
+        data.push_back(proposal.state_hash.to_string_view());
+        data.push_back(proposal.patch_hash.to_string_view());
+        data.push_back(user_hash);
+        data.push_back(input_hash);
+        data.push_back(proposal.output_hash);
+
+        // Combined binary hash of data fields. blake3(seq_no + time + state_hash + patch_hash + user_hash + input_hash + output_hash)
+        const std::string data_hash = crypto::get_list_hash(data);
+
+        const std::string prev_ledger_hash(current_lcl_id.hash.to_string_view());
+
+        // Ledger hash is the combined hash of previous ledger hash and the new data hash.
+        new_ledger_hash = crypto::get_hash(prev_ledger_hash, data_hash);
+
+        // Construct ledger struct with binary hashes.
+        const ledger_record ledger{
+            current_lcl_id.seq_no + 1,
+            proposal.time,
+            new_ledger_hash,
+            prev_ledger_hash,
+            data_hash,
+            std::string(proposal.state_hash.to_string_view()),
+            std::string(proposal.patch_hash.to_string_view()),
+            user_hash,
+            input_hash,
+            proposal.output_hash}; // Merkle root output hash.
+
+        if (sqlite::insert_ledger_row(db, ledger) == -1)
+        {
+            LOG_ERROR << errno << ": Error creating the ledger, shard: " << primary_shard_seq_no;
+            return -1;
+        }
+
+        return 0;
+    }
+
+    /**
      * Opens a db connection to a shard and populates the shard_seq_no.
      * @param db Database connection to be openned.
      * @param ledger_seq_no Ledger sequence number.
-     * @return Returns 0 on success -1 on failure.
+     * @return 0 on success. -1 on failure.
      */
     int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no)
     {
@@ -386,14 +410,14 @@ namespace ledger
     }
 
     /**
-     * Save raw data from the consensused proposal. A blob file is only created if there is any user inputs or contract outputs
+     * Save raw data from the consensed proposal. A blob file is only created if there is any user inputs or contract outputs
      * to save disk space.
      * @param ledger_hash Hash of this ledger we are saving.
-     * @param candidate_user_inputs Raw inputs received in this consensus round.
+     * @param consensed_users Users and their raw inputs consensed in this consensus round.
      * @param generated_user_outputs Generated raw outputs in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int save_ledger_blob(std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger_blob(std::string_view ledger_hash, const consensus::consensed_user_map &consensed_users,
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs)
     {
         // Construct shard path.
@@ -474,25 +498,28 @@ namespace ledger
         ledger_blob blob;
 
         blob.ledger_hash = ledger_hash;
-        for (const auto &[hash, user_input] : candidate_user_inputs)
+
+        // Include consensed user inputs.
+        for (const auto &[pubkey, inputs] : consensed_users)
         {
-            std::string input;
-            if (usr::input_store.read_buf(user_input.input, input) != -1)
+            const auto [itr, success] = blob.inputs.try_emplace(pubkey, std::vector<std::string>());
+
+            for (const consensus::consensed_user_input &ci : inputs)
             {
-                const auto itr = blob.inputs.find(user_input.user_pubkey);
-                if (itr == blob.inputs.end())
-                    blob.inputs.emplace(user_input.user_pubkey, std::vector<std::string>());
-                blob.inputs[user_input.user_pubkey].push_back(input);
+                std::string input;
+                if (usr::input_store.read_buf(ci.input, input) != -1)
+                    itr->second.push_back(input);
             }
         }
+
+        // Include consensed user outputs.
         for (const auto &[hash, user_output] : generated_user_outputs)
         {
             std::vector<std::string> outputs;
             for (const auto &output : user_output.outputs)
-            {
-                outputs.push_back(output.message);
-            }
-            blob.outputs.emplace(user_output.userpubkey, std::move(outputs));
+                outputs.push_back(std::move(output.message));
+
+            blob.outputs.emplace(user_output.user_pubkey, std::move(outputs));
         }
 
         flatbuffers::FlatBufferBuilder builder(1024);

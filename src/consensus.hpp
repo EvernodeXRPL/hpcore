@@ -14,29 +14,52 @@ namespace consensus
 {
     /**
      * Represents a contract input that takes part in consensus.
+     * This is used in a map keyed by input ordered hash.
      */
     struct candidate_user_input
     {
         const std::string user_pubkey;
-        const uint64_t max_ledger_seq_no = 0;
         const util::buffer_view input;
+        const uint64_t max_ledger_seq_no = 0;
+        const util::PROTOCOL protocol;
 
-        candidate_user_input(const std::string user_pubkey, const util::buffer_view input, const uint64_t max_ledger_seq_no)
-            : user_pubkey(std::move(user_pubkey)), input(input), max_ledger_seq_no(max_ledger_seq_no)
+        candidate_user_input(const std::string &user_pubkey, const util::buffer_view input, const uint64_t max_ledger_seq_no, const util::PROTOCOL protocol)
+            : user_pubkey(user_pubkey), input(input), max_ledger_seq_no(max_ledger_seq_no), protocol(protocol)
         {
         }
     };
+
+    /**
+     * Represents consensus reached user input.
+     * This is used in a map keyed by user pubkey.
+     */
+    struct consensed_user_input
+    {
+        const std::string ordered_hash; // [nonce] + [input signature hash]
+        const util::buffer_view input;  // The input data buffer pointer.
+        const util::PROTOCOL protocol;  // json/bson protocol used by the user when submitting the input.
+
+        consensed_user_input(const std::string &ordered_hash, const util::buffer_view input, const util::PROTOCOL protocol)
+            : ordered_hash(ordered_hash), input(input), protocol(protocol)
+        {
+        }
+    };
+
+    /**
+     * Consensed inputs map keyed by user binary pubkey.
+     */
+    typedef std::map<std::string, std::vector<consensed_user_input>> consensed_user_map;
 
     /**
      * Represents a contract-generated user output that takes part in consensus.
      */
     struct generated_user_output
     {
-        const std::string userpubkey;
+        const std::string user_pubkey;
         std::list<sc::contract_output> outputs;
 
-        generated_user_output(const std::string userpubkey, const std::list<sc::contract_output> outputs)
-            : userpubkey(std::move(userpubkey)), outputs(std::move(outputs))
+        generated_user_output(const std::string &user_pubkey, const std::list<sc::contract_output> &&outputs)
+            : user_pubkey(user_pubkey), outputs(outputs)
         {
         }
     };
@@ -54,8 +77,8 @@ namespace consensus
         // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.
         std::set<std::string> candidate_users;
 
-        // Map of candidate user inputs with input hash as map key. Inputs will stay here until they
-        // achieve consensus or expire (due to max_ledger_seq_no). Input hash is globally unique among inputs
+        // Map of candidate user inputs with ordered hash as map key. Inputs will stay here until they
+        // achieve consensus or expire (due to max_ledger_seq_no). Ordered hash is globally unique among inputs
         // from all users. We will use this map to feed inputs into the contract once consensus is achieved.
         std::map<std::string, candidate_user_input> candidate_user_inputs;
 
@@ -117,6 +140,10 @@ namespace consensus
 
     void revise_candidate_proposals();
 
+    int prepare_consensed_users_and_inputs(consensed_user_map &consensed_users, const p2p::proposal &cons_prop);
+
+    int purge_user_input_buffers(const consensed_user_map &consensed_users);
+
     bool wait_and_proceed_stage();
 
     void broadcast_nonunl_proposal();
@@ -147,11 +174,15 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int update_ledger_and_execute_contract(const p2p::proposal &cons_prop, util::h32 &new_state_hash, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id);
+    int update_ledger(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const util::h32 &patch_hash, p2p::sequence_hash &new_lcl_id);
 
-    int dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
+    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
 
-    int feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const p2p::proposal &cons_prop);
+    int dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+
+    void dispatch_user_outputs(const p2p::proposal &cons_prop, const p2p::sequence_hash &lcl_id);
+
+    void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const consensed_user_map &consensed_users);
 
     void extract_user_outputs_from_contract_bufmap(sc::contract_bufmap_t &bufmap);
 

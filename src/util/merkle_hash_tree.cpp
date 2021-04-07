@@ -40,7 +40,7 @@ namespace util
                     std::vector<std::string_view> hashes;
                     for (const util::merkle_hash_node &child : parent.children)
                         hashes.push_back(child.hash);
-                    parent.hash = crypto::get_hash(hashes);
+                    parent.hash = crypto::get_list_hash(hashes);
                 }
                 else
                 {

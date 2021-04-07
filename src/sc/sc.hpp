@@ -31,6 +31,11 @@ namespace sc
     {
         uint32_t message_len = 0;
         std::string message;
+
+        bool operator<(const contract_output &other) const
+        {
+            return message < other.message;
+        }
     };
 
     /**

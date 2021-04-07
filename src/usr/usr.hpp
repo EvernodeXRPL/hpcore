@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../util/util.hpp"
+#include "../util/h32.hpp"
 #include "../util/rollover_hashset.hpp"
 #include "../util/buffer_store.hpp"
 #include "../msg/usrmsg_parser.hpp"
@@ -66,7 +67,7 @@ namespace usr
     struct input_status_response
     {
         const util::PROTOCOL protocol;
-        const std::string sig;
+        const std::string input_hash;
         const char *reject_reason;
     };
 
@@ -83,10 +84,12 @@ namespace usr
 
     int handle_authed_user_message(connected_user &user, std::string_view message);
 
-    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses);
+    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses,
+                                     const uint64_t ledger_seq_no = 0, const util::h32 &ledger_hash = util::h32_empty);
 
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
-                           std::string_view status, std::string_view reason, std::string_view input_sig);
+                           std::string_view status, std::string_view reason, std::string_view input_hash,
+                           const uint64_t ledger_seq_no = 0, const util::h32 &ledger_hash = util::h32_empty);
 
     int add_user(usr::user_comm_session &session, const std::string &user_pubkey_hex, std::string_view protocol_code);
 
@@ -95,7 +98,7 @@ namespace usr
     const char *extract_submitted_input(const std::string &user_pubkey, const usr::submitted_user_input &submitted, usr::extracted_user_input &extracted);
 
     const char *validate_user_input_submission(const std::string &user_pubkey, const usr::extracted_user_input &extracted_input,
-                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &hash, util::buffer_view &input);
+                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &ordered_hash, util::buffer_view &input);
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 

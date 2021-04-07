@@ -70,12 +70,15 @@ namespace ledger
 
     void deinit();
 
-    int save_ledger(const p2p::proposal &proposal, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users,
                     const std::map<std::string, consensus::generated_user_output> &generated_user_outputs);
+
+    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t primary_shard_seq_no,
+                             const p2p::proposal &proposal, std::string &new_ledger_hash);
 
     int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no);
 
-    int save_ledger_blob(std::string_view ledger_hash, const std::map<std::string, consensus::candidate_user_input> &candidate_user_inputs,
+    int save_ledger_blob(std::string_view ledger_hash, const consensus::consensed_user_map &consensed_users,
                          const std::map<std::string, consensus::generated_user_output> &generated_user_outputs);
 
     void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir);

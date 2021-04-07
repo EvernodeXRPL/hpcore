@@ -79,6 +79,8 @@ namespace util
 
     uint64_t uint64_from_bytes(const uint8_t *data);
 
+    std::string_view get_string_suffix(std::string_view sv, const size_t suffix_len);
+
 } // namespace util
 
 #endif
