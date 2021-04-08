@@ -19,6 +19,8 @@ namespace hpfs
     constexpr const char *HMAP_CHILDREN = "::hpfs.hmap.children";
 
     constexpr const char *INDEX_CONTROL = "/::hpfs.index";
+    constexpr const char *INDEX_READ_QUERY_FULLSTOP = "/::hpfs.index.read.";
+    constexpr const char *INDEX_WRITE_QUERY_FULLSTOP = "/::hpfs.index.write.";
     constexpr const char *ROOT_PATH = "/";
     constexpr const char *LOG_INDEX_FILENAME = "/log.hpfs.idx";
 
@@ -27,7 +29,7 @@ namespace hpfs
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
 
-    constexpr uint64_t MAX_HPFS_LOG_READ_SIZE = 1 * 1024 * 1024;
+    constexpr uint64_t MAX_HPFS_LOG_READ_SIZE = 4 * 1024 * 1024;
 
     /**
      * This should be called to activate the hpfs mount process.
@@ -450,7 +452,7 @@ namespace hpfs
     */
     int hpfs_mount::read_hpfs_logs(const uint64_t min_ledger_seq_no, const uint64_t max_ledger_seq_no, std::vector<uint8_t> &buf)
     {
-        const std::string index_file = mount_dir + INDEX_CONTROL + "." + std::to_string(min_ledger_seq_no) + "." + std::to_string(max_ledger_seq_no);
+        const std::string index_file = mount_dir + INDEX_READ_QUERY_FULLSTOP + std::to_string(min_ledger_seq_no) + "." + std::to_string(max_ledger_seq_no);
 
         const int fd = open(index_file.c_str(), O_RDONLY);
         if (fd == -1)
@@ -480,7 +482,7 @@ namespace hpfs
     */
     int hpfs_mount::append_hpfs_log_records(const std::vector<uint8_t> &buf)
     {
-        const std::string index_file = mount_dir + INDEX_CONTROL;
+        const std::string index_file = mount_dir + INDEX_WRITE_QUERY_FULLSTOP + std::to_string(buf.size());
 
         const int fd = open(index_file.c_str(), O_RDWR);
         if (fd == -1)
