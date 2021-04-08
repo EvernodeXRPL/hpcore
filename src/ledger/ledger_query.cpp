@@ -2,7 +2,6 @@
 #include "ledger_common.hpp"
 #include "ledger.hpp"
 #include "sqlite.hpp"
-#include "../msg/fbuf/ledger_helpers.hpp"
 #include "../util/version.hpp"
 
 namespace ledger::query
@@ -90,17 +89,17 @@ namespace ledger::query
             if (fd != -1 && util::read_from_fd(fd, blob_msg, version::VERSION_BYTES_LEN) > 0)
             {
                 ledger_blob raw_data;
-                if (msg::fbuf::ledgermsg::create_ledger_blob_from_msg(raw_data, blob_msg, raw_inputs, raw_outputs) != -1)
-                {
-                    if (raw_inputs)
-                        raw_data.inputs.swap(*r.raw_inputs);
+                // if (msg::fbuf::ledgermsg::create_ledger_blob_from_msg(raw_data, blob_msg, raw_inputs, raw_outputs) != -1)
+                // {
+                //     if (raw_inputs)
+                //         raw_data.inputs.swap(*r.raw_inputs);
 
-                    if (raw_outputs)
-                        raw_data.outputs.swap(*r.raw_outputs);
+                //     if (raw_outputs)
+                //         raw_data.outputs.swap(*r.raw_outputs);
 
-                    close(fd);
-                    continue;
-                }
+                //     close(fd);
+                //     continue;
+                // }
             }
 
             if (fd != -1)

@@ -46,7 +46,6 @@ add_executable(hpcore
     src/sc/hpfs_log_sync.cpp
     src/comm/comm_session.cpp
     src/msg/fbuf/common_helpers.cpp
-    src/msg/fbuf/ledger_helpers.cpp
     src/msg/fbuf/p2pmsg_conversion.cpp
     src/msg/json/controlmsg_json.cpp
     src/msg/controlmsg_parser.cpp

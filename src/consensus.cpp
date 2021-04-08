@@ -109,7 +109,7 @@ namespace consensus
         // If possible, switch back to validator mode before stage processing. (if we were syncing before)
         check_sync_completion();
 
-        // Get current lcl, state, patch, primary shard and blob shard info.
+        // Get current lcl, state, patch, primary shard and raw shard info.
         p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
         const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);

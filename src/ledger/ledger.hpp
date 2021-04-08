@@ -72,7 +72,7 @@ namespace ledger
 
     int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users);
 
-    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users);
+    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, p2p::sequence_hash &new_lcl_id);
 
     int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t primary_shard_seq_no,
                              const p2p::proposal &proposal, std::string &new_ledger_hash);

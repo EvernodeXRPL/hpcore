@@ -4,7 +4,6 @@
 #include "../conf.hpp"
 #include "../util/version.hpp"
 #include "../util/util.hpp"
-#include "../msg/fbuf/ledger_helpers.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
 #include "ledger_common.hpp"
 #include "ledger_serve.hpp"
@@ -92,7 +91,8 @@ namespace ledger
         if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
-        if (update_primary_ledger(proposal, consensed_users) == -1)
+        p2p::sequence_hash lcl_id;
+        if (update_primary_ledger(proposal, consensed_users, lcl_id) == -1)
             LEDGER_CREATE_ERROR
 
         return ledger_fs.release_rw_session();
@@ -100,9 +100,12 @@ namespace ledger
 
     /**
      * Updates the primary ledger with the given consensus information.
+     * @param proposal Consensus-reached Stage 3 proposal.
+     * @param consensed_users Users and their raw inputs/outputs received in this consensus round.
+     * @param new_lcl_id The new ledger seq no. and hash.
      * @return 0 on success. -1 on failure.
      */
-    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users)
+    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, p2p::sequence_hash &new_lcl_id)
     {
         const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
         uint64_t seq_no = lcl_id.seq_no;
@@ -124,7 +127,6 @@ namespace ledger
                 sqlite::close_db(&db);
 
                 // Update the latest ledger seq_no and hash when ledger is created.
-                p2p::sequence_hash new_lcl_id;
                 new_lcl_id.seq_no = seq_no;
                 new_lcl_id.hash = new_ledger_hash;
                 ctx.set_lcl_id(new_lcl_id);
