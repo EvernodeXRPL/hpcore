@@ -154,7 +154,7 @@ namespace conf
             cfg.node.role = ROLE::VALIDATOR;
             cfg.node.history = HISTORY::CUSTOM;
             cfg.node.history_config.max_primary_shards = 1;
-            cfg.node.history_config.max_blob_shards = 1;
+            cfg.node.history_config.max_raw_shards = 1;
 
             cfg.contract.id = crypto::generate_uuid();
             cfg.contract.execute = true;
@@ -356,9 +356,9 @@ namespace conf
 
                 jpath = "node.history_config";
                 cfg.node.history_config.max_primary_shards = node["history_config"]["max_primary_shards"].as<uint64_t>();
-                cfg.node.history_config.max_blob_shards = node["history_config"]["max_blob_shards"].as<uint64_t>();
+                cfg.node.history_config.max_raw_shards = node["history_config"]["max_raw_shards"].as<uint64_t>();
 
-                // Max shards cannot be zero for primary and blob shards if the history mode is custom.
+                // Max shards cannot be zero for primary and raw shards if the history mode is custom.
                 // In history = full, these configs are not used.
                 if (cfg.node.history == HISTORY::CUSTOM)
                 {
@@ -368,9 +368,9 @@ namespace conf
                         return -1;
                     }
 
-                    if (cfg.node.history_config.max_blob_shards == 0)
+                    if (cfg.node.history_config.max_raw_shards == 0)
                     {
-                        std::cerr << "'max_blob_shards' cannot be zero in history=custom mode.\n";
+                        std::cerr << "'max_raw_shards' cannot be zero in history=custom mode.\n";
                         return -1;
                     }
                 }
@@ -535,7 +535,7 @@ namespace conf
 
             jsoncons::ojson history_config;
             history_config.insert_or_assign("max_primary_shards", cfg.node.history_config.max_primary_shards);
-            history_config.insert_or_assign("max_blob_shards", cfg.node.history_config.max_blob_shards);
+            history_config.insert_or_assign("max_raw_shards", cfg.node.history_config.max_raw_shards);
             node_config.insert_or_assign("history_config", history_config);
 
             d.insert_or_assign("node", node_config);

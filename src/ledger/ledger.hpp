@@ -16,14 +16,14 @@ namespace ledger
         p2p::sequence_hash lcl_id;
         std::shared_mutex last_primary_shard_mutex;
         p2p::sequence_hash last_primary_shard_id;
-        std::shared_mutex last_blob_shard_mutex;
-        p2p::sequence_hash last_blob_shard_id;
+        std::shared_mutex last_raw_shard_mutex;
+        p2p::sequence_hash last_raw_shard_id;
 
     public:
         // These flags will be marked as true after doing the shards cleanup and requesting
         // at the first consensus round to align with the max shard counts.
         std::atomic<bool> primary_shards_persisted = false;
-        std::atomic<bool> blob_shards_persisted = false;
+        std::atomic<bool> raw_shards_persisted = false;
 
         const p2p::sequence_hash get_lcl_id()
         {
@@ -49,16 +49,16 @@ namespace ledger
             last_primary_shard_id = sequence_hash_id;
         }
 
-        const p2p::sequence_hash get_last_blob_shard_id()
+        const p2p::sequence_hash get_last_raw_shard_id()
         {
-            std::shared_lock lock(last_blob_shard_mutex);
-            return last_blob_shard_id;
+            std::shared_lock lock(last_raw_shard_mutex);
+            return last_raw_shard_id;
         }
 
-        void set_last_blob_shard_id(const p2p::sequence_hash &sequence_hash_id)
+        void set_last_raw_shard_id(const p2p::sequence_hash &sequence_hash_id)
         {
-            std::unique_lock lock(last_blob_shard_mutex);
-            last_blob_shard_id = sequence_hash_id;
+            std::unique_lock lock(last_raw_shard_mutex);
+            last_raw_shard_id = sequence_hash_id;
         }
     };
 

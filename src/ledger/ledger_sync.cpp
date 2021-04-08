@@ -100,51 +100,51 @@ namespace ledger
         }
         else if (shard_parent_dir == RAW_DIR)
         {
-            // If the synced blob shard sequence number is equal or greater than the current blob shard seq number,
+            // If the synced raw shard sequence number is equal or greater than the current raw shard seq number,
             // then the context information should be updated.
-            uint64_t last_blob_shard_seq_no = ctx.get_last_blob_shard_id().seq_no;
-            if (last_blob_shard_seq_no <= synced_shard_seq_no)
+            uint64_t last_raw_shard_seq_no = ctx.get_last_raw_shard_id().seq_no;
+            if (last_raw_shard_seq_no <= synced_shard_seq_no)
             {
                 // Persist the lastest synced shard seq number to the max shard meta file.
                 if (persist_max_shard_seq_no(RAW_DIR, synced_shard_seq_no) == -1)
                 {
-                    LOG_ERROR << "Error updating max shard meta file in blob shard sync.";
+                    LOG_ERROR << "Error updating max shard meta file in raw shard sync.";
                     return;
                 }
 
                 // If existing max shard is older than the max we can keep. Then delete all the existing shards.
-                if (conf::cfg.node.history == conf::HISTORY::CUSTOM && synced_shard_seq_no - last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
-                    remove_old_shards(last_blob_shard_seq_no + 1, RAW_DIR);
+                if (conf::cfg.node.history == conf::HISTORY::CUSTOM && synced_shard_seq_no - last_raw_shard_seq_no >= conf::cfg.node.history_config.max_raw_shards)
+                    remove_old_shards(last_raw_shard_seq_no + 1, RAW_DIR);
 
-                last_blob_shard_seq_no = synced_shard_seq_no;
-                ctx.set_last_blob_shard_id(p2p::sequence_hash{synced_shard_seq_no, synced_target.hash});
-                is_last_blob_shard_syncing = false;
+                last_raw_shard_seq_no = synced_shard_seq_no;
+                ctx.set_last_raw_shard_id(p2p::sequence_hash{synced_shard_seq_no, synced_target.hash});
+                is_last_raw_shard_syncing = false;
             }
 
-            if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all blob shards if this is a full history node.
-                last_blob_shard_seq_no - synced_shard_seq_no + 1 < conf::cfg.node.history_config.max_blob_shards)
+            if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all raw shards if this is a full history node.
+                last_raw_shard_seq_no - synced_shard_seq_no + 1 < conf::cfg.node.history_config.max_raw_shards)
             {
-                // Check whether the blob hash of the previous blob shard matches with the hash in the prev_shard.hash file.
+                // Check whether the hash of the previous raw shard matches with the hash in the prev_shard.hash file.
                 const std::string prev_shard_vpath = std::string(RAW_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
                 fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
 
                 if (prev_shard_hash_from_file != util::h32_empty               // Hash in the prev_shard.hash of the 0th shard is h32 empty. Syncing should be stopped then.
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
                 {
-                    const std::string sync_name = "blob shard " + std::to_string(synced_shard_seq_no);
+                    const std::string sync_name = "raw shard " + std::to_string(synced_shard_seq_no);
                     const std::string shard_path = std::string(RAW_DIR).append("/").append(std::to_string(synced_shard_seq_no));
                     set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
-                else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
+                else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_raw_shard_seq_no >= conf::cfg.node.history_config.max_raw_shards)
                 {
                     // When there are no more shards to sync, Remove old shards that exceeds max shard range.
-                    remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, RAW_DIR);
+                    remove_old_shards(last_raw_shard_seq_no - conf::cfg.node.history_config.max_raw_shards + 1, RAW_DIR);
                 }
             }
-            else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_blob_shard_seq_no >= conf::cfg.node.history_config.max_blob_shards)
+            else if (conf::cfg.node.history == conf::HISTORY::CUSTOM && last_raw_shard_seq_no >= conf::cfg.node.history_config.max_raw_shards)
             {
                 // When there are no more shards to sync, Remove old shards that exceeds max shard range.
-                remove_old_shards(last_blob_shard_seq_no - conf::cfg.node.history_config.max_blob_shards + 1, RAW_DIR);
+                remove_old_shards(last_raw_shard_seq_no - conf::cfg.node.history_config.max_raw_shards + 1, RAW_DIR);
             }
         }
     }
@@ -162,7 +162,7 @@ namespace ledger
     {
         // Reset these flags since we are abandoning the sync.
         is_last_primary_shard_syncing = false;
-        is_last_blob_shard_syncing = false;
+        is_last_raw_shard_syncing = false;
     }
 
 } // namespace ledger

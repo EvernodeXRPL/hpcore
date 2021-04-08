@@ -358,14 +358,14 @@ namespace ledger
     void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir)
     {
         // Skip if shard cleanup and requesting has been already done.
-        if ((shard_parent_dir == PRIMARY_DIR && ctx.primary_shards_persisted) || (shard_parent_dir == RAW_DIR && ctx.blob_shards_persisted))
+        if ((shard_parent_dir == PRIMARY_DIR && ctx.primary_shards_persisted) || (shard_parent_dir == RAW_DIR && ctx.raw_shards_persisted))
             return;
 
         // Set persisted flag to true. So this cleanup won't get executed again.
-        shard_parent_dir == PRIMARY_DIR ? ctx.primary_shards_persisted = true : ctx.blob_shards_persisted = true;
+        shard_parent_dir == PRIMARY_DIR ? ctx.primary_shards_persisted = true : ctx.raw_shards_persisted = true;
 
         const std::string shard_dir_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir));
-        const uint64_t max_shard_count = shard_dir_path == PRIMARY_DIR ? conf::cfg.node.history_config.max_primary_shards : conf::cfg.node.history_config.max_blob_shards;
+        const uint64_t max_shard_count = shard_dir_path == PRIMARY_DIR ? conf::cfg.node.history_config.max_primary_shards : conf::cfg.node.history_config.max_raw_shards;
         const std::list<std::string> shard_list = util::fetch_dir_entries(shard_dir_path);
         // Skip the sequence no file from the count.
         uint64_t shard_count = shard_list.size() - 1;
@@ -414,9 +414,8 @@ namespace ledger
                 return;
             }
 
-            const std::string sync_name = (shard_parent_dir == PRIMARY_DIR ? "primary" : "blob") + std::string(" shard ") + std::to_string(seq_no);
             const std::string shard_path = std::string(shard_parent_dir).append("/").append(std::to_string(seq_no));
-            ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+            ledger_sync_worker.set_target_push_back(hpfs::sync_target{shard_path, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
         }
     }
 
@@ -467,7 +466,7 @@ namespace ledger
      * @param session_name Hpfs session name.
      * @param last_shard_id Struct which holds last shard data. (sequence number and hash).
      * @param shard_parent_dir Parent director vpath of the shards.
-     * @return
+     * @return 0 on success. -1 on error.
     */
     int get_last_shard_info(std::string_view session_name, p2p::sequence_hash &last_shard_id, const std::string &shard_parent_dir)
     {
@@ -513,7 +512,7 @@ namespace ledger
     /**
      * Update max_shard.seq_no meta file with the given latest shard sequence number which can be used to identify last shard 
      * sequence number in startup.
-     * @param shard_parent_dir Shard's parent directory. (primary or blob).
+     * @param shard_parent_dir Shard's parent directory. (primary or raw).
      * @param last_shard_seq_no Last shard sequence number of the given parent.
      * @return Return -1 on error and 0 on success.
     */
