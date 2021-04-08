@@ -100,6 +100,10 @@ namespace util
         if (retain_hash.empty() || node.hash == retain_hash)
         {
             node.children.clear(); // No need to dig deeper.
+
+            if (node.hash == retain_hash)
+                node.is_retained = true; // Mark this node as the retained node.
+
             return true;
         }
         else

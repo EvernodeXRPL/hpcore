@@ -38,14 +38,14 @@ namespace msg::usrmsg
             busrmsg::create_contract_read_response_container(msg, content);
     }
 
-    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
                                                          const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                                          const uint64_t lcl_seq_no, std::string_view lcl_hash) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
+            jusrmsg::create_contract_output_container(msg, hash, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
         else
-            busrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
+            busrmsg::create_contract_output_container(msg, hash, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
     }
 
     void usrmsg_parser::create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const

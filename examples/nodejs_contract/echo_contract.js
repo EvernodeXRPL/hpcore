@@ -9,16 +9,19 @@ const echoContract = async (ctx) => {
     if (!ctx.readonly)
         fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
 
-    // Collection of user input handler promises to wait for.
-    const inputHandlers = [];
+    // Collection of per-user promises to wait for. Each promise completes when inputs for that user is processed.
+    const userHandlers = [];
 
     for (const user of ctx.users.list()) {
 
-        // This user's pubkey can be accessed from 'user.pubKey'
+        // This user's hex pubkey can be accessed from 'user.pubKey'
 
-        for (const input of user.inputs) {
+        // For each user we add a promise to list of promises.
+        userHandlers.push(new Promise(async (resolve) => {
 
-            inputHandlers.push(new Promise(async (resolve) => {
+            // The contract need to ensure that all outputs for a particular user is emitted
+            // in deterministic order. Hence, we are processing all inputs for each user sequentially.
+            for (const input of user.inputs) {
 
                 const buf = await ctx.users.read(input);
                 const msg = buf.toString();
@@ -26,11 +29,15 @@ const echoContract = async (ctx) => {
                 const output = (msg == "ts") ? fs.readFileSync("exects.txt").toString() : ("Echoing: " + msg);
                 await user.send(output);
 
-                resolve();
-            }));
-        }
+            }
+
+            // The promise gets complete when all inputs for this user are processed.
+            resolve();
+        }));
     }
-    await Promise.all(inputHandlers);
+
+    // Wait until all user promises are complete.
+    await Promise.all(userHandlers);
 
     // Get the user identified by public key.
     // ctx.users.find("<PubkeyHex>");

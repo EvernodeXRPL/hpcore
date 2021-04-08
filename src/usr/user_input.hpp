@@ -23,7 +23,6 @@ namespace usr
         std::string nonce;
         uint64_t max_ledger_seq_no;
         std::string sig;
-        util::PROTOCOL protocol; // The message protocol used by the user.
 
         // Comparison operator used for sorting user's inputs in nonce order.
         bool operator<(const extracted_user_input &other)

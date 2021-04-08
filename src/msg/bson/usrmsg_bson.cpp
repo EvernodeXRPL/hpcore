@@ -16,8 +16,8 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "stat_response",
-     *              "lcl_seq_no": <lcl sequence no>,
-     *              "lcl_hash": <binary lcl hash>
+     *              "ledger_seq_no": <lcl sequence no>,
+     *              "ledger_hash": <binary lcl hash>
      *            }
      */
     constexpr const size_t MAX_KNOWN_PEERS_INFO = 10;
@@ -30,9 +30,9 @@ namespace msg::usrmsg::bson
         encoder.string_value(msg::usrmsg::MSGTYPE_STAT_RESPONSE);
         encoder.key(msg::usrmsg::FLD_HP_VERSION);
         encoder.string_value(version::HP_VERSION);
-        encoder.key(msg::usrmsg::FLD_LCL_SEQ);
+        encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
         encoder.int64_value(lcl_seq_no);
-        encoder.key(msg::usrmsg::FLD_LCL_HASH);
+        encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
         encoder.byte_string_value(lcl_hash);
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
@@ -145,15 +145,21 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "contract_output",
-     *              "lcl_seq_no": <integer>,
-     *              "lcl_hash": <binary lcl hash>
-     *              "outputs": [<binary output 1>, <binary output 2>, ...], // The output order is the hash order.
-     *              "hashes": [<binary merkle hash tree>], // Always includes user's output hash [output hash = hash(pubkey+all outputs for the user)]
+     *              "ledger_seq_no": <integer>,
+     *              "ledger_hash": <binary lcl hash>,
+     *              "outputs": [<binary output 1>, <binary output 2>, ...], // The output order is the hash generation order.
+     *              "output_hash": <binary hash of user's outputs>,  [output hash = hash(pubkey+all outputs for the user)]
+     *              "hash_tree": [<binary merkle hash tree for this round>], // Collapsed merkle tree with user's hash element marked as null. 
      *              "unl_sig": [["<pubkey>", "<sig>"], ...] // Binary UNL pubkeys and signatures of root hash.
      *            }
-     * @param content The contract binary output content to be put in the message.
+     * @param hash This user's combined output hash. [output hash = hash(pubkey+all outputs for the user)]
+     * @param outputs List of outputs for the user.
+     * @param hash_root Root node of the collapsed merkle hash tree for this round.
+     * @param unl_sig List of unl signatures issued on the root hash. (root hash = merkle root hash of hashes of all users)
+     * @param lcl_seq_no Current ledger seq no.
+     * @param lcl_hash Current ledger hash.
      */
-    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                           const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
@@ -161,9 +167,9 @@ namespace msg::usrmsg::bson
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT);
-        encoder.key(msg::usrmsg::FLD_LCL_SEQ);
+        encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
         encoder.int64_value(lcl_seq_no);
-        encoder.key(msg::usrmsg::FLD_LCL_HASH);
+        encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
         encoder.byte_string_value(lcl_hash);
 
         encoder.key(msg::usrmsg::FLD_OUTPUTS);
@@ -172,7 +178,10 @@ namespace msg::usrmsg::bson
             encoder.byte_string_value(outputs[i]);
         encoder.end_array();
 
-        encoder.key(msg::usrmsg::FLD_HASHES);
+        encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
+        encoder.byte_string_value(hash);
+
+        encoder.key(msg::usrmsg::FLD_HASH_TREE);
         populate_output_hash_array(encoder, hash_root);
 
         encoder.key(msg::usrmsg::FLD_UNL_SIG);
@@ -473,7 +482,12 @@ namespace msg::usrmsg::bson
     {
         if (node.children.empty())
         {
-            encoder.byte_string_value(node.hash);
+            // The retained node is serialized as null.
+            // This is so the client can identify the self-hash position within the hash tree.
+            if (node.is_retained)
+                encoder.null_value();
+            else
+                encoder.byte_string_value(node.hash);
             return;
         }
         else

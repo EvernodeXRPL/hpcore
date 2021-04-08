@@ -367,37 +367,47 @@
         }
 
         // Get root hash of the given merkle hash tree. (called recursively)
-        // checkHashString specifies the hash that must be checked for existance.
-        const getMerkleHash = (tree, checkHashString) => {
+        // Merkle hash tree indicates the collapsed output hashes of this round for all users.
+        // This user's output hash is indicated in the tree as null.
+        // selfHash: specifies the output hash of this user.
+        const getMerkleHash = (tree, selfHash) => {
 
             const listToHash = []; // Collects elements to hash.
-            let checkHashFound = false;
+            let selfHashFound = false;
 
             for (let elem of tree) {
 
                 if (Array.isArray(elem)) {
                     // If the 'elem' is an array we should find the root hash of the array.
-                    // Call this func recursively. If checkHash already found, pass null.
-                    const result = getMerkleHash(elem, checkHashFound ? null : checkHashString);
+                    // Call this func recursively. If self hash already found, pass null.
+                    const result = getMerkleHash(elem, selfHashFound ? null : selfHash);
                     if (result[0] == true)
-                        checkHashFound = true;
+                        selfHashFound = true;
 
                     listToHash.push(result[1]);
                 }
-                else {
-                    // 'elem' is a single hash value. We get the hash bytes depending on the data type.
-                    // (json encoding will use hex string and bson will use buffer)
-                    const hashBytes = isString(elem) ? hexToUint8Array(elem) : elem.buffer;
-                    listToHash.push(hashBytes);
+                else { // elem' is a single hash value
+                    // We get the hash bytes depending on the data type. (json encoding will use hex string
+                    // and bson will use buffer). If the elem contains null, that means it represents the
+                    // self hash. So we should substitute the self hash to null.
 
-                    // If checkHash is specified, compare the hashes.
-                    if (checkHashString && msgHelper.stringifyValue(hashBytes) == checkHashString)
-                        checkHashFound = true;
+                    // If we have already found self hash (indicated by selfHash=null), we cannot encounter
+                    // null element again.
+                    if (!selfHash && !elem) {
+                        liblog(1, "Self hash encountered more than once in output hash tree.");
+                        return [false, null];
+                    }
+
+                    if (!elem)
+                        selfHashFound = true;
+
+                    const hashBytes = elem ? msgHelper.binaryDecode(elem) : selfHash; // If element is null, use self hash.
+                    listToHash.push(hashBytes);
                 }
             }
 
-            // Return a tuple of whether check hash was found and the root hash of the provided merkle tree.
-            return [checkHashFound, getHash(listToHash)];
+            // Return a tuple of whether self hash was found and the root hash of the provided merkle tree.
+            return [selfHashFound, getHash(listToHash)];
         }
 
         // Verifies whether the provided root hash has enough signatures from unl.
@@ -417,8 +427,8 @@
 
                 // Get the signature and issuer pubkey bytes based on the data type.
                 // (json encoding will use hex string and bson will use buffer)
-                const binPubkey = isString(pair[0]) ? hexToUint8Array(pair[0]) : pair[0].buffer;
-                const sig = isString(pair[1]) ? hexToUint8Array(pair[1]) : pair[1].buffer;
+                const binPubkey = msgHelper.binaryDecode(pair[0]);
+                const sig = msgHelper.binaryDecode(pair[1]);
 
                 // Check whether the pubkey is in unl and whether signature is valid.
                 if (!passedKeys[pubkeyHex] && unlKeysLookup[pubkeyHex] && sodium.crypto_sign_verify_detached(sig, rootHash, binPubkey.slice(1)))
@@ -430,14 +440,22 @@
             return ((passed / totalUnl) >= outputValidationPassThreshold);
         }
 
-        const validateOutput = (msg, trustedKeys) => {
+        const verifyContractOutputTrust = (msg, trustedKeys) => {
 
             // Calculate combined output hash with user's pubkey.
             const outputHash = getHash([clientKeys.publicKey, ...msgHelper.spreadArrayField(msg.outputs)]);
 
-            const result = getMerkleHash(msg.hashes, msgHelper.stringifyValue(outputHash));
-            if (result[0] == true) {
-                const rootHash = result[1];
+            // Check whether calculated output hash is same as output hash indicated in the message.
+            if (!arraysEqual(outputHash, msgHelper.binaryDecode(msg.output_hash))) {
+                liblog(1, "Contract output hash mismatch.");
+                return false;
+            }
+
+            const hashResult = getMerkleHash(msg.hash_tree, outputHash);
+
+            // hashResult is a tuple containing whether self hash was found and the calculated root hash of the merkle hash tree.
+            if (hashResult[0] == true) {
+                const rootHash = hashResult[1];
 
                 // Verify the issued signatures against the root hash.
                 return validateHashSignatures(rootHash, msg.unl_sig, trustedKeys);
@@ -533,7 +551,7 @@
         const contractMessageHandler = (m) => {
 
             if (m.type == "contract_read_response") {
-                emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
+                emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeValue(m.content));
             }
             else if (m.type == "contract_input_status") {
                 const inputHashHex = msgHelper.stringifyValue(m.input_hash);
@@ -543,7 +561,7 @@
 
                     if (m.status == "accepted") {
                         result.ledgerSeqNo = m.ledger_seq_no;
-                        result.ledgerHash = m.ledger_hash;
+                        result.ledgerHash = msgHelper.deserializeValue(m.ledger_hash);
                     }
                     else {
                         result.reason = m.reason;
@@ -557,8 +575,15 @@
                 if (emitter) {
                     // Validate outputs if trusted keys is not null. (null means bypass validation)
                     const trustedKeys = getTrustedKeys();
-                    if (!trustedKeys || validateOutput(m, trustedKeys))
-                        m.outputs.forEach(output => emitter.emit(events.contractOutput, msgHelper.deserializeOutput(output)));
+
+                    if (!trustedKeys || verifyContractOutputTrust(m, trustedKeys)) {
+                        emitter.emit(events.contractOutput, {
+                            ledgerSeqNo: m.ledger_seq_no,
+                            ledgerHash: msgHelper.deserializeValue(m.ledger_hash),
+                            outputHash: msgHelper.deserializeValue(m.output_hash),
+                            outputs: m.outputs.map(o => msgHelper.deserializeValue(o))
+                        });
+                    }
                     else
                         liblog(1, "Output validation failed.");
                 }
@@ -567,8 +592,8 @@
                 statResponseResolvers.forEach(resolver => {
                     resolver({
                         hpVersion: m.hp_version,
-                        lclSeqNo: m.lcl_seq_no,
-                        lclHash: m.lcl_hash,
+                        ledgerSeqNo: m.ledger_seq_no,
+                        ledgerHash: msgHelper.deserializeValue(m.ledger_hash),
                         roundTime: m.round_time,
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,
@@ -780,7 +805,7 @@
                 if (!stat)
                     throw "Error retrieving ledger status."
 
-                maxLedger += stat.lclSeqNo;
+                maxLedger += stat.ledgerSeqNo;
             }
 
             const inp = msgHelper.createContractInputComponents(input, nonce, maxLedger);
@@ -841,6 +866,10 @@
                 (Buffer.isBuffer(data) ? data : Buffer.from(data));
         }
 
+        this.binaryDecode = (data) => {
+            return protocol == protocols.json ? hexToUint8Array(data) : new Uint8Array(data.buffer);
+        }
+
         this.serializeObject = (obj) => {
             return protocol == protocols.json ? JSON.stringify(obj) : bson.serialize(obj);
         }
@@ -855,8 +884,8 @@
                 (Buffer.isBuffer(input) ? input : Buffer.from(input));
         }
 
-        this.deserializeOutput = (content) => {
-            return protocol == protocols.json ? content : content.buffer;
+        this.deserializeValue = (val) => {
+            return protocol == protocols.json ? val : val.buffer;
         }
 
         // Used for generating strings to hold values as js object keys.
@@ -965,6 +994,16 @@
 
     function isString(obj) {
         return (typeof obj === "string" || obj instanceof String);
+    }
+
+    function arraysEqual(a, b) {
+        if (a.length != b.length)
+            return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i])
+                return false;
+        }
+        return true;
     }
 
     function EventEmitter() {

@@ -66,7 +66,6 @@ namespace usr
 
     struct input_status_response
     {
-        const util::PROTOCOL protocol;
         const std::string input_hash;
         const char *reject_reason;
     };
