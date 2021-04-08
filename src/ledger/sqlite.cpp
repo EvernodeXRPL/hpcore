@@ -5,6 +5,9 @@
 namespace ledger::sqlite
 {
     constexpr const char *LEDGER_TABLE = "ledger";
+    constexpr const char *USERS_TABLE = "users";
+    constexpr const char *INPUTS_TABLE = "inputs";
+    constexpr const char *OUTPUTS_TABLE = "outputs";
     constexpr const char *HP_TABLE = "hp";
     constexpr const char *LEDGER_VERSION_COLUMN = "ledger_version";
     constexpr const char *COLUMN_DATA_TYPES[]{"INT", "TEXT", "BLOB"};
@@ -25,8 +28,11 @@ namespace ledger::sqlite
                                                "seq_no, time, ledger_hash, prev_ledger_hash, data_hash,"
                                                "state_hash, patch_hash, user_hash, input_hash, output_hash"
                                                ") VALUES(?,?,?,?,?,?,?,?,?,?)";
+    constexpr const char *INSERT_INTO_USERS = "INSERT INTO users(ledger_seq_no, pubkey) VALUES(?,?)";
 
+#define PUBKEY_SIZE 33
 #define BIND_H32_BLOB(idx, field) (field.size() == sizeof(util::h32) && sqlite3_bind_blob(stmt, idx, field.data(), sizeof(util::h32), SQLITE_STATIC) == SQLITE_OK)
+#define BIND_PUBKEY_BLOB(idx, field) (field.size() == PUBKEY_SIZE && sqlite3_bind_blob(stmt, idx, field.data(), PUBKEY_SIZE, SQLITE_STATIC) == SQLITE_OK)
 #define GET_H32_BLOB(idx) std::string((char *)sqlite3_column_blob(stmt, idx), sizeof(util::h32))
 
     /**
@@ -109,23 +115,23 @@ namespace ledger::sqlite
         return ret;
     }
 
-    int create_index(sqlite3 *db, std::string_view table_name, std::string_view column_name, const bool is_unique)
+    int create_index(sqlite3 *db, std::string_view table_name, std::string_view column_names, const bool is_unique)
     {
+        std::string index_name = std::string("idx_").append(table_name).append("_").append(column_names);
+        std::replace(index_name.begin(), index_name.end(), ',', '_');
+
         std::string sql;
         sql.append(is_unique ? CREATE_UNIQUE_INDEX : CREATE_INDEX)
-            .append("idx_")
-            .append(table_name)
-            .append("_")
-            .append(column_name)
+            .append(index_name)
             .append(" ON ")
             .append(table_name)
             .append("(")
-            .append(column_name)
+            .append(column_names)
             .append(")");
 
         const int ret = exec_sql(db, sql);
         if (ret == -1)
-            LOG_ERROR << "Error when creating sqlite index '" << column_name << "' in table " << table_name;
+            LOG_ERROR << "Error when creating sqlite index '" << index_name << "' in table " << table_name;
 
         return ret;
     }
@@ -236,7 +242,7 @@ namespace ledger::sqlite
     {
         if (*db == NULL)
             return 0;
-            
+
         if (sqlite3_close(*db) != SQLITE_OK)
         {
             LOG_ERROR << "Can't close database: " << sqlite3_errmsg(*db);
@@ -254,7 +260,7 @@ namespace ledger::sqlite
     */
     int initialize_ledger_db(sqlite3 *db)
     {
-        const std::vector<table_column_info> column_info{
+        const std::vector<table_column_info> columns{
             table_column_info("seq_no", COLUMN_DATA_TYPE::INT, true),
             table_column_info("time", COLUMN_DATA_TYPE::INT),
             table_column_info("ledger_hash", COLUMN_DATA_TYPE::BLOB),
@@ -266,10 +272,65 @@ namespace ledger::sqlite
             table_column_info("input_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("output_hash", COLUMN_DATA_TYPE::BLOB)};
 
-        if (create_table(db, LEDGER_TABLE, column_info) == -1 ||
+        if (create_table(db, LEDGER_TABLE, columns) == -1 ||
             create_index(db, LEDGER_TABLE, "time", true) == -1 ||
             create_index(db, LEDGER_TABLE, "ledger_hash", true) == -1)
             return -1;
+
+        return 0;
+    }
+
+    /**
+     * Sets up a blank ledger raw data database.
+     * @param db Pointer to the db.
+     * @returns returns 0 on success, or -1 on error.
+    */
+    int initialize_ledger_raw_db(sqlite3 *db)
+    {
+        // Users table.
+        {
+            const std::vector<table_column_info> user_columns{
+                table_column_info("ledger_seq_no", COLUMN_DATA_TYPE::INT),
+                table_column_info("pubkey", COLUMN_DATA_TYPE::BLOB)};
+
+            if (create_table(db, USERS_TABLE, user_columns) == -1 ||
+                create_index(db, USERS_TABLE, "ledger_seq_no", false) == -1 ||
+                create_index(db, USERS_TABLE, "pubkey", false) == -1)
+                return -1;
+        }
+
+        // Inputs table.
+        {
+            const std::vector<table_column_info> input_columns{
+                table_column_info("ledger_seq_no", COLUMN_DATA_TYPE::INT),
+                table_column_info("user_pubkey", COLUMN_DATA_TYPE::BLOB),
+                table_column_info("hash", COLUMN_DATA_TYPE::BLOB),
+                table_column_info("nonce", COLUMN_DATA_TYPE::BLOB),
+                table_column_info("blob_offset", COLUMN_DATA_TYPE::INT),
+                table_column_info("blob_size", COLUMN_DATA_TYPE::INT)};
+
+            if (create_table(db, INPUTS_TABLE, input_columns) == -1 ||
+                create_index(db, INPUTS_TABLE, "ledger_seq_no", false) == -1 ||
+                create_index(db, INPUTS_TABLE, "hash", false) == -1 ||
+                create_index(db, INPUTS_TABLE, "ledger_seq_no,user_pubkey", false) == -1)
+                return -1;
+        }
+
+        // Outputs table.
+        {
+            const std::vector<table_column_info> input_columns{
+                table_column_info("ledger_seq_no", COLUMN_DATA_TYPE::INT),
+                table_column_info("user_pubkey", COLUMN_DATA_TYPE::BLOB),
+                table_column_info("hash", COLUMN_DATA_TYPE::BLOB),
+                table_column_info("blob_offset", COLUMN_DATA_TYPE::INT),
+                table_column_info("blob_size", COLUMN_DATA_TYPE::INT)};
+
+            if (create_table(db, OUTPUTS_TABLE, input_columns) == -1 ||
+                create_index(db, OUTPUTS_TABLE, "ledger_seq_no", false) == -1 ||
+                create_index(db, OUTPUTS_TABLE, "hash", false) == -1 ||
+                create_index(db, OUTPUTS_TABLE, "ledger_seq_no,user_pubkey", false) == -1)
+                return -1;
+        }
 
         return 0;
     }
@@ -322,18 +383,26 @@ namespace ledger::sqlite
             return 0;
         }
 
+        LOG_ERROR << "Error inserting ledger record. " << sqlite3_errmsg(db);
         sqlite3_finalize(stmt);
         return -1;
     }
 
-    /**
-     * Checks whether ledger table exist.
-     * @param db Pointer to the db.
-     * @returns returns true is exist, otherwise false.
-    */
-    bool is_ledger_table_exist(sqlite3 *db)
+    int insert_user_record(sqlite3 *db, const uint64_t ledger_seq_no, const std::string pubkey)
     {
-        return is_table_exists(db, LEDGER_TABLE);
+        sqlite3_stmt *stmt;
+        if (sqlite3_prepare_v2(db, INSERT_INTO_USERS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+            sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
+            BIND_PUBKEY_BLOB(2, pubkey) &&
+            sqlite3_step(stmt) == SQLITE_DONE)
+        {
+            sqlite3_finalize(stmt);
+            return 0;
+        }
+
+        LOG_ERROR << "Error inserting user record. " << sqlite3_errmsg(db);
+        sqlite3_finalize(stmt);
+        return -1;
     }
 
     /**

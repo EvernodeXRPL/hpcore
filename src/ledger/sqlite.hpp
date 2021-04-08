@@ -46,7 +46,7 @@ namespace ledger::sqlite
 
     int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info);
 
-    int create_index(sqlite3 *db, std::string_view table_name, std::string_view column_name, const bool is_unique);
+    int create_index(sqlite3 *db, std::string_view table_name, std::string_view column_names, const bool is_unique);
 
     int insert_rows(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings);
 
@@ -59,11 +59,13 @@ namespace ledger::sqlite
     // Ledger specific methdods.
     int initialize_ledger_db(sqlite3 *db);
 
+    int initialize_ledger_raw_db(sqlite3 *db);
+
     int create_hp_table(sqlite3 *db, std::string_view version);
 
     int insert_ledger_row(sqlite3 *db, const ledger::ledger_record &ledger);
 
-    bool is_ledger_table_exist(sqlite3 *db);
+    int insert_user_record(sqlite3 *db, const uint64_t ledger_seq_no, const std::string pubkey);
 
     int get_last_ledger(sqlite3 *db, ledger::ledger_record &ledger);
 

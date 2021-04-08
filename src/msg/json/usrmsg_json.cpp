@@ -935,7 +935,7 @@ namespace msg::usrmsg::json
                 msg += SEP_COMMA_NOQUOTE;
                 msg += msg::usrmsg::FLD_RAW_INPUTS;
                 msg += SEP_COLON_NOQUOTE;
-                populate_ledger_blob_map(msg, *r.raw_inputs);
+                // populate_ledger_blob_map(msg, *r.raw_inputs);
             }
 
             if (r.raw_outputs)
@@ -943,38 +943,11 @@ namespace msg::usrmsg::json
                 msg += SEP_COMMA_NOQUOTE;
                 msg += msg::usrmsg::FLD_RAW_OUTPUTS;
                 msg += SEP_COLON_NOQUOTE;
-                populate_ledger_blob_map(msg, *r.raw_outputs);
+                // populate_ledger_blob_map(msg, *r.raw_outputs);
             }
 
             msg += (i == (results.size() - 1) ? "}" : "},");
         }
-    }
-
-    void populate_ledger_blob_map(std::vector<uint8_t> &msg, const ledger::query::blob_map &blob_map)
-    {
-        msg += "[";
-        for (auto itr = blob_map.begin(); itr != blob_map.end();)
-        {
-            msg += "{\"";
-            msg += msg::usrmsg::FLD_PUBKEY;
-            msg += SEP_COLON;
-            msg += util::to_hex(itr->first);
-            msg += SEP_COMMA;
-            msg += msg::usrmsg::FLD_BLOBS;
-            msg += "\":[";
-
-            const std::vector<std::string> &blobs = itr->second;
-            for (size_t i = 0; i < blobs.size(); i++)
-            {
-                msg += "\"";
-                msg += util::to_hex(blobs[i]);
-                msg += (i == (blobs.size() - 1) ? "\"" : "\",");
-            }
-
-            itr++;
-            msg += (itr == blob_map.end() ? "]}" : "]},");
-        }
-        msg += "]";
     }
 
 } // namespace msg::usrmsg::json

@@ -74,13 +74,17 @@ namespace ledger
 
     int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, p2p::sequence_hash &new_lcl_id);
 
+    int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+
     int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t primary_shard_seq_no,
-                             const p2p::proposal &proposal, std::string &new_ledger_hash);
+                             const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id);
+
+    int insert_raw_data_records(sqlite3 *db, const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
 
     int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size,
                       const std::string &shard_dir, const std::string &db_name);
 
-    void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir);
+    void remove_old_shards(const uint64_t lcl_seq_no, const uint64_t shard_size, const uint64_t max_shards, std::string_view shard_parent_dir);
 
     void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir);
 

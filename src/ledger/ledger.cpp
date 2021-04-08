@@ -8,12 +8,6 @@
 #include "ledger_common.hpp"
 #include "ledger_serve.hpp"
 
-#define LEDGER_CREATE_ERROR             \
-    {                                   \
-        ledger_fs.release_rw_session(); \
-        return -1;                      \
-    }
-
 namespace ledger
 {
     ledger_context ctx;
@@ -66,6 +60,11 @@ namespace ledger
             return -1;
         }
 
+        // Remove old shards that exceeds max shard range.
+        const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
+        remove_old_shards(lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
+        remove_old_shards(lcl_id.seq_no, RAW_SHARD_SIZE, conf::cfg.node.history_config.max_raw_shards, RAW_DIR);
+
         return 0;
     }
 
@@ -87,13 +86,17 @@ namespace ledger
      */
     int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users)
     {
-        // Aqure hpfs rw session before accessing shards and insert ledger records.
+        // Aquire hpfs rw session before writing into shards.
         if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
         p2p::sequence_hash lcl_id;
-        if (update_primary_ledger(proposal, consensed_users, lcl_id) == -1)
-            LEDGER_CREATE_ERROR
+        if (update_primary_ledger(proposal, consensed_users, lcl_id) == -1 ||
+            update_ledger_raw_data(proposal, consensed_users, lcl_id) == -1)
+        {
+            ledger_fs.release_rw_session();
+            return -1;
+        }
 
         return ledger_fs.release_rw_session();
     }
@@ -108,34 +111,28 @@ namespace ledger
     int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, p2p::sequence_hash &new_lcl_id)
     {
         const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
-        uint64_t seq_no = lcl_id.seq_no;
-        seq_no++; // New ledger sequence number.
+        new_lcl_id.seq_no = lcl_id.seq_no + 1;
 
         sqlite3 *db = NULL;
 
-        // Prepare shard folders and database and get the primary shard sequence number.
+        // Prepare shard folders and database and get the shard sequence number.
         uint64_t shard_seq_no;
-        const int shard_res = prepare_shard(&db, shard_seq_no, seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB);
+        const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB);
 
-        // If new shard got created, initialize the ledger db.
+        // If new shard got created, initialize the db.
         if (shard_res == 0 || (shard_res == 1 && sqlite::initialize_ledger_db(db) != -1))
         {
             // Insert primary ledger record.
-            std::string new_ledger_hash;
-            if (insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_ledger_hash) != -1)
+            if (insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_lcl_id) != -1)
             {
                 sqlite::close_db(&db);
-
-                // Update the latest ledger seq_no and hash when ledger is created.
-                new_lcl_id.seq_no = seq_no;
-                new_lcl_id.hash = new_ledger_hash;
                 ctx.set_lcl_id(new_lcl_id);
 
                 const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
                 util::h32 last_primary_shard_hash;
                 if (ledger_fs.get_hash(last_primary_shard_hash, hpfs::RW_SESSION_NAME, shard_vpath) == -1)
                 {
-                    LOG_ERROR << errno << ": Error reading shard hash: " << std::to_string(shard_seq_no);
+                    LOG_ERROR << errno << ": Error reading shard hash: " << shard_seq_no;
                     return -1;
                 }
 
@@ -149,11 +146,38 @@ namespace ledger
                     return -1;
                 }
 
-                //Remove old shards that exceeds max shard range.
-                if (conf::cfg.node.history == conf::HISTORY::CUSTOM && shard_seq_no >= conf::cfg.node.history_config.max_primary_shards)
-                {
-                    remove_old_shards(shard_seq_no - conf::cfg.node.history_config.max_primary_shards + 1, PRIMARY_DIR);
-                }
+                // Remove old shards if new one got created.
+                if (shard_res == 1)
+                    remove_old_shards(new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
+
+                return 0;
+            }
+        }
+
+        sqlite::close_db(&db);
+        return -1;
+    }
+
+    int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    {
+        if (conf::cfg.node.history != conf::HISTORY::FULL && conf::cfg.node.history_config.max_raw_shards == 0)
+            return 0;
+
+        // Prepare shard folders and database and get the shard sequence number.
+        sqlite3 *db = NULL;
+        uint64_t shard_seq_no;
+        const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB);
+
+        // If new shard got created, initialize the db.
+        if (shard_res == 0 || (shard_res == 1 && sqlite::initialize_ledger_raw_db(db) != -1))
+        {
+            if (insert_raw_data_records(db, proposal, consensed_users, lcl_id) != -1)
+            {
+                sqlite::close_db(&db);
+
+                // Remove old shards if new one got created.
+                if (shard_res == 1)
+                    remove_old_shards(lcl_id.seq_no, RAW_SHARD_SIZE, conf::cfg.node.history_config.max_raw_shards, RAW_DIR);
 
                 return 0;
             }
@@ -169,11 +193,11 @@ namespace ledger
      * @param current_lcl_id Current lcl id.
      * @param primary_shard_seq_no Current primary shard seq no.
      * @param proposal The consensus proposal.
-     * @param new_ledger_hash Hash of the ledger that got isnerted.
+     * @param new_lcl_id Newly created ledger id.
      * @return 0 on success. -1 on failure.
      */
     int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t primary_shard_seq_no,
-                             const p2p::proposal &proposal, std::string &new_ledger_hash)
+                             const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id)
     {
         // Combined binary hash of consensus user binary pub keys.
         const std::string user_hash = crypto::get_list_hash(proposal.users);
@@ -207,13 +231,13 @@ namespace ledger
         const std::string prev_ledger_hash(current_lcl_id.hash.to_string_view());
 
         // Ledger hash is the combined hash of previous ledger hash and the new data hash.
-        new_ledger_hash = crypto::get_hash(prev_ledger_hash, data_hash);
+        new_lcl_id.hash = crypto::get_hash(prev_ledger_hash, data_hash);
 
         // Construct ledger struct with binary hashes.
         const ledger_record ledger{
             current_lcl_id.seq_no + 1,
             proposal.time,
-            new_ledger_hash,
+            std::string(new_lcl_id.hash.to_string_view()),
             prev_ledger_hash,
             data_hash,
             std::string(proposal.state_hash.to_string_view()),
@@ -226,6 +250,24 @@ namespace ledger
         {
             LOG_ERROR << errno << ": Error creating the ledger, shard: " << primary_shard_seq_no;
             return -1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Populates the specified raw data db with consensed users, inputs and outputs records.
+     * @param proposal The consensus proposal.
+     * @param consensed_users Consensed users and their inputs and outputs.
+     * @param lcl_id Current ledger id.
+     * @return 0 on success. -1 on failure.
+     */
+    int insert_raw_data_records(sqlite3 *db, const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    {
+        for (const std::string &pubkey : proposal.users)
+        {
+            if (sqlite::insert_user_record(db, lcl_id.seq_no, pubkey) == -1)
+                return -1;
         }
 
         return 0;
@@ -327,25 +369,32 @@ namespace ledger
 
     /**
      * Remove old shards that exceeds max shard range from file system.
-     * @param led_shard_no Minimum shard number to be in history.
+     * @param lcl_seq_no Current ledger seq no.
+     * @param shard_size Shard size to use.
+     * @param max_shards Maximum shards to keep.
+     * @param shard_parent_dir Shard parent directory.
      */
-    void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir)
+    void remove_old_shards(const uint64_t lcl_seq_no, const uint64_t shard_size, const uint64_t max_shards, std::string_view shard_parent_dir)
     {
-        // Remove old shards if this is not a full history node.
-        if (conf::cfg.node.history == conf::HISTORY::CUSTOM)
+        const uint64_t shard_seq_no = (lcl_seq_no - 1) / shard_size;
+
+        // No removals if this is a full history node or we haven't yet reached the shard limit.
+        if (conf::cfg.node.history == conf::HISTORY::FULL || max_shards > shard_seq_no)
+            return;
+
+        const uint64_t delete_from = shard_seq_no - max_shards;
+
+        for (int i = delete_from; i >= 0; i--)
         {
-            for (int i = led_shard_no - 1; i >= 0; i--)
+            const std::string shard_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir)).append("/").append(std::to_string(i));
+            // Break the loop if there's no corresponding shard.
+            // There cannot be shards which is less than this shard no. since shards are continous.
+            if (!util::is_dir_exists(shard_path))
+                break;
+            else if (util::remove_directory_recursively(shard_path) == -1)
             {
-                const std::string shard_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir)).append("/").append(std::to_string(i));
-                // Break the loop if there's no corresponding shard.
-                // There cannot be shards which is less than this shard no since shards are continous.
-                if (!util::is_dir_exists(shard_path))
-                    break;
-                else if (util::remove_directory_recursively(shard_path) == -1)
-                {
-                    LOG_ERROR << errno << ": Error deleting shard: " << i;
-                    break;
-                }
+                LOG_ERROR << errno << ": Error deleting shard: " << shard_path;
+                break;
             }
         }
     }

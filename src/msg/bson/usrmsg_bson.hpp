@@ -45,8 +45,6 @@ namespace msg::usrmsg::bson
 
     void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results);
 
-    void populate_ledger_blob_map(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::query::blob_map &blob_map);
-
 } // namespace msg::usrmsg::bson
 
 #endif

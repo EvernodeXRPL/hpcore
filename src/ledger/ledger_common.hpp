@@ -12,7 +12,7 @@ namespace ledger
     constexpr uint64_t RAW_SHARD_SIZE = 4096;
 
     /**
-     * Struct to hold ledger fields read.
+     * Struct to hold ledger fields corresponding to sqlite table.
      * All the hashes are stored as 32 byte binary data.
     */
     struct ledger_record
@@ -27,17 +27,6 @@ namespace ledger
         std::string user_hash;
         std::string input_hash;
         std::string output_hash;
-    };
-
-    /**
-     * Struct to hold ledger raw inputs and outputs.
-     * This is used with flatbuffers to persist to disk.
-     */
-    struct ledger_blob
-    {
-        util::h32 ledger_hash;
-        std::map<std::string, std::vector<std::string>> inputs;
-        std::map<std::string, std::vector<std::string>> outputs;
     };
 
     // Holds the global genesis ledger.

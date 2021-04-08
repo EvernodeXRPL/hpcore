@@ -88,7 +88,7 @@ namespace ledger::query
 
             if (fd != -1 && util::read_from_fd(fd, blob_msg, version::VERSION_BYTES_LEN) > 0)
             {
-                ledger_blob raw_data;
+                // ledger_blob raw_data;
                 // if (msg::fbuf::ledgermsg::create_ledger_blob_from_msg(raw_data, blob_msg, raw_inputs, raw_outputs) != -1)
                 // {
                 //     if (raw_inputs)

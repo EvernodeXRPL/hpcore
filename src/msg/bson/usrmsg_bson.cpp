@@ -529,37 +529,17 @@ namespace msg::usrmsg::bson
             if (r.raw_inputs)
             {
                 encoder.key(msg::usrmsg::FLD_RAW_INPUTS);
-                populate_ledger_blob_map(encoder, *r.raw_inputs);
+                // populate_ledger_blob_map(encoder, *r.raw_inputs);
             }
 
             if (r.raw_outputs)
             {
                 encoder.key(msg::usrmsg::FLD_RAW_OUTPUTS);
-                populate_ledger_blob_map(encoder, *r.raw_outputs);
+                // populate_ledger_blob_map(encoder, *r.raw_outputs);
             }
 
             encoder.end_object();
         }
-    }
-
-    void populate_ledger_blob_map(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::query::blob_map &blob_map)
-    {
-        encoder.begin_array();
-        for (const auto &[pubkey, blobs] : blob_map)
-        {
-            encoder.begin_object();
-
-            encoder.key(msg::usrmsg::FLD_PUBKEY);
-            encoder.byte_string_value(pubkey);
-            encoder.key(msg::usrmsg::FLD_BLOBS);
-            encoder.begin_array();
-            for (const std::string &blob : blobs)
-                encoder.byte_string_value(blob);
-            encoder.end_array();
-
-            encoder.end_object();
-        }
-        encoder.end_array();
     }
 
 } // namespace msg::usrmsg::bson
