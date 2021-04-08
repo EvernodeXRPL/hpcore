@@ -435,7 +435,7 @@
             // Calculate combined output hash with user's pubkey.
             const outputHash = getHash([clientKeys.publicKey, ...msgHelper.spreadArrayField(msg.outputs)]);
 
-            const result = getMerkleHash(msg.hashes, msgHelper.stringifyValue(outputHash));
+            const result = getMerkleHash(msg.hash_tree, msgHelper.stringifyValue(outputHash));
             if (result[0] == true) {
                 const rootHash = result[1];
 
@@ -557,6 +557,7 @@
                 if (emitter) {
                     // Validate outputs if trusted keys is not null. (null means bypass validation)
                     const trustedKeys = getTrustedKeys();
+                    console.log(m);
                     if (!trustedKeys || validateOutput(m, trustedKeys))
                         m.outputs.forEach(output => emitter.emit(events.contractOutput, msgHelper.deserializeOutput(output)));
                     else
@@ -567,8 +568,8 @@
                 statResponseResolvers.forEach(resolver => {
                     resolver({
                         hpVersion: m.hp_version,
-                        lclSeqNo: m.lcl_seq_no,
-                        lclHash: m.lcl_hash,
+                        ledgerSeqNo: m.ledger_seq_no,
+                        ledgerHash: m.ledger_hash,
                         roundTime: m.round_time,
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,
@@ -780,7 +781,7 @@
                 if (!stat)
                     throw "Error retrieving ledger status."
 
-                maxLedger += stat.lclSeqNo;
+                maxLedger += stat.ledgerSeqNo;
             }
 
             const inp = msgHelper.createContractInputComponents(input, nonce, maxLedger);

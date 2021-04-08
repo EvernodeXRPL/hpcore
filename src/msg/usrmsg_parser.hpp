@@ -27,7 +27,7 @@ namespace msg::usrmsg
 
         void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content) const;
 
-        void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+        void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
                                               const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                               const uint64_t lcl_seq_no, std::string_view lcl_hash) const;
 

@@ -1139,13 +1139,10 @@ namespace consensus
                     // Get the collapsed hash tree with this user's output hash remaining independently.
                     util::merkle_hash_node collapsed_hash_root = ctx.user_outputs_hashtree.collapse(cu.consensed_outputs.hash);
 
-                    std::vector<std::string_view> outputs;
-                    for (const std::string output : cu.consensed_outputs.outputs)
-                        outputs.emplace_back(output);
-
                     // Send the outputs and signatures to the user.
                     std::vector<uint8_t> msg;
-                    parser.create_contract_output_container(msg, outputs, collapsed_hash_root, ctx.user_outputs_unl_sig, lcl_id.seq_no, lcl_id.hash.to_string_view());
+                    parser.create_contract_output_container(msg, cu.consensed_outputs.hash, cu.consensed_outputs.outputs, collapsed_hash_root, ctx.user_outputs_unl_sig,
+                                                            lcl_id.seq_no, lcl_id.hash.to_string_view());
                     user.session.send(msg);
                 }
             }
