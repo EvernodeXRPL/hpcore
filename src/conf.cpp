@@ -133,7 +133,7 @@ namespace conf
             util::create_dir_tree_recursive(ctx.contract_hpfs_dir + "/seed" + sc::STATE_DIR_PATH) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_hpfs_mount_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + ledger::PRIMARY_DIR) == -1 ||
-            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + ledger::BLOB_DIR) == -1 ||
+            util::create_dir_tree_recursive(ctx.ledger_hpfs_dir + "/seed" + ledger::RAW_DIR) == -1 ||
             util::create_dir_tree_recursive(ctx.ledger_hpfs_mount_dir) == -1 ||
             util::create_dir_tree_recursive(ctx.contract_log_dir) == -1)
         {

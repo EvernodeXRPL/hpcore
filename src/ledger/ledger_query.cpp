@@ -77,8 +77,8 @@ namespace ledger::query
             if (r.ledger.seq_no == 0)
                 return 0; // Nothing to fill for GENESIS ledger.
 
-            const uint64_t shard_seq_no = (r.ledger.seq_no - 1) / ledger::BLOB_SHARD_SIZE;
-            const std::string file_vpath = std::string(ledger::BLOB_DIR) + "/" + std::to_string(shard_seq_no) + "/" + util::to_hex(r.ledger.ledger_hash) + ".blob";
+            const uint64_t shard_seq_no = (r.ledger.seq_no - 1) / ledger::RAW_SHARD_SIZE;
+            const std::string file_vpath = std::string(ledger::RAW_DIR) + "/" + std::to_string(shard_seq_no) + "/" + util::to_hex(r.ledger.ledger_hash) + ".blob";
             const std::string file_path = ledger::ledger_fs.physical_path(fs_sess_name, file_vpath);
             std::string blob_msg;
             const int fd = open(file_path.data(), O_RDONLY);
@@ -131,7 +131,7 @@ namespace ledger::query
 
         // Construct shard path based on provided ledger seq no.
         const uint64_t shard_seq_no = (q.seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
-        const std::string db_vpath = std::string(ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no) + "/" + ledger::DATABASE;
+        const std::string db_vpath = std::string(ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no) + "/" + ledger::PRIMARY_DB;
         const std::string dbpath = ledger::ledger_fs.physical_path(fs_sess_name, db_vpath);
 
         if (!util::is_file_exists(dbpath))

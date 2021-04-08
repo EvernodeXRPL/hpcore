@@ -6,9 +6,10 @@
 
 namespace ledger
 {
-    constexpr const char *DATABASE = "ledger.sqlite";
+    constexpr const char *PRIMARY_DB = "ledger.sqlite";
+    constexpr const char *RAW_DB = "raw.sqlite";
     constexpr uint64_t PRIMARY_SHARD_SIZE = 262144; // 2^18 ledgers per shard.
-    constexpr uint64_t BLOB_SHARD_SIZE = 4096;
+    constexpr uint64_t RAW_SHARD_SIZE = 4096;
 
     /**
      * Struct to hold ledger fields read.

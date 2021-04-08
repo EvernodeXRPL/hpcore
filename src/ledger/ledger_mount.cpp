@@ -21,7 +21,7 @@ namespace ledger
 
         if (get_last_shard_info(hpfs::RW_SESSION_NAME, last_primary_shard_id, PRIMARY_DIR) == -1 ||
             get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, last_primary_shard_id) == -1 ||
-            get_last_shard_info(hpfs::RW_SESSION_NAME, last_blob_shard_id, BLOB_DIR) == -1)
+            get_last_shard_info(hpfs::RW_SESSION_NAME, last_blob_shard_id, RAW_DIR) == -1)
         {
             LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
             return -1;

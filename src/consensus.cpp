@@ -200,7 +200,7 @@ namespace consensus
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash)
     {
         // Persist the new ledger with the consensus results.
-        if (ledger::save_ledger(cons_prop, consensed_users) == -1)
+        if (ledger::update_ledger(cons_prop, consensed_users) == -1)
             return -1;
 
         p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
@@ -294,7 +294,7 @@ namespace consensus
                 conf::change_role(conf::ROLE::OBSERVER);
                 const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.seq_no);
                 const std::string sync_name = "blob shard " + majority_shard_seq_no_str;
-                const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(majority_shard_seq_no_str);
+                const std::string shard_path = std::string(ledger::RAW_DIR).append("/").append(majority_shard_seq_no_str);
                 ledger::ledger_sync_worker.is_last_blob_shard_syncing = true;
                 ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
@@ -307,7 +307,7 @@ namespace consensus
                     ledger::persist_shard_history(majority_primary_shard_id.seq_no, ledger::PRIMARY_DIR);
 
                 if (!ledger::ctx.blob_shards_persisted)
-                    ledger::persist_shard_history(majority_blob_shard_id.seq_no, ledger::BLOB_DIR);
+                    ledger::persist_shard_history(majority_blob_shard_id.seq_no, ledger::RAW_DIR);
 
                 ledger::ledger_fs.release_rw_session();
             }

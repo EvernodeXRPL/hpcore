@@ -5,8 +5,8 @@
 namespace ledger::sqlite
 {
     constexpr const char *LEDGER_TABLE = "ledger";
-    constexpr const char *HP_VERSION_TABLE = "hp";
-    constexpr const char *HP_VERSION_COLUMN = "hp_version";
+    constexpr const char *HP_TABLE = "hp";
+    constexpr const char *LEDGER_VERSION_COLUMN = "ledger_version";
     constexpr const char *COLUMN_DATA_TYPES[]{"INT", "TEXT", "BLOB"};
     constexpr const char *CREATE_TABLE = "CREATE TABLE IF NOT EXISTS ";
     constexpr const char *CREATE_INDEX = "CREATE INDEX ";
@@ -234,6 +234,9 @@ namespace ledger::sqlite
     */
     int close_db(sqlite3 **db)
     {
+        if (*db == NULL)
+            return 0;
+            
         if (sqlite3_close(*db) != SQLITE_OK)
         {
             LOG_ERROR << "Can't close database: " << sqlite3_errmsg(*db);
@@ -245,11 +248,11 @@ namespace ledger::sqlite
     }
 
     /**
-     * Creates a table for ledger records.
+     * Sets up a blank ledger database.
      * @param db Pointer to the db.
      * @returns returns 0 on success, or -1 on error.
     */
-    int create_ledger_table(sqlite3 *db)
+    int initialize_ledger_db(sqlite3 *db)
     {
         const std::vector<table_column_info> column_info{
             table_column_info("seq_no", COLUMN_DATA_TYPE::INT, true),
@@ -272,22 +275,22 @@ namespace ledger::sqlite
     }
 
     /**
-     * Create and update the hp table from the hp version when creating a new shard.
+     * Create and update the hp system table when creating a new shard.
      * @param db Pointer to the db.
-     * @param version Hp version.
+     * @param version Version string to be placed in the table.
      * @returns returns 0 on success, or -1 on error.
      * 
     */
-    int create_hp_version_table_and_update(sqlite3 *db, std::string_view version)
+    int create_hp_table(sqlite3 *db, std::string_view version)
     {
         const std::vector<table_column_info> column_info{
-            table_column_info(HP_VERSION_COLUMN, COLUMN_DATA_TYPE::TEXT)};
+            table_column_info(LEDGER_VERSION_COLUMN, COLUMN_DATA_TYPE::TEXT)};
 
-        if (create_table(db, HP_VERSION_TABLE, column_info) == -1)
+        if (create_table(db, HP_TABLE, column_info) == -1)
             return -1;
 
         const std::string value_string = "\"" + std::string(version) + "\"";
-        if (insert_row(db, HP_VERSION_TABLE, HP_VERSION_COLUMN, value_string) == -1)
+        if (insert_row(db, HP_TABLE, LEDGER_VERSION_COLUMN, value_string) == -1)
             return -1;
 
         return 0;
