@@ -33,7 +33,7 @@ namespace ledger::sqlite
         bool is_key;
         bool is_null;
 
-        table_column_info(std::string_view name, const COLUMN_DATA_TYPE &column_type, const bool is_key = false, const bool is_null = false)
+        table_column_info(std::string_view name, const COLUMN_DATA_TYPE &column_type, const bool is_key = false, const bool is_null = true)
             : name(name), column_type(column_type), is_key(is_key), is_null(is_null)
         {
         }
@@ -65,7 +65,13 @@ namespace ledger::sqlite
 
     int insert_ledger_row(sqlite3 *db, const ledger::ledger_record &ledger);
 
-    int insert_user_record(sqlite3 *db, const uint64_t ledger_seq_no, const std::string pubkey);
+    int insert_user_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view pubkey);
+
+    int insert_user_input_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+                                 std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size);
+
+    int insert_user_output_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+                                  std::string_view hash, const uint64_t blob_offset, const uint64_t blob_size);
 
     int get_last_ledger(sqlite3 *db, ledger::ledger_record &ledger);
 

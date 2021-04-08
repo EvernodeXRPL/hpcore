@@ -1,5 +1,6 @@
 
 #include "ledger.hpp"
+#include "../consensus.hpp"
 #include "../crypto.hpp"
 #include "../conf.hpp"
 #include "../util/version.hpp"
@@ -264,9 +265,22 @@ namespace ledger
      */
     int insert_raw_data_records(sqlite3 *db, const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
     {
-        for (const std::string &pubkey : proposal.users)
+        for (const auto &[pubkey, cu] : consensed_users)
         {
             if (sqlite::insert_user_record(db, lcl_id.seq_no, pubkey) == -1)
+                return -1;
+
+            for (const consensus::consensed_user_input &cui : cu.consensed_inputs)
+            {
+                std::string_view hash = util::get_string_suffix(cui.ordered_hash, BLAKE3_OUT_LEN);
+                std::string_view nonce = cui.ordered_hash.substr(0, cui.ordered_hash.size() - hash.size());
+
+                if (sqlite::insert_user_input_record(db, lcl_id.seq_no, pubkey, hash, nonce, 0, 0) == -1)
+                    return -1;
+            }
+
+            if (!cu.consensed_outputs.outputs.empty() &&
+                sqlite::insert_user_output_record(db, lcl_id.seq_no, pubkey, cu.consensed_outputs.hash, 0, 0) == -1)
                 return -1;
         }
 
