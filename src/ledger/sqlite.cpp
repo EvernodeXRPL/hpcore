@@ -9,6 +9,8 @@ namespace ledger::sqlite
     constexpr const char *HP_VERSION_COLUMN = "hp_version";
     constexpr const char *COLUMN_DATA_TYPES[]{"INT", "TEXT", "BLOB"};
     constexpr const char *CREATE_TABLE = "CREATE TABLE IF NOT EXISTS ";
+    constexpr const char *CREATE_INDEX = "CREATE INDEX ";
+    constexpr const char *CREATE_UNIQUE_INDEX = "CREATE UNIQUE INDEX ";
     constexpr const char *INSERT_INTO = "INSERT INTO ";
     constexpr const char *PRIMARY_KEY = "PRIMARY KEY";
     constexpr const char *NOT_NULL = "NOT NULL";
@@ -75,9 +77,7 @@ namespace ledger::sqlite
     int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info)
     {
         std::string sql;
-        sql.append(CREATE_TABLE);
-        sql.append(table_name);
-        sql.append(" (");
+        sql.append(CREATE_TABLE).append(table_name).append(" (");
 
         for (auto itr = column_info.begin(); itr != column_info.end(); ++itr)
         {
@@ -102,8 +102,32 @@ namespace ledger::sqlite
         }
         sql.append(")");
 
-        /* Execute SQL statement */
-        return exec_sql(db, sql);
+        const int ret = exec_sql(db, sql);
+        if (ret == -1)
+            LOG_ERROR << "Error when creating sqlite table " << table_name;
+
+        return ret;
+    }
+
+    int create_index(sqlite3 *db, std::string_view table_name, std::string_view column_name, const bool is_unique)
+    {
+        std::string sql;
+        sql.append(is_unique ? CREATE_UNIQUE_INDEX : CREATE_INDEX)
+            .append("idx_")
+            .append(table_name)
+            .append("_")
+            .append(column_name)
+            .append(" ON ")
+            .append(table_name)
+            .append("(")
+            .append(column_name)
+            .append(")");
+
+        const int ret = exec_sql(db, sql);
+        if (ret == -1)
+            LOG_ERROR << "Error when creating sqlite index '" << column_name << "' in table " << table_name;
+
+        return ret;
     }
 
     /**
@@ -239,7 +263,9 @@ namespace ledger::sqlite
             table_column_info("input_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("output_hash", COLUMN_DATA_TYPE::BLOB)};
 
-        if (create_table(db, LEDGER_TABLE, column_info) == -1)
+        if (create_table(db, LEDGER_TABLE, column_info) == -1 ||
+            create_index(db, LEDGER_TABLE, "time", true) == -1 ||
+            create_index(db, LEDGER_TABLE, "ledger_hash", true) == -1)
             return -1;
 
         return 0;

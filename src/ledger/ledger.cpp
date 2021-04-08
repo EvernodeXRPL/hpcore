@@ -236,28 +236,28 @@ namespace ledger
             // Creating the directory.
             if (util::create_dir_tree_recursive(shard_path) == -1)
             {
-                LOG_ERROR << errno << ": Error creating the shard, shard: " << std::to_string(shard_seq_no);
+                LOG_ERROR << errno << ": Error creating the shard, shard: " << shard_seq_no;
                 return -1;
             }
 
             // Creating ledger database and open a database connection.
             if (sqlite::open_db(shard_path + "/" + DATABASE, db) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
+                LOG_ERROR << errno << ": Error openning the shard database, shard: " << shard_seq_no;
                 return -1;
             }
 
             // Create and update the hp_version table with current hp version.
             if (sqlite::create_hp_version_table_and_update(*db, version::LEDGER_VERSION) == -1)
             {
-                LOG_ERROR << errno << ": Error creating and updating hp version table, shard: " << std::to_string(shard_seq_no);
+                LOG_ERROR << errno << ": Error creating and updating hp version table, shard: " << shard_seq_no;
                 return -1;
             }
 
             // Creating the ledger table.
             if (sqlite::create_ledger_table(*db) == -1)
             {
-                LOG_ERROR << errno << ": Error creating the shard table, shard: " << std::to_string(shard_seq_no);
+                LOG_ERROR << errno << ": Error creating the shard table, shard: " << shard_seq_no;
                 return -1;
             }
 
@@ -277,7 +277,7 @@ namespace ledger
             const int fd = open(shard_hash_file_path.data(), O_CREAT | O_RDWR, FILE_PERMS);
             if (fd == -1)
             {
-                LOG_ERROR << errno << ": Error creating prev_shard.hash file in shard " << std::to_string(shard_seq_no);
+                LOG_ERROR << errno << ": Error creating prev_shard.hash file in shard " << shard_seq_no;
                 return -1;
             }
 
@@ -305,7 +305,7 @@ namespace ledger
         }
         else if (sqlite::open_db(shard_path + "/" + DATABASE, db) == -1)
         {
-            LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
+            LOG_ERROR << errno << ": Error openning the shard database, shard: " << shard_seq_no;
             return -1;
         }
 
@@ -714,7 +714,7 @@ namespace ledger
 
         if (sqlite::open_db(shard_path + "/" + DATABASE, &db) == -1)
         {
-            LOG_ERROR << errno << ": Error openning the shard database, shard: " << std::to_string(shard_seq_no);
+            LOG_ERROR << errno << ": Error openning the shard database, shard: " << shard_seq_no;
             ledger_fs.stop_ro_session(session_name);
             return -1;
         }
