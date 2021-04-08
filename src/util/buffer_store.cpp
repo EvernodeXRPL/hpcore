@@ -62,9 +62,10 @@ namespace util
     int buffer_store::purge(const buffer_view &buf)
     {
         const size_t purge_size = BLOCK_ALIGN(buf.size);
-        if (fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, buf.offset, purge_size) == -1)
+        if (fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, buf.offset, purge_size) == -1 &&
+            errno != EBADF) // errno=EBADF is ignored, since if the memfd is closed, we don't need to cleanup anyway.
         {
-            LOG_ERROR << errno << ": Error when purging buffer store fd " << fd;
+            LOG_ERROR << errno << ": Error when purging buffer store fd " << fd << " (" << buf.offset << "," << buf.size << ")";
             return -1;
         }
         return 0;

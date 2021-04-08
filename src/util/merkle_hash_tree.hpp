@@ -9,6 +9,7 @@ namespace util
     {
         std::string hash;
         std::list<merkle_hash_node> children;
+        bool is_retained = false;
     };
 
     class merkle_hash_tree

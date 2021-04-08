@@ -145,7 +145,7 @@ namespace msg::fbuf::p2pmsg
             p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
 
         if (msg.input_hashes())
-            p.input_hashes = flatbuf_bytearrayvector_to_stringlist(msg.input_hashes());
+            p.input_ordered_hashes = flatbuf_bytearrayvector_to_stringlist(msg.input_hashes());
 
         if (msg.output_hash())
             p.output_hash = flatbuf_bytes_to_sv(msg.output_hash());
@@ -308,7 +308,7 @@ namespace msg::fbuf::p2pmsg
         hasher.add(p.roundtime);
         hasher.add(p.nonce);
         hasher.add(p.users);
-        hasher.add(p.input_hashes);
+        hasher.add(p.input_ordered_hashes);
         hasher.add(p.output_hash);
         hasher.add(p.output_sig);
         hasher.add(p.state_hash);
@@ -385,7 +385,7 @@ namespace msg::fbuf::p2pmsg
             p.roundtime,
             sv_to_flatbuf_bytes(builder, p.nonce),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
-            stringlist_to_flatbuf_bytearrayvector(builder, p.input_hashes),
+            stringlist_to_flatbuf_bytearrayvector(builder, p.input_ordered_hashes),
             sv_to_flatbuf_bytes(builder, p.output_hash),
             sv_to_flatbuf_bytes(builder, p.output_sig),
             hash_to_flatbuf_bytes(builder, p.state_hash),

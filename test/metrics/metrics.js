@@ -97,21 +97,24 @@ function singleUserInputOutput(payloadKB, requestCount) {
         const hpc = await createClient();
         const timer = new Timer();
 
-        hpc.on(HotPocket.events.contractOutput, (response) => {
-            respCount++;
-            if (respCount == requestCount) {
-                const runPeriod = timer.stop();
-                hpc.close().then(() => resolve(runPeriod));
-            }
+        hpc.on(HotPocket.events.contractOutput, (r) => {
+            r.outputs.forEach(response => {
+                respCount++;
+                if (respCount == requestCount) {
+                    const runPeriod = timer.stop();
+                    hpc.close().then(() => resolve(runPeriod));
+                }
+            });
         });
 
         timer.start();
         for (let i = 0; i < requestCount; i++) {
             const nonce = i.toString().padStart(5);
-            hpc.sendContractInput(payload, nonce, 10).then(r => {
-                if (r != "ok")
-                    console.log(r);
-            });
+            const input = await hpc.submitContractInput(payload, nonce, 10);
+            input.submissionStatus.then(s => {
+                if (s.status != "accepted")
+                    console.log(s.reason);
+            });;
         }
     })
 }
@@ -142,18 +145,21 @@ function largePayload(payloadMB) {
         const hpc = await createClient();
         const timer = new Timer();
 
-        hpc.on(HotPocket.events.contractOutput, (response) => {
-            if (response.length < payload.length)
-                console.log("Payload length mismatch.");
+        hpc.on(HotPocket.events.contractOutput, (r) => {
+            r.outputs.forEach(response => {
+                if (response.length < payload.length)
+                    console.log("Payload length mismatch.");
 
-            const runPeriod = timer.stop();
-            hpc.close().then(() => resolve(runPeriod));
+                const runPeriod = timer.stop();
+                hpc.close().then(() => resolve(runPeriod));
+            })
         });
 
         timer.start();
-        await hpc.sendContractInput(payload).then(r => {
-            if (r != "ok")
-                console.log(r);
+        const input = await hpc.submitContractInput(payload);
+        input.submissionStatus.then(s => {
+            if (s.status != "accepted")
+                console.log(s.reason);
         });;
     })
 }

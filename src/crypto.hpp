@@ -29,9 +29,8 @@ namespace crypto
 
     const std::string get_hash(std::string_view s1, std::string_view s2);
 
-    const std::string get_hash(const std::vector<std::string_view> &sw_vect);
-
-    const std::string get_hash(const std::set<std::string> &sw_set);
+    template <typename T>
+    const std::string get_list_hash(const T &str_list);
 
     const std::string generate_uuid();
 

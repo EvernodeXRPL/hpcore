@@ -136,8 +136,8 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "stat_response",
-     *              "lcl_seq_no": <lcl sequence no>,
-     *              "lcl_hash": "<lcl hash hex>"
+     *              "ledger_seq_no": <lcl sequence no>,
+     *              "ledger_hash": "<lcl hash hex>"
      *            }
      */
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
@@ -154,11 +154,11 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += version::HP_VERSION;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_LCL_SEQ;
+        msg += msg::usrmsg::FLD_LEDGER_SEQ_NO;
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_LCL_HASH;
+        msg += msg::usrmsg::FLD_LEDGER_HASH;
         msg += SEP_COLON;
         msg += util::to_hex(lcl_hash);
         msg += SEP_COMMA;
@@ -224,13 +224,17 @@ namespace msg::usrmsg::json
      *              "type": "contract_input_status",
      *              "status": "<accepted|rejected>",
      *              "reason": "<reson>",
-     *              "input_sig": "<hex sig of original input message>"
+     *              "input_hash": "<hex hash of original input signature>",
+     *              "ledger_seq_no": <sequence no of the ledger that the input got included in>,
+     *              "ledger_hash": "<hex hash no of the ledger that the input got included in>"
      *            }
      * @param is_accepted Whether the original message was accepted or not.
      * @param reason Rejected reason. Empty if accepted.
-     * @param input_sig Binary signature of the original input message which generated this result.
+     * @param input_hash Binary Hash of the original input signature. This is used by user
+     *                   to tie the response with the input submission.
      */
-    void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason, std::string_view input_sig)
+    void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
+                                      std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash)
     {
         msg.reserve(256);
         msg += "{\"";
@@ -242,13 +246,33 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += status;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_REASON;
+
+        // Reject reason is only included for rejected inputs.
+        if (!reason.empty())
+        {
+            msg += msg::usrmsg::FLD_REASON;
+            msg += SEP_COLON;
+            msg += reason;
+            msg += SEP_COMMA;
+        }
+
+        msg += msg::usrmsg::FLD_INPUT_HASH;
         msg += SEP_COLON;
-        msg += reason;
-        msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_INPUT_SIG;
-        msg += SEP_COLON;
-        msg += util::to_hex(input_sig);
+        msg += util::to_hex(input_hash);
+
+        // Ledger information is only included in 'accepted' input statuses.
+        if (ledger_seq_no > 0)
+        {
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_LEDGER_SEQ_NO;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(ledger_seq_no);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_LEDGER_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(ledger_hash.to_string_view());
+        }
+
         msg += "\"}";
     }
 
@@ -299,15 +323,21 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "contract_output",
-     *              "lcl_seq_no": <integer>,
-     *              "lcl_hash": "<lcl hash hex>",
-     *              "outputs": ["<output string 1>", "<output string 2>", ...], // The output order is the hash order.
-     *              "hashes": [<hex merkle hash tree>], // Always includes user's output hash [output hash = hash(pubkey+all outputs for the user)]
+     *              "ledger_seq_no": <integer>,
+     *              "ledger_hash": "<lcl hash hex>",
+     *              "outputs": ["<output string 1>", "<output string 2>", ...], // The output order is the hash generation order.
+     *              "output_hash": "<hex hash of user's outputs>",  [output hash = hash(pubkey+all outputs for the user)]
+     *              "hash_tree": [<hex merkle hash tree>], // Collapsed merkle tree with user's hash element marked as null. 
      *              "unl_sig": [["<pubkey hex>", "<sig hex>"], ...] // UNL pubkeys and signatures of root hash.
      *            }
-     * @param content The contract binary output content to be put in the message.
+     * @param hash This user's combined output hash. [output hash = hash(pubkey+all outputs for the user)]
+     * @param outputs List of outputs for the user.
+     * @param hash_root Root node of the collapsed merkle hash tree.
+     * @param unl_sig List of unl signatures issued on the root hash. (root hash = combined merkle hash of hashes of all users)
+     * @param lcl_seq_no Current ledger seq no.
+     * @param lcl_hash Current ledger hash.
      */
-    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                           const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
@@ -317,11 +347,11 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_CONTRACT_OUTPUT;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_LCL_SEQ;
+        msg += msg::usrmsg::FLD_LEDGER_SEQ_NO;
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_LCL_HASH;
+        msg += msg::usrmsg::FLD_LEDGER_HASH;
         msg += SEP_COLON;
         msg += util::to_hex(lcl_hash);
         msg += SEP_COMMA;
@@ -355,10 +385,15 @@ namespace msg::usrmsg::json
 
         msg += "],\"";
 
-        msg += msg::usrmsg::FLD_HASHES;
-        msg += "\":";
+        msg += msg::usrmsg::FLD_OUTPUT_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(hash);
+        msg += SEP_COMMA;
+
+        msg += msg::usrmsg::FLD_HASH_TREE;
+        msg += SEP_COLON_NOQUOTE;
         populate_output_hash_array(msg, hash_root);
-        msg += ",\"";
+        msg += SEP_COMMA_NOQUOTE;
 
         msg += msg::usrmsg::FLD_UNL_SIG;
         msg += "\":[";
@@ -367,7 +402,7 @@ namespace msg::usrmsg::json
             const auto &sig = unl_sig[i]; // Pubkey and Signature pair.
             msg += "[\"";
             msg += util::to_hex(sig.first);
-            msg += "\",\"";
+            msg += SEP_COMMA;
             msg += util::to_hex(sig.second);
             msg += "\"]";
 
@@ -676,16 +711,16 @@ namespace msg::usrmsg::json
      * Extract the individual components of a given input container json.
      * @param input The extracted input.
      * @param nonce The extracted nonce.
-     * @param max_lcl_seq_no The extracted max ledger sequence no.
+     * @param max_ledger_seq_no The extracted max ledger sequence no.
      * @param contentjson The json string containing the input container message.
      *                    {
      *                      "input": "<any string>",
      *                      "nonce": "<random string with optional sorted order>",
-     *                      "max_lcl_seq_no": <integer>
+     *                      "max_ledger_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_lcl_seq_no, std::string_view contentjson)
+    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_ledger_seq_no, std::string_view contentjson)
     {
         jsoncons::json d;
         try
@@ -698,13 +733,13 @@ namespace msg::usrmsg::json
             return -1;
         }
 
-        if (!d.contains(msg::usrmsg::FLD_INPUT) || !d.contains(msg::usrmsg::FLD_NONCE) || !d.contains(msg::usrmsg::FLD_MAX_LCL_SEQ))
+        if (!d.contains(msg::usrmsg::FLD_INPUT) || !d.contains(msg::usrmsg::FLD_NONCE) || !d.contains(msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO))
         {
             LOG_DEBUG << "User input container required fields missing.";
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<std::string>() || !d[msg::usrmsg::FLD_MAX_LCL_SEQ].is<uint64_t>())
+        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<std::string>() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is<uint64_t>())
         {
             LOG_DEBUG << "User input container invalid field values.";
             return -1;
@@ -712,7 +747,7 @@ namespace msg::usrmsg::json
 
         input = d[msg::usrmsg::FLD_INPUT].as<std::string>();
         nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
-        max_lcl_seq_no = d[msg::usrmsg::FLD_MAX_LCL_SEQ].as<uint64_t>();
+        max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
 
         return 0;
     }
@@ -821,9 +856,18 @@ namespace msg::usrmsg::json
     {
         if (node.children.empty())
         {
-            msg += "\"";
-            msg += util::to_hex(node.hash);
-            msg += "\"";
+            if (node.is_retained)
+            {
+                // The retained node is serialized as null.
+                // This is so the client can identify the self-hash position within the hash tree.
+                msg += "null";
+            }
+            else
+            {
+                msg += "\"";
+                msg += util::to_hex(node.hash);
+                msg += "\"";
+            }
             return;
         }
         else

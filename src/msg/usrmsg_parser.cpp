@@ -21,13 +21,13 @@ namespace msg::usrmsg
             busrmsg::create_status_response(msg, lcl_seq_no, lcl_hash);
     }
 
-    void usrmsg_parser::create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status,
-                                                     std::string_view reason, std::string_view input_sig) const
+    void usrmsg_parser::create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
+                                                     std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_contract_input_status(msg, status, reason, input_sig);
+            jusrmsg::create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
         else
-            busrmsg::create_contract_input_status(msg, status, reason, input_sig);
+            busrmsg::create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
     }
 
     void usrmsg_parser::create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content) const
@@ -38,14 +38,14 @@ namespace msg::usrmsg
             busrmsg::create_contract_read_response_container(msg, content);
     }
 
-    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+    void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
                                                          const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                                          const uint64_t lcl_seq_no, std::string_view lcl_hash) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
+            jusrmsg::create_contract_output_container(msg, hash, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
         else
-            busrmsg::create_contract_output_container(msg, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
+            busrmsg::create_contract_output_container(msg, hash, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
     }
 
     void usrmsg_parser::create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const
@@ -98,12 +98,12 @@ namespace msg::usrmsg
     }
 
     int usrmsg_parser::extract_input_container(std::string &input, std::string &nonce,
-                                               uint64_t &max_lcl_seq_no, std::string_view encoded_content) const
+                                               uint64_t &max_ledger_seq_no, std::string_view encoded_content) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_input_container(input, nonce, max_lcl_seq_no, encoded_content);
+            return jusrmsg::extract_input_container(input, nonce, max_ledger_seq_no, encoded_content);
         else
-            return busrmsg::extract_input_container(input, nonce, max_lcl_seq_no, encoded_content);
+            return busrmsg::extract_input_container(input, nonce, max_ledger_seq_no, encoded_content);
     }
 
     int usrmsg_parser::extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const

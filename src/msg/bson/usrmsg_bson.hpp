@@ -11,11 +11,11 @@ namespace msg::usrmsg::bson
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
-                                      std::string_view input_sig);
+                                      std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash);
 
     void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content);
 
-    void create_contract_output_container(std::vector<uint8_t> &msg, const ::std::vector<std::string_view> &outputs,
+    void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                           const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
@@ -37,7 +37,7 @@ namespace msg::usrmsg::bson
                                        const jsoncons::ojson &d);
 
     int extract_input_container(std::string &input, std::string &nonce,
-                                uint64_t &max_lcl_seq_no, std::string_view contentbson);
+                                uint64_t &max_ledger_seq_no, std::string_view contentbson);
 
     int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::ojson &d);
 

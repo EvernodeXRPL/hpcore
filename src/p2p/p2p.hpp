@@ -78,7 +78,7 @@ namespace p2p
         util::h32 state_hash; // Contract state hash.
         util::h32 patch_hash; // Patch file hash.
         std::set<std::string> users;
-        std::set<std::string> input_hashes;
+        std::set<std::string> input_ordered_hashes;
         std::string output_hash;
         std::string output_sig;
     };

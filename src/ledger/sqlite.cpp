@@ -24,7 +24,7 @@ namespace ledger::sqlite
                                                "state_hash, patch_hash, user_hash, input_hash, output_hash"
                                                ") VALUES(?,?,?,?,?,?,?,?,?,?)";
 
-#define BIND_H32_BLOB(idx, field) (sqlite3_bind_blob(stmt, idx, field.data(), sizeof(util::h32), SQLITE_STATIC) == SQLITE_OK)
+#define BIND_H32_BLOB(idx, field) (field.size() == sizeof(util::h32) && sqlite3_bind_blob(stmt, idx, field.data(), sizeof(util::h32), SQLITE_STATIC) == SQLITE_OK)
 #define GET_H32_BLOB(idx) std::string((char *)sqlite3_column_blob(stmt, idx), sizeof(util::h32))
 
     /**

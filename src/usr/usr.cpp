@@ -173,21 +173,28 @@ namespace usr
 
                     std::string input_data;
                     std::string nonce;
-                    uint64_t max_lcl_seq_no;
-                    if (parser.extract_input_container(input_data, nonce, max_lcl_seq_no, input_container) != -1)
+                    uint64_t max_ledger_seq_no;
+                    if (parser.extract_input_container(input_data, nonce, max_ledger_seq_no, input_container) != -1)
                     {
                         const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
                         // Ignore the input if the max ledger seq number specified is beyond the max offeset.
-                        if (conf::cfg.contract.max_input_ledger_offset != 0 && max_lcl_seq_no > lcl_id.seq_no + conf::cfg.contract.max_input_ledger_offset)
+                        if (conf::cfg.contract.max_input_ledger_offset != 0 && max_ledger_seq_no > lcl_id.seq_no + conf::cfg.contract.max_input_ledger_offset)
                         {
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED, crypto::get_hash(sig));
+                            return -1;
+                        }
+
+                        // Ignore the input if our ledger has passed the input TTL.
+                        if (max_ledger_seq_no <= lcl_id.seq_no)
+                        {
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_MAX_LEDGER_EXPIRED, crypto::get_hash(sig));
                             return -1;
                         }
 
                         // Check for max nonce size.
                         if (nonce.size() > MAX_INPUT_NONCE_SIZE)
                         {
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_OVERFLOW, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_NONCE_OVERFLOW, crypto::get_hash(sig));
                             return -1;
                         }
 
@@ -195,11 +202,11 @@ namespace usr
                         if (conf::cfg.contract.round_limits.user_input_bytes > 0 &&
                             (user.collected_input_size + input_data.size()) > conf::cfg.contract.round_limits.user_input_bytes)
                         {
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW, crypto::get_hash(sig));
                             return -1;
                         }
 
-                        const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_lcl_seq_no, true);
+                        const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_ledger_seq_no, true);
                         if (nonce_status == 0)
                         {
                             //Add to the submitted input list.
@@ -216,19 +223,19 @@ namespace usr
                         else
                         {
                             const char *reason = nonce_status == 1 ? msg::usrmsg::REASON_NONCE_EXPIRED : msg::usrmsg::REASON_ALREADY_SUBMITTED;
-                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, reason, sig);
+                            send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, reason, crypto::get_hash(sig));
                             return -1;
                         }
                     }
                     else
                     {
-                        send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, sig);
+                        send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, crypto::get_hash(sig));
                         return -1;
                     }
                 }
                 else
                 {
-                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, sig);
+                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, crypto::get_hash(sig));
                     return -1;
                 }
             }
@@ -272,8 +279,12 @@ namespace usr
     /**
      * Sends multiple user input responses grouped by user.
      */
-    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses)
+    void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses,
+                                     const uint64_t ledger_seq_no, const util::h32 &ledger_hash)
     {
+        if (responses.empty())
+            return;
+
         // Lock the user sessions.
         std::scoped_lock lock(usr::ctx.users_mutex);
 
@@ -283,6 +294,8 @@ namespace usr
             const auto user_itr = usr::ctx.users.find(pubkey);
             if (user_itr != usr::ctx.users.end())
             {
+                msg::usrmsg::usrmsg_parser parser(user_itr->second.protocol);
+
                 // Send the request status result if this user is connected to us.
                 for (const input_status_response &resp : user_responses)
                 {
@@ -290,12 +303,13 @@ namespace usr
                     // would have gotten the proper status response during first submission.
                     if (resp.reject_reason != msg::usrmsg::REASON_ALREADY_SUBMITTED)
                     {
-                        msg::usrmsg::usrmsg_parser parser(resp.protocol);
                         send_input_status(parser,
                                           user_itr->second.session,
                                           resp.reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                           resp.reject_reason == NULL ? "" : resp.reject_reason,
-                                          resp.sig);
+                                          resp.input_hash,
+                                          ledger_seq_no,
+                                          ledger_hash);
                     }
                 }
             }
@@ -306,10 +320,11 @@ namespace usr
      * Send the specified contract input status result via the provided session.
      */
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
-                           std::string_view status, std::string_view reason, std::string_view input_sig)
+                           std::string_view status, std::string_view reason, std::string_view input_hash,
+                           const uint64_t ledger_seq_no, const util::h32 &ledger_hash)
     {
         std::vector<uint8_t> msg;
-        parser.create_contract_input_status(msg, status, reason, input_sig);
+        parser.create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
         session.send(msg);
     }
 
@@ -387,14 +402,13 @@ namespace usr
 
         // Extract information from input container.
         msg::usrmsg::usrmsg_parser parser(submitted.protocol);
-        if (parser.extract_input_container(extracted.input, extracted.nonce, extracted.max_lcl_seq_no, submitted.input_container) == -1)
+        if (parser.extract_input_container(extracted.input, extracted.nonce, extracted.max_ledger_seq_no, submitted.input_container) == -1)
         {
             LOG_DEBUG << "User input bad input container format.";
             return msg::usrmsg::REASON_BAD_MSG_FORMAT;
         }
 
         extracted.sig = std::move(submitted.sig);
-        extracted.protocol = submitted.protocol;
 
         return NULL;
     }
@@ -404,17 +418,25 @@ namespace usr
      * @return The rejection reason if input rejected. NULL if the input can be accepted.
      */
     const char *validate_user_input_submission(const std::string &user_pubkey, const usr::extracted_user_input &extracted_input,
-                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &hash, util::buffer_view &input)
+                                               const uint64_t lcl_seq_no, size_t &total_input_size, std::string &ordered_hash, util::buffer_view &input)
     {
+        // Ordered hash is used as the globally unqiue 'key' to represent this input for this consensus round.
+        // It is prefixed with the nonce to support user-defined sort order and the input hash is appended
+        // to make it unique among inputs from all users.
+        // Ordered hash = nonce + input hash
+        // Nonce length is not fixed. So last 32 bytes of ordered hash always contains the input hash.
+        // In the ledger, we will store the nonce and input hash separately.
+        ordered_hash = extracted_input.nonce + crypto::get_hash(extracted_input.sig);
+
         // Ignore the input if the max ledger seq number specified is beyond the max offeset.
-        if (conf::cfg.contract.max_input_ledger_offset != 0 && extracted_input.max_lcl_seq_no > lcl_seq_no + conf::cfg.contract.max_input_ledger_offset)
+        if (conf::cfg.contract.max_input_ledger_offset != 0 && extracted_input.max_ledger_seq_no > lcl_seq_no + conf::cfg.contract.max_input_ledger_offset)
         {
             LOG_DEBUG << "User input bad max ledger seq beyond the max offset.";
             return msg::usrmsg::REASON_MAX_LEDGER_OFFSET_EXCEEDED;
         }
 
         // Ignore the input if our ledger has passed the input TTL.
-        if (extracted_input.max_lcl_seq_no <= lcl_seq_no)
+        if (extracted_input.max_ledger_seq_no <= lcl_seq_no)
         {
             LOG_DEBUG << "User input bad max ledger seq expired.";
             return msg::usrmsg::REASON_MAX_LEDGER_EXPIRED;
@@ -429,7 +451,7 @@ namespace usr
             return msg::usrmsg::REASON_ROUND_INPUTS_OVERFLOW;
         }
 
-        const int nonce_status = nonce_map.check(user_pubkey, extracted_input.nonce, extracted_input.sig, extracted_input.max_lcl_seq_no);
+        const int nonce_status = nonce_map.check(user_pubkey, extracted_input.nonce, extracted_input.sig, extracted_input.max_ledger_seq_no);
         if (nonce_status > 0)
         {
             LOG_DEBUG << (nonce_status == 1 ? "User input nonce expired." : "User input with same nonce/sig already submitted.");
@@ -443,11 +465,6 @@ namespace usr
         }
 
         // Reaching here means the input is successfully validated and we can submit it to consensus.
-
-        // Hash is used as the globally unqiue 'key' to represent this input for this consensus round.
-        // It is prefixed with the nonce to support user-defined sort order and signature hash is appended
-        // to make it unique among inputs from all users.
-        hash = extracted_input.nonce + crypto::get_hash(extracted_input.sig);
 
         // Copy the input data into the input store. Contract will read the input from this location.
         input = input_store.write_buf(extracted_input.input.data(), extracted_input.input.size());

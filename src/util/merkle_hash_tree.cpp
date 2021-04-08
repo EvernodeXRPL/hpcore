@@ -40,7 +40,7 @@ namespace util
                     std::vector<std::string_view> hashes;
                     for (const util::merkle_hash_node &child : parent.children)
                         hashes.push_back(child.hash);
-                    parent.hash = crypto::get_hash(hashes);
+                    parent.hash = crypto::get_list_hash(hashes);
                 }
                 else
                 {
@@ -100,6 +100,10 @@ namespace util
         if (retain_hash.empty() || node.hash == retain_hash)
         {
             node.children.clear(); // No need to dig deeper.
+
+            if (node.hash == retain_hash)
+                node.is_retained = true; // Mark this node as the retained node.
+
             return true;
         }
         else

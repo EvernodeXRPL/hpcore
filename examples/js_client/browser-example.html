@@ -63,8 +63,8 @@
             })
 
             // This will get fired when contract sends an output.
-            hpc.on(HotPocket.events.contractOutput, (output) => {
-                console.log("Contract output>> " + output);
+            hpc.on(HotPocket.events.contractOutput, (r) => {
+                r.outputs.forEach(o => console.log("Contract output>> " + o));
             })
 
             // This will get fired when contract sends a read response.
@@ -80,10 +80,13 @@
             console.log('HotPocket Connected.');
 
             hpc.sendContractReadRequest("Hello");
-            hpc.sendContractInput("World!").then(status => {
-                if (status != "ok")
-                    console.log(status);
-            });
+
+            const input = await hpc.submitContractInput("World!")
+
+            // console.log(input.hash);
+            const r = await input.submissionStatus;
+            if (r.status != "accepted")
+                console.log(r.reason);
 
             // When we need to close HP connection:
             // await hpc.close();

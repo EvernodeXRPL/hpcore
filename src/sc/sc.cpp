@@ -456,11 +456,6 @@ namespace sc
         // Close all fds.
         cleanup_fds(ctx);
 
-        // Purge any inputs we passed to the contract.
-        for (const auto &[pubkey, bufs] : ctx.args.userbufs)
-            for (const util::buffer_view &input : bufs.inputs)
-                ctx.args.user_input_store.purge(input);
-
         // If we reach this point but the contract is still running, then we need to kill the contract by force.
         // This can be the case if HP is shutting down, or there was an error in initial feeding of inputs.
         if (ctx.contract_pid > 0)
