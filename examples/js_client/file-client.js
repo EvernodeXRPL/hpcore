@@ -43,9 +43,9 @@ async function main() {
     })
 
     // This will get fired when contract sends an output.
-    hpc.on(HotPocket.events.contractOutput, (hash, outputs) => {
+    hpc.on(HotPocket.events.contractOutput, (r) => {
 
-        outputs.forEach(output => {
+        r.outputs.forEach(output => {
 
             const result = bson.deserialize(output);
             if (result.type == "uploadResult") {

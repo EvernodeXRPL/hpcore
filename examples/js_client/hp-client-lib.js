@@ -551,7 +551,7 @@
         const contractMessageHandler = (m) => {
 
             if (m.type == "contract_read_response") {
-                emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeOutput(m.content));
+                emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeValue(m.content));
             }
             else if (m.type == "contract_input_status") {
                 const inputHashHex = msgHelper.stringifyValue(m.input_hash);
@@ -561,7 +561,7 @@
 
                     if (m.status == "accepted") {
                         result.ledgerSeqNo = m.ledger_seq_no;
-                        result.ledgerHash = m.ledger_hash;
+                        result.ledgerHash = msgHelper.deserializeValue(m.ledger_hash);
                     }
                     else {
                         result.reason = m.reason;
@@ -577,9 +577,12 @@
                     const trustedKeys = getTrustedKeys();
 
                     if (!trustedKeys || verifyContractOutputTrust(m, trustedKeys)) {
-                        emitter.emit(events.contractOutput,
-                            msgHelper.deserializeOutput(m.output_hash),
-                            m.outputs.map(o => msgHelper.deserializeOutput(o)));
+                        emitter.emit(events.contractOutput, {
+                            ledgerSeqNo: m.ledger_seq_no,
+                            ledgerHash: msgHelper.deserializeValue(m.ledger_hash),
+                            outputHash: msgHelper.deserializeValue(m.output_hash),
+                            outputs: m.outputs.map(o => msgHelper.deserializeValue(o))
+                        });
                     }
                     else
                         liblog(1, "Output validation failed.");
@@ -590,7 +593,7 @@
                     resolver({
                         hpVersion: m.hp_version,
                         ledgerSeqNo: m.ledger_seq_no,
-                        ledgerHash: m.ledger_hash,
+                        ledgerHash: msgHelper.deserializeValue(m.ledger_hash),
                         roundTime: m.round_time,
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,
@@ -881,8 +884,8 @@
                 (Buffer.isBuffer(input) ? input : Buffer.from(input));
         }
 
-        this.deserializeOutput = (content) => {
-            return protocol == protocols.json ? content : content.buffer;
+        this.deserializeValue = (val) => {
+            return protocol == protocols.json ? val : val.buffer;
         }
 
         // Used for generating strings to hold values as js object keys.
