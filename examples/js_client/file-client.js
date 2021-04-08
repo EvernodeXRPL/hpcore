@@ -43,23 +43,28 @@ async function main() {
     })
 
     // This will get fired when contract sends an output.
-    hpc.on(HotPocket.events.contractOutput, (output) => {
-        const result = bson.deserialize(output);
-        if (result.type == "uploadResult") {
-            if (result.status == "ok")
-                console.log("File " + result.fileName + " uploaded successfully.");
-            else
-                console.log("File " + result.fileName + " upload failed. reason: " + result.status);
-        }
-        else if (result.type == "deleteResult") {
-            if (result.status == "ok")
-                console.log("File " + result.fileName + " deleted successfully.");
-            else
-                console.log("File " + result.fileName + " delete failed. reason: " + result.status);
-        }
-        else {
-            console.log("Unknown contract output.");
-        }
+    hpc.on(HotPocket.events.contractOutput, (hash, outputs) => {
+
+        outputs.forEach(output => {
+
+            const result = bson.deserialize(output);
+            if (result.type == "uploadResult") {
+                if (result.status == "ok")
+                    console.log("File " + result.fileName + " uploaded successfully.");
+                else
+                    console.log("File " + result.fileName + " upload failed. reason: " + result.status);
+            }
+            else if (result.type == "deleteResult") {
+                if (result.status == "ok")
+                    console.log("File " + result.fileName + " deleted successfully.");
+                else
+                    console.log("File " + result.fileName + " delete failed. reason: " + result.status);
+            }
+            else {
+                console.log("Unknown contract output.");
+            }
+
+        });
     })
 
     // This will get fired when contract sends a read response.

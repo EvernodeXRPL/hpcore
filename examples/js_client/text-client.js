@@ -1,8 +1,10 @@
 const readline = require('readline');
 const HotPocket = require('./hp-client-lib');
 
-
 async function main() {
+
+    // Set HP lib log level. 0=info, 1=error
+    // HotPocket.setLogLevel(1);
 
     const keys = await HotPocket.generateKeys();
 
@@ -55,9 +57,9 @@ async function main() {
         console.log("New unl received: " + JSON.stringify(unl)); // unl is an array of hex public keys.
     })
 
-    // This will get fired when contract sends an output.
-    hpc.on(HotPocket.events.contractOutput, (output) => {
-        console.log("Contract output>> " + output);
+    // This will get fired when contract sends outputs.
+    hpc.on(HotPocket.events.contractOutput, (hash, outputs) => {
+        outputs.forEach(o => console.log(o));
     })
 
     // This will get fired when contract sends a read response.
