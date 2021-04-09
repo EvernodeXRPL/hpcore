@@ -1801,14 +1801,14 @@ inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntryDirect(
 struct HpfsLogRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef HpfsLogRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_TARGET_RECORD_ID = 4,
+    VT_TARGET_SEQ_NO = 4,
     VT_MIN_RECORD_ID = 6
   };
-  const msg::fbuf::p2pmsg::SequenceHash *target_record_id() const {
-    return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_TARGET_RECORD_ID);
+  uint64_t target_seq_no() const {
+    return GetField<uint64_t>(VT_TARGET_SEQ_NO, 0);
   }
-  msg::fbuf::p2pmsg::SequenceHash *mutable_target_record_id() {
-    return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_TARGET_RECORD_ID);
+  bool mutate_target_seq_no(uint64_t _target_seq_no) {
+    return SetField<uint64_t>(VT_TARGET_SEQ_NO, _target_seq_no, 0);
   }
   const msg::fbuf::p2pmsg::SequenceHash *min_record_id() const {
     return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_MIN_RECORD_ID);
@@ -1818,8 +1818,7 @@ struct HpfsLogRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_TARGET_RECORD_ID) &&
-           verifier.VerifyTable(target_record_id()) &&
+           VerifyField<uint64_t>(verifier, VT_TARGET_SEQ_NO) &&
            VerifyOffset(verifier, VT_MIN_RECORD_ID) &&
            verifier.VerifyTable(min_record_id()) &&
            verifier.EndTable();
@@ -1830,8 +1829,8 @@ struct HpfsLogRequestBuilder {
   typedef HpfsLogRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_target_record_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> target_record_id) {
-    fbb_.AddOffset(HpfsLogRequest::VT_TARGET_RECORD_ID, target_record_id);
+  void add_target_seq_no(uint64_t target_seq_no) {
+    fbb_.AddElement<uint64_t>(HpfsLogRequest::VT_TARGET_SEQ_NO, target_seq_no, 0);
   }
   void add_min_record_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id) {
     fbb_.AddOffset(HpfsLogRequest::VT_MIN_RECORD_ID, min_record_id);
@@ -1850,11 +1849,11 @@ struct HpfsLogRequestBuilder {
 
 inline flatbuffers::Offset<HpfsLogRequest> CreateHpfsLogRequest(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> target_record_id = 0,
+    uint64_t target_seq_no = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> min_record_id = 0) {
   HpfsLogRequestBuilder builder_(_fbb);
+  builder_.add_target_seq_no(target_seq_no);
   builder_.add_min_record_id(min_record_id);
-  builder_.add_target_record_id(target_record_id);
   return builder_.Finish();
 }
 

@@ -135,7 +135,7 @@ namespace p2p
     // Represents hpfs log sync request.
     struct hpfs_log_request
     {
-        sequence_hash target_record_id;
+        uint64_t target_seq_no;
         sequence_hash min_record_id;
     };
 

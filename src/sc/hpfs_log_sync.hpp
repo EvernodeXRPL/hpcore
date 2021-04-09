@@ -12,11 +12,10 @@ namespace sc::hpfs_log_sync
 {
     struct sync_context
     {
-        // The current target log record that we are syncing towards.
-        p2p::sequence_hash target_log_record;
-        std::mutex target_log_record_mutex;
+        // The current target log record seq no that we are syncing towards.
+        uint64_t target_log_seq_no;
+        std::mutex target_log_seq_no_mutex;
         p2p::sequence_hash min_log_record;
-        std::mutex min_log_record_mutex;
         uint64_t target_requested_on = 0;
         uint16_t request_submissions = 0;
 
@@ -26,7 +25,7 @@ namespace sc::hpfs_log_sync
 
         void clear_target()
         {
-            target_log_record = {};
+            target_log_seq_no = 0;
             min_log_record = {};
             target_requested_on = 0;
             request_submissions = 0;
@@ -39,7 +38,7 @@ namespace sc::hpfs_log_sync
 
     void deinit();
 
-    void set_sync_target(const p2p::sequence_hash target);
+    void set_sync_target(const uint64_t target);
 
     void hpfs_log_syncer_loop();
 
@@ -54,6 +53,8 @@ namespace sc::hpfs_log_sync
     int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &log_response);
 
     int get_verified_min_record();
+
+    bool check_sync_completion();
 
     int set_joining_point_for_fork(const uint64_t starting_point);
 }

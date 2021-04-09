@@ -47,26 +47,20 @@ namespace sc::hpfs_log_sync
         }
     }
 
-    void set_sync_target(const p2p::sequence_hash target)
+    void set_sync_target(const uint64_t target)
     {
         {
-            std::scoped_lock lock(sync_ctx.target_log_record_mutex);
-            if (sync_ctx.is_shutting_down || (sync_ctx.is_syncing && sync_ctx.target_log_record == target))
+            std::scoped_lock lock(sync_ctx.target_log_seq_no_mutex);
+            if (sync_ctx.is_shutting_down || (sync_ctx.is_syncing && sync_ctx.target_log_seq_no == target))
                 return;
 
-            sync_ctx.target_log_record = target;
+            sync_ctx.target_log_seq_no = target;
 
-            const int res = get_verified_min_record();
-            if (res == -1)
+            if (get_verified_min_record() == -1)
                 return;
-            else if (res == 1)
-            {
-                sync_ctx.clear_target();
-                return;
-            }
         }
 
-        LOG_INFO << "Hpfs log sync: Starting sync for target: max: " << sync_ctx.target_log_record << " min: " << sync_ctx.min_log_record;
+        LOG_INFO << "Hpfs log sync: Starting sync for target: max: " << sync_ctx.target_log_seq_no << " min: " << sync_ctx.min_log_record.seq_no;
 
         sync_ctx.target_requested_on = 0;
         sync_ctx.request_submissions = 0;
@@ -89,18 +83,18 @@ namespace sc::hpfs_log_sync
 
             // Perform log sync activities.
             {
-                std::scoped_lock<std::mutex> lock(sync_ctx.target_log_record_mutex);
-                if (!sync_ctx.target_log_record.empty())
+                std::scoped_lock<std::mutex> lock(sync_ctx.target_log_seq_no_mutex);
+                if (sync_ctx.target_log_seq_no > 0)
                     send_hpfs_log_sync_request(); // Send log record requests if needed (or abandon if sync timeout).
 
                 // Process any history responses from other nodes.
-                if (!sync_ctx.target_log_record.empty() && check_hpfs_log_sync_responses() == 1)
+                if (sync_ctx.target_log_seq_no > 0 && check_hpfs_log_sync_responses() == 1)
                     processed = true;
 
                 // Here we check for the updated log records to check whether target has archived.
                 if (sync_ctx.is_syncing && get_verified_min_record() == 1)
                 {
-                    LOG_INFO << "Hpfs log sync: sync target archived: " << sync_ctx.target_log_record;
+                    LOG_INFO << "Hpfs log sync: sync target archived: " << sync_ctx.target_log_seq_no;
                     sync_ctx.clear_target();
 
                     // After archiving the target, update latest state and patch hash in the in memory map.
@@ -151,13 +145,13 @@ namespace sc::hpfs_log_sync
             if (sync_ctx.request_submissions < ABANDON_THRESHOLD)
             {
                 flatbuffers::FlatBufferBuilder fbuf;
-                p2pmsg::create_msg_from_hpfs_log_request(fbuf, {sync_ctx.target_log_record, sync_ctx.min_log_record});
+                p2pmsg::create_msg_from_hpfs_log_request(fbuf, {sync_ctx.target_log_seq_no, sync_ctx.min_log_record});
                 std::string target_pubkey;
                 p2p::send_message_to_random_peer(fbuf, target_pubkey, true);
                 if (!target_pubkey.empty())
                     LOG_DEBUG << "Hpfs log sync: Requesting from [" << target_pubkey.substr(2, 10) << "]."
-                              << " min:" << sync_ctx.min_log_record
-                              << " target:" << sync_ctx.target_log_record;
+                              << " min:" << sync_ctx.min_log_record.seq_no
+                              << " target:" << sync_ctx.target_log_seq_no;
 
                 sync_ctx.target_requested_on = time_now;
                 sync_ctx.request_submissions++;
@@ -218,7 +212,7 @@ namespace sc::hpfs_log_sync
                 continue;
 
             p2p::hpfs_log_response resp;
-            if (sc::contract_fs.read_hpfs_logs(lr.min_record_id.seq_no, lr.target_record_id.seq_no, resp.log_record_bytes) == -1)
+            if (sc::contract_fs.read_hpfs_logs(lr.min_record_id.seq_no, lr.target_seq_no, resp.log_record_bytes) == -1)
                 continue;
             resp.min_record_id = lr.min_record_id;
             flatbuffers::FlatBufferBuilder fbuf(1024);
@@ -271,15 +265,9 @@ namespace sc::hpfs_log_sync
      */
     int handle_hpfs_log_sync_response(const p2p::hpfs_log_response &log_response)
     {
-        p2p::sequence_hash requested_min_seq_id;
-        {
-            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
-            requested_min_seq_id = sync_ctx.min_log_record;
-        }
-
         // Append only if the response contains min_seq_no staring from requested min seq_no.
         const p2p::sequence_hash genesis{ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
-        if (log_response.min_record_id != requested_min_seq_id)
+        if (log_response.min_record_id != sync_ctx.min_log_record)
         {
             LOG_DEBUG << "Invalid joining point in the received hpfs log response";
             return -1;
@@ -291,6 +279,30 @@ namespace sc::hpfs_log_sync
             return -1;
         }
         return 0;
+    }
+
+    /**
+     * Checking whether the ledger to and index top are matching.
+     * @return True if match otherwise false.
+    */
+    bool check_sync_completion()
+    {
+        p2p::sequence_hash last_from_index;
+        if (sc::contract_fs.get_last_seq_no_from_index(last_from_index.seq_no) == -1 ||
+            sc::contract_fs.get_hash_from_index_by_seq_no(last_from_index.hash, last_from_index.seq_no) == -1)
+        {
+            LOG_ERROR << "Error getting last ledger record data from index file.";
+            return -1;
+        }
+
+        p2p::sequence_hash last_from_ledger = ledger::ctx.get_lcl_id();
+        if (ledger::get_root_hash_from_ledger(last_from_ledger.hash, last_from_ledger.seq_no) == -1)
+        {
+            LOG_ERROR << "Error getting root hash from ledger for sequence number: " << last_from_index.seq_no;
+            return -1;
+        }
+
+        return last_from_index == last_from_ledger;
     }
 
     /**
@@ -311,7 +323,6 @@ namespace sc::hpfs_log_sync
         if (last_from_index.seq_no == ledger::genesis.seq_no || last_from_ledger.seq_no == ledger::genesis.seq_no)
         {
             // Request full ledger.
-            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
             sync_ctx.min_log_record = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
             return 0;
         }
@@ -347,10 +358,7 @@ namespace sc::hpfs_log_sync
             }
 
             if (root_hash_from_ledger == last_from_index.hash)
-            {
-                std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
                 sync_ctx.min_log_record = last_from_index;
-            }
             else
             {
                 // Fork.
@@ -385,7 +393,6 @@ namespace sc::hpfs_log_sync
         if (starting_point == 0)
         {
             // Request full ledger.
-            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
             sync_ctx.min_log_record = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
             return 0;
         }
@@ -453,13 +460,12 @@ namespace sc::hpfs_log_sync
         if (ledger_root_hash != index_root_hash)
         {
             // Remove the full log and index file data and start from scratch.
-            if (sc::contract_fs.truncate_log_file(1) == -1)
+            if (sc::contract_fs.truncate_log_file(0) == -1)
             {
-                LOG_ERROR << "Error truncating hpfs log file and index file from : " << (current_seq_no - 1);
+                LOG_ERROR << "Error truncating hpfs log file and index file from : 0";
                 return -1;
             }
             // Request full ledger
-            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
             sync_ctx.min_log_record = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
         }
         else
@@ -467,14 +473,12 @@ namespace sc::hpfs_log_sync
             // To account current_seq_no-- at the loop end.
             current_seq_no++;
 
-            // We have to truncate keeping the joining record. +1 is added to account that.
-            if (sc::contract_fs.truncate_log_file(current_seq_no + 1) == -1)
+            if (sc::contract_fs.truncate_log_file(current_seq_no) == -1)
             {
-                LOG_ERROR << "Error truncating hpfs log file and index file from : " << (current_seq_no + 1);
+                LOG_ERROR << "Error truncating hpfs log file and index file from : " << (current_seq_no);
                 return -1;
             }
             // we have found the joining point
-            std::scoped_lock<std::mutex> lock(sync_ctx.min_log_record_mutex);
             sync_ctx.min_log_record = {current_seq_no, ledger_root_hash};
         }
         return 0;

@@ -445,6 +445,8 @@ namespace hpfs
 
     /**
      * This reads the hpfs logs from given min to max ledger seq_no range.
+     * Read call will handled as chuncks in multiple threads from the hpfs. 
+     * So this function should only be called in a single thread.
      * @param min_ledger_seq_no Mininmum ledger seq number.
      * @param max_ledger_seq_no Maximum ledger seq number.
      * @param buf Buffer to read logs.
@@ -452,6 +454,10 @@ namespace hpfs
     */
     int hpfs_mount::read_hpfs_logs(const uint64_t min_ledger_seq_no, const uint64_t max_ledger_seq_no, std::vector<uint8_t> &buf)
     {
+        /**
+         * To complete the read operation. All the three open(), read() ad close() operations should be done in this order.
+         * This should be done within a single thread in atomic manner.
+        */
         const std::string index_file = mount_dir + INDEX_READ_QUERY_FULLSTOP + std::to_string(min_ledger_seq_no) + "." + std::to_string(max_ledger_seq_no);
 
         const int fd = open(index_file.c_str(), O_RDONLY);
@@ -477,11 +483,17 @@ namespace hpfs
 
     /**
      * This appends new log records to the hpfs log file.
+     * Write call will handled as chuncks in multiple threads from the hpfs. 
+     * So this function should only be called in a single thread.
      * @param buf Hpfs log record buffer to write.
      * @return Returns 0 in success, otherwise -1.
     */
     int hpfs_mount::append_hpfs_log_records(const std::vector<uint8_t> &buf)
     {
+        /**
+         * To complete the read operation. All the three open(), write() ad close() operations should be done in this order.
+         * This should be done within a single thread in atomic manner.
+        */
         const std::string index_file = mount_dir + INDEX_WRITE_QUERY_FULLSTOP + std::to_string(buf.size());
 
         const int fd = open(index_file.c_str(), O_RDWR);

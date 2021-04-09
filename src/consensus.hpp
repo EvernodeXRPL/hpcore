@@ -151,7 +151,7 @@ namespace consensus
 
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash);
 
-    int check_sync_status(const size_t unl_count, vote_counter &votes);
+    int check_sync_status(const size_t unl_count, vote_counter &votes, const p2p::sequence_hash &lcl_id);
 
     void check_sync_completion();
 
