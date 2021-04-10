@@ -9,6 +9,21 @@
 #include "ledger_common.hpp"
 #include "ledger_serve.hpp"
 
+#define RAW_DATA_RETURN(ret)                \
+    {                                       \
+        if (users_stmt != NULL)             \
+            sqlite3_finalize(users_stmt);   \
+        if (outputs_stmt != NULL)           \
+            sqlite3_finalize(outputs_stmt); \
+        if (inputs_stmt != NULL)            \
+            sqlite3_finalize(inputs_stmt);  \
+        if (inputs_fd != -1)                \
+            close(inputs_fd);               \
+        if (outputs_fd != -1)               \
+            close(outputs_fd);              \
+        return ret;                         \
+    }
+
 namespace ledger
 {
     ledger_context ctx;
@@ -21,6 +36,8 @@ namespace ledger
 
     constexpr uint32_t LEDGER_FS_ID = 1;
     constexpr int FILE_PERMS = 0644;
+    constexpr const char *RAW_INPUTS_FILENAME = "raw_inputs.blob";
+    constexpr const char *RAW_OUTPUTS_FILENAME = "raw_outputs.blob";
 
     /**
      * Perform ledger related initializations.
@@ -167,7 +184,7 @@ namespace ledger
         uint64_t shard_seq_no;
         const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB, has_updates);
 
-        if (shard_res >= 0 && insert_raw_data_records(db, proposal, consensed_users, lcl_id) != -1)
+        if (shard_res >= 0 && insert_raw_data_records(db, shard_seq_no, proposal, consensed_users, lcl_id) != -1)
         {
             sqlite::close_db(&db);
 
@@ -184,14 +201,14 @@ namespace ledger
 
     /**
      * Inserts new ledger record to the sqlite database.
-     * @param db Database connection to use.
+     * @param db The sqlite db connection for primary ledger db.
      * @param current_lcl_id Current lcl id.
-     * @param primary_shard_seq_no Current primary shard seq no.
+     * @param shard_seq_no Current primary shard seq no.
      * @param proposal The consensus proposal.
      * @param new_lcl_id Newly created ledger id.
      * @return 0 on success. -1 on failure.
      */
-    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t primary_shard_seq_no,
+    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t shard_seq_no,
                              const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id)
     {
         // Combined binary hash of consensus user binary pub keys.
@@ -243,7 +260,7 @@ namespace ledger
 
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
-            LOG_ERROR << errno << ": Error creating the ledger, shard: " << primary_shard_seq_no;
+            LOG_ERROR << errno << ": Error creating the ledger, shard: " << shard_seq_no;
             return -1;
         }
 
@@ -252,49 +269,75 @@ namespace ledger
 
     /**
      * Populates the specified raw data db with consensed users, inputs and outputs records.
+     * @param db The sqlite db connection for raw data db.
+     * @param shard_seq_no Raw shard seq no.
      * @param proposal The consensus proposal.
      * @param consensed_users Consensed users and their inputs and outputs.
      * @param lcl_id Current ledger id.
      * @return 0 on success. -1 on failure.
      */
-    int insert_raw_data_records(sqlite3 *db, const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    int insert_raw_data_records(sqlite3 *db, const uint64_t shard_seq_no, const p2p::proposal &proposal,
+                                const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
     {
         if (consensed_users.empty())
             return 0;
+
+        const std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, std::string(RAW_DIR).append("/").append(std::to_string(shard_seq_no)).append("/"));
 
         // We reuse sqlite prepared statements to improve looping performance.
 
         sqlite3_stmt *users_stmt = sqlite::prepare_user_insert(db);
         sqlite3_stmt *outputs_stmt = NULL;
+        sqlite3_stmt *inputs_stmt = NULL;
+
+        int inputs_fd = -1;       // Raw inputs storage file for the shard. Only created if there are any inputs.
+        size_t inputs_offset = 0; // Current writing offset of the inputs file.
+
+        int outputs_fd = -1;       // Raw outputs storage file for the shard. Only created if there are any outputs.
+        size_t outputs_offset = 0; // Current writing offset of the outputs file.
+
         for (const auto &[pubkey, cu] : consensed_users)
         {
             if (sqlite::insert_user_record(users_stmt, lcl_id.seq_no, pubkey) == -1)
-                return -1;
+                RAW_DATA_RETURN(-1);
 
             {
-                sqlite3_stmt *inputs_stmt = sqlite::prepare_user_input_insert(db);
+                inputs_stmt = sqlite::prepare_user_input_insert(db);
                 for (const consensus::consensed_user_input &cui : cu.consensed_inputs)
                 {
+                    // Create and open the raw inputs file for the shard if needed.
+                    if (inputs_fd == -1 && (inputs_fd = create_raw_data_blob_file(shard_path, RAW_INPUTS_FILENAME, inputs_offset)) == -1)
+                        RAW_DATA_RETURN(-1);
+
+                    // Write the input to the blob file. Then we save the written offset and blob size in sqlite record.
+                    std::string buf;
+                    usr::input_store.read_buf(cui.input, buf);
+                    if (write(inputs_fd, buf.data(), buf.size()) == -1)
+                        RAW_DATA_RETURN(-1);
+
                     std::string_view hash = util::get_string_suffix(cui.ordered_hash, BLAKE3_OUT_LEN);
                     std::string_view nonce = cui.ordered_hash.substr(0, cui.ordered_hash.size() - hash.size());
 
-                    for (int i = 0; i < 60; i++)
-                    {
-                        if (sqlite::insert_user_input_record(inputs_stmt, lcl_id.seq_no, pubkey, hash, nonce, 0, 0) == -1)
-                            return -1;
-                    }
+                    if (sqlite::insert_user_input_record(inputs_stmt, lcl_id.seq_no, pubkey, hash, nonce, inputs_offset, buf.size()) == -1)
+                        RAW_DATA_RETURN(-1);
+
+                    inputs_offset += buf.size();
                 }
                 sqlite3_finalize(inputs_stmt);
             }
 
             if (!cu.consensed_outputs.outputs.empty())
             {
+                // Create and open the raw outputs file for the shard if needed.
+                if (outputs_fd == -1 && (outputs_fd = create_raw_data_blob_file(shard_path, RAW_OUTPUTS_FILENAME, outputs_offset)) == -1)
+                    RAW_DATA_RETURN(-1);
+
                 // Prepare the output insertion stamement only once.
                 if (outputs_stmt == NULL)
                     outputs_stmt = sqlite::prepare_user_output_insert(db);
 
                 if (sqlite::insert_user_output_record(outputs_stmt, lcl_id.seq_no, pubkey, cu.consensed_outputs.hash, 0, 0) == -1)
-                    return -1;
+                    RAW_DATA_RETURN(-1);
             }
 
             if (outputs_stmt != NULL)
@@ -303,7 +346,22 @@ namespace ledger
             sqlite3_finalize(users_stmt);
         }
 
-        return 0;
+        RAW_DATA_RETURN(0);
+    }
+
+    int create_raw_data_blob_file(const std::string &shard_path, const char *filename, size_t &file_size)
+    {
+        const std::string inputs_file = shard_path + RAW_INPUTS_FILENAME;
+        int fd = open(inputs_file.data(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
+        if (fd == -1)
+            LOG_ERROR << errno << ": Error when creating file " << inputs_file;
+
+        struct stat st;
+        if (fstat(fd, &st) == -1)
+            LOG_ERROR << errno << ": Error when stat of file " << inputs_file;
+
+        file_size = st.st_size;
+        return fd;
     }
 
     /**
