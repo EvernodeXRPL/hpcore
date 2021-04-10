@@ -82,7 +82,7 @@ namespace ledger
     int insert_raw_data_records(sqlite3 *db, const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
 
     int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size,
-                      const std::string &shard_dir, const std::string &db_name);
+                      const char *shard_dir, const char *db_name, const bool open_db);
 
     void remove_old_shards(const uint64_t lcl_seq_no, const uint64_t shard_size, const uint64_t max_shards, std::string_view shard_parent_dir);
 

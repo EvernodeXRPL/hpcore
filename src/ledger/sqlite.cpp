@@ -14,6 +14,7 @@ namespace ledger::sqlite
     constexpr const char *CREATE_TABLE = "CREATE TABLE IF NOT EXISTS ";
     constexpr const char *CREATE_INDEX = "CREATE INDEX ";
     constexpr const char *CREATE_UNIQUE_INDEX = "CREATE UNIQUE INDEX ";
+    constexpr const char *JOURNAL_MODE_OFF = "PRAGMA journal_mode=OFF";
     constexpr const char *INSERT_INTO = "INSERT INTO ";
     constexpr const char *PRIMARY_KEY = "PRIMARY KEY";
     constexpr const char *NOT_NULL = "NOT NULL";
@@ -55,6 +56,12 @@ namespace ledger::sqlite
             LOG_ERROR << "Can't open database: " << ret << ", " << sqlite3_errmsg(*db);
             return -1;
         }
+
+        // We turn off journaling for the db because we don't need transacion support.
+        // Journaling mode introduces lot of extra underyling file system operations which causes lot of overhead.
+        if (exec_sql(*db, JOURNAL_MODE_OFF) == -1)
+            return -1;
+
         return 0;
     }
 
@@ -393,28 +400,52 @@ namespace ledger::sqlite
         return -1;
     }
 
-    int insert_user_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view pubkey)
+    sqlite3_stmt *prepare_user_insert(sqlite3 *db)
     {
         sqlite3_stmt *stmt;
-        if (sqlite3_prepare_v2(db, INSERT_INTO_USERS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+        if (sqlite3_prepare_v2(db, INSERT_INTO_USERS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL)
+            return stmt;
+
+        return NULL;
+    }
+
+    sqlite3_stmt *prepare_user_input_insert(sqlite3 *db)
+    {
+        sqlite3_stmt *stmt;
+        if (sqlite3_prepare_v2(db, INSERT_INTO_USER_INPUTS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL)
+            return stmt;
+
+        return NULL;
+    }
+
+    sqlite3_stmt *prepare_user_output_insert(sqlite3 *db)
+    {
+        sqlite3_stmt *stmt;
+        if (sqlite3_prepare_v2(db, INSERT_INTO_USER_OUTPUTS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL)
+            return stmt;
+
+        return NULL;
+    }
+
+    int insert_user_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey)
+    {
+        if (sqlite3_reset(stmt) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, pubkey) &&
             sqlite3_step(stmt) == SQLITE_DONE)
         {
-            sqlite3_finalize(stmt);
             return 0;
         }
 
-        LOG_ERROR << "Error inserting user record. " << sqlite3_errmsg(db);
+        LOG_ERROR << "Error inserting user record.";
         sqlite3_finalize(stmt);
         return -1;
     }
 
-    int insert_user_input_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+    int insert_user_input_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
                                  std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size)
     {
-        sqlite3_stmt *stmt;
-        if (sqlite3_prepare_v2(db, INSERT_INTO_USER_INPUTS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+        if (sqlite3_reset(stmt) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, user_pubkey) &&
             BIND_H32_BLOB(3, hash) &&
@@ -423,20 +454,18 @@ namespace ledger::sqlite
             sqlite3_bind_int64(stmt, 6, blob_size) == SQLITE_OK &&
             sqlite3_step(stmt) == SQLITE_DONE)
         {
-            sqlite3_finalize(stmt);
             return 0;
         }
 
-        LOG_ERROR << "Error inserting user input record. " << sqlite3_errmsg(db);
+        LOG_ERROR << "Error inserting user input record.";
         sqlite3_finalize(stmt);
         return -1;
     }
 
-    int insert_user_output_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view user_pubkey,
-                                 std::string_view hash, const uint64_t blob_offset, const uint64_t blob_size)
+    int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+                                  std::string_view hash, const uint64_t blob_offset, const uint64_t blob_size)
     {
-        sqlite3_stmt *stmt;
-        if (sqlite3_prepare_v2(db, INSERT_INTO_USER_INPUTS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+        if (sqlite3_reset(stmt) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, user_pubkey) &&
             BIND_H32_BLOB(3, hash) &&
@@ -444,11 +473,10 @@ namespace ledger::sqlite
             sqlite3_bind_int64(stmt, 5, blob_size) == SQLITE_OK &&
             sqlite3_step(stmt) == SQLITE_DONE)
         {
-            sqlite3_finalize(stmt);
             return 0;
         }
 
-        LOG_ERROR << "Error inserting user output record. " << sqlite3_errmsg(db);
+        LOG_ERROR << "Error inserting user output record.";
         sqlite3_finalize(stmt);
         return -1;
     }

@@ -118,41 +118,37 @@ namespace ledger
 
         // Prepare shard folders and database and get the shard sequence number.
         uint64_t shard_seq_no;
-        const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB);
+        const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB, true);
 
-        // If new shard got created, initialize the db.
-        if (shard_res == 0 || (shard_res == 1 && sqlite::initialize_ledger_db(db) != -1))
+        // Insert primary ledger record.
+        if (shard_res >= 0 && insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_lcl_id) != -1)
         {
-            // Insert primary ledger record.
-            if (insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_lcl_id) != -1)
+            sqlite::close_db(&db);
+            ctx.set_lcl_id(new_lcl_id);
+
+            const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
+            util::h32 last_primary_shard_hash;
+            if (ledger_fs.get_hash(last_primary_shard_hash, hpfs::RW_SESSION_NAME, shard_vpath) == -1)
             {
-                sqlite::close_db(&db);
-                ctx.set_lcl_id(new_lcl_id);
-
-                const std::string shard_vpath = std::string(ledger::PRIMARY_DIR).append("/").append(std::to_string(shard_seq_no));
-                util::h32 last_primary_shard_hash;
-                if (ledger_fs.get_hash(last_primary_shard_hash, hpfs::RW_SESSION_NAME, shard_vpath) == -1)
-                {
-                    LOG_ERROR << errno << ": Error reading shard hash: " << shard_seq_no;
-                    return -1;
-                }
-
-                // Update the last shard hash and shard seqence number tracker when a new ledger is created.
-                ctx.set_last_primary_shard_id(p2p::sequence_hash{shard_seq_no, last_primary_shard_hash});
-
-                // Update the hpfs log index file only in full history mode.
-                if (conf::cfg.node.history == conf::HISTORY::FULL && sc::contract_fs.update_hpfs_log_index() == -1)
-                {
-                    LOG_ERROR << errno << ": Error updating the hpfs log index file.";
-                    return -1;
-                }
-
-                // Remove old shards if new one got created.
-                if (shard_res == 1)
-                    remove_old_shards(new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
-
-                return 0;
+                LOG_ERROR << errno << ": Error reading shard hash: " << shard_seq_no;
+                return -1;
             }
+
+            // Update the last shard hash and shard seqence number tracker when a new ledger is created.
+            ctx.set_last_primary_shard_id(p2p::sequence_hash{shard_seq_no, last_primary_shard_hash});
+
+            // Update the hpfs log index file only in full history mode.
+            if (conf::cfg.node.history == conf::HISTORY::FULL && sc::contract_fs.update_hpfs_log_index() == -1)
+            {
+                LOG_ERROR << errno << ": Error updating the hpfs log index file.";
+                return -1;
+            }
+
+            // Remove old shards if new one got created.
+            if (shard_res == 1)
+                remove_old_shards(new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
+
+            return 0;
         }
 
         sqlite::close_db(&db);
@@ -161,27 +157,25 @@ namespace ledger
 
     int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
     {
-        if (conf::cfg.node.history != conf::HISTORY::FULL && conf::cfg.node.history_config.max_raw_shards == 0)
+        if ((conf::cfg.node.history != conf::HISTORY::FULL && conf::cfg.node.history_config.max_raw_shards == 0))
             return 0;
+
+        const bool has_updates = !consensed_users.empty();
 
         // Prepare shard folders and database and get the shard sequence number.
         sqlite3 *db = NULL;
         uint64_t shard_seq_no;
-        const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB);
+        const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB, has_updates);
 
-        // If new shard got created, initialize the db.
-        if (shard_res == 0 || (shard_res == 1 && sqlite::initialize_ledger_raw_db(db) != -1))
+        if (shard_res >= 0 && insert_raw_data_records(db, proposal, consensed_users, lcl_id) != -1)
         {
-            if (insert_raw_data_records(db, proposal, consensed_users, lcl_id) != -1)
-            {
-                sqlite::close_db(&db);
+            sqlite::close_db(&db);
 
-                // Remove old shards if new one got created.
-                if (shard_res == 1)
-                    remove_old_shards(lcl_id.seq_no, RAW_SHARD_SIZE, conf::cfg.node.history_config.max_raw_shards, RAW_DIR);
+            // Remove old shards if new one got created.
+            if (shard_res == 1)
+                remove_old_shards(lcl_id.seq_no, RAW_SHARD_SIZE, conf::cfg.node.history_config.max_raw_shards, RAW_DIR);
 
-                return 0;
-            }
+            return 0;
         }
 
         sqlite::close_db(&db);
@@ -265,23 +259,48 @@ namespace ledger
      */
     int insert_raw_data_records(sqlite3 *db, const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
     {
+        if (consensed_users.empty())
+            return 0;
+
+        // We reuse sqlite prepared statements to improve looping performance.
+
+        sqlite3_stmt *users_stmt = sqlite::prepare_user_insert(db);
+        sqlite3_stmt *outputs_stmt = NULL;
         for (const auto &[pubkey, cu] : consensed_users)
         {
-            if (sqlite::insert_user_record(db, lcl_id.seq_no, pubkey) == -1)
+            if (sqlite::insert_user_record(users_stmt, lcl_id.seq_no, pubkey) == -1)
                 return -1;
 
-            for (const consensus::consensed_user_input &cui : cu.consensed_inputs)
             {
-                std::string_view hash = util::get_string_suffix(cui.ordered_hash, BLAKE3_OUT_LEN);
-                std::string_view nonce = cui.ordered_hash.substr(0, cui.ordered_hash.size() - hash.size());
+                sqlite3_stmt *inputs_stmt = sqlite::prepare_user_input_insert(db);
+                for (const consensus::consensed_user_input &cui : cu.consensed_inputs)
+                {
+                    std::string_view hash = util::get_string_suffix(cui.ordered_hash, BLAKE3_OUT_LEN);
+                    std::string_view nonce = cui.ordered_hash.substr(0, cui.ordered_hash.size() - hash.size());
 
-                if (sqlite::insert_user_input_record(db, lcl_id.seq_no, pubkey, hash, nonce, 0, 0) == -1)
+                    for (int i = 0; i < 60; i++)
+                    {
+                        if (sqlite::insert_user_input_record(inputs_stmt, lcl_id.seq_no, pubkey, hash, nonce, 0, 0) == -1)
+                            return -1;
+                    }
+                }
+                sqlite3_finalize(inputs_stmt);
+            }
+
+            if (!cu.consensed_outputs.outputs.empty())
+            {
+                // Prepare the output insertion stamement only once.
+                if (outputs_stmt == NULL)
+                    outputs_stmt = sqlite::prepare_user_output_insert(db);
+
+                if (sqlite::insert_user_output_record(outputs_stmt, lcl_id.seq_no, pubkey, cu.consensed_outputs.hash, 0, 0) == -1)
                     return -1;
             }
 
-            if (!cu.consensed_outputs.outputs.empty() &&
-                sqlite::insert_user_output_record(db, lcl_id.seq_no, pubkey, cu.consensed_outputs.hash, 0, 0) == -1)
-                return -1;
+            if (outputs_stmt != NULL)
+                sqlite3_finalize(outputs_stmt);
+
+            sqlite3_finalize(users_stmt);
         }
 
         return 0;
@@ -291,9 +310,11 @@ namespace ledger
      * Creates or open a db connection to the shard based on the params. This is used to create primary and raw shards.
      * @param db Database connection to be opened.
      * @param ledger_seq_no Ledger sequence number.
+     * @param open_db Whether a connection to the sql db must be opened or not.
      * @return 0 if shard already exists. 1 if new shard got created. -1 on failure.
      */
-    int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size, const std::string &shard_dir, const std::string &db_name)
+    int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size,
+                      const char *shard_dir, const char *db_name, const bool open_db)
     {
         // Construct shard path.
         shard_seq_no = (ledger_seq_no - 1) / shard_size;
@@ -311,9 +332,16 @@ namespace ledger
             }
 
             // Creating ledger database and open a database connection.
-            if (sqlite::open_db(shard_path + "/" + db_name.data(), db) == -1)
+            if (sqlite::open_db(shard_path + "/" + db_name, db) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the shard database in " << shard_path;
+                LOG_ERROR << errno << ": Error openning the database in " << shard_path;
+                return -1;
+            }
+
+            if ((shard_dir == PRIMARY_DIR && sqlite::initialize_ledger_db(*db) == -1) ||
+                (shard_dir == RAW_DIR && sqlite::initialize_ledger_raw_db(*db) == -1))
+            {
+                LOG_ERROR << errno << ": Error initilizing the database in " << shard_path;
                 return -1;
             }
 
@@ -324,10 +352,14 @@ namespace ledger
                 return -1;
             }
 
+            // Close the connection if it doesn't need to be retained.
+            if (!open_db)
+                sqlite::close_db(db);
+
             util::h32 prev_shard_hash;
             if (shard_seq_no > 0)
             {
-                const std::string prev_shard_vpath = shard_dir + "/" + std::to_string(shard_seq_no - 1);
+                const std::string prev_shard_vpath = std::string(shard_dir) + "/" + std::to_string(shard_seq_no - 1);
                 if (ledger_fs.get_hash(prev_shard_hash, hpfs::RW_SESSION_NAME, prev_shard_vpath) < 1)
                 {
                     LOG_ERROR << errno << ": Error getting shard hash in vpath: " << prev_shard_vpath << " for previous shard hash.";
@@ -372,7 +404,7 @@ namespace ledger
         }
         else
         {
-            if (sqlite::open_db(shard_path + "/" + db_name, db) == -1)
+            if (open_db && sqlite::open_db(shard_path + "/" + db_name, db) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database in " << shard_path;
                 return -1;

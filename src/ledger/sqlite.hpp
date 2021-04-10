@@ -65,12 +65,18 @@ namespace ledger::sqlite
 
     int insert_ledger_row(sqlite3 *db, const ledger::ledger_record &ledger);
 
-    int insert_user_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view pubkey);
+    sqlite3_stmt *prepare_user_insert(sqlite3 *db);
 
-    int insert_user_input_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+    sqlite3_stmt *prepare_user_input_insert(sqlite3 *db);
+
+    sqlite3_stmt *prepare_user_output_insert(sqlite3 *db);
+
+    int insert_user_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey);
+
+    int insert_user_input_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
                                  std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size);
 
-    int insert_user_output_record(sqlite3 *db, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+    int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
                                   std::string_view hash, const uint64_t blob_offset, const uint64_t blob_size);
 
     int get_last_ledger(sqlite3 *db, ledger::ledger_record &ledger);
