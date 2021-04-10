@@ -33,7 +33,7 @@ namespace ledger::sqlite
     constexpr const char *INSERT_INTO_USER_INPUTS = "INSERT INTO inputs(ledger_seq_no, user_pubkey, hash, nonce,"
                                                     " blob_offset, blob_size) VALUES(?,?,?,?,?,?)";
     constexpr const char *INSERT_INTO_USER_OUTPUTS = "INSERT INTO outputs(ledger_seq_no, user_pubkey, hash,"
-                                                     " blob_offset, blob_size) VALUES(?,?,?,?,?)";
+                                                     " blob_offset, output_count) VALUES(?,?,?,?,?)";
 
 #define PUBKEY_SIZE 33
 #define BIND_H32_BLOB(idx, field) (field.size() == sizeof(util::h32) && sqlite3_bind_blob(stmt, idx, field.data(), sizeof(util::h32), SQLITE_STATIC) == SQLITE_OK)
@@ -335,7 +335,7 @@ namespace ledger::sqlite
                 table_column_info("user_pubkey", COLUMN_DATA_TYPE::BLOB),
                 table_column_info("hash", COLUMN_DATA_TYPE::BLOB),
                 table_column_info("blob_offset", COLUMN_DATA_TYPE::INT),
-                table_column_info("blob_size", COLUMN_DATA_TYPE::INT)};
+                table_column_info("output_count", COLUMN_DATA_TYPE::INT)};
 
             if (create_table(db, OUTPUTS_TABLE, input_columns) == -1 ||
                 create_index(db, OUTPUTS_TABLE, "ledger_seq_no", false) == -1 ||
@@ -463,14 +463,14 @@ namespace ledger::sqlite
     }
 
     int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
-                                  std::string_view hash, const uint64_t blob_offset, const uint64_t blob_size)
+                                  std::string_view hash, const uint64_t blob_offset, const uint64_t output_count)
     {
         if (sqlite3_reset(stmt) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, user_pubkey) &&
             BIND_H32_BLOB(3, hash) &&
             sqlite3_bind_int64(stmt, 4, blob_offset) == SQLITE_OK &&
-            sqlite3_bind_int64(stmt, 5, blob_size) == SQLITE_OK &&
+            sqlite3_bind_int64(stmt, 5, output_count) == SQLITE_OK &&
             sqlite3_step(stmt) == SQLITE_DONE)
         {
             return 0;

@@ -77,7 +77,7 @@ namespace ledger::sqlite
                                  std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size);
 
     int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
-                                  std::string_view hash, const uint64_t blob_offset, const uint64_t blob_size);
+                                  std::string_view hash, const uint64_t blob_offset, const uint64_t output_count);
 
     int get_last_ledger(sqlite3 *db, ledger::ledger_record &ledger);
 
