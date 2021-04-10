@@ -268,7 +268,7 @@ namespace ledger
     }
 
     /**
-     * Populates the specified raw data db with consensed users, inputs and outputs records.
+     * Populates the raw data db and blob files with consensed users, inputs and outputs records.
      * @param db The sqlite db connection for raw data db.
      * @param shard_seq_no Raw shard seq no.
      * @param proposal The consensus proposal.
@@ -279,6 +279,9 @@ namespace ledger
     int insert_raw_data_records(sqlite3 *db, const uint64_t shard_seq_no, const p2p::proposal &proposal,
                                 const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
     {
+        // We keep sqlite records about users, inputs and outputs. To store raw input and output content, we use the corresponding blob file
+        // within the shard. Each shard has a sqlite db, raw inputs blob file and raw outputs blob file.
+
         if (consensed_users.empty())
             return 0;
 
@@ -290,47 +293,51 @@ namespace ledger
         sqlite3_stmt *outputs_stmt = NULL;
         sqlite3_stmt *inputs_stmt = NULL;
 
-        int in_fd = -1;          // Raw inputs storage file for the shard. Only created if there are any inputs.
-        size_t in_fd_offset = 0; // Current writing offset of the inputs file.
-
-        int out_fd = -1;          // Raw outputs storage file for the shard. Only created if there are any outputs.
-        size_t out_fd_offset = 0; // Current writing offset of the outputs file.
+        int in_fd = -1;     // Raw inputs storage file for the shard. Only created and opened if there are any inputs.
+        int out_fd = -1;    // Raw outputs storage file for the shard. Only created and opened if there are any outputs.
+        size_t in_pos = 0;  // Current writing position offset of the inputs file.
+        size_t out_pos = 0; // Current writing position offset of the outputs file.
 
         for (const auto &[pubkey, cu] : consensed_users)
         {
             if (sqlite::insert_user_record(users_stmt, lcl_id.seq_no, pubkey) == -1)
                 RAW_DATA_RETURN(-1);
 
+            if (!cu.consensed_inputs.empty())
             {
-                inputs_stmt = sqlite::prepare_user_input_insert(db);
+                if (inputs_stmt == NULL)
+                    inputs_stmt = sqlite::prepare_user_input_insert(db);
+
                 for (const consensus::consensed_user_input &cui : cu.consensed_inputs)
                 {
                     // Create and open the raw inputs file for the shard if needed.
-                    if (in_fd == -1 && (in_fd = create_raw_data_blob_file(shard_path, RAW_INPUTS_FILENAME, in_fd_offset)) == -1)
+                    if (in_fd == -1 && (in_fd = create_raw_data_blob_file(shard_path, RAW_INPUTS_FILENAME, in_pos)) == -1)
                         RAW_DATA_RETURN(-1);
 
                     // Write the input to the blob file. Then we save the written offset and blob size in sqlite record.
                     std::string buf;
                     usr::input_store.read_buf(cui.input, buf);
                     if (write(in_fd, buf.data(), buf.size()) == -1)
+                    {
+                        LOG_ERROR << errno << ": Error when writing input blob.";
                         RAW_DATA_RETURN(-1);
+                    }
 
                     // Insert sqlite record.
                     std::string_view hash = util::get_string_suffix(cui.ordered_hash, BLAKE3_OUT_LEN);
                     std::string_view nonce = cui.ordered_hash.substr(0, cui.ordered_hash.size() - hash.size());
 
-                    if (sqlite::insert_user_input_record(inputs_stmt, lcl_id.seq_no, pubkey, hash, nonce, in_fd_offset, buf.size()) == -1)
+                    if (sqlite::insert_user_input_record(inputs_stmt, lcl_id.seq_no, pubkey, hash, nonce, in_pos, buf.size()) == -1)
                         RAW_DATA_RETURN(-1);
 
-                    in_fd_offset += buf.size(); // Increament the blob file write offset so next write will happen correctly.
+                    in_pos += buf.size(); // Increament the blob file write offset so next write will happen correctly.
                 }
-                sqlite3_finalize(inputs_stmt);
             }
 
             if (!cu.consensed_outputs.outputs.empty())
             {
                 // Create and open the raw outputs file for the shard if needed.
-                if (out_fd == -1 && (out_fd = create_raw_data_blob_file(shard_path, RAW_OUTPUTS_FILENAME, out_fd_offset)) == -1)
+                if (out_fd == -1 && (out_fd = create_raw_data_blob_file(shard_path, RAW_OUTPUTS_FILENAME, out_pos)) == -1)
                     RAW_DATA_RETURN(-1);
 
                 // Write all the outputs of this user to the blob file. Then we save the written offset and output count in sqlite record.
@@ -340,7 +347,7 @@ namespace ledger
                 // Prepare write header.
                 const uint64_t output_count = cu.consensed_outputs.outputs.size();
                 std::vector<uint8_t> header(output_count * sizeof(off_t)); // Header containing list of offsets.
-                off_t out_buf_offset = out_fd_offset + header.size();      // Output buffers will be written after the header.
+                off_t out_buf_offset = out_pos + header.size();            // Output buffers will be written after the header.
                 for (size_t i = 0; i < output_count; i++)
                 {
                     uint8_t *header_pos = header.data() + (i * sizeof(off_t));
@@ -350,7 +357,7 @@ namespace ledger
 
                 // Write the header and output buffers.
                 iovec memsegs[1 + output_count];
-                memsegs[1] = iovec{header.data(), header.size()};
+                memsegs[0] = iovec{header.data(), header.size()};
                 uint64_t total_write_size = header.size();
                 for (size_t i = 0; i < output_count; i++)
                 {
@@ -359,28 +366,33 @@ namespace ledger
                     total_write_size += output.size();
                 }
                 if (writev(out_fd, memsegs, 1 + output_count) == -1)
+                {
+                    LOG_ERROR << errno << ": Error when writing outputs blobs.";
                     RAW_DATA_RETURN(-1);
+                }
 
                 // Insert sqlite record.
                 // Prepare the output insertion stamement only once.
                 if (outputs_stmt == NULL)
                     outputs_stmt = sqlite::prepare_user_output_insert(db);
 
-                if (sqlite::insert_user_output_record(outputs_stmt, lcl_id.seq_no, pubkey, cu.consensed_outputs.hash, out_fd_offset, output_count) == -1)
+                if (sqlite::insert_user_output_record(outputs_stmt, lcl_id.seq_no, pubkey, cu.consensed_outputs.hash, out_pos, output_count) == -1)
                     RAW_DATA_RETURN(-1);
 
-                out_fd_offset += total_write_size; // Increament the blob file write offset so next write will happen correctly.
+                out_pos += total_write_size; // Increament the blob file write offset so next write will happen correctly.
             }
-
-            if (outputs_stmt != NULL)
-                sqlite3_finalize(outputs_stmt);
-
-            sqlite3_finalize(users_stmt);
         }
 
         RAW_DATA_RETURN(0);
     }
 
+    /**
+     * Open or create the specified file name for appending raw blob data.
+     * @param shard_path Parent shard directory.
+     * @param filename Name of the blob file.
+     * @param file_size Current file size.
+     * @return 0 on success. -1 on failure.
+     */
     int create_raw_data_blob_file(const std::string &shard_path, const char *filename, size_t &file_size)
     {
         const std::string inputs_file = shard_path + RAW_INPUTS_FILENAME;

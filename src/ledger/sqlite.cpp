@@ -424,11 +424,18 @@ namespace ledger::sqlite
         if (sqlite3_prepare_v2(db, INSERT_INTO_USER_OUTPUTS, -1, &stmt, 0) == SQLITE_OK && stmt != NULL)
             return stmt;
 
+        LOG_ERROR << "Prepare sqlite statement failed.";
         return NULL;
     }
 
     int insert_user_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey)
     {
+        if (stmt == NULL)
+        {
+            LOG_ERROR << "Sqlite statement null.";
+            return -1;
+        }
+
         if (sqlite3_reset(stmt) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, pubkey) &&
@@ -445,6 +452,12 @@ namespace ledger::sqlite
     int insert_user_input_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
                                  std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size)
     {
+        if (stmt == NULL)
+        {
+            LOG_ERROR << "Sqlite statement null.";
+            return -1;
+        }
+
         if (sqlite3_reset(stmt) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, user_pubkey) &&
@@ -465,6 +478,12 @@ namespace ledger::sqlite
     int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
                                   std::string_view hash, const uint64_t blob_offset, const uint64_t output_count)
     {
+        if (stmt == NULL)
+        {
+            LOG_ERROR << "Sqlite statement null.";
+            return -1;
+        }
+
         if (sqlite3_reset(stmt) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, user_pubkey) &&
