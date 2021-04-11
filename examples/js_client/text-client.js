@@ -93,8 +93,13 @@ async function main() {
         rl.question('', (inp) => {
 
             if (inp.length > 0) {
-                if (inp.startsWith("read "))
+                if (inp.startsWith("read ")) {
                     hpc.sendContractReadRequest(inp.substr(5));
+                }
+                else if (inp.startsWith("ledger ")) {
+                    hpc.getLedgerBySeqNo(parseInt(inp.substr(7)), true, true)
+                        .then(result => console.log(result));
+                }
                 else {
                     hpc.submitContractInput(inp).then(input => {
                         // console.log(input.hash);

@@ -322,7 +322,7 @@ namespace ledger::sqlite
                 table_column_info("ledger_seq_no", COLUMN_DATA_TYPE::INT),
                 table_column_info("pubkey", COLUMN_DATA_TYPE::BLOB),
                 table_column_info("hash", COLUMN_DATA_TYPE::BLOB),
-                table_column_info("nonce", COLUMN_DATA_TYPE::BLOB),
+                table_column_info("nonce", COLUMN_DATA_TYPE::INT),
                 table_column_info("blob_offset", COLUMN_DATA_TYPE::INT),
                 table_column_info("blob_size", COLUMN_DATA_TYPE::INT)};
 
