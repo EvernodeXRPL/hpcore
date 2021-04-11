@@ -40,7 +40,7 @@ namespace msg::usrmsg::json
     int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig,
                                        const jsoncons::json &d);
 
-    int extract_input_container(std::string &input, std::string &nonce,
+    int extract_input_container(std::string &input, uint64_t &nonce,
                                 uint64_t &max_ledger_seq_no, std::string_view contentjson);
 
     int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::json &d);

@@ -9,11 +9,12 @@ namespace usr
     {
     private:
         // Keeps short-lived nonces and signatures with their absolute expiration time.
-        std::unordered_map<std::string, std::tuple<std::string, std::string, uint64_t>> nonce_map;
+        // Keyed by user binary pubkey.
+        std::unordered_map<std::string, std::tuple<uint64_t, std::string, uint64_t>> nonce_map;
         void cleanup();
 
     public:
-        int check(const std::string &pubkey, const std::string &nonce, const std::string &sig, const uint64_t &max_ledger_seq_no, const bool no_add = false);
+        int check(const std::string &pubkey, const uint64_t &nonce, const std::string &sig, const uint64_t &max_ledger_seq_no, const bool no_add = false);
     };
 
 } // namespace usr

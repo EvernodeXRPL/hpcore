@@ -488,6 +488,17 @@ namespace util
     }
 
     /**
+     * Returns a string buffer containing uint64 bytes.
+     */
+    const std::string uint64_to_string_bytes(const uint64_t x)
+    {
+        std::string s;
+        s.resize(sizeof(uint64_t));
+        uint64_to_bytes((uint8_t *)s.data(), x);
+        return s;
+    }
+
+    /**
      * Returns the substring view from the end of the provided string view.
      */
     std::string_view get_string_suffix(std::string_view sv, const size_t suffix_len)

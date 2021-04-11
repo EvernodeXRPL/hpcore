@@ -367,12 +367,12 @@ namespace msg::usrmsg::bson
      * @param contentjson The bson input container message.
      *                    {
      *                      "input": <binary buffer>,
-     *                      "nonce": "<random string with optional sorted order>",
+     *                      "nonce": <integer>, // Indicates input ordering.
      *                      "max_ledger_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_ledger_seq_no, std::string_view contentbson)
+    int extract_input_container(std::string &input, uint64_t &nonce, uint64_t &max_ledger_seq_no, std::string_view contentbson)
     {
         jsoncons::ojson d;
         try
@@ -400,7 +400,7 @@ namespace msg::usrmsg::bson
         const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_INPUT].as_byte_string_view();
         input = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
 
-        nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
+        nonce = d[msg::usrmsg::FLD_NONCE].as<uint64_t>();
         max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
         return 0;
     }

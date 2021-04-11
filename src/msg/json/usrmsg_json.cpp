@@ -715,12 +715,12 @@ namespace msg::usrmsg::json
      * @param contentjson The json string containing the input container message.
      *                    {
      *                      "input": "<any string>",
-     *                      "nonce": "<random string with optional sorted order>",
+     *                      "nonce": <integer>, // Indicates input ordering.
      *                      "max_ledger_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_ledger_seq_no, std::string_view contentjson)
+    int extract_input_container(std::string &input, uint64_t &nonce, uint64_t &max_ledger_seq_no, std::string_view contentjson)
     {
         jsoncons::json d;
         try
@@ -746,7 +746,7 @@ namespace msg::usrmsg::json
         }
 
         input = d[msg::usrmsg::FLD_INPUT].as<std::string>();
-        nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
+        nonce = d[msg::usrmsg::FLD_NONCE].as<uint64_t>();
         max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
 
         return 0;
