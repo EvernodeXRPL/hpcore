@@ -2,6 +2,7 @@
 #include "ledger_common.hpp"
 #include "ledger.hpp"
 #include "sqlite.hpp"
+#include "../conf.hpp"
 #include "../util/version.hpp"
 
 namespace ledger::query
@@ -161,6 +162,10 @@ namespace ledger::query
 
         for (ledger_user_input &inp : inputs)
         {
+            // Do not return other users' blobs if consensus is private.
+            if (!conf::cfg.contract.is_consensus_public && inp.pubkey != user_pubkey)
+                continue;
+
             inp.blob.resize(inp.blob_size);
             if (util::read_from_fd(fd, inp.blob.data(), inp.blob_size, inp.blob_offset, blob_file) == -1)
             {
@@ -202,6 +207,10 @@ namespace ledger::query
         // Loop through each user's blob groups.
         for (ledger_user_output &user : outputs)
         {
+            // Do not return other users' blobs if consensus is private.
+            if (!conf::cfg.contract.is_consensus_public && user.pubkey != user_pubkey)
+                continue;
+
             // Output blobs for each user are grouped. Group header contains all individual blob offsets and sizes
             // for that user, followed by actual blobs.
 
