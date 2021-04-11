@@ -155,7 +155,7 @@ namespace ledger::query
         const int fd = open(blob_file.data(), O_RDONLY);
         if (fd == -1)
         {
-            LOG_ERROR << errno << " Error in query when opening " << blob_file;
+            LOG_ERROR << errno << ": Error in query when opening " << blob_file;
             return -1;
         }
 
@@ -195,7 +195,7 @@ namespace ledger::query
         const int fd = open(blob_file.data(), O_RDONLY);
         if (fd == -1)
         {
-            LOG_ERROR << errno << " Error in query when opening " << blob_file;
+            LOG_ERROR << errno << ": Error in query when opening " << blob_file;
             return -1;
         }
 
@@ -229,6 +229,7 @@ namespace ledger::query
                     close(fd);
                     return -1;
                 }
+                user.outputs.push_back(std::move(output));
             }
         }
 

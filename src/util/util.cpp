@@ -363,7 +363,7 @@ namespace util
         const int res = pread(fd, buf, size, offset);
         if (res == -1)
         {
-            LOG_ERROR << errno << " Error when reading " << file_name;
+            LOG_ERROR << errno << ": Error when reading " << file_name;
             return -1;
         }
         else if (res < size)

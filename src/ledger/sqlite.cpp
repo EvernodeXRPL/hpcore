@@ -55,7 +55,8 @@ namespace ledger::sqlite
     int open_db(std::string_view db_name, sqlite3 **db, const bool read_only)
     {
         int ret;
-        if ((ret = sqlite3_open_v2(db_name.data(), db, (read_only ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE), 0)) != SQLITE_OK)
+        const int flags = read_only ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+        if ((ret = sqlite3_open_v2(db_name.data(), db, flags, 0)) != SQLITE_OK)
         {
             *db = NULL;
             LOG_ERROR << "Can't open database: " << ret << ", " << sqlite3_errmsg(*db);
@@ -614,11 +615,11 @@ namespace ledger::sqlite
     {
         ledger::ledger_user_input inp;
         inp.ledger_seq_no = sqlite3_column_int64(stmt, 0);
-        inp.pubkey = GET_PUBKEY_BLOB(2);
-        inp.hash = GET_H32_BLOB(3);
-        // inp.nonce = GET_BLOB(4);
-        inp.blob_offset = sqlite3_column_int64(stmt, 5);
-        inp.blob_size = sqlite3_column_int64(stmt, 6);
+        inp.pubkey = GET_PUBKEY_BLOB(1);
+        inp.hash = GET_H32_BLOB(2);
+        // inp.nonce = GET_BLOB(3);
+        inp.blob_offset = sqlite3_column_int64(stmt, 4);
+        inp.blob_size = sqlite3_column_int64(stmt, 5);
         return inp;
     }
 
@@ -626,10 +627,10 @@ namespace ledger::sqlite
     {
         ledger::ledger_user_output out;
         out.ledger_seq_no = sqlite3_column_int64(stmt, 0);
-        out.pubkey = GET_PUBKEY_BLOB(2);
-        out.hash = GET_H32_BLOB(3);
-        out.blob_offset = sqlite3_column_int64(stmt, 4);
-        out.blob_count = sqlite3_column_int64(stmt, 5);
+        out.pubkey = GET_PUBKEY_BLOB(1);
+        out.hash = GET_H32_BLOB(2);
+        out.blob_offset = sqlite3_column_int64(stmt, 3);
+        out.blob_count = sqlite3_column_int64(stmt, 4);
         return out;
     }
 

@@ -390,20 +390,20 @@ namespace ledger
     /**
      * Open or create the specified file name for appending raw blob data.
      * @param shard_path Parent shard directory.
-     * @param filename Name of the blob file.
+     * @param file_name Name of the blob file.
      * @param file_size Current file size.
      * @return 0 on success. -1 on failure.
      */
-    int create_raw_data_blob_file(const std::string &shard_path, const char *filename, size_t &file_size)
+    int create_raw_data_blob_file(const std::string &shard_path, const char *file_name, size_t &file_size)
     {
-        const std::string inputs_file = shard_path + RAW_INPUTS_FILE;
-        int fd = open(inputs_file.data(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
+        const std::string file_path = shard_path + file_name;
+        int fd = open(file_path.data(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
         if (fd == -1)
-            LOG_ERROR << errno << ": Error when creating file " << inputs_file;
+            LOG_ERROR << errno << ": Error when creating file " << file_path;
 
         struct stat st;
         if (fstat(fd, &st) == -1)
-            LOG_ERROR << errno << ": Error when stat of file " << inputs_file;
+            LOG_ERROR << errno << ": Error when stat of file " << file_path;
 
         file_size = st.st_size;
         return fd;
@@ -437,21 +437,21 @@ namespace ledger
             // Creating ledger database and open a database connection.
             if (sqlite::open_db(shard_path + "/" + db_name, db) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the database in " << shard_path;
+                LOG_ERROR << errno << ": Error creating the database " << db_name << " in " << shard_path;
                 return -1;
             }
 
             if ((shard_dir == PRIMARY_DIR && sqlite::initialize_ledger_db(*db) == -1) ||
                 (shard_dir == RAW_DIR && sqlite::initialize_ledger_raw_db(*db) == -1))
             {
-                LOG_ERROR << errno << ": Error initilizing the database in " << shard_path;
+                LOG_ERROR << errno << ": Error initilizing the database " << db_name << " in " << shard_path;
                 return -1;
             }
 
             // Create and update the hp table with current ledger version.
             if (sqlite::create_hp_table(*db, version::LEDGER_VERSION) == -1)
             {
-                LOG_ERROR << errno << ": Error creating hp table in " << shard_path;
+                LOG_ERROR << errno << ": Error creating hp table in " << db_name << " in " << shard_path;
                 return -1;
             }
 
