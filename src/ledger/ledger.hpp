@@ -16,14 +16,14 @@ namespace ledger
         p2p::sequence_hash lcl_id;
         std::shared_mutex last_primary_shard_mutex;
         p2p::sequence_hash last_primary_shard_id;
-        std::shared_mutex last_blob_shard_mutex;
-        p2p::sequence_hash last_blob_shard_id;
+        std::shared_mutex last_raw_shard_mutex;
+        p2p::sequence_hash last_raw_shard_id;
 
     public:
         // These flags will be marked as true after doing the shards cleanup and requesting
         // at the first consensus round to align with the max shard counts.
         std::atomic<bool> primary_shards_persisted = false;
-        std::atomic<bool> blob_shards_persisted = false;
+        std::atomic<bool> raw_shards_persisted = false;
 
         const p2p::sequence_hash get_lcl_id()
         {
@@ -49,16 +49,16 @@ namespace ledger
             last_primary_shard_id = sequence_hash_id;
         }
 
-        const p2p::sequence_hash get_last_blob_shard_id()
+        const p2p::sequence_hash get_last_raw_shard_id()
         {
-            std::shared_lock lock(last_blob_shard_mutex);
-            return last_blob_shard_id;
+            std::shared_lock lock(last_raw_shard_mutex);
+            return last_raw_shard_id;
         }
 
-        void set_last_blob_shard_id(const p2p::sequence_hash &sequence_hash_id)
+        void set_last_raw_shard_id(const p2p::sequence_hash &sequence_hash_id)
         {
-            std::unique_lock lock(last_blob_shard_mutex);
-            last_blob_shard_id = sequence_hash_id;
+            std::unique_lock lock(last_raw_shard_mutex);
+            last_raw_shard_id = sequence_hash_id;
         }
     };
 
@@ -70,16 +70,24 @@ namespace ledger
 
     void deinit();
 
-    int save_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users);
+    int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users);
 
-    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t primary_shard_seq_no,
-                             const p2p::proposal &proposal, std::string &new_ledger_hash);
+    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, p2p::sequence_hash &new_lcl_id);
 
-    int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no);
+    int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
 
-    int save_ledger_blob(std::string_view ledger_hash, const consensus::consensed_user_map &consensed_users);
+    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t shard_seq_no,
+                             const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id);
 
-    void remove_old_shards(const uint64_t led_shard_no, std::string_view shard_parent_dir);
+    int insert_raw_data_records(sqlite3 *db, const uint64_t shard_seq_no, const p2p::proposal &proposal,
+                                const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+
+    int create_raw_data_blob_file(const std::string &shard_path, const char *file_name, size_t &file_size);
+
+    int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size,
+                      const char *shard_dir, const char *db_name, const bool open_db);
+
+    void remove_old_shards(const uint64_t lcl_seq_no, const uint64_t shard_size, const uint64_t max_shards, std::string_view shard_parent_dir);
 
     void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir);
 

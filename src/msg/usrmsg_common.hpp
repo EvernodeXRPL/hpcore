@@ -54,8 +54,8 @@ namespace msg::usrmsg
     constexpr const char *FLD_STATE_HASH = "state_hash";
     constexpr const char *FLD_CONFIG_HASH = "config_hash";
     constexpr const char *FLD_USER_HASH = "user_hash";
-    constexpr const char *FLD_RAW_INPUTS = "raw_inputs";
-    constexpr const char *FLD_RAW_OUTPUTS = "raw_outputs";
+    constexpr const char *FLD_INPUTS = "inputs";
+    constexpr const char *FLD_BLOB = "blob";
     constexpr const char *FLD_BLOBS = "blobs";
 
     // Message types

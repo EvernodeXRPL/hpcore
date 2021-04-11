@@ -74,7 +74,7 @@ namespace p2p
         uint32_t roundtime = 0;      // Roundtime of the proposer.
         std::string nonce;           // Random nonce that is used to reduce lcl predictability.
         sequence_hash last_primary_shard_id;
-        sequence_hash last_blob_shard_id;
+        sequence_hash last_raw_shard_id;
         util::h32 state_hash; // Contract state hash.
         util::h32 patch_hash; // Patch file hash.
         std::set<std::string> users;

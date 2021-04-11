@@ -79,7 +79,7 @@ namespace msg::fbuf::p2pmsg
         hasher.add(msg.state_hash());
         hasher.add(msg.patch_hash());
         hasher.add(msg.last_primary_shard_id());
-        hasher.add(msg.last_blob_shard_id());
+        hasher.add(msg.last_raw_shard_id());
 
         return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), pubkey) == 0;
     }
@@ -139,7 +139,7 @@ namespace msg::fbuf::p2pmsg
         p.state_hash = flatbuf_bytes_to_sv(msg.state_hash());
         p.patch_hash = flatbuf_bytes_to_sv(msg.patch_hash());
         p.last_primary_shard_id = flatbuf_seqhash_to_seqhash(msg.last_primary_shard_id());
-        p.last_blob_shard_id = flatbuf_seqhash_to_seqhash(msg.last_blob_shard_id());
+        p.last_raw_shard_id = flatbuf_seqhash_to_seqhash(msg.last_raw_shard_id());
 
         if (msg.users())
             p.users = flatbuf_bytearrayvector_to_stringlist(msg.users());
@@ -314,7 +314,7 @@ namespace msg::fbuf::p2pmsg
         hasher.add(p.state_hash);
         hasher.add(p.patch_hash);
         hasher.add(p.last_primary_shard_id);
-        hasher.add(p.last_blob_shard_id);
+        hasher.add(p.last_raw_shard_id);
 
         return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
     }
@@ -391,7 +391,7 @@ namespace msg::fbuf::p2pmsg
             hash_to_flatbuf_bytes(builder, p.state_hash),
             hash_to_flatbuf_bytes(builder, p.patch_hash),
             seqhash_to_flatbuf_seqhash(builder, p.last_primary_shard_id),
-            seqhash_to_flatbuf_seqhash(builder, p.last_blob_shard_id));
+            seqhash_to_flatbuf_seqhash(builder, p.last_raw_shard_id));
 
         create_p2p_msg(builder, P2PMsgContent_ProposalMsg, msg.Union());
     }

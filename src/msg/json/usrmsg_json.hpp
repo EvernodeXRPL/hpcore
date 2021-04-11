@@ -49,9 +49,11 @@ namespace msg::usrmsg::json
 
     void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_node &node);
 
-    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results);
+    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_record> &results);
 
-    void populate_ledger_blob_map(std::vector<uint8_t> &msg, const ledger::query::blob_map &blob_map);
+    void populate_ledger_inputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_input> &inputs);
+
+    void populate_ledger_outputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_output> &users);
 
 } // namespace msg::usrmsg::json
 

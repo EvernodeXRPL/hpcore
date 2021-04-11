@@ -872,7 +872,7 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_STATE_HASH = 24,
     VT_PATCH_HASH = 26,
     VT_LAST_PRIMARY_SHARD_ID = 28,
-    VT_LAST_BLOB_SHARD_ID = 30
+    VT_LAST_RAW_SHARD_ID = 30
   };
   const flatbuffers::Vector<uint8_t> *pubkey() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
@@ -952,11 +952,11 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   msg::fbuf::p2pmsg::SequenceHash *mutable_last_primary_shard_id() {
     return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_LAST_PRIMARY_SHARD_ID);
   }
-  const msg::fbuf::p2pmsg::SequenceHash *last_blob_shard_id() const {
-    return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_LAST_BLOB_SHARD_ID);
+  const msg::fbuf::p2pmsg::SequenceHash *last_raw_shard_id() const {
+    return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_LAST_RAW_SHARD_ID);
   }
-  msg::fbuf::p2pmsg::SequenceHash *mutable_last_blob_shard_id() {
-    return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_LAST_BLOB_SHARD_ID);
+  msg::fbuf::p2pmsg::SequenceHash *mutable_last_raw_shard_id() {
+    return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_LAST_RAW_SHARD_ID);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -985,8 +985,8 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(patch_hash()) &&
            VerifyOffset(verifier, VT_LAST_PRIMARY_SHARD_ID) &&
            verifier.VerifyTable(last_primary_shard_id()) &&
-           VerifyOffset(verifier, VT_LAST_BLOB_SHARD_ID) &&
-           verifier.VerifyTable(last_blob_shard_id()) &&
+           VerifyOffset(verifier, VT_LAST_RAW_SHARD_ID) &&
+           verifier.VerifyTable(last_raw_shard_id()) &&
            verifier.EndTable();
   }
 };
@@ -1034,8 +1034,8 @@ struct ProposalMsgBuilder {
   void add_last_primary_shard_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_primary_shard_id) {
     fbb_.AddOffset(ProposalMsg::VT_LAST_PRIMARY_SHARD_ID, last_primary_shard_id);
   }
-  void add_last_blob_shard_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_blob_shard_id) {
-    fbb_.AddOffset(ProposalMsg::VT_LAST_BLOB_SHARD_ID, last_blob_shard_id);
+  void add_last_raw_shard_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_raw_shard_id) {
+    fbb_.AddOffset(ProposalMsg::VT_LAST_RAW_SHARD_ID, last_raw_shard_id);
   }
   explicit ProposalMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1064,10 +1064,10 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_primary_shard_id = 0,
-    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_blob_shard_id = 0) {
+    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_raw_shard_id = 0) {
   ProposalMsgBuilder builder_(_fbb);
   builder_.add_time(time);
-  builder_.add_last_blob_shard_id(last_blob_shard_id);
+  builder_.add_last_raw_shard_id(last_raw_shard_id);
   builder_.add_last_primary_shard_id(last_primary_shard_id);
   builder_.add_patch_hash(patch_hash);
   builder_.add_state_hash(state_hash);
@@ -1098,7 +1098,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     const std::vector<uint8_t> *state_hash = nullptr,
     const std::vector<uint8_t> *patch_hash = nullptr,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_primary_shard_id = 0,
-    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_blob_shard_id = 0) {
+    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_raw_shard_id = 0) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
   auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
@@ -1123,7 +1123,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
       state_hash__,
       patch_hash__,
       last_primary_shard_id,
-      last_blob_shard_id);
+      last_raw_shard_id);
 }
 
 struct NplMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

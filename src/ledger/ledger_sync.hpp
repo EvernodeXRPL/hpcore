@@ -17,7 +17,7 @@ namespace ledger
 
     public:
         std::atomic<bool> is_last_primary_shard_syncing = false;
-        std::atomic<bool> is_last_blob_shard_syncing = false;
+        std::atomic<bool> is_last_raw_shard_syncing = false;
     };
 } // namespace ledger
 #endif

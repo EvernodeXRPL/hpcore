@@ -487,7 +487,7 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_RESULTS;
         msg += "\":[";
         if (result.index() == 1)
-            populate_ledger_query_results(msg, std::get<std::vector<ledger::query::query_result_record>>(result));
+            populate_ledger_query_results(msg, std::get<std::vector<ledger::ledger_record>>(result));
         msg += "]}";
     }
 
@@ -763,7 +763,7 @@ namespace msg::usrmsg::json
      *            "id": "<query id>",
      *            "filter_by": "<filter by>",
      *            "params": {...}, // Params supported by the specified filter.
-     *            "include": ["raw_inputs", "raw_outputs"]
+     *            "include": ["inputs", "outputs"]
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
@@ -792,14 +792,14 @@ namespace msg::usrmsg::json
         extracted_id = std::move(id);
 
         // Detect includes.
-        bool raw_inputs = false;
-        bool raw_outputs = false;
+        bool inputs = false;
+        bool outputs = false;
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
-            if (val == msg::usrmsg::FLD_RAW_INPUTS)
-                raw_inputs = true;
-            else if (val == msg::usrmsg::FLD_RAW_OUTPUTS)
-                raw_outputs = true;
+            if (val == msg::usrmsg::FLD_INPUTS)
+                inputs = true;
+            else if (val == msg::usrmsg::FLD_OUTPUTS)
+                outputs = true;
         }
 
         auto &params_field = d[msg::usrmsg::FLD_PARAMS];
@@ -814,8 +814,8 @@ namespace msg::usrmsg::json
 
             extracted_query = ledger::query::seq_no_query{
                 params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(),
-                raw_inputs,
-                raw_outputs};
+                inputs,
+                outputs};
             return 0;
         }
         else
@@ -883,96 +883,124 @@ namespace msg::usrmsg::json
         }
     }
 
-    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results)
+    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_record> &results)
     {
         for (size_t i = 0; i < results.size(); i++)
         {
-            const ledger::query::query_result_record &r = results[i];
+            const ledger::ledger_record &ledger = results[i];
 
             msg += "{\"";
             msg += msg::usrmsg::FLD_SEQ_NO;
             msg += SEP_COLON_NOQUOTE;
-            msg += std::to_string(r.ledger.seq_no);
+            msg += std::to_string(ledger.seq_no);
             msg += SEP_COMMA_NOQUOTE;
             msg += msg::usrmsg::FLD_TIMESTAMP;
             msg += SEP_COLON_NOQUOTE;
-            msg += std::to_string(r.ledger.timestamp);
+            msg += std::to_string(ledger.timestamp);
             msg += SEP_COMMA_NOQUOTE;
             msg += msg::usrmsg::FLD_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.ledger_hash);
+            msg += util::to_hex(ledger.ledger_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_PREV_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.prev_ledger_hash);
+            msg += util::to_hex(ledger.prev_ledger_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_STATE_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.state_hash);
+            msg += util::to_hex(ledger.state_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_CONFIG_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.config_hash);
+            msg += util::to_hex(ledger.config_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_USER_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.user_hash);
+            msg += util::to_hex(ledger.user_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_INPUT_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.input_hash);
+            msg += util::to_hex(ledger.input_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_OUTPUT_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.output_hash);
+            msg += util::to_hex(ledger.output_hash);
             msg += "\"";
 
             // If raw inputs or outputs is not requested, we don't include that field at all in the response.
             // Otherwise the field will always contain an array (empty array if no data).
 
-            if (r.raw_inputs)
+            if (ledger.inputs)
             {
                 msg += SEP_COMMA_NOQUOTE;
-                msg += msg::usrmsg::FLD_RAW_INPUTS;
+                msg += msg::usrmsg::FLD_INPUTS;
                 msg += SEP_COLON_NOQUOTE;
-                populate_ledger_blob_map(msg, *r.raw_inputs);
+                populate_ledger_inputs(msg, *ledger.inputs);
             }
 
-            if (r.raw_outputs)
+            if (ledger.outputs)
             {
                 msg += SEP_COMMA_NOQUOTE;
-                msg += msg::usrmsg::FLD_RAW_OUTPUTS;
+                msg += msg::usrmsg::FLD_OUTPUTS;
                 msg += SEP_COLON_NOQUOTE;
-                populate_ledger_blob_map(msg, *r.raw_outputs);
+                populate_ledger_outputs(msg, *ledger.outputs);
             }
 
             msg += (i == (results.size() - 1) ? "}" : "},");
         }
     }
 
-    void populate_ledger_blob_map(std::vector<uint8_t> &msg, const ledger::query::blob_map &blob_map)
+    void populate_ledger_inputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_input> &inputs)
     {
         msg += "[";
-        for (auto itr = blob_map.begin(); itr != blob_map.end();)
+        for (auto itr = inputs.begin(); itr != inputs.end();)
         {
             msg += "{\"";
             msg += msg::usrmsg::FLD_PUBKEY;
             msg += SEP_COLON;
-            msg += util::to_hex(itr->first);
+            msg += util::to_hex(itr->pubkey);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_BLOB;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->blob);
+
+            itr++;
+            msg += (itr == inputs.end() ? "\"}" : "\"},");
+        }
+        msg += "]";
+    }
+
+    void populate_ledger_outputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_output> &users)
+    {
+        msg += "[";
+        for (auto itr = users.begin(); itr != users.end();)
+        {
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_PUBKEY;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->pubkey);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_BLOBS;
             msg += "\":[";
-
-            const std::vector<std::string> &blobs = itr->second;
-            for (size_t i = 0; i < blobs.size(); i++)
+            for (auto o_itr = itr->outputs.begin(); o_itr != itr->outputs.end();)
             {
                 msg += "\"";
-                msg += util::to_hex(blobs[i]);
-                msg += (i == (blobs.size() - 1) ? "\"" : "\",");
+                msg += util::to_hex(*o_itr);
+
+                o_itr++;
+                msg += (o_itr == itr->outputs.end() ? "\"" : "\",");
             }
 
             itr++;
-            msg += (itr == blob_map.end() ? "]}" : "]},");
+            msg += (itr == users.end() ? "]}" : "]},");
         }
         msg += "]";
     }
