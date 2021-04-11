@@ -323,7 +323,7 @@ namespace ledger
 
                     // Insert sqlite record.
                     std::string_view hash = util::get_string_suffix(cui.ordered_hash, BLAKE3_OUT_LEN);
-                    std::string_view nonce = cui.ordered_hash.substr(0, cui.ordered_hash.size() - hash.size());
+                    const uint64_t nonce = util::uint64_from_bytes((uint8_t *)cui.ordered_hash.data());
 
                     if (sqlite::insert_user_input_record(inputs_stmt, lcl_id.seq_no, pubkey, hash, nonce, in_pos, buf.size()) == -1)
                         RAW_DATA_RETURN(-1);

@@ -632,6 +632,7 @@
                                 return {
                                     pubkey: msgHelper.deserializeValue(i.pubkey),
                                     hash: msgHelper.deserializeValue(i.hash),
+                                    nonce: i.nonce,
                                     blob: msgHelper.deserializeValue(i.blob)
                                 }
                             });
@@ -805,12 +806,12 @@
                 throw "Max ledger seq no. or offset cannot be 0.";
             if (!isOffset && !maxLedger)
                 throw "Max ledger seq. no not specified.";
+            if (nonce && (!Number.isInteger(nonce) || nonce < 0))
+                throw "Input nonce must be a positive integer.";
 
             // Use time-based incrementing nonce if not specified.
             if (!nonce)
-                nonce = (new Date()).getTime().toString();
-            else
-                nonce = nonce.toString();
+                nonce = (new Date()).getTime();
 
             // If max ledger is specified as offset, we need to get current ledger status and add the offset to it.
             if (isOffset) {

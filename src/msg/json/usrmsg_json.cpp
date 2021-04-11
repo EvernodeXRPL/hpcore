@@ -739,7 +739,7 @@ namespace msg::usrmsg::json
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<std::string>() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is<uint64_t>())
+        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<uint64_t>() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is<uint64_t>())
         {
             LOG_DEBUG << "User input container invalid field values.";
             return -1;
@@ -964,6 +964,10 @@ namespace msg::usrmsg::json
             msg += SEP_COLON;
             msg += util::to_hex(itr->hash);
             msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_NONCE;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(itr->nonce);
+            msg += SEP_COMMA_NOQUOTE;
             msg += msg::usrmsg::FLD_BLOB;
             msg += SEP_COLON;
             msg += util::to_hex(itr->blob);

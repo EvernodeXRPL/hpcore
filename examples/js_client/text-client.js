@@ -59,12 +59,12 @@ async function main() {
 
     // This will get fired when contract sends outputs.
     hpc.on(HotPocket.events.contractOutput, (r) => {
-        r.outputs.forEach(o => console.log("Contract output>> " + o));
+        r.outputs.forEach(o => console.log(`Output (ledger:${r.ledgerSeqNo})>> ${o}`));
     })
 
     // This will get fired when contract sends a read response.
     hpc.on(HotPocket.events.contractReadResponse, (response) => {
-        console.log("Contract read response>> " + response);
+        console.log("Read response>> " + response);
     })
 
     // Establish HotPocket connection.

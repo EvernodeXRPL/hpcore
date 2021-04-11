@@ -74,7 +74,7 @@ namespace ledger::sqlite
     int insert_user_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey);
 
     int insert_user_input_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey,
-                                 std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size);
+                                 std::string_view hash, const uint64_t nonce, const uint64_t blob_offset, const uint64_t blob_size);
 
     int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey,
                                   std::string_view hash, const uint64_t blob_offset, const uint64_t output_count);

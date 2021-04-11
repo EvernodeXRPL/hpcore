@@ -391,7 +391,7 @@ namespace msg::usrmsg::bson
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_string() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is_uint64())
+        if (!d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_uint64() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is_uint64())
         {
             LOG_DEBUG << "User input container invalid field values.";
             return -1;
@@ -553,6 +553,8 @@ namespace msg::usrmsg::bson
             encoder.byte_string_value(inp.pubkey);
             encoder.key(msg::usrmsg::FLD_HASH);
             encoder.byte_string_value(inp.hash);
+            encoder.key(msg::usrmsg::FLD_NONCE);
+            encoder.uint64_value(inp.nonce);
             encoder.key(msg::usrmsg::FLD_BLOB);
             encoder.byte_string_value(inp.blob);
 
