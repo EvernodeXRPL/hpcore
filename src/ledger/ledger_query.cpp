@@ -42,13 +42,13 @@ namespace ledger::query
                     ledgers.push_back(std::move(ledger));
 
                 // Fill raw data if required.
-                if (seq_q.raw_inputs || seq_q.raw_outputs)
+                if (seq_q.inputs || seq_q.outputs)
                 {
                     for (ledger_record &ledger : ledgers)
                     {
-                        if (seq_q.raw_inputs)
+                        if (seq_q.inputs)
                             ledger.inputs = std::vector<ledger::ledger_user_input>();
-                        if (seq_q.raw_outputs)
+                        if (seq_q.outputs)
                             ledger.outputs = std::vector<ledger::ledger_user_output>();
 
                         if (get_ledger_raw_data(ledger, user_pubkey, fs_sess_name) != -1)

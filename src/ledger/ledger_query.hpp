@@ -12,8 +12,8 @@ namespace ledger::query
     struct seq_no_query
     {
         uint64_t seq_no = 0;
-        bool raw_inputs = false;
-        bool raw_outputs = false;
+        bool inputs = false;
+        bool outputs = false;
     };
 
     struct user_buffer_collection

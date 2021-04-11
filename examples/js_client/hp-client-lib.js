@@ -334,8 +334,8 @@
             return getMultiConnectionResult(con => con.getStatus());
         }
 
-        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
-            return getMultiConnectionResult(con => con.getLedgerBySeqNo(seqNo, includeRawInputs, includeRawOutputs));
+        this.getLedgerBySeqNo = (seqNo, includeInputs, includeOutputs) => {
+            return getMultiConnectionResult(con => con.getLedgerBySeqNo(seqNo, includeInputs, includeOutputs));
         }
     }
 
@@ -618,18 +618,35 @@
                         const result = {
                             seqNo: r.seq_no,
                             timestamp: r.timestamp,
-                            hash: r.hash,
-                            prevHash: r.prev_hash,
-                            stateHash: r.state_hash,
-                            configHash: r.config_hash,
-                            userHash: r.user_hash,
-                            inputHash: r.input_hash,
-                            outputHash: r.output_hash
+                            hash: msgHelper.deserializeValue(r.hash),
+                            prevHash: msgHelper.deserializeValue(r.prev_hash),
+                            stateHash: msgHelper.deserializeValue(r.state_hash),
+                            configHash: msgHelper.deserializeValue(r.config_hash),
+                            userHash: msgHelper.deserializeValue(r.user_hash),
+                            inputHash: msgHelper.deserializeValue(r.input_hash),
+                            outputHash: msgHelper.deserializeValue(r.output_hash)
                         }
-                        if (r.raw_inputs)
-                            result.rawInputs = r.raw_inputs;
-                        if (r.raw_outputs)
-                            result.rawOutputs = r.raw_outputs;
+
+                        if (r.inputs) {
+                            result.inputs = r.inputs.map(i => {
+                                return {
+                                    pubkey: msgHelper.deserializeValue(i.pubkey),
+                                    hash: msgHelper.deserializeValue(i.hash),
+                                    blob: msgHelper.deserializeValue(i.blob)
+                                }
+                            });
+                        }
+
+                        if (r.outputs) {
+                            result.outputs = r.outputs.map(o => {
+                                return {
+                                    pubkey: msgHelper.deserializeValue(o.pubkey),
+                                    hash: msgHelper.deserializeValue(o.hash),
+                                    blobs: o.blobs.map(b => msgHelper.deserializeValue(b))
+                                }
+                            });
+                        }
+
                         return result;
                     });
                     if (resolver.type == "seq_no")
@@ -837,11 +854,11 @@
             return Promise.resolve();
         }
 
-        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
+        this.getLedgerBySeqNo = (seqNo, includeInputs, includeOutputs) => {
             if (connectionStatus != 2)
                 return Promise.resolve(null);
 
-            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, includeRawInputs, includeRawOutputs);
+            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, includeInputs, includeOutputs);
             const p = new Promise(resolve => {
                 ledgerQueryResolvers[msg.id] = {
                     type: "seq_no",
@@ -968,11 +985,11 @@
             return { type: "stat" };
         }
 
-        this.createLedgerQuery = (filterBy, params, includeRawInputs, includeRawOutputs) => {
+        this.createLedgerQuery = (filterBy, params, includeInputs, includeOutputs) => {
 
             const includes = [];
-            if (includeRawInputs) includes.push("raw_inputs");
-            if (includeRawOutputs) includes.push("raw_outputs");
+            if (includeInputs) includes.push("inputs");
+            if (includeOutputs) includes.push("outputs");
 
             return {
                 type: "ledger_query",

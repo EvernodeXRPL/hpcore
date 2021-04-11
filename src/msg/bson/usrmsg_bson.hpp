@@ -45,6 +45,10 @@ namespace msg::usrmsg::bson
 
     void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_record> &results);
 
+    void populate_ledger_inputs(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_user_input> &inputs);
+
+    void populate_ledger_outputs(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_user_output> &users);
+
 } // namespace msg::usrmsg::bson
 
 #endif

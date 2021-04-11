@@ -763,7 +763,7 @@ namespace msg::usrmsg::json
      *            "id": "<query id>",
      *            "filter_by": "<filter by>",
      *            "params": {...}, // Params supported by the specified filter.
-     *            "include": ["raw_inputs", "raw_outputs"]
+     *            "include": ["inputs", "outputs"]
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
@@ -792,14 +792,14 @@ namespace msg::usrmsg::json
         extracted_id = std::move(id);
 
         // Detect includes.
-        bool raw_inputs = false;
-        bool raw_outputs = false;
+        bool inputs = false;
+        bool outputs = false;
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
-            if (val == msg::usrmsg::FLD_RAW_INPUTS)
-                raw_inputs = true;
-            else if (val == msg::usrmsg::FLD_RAW_OUTPUTS)
-                raw_outputs = true;
+            if (val == msg::usrmsg::FLD_INPUTS)
+                inputs = true;
+            else if (val == msg::usrmsg::FLD_OUTPUTS)
+                outputs = true;
         }
 
         auto &params_field = d[msg::usrmsg::FLD_PARAMS];
@@ -814,8 +814,8 @@ namespace msg::usrmsg::json
 
             extracted_query = ledger::query::seq_no_query{
                 params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(),
-                raw_inputs,
-                raw_outputs};
+                inputs,
+                outputs};
             return 0;
         }
         else
@@ -933,21 +933,76 @@ namespace msg::usrmsg::json
             if (ledger.inputs)
             {
                 msg += SEP_COMMA_NOQUOTE;
-                msg += msg::usrmsg::FLD_RAW_INPUTS;
+                msg += msg::usrmsg::FLD_INPUTS;
                 msg += SEP_COLON_NOQUOTE;
-                // populate_ledger_blob_map(msg, *r.raw_inputs);
+                populate_ledger_inputs(msg, *ledger.inputs);
             }
 
             if (ledger.outputs)
             {
                 msg += SEP_COMMA_NOQUOTE;
-                msg += msg::usrmsg::FLD_RAW_OUTPUTS;
+                msg += msg::usrmsg::FLD_OUTPUTS;
                 msg += SEP_COLON_NOQUOTE;
-                // populate_ledger_blob_map(msg, *r.raw_outputs);
+                populate_ledger_outputs(msg, *ledger.outputs);
             }
 
             msg += (i == (results.size() - 1) ? "}" : "},");
         }
+    }
+
+    void populate_ledger_inputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_input> &inputs)
+    {
+        msg += "[";
+        for (auto itr = inputs.begin(); itr != inputs.end();)
+        {
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_PUBKEY;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->pubkey);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_BLOB;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->blob);
+
+            itr++;
+            msg += (itr == inputs.end() ? "\"}" : "\"},");
+        }
+        msg += "]";
+    }
+
+    void populate_ledger_outputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_output> &users)
+    {
+        msg += "[";
+        for (auto itr = users.begin(); itr != users.end();)
+        {
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_PUBKEY;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->pubkey);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_HASH;
+            msg += SEP_COLON;
+            msg += util::to_hex(itr->hash);
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_BLOBS;
+            msg += "\":[";
+            for (auto o_itr = itr->outputs.begin(); o_itr != itr->outputs.end();)
+            {
+                msg += "\"";
+                msg += util::to_hex(*o_itr);
+
+                o_itr++;
+                msg += (o_itr == itr->outputs.end() ? "\"" : "\",");
+            }
+
+            itr++;
+            msg += (itr == users.end() ? "]}" : "]},");
+        }
+        msg += "]";
     }
 
 } // namespace msg::usrmsg::json
