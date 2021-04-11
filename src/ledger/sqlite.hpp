@@ -40,7 +40,7 @@ namespace ledger::sqlite
     };
 
     // Generic methods.
-    int open_db(std::string_view db_name, sqlite3 **db);
+    int open_db(std::string_view db_name, sqlite3 **db, const bool read_only = false);
 
     int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **) = NULL, void *callback_first_arg = NULL);
 
@@ -73,17 +73,25 @@ namespace ledger::sqlite
 
     int insert_user_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey);
 
-    int insert_user_input_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+    int insert_user_input_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey,
                                  std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size);
 
-    int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view user_pubkey,
+    int insert_user_output_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey,
                                   std::string_view hash, const uint64_t blob_offset, const uint64_t output_count);
 
     int get_last_ledger(sqlite3 *db, ledger::ledger_record &ledger);
 
     int get_ledger_by_seq_no(sqlite3 *db, const uint64_t seq_no, ledger::ledger_record &ledger);
 
+    int get_user_inputs_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<ledger::ledger_user_input> &inputs);
+
+    int get_user_outputs_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<ledger::ledger_user_output> &outputs);
+
     void populate_ledger_from_sql_record(ledger::ledger_record &ledger, sqlite3_stmt *stmt);
+
+    ledger::ledger_user_input populate_user_input_from_sql_record(sqlite3_stmt *stmt);
+
+    ledger::ledger_user_output populate_user_output_from_sql_record(sqlite3_stmt *stmt);
 
 } // namespace ledger::sqlite
 

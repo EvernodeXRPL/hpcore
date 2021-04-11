@@ -36,8 +36,6 @@ namespace ledger
 
     constexpr uint32_t LEDGER_FS_ID = 1;
     constexpr int FILE_PERMS = 0644;
-    constexpr const char *RAW_INPUTS_FILENAME = "raw_inputs.blob";
-    constexpr const char *RAW_OUTPUTS_FILENAME = "raw_outputs.blob";
 
     /**
      * Perform ledger related initializations.
@@ -311,7 +309,7 @@ namespace ledger
                 for (const consensus::consensed_user_input &cui : cu.consensed_inputs)
                 {
                     // Create and open the raw inputs file for the shard if needed.
-                    if (in_fd == -1 && (in_fd = create_raw_data_blob_file(shard_path, RAW_INPUTS_FILENAME, in_pos)) == -1)
+                    if (in_fd == -1 && (in_fd = create_raw_data_blob_file(shard_path, RAW_INPUTS_FILE, in_pos)) == -1)
                         RAW_DATA_RETURN(-1);
 
                     // Write the input to the blob file. Then we save the written offset and blob size in sqlite record.
@@ -337,22 +335,25 @@ namespace ledger
             if (!cu.consensed_outputs.outputs.empty())
             {
                 // Create and open the raw outputs file for the shard if needed.
-                if (out_fd == -1 && (out_fd = create_raw_data_blob_file(shard_path, RAW_OUTPUTS_FILENAME, out_pos)) == -1)
+                if (out_fd == -1 && (out_fd = create_raw_data_blob_file(shard_path, RAW_OUTPUTS_FILE, out_pos)) == -1)
                     RAW_DATA_RETURN(-1);
 
                 // Write all the outputs of this user to the blob file. Then we save the written offset and output count in sqlite record.
-                // First we write the list of offsets where each output would begin. Then the outputs themselves.
-                // [offset1][offset2]....[output1][output2]...
+                // First we write the list of offsets and sizes of each output. Then the outputs themselves.
+                // [offset1][size1][offset2][size2]....[output1][output2]...
 
                 // Prepare write header.
                 const uint64_t output_count = cu.consensed_outputs.outputs.size();
-                std::vector<uint8_t> header(output_count * sizeof(off_t)); // Header containing list of offsets.
-                off_t out_buf_offset = out_pos + header.size();            // Output buffers will be written after the header.
+                std::vector<uint8_t> header(output_count * (sizeof(off_t) + sizeof(size_t))); // Header containing list of [offset+size].
+                off_t out_buf_offset = out_pos + header.size();                               // Output buffers will be written after the header.
                 for (size_t i = 0; i < output_count; i++)
                 {
-                    uint8_t *header_pos = header.data() + (i * sizeof(off_t));
+                    const size_t output_size = cu.consensed_outputs.outputs[i].size();
+                    uint8_t *header_pos = header.data() + (i * (sizeof(off_t) + sizeof(size_t)));
+                    // Write the pair of offset+size of the individual output into the header.
                     util::uint64_to_bytes(header_pos, out_buf_offset);
-                    out_buf_offset += cu.consensed_outputs.outputs[i].size();
+                    util::uint64_to_bytes(header_pos + sizeof(size_t), output_size);
+                    out_buf_offset += output_size;
                 }
 
                 // Write the header and output buffers.
@@ -395,7 +396,7 @@ namespace ledger
      */
     int create_raw_data_blob_file(const std::string &shard_path, const char *filename, size_t &file_size)
     {
-        const std::string inputs_file = shard_path + RAW_INPUTS_FILENAME;
+        const std::string inputs_file = shard_path + RAW_INPUTS_FILE;
         int fd = open(inputs_file.data(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
         if (fd == -1)
             LOG_ERROR << errno << ": Error when creating file " << inputs_file;

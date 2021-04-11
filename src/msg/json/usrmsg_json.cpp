@@ -487,7 +487,7 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_RESULTS;
         msg += "\":[";
         if (result.index() == 1)
-            populate_ledger_query_results(msg, std::get<std::vector<ledger::query::query_result_record>>(result));
+            populate_ledger_query_results(msg, std::get<std::vector<ledger::ledger_record>>(result));
         msg += "]}";
     }
 
@@ -883,54 +883,54 @@ namespace msg::usrmsg::json
         }
     }
 
-    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results)
+    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_record> &results)
     {
         for (size_t i = 0; i < results.size(); i++)
         {
-            const ledger::query::query_result_record &r = results[i];
+            const ledger::ledger_record &ledger = results[i];
 
             msg += "{\"";
             msg += msg::usrmsg::FLD_SEQ_NO;
             msg += SEP_COLON_NOQUOTE;
-            msg += std::to_string(r.ledger.seq_no);
+            msg += std::to_string(ledger.seq_no);
             msg += SEP_COMMA_NOQUOTE;
             msg += msg::usrmsg::FLD_TIMESTAMP;
             msg += SEP_COLON_NOQUOTE;
-            msg += std::to_string(r.ledger.timestamp);
+            msg += std::to_string(ledger.timestamp);
             msg += SEP_COMMA_NOQUOTE;
             msg += msg::usrmsg::FLD_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.ledger_hash);
+            msg += util::to_hex(ledger.ledger_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_PREV_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.prev_ledger_hash);
+            msg += util::to_hex(ledger.prev_ledger_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_STATE_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.state_hash);
+            msg += util::to_hex(ledger.state_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_CONFIG_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.config_hash);
+            msg += util::to_hex(ledger.config_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_USER_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.user_hash);
+            msg += util::to_hex(ledger.user_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_INPUT_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.input_hash);
+            msg += util::to_hex(ledger.input_hash);
             msg += SEP_COMMA;
             msg += msg::usrmsg::FLD_OUTPUT_HASH;
             msg += SEP_COLON;
-            msg += util::to_hex(r.ledger.output_hash);
+            msg += util::to_hex(ledger.output_hash);
             msg += "\"";
 
             // If raw inputs or outputs is not requested, we don't include that field at all in the response.
             // Otherwise the field will always contain an array (empty array if no data).
 
-            if (r.raw_inputs)
+            if (ledger.inputs)
             {
                 msg += SEP_COMMA_NOQUOTE;
                 msg += msg::usrmsg::FLD_RAW_INPUTS;
@@ -938,7 +938,7 @@ namespace msg::usrmsg::json
                 // populate_ledger_blob_map(msg, *r.raw_inputs);
             }
 
-            if (r.raw_outputs)
+            if (ledger.outputs)
             {
                 msg += SEP_COMMA_NOQUOTE;
                 msg += msg::usrmsg::FLD_RAW_OUTPUTS;

@@ -254,7 +254,7 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_RESULTS);
         encoder.begin_array();
-        populate_ledger_query_results(encoder, std::get<std::vector<ledger::query::query_result_record>>(result));
+        populate_ledger_query_results(encoder, std::get<std::vector<ledger::ledger_record>>(result));
         encoder.end_array();
         encoder.end_object();
         encoder.flush();
@@ -499,40 +499,40 @@ namespace msg::usrmsg::bson
         }
     }
 
-    void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results)
+    void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_record> &results)
     {
-        for (const ledger::query::query_result_record &r : results)
+        for (const ledger::ledger_record &ledger : results)
         {
             encoder.begin_object();
             encoder.key(msg::usrmsg::FLD_SEQ_NO);
-            encoder.uint64_value(r.ledger.seq_no);
+            encoder.uint64_value(ledger.seq_no);
             encoder.key(msg::usrmsg::FLD_TIMESTAMP);
-            encoder.uint64_value(r.ledger.timestamp);
+            encoder.uint64_value(ledger.timestamp);
             encoder.key(msg::usrmsg::FLD_HASH);
-            encoder.byte_string_value(r.ledger.ledger_hash);
+            encoder.byte_string_value(ledger.ledger_hash);
             encoder.key(msg::usrmsg::FLD_PREV_HASH);
-            encoder.byte_string_value(r.ledger.prev_ledger_hash);
+            encoder.byte_string_value(ledger.prev_ledger_hash);
             encoder.key(msg::usrmsg::FLD_STATE_HASH);
-            encoder.byte_string_value(r.ledger.state_hash);
+            encoder.byte_string_value(ledger.state_hash);
             encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
-            encoder.byte_string_value(r.ledger.config_hash);
+            encoder.byte_string_value(ledger.config_hash);
             encoder.key(msg::usrmsg::FLD_USER_HASH);
-            encoder.byte_string_value(r.ledger.user_hash);
+            encoder.byte_string_value(ledger.user_hash);
             encoder.key(msg::usrmsg::FLD_INPUT_HASH);
-            encoder.byte_string_value(r.ledger.input_hash);
+            encoder.byte_string_value(ledger.input_hash);
             encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
-            encoder.byte_string_value(r.ledger.output_hash);
+            encoder.byte_string_value(ledger.output_hash);
 
             // If raw inputs or outputs is not requested, we don't include that field at all in the response.
             // Otherwise the field will always contain an array (empty array if no data).
 
-            if (r.raw_inputs)
+            if (ledger.inputs)
             {
                 encoder.key(msg::usrmsg::FLD_RAW_INPUTS);
                 // populate_ledger_blob_map(encoder, *r.raw_inputs);
             }
 
-            if (r.raw_outputs)
+            if (ledger.outputs)
             {
                 encoder.key(msg::usrmsg::FLD_RAW_OUTPUTS);
                 // populate_ledger_blob_map(encoder, *r.raw_outputs);

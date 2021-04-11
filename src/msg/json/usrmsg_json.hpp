@@ -49,7 +49,7 @@ namespace msg::usrmsg::json
 
     void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_node &node);
 
-    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results);
+    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_record> &results);
 
 } // namespace msg::usrmsg::json
 
