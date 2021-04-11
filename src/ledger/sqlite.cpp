@@ -42,7 +42,6 @@ namespace ledger::sqlite
 #define PUBKEY_SIZE 33
 #define BIND_H32_BLOB(idx, field) (field.size() == sizeof(util::h32) && sqlite3_bind_blob(stmt, idx, field.data(), sizeof(util::h32), SQLITE_STATIC) == SQLITE_OK)
 #define BIND_PUBKEY_BLOB(idx, field) (field.size() == PUBKEY_SIZE && sqlite3_bind_blob(stmt, idx, field.data(), PUBKEY_SIZE, SQLITE_STATIC) == SQLITE_OK)
-#define BIND_BLOB(idx, field) (field.size() > 0 && sqlite3_bind_blob(stmt, idx, field.data(), field.size(), SQLITE_STATIC) == SQLITE_OK)
 #define GET_H32_BLOB(idx) std::string((char *)sqlite3_column_blob(stmt, idx), sizeof(util::h32))
 #define GET_PUBKEY_BLOB(idx) std::string((char *)sqlite3_column_blob(stmt, idx), PUBKEY_SIZE)
 
@@ -323,7 +322,7 @@ namespace ledger::sqlite
                 table_column_info("ledger_seq_no", COLUMN_DATA_TYPE::INT),
                 table_column_info("pubkey", COLUMN_DATA_TYPE::BLOB),
                 table_column_info("hash", COLUMN_DATA_TYPE::BLOB),
-                table_column_info("nonce", COLUMN_DATA_TYPE::BLOB),
+                table_column_info("nonce", COLUMN_DATA_TYPE::INT),
                 table_column_info("blob_offset", COLUMN_DATA_TYPE::INT),
                 table_column_info("blob_size", COLUMN_DATA_TYPE::INT)};
 
@@ -455,7 +454,7 @@ namespace ledger::sqlite
     }
 
     int insert_user_input_record(sqlite3_stmt *stmt, const uint64_t ledger_seq_no, std::string_view pubkey,
-                                 std::string_view hash, std::string_view nonce, const uint64_t blob_offset, const uint64_t blob_size)
+                                 std::string_view hash, const uint64_t nonce, const uint64_t blob_offset, const uint64_t blob_size)
     {
         if (stmt == NULL)
         {
@@ -467,7 +466,7 @@ namespace ledger::sqlite
             sqlite3_bind_int64(stmt, 1, ledger_seq_no) == SQLITE_OK &&
             BIND_PUBKEY_BLOB(2, pubkey) &&
             BIND_H32_BLOB(3, hash) &&
-            BIND_BLOB(4, nonce) &&
+            sqlite3_bind_int64(stmt, 4, nonce) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 5, blob_offset) == SQLITE_OK &&
             sqlite3_bind_int64(stmt, 6, blob_size) == SQLITE_OK &&
             sqlite3_step(stmt) == SQLITE_DONE)
@@ -617,7 +616,7 @@ namespace ledger::sqlite
         inp.ledger_seq_no = sqlite3_column_int64(stmt, 0);
         inp.pubkey = GET_PUBKEY_BLOB(1);
         inp.hash = GET_H32_BLOB(2);
-        // inp.nonce = GET_BLOB(3);
+        inp.nonce = sqlite3_column_int64(stmt, 3);
         inp.blob_offset = sqlite3_column_int64(stmt, 4);
         inp.blob_size = sqlite3_column_int64(stmt, 5);
         return inp;

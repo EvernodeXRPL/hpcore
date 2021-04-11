@@ -85,7 +85,6 @@ namespace msg::usrmsg
     constexpr const char *REASON_MAX_LEDGER_OFFSET_EXCEEDED = "max_ledger_offset_exceeded";
     constexpr const char *REASON_NONCE_EXPIRED = "nonce_expired";
     constexpr const char *REASON_ALREADY_SUBMITTED = "already_submitted";
-    constexpr const char *REASON_NONCE_OVERFLOW = "nonce_overflow";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
 

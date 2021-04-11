@@ -715,12 +715,12 @@ namespace msg::usrmsg::json
      * @param contentjson The json string containing the input container message.
      *                    {
      *                      "input": "<any string>",
-     *                      "nonce": "<random string with optional sorted order>",
+     *                      "nonce": <integer>, // Indicates input ordering.
      *                      "max_ledger_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_ledger_seq_no, std::string_view contentjson)
+    int extract_input_container(std::string &input, uint64_t &nonce, uint64_t &max_ledger_seq_no, std::string_view contentjson)
     {
         jsoncons::json d;
         try
@@ -739,14 +739,14 @@ namespace msg::usrmsg::json
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<std::string>() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is<uint64_t>())
+        if (!d[msg::usrmsg::FLD_INPUT].is<std::string>() || !d[msg::usrmsg::FLD_NONCE].is<uint64_t>() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is<uint64_t>())
         {
             LOG_DEBUG << "User input container invalid field values.";
             return -1;
         }
 
         input = d[msg::usrmsg::FLD_INPUT].as<std::string>();
-        nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
+        nonce = d[msg::usrmsg::FLD_NONCE].as<uint64_t>();
         max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
 
         return 0;
@@ -964,6 +964,10 @@ namespace msg::usrmsg::json
             msg += SEP_COLON;
             msg += util::to_hex(itr->hash);
             msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_NONCE;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(itr->nonce);
+            msg += SEP_COMMA_NOQUOTE;
             msg += msg::usrmsg::FLD_BLOB;
             msg += SEP_COLON;
             msg += util::to_hex(itr->blob);

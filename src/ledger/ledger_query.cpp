@@ -42,7 +42,7 @@ namespace ledger::query
                     ledgers.push_back(std::move(ledger));
 
                 // Fill raw data if required.
-                if (seq_q.inputs || seq_q.outputs)
+                if (seq_q.seq_no > 0 && (seq_q.inputs || seq_q.outputs))
                 {
                     for (ledger_record &ledger : ledgers)
                     {

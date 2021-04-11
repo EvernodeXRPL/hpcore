@@ -97,7 +97,7 @@ namespace msg::usrmsg
             return busrmsg::extract_signed_input_container(extracted_input_container, extracted_sig, bdoc);
     }
 
-    int usrmsg_parser::extract_input_container(std::string &input, std::string &nonce,
+    int usrmsg_parser::extract_input_container(std::string &input, uint64_t &nonce,
                                                uint64_t &max_ledger_seq_no, std::string_view encoded_content) const
     {
         if (protocol == util::PROTOCOL::JSON)
