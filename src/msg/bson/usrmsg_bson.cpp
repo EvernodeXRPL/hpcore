@@ -397,11 +397,18 @@ namespace msg::usrmsg::bson
             return -1;
         }
 
+        nonce = d[msg::usrmsg::FLD_NONCE].as<uint64_t>();
+        if (nonce == 0)
+        {
+            LOG_DEBUG << "Input nonce must be a positive integer.";
+            return -1;
+        }
+
+        max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
+
         const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_INPUT].as_byte_string_view();
         input = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
 
-        nonce = d[msg::usrmsg::FLD_NONCE].as<uint64_t>();
-        max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
         return 0;
     }
 
