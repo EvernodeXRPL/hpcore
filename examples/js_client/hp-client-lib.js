@@ -806,12 +806,12 @@
                 throw "Max ledger seq no. or offset cannot be 0.";
             if (!isOffset && !maxLedger)
                 throw "Max ledger seq. no not specified.";
-            if (nonce && (!Number.isInteger(nonce) || nonce < 0))
+            if (nonce && (!Number.isInteger(nonce) || nonce <= 0))
                 throw "Input nonce must be a positive integer.";
 
-            // Use time-based incrementing nonce if not specified.
+            // Use epoch-based auto incrementing nonce if nonce is not specified.
             if (!nonce)
-                nonce = (new Date()).getTime();
+                nonce = new Date().getTime();
 
             // If max ledger is specified as offset, we need to get current ledger status and add the offset to it.
             if (isOffset) {
@@ -859,7 +859,8 @@
             if (connectionStatus != 2)
                 return Promise.resolve(null);
 
-            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, includeInputs, includeOutputs);
+            const queryParams = { "seq_no": msgHelper.serializeNumber(seqNo) };
+            const msg = msgHelper.createLedgerQuery("seq_no", queryParams, includeInputs, includeOutputs);
             const p = new Promise(resolve => {
                 ledgerQueryResolvers[msg.id] = {
                     type: "seq_no",
@@ -906,6 +907,12 @@
             return protocol == protocols.json ? val : val.buffer;
         }
 
+        this.serializeNumber = (num) => {
+            // For standard javascript numbers, Bson library does not support serializing large numbers correctly.
+            // Hence we have to encode as special bson long type when using bson protocol.
+            return (protocol == protocols.json) ? num : bson.Long.fromNumber(num);
+        }
+
         // Used for generating strings to hold values as js object keys.
         this.stringifyValue = (val) => {
             if (isString(val))
@@ -945,8 +952,8 @@
 
             const inpContainer = {
                 input: this.serializeInput(input),
-                nonce: nonce,
-                max_ledger_seq_no: maxLedgerSeqNo
+                nonce: this.serializeNumber(nonce),
+                max_ledger_seq_no: this.serializeNumber(maxLedgerSeqNo)
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);

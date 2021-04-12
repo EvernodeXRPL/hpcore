@@ -42,7 +42,7 @@ namespace ledger::query
                     ledgers.push_back(std::move(ledger));
 
                 // Fill raw data if required.
-                if (seq_q.seq_no > 0 && (seq_q.inputs || seq_q.outputs))
+                if (seq_q.inputs || seq_q.outputs)
                 {
                     for (ledger_record &ledger : ledgers)
                     {
@@ -51,7 +51,8 @@ namespace ledger::query
                         if (seq_q.outputs)
                             ledger.outputs = std::vector<ledger::ledger_user_output>();
 
-                        if (get_ledger_raw_data(ledger, user_pubkey, fs_sess_name) != -1)
+                        // No need to actually query raw data for genesis ledger.
+                        if (seq_q.seq_no == 0 || get_ledger_raw_data(ledger, user_pubkey, fs_sess_name) != -1)
                             res = ledgers;
                     }
                 }
