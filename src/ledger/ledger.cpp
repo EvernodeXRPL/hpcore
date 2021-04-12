@@ -131,7 +131,7 @@ namespace ledger
         ctx.set_last_primary_shard_id(p2p::sequence_hash{primary_shard_seq_no, last_primary_shard_hash});
 
         // Update the hpfs log index file only in full history mode.
-        if (conf::cfg.node.history == conf::HISTORY::FULL && sc::contract_fs.update_hpfs_log_index() == -1)
+        if (conf::cfg.node.history == conf::HISTORY::FULL && sc::contract_fs.update_hpfs_log_index(seq_no) == -1)
         {
             LOG_ERROR << errno << ": Error updating the log index file.";
             return -1;

@@ -405,9 +405,9 @@ namespace hpfs
      * This updates the hpfs log index file with latest log offset and the root hash.
      * @return Returns 0 in success, otherwise -1.
     */
-    int hpfs_mount::update_hpfs_log_index()
+    int hpfs_mount::update_hpfs_log_index(const uint64_t seq_no)
     {
-        const std::string index_file = mount_dir + INDEX_CONTROL;
+        const std::string index_file = mount_dir + INDEX_CONTROL + "." + std::to_string(seq_no);
 
         const int fd = open(index_file.c_str(), O_RDWR);
         if (fd == -1)
