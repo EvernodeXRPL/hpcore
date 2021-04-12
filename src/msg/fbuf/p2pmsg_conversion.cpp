@@ -39,16 +39,18 @@ namespace msg::fbuf::p2pmsg
     {
         const auto p2p_msg = p2pmsg::GetP2PMsg(message.data());
 
+        // Uncomment if we need to enable global message timestamp check.
+        //
         // Check message timestamp (ignore this for large messages).
-        if (message.size() <= MAX_SIZE_FOR_TIME_CHECK)
-        {
-            const uint64_t time_now = util::get_epoch_milliseconds();
-            if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
-            {
-                LOG_DEBUG << "Peer message is too old.";
-                return p2p::peer_message_info{NULL, P2PMsgContent_NONE, 0};
-            }
-        }
+        // if (message.size() <= MAX_SIZE_FOR_TIME_CHECK)
+        // {
+        //     const uint64_t time_now = util::get_epoch_milliseconds();
+        //     if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
+        //     {
+        //         LOG_DEBUG << "Peer message is too old.";
+        //         return p2p::peer_message_info{NULL, P2PMsgContent_NONE, 0};
+        //     }
+        // }
 
         return p2p::peer_message_info{p2p_msg, p2p_msg->content_type(), p2p_msg->created_on()};
     }
