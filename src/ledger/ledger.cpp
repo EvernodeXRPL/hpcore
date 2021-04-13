@@ -9,19 +9,23 @@
 #include "ledger_common.hpp"
 #include "ledger_serve.hpp"
 
-#define RAW_DATA_RETURN(ret)                \
-    {                                       \
-        if (users_stmt != NULL)             \
-            sqlite3_finalize(users_stmt);   \
-        if (outputs_stmt != NULL)           \
-            sqlite3_finalize(outputs_stmt); \
-        if (inputs_stmt != NULL)            \
-            sqlite3_finalize(inputs_stmt);  \
-        if (in_fd != -1)                    \
-            close(in_fd);                   \
-        if (out_fd != -1)                   \
-            close(out_fd);                  \
-        return ret;                         \
+#define RAW_DATA_RETURN(ret)                  \
+    {                                         \
+        if (ret == -1)                        \
+            sqlite::rollback_transaction(db); \
+        else                                  \
+            sqlite::commit_transaction(db);   \
+        if (users_stmt != NULL)               \
+            sqlite3_finalize(users_stmt);     \
+        if (outputs_stmt != NULL)             \
+            sqlite3_finalize(outputs_stmt);   \
+        if (inputs_stmt != NULL)              \
+            sqlite3_finalize(inputs_stmt);    \
+        if (in_fd != -1)                      \
+            close(in_fd);                     \
+        if (out_fd != -1)                     \
+            close(out_fd);                    \
+        return ret;                           \
     }
 
 namespace ledger
@@ -136,7 +140,7 @@ namespace ledger
 
         // Prepare shard folders and database and get the shard sequence number.
         uint64_t shard_seq_no;
-        const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB, true, true);
+        const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB, true);
 
         // Insert primary ledger record.
         if (shard_res >= 0 && insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_lcl_id) != -1)
@@ -183,7 +187,7 @@ namespace ledger
         // Prepare shard folders and database and get the shard sequence number.
         sqlite3 *db = NULL;
         uint64_t shard_seq_no;
-        const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB, has_updates, false);
+        const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB, has_updates);
 
         if (shard_res >= 0 && insert_raw_data_records(db, shard_seq_no, proposal, consensed_users, lcl_id) != -1)
         {
@@ -298,6 +302,10 @@ namespace ledger
         int out_fd = -1;    // Raw outputs storage file for the shard. Only created and opened if there are any outputs.
         size_t in_pos = 0;  // Current writing position offset of the inputs file.
         size_t out_pos = 0; // Current writing position offset of the outputs file.
+
+        // Group all row insertions within a transaction for consistency.
+        if (sqlite::begin_transaction(db) == -1)
+            RAW_DATA_RETURN(-1);
 
         for (const auto &[pubkey, cu] : consensed_users)
         {
@@ -420,7 +428,7 @@ namespace ledger
      * @return 0 if shard already exists. 1 if new shard got created. -1 on failure.
      */
     int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size,
-                      const char *shard_dir, const char *db_name, const bool keep_db_connection, const bool db_journal)
+                      const char *shard_dir, const char *db_name, const bool keep_db_connection)
     {
         // Construct shard path.
         shard_seq_no = (ledger_seq_no - 1) / shard_size;
@@ -439,7 +447,7 @@ namespace ledger
             }
 
             // Creating ledger database and open a database connection.
-            if (sqlite::open_db(db_path, db, true, db_journal) == -1)
+            if (sqlite::open_db(db_path, db, true) == -1)
             {
                 LOG_ERROR << errno << ": Error creating the database " << db_name;
                 return -1;
@@ -511,7 +519,7 @@ namespace ledger
         }
         else
         {
-            if (keep_db_connection && sqlite::open_db(db_path, db, true, db_journal) == -1)
+            if (keep_db_connection && sqlite::open_db(db_path, db, true) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database " << db_path;
                 return -1;

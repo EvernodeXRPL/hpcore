@@ -15,6 +15,9 @@ namespace ledger::sqlite
     constexpr const char *CREATE_INDEX = "CREATE INDEX ";
     constexpr const char *CREATE_UNIQUE_INDEX = "CREATE UNIQUE INDEX ";
     constexpr const char *JOURNAL_MODE_OFF = "PRAGMA journal_mode=OFF";
+    constexpr const char *BEGIN_TRANSACTION = "BEGIN TRANSACTION;";
+    constexpr const char *COMMIT_TRANSACTION = "COMMIT;";
+    constexpr const char *ROLLBACK_TRANSACTION = "ROLLBACK;";
     constexpr const char *INSERT_INTO = "INSERT INTO ";
     constexpr const char *PRIMARY_KEY = "PRIMARY KEY";
     constexpr const char *NOT_NULL = "NOT NULL";
@@ -64,9 +67,10 @@ namespace ledger::sqlite
             return -1;
         }
 
-        // We turn off journaling for the db if we don't need transacion support.
-        // Journaling mode introduces lot of extra underyling file system operations which causes lot of overhead.
-        if (!journal && exec_sql(*db, JOURNAL_MODE_OFF) == -1)
+        // We can turn off journaling for the db if we don't need transacion support.
+        // Journaling mode can introduce lot of extra underyling file system operations which may cause
+        // lot of overhead if used on a low-performance filesystem like hpfs.
+        if (writable && !journal && exec_sql(*db, JOURNAL_MODE_OFF) == -1)
             return -1;
 
         return 0;
@@ -90,6 +94,21 @@ namespace ledger::sqlite
             return -1;
         }
         return 0;
+    }
+
+    int begin_transaction(sqlite3 *db)
+    {
+        return sqlite::exec_sql(db, BEGIN_TRANSACTION);
+    }
+
+    int commit_transaction(sqlite3 *db)
+    {
+        return sqlite::exec_sql(db, COMMIT_TRANSACTION);
+    }
+
+    int rollback_transaction(sqlite3 *db)
+    {
+        return sqlite::exec_sql(db, ROLLBACK_TRANSACTION);
     }
 
     /**

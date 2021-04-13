@@ -85,7 +85,7 @@ namespace ledger
     int create_raw_data_blob_file(const std::string &shard_path, const char *file_name, size_t &file_size);
 
     int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size,
-                      const char *shard_dir, const char *db_name, const bool keep_db_connection, const bool db_journal);
+                      const char *shard_dir, const char *db_name, const bool keep_db_connection);
 
     void remove_old_shards(const uint64_t lcl_seq_no, const uint64_t shard_size, const uint64_t max_shards, std::string_view shard_parent_dir);
 
