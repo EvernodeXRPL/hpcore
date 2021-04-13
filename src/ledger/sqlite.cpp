@@ -57,8 +57,8 @@ namespace ledger::sqlite
         const int flags = read_only ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
         if ((ret = sqlite3_open_v2(db_name.data(), db, flags, 0)) != SQLITE_OK)
         {
+            LOG_ERROR << ret << ": Sqlite error when opening database " << db_name;
             *db = NULL;
-            LOG_ERROR << "Can't open database: " << ret << ", " << sqlite3_errmsg(*db);
             return -1;
         }
 

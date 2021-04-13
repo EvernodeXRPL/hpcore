@@ -299,7 +299,7 @@ namespace consensus
                 ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_raw_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
-            // If shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
+            // If shards aren't aligned with max shard count, do the relevant shard cleanups and requests.
             // In the first consensus round sync completion after the startup.
             if (!ledger::ledger_sync_worker.is_syncing && (!ledger::ctx.primary_shards_persisted || !ledger::ctx.raw_shards_persisted) && ledger::ledger_fs.acquire_rw_session() != -1)
             {
@@ -989,7 +989,7 @@ namespace consensus
             }
         }
 
-        is_ledger_blob_desync = (ledger::ctx.get_last_raw_shard_id() != majority_raw_shard_id);
+        is_ledger_blob_desync = (conf::cfg.node.history_config.max_raw_shards > 0 && ledger::ctx.get_last_raw_shard_id() != majority_raw_shard_id);
     }
 
     /**

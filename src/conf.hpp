@@ -51,7 +51,7 @@ namespace conf
     struct history_configuration
     {
         uint64_t max_primary_shards; // Maximum number of shards for primary shards.
-        uint64_t max_raw_shards;    // Maximum number of shards for raw shards.
+        uint64_t max_raw_shards;     // Maximum number of shards for raw data shards.
     };
 
     // Log severity levels used in Hot Pocket.

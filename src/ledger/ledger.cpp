@@ -81,6 +81,9 @@ namespace ledger
         remove_old_shards(lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
         remove_old_shards(lcl_id.seq_no, RAW_SHARD_SIZE, conf::cfg.node.history_config.max_raw_shards, RAW_DIR);
 
+        if (conf::cfg.node.history_config.max_raw_shards == 0)
+            ctx.raw_shards_persisted = true;
+
         return 0;
     }
 
@@ -422,6 +425,7 @@ namespace ledger
         // Construct shard path.
         shard_seq_no = (ledger_seq_no - 1) / shard_size;
         const std::string shard_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, std::string(shard_dir).append("/").append(std::to_string(shard_seq_no)));
+        const std::string db_path = shard_path + "/" + db_name;
 
         // This means this is the first ledger of the shard.
         // So create the shard folder and other required files.
@@ -435,23 +439,23 @@ namespace ledger
             }
 
             // Creating ledger database and open a database connection.
-            if (sqlite::open_db(shard_path + "/" + db_name, db) == -1)
+            if (sqlite::open_db(db_path, db) == -1)
             {
-                LOG_ERROR << errno << ": Error creating the database " << db_name << " in " << shard_path;
+                LOG_ERROR << errno << ": Error creating the database " << db_name;
                 return -1;
             }
 
             if ((shard_dir == PRIMARY_DIR && sqlite::initialize_ledger_db(*db) == -1) ||
                 (shard_dir == RAW_DIR && sqlite::initialize_ledger_raw_db(*db) == -1))
             {
-                LOG_ERROR << errno << ": Error initilizing the database " << db_name << " in " << shard_path;
+                LOG_ERROR << errno << ": Error initilizing the database " << db_name;
                 return -1;
             }
 
             // Create and update the hp table with current ledger version.
             if (sqlite::create_hp_table(*db, version::LEDGER_VERSION) == -1)
             {
-                LOG_ERROR << errno << ": Error creating hp table in " << db_name << " in " << shard_path;
+                LOG_ERROR << errno << ": Error creating hp table in " << db_name;
                 return -1;
             }
 
@@ -507,9 +511,9 @@ namespace ledger
         }
         else
         {
-            if (open_db && sqlite::open_db(shard_path + "/" + db_name, db) == -1)
+            if (open_db && sqlite::open_db(db_path, db) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the shard database in " << shard_path;
+                LOG_ERROR << errno << ": Error openning the shard database " << db_path;
                 return -1;
             }
             return 0;
@@ -540,7 +544,8 @@ namespace ledger
             // There cannot be shards which is less than this shard no. since shards are continous.
             if (!util::is_dir_exists(shard_path))
                 break;
-            else if (util::remove_directory_recursively(shard_path) == -1)
+
+            if (util::remove_directory_recursively(shard_path) == -1)
             {
                 LOG_ERROR << errno << ": Error deleting shard: " << shard_path;
                 break;
@@ -561,10 +566,11 @@ namespace ledger
 
         // Set persisted flag to true. So this cleanup won't get executed again.
         shard_parent_dir == PRIMARY_DIR ? ctx.primary_shards_persisted = true : ctx.raw_shards_persisted = true;
+        const uint64_t max_shard_count = (shard_parent_dir == PRIMARY_DIR ? conf::cfg.node.history_config.max_primary_shards : conf::cfg.node.history_config.max_raw_shards);
 
-        const std::string shard_dir_path = std::string(ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir));
-        const uint64_t max_shard_count = shard_dir_path == PRIMARY_DIR ? conf::cfg.node.history_config.max_primary_shards : conf::cfg.node.history_config.max_raw_shards;
+        const std::string shard_dir_path = ledger_fs.physical_path(hpfs::RW_SESSION_NAME, shard_parent_dir);
         const std::list<std::string> shard_list = util::fetch_dir_entries(shard_dir_path);
+
         // Skip the sequence no file from the count.
         uint64_t shard_count = shard_list.size() - 1;
 
