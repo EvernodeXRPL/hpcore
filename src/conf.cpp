@@ -154,7 +154,7 @@ namespace conf
             cfg.node.role = ROLE::VALIDATOR;
             cfg.node.history = HISTORY::CUSTOM;
             cfg.node.history_config.max_primary_shards = 1;
-            cfg.node.history_config.max_raw_shards = 1;
+            cfg.node.history_config.max_raw_shards = 0;
 
             cfg.contract.id = crypto::generate_uuid();
             cfg.contract.execute = true;
@@ -365,12 +365,6 @@ namespace conf
                     if (cfg.node.history_config.max_primary_shards == 0)
                     {
                         std::cerr << "'max_primary_shards' cannot be zero in history=custom mode.\n";
-                        return -1;
-                    }
-
-                    if (cfg.node.history_config.max_raw_shards == 0)
-                    {
-                        std::cerr << "'max_raw_shards' cannot be zero in history=custom mode.\n";
                         return -1;
                     }
                 }
