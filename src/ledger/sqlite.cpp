@@ -15,6 +15,9 @@ namespace ledger::sqlite
     constexpr const char *CREATE_INDEX = "CREATE INDEX ";
     constexpr const char *CREATE_UNIQUE_INDEX = "CREATE UNIQUE INDEX ";
     constexpr const char *JOURNAL_MODE_OFF = "PRAGMA journal_mode=OFF";
+    constexpr const char *BEGIN_TRANSACTION = "BEGIN TRANSACTION;";
+    constexpr const char *COMMIT_TRANSACTION = "COMMIT;";
+    constexpr const char *ROLLBACK_TRANSACTION = "ROLLBACK;";
     constexpr const char *INSERT_INTO = "INSERT INTO ";
     constexpr const char *PRIMARY_KEY = "PRIMARY KEY";
     constexpr const char *NOT_NULL = "NOT NULL";
@@ -49,12 +52,14 @@ namespace ledger::sqlite
      * Opens a connection to a given databse and give the db pointer.
      * @param db_name Database name to be connected.
      * @param db Pointer to the db pointer which is to be connected and pointed.
+     * @param writable Whether the database must be opened in a writable mode or not.
+     * @param journal Whether to enable db journaling or not.
      * @returns returns 0 on success, or -1 on error.
     */
-    int open_db(std::string_view db_name, sqlite3 **db, const bool read_only)
+    int open_db(std::string_view db_name, sqlite3 **db, const bool writable, const bool journal)
     {
         int ret;
-        const int flags = read_only ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+        const int flags = writable ? (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) : SQLITE_OPEN_READONLY;
         if ((ret = sqlite3_open_v2(db_name.data(), db, flags, 0)) != SQLITE_OK)
         {
             LOG_ERROR << ret << ": Sqlite error when opening database " << db_name;
@@ -62,9 +67,10 @@ namespace ledger::sqlite
             return -1;
         }
 
-        // We turn off journaling for the db because we don't need transacion support.
-        // Journaling mode introduces lot of extra underyling file system operations which causes lot of overhead.
-        if (exec_sql(*db, JOURNAL_MODE_OFF) == -1)
+        // We can turn off journaling for the db if we don't need transacion support.
+        // Journaling mode can introduce lot of extra underyling file system operations which may cause
+        // lot of overhead if used on a low-performance filesystem like hpfs.
+        if (writable && !journal && exec_sql(*db, JOURNAL_MODE_OFF) == -1)
             return -1;
 
         return 0;
@@ -88,6 +94,21 @@ namespace ledger::sqlite
             return -1;
         }
         return 0;
+    }
+
+    int begin_transaction(sqlite3 *db)
+    {
+        return sqlite::exec_sql(db, BEGIN_TRANSACTION);
+    }
+
+    int commit_transaction(sqlite3 *db)
+    {
+        return sqlite::exec_sql(db, COMMIT_TRANSACTION);
+    }
+
+    int rollback_transaction(sqlite3 *db)
+    {
+        return sqlite::exec_sql(db, ROLLBACK_TRANSACTION);
     }
 
     /**
