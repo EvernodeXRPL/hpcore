@@ -49,12 +49,14 @@ namespace ledger::sqlite
      * Opens a connection to a given databse and give the db pointer.
      * @param db_name Database name to be connected.
      * @param db Pointer to the db pointer which is to be connected and pointed.
+     * @param writable Whether the database must be opened in a writable mode or not.
+     * @param journal Whether to enable db journaling or not.
      * @returns returns 0 on success, or -1 on error.
     */
-    int open_db(std::string_view db_name, sqlite3 **db, const bool read_only)
+    int open_db(std::string_view db_name, sqlite3 **db, const bool writable, const bool journal)
     {
         int ret;
-        const int flags = read_only ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+        const int flags = writable ? (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE) : SQLITE_OPEN_READONLY;
         if ((ret = sqlite3_open_v2(db_name.data(), db, flags, 0)) != SQLITE_OK)
         {
             LOG_ERROR << ret << ": Sqlite error when opening database " << db_name;
@@ -62,9 +64,9 @@ namespace ledger::sqlite
             return -1;
         }
 
-        // We turn off journaling for the db because we don't need transacion support.
+        // We turn off journaling for the db if we don't need transacion support.
         // Journaling mode introduces lot of extra underyling file system operations which causes lot of overhead.
-        if (exec_sql(*db, JOURNAL_MODE_OFF) == -1)
+        if (!journal && exec_sql(*db, JOURNAL_MODE_OFF) == -1)
             return -1;
 
         return 0;

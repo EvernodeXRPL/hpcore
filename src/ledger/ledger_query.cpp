@@ -92,7 +92,7 @@ namespace ledger::query
             return 0; // Not found.
 
         sqlite3 *db = NULL;
-        if (sqlite::open_db(db_path, &db, true) == -1)
+        if (sqlite::open_db(db_path, &db) == -1)
             return -1;
 
         const int sql_res = sqlite::get_ledger_by_seq_no(db, q.seq_no, ledger);
@@ -121,7 +121,7 @@ namespace ledger::query
             return 0; // Not found.
 
         sqlite3 *db = NULL;
-        if (sqlite::open_db(db_path, &db, true) == -1)
+        if (sqlite::open_db(db_path, &db) == -1)
             return -1;
 
         if ((ledger.inputs && get_ledger_inputs(db, *ledger.inputs, ledger.seq_no, shard_path, user_pubkey, fs_sess_name) == -1) ||

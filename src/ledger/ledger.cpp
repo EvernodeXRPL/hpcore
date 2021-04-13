@@ -136,7 +136,7 @@ namespace ledger
 
         // Prepare shard folders and database and get the shard sequence number.
         uint64_t shard_seq_no;
-        const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB, true);
+        const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB, true, true);
 
         // Insert primary ledger record.
         if (shard_res >= 0 && insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_lcl_id) != -1)
@@ -183,7 +183,7 @@ namespace ledger
         // Prepare shard folders and database and get the shard sequence number.
         sqlite3 *db = NULL;
         uint64_t shard_seq_no;
-        const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB, has_updates);
+        const int shard_res = prepare_shard(&db, shard_seq_no, lcl_id.seq_no, RAW_SHARD_SIZE, RAW_DIR, RAW_DB, has_updates, false);
 
         if (shard_res >= 0 && insert_raw_data_records(db, shard_seq_no, proposal, consensed_users, lcl_id) != -1)
         {
@@ -416,11 +416,11 @@ namespace ledger
      * Creates or open a db connection to the shard based on the params. This is used to create primary and raw shards.
      * @param db Database connection to be opened.
      * @param ledger_seq_no Ledger sequence number.
-     * @param open_db Whether a connection to the sql db must be opened or not.
+     * @param keep_db_connection Whether the sqlite db connection must be kept open or not.
      * @return 0 if shard already exists. 1 if new shard got created. -1 on failure.
      */
     int prepare_shard(sqlite3 **db, uint64_t &shard_seq_no, const uint64_t ledger_seq_no, const uint64_t shard_size,
-                      const char *shard_dir, const char *db_name, const bool open_db)
+                      const char *shard_dir, const char *db_name, const bool keep_db_connection, const bool db_journal)
     {
         // Construct shard path.
         shard_seq_no = (ledger_seq_no - 1) / shard_size;
@@ -439,7 +439,7 @@ namespace ledger
             }
 
             // Creating ledger database and open a database connection.
-            if (sqlite::open_db(db_path, db) == -1)
+            if (sqlite::open_db(db_path, db, true, db_journal) == -1)
             {
                 LOG_ERROR << errno << ": Error creating the database " << db_name;
                 return -1;
@@ -460,7 +460,7 @@ namespace ledger
             }
 
             // Close the connection if it doesn't need to be retained.
-            if (!open_db)
+            if (!keep_db_connection)
                 sqlite::close_db(db);
 
             util::h32 prev_shard_hash;
@@ -511,7 +511,7 @@ namespace ledger
         }
         else
         {
-            if (open_db && sqlite::open_db(db_path, db) == -1)
+            if (keep_db_connection && sqlite::open_db(db_path, db, true, db_journal) == -1)
             {
                 LOG_ERROR << errno << ": Error openning the shard database " << db_path;
                 return -1;
@@ -779,7 +779,7 @@ namespace ledger
         ledger::ledger_record ledger;
         if (sqlite::get_ledger_by_seq_no(db, seq_no, ledger) == -1)
         {
-            LOG_ERROR << "Error getting ledger by sequence number: " << std::to_string(seq_no);
+            LOG_ERROR << "Error getting ledger by sequence number: " << seq_no;
             sqlite::close_db(&db);
             ledger_fs.stop_ro_session(session_name);
             return -1;

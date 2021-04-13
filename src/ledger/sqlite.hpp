@@ -40,7 +40,7 @@ namespace ledger::sqlite
     };
 
     // Generic methods.
-    int open_db(std::string_view db_name, sqlite3 **db, const bool read_only = false);
+    int open_db(std::string_view db_name, sqlite3 **db, const bool writable = false, const bool journal = false);
 
     int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **) = NULL, void *callback_first_arg = NULL);
 
