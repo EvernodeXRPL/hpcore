@@ -47,11 +47,11 @@ namespace conf
         CUSTOM
     };
 
-    // Max number of shards to keep for primary and blob shards.
+    // Max number of shards to keep for primary and raw shards.
     struct history_configuration
     {
         uint64_t max_primary_shards; // Maximum number of shards for primary shards.
-        uint64_t max_blob_shards;    // Maximum number of shards for blob shards.
+        uint64_t max_raw_shards;     // Maximum number of shards for raw data shards.
     };
 
     // Log severity levels used in Hot Pocket.

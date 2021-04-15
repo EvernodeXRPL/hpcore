@@ -109,8 +109,7 @@ function singleUserInputOutput(payloadKB, requestCount) {
 
         timer.start();
         for (let i = 0; i < requestCount; i++) {
-            const nonce = i.toString().padStart(5);
-            const input = await hpc.submitContractInput(payload, nonce, 10);
+            const input = await hpc.submitContractInput(payload);
             input.submissionStatus.then(s => {
                 if (s.status != "accepted")
                     console.log(s.reason);

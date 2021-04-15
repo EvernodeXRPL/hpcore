@@ -109,12 +109,12 @@ namespace consensus
         // If possible, switch back to validator mode before stage processing. (if we were syncing before)
         check_sync_completion();
 
-        // Get current lcl, state, patch, primary shard and blob shard info.
+        // Get current lcl, state, patch, primary shard and raw shard info.
         p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
         const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);
         const p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
-        const p2p::sequence_hash last_blob_shard_id = ledger::ctx.get_last_blob_shard_id();
+        const p2p::sequence_hash last_raw_shard_id = ledger::ctx.get_last_raw_shard_id();
 
         if (ctx.stage == 0 || ctx.stage == 2)
         {
@@ -131,7 +131,7 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_id.seq_no) == -1)
                 return -1;
 
-            const p2p::proposal p = create_stage0_proposal(state_hash, patch_hash, last_primary_shard_id, last_blob_shard_id);
+            const p2p::proposal p = create_stage0_proposal(state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
@@ -161,7 +161,7 @@ namespace consensus
             if (sync_status == 0)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_blob_shard_id);
+                const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
                 broadcast_proposal(p);
 
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
@@ -200,7 +200,7 @@ namespace consensus
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash)
     {
         // Persist the new ledger with the consensus results.
-        if (ledger::save_ledger(cons_prop, consensed_users) == -1)
+        if (ledger::update_ledger(cons_prop, consensed_users) == -1)
             return -1;
 
         p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
@@ -250,10 +250,10 @@ namespace consensus
                 ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
-            // Check out blob shard hash with majority blob shard hash.
-            bool is_last_blob_shard_desync = false;
-            p2p::sequence_hash majority_blob_shard_id;
-            check_last_blob_shard_hash_votes(is_last_blob_shard_desync, majority_blob_shard_id, votes);
+            // Check out raw shard hash with majority raw shard hash.
+            bool is_last_raw_shard_desync = false;
+            p2p::sequence_hash majority_raw_shard_id;
+            check_last_raw_shard_hash_votes(is_last_raw_shard_desync, majority_raw_shard_id, votes);
 
             // Check our state with majority state.
             bool is_state_desync = false;
@@ -292,38 +292,38 @@ namespace consensus
                 }
             }
 
-            // If ledger blob shard is desync, We first request the latest blob shard.
-            if (is_last_blob_shard_desync)
+            // If ledger raw shard is desync, We first request the latest raw shard.
+            if (is_last_raw_shard_desync)
             {
                 conf::change_role(conf::ROLE::OBSERVER);
-                const std::string majority_shard_seq_no_str = std::to_string(majority_blob_shard_id.seq_no);
-                const std::string sync_name = "blob shard " + majority_shard_seq_no_str;
-                const std::string shard_path = std::string(ledger::BLOB_DIR).append("/").append(majority_shard_seq_no_str);
-                ledger::ledger_sync_worker.is_last_blob_shard_syncing = true;
-                ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_blob_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                const std::string majority_shard_seq_no_str = std::to_string(majority_raw_shard_id.seq_no);
+                const std::string sync_name = "raw shard " + majority_shard_seq_no_str;
+                const std::string shard_path = std::string(ledger::RAW_DIR).append("/").append(majority_shard_seq_no_str);
+                ledger::ledger_sync_worker.is_last_raw_shard_syncing = true;
+                ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_raw_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
-            // If shards aren't aligned with max shard count, Do the relevant shard cleanups and requests.
+            // If shards aren't aligned with max shard count, do the relevant shard cleanups and requests.
             // In the first consensus round sync completion after the startup.
-            if (!ledger::ledger_sync_worker.is_syncing && (!ledger::ctx.primary_shards_persisted || !ledger::ctx.blob_shards_persisted) && ledger::ledger_fs.acquire_rw_session() != -1)
+            if (!ledger::ledger_sync_worker.is_syncing && (!ledger::ctx.primary_shards_persisted || !ledger::ctx.raw_shards_persisted) && ledger::ledger_fs.acquire_rw_session() != -1)
             {
                 if (!ledger::ctx.primary_shards_persisted)
                     ledger::persist_shard_history(majority_primary_shard_id.seq_no, ledger::PRIMARY_DIR);
 
-                if (!ledger::ctx.blob_shards_persisted)
-                    ledger::persist_shard_history(majority_blob_shard_id.seq_no, ledger::BLOB_DIR);
+                if (!ledger::ctx.raw_shards_persisted)
+                    ledger::persist_shard_history(majority_raw_shard_id.seq_no, ledger::RAW_DIR);
 
                 ledger::ledger_fs.release_rw_session();
             }
 
-            // Proceed further only if last primary shard, last blob shard, state and patch hashes are in sync with majority.
-            if (!is_last_primary_shard_desync && !is_last_blob_shard_desync && !is_state_desync && !is_patch_desync)
+            // Proceed further only if last primary shard, last raw shard, state and patch hashes are in sync with majority.
+            if (!is_last_primary_shard_desync && !is_last_raw_shard_desync && !is_state_desync && !is_patch_desync)
             {
                 conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
-            // Last primary shard hash, last blob shard hash, patch or state desync.
+            // Last primary shard hash, last raw shard hash, patch or state desync.
             return -1;
         }
 
@@ -339,7 +339,7 @@ namespace consensus
     {
         const bool is_contract_syncing = (conf::cfg.node.history == conf::HISTORY::FULL) ? sc::hpfs_log_sync::sync_ctx.is_syncing : sc::contract_sync_worker.is_syncing;
         // In ledger sync we only concern about last shard sync status to proceed with consensus.
-        const bool is_ledger_syncing = ledger::ledger_sync_worker.is_last_primary_shard_syncing || ledger::ledger_sync_worker.is_last_blob_shard_syncing;
+        const bool is_ledger_syncing = ledger::ledger_sync_worker.is_last_primary_shard_syncing || ledger::ledger_sync_worker.is_last_raw_shard_syncing;
         if (conf::cfg.node.role == conf::ROLE::OBSERVER && !is_contract_syncing && !is_ledger_syncing)
             conf::change_role(conf::ROLE::VALIDATOR);
     }
@@ -350,7 +350,7 @@ namespace consensus
      */
     void revise_candidate_proposals()
     {
-        // Move over the network proposal collection into a local list. This is to have a private working
+        // Move over the incoming proposal collection into a local list. This is to have a private working
         // set for candidate parsing and avoid threading conflicts with network incoming proposals.
         std::list<p2p::proposal> collected_proposals;
         {
@@ -358,42 +358,64 @@ namespace consensus
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
+        // Prune incoming proposals if they are older than existing proposal from same node.
+        {
+            auto itr = collected_proposals.begin();
+            while (itr != collected_proposals.end())
+            {
+                const auto ex_itr = ctx.candidate_proposals.find(itr->pubkey);
+                if (ex_itr != ctx.candidate_proposals.end()) // There is an existing proposal from same node.
+                {
+                    const p2p::proposal &existing = ex_itr->second;
+                    if ((itr->time == existing.time && itr->stage < existing.stage) || // Existing proposal is from a newer stage in same round.
+                        (itr->time < existing.time))                                   // Existing proposal is from an newer round
+                    {
+                        collected_proposals.erase(itr++); // Erase the incoming proposal as it is older.
+                        continue;
+                    }
+                }
+
+                ++itr;
+            }
+        }
+
         // Provide latest roundtime information to unl statistics.
         unl::update_roundtime_stats(collected_proposals);
 
         // Move collected propsals to candidate set of proposals.
-        // Add propsals of new nodes and replace proposals from old nodes to reflect current status of nodes.
-        for (const auto &proposal : collected_proposals)
+        for (const auto &p : collected_proposals)
         {
-            ctx.candidate_proposals.erase(proposal.pubkey); // Erase if already exists.
-            ctx.candidate_proposals.emplace(proposal.pubkey, std::move(proposal));
+            ctx.candidate_proposals.erase(p.pubkey); // Erase if already exists.
+            ctx.candidate_proposals.emplace(p.pubkey, std::move(p));
         }
 
-        auto itr = ctx.candidate_proposals.begin();
-        const uint64_t time_now = util::get_epoch_milliseconds();
-        while (itr != ctx.candidate_proposals.end())
+        // Prune candidate proposals.
         {
-            const p2p::proposal &cp = itr->second;
-            const int8_t stage_diff = ctx.stage - cp.stage;
+            auto itr = ctx.candidate_proposals.begin();
+            while (itr != ctx.candidate_proposals.end())
+            {
+                const p2p::proposal &cp = itr->second;
+                const int8_t stage_diff = ctx.stage - cp.stage;
 
-            // Only consider this round's proposals which are from previous stage.
-            const bool keep_candidate = (ctx.round_start_time == cp.time) && (stage_diff == 1);
-            LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
-                      << " [s" << std::to_string(cp.stage)
-                      << "] u/i:" << cp.users.size()
-                      << "/" << cp.input_ordered_hashes.size()
-                      << " ts:" << cp.time
-                      << " state:" << cp.state_hash
-                      << " patch:" << cp.patch_hash
-                      << " lps:" << cp.last_primary_shard_id
-                      << " lbs:" << cp.last_blob_shard_id
-                      << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
-                      << "(" << (cp.recv_timestamp > cp.sent_timestamp ? (cp.recv_timestamp - cp.sent_timestamp) : 0) << "ms)";
+                // Only consider this round's proposals which are from previous stage.
+                const bool keep_candidate = (ctx.round_start_time == cp.time) && (stage_diff == 1);
+                LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
+                          << " [s" << std::to_string(cp.stage)
+                          << "] u/i:" << cp.users.size()
+                          << "/" << cp.input_ordered_hashes.size()
+                          << " ts:" << cp.time
+                          << " state:" << cp.state_hash
+                          << " patch:" << cp.patch_hash
+                          << " lps:" << cp.last_primary_shard_id
+                          << " lbs:" << cp.last_raw_shard_id
+                          << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
+                          << "(" << (cp.recv_timestamp > cp.sent_timestamp ? (cp.recv_timestamp - cp.sent_timestamp) : 0) << "ms)";
 
-            if (keep_candidate)
-                ++itr;
-            else
-                ctx.candidate_proposals.erase(itr++);
+                if (keep_candidate)
+                    ++itr;
+                else
+                    ctx.candidate_proposals.erase(itr++);
+            }
         }
     }
 
@@ -621,7 +643,7 @@ namespace consensus
                   << " state:" << p.state_hash
                   << " patch:" << p.patch_hash
                   << " last_primary_shard_id:" << p.last_primary_shard_id
-                  << " last_blob_shard_id:" << p.last_blob_shard_id;
+                  << " last_raw_shard_id:" << p.last_raw_shard_id;
     }
 
     /**
@@ -742,7 +764,7 @@ namespace consensus
     }
 
     p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash,
-                                         const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id)
+                                         const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_raw_shard_id)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -752,7 +774,7 @@ namespace consensus
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
-        p.last_blob_shard_id = last_blob_shard_id;
+        p.last_raw_shard_id = last_raw_shard_id;
         crypto::random_bytes(p.nonce, ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
@@ -770,7 +792,7 @@ namespace consensus
     }
 
     p2p::proposal create_stage123_proposal(vote_counter &votes, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
-                                           const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_blob_shard_id)
+                                           const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_raw_shard_id)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
@@ -781,7 +803,7 @@ namespace consensus
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
-        p.last_blob_shard_id = last_blob_shard_id;
+        p.last_raw_shard_id = last_raw_shard_id;
         p.output_hash.resize(BLAKE3_OUT_LEN); // Default empty hash.
 
         const uint64_t time_now = util::get_epoch_milliseconds();
@@ -949,29 +971,29 @@ namespace consensus
     }
 
     /**
-     * Check whether our last blob shard hash is consistent with the proposals being made by our UNL peers last blob shard hash votes.
-     * @param is_ledger_blob_desync Indicates whether our ledger blob hash is out-of-sync with majority ledger blob hash.
+     * Check whether our last raw shard hash is consistent with the proposals being made by our UNL peers last raw shard hash votes.
+     * @param is_ledger_blob_desync Indicates whether our ledger raw hash is out-of-sync with majority ledger raw hash.
      * @param majority_primary_shard_id Majority primary shard id.
      * @param votes Vote counter for this stage.
      */
-    void check_last_blob_shard_hash_votes(bool &is_ledger_blob_desync, p2p::sequence_hash &majority_blob_shard_id, vote_counter &votes)
+    void check_last_raw_shard_hash_votes(bool &is_ledger_blob_desync, p2p::sequence_hash &majority_raw_shard_id, vote_counter &votes)
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
-            increment(votes.last_ledger_blob_shard, cp.last_blob_shard_id);
+            increment(votes.last_ledger_raw_shard, cp.last_raw_shard_id);
         }
 
         uint32_t winning_votes = 0;
-        for (const auto [shard_id, votes] : votes.last_ledger_blob_shard)
+        for (const auto [shard_id, votes] : votes.last_ledger_raw_shard)
         {
             if (votes > winning_votes)
             {
                 winning_votes = votes;
-                majority_blob_shard_id = shard_id;
+                majority_raw_shard_id = shard_id;
             }
         }
 
-        is_ledger_blob_desync = (ledger::ctx.get_last_blob_shard_id() != majority_blob_shard_id);
+        is_ledger_blob_desync = (conf::cfg.node.history_config.max_raw_shards > 0 && ledger::ctx.get_last_raw_shard_id() != majority_raw_shard_id);
     }
 
     /**

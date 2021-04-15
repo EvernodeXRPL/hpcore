@@ -59,12 +59,12 @@ async function main() {
 
     // This will get fired when contract sends outputs.
     hpc.on(HotPocket.events.contractOutput, (r) => {
-        r.outputs.forEach(o => console.log("Contract output>> " + o));
+        r.outputs.forEach(o => console.log(`Output (ledger:${r.ledgerSeqNo})>> ${o}`));
     })
 
     // This will get fired when contract sends a read response.
     hpc.on(HotPocket.events.contractReadResponse, (response) => {
-        console.log("Contract read response>> " + response);
+        console.log("Read response>> " + response);
     })
 
     // Establish HotPocket connection.
@@ -93,8 +93,13 @@ async function main() {
         rl.question('', (inp) => {
 
             if (inp.length > 0) {
-                if (inp.startsWith("read "))
+                if (inp.startsWith("read ")) {
                     hpc.sendContractReadRequest(inp.substr(5));
+                }
+                else if (inp.startsWith("ledger ")) {
+                    hpc.getLedgerBySeqNo(parseInt(inp.substr(7)), true, true)
+                        .then(result => console.log(result));
+                }
                 else {
                     hpc.submitContractInput(inp).then(input => {
                         // console.log(input.hash);

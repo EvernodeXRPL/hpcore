@@ -40,7 +40,7 @@ namespace msg::usrmsg::json
     int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig,
                                        const jsoncons::json &d);
 
-    int extract_input_container(std::string &input, std::string &nonce,
+    int extract_input_container(std::string &input, uint64_t &nonce,
                                 uint64_t &max_ledger_seq_no, std::string_view contentjson);
 
     int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::json &d);
@@ -49,9 +49,11 @@ namespace msg::usrmsg::json
 
     void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_node &node);
 
-    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::query::query_result_record> &results);
+    void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_record> &results);
 
-    void populate_ledger_blob_map(std::vector<uint8_t> &msg, const ledger::query::blob_map &blob_map);
+    void populate_ledger_inputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_input> &inputs);
+
+    void populate_ledger_outputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_output> &users);
 
 } // namespace msg::usrmsg::json
 

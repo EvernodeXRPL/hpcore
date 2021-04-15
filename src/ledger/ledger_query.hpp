@@ -12,17 +12,8 @@ namespace ledger::query
     struct seq_no_query
     {
         uint64_t seq_no = 0;
-        bool raw_inputs = false;
-        bool raw_outputs = false;
-    };
-
-    typedef std::map<std::string, std::vector<std::string>> blob_map;
-
-    struct query_result_record
-    {
-        ledger::ledger_record ledger;
-        std::optional<blob_map> raw_inputs;
-        std::optional<blob_map> raw_outputs;
+        bool inputs = false;
+        bool outputs = false;
     };
 
     struct user_buffer_collection
@@ -32,11 +23,14 @@ namespace ledger::query
     };
 
     typedef std::variant<seq_no_query> query_request;
-    typedef std::variant<const char *, std::vector<query_result_record>> query_result;
+    typedef std::variant<const char *, std::vector<ledger::ledger_record>> query_result;
 
     const query_result execute(std::string_view user_pubkey, const query_request &q);
-    int fill_blob_data(std::vector<query_result_record> &records, const bool raw_inputs, const bool raw_outputs, const std::string &fs_sess_name);
     int get_ledger_by_seq_no(ledger_record &ledger, const seq_no_query &q, const std::string &fs_sess_name);
+    int get_ledger_raw_data(ledger_record &ledger, std::string_view user_pubkey, const std::string &fs_sess_name);
+    int get_ledger_inputs(sqlite3 *db, std::vector<ledger_user_input> &inputs, const uint64_t seq_no, const std::string &shard_path, std::string_view user_pubkey, const std::string &fs_sess_name);
+    int get_ledger_outputs(sqlite3 *db, std::vector<ledger_user_output> &outputs, const uint64_t seq_no, const std::string &shard_path, std::string_view user_pubkey, const std::string &fs_sess_name);
+
 }
 
 #endif

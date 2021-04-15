@@ -87,7 +87,7 @@ do
                     history: 'custom',\
                     history_config: {\
                         max_primary_shards: 4,\
-                        max_blob_shards: 4\
+                        max_raw_shards: 4\
                     }\
                 }, null, 2)")
 

@@ -11,7 +11,7 @@ namespace ledger
     {
         // Add ledger fs preparation logic here.
         p2p::sequence_hash last_primary_shard_id;
-        p2p::sequence_hash last_blob_shard_id;
+        p2p::sequence_hash last_raw_shard_id;
 
         if (acquire_rw_session() == -1)
         {
@@ -21,7 +21,7 @@ namespace ledger
 
         if (get_last_shard_info(hpfs::RW_SESSION_NAME, last_primary_shard_id, PRIMARY_DIR) == -1 ||
             get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, last_primary_shard_id) == -1 ||
-            get_last_shard_info(hpfs::RW_SESSION_NAME, last_blob_shard_id, BLOB_DIR) == -1)
+            get_last_shard_info(hpfs::RW_SESSION_NAME, last_raw_shard_id, RAW_DIR) == -1)
         {
             LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
             return -1;
@@ -33,12 +33,12 @@ namespace ledger
             return -1;
         }
 
-        LOG_INFO << "Initial primary: " << last_primary_shard_id << " | blob: " << last_blob_shard_id;
+        LOG_INFO << "Ledger primary:" << last_primary_shard_id << " | raw:" << last_raw_shard_id;
 
         // Update last shard hash and shard number tracker.
         ctx.set_last_primary_shard_id(last_primary_shard_id);
-        // Update last blob shard hash and blob shard number tracker.
-        ctx.set_last_blob_shard_id(last_blob_shard_id);
+        // Update last raw shard hash and raw shard number tracker.
+        ctx.set_last_raw_shard_id(last_raw_shard_id);
         return 0;
     }
 

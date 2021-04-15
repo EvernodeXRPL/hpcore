@@ -19,3 +19,6 @@ COPY ./bin/hpfs .
 COPY ./bin/hpws .
 
 ENTRYPOINT ["/hp/hpcore"]
+
+# Run with valgrind
+# ENTRYPOINT ["valgrind", "/hp/hpcore"]

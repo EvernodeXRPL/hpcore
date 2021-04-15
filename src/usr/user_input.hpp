@@ -20,7 +20,7 @@ namespace usr
     struct extracted_user_input
     {
         std::string input;
-        std::string nonce;
+        uint64_t nonce;
         uint64_t max_ledger_seq_no;
         std::string sig;
 

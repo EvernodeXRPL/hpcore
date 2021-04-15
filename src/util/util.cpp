@@ -329,7 +329,7 @@ namespace util
     }
 
     /**
-     * Reads from a given file discriptor. 
+     * Reads the entire file from given file discriptor. 
      * @param fd File descriptor to be read.
      * @param buf String buffer to be populated.
      * @param offset Begin offset of the file to read.
@@ -339,11 +339,40 @@ namespace util
     {
         struct stat st;
         if (fstat(fd, &st) == -1)
+        {
+            LOG_ERROR << errno << ": Error in stat for reading entire file.";
             return -1;
+        }
 
         buf.resize(st.st_size - offset);
 
         return pread(fd, buf.data(), buf.size(), offset);
+    }
+
+    /**
+     * Reads the specified portion from the given file descriptor.
+     * @param fd File descriptor to be read.
+     * @param buf Buffer to populate.
+     * @param size How many bytes to read.
+     * @param offset Offset position in the file to start reading.
+     * @param file_name File name to print in error log.
+     * @return 0 on success. -1 on failure or when specified buffer size could not be read.
+     */
+    int read_from_fd(const int fd, void *buf, const size_t size, const off_t offset, std::string_view file_name)
+    {
+        const int res = pread(fd, buf, size, offset);
+        if (res == -1)
+        {
+            LOG_ERROR << errno << ": Error when reading " << file_name;
+            return -1;
+        }
+        else if (res < size)
+        {
+            LOG_ERROR << "Not enough bytes read from " << file_name;
+            return -1;
+        }
+
+        return 0;
     }
 
     /**
@@ -456,6 +485,17 @@ namespace util
                ((uint64_t)data[5] << 16) +
                ((uint64_t)data[6] << 8) +
                ((uint64_t)data[7]);
+    }
+
+    /**
+     * Returns a string buffer containing uint64 bytes.
+     */
+    const std::string uint64_to_string_bytes(const uint64_t x)
+    {
+        std::string s;
+        s.resize(sizeof(uint64_t));
+        uint64_to_bytes((uint8_t *)s.data(), x);
+        return s;
     }
 
     /**

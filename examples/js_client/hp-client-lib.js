@@ -334,8 +334,8 @@
             return getMultiConnectionResult(con => con.getStatus());
         }
 
-        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
-            return getMultiConnectionResult(con => con.getLedgerBySeqNo(seqNo, includeRawInputs, includeRawOutputs));
+        this.getLedgerBySeqNo = (seqNo, includeInputs, includeOutputs) => {
+            return getMultiConnectionResult(con => con.getLedgerBySeqNo(seqNo, includeInputs, includeOutputs));
         }
     }
 
@@ -618,18 +618,36 @@
                         const result = {
                             seqNo: r.seq_no,
                             timestamp: r.timestamp,
-                            hash: r.hash,
-                            prevHash: r.prev_hash,
-                            stateHash: r.state_hash,
-                            configHash: r.config_hash,
-                            userHash: r.user_hash,
-                            inputHash: r.input_hash,
-                            outputHash: r.output_hash
+                            hash: msgHelper.deserializeValue(r.hash),
+                            prevHash: msgHelper.deserializeValue(r.prev_hash),
+                            stateHash: msgHelper.deserializeValue(r.state_hash),
+                            configHash: msgHelper.deserializeValue(r.config_hash),
+                            userHash: msgHelper.deserializeValue(r.user_hash),
+                            inputHash: msgHelper.deserializeValue(r.input_hash),
+                            outputHash: msgHelper.deserializeValue(r.output_hash)
                         }
-                        if (r.raw_inputs)
-                            result.rawInputs = r.raw_inputs;
-                        if (r.raw_outputs)
-                            result.rawOutputs = r.raw_outputs;
+
+                        if (r.inputs) {
+                            result.inputs = r.inputs.map(i => {
+                                return {
+                                    pubkey: msgHelper.deserializeValue(i.pubkey),
+                                    hash: msgHelper.deserializeValue(i.hash),
+                                    nonce: i.nonce,
+                                    blob: msgHelper.deserializeValue(i.blob)
+                                }
+                            });
+                        }
+
+                        if (r.outputs) {
+                            result.outputs = r.outputs.map(o => {
+                                return {
+                                    pubkey: msgHelper.deserializeValue(o.pubkey),
+                                    hash: msgHelper.deserializeValue(o.hash),
+                                    blobs: o.blobs.map(b => msgHelper.deserializeValue(b))
+                                }
+                            });
+                        }
+
                         return result;
                     });
                     if (resolver.type == "seq_no")
@@ -788,12 +806,12 @@
                 throw "Max ledger seq no. or offset cannot be 0.";
             if (!isOffset && !maxLedger)
                 throw "Max ledger seq. no not specified.";
+            if (nonce && (!Number.isInteger(nonce) || nonce <= 0))
+                throw "Input nonce must be a positive integer.";
 
-            // Use time-based incrementing nonce if not specified.
+            // Use epoch-based auto incrementing nonce if nonce is not specified.
             if (!nonce)
-                nonce = (new Date()).getTime().toString();
-            else
-                nonce = nonce.toString();
+                nonce = new Date().getTime();
 
             // If max ledger is specified as offset, we need to get current ledger status and add the offset to it.
             if (isOffset) {
@@ -837,11 +855,12 @@
             return Promise.resolve();
         }
 
-        this.getLedgerBySeqNo = (seqNo, includeRawInputs, includeRawOutputs) => {
+        this.getLedgerBySeqNo = (seqNo, includeInputs, includeOutputs) => {
             if (connectionStatus != 2)
                 return Promise.resolve(null);
 
-            const msg = msgHelper.createLedgerQuery("seq_no", { "seq_no": seqNo }, includeRawInputs, includeRawOutputs);
+            const queryParams = { "seq_no": msgHelper.serializeNumber(seqNo) };
+            const msg = msgHelper.createLedgerQuery("seq_no", queryParams, includeInputs, includeOutputs);
             const p = new Promise(resolve => {
                 ledgerQueryResolvers[msg.id] = {
                     type: "seq_no",
@@ -888,6 +907,12 @@
             return protocol == protocols.json ? val : val.buffer;
         }
 
+        this.serializeNumber = (num) => {
+            // For standard javascript numbers, Bson library does not support serializing large numbers correctly.
+            // Hence we have to encode as special bson long type when using bson protocol.
+            return (protocol == protocols.json) ? num : bson.Long.fromNumber(num);
+        }
+
         // Used for generating strings to hold values as js object keys.
         this.stringifyValue = (val) => {
             if (isString(val))
@@ -927,8 +952,8 @@
 
             const inpContainer = {
                 input: this.serializeInput(input),
-                nonce: nonce,
-                max_ledger_seq_no: maxLedgerSeqNo
+                nonce: this.serializeNumber(nonce),
+                max_ledger_seq_no: this.serializeNumber(maxLedgerSeqNo)
             }
 
             const serlializedInpContainer = this.serializeObject(inpContainer);
@@ -968,11 +993,11 @@
             return { type: "stat" };
         }
 
-        this.createLedgerQuery = (filterBy, params, includeRawInputs, includeRawOutputs) => {
+        this.createLedgerQuery = (filterBy, params, includeInputs, includeOutputs) => {
 
             const includes = [];
-            if (includeRawInputs) includes.push("raw_inputs");
-            if (includeRawOutputs) includes.push("raw_outputs");
+            if (includeInputs) includes.push("inputs");
+            if (includeOutputs) includes.push("outputs");
 
             return {
                 type: "ledger_query",

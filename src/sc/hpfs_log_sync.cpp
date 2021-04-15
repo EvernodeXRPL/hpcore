@@ -420,7 +420,7 @@ namespace sc::hpfs_log_sync
                 if (db != NULL)
                     ledger::sqlite::close_db(&db);
 
-                if (ledger::sqlite::open_db(shard_path + "/" + ledger::DATABASE, &db) == -1)
+                if (ledger::sqlite::open_db(shard_path + "/" + ledger::PRIMARY_DB, &db) == -1)
                 {
                     LOG_ERROR << errno << ": Error openning the shard database, shard: " << shard_seq_no;
                     ledger::ledger_fs.stop_ro_session(session_name);

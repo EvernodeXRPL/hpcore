@@ -63,6 +63,8 @@ namespace util
 
     int read_from_fd(const int fd, std::string &buf, const off_t offset = 0);
 
+    int read_from_fd(const int fd, void *buf, const size_t size, const off_t offset, std::string_view file_name);
+
     int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len);
 
     int release_lock(const int fd, struct flock &lock);
@@ -78,6 +80,8 @@ namespace util
     void uint64_to_bytes(uint8_t *dest, const uint64_t x);
 
     uint64_t uint64_from_bytes(const uint8_t *data);
+
+    const std::string uint64_to_string_bytes(const uint64_t x);
 
     std::string_view get_string_suffix(std::string_view sv, const size_t suffix_len);
 

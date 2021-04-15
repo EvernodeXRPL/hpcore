@@ -257,7 +257,7 @@ namespace sc
             }
             else
             {
-                LOG_ERROR << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely. Exit code " << WEXITSTATUS(scstatus);
+                LOG_WARNING << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely. Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }

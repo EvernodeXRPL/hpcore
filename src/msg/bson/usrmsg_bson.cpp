@@ -254,7 +254,7 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_RESULTS);
         encoder.begin_array();
-        populate_ledger_query_results(encoder, std::get<std::vector<ledger::query::query_result_record>>(result));
+        populate_ledger_query_results(encoder, std::get<std::vector<ledger::ledger_record>>(result));
         encoder.end_array();
         encoder.end_object();
         encoder.flush();
@@ -367,12 +367,12 @@ namespace msg::usrmsg::bson
      * @param contentjson The bson input container message.
      *                    {
      *                      "input": <binary buffer>,
-     *                      "nonce": "<random string with optional sorted order>",
+     *                      "nonce": <integer>, // Indicates input ordering.
      *                      "max_ledger_seq_no": <integer>
      *                    }
      * @return 0 on succesful extraction. -1 on failure.
      */
-    int extract_input_container(std::string &input, std::string &nonce, uint64_t &max_ledger_seq_no, std::string_view contentbson)
+    int extract_input_container(std::string &input, uint64_t &nonce, uint64_t &max_ledger_seq_no, std::string_view contentbson)
     {
         jsoncons::ojson d;
         try
@@ -391,17 +391,24 @@ namespace msg::usrmsg::bson
             return -1;
         }
 
-        if (!d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_string() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is_uint64())
+        if (!d[msg::usrmsg::FLD_INPUT].is_byte_string_view() || !d[msg::usrmsg::FLD_NONCE].is_uint64() || !d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].is_uint64())
         {
             LOG_DEBUG << "User input container invalid field values.";
             return -1;
         }
 
+        nonce = d[msg::usrmsg::FLD_NONCE].as<uint64_t>();
+        if (nonce == 0)
+        {
+            LOG_DEBUG << "Input nonce must be a positive integer.";
+            return -1;
+        }
+
+        max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
+
         const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_INPUT].as_byte_string_view();
         input = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
 
-        nonce = d[msg::usrmsg::FLD_NONCE].as<std::string>();
-        max_ledger_seq_no = d[msg::usrmsg::FLD_MAX_LEDGER_SEQ_NO].as<uint64_t>();
         return 0;
     }
 
@@ -416,7 +423,7 @@ namespace msg::usrmsg::bson
      *            "id": "<query id>",
      *            "filter_by": "<filter by>",
      *            "params": {...}, // Params supported by the specified filter.
-     *            "include": ["raw_inputs", "raw_outputs"]
+     *            "include": ["inputs", "outputs"]
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
@@ -445,14 +452,14 @@ namespace msg::usrmsg::bson
         extracted_id = std::move(id);
 
         // Detect includes.
-        bool raw_inputs = false;
-        bool raw_outputs = false;
+        bool inputs = false;
+        bool outputs = false;
         for (auto &val : d[msg::usrmsg::FLD_INCLUDE].array_range())
         {
-            if (val == msg::usrmsg::FLD_RAW_INPUTS)
-                raw_inputs = true;
-            else if (val == msg::usrmsg::FLD_RAW_OUTPUTS)
-                raw_outputs = true;
+            if (val == msg::usrmsg::FLD_INPUTS)
+                inputs = true;
+            else if (val == msg::usrmsg::FLD_OUTPUTS)
+                outputs = true;
         }
 
         auto &params_field = d[msg::usrmsg::FLD_PARAMS];
@@ -467,8 +474,8 @@ namespace msg::usrmsg::bson
 
             extracted_query = ledger::query::seq_no_query{
                 params_field[msg::usrmsg::FLD_SEQ_NO].as<uint64_t>(),
-                raw_inputs,
-                raw_outputs};
+                inputs,
+                outputs};
             return 0;
         }
         else
@@ -499,62 +506,85 @@ namespace msg::usrmsg::bson
         }
     }
 
-    void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::query::query_result_record> &results)
+    void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_record> &results)
     {
-        for (const ledger::query::query_result_record &r : results)
+        for (const ledger::ledger_record &ledger : results)
         {
             encoder.begin_object();
             encoder.key(msg::usrmsg::FLD_SEQ_NO);
-            encoder.uint64_value(r.ledger.seq_no);
+            encoder.uint64_value(ledger.seq_no);
             encoder.key(msg::usrmsg::FLD_TIMESTAMP);
-            encoder.uint64_value(r.ledger.timestamp);
+            encoder.uint64_value(ledger.timestamp);
             encoder.key(msg::usrmsg::FLD_HASH);
-            encoder.byte_string_value(r.ledger.ledger_hash);
+            encoder.byte_string_value(ledger.ledger_hash);
             encoder.key(msg::usrmsg::FLD_PREV_HASH);
-            encoder.byte_string_value(r.ledger.prev_ledger_hash);
+            encoder.byte_string_value(ledger.prev_ledger_hash);
             encoder.key(msg::usrmsg::FLD_STATE_HASH);
-            encoder.byte_string_value(r.ledger.state_hash);
+            encoder.byte_string_value(ledger.state_hash);
             encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
-            encoder.byte_string_value(r.ledger.config_hash);
+            encoder.byte_string_value(ledger.config_hash);
             encoder.key(msg::usrmsg::FLD_USER_HASH);
-            encoder.byte_string_value(r.ledger.user_hash);
+            encoder.byte_string_value(ledger.user_hash);
             encoder.key(msg::usrmsg::FLD_INPUT_HASH);
-            encoder.byte_string_value(r.ledger.input_hash);
+            encoder.byte_string_value(ledger.input_hash);
             encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
-            encoder.byte_string_value(r.ledger.output_hash);
+            encoder.byte_string_value(ledger.output_hash);
 
             // If raw inputs or outputs is not requested, we don't include that field at all in the response.
             // Otherwise the field will always contain an array (empty array if no data).
 
-            if (r.raw_inputs)
+            if (ledger.inputs)
             {
-                encoder.key(msg::usrmsg::FLD_RAW_INPUTS);
-                populate_ledger_blob_map(encoder, *r.raw_inputs);
+                encoder.key(msg::usrmsg::FLD_INPUTS);
+                populate_ledger_inputs(encoder, *ledger.inputs);
             }
 
-            if (r.raw_outputs)
+            if (ledger.outputs)
             {
-                encoder.key(msg::usrmsg::FLD_RAW_OUTPUTS);
-                populate_ledger_blob_map(encoder, *r.raw_outputs);
+                encoder.key(msg::usrmsg::FLD_OUTPUTS);
+                populate_ledger_outputs(encoder, *ledger.outputs);
             }
 
             encoder.end_object();
         }
     }
 
-    void populate_ledger_blob_map(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::query::blob_map &blob_map)
+    void populate_ledger_inputs(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_user_input> &inputs)
     {
         encoder.begin_array();
-        for (const auto &[pubkey, blobs] : blob_map)
+        for (const ledger::ledger_user_input &inp : inputs)
         {
             encoder.begin_object();
 
             encoder.key(msg::usrmsg::FLD_PUBKEY);
-            encoder.byte_string_value(pubkey);
+            encoder.byte_string_value(inp.pubkey);
+            encoder.key(msg::usrmsg::FLD_HASH);
+            encoder.byte_string_value(inp.hash);
+            encoder.key(msg::usrmsg::FLD_NONCE);
+            encoder.uint64_value(inp.nonce);
+            encoder.key(msg::usrmsg::FLD_BLOB);
+            encoder.byte_string_value(inp.blob);
+
+            encoder.end_object();
+        }
+        encoder.end_array();
+    }
+
+    void populate_ledger_outputs(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_user_output> &users)
+    {
+        encoder.begin_array();
+        for (const ledger::ledger_user_output &user : users)
+        {
+            encoder.begin_object();
+
+            encoder.key(msg::usrmsg::FLD_PUBKEY);
+            encoder.byte_string_value(user.pubkey);
+            encoder.key(msg::usrmsg::FLD_HASH);
+            encoder.byte_string_value(user.hash);
             encoder.key(msg::usrmsg::FLD_BLOBS);
             encoder.begin_array();
-            for (const std::string &blob : blobs)
-                encoder.byte_string_value(blob);
+            for (const std::string &output : user.outputs)
+                encoder.byte_string_value(output);
             encoder.end_array();
 
             encoder.end_object();
