@@ -190,6 +190,9 @@ namespace ledger
         if (shard_res >= 0 && insert_raw_data_records(db, shard_seq_no, proposal, consensed_users, lcl_id) != -1)
         {
             sqlite::close_db(&db);
+            util::h32 last_raw_shard_hash;
+            if (ledger_fs.get_hash(last_raw_shard_hash, hpfs::RW_SESSION_NAME, std::string(RAW_DIR).append("/").append(std::to_string(shard_seq_no))) != -1)
+                ctx.set_last_raw_shard_id(p2p::sequence_hash{shard_seq_no, last_raw_shard_hash});
 
             // Remove old shards if new one got created.
             if (shard_res == 1)
