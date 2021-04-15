@@ -29,7 +29,7 @@ namespace hpfs
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
 
-    constexpr uint64_t MAX_HPFS_LOG_READ_SIZE = 4 * 1024 * 1024;
+    constexpr uint64_t MAX_HPFS_LOG_READ_SIZE = 4 * 1024 * 1024; // 4MB
 
     /**
      * This should be called to activate the hpfs mount process.
@@ -403,10 +403,12 @@ namespace hpfs
 
     /**
      * This updates the hpfs log index file with latest log offset and the root hash.
+     * @param seq_no Updating sequence number.
      * @return Returns 0 in success, otherwise -1.
     */
     int hpfs_mount::update_hpfs_log_index(const uint64_t seq_no)
     {
+        // Sequence number is passed to hpfs by appending it to the path.
         const std::string index_file = mount_dir + INDEX_CONTROL + "." + std::to_string(seq_no);
 
         const int fd = open(index_file.c_str(), O_RDWR);
@@ -444,8 +446,7 @@ namespace hpfs
     }
 
     /**
-     * This reads the hpfs logs from given min to max ledger seq_no range.
-     * Read call will handled as chuncks in multiple threads from the hpfs. 
+     * This reads the hpfs logs from given min to max ledger seq_no range. Read call will be handled as chuncks in multiple threads from the hpfs. 
      * So this function should only be called in a single thread.
      * @param min_ledger_seq_no Mininmum ledger seq number.
      * @param max_ledger_seq_no Maximum ledger seq number.
@@ -482,8 +483,7 @@ namespace hpfs
     }
 
     /**
-     * This appends new log records to the hpfs log file.
-     * Write call will handled as chuncks in multiple threads from the hpfs. 
+     * This appends new log records to the hpfs log file. Write call will be handled as chuncks in multiple threads from the hpfs. 
      * So this function should only be called in a single thread.
      * @param buf Hpfs log record buffer to write.
      * @return Returns 0 in success, otherwise -1.

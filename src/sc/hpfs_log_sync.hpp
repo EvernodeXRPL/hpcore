@@ -54,8 +54,6 @@ namespace sc::hpfs_log_sync
 
     int get_verified_min_record();
 
-    bool check_sync_completion();
-
     int set_joining_point_for_fork(const uint64_t starting_point);
 }
 #endif
