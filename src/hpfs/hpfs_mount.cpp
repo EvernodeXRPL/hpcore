@@ -409,7 +409,8 @@ namespace hpfs
     int hpfs_mount::update_hpfs_log_index(const uint64_t seq_no)
     {
         // Sequence number is passed to hpfs by appending it to the path.
-        const std::string index_file = mount_dir + INDEX_CONTROL + "." + std::to_string(seq_no);
+        // File /::hpfs.index.<seq_no>
+        const std::string index_file = mount_dir + INDEX_CONTROL + "." + std::to_string(seq_no); // /::hpfs.index.<seq_no>
 
         const int fd = open(index_file.c_str(), O_RDWR);
         if (fd == -1)
@@ -435,7 +436,7 @@ namespace hpfs
     int hpfs_mount::truncate_log_file(const uint64_t seq_no)
     {
         const std::string file_path = mount_dir + INDEX_CONTROL + "." + std::to_string(seq_no);
-        // File /hpfs::index.<seq_no> is truncated to invoke log file truncation in hpfs.
+        // File /::hpfs.index.<seq_no> is truncated to invoke log file truncation in hpfs.
         // This call waits until any running RW or RO sessions stop.
         if (truncate(file_path.c_str(), 0) == -1)
         {
@@ -458,6 +459,7 @@ namespace hpfs
         /**
          * To complete the read operation. All the three open(), read() ad close() operations should be done in this order.
          * This should be done within a single thread in atomic manner.
+         * File /::hpfs.index.read.<min_seq_no>.<max_seq_no>
         */
         const std::string index_file = mount_dir + INDEX_READ_QUERY_FULLSTOP + std::to_string(min_ledger_seq_no) + "." + std::to_string(max_ledger_seq_no);
 
@@ -493,6 +495,7 @@ namespace hpfs
         /**
          * To complete the read operation. All the three open(), write() ad close() operations should be done in this order.
          * This should be done within a single thread in atomic manner.
+         * File /::hpfs.index.write.<buffer_len>
         */
         const std::string index_file = mount_dir + INDEX_WRITE_QUERY_FULLSTOP + std::to_string(buf.size());
 
