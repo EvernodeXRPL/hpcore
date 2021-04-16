@@ -19,6 +19,8 @@ namespace hpfs
     constexpr const char *HMAP_CHILDREN = "::hpfs.hmap.children";
 
     constexpr const char *INDEX_CONTROL = "/::hpfs.index";
+    constexpr const char *INDEX_READ_QUERY_FULLSTOP = "/::hpfs.index.read.";
+    constexpr const char *INDEX_WRITE_QUERY_FULLSTOP = "/::hpfs.index.write.";
     constexpr const char *ROOT_PATH = "/";
     constexpr const char *LOG_INDEX_FILENAME = "/log.hpfs.idx";
 
@@ -27,7 +29,7 @@ namespace hpfs
     constexpr uint16_t PROCESS_INIT_TIMEOUT = 2000;
     constexpr uint16_t INIT_CHECK_INTERVAL = 20;
 
-    constexpr uint64_t MAX_HPFS_LOG_READ_SIZE = 1 * 1024 * 1024;
+    constexpr uint64_t MAX_HPFS_LOG_READ_SIZE = 4 * 1024 * 1024; // 4MB
 
     /**
      * This should be called to activate the hpfs mount process.
@@ -401,11 +403,14 @@ namespace hpfs
 
     /**
      * This updates the hpfs log index file with latest log offset and the root hash.
+     * @param seq_no Updating sequence number.
      * @return Returns 0 in success, otherwise -1.
     */
-    int hpfs_mount::update_hpfs_log_index()
+    int hpfs_mount::update_hpfs_log_index(const uint64_t seq_no)
     {
-        const std::string index_file = mount_dir + INDEX_CONTROL;
+        // Sequence number is passed to hpfs by appending it to the path.
+        // File /::hpfs.index.<seq_no>
+        const std::string index_file = mount_dir + INDEX_CONTROL + "." + std::to_string(seq_no); // /::hpfs.index.<seq_no>
 
         const int fd = open(index_file.c_str(), O_RDWR);
         if (fd == -1)
@@ -431,7 +436,7 @@ namespace hpfs
     int hpfs_mount::truncate_log_file(const uint64_t seq_no)
     {
         const std::string file_path = mount_dir + INDEX_CONTROL + "." + std::to_string(seq_no);
-        // File /hpfs::index.<seq_no> is truncated to invoke log file truncation in hpfs.
+        // File /::hpfs.index.<seq_no> is truncated to invoke log file truncation in hpfs.
         // This call waits until any running RW or RO sessions stop.
         if (truncate(file_path.c_str(), 0) == -1)
         {
@@ -442,7 +447,8 @@ namespace hpfs
     }
 
     /**
-     * This reads the hpfs logs from given min to max ledger seq_no range.
+     * This reads the hpfs logs from given min to max ledger seq_no range. Read call will be handled as chuncks in multiple threads from the hpfs. 
+     * So this function should only be called in a single thread.
      * @param min_ledger_seq_no Mininmum ledger seq number.
      * @param max_ledger_seq_no Maximum ledger seq number.
      * @param buf Buffer to read logs.
@@ -450,7 +456,12 @@ namespace hpfs
     */
     int hpfs_mount::read_hpfs_logs(const uint64_t min_ledger_seq_no, const uint64_t max_ledger_seq_no, std::vector<uint8_t> &buf)
     {
-        const std::string index_file = mount_dir + INDEX_CONTROL + "." + std::to_string(min_ledger_seq_no) + "." + std::to_string(max_ledger_seq_no);
+        /**
+         * To complete the read operation. All the three open(), read() ad close() operations should be done in this order.
+         * This should be done within a single thread in atomic manner.
+         * File /::hpfs.index.read.<min_seq_no>.<max_seq_no>
+        */
+        const std::string index_file = mount_dir + INDEX_READ_QUERY_FULLSTOP + std::to_string(min_ledger_seq_no) + "." + std::to_string(max_ledger_seq_no);
 
         const int fd = open(index_file.c_str(), O_RDONLY);
         if (fd == -1)
@@ -474,13 +485,19 @@ namespace hpfs
     }
 
     /**
-     * This appends new log records to the hpfs log file.
+     * This appends new log records to the hpfs log file. Write call will be handled as chuncks in multiple threads from the hpfs. 
+     * So this function should only be called in a single thread.
      * @param buf Hpfs log record buffer to write.
      * @return Returns 0 in success, otherwise -1.
     */
     int hpfs_mount::append_hpfs_log_records(const std::vector<uint8_t> &buf)
     {
-        const std::string index_file = mount_dir + INDEX_CONTROL;
+        /**
+         * To complete the read operation. All the three open(), write() ad close() operations should be done in this order.
+         * This should be done within a single thread in atomic manner.
+         * File /::hpfs.index.write.<buffer_len>
+        */
+        const std::string index_file = mount_dir + INDEX_WRITE_QUERY_FULLSTOP + std::to_string(buf.size());
 
         const int fd = open(index_file.c_str(), O_RDWR);
         if (fd == -1)

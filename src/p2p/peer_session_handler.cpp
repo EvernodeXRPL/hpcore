@@ -237,13 +237,13 @@ namespace p2p
             if (conf::cfg.node.history == conf::HISTORY::FULL)
             {
                 // Check the cap and insert log record request with lock.
-                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.log_record_request_mutex);
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_log_request_mutex);
 
                 // If max number of log record requests reached, skip the rest.
-                if (ctx.collected_msgs.log_record_requests.size() < p2p::LOG_RECORD_REQ_LIST_CAP)
+                if (ctx.collected_msgs.hpfs_log_requests.size() < p2p::LOG_RECORD_REQ_LIST_CAP)
                 {
                     const p2p::hpfs_log_request hpfs_log_request = p2pmsg::create_hpfs_log_request_from_msg(mi);
-                    ctx.collected_msgs.log_record_requests.push_back(std::make_pair(session.uniqueid, std::move(hpfs_log_request)));
+                    ctx.collected_msgs.hpfs_log_requests.push_back(std::make_pair(session.uniqueid, std::move(hpfs_log_request)));
                 }
                 else
                     LOG_DEBUG << "Hpfs log request rejected. Maximum request count reached. " << session.display_name();
@@ -254,13 +254,13 @@ namespace p2p
             if (conf::cfg.node.history == conf::HISTORY::FULL && sc::hpfs_log_sync::sync_ctx.is_syncing)
             {
                 // Check the cap and insert log record response with lock.
-                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.log_record_response_mutex);
+                std::scoped_lock<std::mutex> lock(ctx.collected_msgs.hpfs_log_response_mutex);
 
                 // If max number of log record responses reached, skip the rest.
-                if (ctx.collected_msgs.log_record_responses.size() < p2p::LOG_RECORD_RES_LIST_CAP)
+                if (ctx.collected_msgs.hpfs_log_responses.size() < p2p::LOG_RECORD_RES_LIST_CAP)
                 {
                     const p2p::hpfs_log_response hpfs_log_response = p2pmsg::create_hpfs_log_response_from_msg(mi);
-                    ctx.collected_msgs.log_record_responses.push_back(std::make_pair(session.uniqueid, std::move(hpfs_log_response)));
+                    ctx.collected_msgs.hpfs_log_responses.push_back(std::make_pair(session.uniqueid, std::move(hpfs_log_response)));
                 }
                 else
                     LOG_DEBUG << "Hpfs log response rejected. Maximum response count reached. " << session.display_name();

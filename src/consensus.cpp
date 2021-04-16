@@ -142,7 +142,7 @@ namespace consensus
 
             const size_t unl_count = unl::count();
             vote_counter votes;
-            const int sync_status = check_sync_status(unl_count, votes);
+            const int sync_status = check_sync_status(unl_count, votes, lcl_id);
 
             if (sync_status == -2) // Unreliable votes.
             {
@@ -230,7 +230,7 @@ namespace consensus
      * Checks whether we are in sync with the received votes.
      * @return 0 if we are in sync. -1 on ledger or hpfs desync. -2 if majority last ledger primary shard hash unreliable.
      */
-    int check_sync_status(const size_t unl_count, vote_counter &votes)
+    int check_sync_status(const size_t unl_count, vote_counter &votes, const p2p::sequence_hash &lcl_id)
     {
         bool is_last_primary_shard_desync = false;
         p2p::sequence_hash majority_primary_shard_id;
@@ -275,7 +275,11 @@ namespace consensus
 
                 if (conf::cfg.node.history == conf::HISTORY::FULL)
                 {
-                    sc::hpfs_log_sync::set_sync_target(p2p::sequence_hash{ledger::ctx.get_lcl_id().seq_no + 1, hpfs::get_root_hash(majority_patch_hash, majority_state_hash)});
+                    // If state or patch is desync set target for the hpfs log sync with the next lcl seq_no.
+                    // When requesting the next seq_no, serving peer will give all the hpfs logs upto it's latest.
+                    // So hash mismatch won't happen in the next round.
+                    if (!ledger::ledger_sync_worker.is_last_primary_shard_syncing)
+                        sc::hpfs_log_sync::set_sync_target(lcl_id.seq_no + 1);
                 }
                 else
                 {

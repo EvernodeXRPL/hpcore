@@ -36,8 +36,6 @@ namespace ledger
     ledger::ledger_sync ledger_sync_worker; // Global ledger file system sync instance.
     ledger::ledger_serve ledger_server;     // Ledger file server instance.
 
-    std::shared_mutex primary_index_file_mutex;
-
     constexpr uint32_t LEDGER_FS_ID = 1;
     constexpr int FILE_PERMS = 0644;
 
@@ -160,7 +158,7 @@ namespace ledger
             ctx.set_last_primary_shard_id(p2p::sequence_hash{shard_seq_no, last_primary_shard_hash});
 
             // Update the hpfs log index file only in full history mode.
-            if (conf::cfg.node.history == conf::HISTORY::FULL && sc::contract_fs.update_hpfs_log_index() == -1)
+            if (conf::cfg.node.history == conf::HISTORY::FULL && sc::contract_fs.update_hpfs_log_index(new_lcl_id.seq_no) == -1)
             {
                 LOG_ERROR << errno << ": Error updating the hpfs log index file.";
                 return -1;
@@ -192,6 +190,11 @@ namespace ledger
         if (shard_res >= 0 && insert_raw_data_records(db, shard_seq_no, proposal, consensed_users, lcl_id) != -1)
         {
             sqlite::close_db(&db);
+
+            // Update in-memory context raw shard hash after inserting new record.
+            util::h32 last_raw_shard_hash;
+            if (ledger_fs.get_hash(last_raw_shard_hash, hpfs::RW_SESSION_NAME, std::string(RAW_DIR).append("/").append(std::to_string(shard_seq_no))) != -1)
+                ctx.set_last_raw_shard_id(p2p::sequence_hash{shard_seq_no, last_raw_shard_hash});
 
             // Remove old shards if new one got created.
             if (shard_res == 1)

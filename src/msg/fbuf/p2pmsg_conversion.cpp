@@ -213,7 +213,7 @@ namespace msg::fbuf::p2pmsg
     {
         const auto &msg = *mi.p2p_msg->content_as_HpfsLogRequest();
         p2p::hpfs_log_request log_record;
-        log_record.target_record_id = flatbuf_seqhash_to_seqhash(msg.target_record_id());
+        log_record.target_seq_no = msg.target_seq_no();
         log_record.min_record_id = flatbuf_seqhash_to_seqhash(msg.min_record_id());
         return log_record;
     }
@@ -425,7 +425,7 @@ namespace msg::fbuf::p2pmsg
     {
         const auto msg = CreateHpfsLogRequest(
             builder,
-            seqhash_to_flatbuf_seqhash(builder, hpfs_log_request.target_record_id),
+            hpfs_log_request.target_seq_no,
             seqhash_to_flatbuf_seqhash(builder, hpfs_log_request.min_record_id));
 
         create_p2p_msg(builder, P2PMsgContent_HpfsLogRequest, msg.Union());

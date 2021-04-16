@@ -126,7 +126,7 @@ table HpfsFSHashEntry{
 
 table HpfsLogRequest
 {
-    target_record_id:SequenceHash;
+    target_seq_no:uint64;
     min_record_id:SequenceHash;
 }
 

@@ -135,7 +135,7 @@ namespace p2p
     // Represents hpfs log sync request.
     struct hpfs_log_request
     {
-        sequence_hash target_record_id;
+        uint64_t target_seq_no;
         sequence_hash min_record_id;
     };
 
@@ -195,11 +195,11 @@ namespace p2p
         std::mutex ledger_hpfs_responses_mutex; // Mutex for ledger fs hpfs responses access race conditions.
 
         // Lists holding hpfs log requests and responses collected from incoming p2p messages.
-        std::list<std::pair<std::string, p2p::hpfs_log_request>> log_record_requests;
-        std::mutex log_record_request_mutex; // Mutex for hpfs log request access race conditions.
+        std::list<std::pair<std::string, p2p::hpfs_log_request>> hpfs_log_requests;
+        std::mutex hpfs_log_request_mutex; // Mutex for hpfs log request access race conditions.
 
-        std::list<std::pair<std::string, p2p::hpfs_log_response>> log_record_responses;
-        std::mutex log_record_response_mutex; // Mutex for hpfs log responses access race conditions.
+        std::list<std::pair<std::string, p2p::hpfs_log_response>> hpfs_log_responses;
+        std::mutex hpfs_log_response_mutex; // Mutex for hpfs log responses access race conditions.
     };
 
     struct connected_context
