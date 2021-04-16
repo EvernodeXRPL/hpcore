@@ -61,6 +61,7 @@ namespace sc::hpfs_log_sync
 
             sync_ctx.target_log_seq_no = target;
 
+            // Finding the minimum seq_no to request hpfs logs.
             if (get_verified_min_record() == -1)
                 return;
         }
@@ -96,7 +97,7 @@ namespace sc::hpfs_log_sync
                 if (sync_ctx.target_log_seq_no > 0 && check_hpfs_log_sync_responses() == 1)
                     processed = true;
 
-                // Here we check for the updated log records to check whether target has archived.
+                // Here we check for the updated log records to check whether target has archived only if any responses have been processed.
                 if (sync_ctx.is_syncing && processed && get_verified_min_record() == 1)
                 {
                     LOG_INFO << "Hpfs log sync: sync target archived: " << sync_ctx.target_log_seq_no;
