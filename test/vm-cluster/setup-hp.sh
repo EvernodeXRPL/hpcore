@@ -84,7 +84,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
    # Create lcl.sh script
    echo "max_shard_no=\$(ls -v $contdir/ledger_fs/seed/primary/ | tail -2 | head -1)" > $contdir/lcl.sh
-   echo "echo \"select seq_no || '-' || lower(hex(ledger_hash)) from ledger order by seq_no DESC limit 1;\" | sqlite3 $contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite" >> $contdir/lcl.sh
+   echo "echo \"select seq_no || '-' || lower(hex(ledger_hash)) from ledger order by seq_no DESC limit 1;\" | sqlite3 file:$contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite?mode=ro" >> $contdir/lcl.sh
    sudo chmod +x $contdir/lcl.sh
 
    # Configure .screenrc
