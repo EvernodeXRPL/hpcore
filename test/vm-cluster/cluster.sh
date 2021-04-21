@@ -51,12 +51,12 @@ let nodeid=$2-1
 
 if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
-   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "dns" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
+   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
     echo "mode: $mode ($contdir)"
 else
     echo "Invalid command. [ info | new | update | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
-        " | dns <N> <zerossl file> | ssl <N> | lcl | pubkey <N> ] expected."
+        " | ssl <N> | lcl | pubkey <N> ] expected."
     exit 1
 fi
 
@@ -72,8 +72,7 @@ fi
 # kill - Force kill hot pocket (if running) on specified vm node or entire cluster.
 # reboot - Reboot specified vm node.
 # ssh - Open up an ssh terminal for the specified vm node.
-# dns - Uploads given zerossl domain verification file to vm and starts http server for DNS check.
-# ssl - Uploads matching zerossl certificate bundle from ~/downloads/ to the contract.
+# ssl - Creates LetsEncrypt ssl certs matching with the vm domain name.
 # lcl - Displays the lcls of all nodes.
 # pubkey - Displays the pubkey on specified vm node or entire cluster.
 
@@ -175,7 +174,7 @@ fi
 if [ $mode = "ssh" ]; then
     if [ $nodeid = -1 ]; then
         if [ -n "$2" ]; then
-            # Interprit second arg as a command to execute on all nodes.
+            # Interpret second arg as a command to execute on all nodes.
             command=${*:2}
             echo "Executing '$command' on all nodes..."
             for (( i=0; i<$vmcount; i++ ))
@@ -197,44 +196,20 @@ if [ $mode = "ssh" ]; then
     fi
 fi
 
-if [ $mode = "dns" ]; then
-    if [ $nodeid = -1 ]; then
-        echo "Please specify node no."
-        exit 1
-    fi
-    if [[ $3 = "" ]]; then
-        echo "Please provide zerossl domain verification txt file path."
-        exit 1
-    fi
-    vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr "mkdir -p $basedir/web80/.well-known/pki-validation"
-    sshpass -p $vmpass scp $3 $vmuser@$vmaddr:$basedir/web80/.well-known/pki-validation/
-    sshpass -p $vmpass ssh $vmuser@$vmaddr "sudo apt-get install -y python"
-    sshpass -p $vmpass ssh $vmuser@$vmaddr -t "cd $basedir/web80 && sudo python -m SimpleHTTPServer 80"
-    exit 0
-fi
-
 if [ $mode = "ssl" ]; then
+    command="$contdir/ssl.sh"
     if [ $nodeid = -1 ]; then
-        echo "Please specify node no."
-        exit 1
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            vmaddr=${vmaddrs[i]}
+            let nodeid=$i+1
+            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+        done
+        wait
+    else
+        vmaddr=${vmaddrs[$nodeid]}
+        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
     fi
-    vmaddr=${vmaddrs[$nodeid]}
-
-    sudo apt-get install -y unzip
-    unzip -d ~/downloads/$vmaddr/ ~/downloads/$vmaddr.zip || exit 1;
-    pushd ~/downloads/$vmaddr > /dev/null 2>&1
-    mkdir certs
-    cat certificate.crt <(echo) ca_bundle.crt > certs/tlscert.pem
-    mv private.key certs/tlskey.pem
-    popd > /dev/null 2>&1
-    
-    echo "Sending tls certs to the contract..."
-    sshpass -p $vmpass scp ~/downloads/$vmaddr/certs/* $vmuser@$vmaddr:$basedir/hpfiles/ssl/
-    sshpass -p $vmpass ssh $vmuser@$vmaddr cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/
-    
-    rm -r ~/downloads/$vmaddr
-    echo "Done"
     exit 0
 fi
 

@@ -19,6 +19,6 @@ fi
 if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
     # Run hp setup script on the VM and download the generated hp.cfg
     echo "Configuring HP..."
-    sshpass -p $vmpass ssh $vmuser@$vmaddr $basedir/hpfiles/setup-hp.sh $mode $basedir $contdir
+    sshpass -p $vmpass ssh $vmuser@$vmaddr $basedir/hpfiles/setup-hp.sh $mode $basedir $contdir $vmaddr
     sshpass -p $vmpass scp $vmuser@$vmaddr:$contdir/cfg/hp.cfg ./cfg/node$nodeid.cfg
 fi
