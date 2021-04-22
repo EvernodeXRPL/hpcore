@@ -1102,16 +1102,23 @@
     }
 
     let blake3Resolver = null;
+    let blake3awaiter = null;
     // Set blake3 reference.
     async function initBlake3() {
-        if (blake3) // If already set, do nothing.
+        if (blake3) { // If already set, do nothing.
             return;
-        else if (isBrowser && window.blake3) // browser (if blake3 already loaded)
+        }
+        else if (isBrowser && window.blake3) {// browser (if blake3 already loaded)
             blake3 = window.blake3;
-        else if (isBrowser && !window.blake3) // If blake3 not yet loaded in browser, wait for it.
-            blake3 = await new Promise(resolve => blake3Resolver = resolve);
-        else if (!isBrowser) // nodejs
+        }
+        else if (isBrowser && !window.blake3) { // If blake3 not yet loaded in browser, wait for it.
+            if (!blake3awaiter)
+                blake3awaiter = new Promise(resolve => blake3Resolver = resolve);
+            blake3 = await blake3awaiter;
+        }
+        else if (!isBrowser) { // nodejs
             blake3 = require('blake3');
+        }
 
         if (!blake3)
             throw "Blake3 reference not found.";
