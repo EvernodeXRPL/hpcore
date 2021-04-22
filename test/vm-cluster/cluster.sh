@@ -47,7 +47,14 @@ contdir=$basedir/$CONTRACT
 vmcount=${#vmaddrs[@]}
 mode=$1
 hpcore=$(realpath ../..)
-let nodeid=$2-1
+
+# Check if second arg (nodeid) is a number or not.
+# If it's a number then reduce 1 from it to get zero-based node index.
+if ! [[ $2 =~ ^[0-9]+$ ]] ; then
+    let nodeid=-1
+else
+    let nodeid=$2-1
+fi
 
 if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
@@ -56,7 +63,7 @@ if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$
 else
     echo "Invalid command. [ info | new | update | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
-        " | ssl <N> | lcl | pubkey <N> ] expected."
+        " | ssl <email>or<N> <email> | lcl | pubkey <N> ] expected."
     exit 1
 fi
 
@@ -197,18 +204,31 @@ if [ $mode = "ssh" ]; then
 fi
 
 if [ $mode = "ssl" ]; then
-    command="$contdir/ssl.sh"
     if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
-        do
-            vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
-            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
-        done
-        wait
+        if [ -n "$2" ]; then
+            # If nodeid is not specified, interpret second arg as the ssl account notification email.
+            command="$contdir/ssl.sh $2"
+            for (( i=0; i<$vmcount; i++ ))
+            do
+                vmaddr=${vmaddrs[i]}
+                let nodeid=$i+1
+                echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            done
+            wait
+        else
+            echo "Please specify node no. or ssl account notification email."
+            exit 1
+        fi
     else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+        # if nodeid is specified, interpret third arg as the ssl account notification email.
+        if [ -n "$3" ]; then
+            command="$contdir/ssl.sh $3"
+            vmaddr=${vmaddrs[$nodeid]}
+            sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+        else
+            echo "Please specify ssl account notification email."
+            exit 1
+        fi
     fi
     exit 0
 fi
