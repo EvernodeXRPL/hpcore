@@ -91,9 +91,10 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    # Create ssl.sh script
    # This installs LetsEncrypt certbot and generates the SSL certs maching to vm domain name.
    echo "snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot" > $contdir/ssl.sh
-   echo "certbot certonly --standalone -n -m $1 --agree-tos -d $vmaddr" > $contdir/ssl.sh
-   echo "cp /etc/letsencrypt/live/$vmaddr/fullchain.pem $contdir/cfg/tlscert.pem" > $contdir/ssl.sh
-   echo "cp /etc/letsencrypt/live/$vmaddr/privkey.pem $contdir/cfg/tlskey.pem" > $contdir/ssl.sh
+   echo "certbot certonly --standalone -n -m $1 --agree-tos -d $vmaddr" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$vmaddr/fullchain.pem $contdir/cfg/tlscert.pem" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$vmaddr/privkey.pem $contdir/cfg/tlskey.pem" >> $contdir/ssl.sh
+   sudo chmod +x $contdir/ssl.sh
 
    # Configure .screenrc
    pushd $contdir > /dev/null 2>&1
