@@ -19,9 +19,6 @@ namespace sc::hpfs_log_sync
     // Max no. of repetitive reqeust resubmissions before abandoning the sync.
     constexpr uint16_t ABANDON_THRESHOLD = 10;
 
-    // No. of milliseconds to wait before resubmitting a request.
-    uint16_t REQUEST_RESUBMIT_TIMEOUT;
-
     sync_context sync_ctx;
     bool init_success = false;
 
@@ -33,8 +30,6 @@ namespace sc::hpfs_log_sync
      */
     int init()
     {
-        REQUEST_RESUBMIT_TIMEOUT = conf::cfg.contract.roundtime;
-
         sync_ctx.log_record_sync_thread = std::thread(hpfs_log_syncer_loop);
 
         genesis_seq_hash = {ledger::genesis.seq_no, hpfs::get_root_hash(ledger::genesis.config_hash, ledger::genesis.state_hash)};
@@ -143,10 +138,13 @@ namespace sc::hpfs_log_sync
      */
     void send_hpfs_log_sync_request()
     {
+        // No. of milliseconds to wait before resubmitting a request.
+        const uint32_t request_resubmit_timeout = hpfs::get_request_resubmit_timeout();
+
         // Check whether we need to send any requests or abandon the sync due to timeout.
         const uint64_t time_now = util::get_epoch_milliseconds();
         if ((sync_ctx.target_requested_on == 0) ||                                // Initial request.
-            (time_now - sync_ctx.target_requested_on) > REQUEST_RESUBMIT_TIMEOUT) // Request resubmission.
+            (time_now - sync_ctx.target_requested_on) > request_resubmit_timeout) // Request resubmission.
         {
             if (sync_ctx.request_submissions < ABANDON_THRESHOLD)
             {
@@ -315,7 +313,6 @@ namespace sc::hpfs_log_sync
         // In sync. No need to sync.
         if (last_from_index == last_from_ledger)
             return 1;
-        
 
         if (last_from_index.seq_no == last_from_ledger.seq_no)
         {
