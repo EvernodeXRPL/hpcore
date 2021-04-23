@@ -166,6 +166,8 @@
         // 0 indicates we are not missing any connections. This will be initially set when connect() is called.
         let connectionsMissingFrom = 0;
 
+        let reviewConnectionsTimer = null;
+
         // Checks for missing connections and attempts to establish them.
         const reviewConnections = () => {
 
@@ -173,7 +175,7 @@
                 return;
 
             // Check for connection changes periodically.
-            setTimeout(() => {
+            reviewConnectionsTimer = setTimeout(() => {
                 reviewConnections();
             }, connectionCheckIntervalMs);
 
@@ -304,6 +306,12 @@
                 return;
 
             status = 2;
+
+            if (reviewConnectionsTimer) {
+                clearTimeout(reviewConnectionsTimer);
+                reviewConnectionsTimer = null;
+            }
+
             emitter.clear(events.connectionChange);
             emitter.clear(events.contractOutput);
             emitter.clear(events.contractReadResponse);
@@ -718,8 +726,10 @@
 
             emitter = null;
 
-            if (handshakeTimer)
+            if (handshakeTimer) {
                 clearTimeout(handshakeTimer);
+                handshakeTimer = null;
+            }
 
             // If there are any ongoing resolvers resolve them with error output.
 
@@ -776,6 +786,7 @@
                 });
             }
             else {
+                ws.close();
                 return Promise.resolve();
             }
         }
@@ -1102,16 +1113,23 @@
     }
 
     let blake3Resolver = null;
+    let blake3awaiter = null;
     // Set blake3 reference.
     async function initBlake3() {
-        if (blake3) // If already set, do nothing.
+        if (blake3) { // If already set, do nothing.
             return;
-        else if (isBrowser && window.blake3) // browser (if blake3 already loaded)
+        }
+        else if (isBrowser && window.blake3) {// browser (if blake3 already loaded)
             blake3 = window.blake3;
-        else if (isBrowser && !window.blake3) // If blake3 not yet loaded in browser, wait for it.
-            blake3 = await new Promise(resolve => blake3Resolver = resolve);
-        else if (!isBrowser) // nodejs
+        }
+        else if (isBrowser && !window.blake3) { // If blake3 not yet loaded in browser, wait for it.
+            if (!blake3awaiter)
+                blake3awaiter = new Promise(resolve => blake3Resolver = resolve);
+            blake3 = await blake3awaiter;
+        }
+        else if (!isBrowser) { // nodejs
             blake3 = require('blake3');
+        }
 
         if (!blake3)
             throw "Blake3 reference not found.";

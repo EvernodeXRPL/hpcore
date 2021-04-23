@@ -3,6 +3,7 @@
 mode=$1
 basedir=$2
 contdir=$3 # Contract directory
+vmaddr=$4
 
 if [[ ! -f /swapfile ]]
 then
@@ -86,6 +87,15 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    echo "max_shard_no=\$(ls -v $contdir/ledger_fs/seed/primary/ | tail -2 | head -1)" > $contdir/lcl.sh
    echo "echo \"select seq_no || '-' || lower(hex(ledger_hash)) from ledger order by seq_no DESC limit 1;\" | sqlite3 file:$contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite?mode=ro" >> $contdir/lcl.sh
    sudo chmod +x $contdir/lcl.sh
+
+   # Create ssl.sh script
+   # This installs LetsEncrypt certbot and generates the SSL certs matching with vm domain name.
+   echo "snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot > /dev/null 2>&1" > $contdir/ssl.sh
+   echo "certbot certonly --standalone -n -m \$1 --agree-tos -d $vmaddr" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$vmaddr/fullchain.pem $basedir/hpfiles/ssl/tlscert.pem" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$vmaddr/privkey.pem $basedir/hpfiles/ssl/tlskey.pem" >> $contdir/ssl.sh
+   echo "cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/" >> $contdir/ssl.sh
+   sudo chmod +x $contdir/ssl.sh
 
    # Configure .screenrc
    pushd $contdir > /dev/null 2>&1
