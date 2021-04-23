@@ -166,6 +166,8 @@
         // 0 indicates we are not missing any connections. This will be initially set when connect() is called.
         let connectionsMissingFrom = 0;
 
+        let reviewConnectionsTimer = null;
+
         // Checks for missing connections and attempts to establish them.
         const reviewConnections = () => {
 
@@ -173,7 +175,7 @@
                 return;
 
             // Check for connection changes periodically.
-            setTimeout(() => {
+            reviewConnectionsTimer = setTimeout(() => {
                 reviewConnections();
             }, connectionCheckIntervalMs);
 
@@ -304,6 +306,12 @@
                 return;
 
             status = 2;
+
+            if (reviewConnectionsTimer) {
+                clearTimeout(reviewConnectionsTimer);
+                reviewConnectionsTimer = null;
+            }
+
             emitter.clear(events.connectionChange);
             emitter.clear(events.contractOutput);
             emitter.clear(events.contractReadResponse);
@@ -718,8 +726,10 @@
 
             emitter = null;
 
-            if (handshakeTimer)
+            if (handshakeTimer) {
                 clearTimeout(handshakeTimer);
+                handshakeTimer = null;
+            }
 
             // If there are any ongoing resolvers resolve them with error output.
 
@@ -776,6 +786,7 @@
                 });
             }
             else {
+                ws.close();
                 return Promise.resolve();
             }
         }
