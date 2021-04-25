@@ -253,15 +253,15 @@ namespace p2p
             msg_type == p2pmsg::P2PMsgContent_NonUnlProposalMsg ||
             msg_type == p2pmsg::P2PMsgContent_NplMsg)
         {
-            return true;
-        }
+            // Checking the time to live of the message. The time to live for forwarding is three times the round time.
+            const uint64_t time_now = util::get_epoch_milliseconds();
+            if (originated_on < (time_now - (conf::cfg.contract.roundtime * 3)))
+            {
+                LOG_DEBUG << "Peer message is too old for forwarding. type:" << msg_type;
+                return false;
+            }
 
-        const uint64_t time_now = util::get_epoch_milliseconds();
-        // Checking the time to live of the message. The time to live for forwarding is three times the round time.
-        if (originated_on < (time_now - (conf::cfg.contract.roundtime * 3)))
-        {
-            LOG_DEBUG << "Peer message is too old for forwarding.";
-            return false;
+            return true;
         }
 
         return false;

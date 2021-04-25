@@ -62,17 +62,13 @@ namespace p2p
         }
 
         const peer_message_info mi = p2pmsg::get_peer_message_info(message);
-
-        if (mi.type == p2pmsg::P2PMsgContent_NONE)
-        {
-            session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Received invalid peer message type. " << session.display_name();
+        if (!mi.p2p_msg) // Message buffer will be null if peer message was too old.
             return 0;
-        }
-        else if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
+
+        if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Duplicate peer message. " << session.display_name();
+            LOG_DEBUG << "Duplicate peer message. type:" << mi.type << " " << session.display_name();
             return 0;
         }
 
@@ -269,7 +265,7 @@ namespace p2p
         else
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Received invalid peer message type. " << session.display_name();
+            LOG_DEBUG << "Received invalid peer message type [" << mi.type << "]. " << session.display_name();
         }
         return 0;
     }

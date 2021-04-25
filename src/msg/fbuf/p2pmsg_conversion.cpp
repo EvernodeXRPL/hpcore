@@ -45,7 +45,7 @@ namespace msg::fbuf::p2pmsg
             const uint64_t time_now = util::get_epoch_milliseconds();
             if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
             {
-                LOG_DEBUG << "Peer message is too old.";
+                LOG_DEBUG << "Peer message is too old. type:" << p2p_msg->content_type();
                 return p2p::peer_message_info{NULL, P2PMsgContent_NONE, 0};
             }
         }
@@ -224,7 +224,7 @@ namespace msg::fbuf::p2pmsg
         p2p::hpfs_log_response hpfs_log_response;
         hpfs_log_response.min_record_id = flatbuf_seqhash_to_seqhash(msg.min_record_id());
         hpfs_log_response.log_record_bytes.reserve(msg.log_record_bytes()->size());
-        for (const auto byte: *msg.log_record_bytes())
+        for (const auto byte : *msg.log_record_bytes())
             hpfs_log_response.log_record_bytes.push_back(byte);
         return hpfs_log_response;
     }

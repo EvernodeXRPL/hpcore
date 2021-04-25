@@ -211,6 +211,7 @@ namespace p2p
             {
                 is_weakly_connected = !is_weakly_connected;
                 send_peer_requirement_announcement(is_weakly_connected);
+                LOG_DEBUG << "Sent weakly connected announcement.";
             }
             connected_status_check_counter = 0;
         }
