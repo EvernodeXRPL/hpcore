@@ -33,15 +33,17 @@ namespace comm
         std::optional<hpws::client> hpws_client;
         std::vector<session_threshold> thresholds; // track down various communication thresholds
 
-        std::thread reader_thread;                                     // The thread responsible for reading messages from the read fd.
-        std::thread writer_thread;                                     // The thread responsible for writing messages to the write fd.
-        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue; // Holds incoming messages waiting to be processed.
-        moodycamel::ConcurrentQueue<std::string> out_msg_queue;        // Holds outgoing messages waiting to be processed.
+        std::thread reader_thread;                                      // The thread responsible for reading messages from the read fd.
+        std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
+        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue1; // Holds high priority incoming messages waiting to be processed.
+        moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue2; // Holds low priority incoming messages waiting to be processed.
+        moodycamel::ConcurrentQueue<std::string> out_msg_queue;         // Holds outgoing messages waiting to be processed.
 
         void reader_loop();
 
     protected:
         virtual int handle_connect();
+        virtual int get_message_priority(std::string_view msg);
         virtual int handle_message(std::string_view msg);
         virtual void handle_close();
         virtual void handle_on_verified();

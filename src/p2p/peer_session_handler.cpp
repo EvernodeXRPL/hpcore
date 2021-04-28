@@ -46,6 +46,27 @@ namespace p2p
     }
 
     /**
+     * Returns the priority that should be assigned to the message.
+     * @return 0 if bad message. 1 or 2 if correct priority was assigned.
+     */
+    int get_message_priority(std::string_view message)
+    {
+        if (!p2pmsg::verify_peer_message(message))
+        {
+            LOG_DEBUG << "Flatbuffer verify: Bad peer message.";
+            return 0;
+        }
+
+        const auto p2p_msg = p2pmsg::GetP2PMsg(message.data());
+        const msg::fbuf::p2pmsg::P2PMsgContent type = p2p_msg->content_type();
+
+        if (type == p2pmsg::P2PMsgContent_ProposalMsg || type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
+            return 1; // High priority
+        else
+            return 2; // Low priority
+    }
+
+    /**
      * Peer session on message callback method. Validate and handle each type of peer messages.
      * @return 0 on normal execution. -1 when session needs to be closed as a result of message handling.
      */
@@ -53,13 +74,6 @@ namespace p2p
     {
         // Adding message size to peer message characters(bytes) per minute counter.
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.size());
-
-        if (!p2pmsg::verify_peer_message(message))
-        {
-            session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Flatbuffer verify: Bad peer message.";
-            return 0;
-        }
 
         const peer_message_info mi = p2pmsg::get_peer_message_info(message);
         if (!mi.p2p_msg) // Message buffer will be null if peer message was too old.
