@@ -20,8 +20,6 @@ namespace msg::usrmsg::bson
      *              "ledger_hash": <binary lcl hash>
      *            }
      */
-    constexpr const size_t MAX_KNOWN_PEERS_INFO = 10;
-
     void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
@@ -58,8 +56,15 @@ namespace msg::usrmsg::bson
 
             encoder.begin_array();
             // Currently all peers, up to a max of 10 are sent regardless of state.
-            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++, count++)
-                encoder.string_value(peer->second->known_ipport->host_address + ":" + std::to_string(peer->second->known_ipport->port));
+            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++)
+            {
+                const p2p::peer_comm_session *sess = peer->second;
+                if (sess->known_ipport)
+                {
+                    encoder.string_value(sess->known_ipport->to_string());
+                    count++;
+                }
+            }
             encoder.end_array();
         }
 
