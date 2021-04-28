@@ -21,8 +21,6 @@ namespace msg::usrmsg::json
     constexpr const char *OPEN_SQR_BRACKET = "[";
     constexpr const char *CLOSE_SQR_BRACKET = "]";
 
-    constexpr const size_t MAX_KNOWN_PEERS_INFO = 10;
-
     // std::vector overload to concatonate string.
     std::vector<uint8_t> &operator+=(std::vector<uint8_t> &vec, std::string_view sv)
     {
@@ -203,12 +201,16 @@ namespace msg::usrmsg::json
             size_t count = 1;
 
             // Currently all peers, up to a max of 10 are sent regardless of state.
-            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++, count++)
+            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++)
             {
-                msg += DOUBLE_QUOTE + peer->second->known_ipport->host_address + ":" + std::to_string(peer->second->known_ipport->port) + DOUBLE_QUOTE;
-
-                if (peer != p2p::ctx.peer_connections.end() && count < max_peers_count)
-                    msg += ",";
+                const p2p::peer_comm_session *sess = peer->second;
+                if (sess->known_ipport)
+                {
+                    if (count > 1)
+                        msg += ",";
+                    msg += DOUBLE_QUOTE + sess->known_ipport->to_string() + DOUBLE_QUOTE;
+                    count++;
+                }
             }
         }
 
