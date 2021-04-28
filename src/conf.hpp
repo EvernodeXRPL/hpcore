@@ -15,7 +15,7 @@ namespace conf
     struct peer_ip_port
     {
         std::string host_address;
-        uint16_t port;
+        uint16_t port = 0;
 
         bool operator==(const peer_ip_port &other) const
         {
@@ -30,6 +30,11 @@ namespace conf
         bool operator<(const peer_ip_port &other) const
         {
             return (host_address == other.host_address) ? port < other.port : host_address < other.host_address;
+        }
+
+        const std::string to_string() const
+        {
+            return host_address + ":" + std::to_string(port);
         }
     };
 
@@ -50,8 +55,8 @@ namespace conf
     // Max number of shards to keep for primary and raw shards.
     struct history_configuration
     {
-        uint64_t max_primary_shards; // Maximum number of shards for primary shards.
-        uint64_t max_raw_shards;     // Maximum number of shards for raw data shards.
+        uint64_t max_primary_shards = 0; // Maximum number of shards for primary shards.
+        uint64_t max_raw_shards = 0;     // Maximum number of shards for raw data shards.
     };
 
     // Log severity levels used in Hot Pocket.
@@ -68,8 +73,8 @@ namespace conf
         std::string loglevel;                    // Log severity level (debug, info, warn, error)
         LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
         std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
-        size_t max_mbytes_per_file;              // Max MB size of a single log file.
-        size_t max_file_count;                   // Max no. of log files to keep.
+        size_t max_mbytes_per_file = 0;          // Max MB size of a single log file.
+        size_t max_file_count = 0;               // Max no. of log files to keep.
     };
 
     struct node_config
@@ -189,7 +194,7 @@ namespace conf
         std::string tls_key_file;            // Full path to the tls private key file.
         std::string tls_cert_file;           // Full path to the tls certificate.
 
-        int config_fd;            // Config file file descriptor.
+        int config_fd = -1;       // Config file file descriptor.
         struct flock config_lock; // Config file lock.
     };
 

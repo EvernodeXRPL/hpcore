@@ -684,7 +684,7 @@
             catch (e) {
                 liblog(1, e);
                 liblog(0, "Exception deserializing: ");
-                liblog(0, data || rcvd);
+                liblog(0, (data && (isTextMode ? data.toString() : data) || rcvd));
 
                 // If we get invalid message during handshake, close the socket.
                 if (connectionStatus < 2)
