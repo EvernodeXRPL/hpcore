@@ -809,6 +809,7 @@ namespace hpfs
         unmerged_write_operations_peformed++;
         if (unmerged_write_operations_peformed == HPFS_REAQUIRE_OPERATIONS_THRESHOLD)
         {
+            LOG_DEBUG << "Hpfs " << name << " sync: Unmerged writes threshold hit. Reacquiring rw session.";
             unmerged_write_operations_peformed = 0;
             reacquire_rw_session();
         }
