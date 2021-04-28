@@ -25,6 +25,12 @@ namespace hpfs
     // Max no. of repetitive reqeust resubmissions before abandoning the sync.
     constexpr uint16_t ABANDON_THRESHOLD = 20;
 
+    // No. of mulliseconds to wait before reacquiring hpfs rw session.
+    constexpr uint16_t HPFS_REAQUIRE_WAIT = 10;
+
+    // Max no. of unmerged write operations to allow before rw reacquisition to be performed.
+    constexpr size_t HPFS_REAQUIRE_OPERATIONS_THRESHOLD = 20;
+
     constexpr int FILE_PERMS = 0644;
 
     /**
@@ -173,6 +179,11 @@ namespace hpfs
                             LOG_INFO << "Hpfs " << name << " sync: Target " << current_target.name << " hash achieved: " << new_state;
                             on_current_sync_state_acheived(current_target);
 
+                            // After every sync target completion, release and reacquire hpfs rw session so hpfs gets some room
+                            // to perform merge operation. This avoids excessive log file growth during long running sync operations.
+                            // This also helps any upcoming ro sessions to get updated file system state.
+                            reacquire_rw_session();
+
                             // Start syncing to next target.
                             const int result = start_syncing_next_target();
                             if (result == 0)
@@ -278,7 +289,8 @@ namespace hpfs
                         continue;
                     }
 
-                    handle_fs_entry_response(vpath, fs_resp.dir_mode(), peer_fs_entry_map);
+                    if (handle_fs_entry_response(vpath, fs_resp.dir_mode(), peer_fs_entry_map) == 1)
+                        check_unmerged_write_operations();
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsFileHashMapResponse)
                 {
@@ -295,7 +307,8 @@ namespace hpfs
                         continue;
                     }
 
-                    handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count, file_resp.file_length());
+                    if (handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count, file_resp.file_length()) == 1)
+                        check_unmerged_write_operations();
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
@@ -313,6 +326,7 @@ namespace hpfs
                     }
 
                     handle_file_block_response(vpath, block_id, buf);
+                    check_unmerged_write_operations();
                 }
 
                 // Now that we have received matching hash and handled it, remove it from the waiting list.
@@ -532,12 +546,14 @@ namespace hpfs
      * @param vpath Virtual path of the fs.
      * @param dir_mode Metadata 'mode' of dir.
      * @param fs_entry_map Received fs entry map.
-     * @returns 0 on success, otherwise -1.
+     * @returns 0 on success and no fs write peformed. 1 if write performed. -1 on failure.
      */
     int hpfs_sync::handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
     {
         // Get the parent path of the fs entries we have received.
         LOG_DEBUG << "Hpfs " << name << " sync: Processing fs entries response for " << vpath;
+
+        bool write_performed = false;
 
         // Create physical directory on our side if not exist.
         std::string parent_physical_path = fs_mount->rw_dir + vpath.data();
@@ -545,8 +561,11 @@ namespace hpfs
             return -1;
 
         // Apply physical dir mode if received mode is different from our side.
-        if (apply_metadata_mode(parent_physical_path, dir_mode, true) == -1)
+        const int metadata_res = apply_metadata_mode(parent_physical_path, dir_mode, true);
+        if (metadata_res == -1)
             return -1;
+        else if (metadata_res == 1)
+            write_performed = true;
 
         // Get the children hash entries and compare with what we got from peer.
         std::vector<hpfs::child_hash_node> existing_fs_entries;
@@ -585,6 +604,7 @@ namespace hpfs
                     !ex_entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
                     return -1;
 
+                write_performed = true;
                 LOG_DEBUG << "Hpfs " << name << " sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
             }
         }
@@ -604,7 +624,7 @@ namespace hpfs
                 pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, fs_entry.hash});
         }
 
-        return 0;
+        return write_performed ? 1 : 0;
     }
 
     /**
@@ -614,12 +634,14 @@ namespace hpfs
      * @param hashes Received block hashes.
      * @param hash_count No. of received block hashes.
      * @param file_length Size of the file.
-     * @returns 0 on success, otherwise -1.
+     * @returns 0 on success and no write operation performed. 1 if write opreation peformed. -1 on failure.
      */
     int hpfs_sync::handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length)
     {
         // Get the file path of the block hashes we have received.
         LOG_DEBUG << "Hpfs " << name << " sync: Processing file block hashes response for " << vpath;
+
+        bool write_performed = false;
 
         // File block hashes on our side (file might not exist on our side).
         std::vector<util::h32> existing_hashes;
@@ -643,14 +665,19 @@ namespace hpfs
             std::string file_physical_path = fs_mount->rw_dir + vpath.data();
             if (truncate(file_physical_path.c_str(), file_length) == -1)
                 return -1;
+
+            write_performed = true;
         }
 
         // Apply physical file mode if received mode is different from our side.
         const std::string physical_path = fs_mount->rw_dir + vpath.data();
-        if (apply_metadata_mode(physical_path, file_mode, false) == -1)
+        const int metadata_res = apply_metadata_mode(physical_path, file_mode, false);
+        if (metadata_res == -1)
             return -1;
+        else if (metadata_res == 1)
+            write_performed = true;
 
-        return 0;
+        return write_performed ? 1 : 0;
     }
 
     /**
@@ -689,7 +716,7 @@ namespace hpfs
     /**
      * Applies the specified to local file/dir if different. If it's a file, this will create the file
      * if not exist.
-     * @returns 0 on success, otherwise -1.
+     * @returns 0 if no change made. 1 if a change was made. -1 on failure.
      */
     int hpfs_sync::apply_metadata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir)
     {
@@ -708,7 +735,7 @@ namespace hpfs
                 }
                 else
                 {
-                    return 0;
+                    return 1;
                 }
             }
 
@@ -724,6 +751,8 @@ namespace hpfs
                 LOG_ERROR << errno << ": Error in applying file/dir mode. " << physical_path;
                 return -1;
             }
+
+            return 1;
         }
 
         return 0;
@@ -770,6 +799,38 @@ namespace hpfs
             current_target = target_list.front();
             return 1;
         }
+    }
+
+    /**
+     * Reqcquires rw session if we have reached max limit of unmerged fs write operations.
+     */
+    void hpfs_sync::check_unmerged_write_operations()
+    {
+        unmerged_write_operations_peformed++;
+        if (unmerged_write_operations_peformed == HPFS_REAQUIRE_OPERATIONS_THRESHOLD)
+        {
+            unmerged_write_operations_peformed = 0;
+            reacquire_rw_session();
+        }
+    }
+
+    /**
+     * Releases and reacquires the rw session after a short delay.
+     * This is used to give hpfs some room for merging log records during long running sync activities.
+     * @return 0 on success. -1 on failure.
+     */
+    int hpfs_sync::reacquire_rw_session()
+    {
+        fs_mount->release_rw_session();
+        util::sleep(HPFS_REAQUIRE_WAIT);
+
+        if (fs_mount->acquire_rw_session() == -1)
+        {
+            LOG_ERROR << "Hpfs " << name << " sync: Error reacquring rw session.";
+            return -1;
+        }
+
+        return 0;
     }
 
 } // namespace hpfs

@@ -382,7 +382,7 @@ namespace util
      * @param is_rwlock Whether the record lock is a write lock.
      * @param start Starting offset for the lock.
      * @param len Number of bytes to lock.
-     * @return Returns 0 if lock is successfully aquired, -1 on error.
+     * @return Returns 0 if lock is successfully acquired, -1 on error.
     */
     int set_lock(const int fd, struct flock &lock, const bool is_rwlock, const off_t start, const off_t len)
     {

@@ -60,6 +60,10 @@ namespace hpfs
         // List of submitted requests we are awaiting responses for, keyed by expected response path+hash.
         std::unordered_map<std::string, backlog_item> submitted_requests;
 
+        // No. of hpfs write operations performed after the rw session was last acquired.
+        // This is used to decide when to release and reacquire rw session to allow hpfs merge to take place.
+        size_t unmerged_write_operations_peformed = 0;
+
         std::thread hpfs_sync_thread;
         std::shared_mutex current_target_mutex;
         std::atomic<bool> is_shutting_down = false;
@@ -93,6 +97,8 @@ namespace hpfs
 
         int apply_metadata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir);
 
+        void check_unmerged_write_operations();
+
     protected:
         // List of sender pubkeys and hpfs responses(flatbuffer messages) to be processed.
         std::list<std::pair<std::string, std::string>> candidate_hpfs_responses;
@@ -107,6 +113,8 @@ namespace hpfs
 
         // Move the collected responses from hpfs responses to a local response list.
         virtual void swap_collected_responses() = 0; // Must override in child classes.
+
+        int reacquire_rw_session();
 
     public:
         std::atomic<bool> is_syncing = false;

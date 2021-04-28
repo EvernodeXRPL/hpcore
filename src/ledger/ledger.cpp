@@ -107,7 +107,7 @@ namespace ledger
      */
     int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users)
     {
-        // Aquire hpfs rw session before writing into shards.
+        // Acquire hpfs rw session before writing into shards.
         if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
