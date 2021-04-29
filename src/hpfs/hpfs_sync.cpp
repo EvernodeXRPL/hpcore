@@ -28,9 +28,6 @@ namespace hpfs
     // No. of mulliseconds to wait before reacquiring hpfs rw session.
     constexpr uint16_t HPFS_REAQUIRE_WAIT = 10;
 
-    // Max no. of unmerged write operations to allow before rw reacquisition to be performed.
-    constexpr size_t HPFS_REAQUIRE_OPERATIONS_THRESHOLD = 20;
-
     constexpr int FILE_PERMS = 0644;
 
     /**
@@ -751,7 +748,7 @@ namespace hpfs
             return 1;
         }
 
-        return 0;
+        return 0; // No change made.
     }
 
     /**
