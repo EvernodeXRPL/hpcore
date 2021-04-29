@@ -180,8 +180,7 @@ namespace hpfs
                             on_current_sync_state_acheived(current_target);
 
                             // After every sync target completion, release and reacquire hpfs rw session so hpfs gets some room
-                            // to perform merge operation. This avoids excessive log file growth during long running sync operations.
-                            // This also helps any upcoming ro sessions to get updated file system state.
+                            // to update the last checkpoint. This helps any upcoming ro sessions to get updated file system state.
                             reacquire_rw_session();
 
                             // Start syncing to next target.
@@ -289,8 +288,7 @@ namespace hpfs
                         continue;
                     }
 
-                    if (handle_fs_entry_response(vpath, fs_resp.dir_mode(), peer_fs_entry_map) == 1)
-                        check_unmerged_write_operations();
+                    handle_fs_entry_response(vpath, fs_resp.dir_mode(), peer_fs_entry_map);
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsFileHashMapResponse)
                 {
@@ -307,8 +305,7 @@ namespace hpfs
                         continue;
                     }
 
-                    if (handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count, file_resp.file_length()) == 1)
-                        check_unmerged_write_operations();
+                    handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count, file_resp.file_length());
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
@@ -326,7 +323,6 @@ namespace hpfs
                     }
 
                     handle_file_block_response(vpath, block_id, buf);
-                    check_unmerged_write_operations();
                 }
 
                 // Now that we have received matching hash and handled it, remove it from the waiting list.
@@ -802,22 +798,8 @@ namespace hpfs
     }
 
     /**
-     * Reqcquires rw session if we have reached max limit of unmerged fs write operations.
-     */
-    void hpfs_sync::check_unmerged_write_operations()
-    {
-        unmerged_write_operations_peformed++;
-        if (unmerged_write_operations_peformed == HPFS_REAQUIRE_OPERATIONS_THRESHOLD)
-        {
-            LOG_DEBUG << "Hpfs " << name << " sync: Unmerged writes threshold hit. Reacquiring rw session.";
-            unmerged_write_operations_peformed = 0;
-            reacquire_rw_session();
-        }
-    }
-
-    /**
      * Releases and reacquires the rw session after a short delay.
-     * This is used to give hpfs some room for merging log records during long running sync activities.
+     * This is used to give hpfs some room to update the last checkpoint during long runinng sync operations.
      * @return 0 on success. -1 on failure.
      */
     int hpfs_sync::reacquire_rw_session()
