@@ -69,18 +69,6 @@ namespace ledger
 
                 // If existing max shard is older than the max we can keep. Then delete all the existing shards.
                 remove_old_shards(ctx.get_lcl_id().seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
-
-                // If node is in full history mode. Restarting the fs mount, So primary ledger shard sync changes would be reflected in the ro sessions.
-                // Which is used for hpfs log sync.
-                if (conf::cfg.node.history == conf::HISTORY::FULL)
-                {
-                    fs_mount->release_rw_session();
-                    if (fs_mount->acquire_rw_session() == -1)
-                    {
-                        LOG_ERROR << "Error acquring rw session after achieving primary shard.";
-                        return;
-                    }
-                }
             }
 
             if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all shards if this is a full history node.

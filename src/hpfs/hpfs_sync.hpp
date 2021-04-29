@@ -108,6 +108,8 @@ namespace hpfs
         // Move the collected responses from hpfs responses to a local response list.
         virtual void swap_collected_responses() = 0; // Must override in child classes.
 
+        int reacquire_rw_session();
+
     public:
         std::atomic<bool> is_syncing = false;
 
