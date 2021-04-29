@@ -174,11 +174,12 @@ namespace hpfs
                         if (new_state == current_target.hash)
                         {
                             LOG_INFO << "Hpfs " << name << " sync: Target " << current_target.name << " hash achieved: " << new_state;
-                            on_current_sync_state_acheived(current_target);
 
                             // After every sync target completion, release and reacquire hpfs rw session so hpfs gets some room
                             // to update the last checkpoint. This helps any upcoming ro sessions to get updated file system state.
                             reacquire_rw_session();
+
+                            on_current_sync_state_acheived(current_target);
 
                             // Start syncing to next target.
                             const int result = start_syncing_next_target();
