@@ -40,7 +40,6 @@ namespace ledger
             return;
         }
 
-        util::h32 prev_shard_hash_from_hpfs;
         const std::string shard_parent_dir = synced_target.vpath.substr(0, pos);
 
         if (shard_parent_dir == PRIMARY_DIR)
@@ -75,8 +74,12 @@ namespace ledger
                 last_primary_shard_seq_no - synced_shard_seq_no + 1 < conf::cfg.node.history_config.max_primary_shards)
             {
                 // Check whether the hash of the previous shard matches with the hash in the prev_shard.hash file.
-                const std::string prev_shard_vpath = std::string(PRIMARY_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
-                fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                util::h32 prev_shard_hash_from_hpfs = util::h32_empty;
+                if (synced_shard_seq_no > 0)
+                {
+                    const std::string prev_shard_vpath = std::string(PRIMARY_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
+                    fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                }
 
                 if (prev_shard_hash_from_file != util::h32_empty               // Hash in the prev_shard.hash of the 0th shard is h32 empty. Syncing should be stopped then.
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
@@ -123,8 +126,12 @@ namespace ledger
                 last_raw_shard_seq_no - synced_shard_seq_no + 1 < conf::cfg.node.history_config.max_raw_shards)
             {
                 // Check whether the hash of the previous raw shard matches with the hash in the prev_shard.hash file.
-                const std::string prev_shard_vpath = std::string(RAW_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
-                fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                util::h32 prev_shard_hash_from_hpfs = util::h32_empty;
+                if (synced_shard_seq_no > 0)
+                {
+                    const std::string prev_shard_vpath = std::string(RAW_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
+                    fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                }
 
                 if (prev_shard_hash_from_file != util::h32_empty               // Hash in the prev_shard.hash of the 0th shard is h32 empty. Syncing should be stopped then.
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
