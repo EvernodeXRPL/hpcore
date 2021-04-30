@@ -415,7 +415,7 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr)
     {
-        if (!hr.is_file)
+        if (!hr.is_file) // Dir fs entry request.
         {
             const auto hint = CreateHpfsFsEntryHint(
                 builder,
@@ -423,9 +423,15 @@ namespace msg::fbuf::p2pmsg
 
             create_hpfs_request_msg(builder, hr, HpfsRequestHint_HpfsFsEntryHint, hint.Union());
         }
-        else if (hr.is_file && hr.block_id == -1)
+        else if (hr.is_file && hr.block_id == -1) // File hash map request.
         {
-            create_hpfs_request_msg(builder, hr);
+            std::string_view hashmap_sv(reinterpret_cast<const char *>(hr.file_hashmap_hints.data()), hr.file_hashmap_hints.size() * sizeof(util::h32));
+
+            const auto hint = CreateHpfsFileHashMapHint(
+                builder,
+                sv_to_flatbuf_bytes(builder, hashmap_sv));
+
+            create_hpfs_request_msg(builder, hr, HpfsRequestHint_HpfsFileHashMapHint, hint.Union());
         }
         else
         {

@@ -96,8 +96,13 @@ table HpfsFsEntryHint{
     entries: [HpfsFSHashEntry];
 }
 
+table HpfsFileHashMapHint{
+    hash_map: [ubyte];
+}
+
 union HpfsRequestHint {
-    HpfsFsEntryHint
+    HpfsFsEntryHint,
+    HpfsFileHashMapHint
 }
 
 table HpfsRequestMsg {

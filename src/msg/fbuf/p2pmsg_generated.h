@@ -40,6 +40,9 @@ struct HpfsFSHashEntryBuilder;
 struct HpfsFsEntryHint;
 struct HpfsFsEntryHintBuilder;
 
+struct HpfsFileHashMapHint;
+struct HpfsFileHashMapHintBuilder;
+
 struct HpfsRequestMsg;
 struct HpfsRequestMsgBuilder;
 
@@ -246,29 +249,32 @@ inline const char *EnumNameHpfsFsEntryResponseType(HpfsFsEntryResponseType e) {
 enum HpfsRequestHint {
   HpfsRequestHint_NONE = 0,
   HpfsRequestHint_HpfsFsEntryHint = 1,
+  HpfsRequestHint_HpfsFileHashMapHint = 2,
   HpfsRequestHint_MIN = HpfsRequestHint_NONE,
-  HpfsRequestHint_MAX = HpfsRequestHint_HpfsFsEntryHint
+  HpfsRequestHint_MAX = HpfsRequestHint_HpfsFileHashMapHint
 };
 
-inline const HpfsRequestHint (&EnumValuesHpfsRequestHint())[2] {
+inline const HpfsRequestHint (&EnumValuesHpfsRequestHint())[3] {
   static const HpfsRequestHint values[] = {
     HpfsRequestHint_NONE,
-    HpfsRequestHint_HpfsFsEntryHint
+    HpfsRequestHint_HpfsFsEntryHint,
+    HpfsRequestHint_HpfsFileHashMapHint
   };
   return values;
 }
 
 inline const char * const *EnumNamesHpfsRequestHint() {
-  static const char * const names[3] = {
+  static const char * const names[4] = {
     "NONE",
     "HpfsFsEntryHint",
+    "HpfsFileHashMapHint",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameHpfsRequestHint(HpfsRequestHint e) {
-  if (flatbuffers::IsOutRange(e, HpfsRequestHint_NONE, HpfsRequestHint_HpfsFsEntryHint)) return "";
+  if (flatbuffers::IsOutRange(e, HpfsRequestHint_NONE, HpfsRequestHint_HpfsFileHashMapHint)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesHpfsRequestHint()[index];
 }
@@ -279,6 +285,10 @@ template<typename T> struct HpfsRequestHintTraits {
 
 template<> struct HpfsRequestHintTraits<msg::fbuf::p2pmsg::HpfsFsEntryHint> {
   static const HpfsRequestHint enum_value = HpfsRequestHint_HpfsFsEntryHint;
+};
+
+template<> struct HpfsRequestHintTraits<msg::fbuf::p2pmsg::HpfsFileHashMapHint> {
+  static const HpfsRequestHint enum_value = HpfsRequestHint_HpfsFileHashMapHint;
 };
 
 bool VerifyHpfsRequestHint(flatbuffers::Verifier &verifier, const void *obj, HpfsRequestHint type);
@@ -1469,6 +1479,61 @@ inline flatbuffers::Offset<HpfsFsEntryHint> CreateHpfsFsEntryHintDirect(
       entries__);
 }
 
+struct HpfsFileHashMapHint FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HpfsFileHashMapHintBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HASH_MAP = 4
+  };
+  const flatbuffers::Vector<uint8_t> *hash_map() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_hash_map() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_HASH_MAP) &&
+           verifier.VerifyVector(hash_map()) &&
+           verifier.EndTable();
+  }
+};
+
+struct HpfsFileHashMapHintBuilder {
+  typedef HpfsFileHashMapHint Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_hash_map(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map) {
+    fbb_.AddOffset(HpfsFileHashMapHint::VT_HASH_MAP, hash_map);
+  }
+  explicit HpfsFileHashMapHintBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  HpfsFileHashMapHintBuilder &operator=(const HpfsFileHashMapHintBuilder &);
+  flatbuffers::Offset<HpfsFileHashMapHint> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HpfsFileHashMapHint>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HpfsFileHashMapHint> CreateHpfsFileHashMapHint(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0) {
+  HpfsFileHashMapHintBuilder builder_(_fbb);
+  builder_.add_hash_map(hash_map);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<HpfsFileHashMapHint> CreateHpfsFileHashMapHintDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *hash_map = nullptr) {
+  auto hash_map__ = hash_map ? _fbb.CreateVector<uint8_t>(*hash_map) : 0;
+  return msg::fbuf::p2pmsg::CreateHpfsFileHashMapHint(
+      _fbb,
+      hash_map__);
+}
+
 struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef HpfsRequestMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1520,6 +1585,9 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf::p2pmsg::HpfsFsEntryHint *hint_as_HpfsFsEntryHint() const {
     return hint_type() == msg::fbuf::p2pmsg::HpfsRequestHint_HpfsFsEntryHint ? static_cast<const msg::fbuf::p2pmsg::HpfsFsEntryHint *>(hint()) : nullptr;
   }
+  const msg::fbuf::p2pmsg::HpfsFileHashMapHint *hint_as_HpfsFileHashMapHint() const {
+    return hint_type() == msg::fbuf::p2pmsg::HpfsRequestHint_HpfsFileHashMapHint ? static_cast<const msg::fbuf::p2pmsg::HpfsFileHashMapHint *>(hint()) : nullptr;
+  }
   void *mutable_hint() {
     return GetPointer<void *>(VT_HINT);
   }
@@ -1541,6 +1609,10 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 
 template<> inline const msg::fbuf::p2pmsg::HpfsFsEntryHint *HpfsRequestMsg::hint_as<msg::fbuf::p2pmsg::HpfsFsEntryHint>() const {
   return hint_as_HpfsFsEntryHint();
+}
+
+template<> inline const msg::fbuf::p2pmsg::HpfsFileHashMapHint *HpfsRequestMsg::hint_as<msg::fbuf::p2pmsg::HpfsFileHashMapHint>() const {
+  return hint_as_HpfsFileHashMapHint();
 }
 
 struct HpfsRequestMsgBuilder {
@@ -2609,6 +2681,10 @@ inline bool VerifyHpfsRequestHint(flatbuffers::Verifier &verifier, const void *o
     }
     case HpfsRequestHint_HpfsFsEntryHint: {
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsFsEntryHint *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case HpfsRequestHint_HpfsFileHashMapHint: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsFileHashMapHint *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

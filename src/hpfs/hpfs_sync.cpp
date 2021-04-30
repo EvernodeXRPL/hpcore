@@ -511,15 +511,22 @@ namespace hpfs
         hr.expected_hash = expected_hash;
         hr.mount_id = fs_mount->mount_id;
 
-        // Include appropriate hints in the request, so the peer can piggyback some data we need without having
+        // Include appropriate hints in the request, so the peer can send some data we need without having
         // to submit additional requests.
-        if (!hr.is_file)
+        if (!hr.is_file) // Dir fs entry request.
         {
+            // Include fs entry information from our side in the request.
             std::vector<hpfs::child_hash_node> child_hash_nodes;
             fs_mount->get_dir_children_hashes(child_hash_nodes, hpfs::RW_SESSION_NAME, path);
 
             for (const hpfs::child_hash_node &hn : child_hash_nodes)
                 hr.fs_entry_hints.push_back(p2p::hpfs_fs_hash_entry{hn.name, hn.is_file, hn.hash});
+        }
+        else if (hr.is_file && hr.block_id == -1) // File hash map request.
+        {
+            // Include file hash map information from our side in the request (file might not exist on our side).
+            if (fs_mount->get_file_block_hashes(hr.file_hashmap_hints, hpfs::RW_SESSION_NAME, hr.parent_path) == -1)
+                hr.file_hashmap_hints.clear();
         }
 
         flatbuffers::FlatBufferBuilder fbuf;
