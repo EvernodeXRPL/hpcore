@@ -87,7 +87,8 @@ namespace hpfs
 
         int handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
 
-        int handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
+        int handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count,
+                                         const std::set<uint32_t> &responded_block_ids, const uint64_t file_length);
 
         int handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf);
 

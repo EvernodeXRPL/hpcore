@@ -303,7 +303,17 @@ namespace hpfs
                         continue;
                     }
 
-                    handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count, file_resp.file_length());
+                    std::set<uint32_t> responded_block_ids;
+                    {
+                        const flatbuffers::Vector<uint32_t> *fbvec = file_resp.responded_block_ids();
+                        const uint32_t *ptr = file_resp.responded_block_ids()->data();
+                        const size_t count = file_resp.responded_block_ids()->size();
+                        for (size_t i = 0; i < count; i++)
+                            responded_block_ids.emplace(ptr[i]);
+                    }
+
+                    handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count,
+                                                 responded_block_ids, file_resp.file_length());
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
@@ -636,10 +646,12 @@ namespace hpfs
      * @param file_mode Received metadata mode of the file.
      * @param hashes Received block hashes.
      * @param hash_count No. of received block hashes.
+     * @param responded_block_ids List of block ids already responded by the peer.
      * @param file_length Size of the file.
      * @returns 0 on success and no write operation performed. 1 if write opreation peformed. -1 on failure.
      */
-    int hpfs_sync::handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length)
+    int hpfs_sync::handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count,
+                                                const std::set<uint32_t> &responded_block_ids, const uint64_t file_length)
     {
         // Get the file path of the block hashes we have received.
         LOG_DEBUG << "Hpfs " << name << " sync: Processing file block hashes response for " << vpath;
@@ -657,9 +669,16 @@ namespace hpfs
         const int32_t max_block_id = MAX(existing_hash_count, hash_count) - 1;
         for (int32_t block_id = 0; block_id <= max_block_id; block_id++)
         {
-            // Insert at front to give priority to block requests while preserving block order.
-            if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
+            if (responded_block_ids.count(block_id) == 1)
+            {
+                // The peer has already responded with a hint response. So we must start watching for it.
+                submit_request(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]}, true);
+            }
+            else if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
+            {
+                // Insert at front to give priority to block requests while preserving block order.
                 pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
+            }
         }
 
         if (existing_hashes.size() >= hash_count)

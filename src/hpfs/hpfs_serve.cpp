@@ -173,6 +173,9 @@ namespace hpfs
                     {
                         if (responded_block_ids.size() < MAX_HIN_RESPONSES_PER_REQUEST && hr.file_hashmap_hints[block_id] != block_hashes[block_id])
                             responded_block_ids.push_back(block_id);
+
+                        if (responded_block_ids.size() == MAX_HIN_RESPONSES_PER_REQUEST)
+                            break;
                     }
 
                     // Generate parent reply.
