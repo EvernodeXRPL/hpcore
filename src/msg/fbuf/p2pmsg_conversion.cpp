@@ -270,20 +270,6 @@ namespace msg::fbuf::p2pmsg
         return map;
     }
 
-    void flatbuf_hpfsfshashentries_to_hpfsfshashentry_map(std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes)
-    {
-        for (const HpfsFSHashEntry *f_hash : *fhashes)
-        {
-            p2p::hpfs_fs_hash_entry entry;
-            entry.name = flatbuf_str_to_sv(f_hash->name());
-            entry.is_file = f_hash->is_file();
-            entry.hash = flatbuf_bytes_to_hash(f_hash->hash());
-            entry.response_type = (p2p::HPFS_FS_ENTRY_RESPONSE_TYPE)f_hash->response_type();
-
-            fs_entries.emplace(entry.name, std::move(entry));
-        }
-    }
-
     void flatbuf_hpfsfshashentries_to_hpfsfshashentries(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes)
     {
         for (const HpfsFSHashEntry *f_hash : *fhashes)

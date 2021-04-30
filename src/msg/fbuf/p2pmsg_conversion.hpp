@@ -47,8 +47,6 @@ namespace msg::fbuf::p2pmsg
     const std::unordered_map<std::string, std::list<usr::submitted_user_input>>
     flatbuf_user_input_group_to_user_input_map(const flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>> *fbvec);
 
-    void flatbuf_hpfsfshashentries_to_hpfsfshashentry_map(std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes);
-
     void flatbuf_hpfsfshashentries_to_hpfsfshashentries(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes);
 
     const std::vector<p2p::peer_properties>

@@ -71,7 +71,7 @@ namespace hpfs
         int start_syncing_next_target();
 
         bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
-                                    const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
+                                    const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
 
         bool validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const mode_t file_mode,
                                         const util::h32 *hashes, const size_t hash_count);
@@ -83,9 +83,9 @@ namespace hpfs
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                      const util::h32 expected_hash, std::string &target_pubkey);
 
-        void submit_request(const backlog_item &request);
+        void submit_request(const backlog_item &request, const bool watch_only = false);
 
-        int handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map);
+        int handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
 
         int handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length);
 

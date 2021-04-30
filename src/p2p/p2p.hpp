@@ -139,11 +139,10 @@ namespace p2p
 
     enum HPFS_FS_ENTRY_RESPONSE_TYPE
     {
-        AVAILABLE = 0,    // The entry exists on responder side but no requester hints to compare with.
-        MATCHED = 1,      // The entry matches between requester and responder. No sync needed.
-        MISMATCHED = 2,   // The entry does not match. Requester must request for this entry.
-        RESPONDED = 3,    // The entry does not match and the repsonder has dispatched the sync response.
-        NOT_AVAILABLE = 4 // The entry does not exist on responder side. Requester must delete this on his side.
+        MATCHED = 0,      // The entry matches between requester and responder. No sync needed.
+        MISMATCHED = 1,   // The entry does not match (either hash mismatch or new entry). Requester must request for this entry.
+        RESPONDED = 2,    // The entry does not match and the repsonder has dispatched the sync response.
+        NOT_AVAILABLE = 3 // The entry does not exist on responder side. Requester must delete this on his side.
     };
 
     // Represents hpfs file system entry.
@@ -155,7 +154,7 @@ namespace p2p
 
         // Only relevant for hpfs responses. Indicates about the availabilty and status of this
         // fs entry as reported by the responder.
-        HPFS_FS_ENTRY_RESPONSE_TYPE response_type = HPFS_FS_ENTRY_RESPONSE_TYPE::AVAILABLE;
+        HPFS_FS_ENTRY_RESPONSE_TYPE response_type = HPFS_FS_ENTRY_RESPONSE_TYPE::MATCHED;
     };
 
     // Represents a file block data resposne.

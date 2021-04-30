@@ -83,7 +83,7 @@ table NplMsg {
 
 //--hpfs requests and responses--//
 
-enum HpfsFsEntryResponseType : byte { Available = 0, Matched = 1, Mismatched = 2, Responded = 3, NotAvailable = 4 }
+enum HpfsFsEntryResponseType : byte { Matched = 0, Mismatched = 1, Responded = 2, NotAvailable = 3 }
 
 table HpfsFSHashEntry{
     name: string;

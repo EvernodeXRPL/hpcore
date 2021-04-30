@@ -208,18 +208,16 @@ bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMs
 bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 enum HpfsFsEntryResponseType {
-  HpfsFsEntryResponseType_Available = 0,
-  HpfsFsEntryResponseType_Matched = 1,
-  HpfsFsEntryResponseType_Mismatched = 2,
-  HpfsFsEntryResponseType_Responded = 3,
-  HpfsFsEntryResponseType_NotAvailable = 4,
-  HpfsFsEntryResponseType_MIN = HpfsFsEntryResponseType_Available,
+  HpfsFsEntryResponseType_Matched = 0,
+  HpfsFsEntryResponseType_Mismatched = 1,
+  HpfsFsEntryResponseType_Responded = 2,
+  HpfsFsEntryResponseType_NotAvailable = 3,
+  HpfsFsEntryResponseType_MIN = HpfsFsEntryResponseType_Matched,
   HpfsFsEntryResponseType_MAX = HpfsFsEntryResponseType_NotAvailable
 };
 
-inline const HpfsFsEntryResponseType (&EnumValuesHpfsFsEntryResponseType())[5] {
+inline const HpfsFsEntryResponseType (&EnumValuesHpfsFsEntryResponseType())[4] {
   static const HpfsFsEntryResponseType values[] = {
-    HpfsFsEntryResponseType_Available,
     HpfsFsEntryResponseType_Matched,
     HpfsFsEntryResponseType_Mismatched,
     HpfsFsEntryResponseType_Responded,
@@ -229,8 +227,7 @@ inline const HpfsFsEntryResponseType (&EnumValuesHpfsFsEntryResponseType())[5] {
 }
 
 inline const char * const *EnumNamesHpfsFsEntryResponseType() {
-  static const char * const names[6] = {
-    "Available",
+  static const char * const names[5] = {
     "Matched",
     "Mismatched",
     "Responded",
@@ -241,7 +238,7 @@ inline const char * const *EnumNamesHpfsFsEntryResponseType() {
 }
 
 inline const char *EnumNameHpfsFsEntryResponseType(HpfsFsEntryResponseType e) {
-  if (flatbuffers::IsOutRange(e, HpfsFsEntryResponseType_Available, HpfsFsEntryResponseType_NotAvailable)) return "";
+  if (flatbuffers::IsOutRange(e, HpfsFsEntryResponseType_Matched, HpfsFsEntryResponseType_NotAvailable)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesHpfsFsEntryResponseType()[index];
 }
@@ -1391,7 +1388,7 @@ inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntry(
     flatbuffers::Offset<flatbuffers::String> name = 0,
     bool is_file = false,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash = 0,
-    msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type = msg::fbuf::p2pmsg::HpfsFsEntryResponseType_Available) {
+    msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type = msg::fbuf::p2pmsg::HpfsFsEntryResponseType_Matched) {
   HpfsFSHashEntryBuilder builder_(_fbb);
   builder_.add_hash(hash);
   builder_.add_name(name);
@@ -1405,7 +1402,7 @@ inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntryDirect(
     const char *name = nullptr,
     bool is_file = false,
     const std::vector<uint8_t> *hash = nullptr,
-    msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type = msg::fbuf::p2pmsg::HpfsFsEntryResponseType_Available) {
+    msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type = msg::fbuf::p2pmsg::HpfsFsEntryResponseType_Matched) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto hash__ = hash ? _fbb.CreateVector<uint8_t>(*hash) : 0;
   return msg::fbuf::p2pmsg::CreateHpfsFSHashEntry(
