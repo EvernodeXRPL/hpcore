@@ -168,10 +168,29 @@ namespace hpfs
                 }
                 else if (result == 1)
                 {
+                    std::vector<uint32_t> responded_block_ids;
+                    for (uint32_t block_id = 0; block_id < block_hashes.size(); block_id++)
+                    {
+                        if (responded_block_ids.size() < MAX_HIN_RESPONSES_PER_REQUEST && hr.file_hashmap_hints[block_id] != block_hashes[block_id])
+                            responded_block_ids.push_back(block_id);
+                    }
+
+                    // Generate parent reply.
                     fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
                     p2pmsg::create_msg_from_filehashmap_response(
                         fbuf_vec.back(), hr.parent_path, fs_mount->mount_id, block_hashes,
-                        file_length, file_mode, hr.expected_hash);
+                        responded_block_ids, file_length, file_mode, hr.expected_hash);
+
+                    // Generate hint responses.
+                    for (const uint32_t block_id : responded_block_ids)
+                    {
+                        std::vector<uint8_t> block;
+                        if (get_data_block(block, hr.parent_path, block_id) != -1)
+                        {
+                            fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
+                            p2pmsg::create_msg_from_block_response(fbuf_vec.back(), block_id, block, block_hashes[block_id], hr.parent_path, fs_mount->mount_id);
+                        }
+                    }
                 }
             }
             else
@@ -268,7 +287,8 @@ namespace hpfs
             fs_entries.push_back(p2p::hpfs_fs_hash_entry{name, hint.is_file, util::h32_empty, p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::NOT_AVAILABLE});
     }
 
-    void hpfs_serve::generate_hint_responses(std::vector<flatbuffers::FlatBufferBuilder> &fbuf_vec, std::string_view parent_path, const std::vector<p2p::hpfs_fs_hash_entry> &fs_entries)
+    void hpfs_serve::generate_hint_responses(std::vector<flatbuffers::FlatBufferBuilder> &fbuf_vec, std::string_view parent_path,
+                                             const std::vector<p2p::hpfs_fs_hash_entry> &fs_entries)
     {
         for (const p2p::hpfs_fs_hash_entry &entry : fs_entries)
         {
@@ -285,13 +305,13 @@ namespace hpfs
                     fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
                     p2pmsg::create_msg_from_filehashmap_response(
                         fbuf_vec.back(), child_vpath, fs_mount->mount_id, block_hashes,
-                        file_length, file_mode, entry.hash);
+                        std::vector<uint32_t>(), file_length, file_mode, entry.hash);
                 }
             }
             else
             {
                 std::vector<p2p::hpfs_fs_hash_entry> fs_entries;
-                if (get_fs_entry_hashes_with_hash_check(fs_entries, child_vpath, entry.hash) > 0)
+                if (get_fs_entry_hashes(fs_entries, child_vpath) > 0)
                 {
                     struct stat st;
                     if (stat(child_vpath.data(), &st) == -1)

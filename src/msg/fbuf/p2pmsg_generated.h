@@ -1907,7 +1907,8 @@ struct HpfsFileHashMapResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FILE_LENGTH = 4,
     VT_FILE_MODE = 6,
-    VT_HASH_MAP = 8
+    VT_HASH_MAP = 8,
+    VT_RESPONDED_BLOCK_IDS = 10
   };
   uint64_t file_length() const {
     return GetField<uint64_t>(VT_FILE_LENGTH, 0);
@@ -1927,12 +1928,20 @@ struct HpfsFileHashMapResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   flatbuffers::Vector<uint8_t> *mutable_hash_map() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
   }
+  const flatbuffers::Vector<uint32_t> *responded_block_ids() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_RESPONDED_BLOCK_IDS);
+  }
+  flatbuffers::Vector<uint32_t> *mutable_responded_block_ids() {
+    return GetPointer<flatbuffers::Vector<uint32_t> *>(VT_RESPONDED_BLOCK_IDS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_FILE_LENGTH) &&
            VerifyField<uint32_t>(verifier, VT_FILE_MODE) &&
            VerifyOffset(verifier, VT_HASH_MAP) &&
            verifier.VerifyVector(hash_map()) &&
+           VerifyOffset(verifier, VT_RESPONDED_BLOCK_IDS) &&
+           verifier.VerifyVector(responded_block_ids()) &&
            verifier.EndTable();
   }
 };
@@ -1950,6 +1959,9 @@ struct HpfsFileHashMapResponseBuilder {
   void add_hash_map(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map) {
     fbb_.AddOffset(HpfsFileHashMapResponse::VT_HASH_MAP, hash_map);
   }
+  void add_responded_block_ids(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> responded_block_ids) {
+    fbb_.AddOffset(HpfsFileHashMapResponse::VT_RESPONDED_BLOCK_IDS, responded_block_ids);
+  }
   explicit HpfsFileHashMapResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1966,9 +1978,11 @@ inline flatbuffers::Offset<HpfsFileHashMapResponse> CreateHpfsFileHashMapRespons
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t file_length = 0,
     uint32_t file_mode = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> responded_block_ids = 0) {
   HpfsFileHashMapResponseBuilder builder_(_fbb);
   builder_.add_file_length(file_length);
+  builder_.add_responded_block_ids(responded_block_ids);
   builder_.add_hash_map(hash_map);
   builder_.add_file_mode(file_mode);
   return builder_.Finish();
@@ -1978,13 +1992,16 @@ inline flatbuffers::Offset<HpfsFileHashMapResponse> CreateHpfsFileHashMapRespons
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t file_length = 0,
     uint32_t file_mode = 0,
-    const std::vector<uint8_t> *hash_map = nullptr) {
+    const std::vector<uint8_t> *hash_map = nullptr,
+    const std::vector<uint32_t> *responded_block_ids = nullptr) {
   auto hash_map__ = hash_map ? _fbb.CreateVector<uint8_t>(*hash_map) : 0;
+  auto responded_block_ids__ = responded_block_ids ? _fbb.CreateVector<uint32_t>(*responded_block_ids) : 0;
   return msg::fbuf::p2pmsg::CreateHpfsFileHashMapResponse(
       _fbb,
       file_length,
       file_mode,
-      hash_map__);
+      hash_map__,
+      responded_block_ids__);
 }
 
 struct HpfsBlockResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

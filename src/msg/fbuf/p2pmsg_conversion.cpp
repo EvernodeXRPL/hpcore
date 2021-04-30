@@ -208,7 +208,16 @@ namespace msg::fbuf::p2pmsg
         hr.expected_hash = flatbuf_bytes_to_hash(msg.expected_hash());
 
         if (msg.hint_type() == HpfsRequestHint_HpfsFsEntryHint)
+        {
             flatbuf_hpfsfshashentries_to_hpfsfshashentries(hr.fs_entry_hints, msg.hint_as_HpfsFsEntryHint()->entries());
+        }
+        else if (msg.hint_type() == HpfsRequestHint_HpfsFileHashMapHint)
+        {
+            const HpfsFileHashMapHint *hint = msg.hint_as_HpfsFileHashMapHint();
+            const size_t block_hash_count = hint->hash_map()->size() / sizeof(util::h32);
+            hr.file_hashmap_hints.resize(block_hash_count);
+            memcpy(hr.file_hashmap_hints.data(), hint->hash_map()->data(), hint->hash_map()->size());
+        }
 
         return hr;
     }
@@ -497,7 +506,8 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_filehashmap_response(
         flatbuffers::FlatBufferBuilder &builder, std::string_view path, const uint32_t mount_id,
-        std::vector<util::h32> &hashmap, const std::size_t file_length, const mode_t file_mode, const util::h32 &expected_hash)
+        const std::vector<util::h32> &hashmap, const std::vector<uint32_t> &responded_block_ids,
+        const std::size_t file_length, const mode_t file_mode, const util::h32 &expected_hash)
     {
         std::string_view hashmap_sv(reinterpret_cast<const char *>(hashmap.data()), hashmap.size() * sizeof(util::h32));
 
@@ -505,7 +515,8 @@ namespace msg::fbuf::p2pmsg
             builder,
             file_length,
             file_mode,
-            sv_to_flatbuf_bytes(builder, hashmap_sv));
+            sv_to_flatbuf_bytes(builder, hashmap_sv),
+            builder.CreateVector(responded_block_ids));
 
         const auto msg = CreateHpfsResponseMsg(
             builder,

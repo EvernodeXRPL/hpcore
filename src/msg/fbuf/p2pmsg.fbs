@@ -85,18 +85,18 @@ table NplMsg {
 
 enum HpfsFsEntryResponseType : byte { Matched = 0, Mismatched = 1, Responded = 2, NotAvailable = 3 }
 
-table HpfsFSHashEntry{
+table HpfsFSHashEntry {
     name: string;
     is_file: bool;
     hash: [ubyte];
     response_type: HpfsFsEntryResponseType;
 }
 
-table HpfsFsEntryHint{
+table HpfsFsEntryHint {
     entries: [HpfsFSHashEntry];
 }
 
-table HpfsFileHashMapHint{
+table HpfsFileHashMapHint {
     hash_map: [ubyte];
 }
 
@@ -120,62 +120,61 @@ union HpfsResponse {
     HpfsBlockResponse
 }
 
-table HpfsResponseMsg{
-    hash:[ubyte];
+table HpfsResponseMsg {
+    hash: [ubyte];
     path: string;
     mount_id: uint32;
-    content:HpfsResponse;
+    content: HpfsResponse;
 }
 
-table HpfsFsEntryResponse{
-    dir_mode:uint32;
+table HpfsFsEntryResponse {
+    dir_mode: uint32;
     entries: [HpfsFSHashEntry];
 }
 
-table HpfsFileHashMapResponse{
-    file_length:uint64;
-    file_mode:uint32;
-    hash_map:[ubyte];
+table HpfsFileHashMapResponse {
+    file_length: uint64;
+    file_mode: uint32;
+    hash_map: [ubyte];
+    responded_block_ids: [uint32];
 }
 
-table HpfsBlockResponse{
-    block_id:uint32;
+table HpfsBlockResponse {
+    block_id: uint32;
     data: [ubyte];
 }
 
-table HpfsLogRequest
-{
-    target_seq_no:uint64;
-    min_record_id:SequenceHash;
+table HpfsLogRequest {
+    target_seq_no: uint64;
+    min_record_id: SequenceHash;
 }
 
-table HpfsLogResponse
-{
-    min_record_id:SequenceHash;
-    log_record_bytes:[ubyte];
+table HpfsLogResponse {
+    min_record_id: SequenceHash;
+    log_record_bytes: [ubyte];
 }
 
-table PeerRequirementAnnouncementMsg{
+table PeerRequirementAnnouncementMsg {
     need_consensus_msg_forwarding: bool;
 }
 
-table PeerCapacityAnnouncementMsg{
-    available_capacity:int16;
-    timestamp:uint64;
+table PeerCapacityAnnouncementMsg {
+    available_capacity: int16;
+    timestamp: uint64;
 }
 
-table PeerListRequestMsg{
+table PeerListRequestMsg {
 }
 
-table PeerListResponseMsg{
+table PeerListResponseMsg {
     peer_list: [PeerProperties];
 }
 
 table PeerProperties {
-    host_address:string;
-    port:uint16;
-    available_capacity:int16;
-    timestamp:uint64;
+    host_address: string;
+    port: uint16;
+    available_capacity: int16;
+    timestamp: uint64;
 }
 
 table SequenceHash {
@@ -184,7 +183,7 @@ table SequenceHash {
 }
 
 table ByteArray { // To help represent list of byte arrays
-    array:[ubyte];
+    array: [ubyte];
 }
 
 root_type P2PMsg; //root type for all messages
