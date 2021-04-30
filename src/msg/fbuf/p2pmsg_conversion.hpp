@@ -89,7 +89,8 @@ namespace msg::fbuf::p2pmsg
         flatbuffers::FlatBufferBuilder &builder, std::string_view path, const uint32_t mount_id,
         std::vector<util::h32> &hashmap, const std::size_t file_length, const mode_t file_mode, const util::h32 &expected_hash);
 
-    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &builder, p2p::block_response &block_resp, const uint32_t mount_id);
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &builder, const uint32_t block_id, const std::vector<uint8_t> &block_data,
+                                        const util::h32 &block_hash, std::string_view parent_path, const uint32_t mount_id);
 
     void create_msg_from_peer_requirement_announcement(flatbuffers::FlatBufferBuilder &builder, const bool need_consensus_msg_forwarding);
 

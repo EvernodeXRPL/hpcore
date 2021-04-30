@@ -28,8 +28,6 @@ namespace hpfs
     // No. of mulliseconds to wait before reacquiring hpfs rw session.
     constexpr uint16_t HPFS_REAQUIRE_WAIT = 10;
 
-    constexpr uint16_t MAX_HINT_RESPONSES = 3;
-
     constexpr int FILE_PERMS = 0644;
 
     /**
@@ -512,7 +510,6 @@ namespace hpfs
         hr.block_id = block_id;
         hr.expected_hash = expected_hash;
         hr.mount_id = fs_mount->mount_id;
-        hr.max_hint_responses = MAX_HINT_RESPONSES;
 
         // Include appropriate hints in the request, so the peer can piggyback some data we need without having
         // to submit additional requests.

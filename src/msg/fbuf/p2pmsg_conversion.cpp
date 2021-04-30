@@ -206,7 +206,6 @@ namespace msg::fbuf::p2pmsg
         hr.is_file = msg.is_file();
         hr.parent_path = flatbuf_str_to_sv(msg.parent_path());
         hr.expected_hash = flatbuf_bytes_to_hash(msg.expected_hash());
-        hr.max_hint_responses = msg.max_hint_responses();
 
         if (msg.hint_type() == HpfsRequestHint_HpfsFsEntryHint)
             flatbuf_hpfsfshashentries_to_hpfsfshashentries(hr.fs_entry_hints, msg.hint_as_HpfsFsEntryHint()->entries());
@@ -459,8 +458,7 @@ namespace msg::fbuf::p2pmsg
             hr.block_id,
             hash_to_flatbuf_bytes(builder, hr.expected_hash),
             hint_type,
-            hint,
-            hr.max_hint_responses);
+            hint);
 
         create_p2p_msg(builder, P2PMsgContent_HpfsRequestMsg, msg.Union());
     }
@@ -528,17 +526,18 @@ namespace msg::fbuf::p2pmsg
         create_p2p_msg(builder, P2PMsgContent_HpfsResponseMsg, msg.Union());
     }
 
-    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &builder, p2p::block_response &block_resp, const uint32_t mount_id)
+    void create_msg_from_block_response(flatbuffers::FlatBufferBuilder &builder, const uint32_t block_id, const std::vector<uint8_t> &block_data,
+                                        const util::h32 &block_hash, std::string_view parent_path, const uint32_t mount_id)
     {
         const auto child_msg = CreateHpfsBlockResponse(
             builder,
-            block_resp.block_id,
-            sv_to_flatbuf_bytes(builder, block_resp.data));
+            block_id,
+            builder.CreateVector(block_data));
 
         const auto msg = CreateHpfsResponseMsg(
             builder,
-            hash_to_flatbuf_bytes(builder, block_resp.hash),
-            sv_to_flatbuf_str(builder, block_resp.path),
+            hash_to_flatbuf_bytes(builder, block_hash),
+            sv_to_flatbuf_str(builder, parent_path),
             mount_id,
             HpfsResponse_HpfsBlockResponse,
             child_msg.Union());

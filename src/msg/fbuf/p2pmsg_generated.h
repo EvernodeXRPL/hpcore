@@ -1481,8 +1481,7 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_BLOCK_ID = 10,
     VT_EXPECTED_HASH = 12,
     VT_HINT_TYPE = 14,
-    VT_HINT = 16,
-    VT_MAX_HINT_RESPONSES = 18
+    VT_HINT = 16
   };
   uint32_t mount_id() const {
     return GetField<uint32_t>(VT_MOUNT_ID, 0);
@@ -1527,12 +1526,6 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   void *mutable_hint() {
     return GetPointer<void *>(VT_HINT);
   }
-  uint16_t max_hint_responses() const {
-    return GetField<uint16_t>(VT_MAX_HINT_RESPONSES, 0);
-  }
-  bool mutate_max_hint_responses(uint16_t _max_hint_responses) {
-    return SetField<uint16_t>(VT_MAX_HINT_RESPONSES, _max_hint_responses, 0);
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_MOUNT_ID) &&
@@ -1545,7 +1538,6 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_HINT_TYPE) &&
            VerifyOffset(verifier, VT_HINT) &&
            VerifyHpfsRequestHint(verifier, hint(), hint_type()) &&
-           VerifyField<uint16_t>(verifier, VT_MAX_HINT_RESPONSES) &&
            verifier.EndTable();
   }
 };
@@ -1579,9 +1571,6 @@ struct HpfsRequestMsgBuilder {
   void add_hint(flatbuffers::Offset<void> hint) {
     fbb_.AddOffset(HpfsRequestMsg::VT_HINT, hint);
   }
-  void add_max_hint_responses(uint16_t max_hint_responses) {
-    fbb_.AddElement<uint16_t>(HpfsRequestMsg::VT_MAX_HINT_RESPONSES, max_hint_responses, 0);
-  }
   explicit HpfsRequestMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1602,15 +1591,13 @@ inline flatbuffers::Offset<HpfsRequestMsg> CreateHpfsRequestMsg(
     int32_t block_id = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> expected_hash = 0,
     msg::fbuf::p2pmsg::HpfsRequestHint hint_type = msg::fbuf::p2pmsg::HpfsRequestHint_NONE,
-    flatbuffers::Offset<void> hint = 0,
-    uint16_t max_hint_responses = 0) {
+    flatbuffers::Offset<void> hint = 0) {
   HpfsRequestMsgBuilder builder_(_fbb);
   builder_.add_hint(hint);
   builder_.add_expected_hash(expected_hash);
   builder_.add_block_id(block_id);
   builder_.add_parent_path(parent_path);
   builder_.add_mount_id(mount_id);
-  builder_.add_max_hint_responses(max_hint_responses);
   builder_.add_hint_type(hint_type);
   builder_.add_is_file(is_file);
   return builder_.Finish();
@@ -1624,8 +1611,7 @@ inline flatbuffers::Offset<HpfsRequestMsg> CreateHpfsRequestMsgDirect(
     int32_t block_id = 0,
     const std::vector<uint8_t> *expected_hash = nullptr,
     msg::fbuf::p2pmsg::HpfsRequestHint hint_type = msg::fbuf::p2pmsg::HpfsRequestHint_NONE,
-    flatbuffers::Offset<void> hint = 0,
-    uint16_t max_hint_responses = 0) {
+    flatbuffers::Offset<void> hint = 0) {
   auto parent_path__ = parent_path ? _fbb.CreateString(parent_path) : 0;
   auto expected_hash__ = expected_hash ? _fbb.CreateVector<uint8_t>(*expected_hash) : 0;
   return msg::fbuf::p2pmsg::CreateHpfsRequestMsg(
@@ -1636,8 +1622,7 @@ inline flatbuffers::Offset<HpfsRequestMsg> CreateHpfsRequestMsgDirect(
       block_id,
       expected_hash__,
       hint_type,
-      hint,
-      max_hint_responses);
+      hint);
 }
 
 struct HpfsResponseMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

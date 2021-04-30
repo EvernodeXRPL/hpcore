@@ -176,7 +176,6 @@ namespace p2p
         int32_t block_id = 0;                           // Block id of the file if we are requesting for file block. Otherwise -1.
         util::h32 expected_hash;                        // The expected hash of the requested result.
         std::vector<hpfs_fs_hash_entry> fs_entry_hints; // Included fs entry entry hints for the responder.
-        uint16_t max_hint_responses = 0;                // Maximum no. of hints the responder must serve.
     };
 
     struct peer_message_info

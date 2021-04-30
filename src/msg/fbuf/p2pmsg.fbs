@@ -107,7 +107,6 @@ table HpfsRequestMsg {
     block_id: int32;
     expected_hash: [ubyte];
     hint: HpfsRequestHint;
-    max_hint_responses: uint16;
 }
 
 union HpfsResponse {
