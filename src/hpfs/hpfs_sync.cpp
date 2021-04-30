@@ -274,7 +274,7 @@ namespace hpfs
                 if (msg_type == p2pmsg::HpfsResponse_HpfsFsEntryResponse)
                 {
                     const p2pmsg::HpfsFsEntryResponse &fs_resp = *resp_msg.content_as_HpfsFsEntryResponse();
-                    
+
                     // Get fs entries we have received.
                     std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
                     p2pmsg::flatbuf_hpfsfshashentries_to_hpfsfshashentry_map(peer_fs_entry_map, fs_resp.entries());
@@ -561,7 +561,7 @@ namespace hpfs
         bool write_performed = false;
 
         // Create physical directory on our side if not exist.
-        std::string parent_physical_path = fs_mount->rw_dir + vpath.data();
+        std::string parent_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
         if (util::create_dir_tree_recursive(parent_physical_path) == -1)
             return -1;
 
@@ -603,7 +603,7 @@ namespace hpfs
             else
             {
                 // If there was an entry that does not exist on other side, delete it.
-                std::string child_physical_path = fs_mount->rw_dir + child_vpath.data();
+                std::string child_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, child_vpath);
 
                 if ((ex_entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
                     !ex_entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
@@ -667,7 +667,7 @@ namespace hpfs
         if (existing_hashes.size() >= hash_count)
         {
             // If peer file might be smaller, truncate our file to match with peer file.
-            std::string file_physical_path = fs_mount->rw_dir + vpath.data();
+            std::string file_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
             if (truncate(file_physical_path.c_str(), file_length) == -1)
                 return -1;
 
@@ -675,7 +675,7 @@ namespace hpfs
         }
 
         // Apply physical file mode if received mode is different from our side.
-        const std::string physical_path = fs_mount->rw_dir + vpath.data();
+        const std::string physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
         const int metadata_res = apply_metadata_mode(physical_path, file_mode, false);
         if (metadata_res == -1)
             return -1;
@@ -698,7 +698,7 @@ namespace hpfs
                   << " (len:" << buf.length()
                   << ") of " << vpath;
 
-        std::string file_physical_path = fs_mount->rw_dir + vpath.data();
+        std::string file_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
         const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);
         if (fd == -1)
         {

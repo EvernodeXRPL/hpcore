@@ -19,6 +19,7 @@ namespace hpfs
         int generate_sync_responses(std::vector<flatbuffers::FlatBufferBuilder> &fbuf_vec, const p2p::hpfs_request &hr);
         void generate_reply_fs_entries(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, std::vector<p2p::hpfs_fs_hash_entry> &respond_fs_entries,
                                        const std::vector<p2p::hpfs_fs_hash_entry> &fs_entry_hints);
+        void generate_hint_responses(std::vector<flatbuffers::FlatBufferBuilder> &fbuf_vec, const std::string &parent_path, const std::vector<p2p::hpfs_fs_hash_entry> &fs_entries);
 
         int get_data_block_with_hash_check(std::vector<uint8_t> &block, const std::string_view vpath,
                                            const uint32_t block_id, const util::h32 expected_hash);

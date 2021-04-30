@@ -189,7 +189,7 @@ namespace hpfs
                 else if (result == 1)
                 {
                     // Get dir mode.
-                    const std::string dir_path = fs_mount->rw_dir + hr.parent_path.data();
+                    const std::string dir_path = fs_mount->physical_path(HPFS_SESSION_NAME, hr.parent_path);
                     struct stat st;
                     if (stat(dir_path.data(), &st) == -1)
                     {
@@ -205,32 +205,7 @@ namespace hpfs
                     p2pmsg::create_msg_from_fsentry_response(
                         fbuf_vec.back(), hr.parent_path, fs_mount->mount_id, st.st_mode, fs_entries, hr.expected_hash);
 
-                    for (const p2p::hpfs_fs_hash_entry &entry : respond_fs_entries)
-                    {
-                        std::string vpath = hr.parent_path + "/" + entry.name;
-                        if (entry.is_file)
-                        {
-                            std::vector<util::h32> block_hashes;
-                            size_t file_length = 0;
-                            mode_t file_mode = 0;
-                            if (get_data_block_hashes(block_hashes, file_length, file_mode, vpath) != -1)
-                            {
-                                fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
-                                p2pmsg::create_msg_from_filehashmap_response(
-                                    fbuf_vec.back(), vpath, fs_mount->mount_id, block_hashes,
-                                    file_length, file_mode, entry.hash);
-                            }
-                        }
-                        else
-                        {
-                            std::vector<p2p::hpfs_fs_hash_entry> fs_entries;
-                            const int result = get_fs_entry_hashes_with_hash_check(fs_entries, vpath, entry.hash);
-
-                            fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
-                            p2pmsg::create_msg_from_fsentry_response(
-                                fbuf_vec.back(), hr.parent_path, fs_mount->mount_id, st.st_mode, fs_entries, hr.expected_hash);
-                        }
-                    }
+                    generate_hint_responses(fbuf_vec, hr.parent_path, respond_fs_entries);
                 }
             }
         }
@@ -291,6 +266,45 @@ namespace hpfs
         // When the requester sees this, they will remove those entries from their side.
         for (const auto &[name, hint] : hint_fs_entry_map)
             fs_entries.push_back(p2p::hpfs_fs_hash_entry{name, hint.is_file, util::h32_empty, p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::NOT_AVAILABLE});
+    }
+
+    void hpfs_serve::generate_hint_responses(std::vector<flatbuffers::FlatBufferBuilder> &fbuf_vec, const std::string &parent_path, const std::vector<p2p::hpfs_fs_hash_entry> &fs_entries)
+    {
+        for (const p2p::hpfs_fs_hash_entry &entry : fs_entries)
+        {
+            std::string vpath = parent_path + "/" + entry.name;
+            if (entry.is_file)
+            {
+                std::vector<util::h32> block_hashes;
+                size_t file_length = 0;
+                mode_t file_mode = 0;
+                if (get_data_block_hashes(block_hashes, file_length, file_mode, vpath) != -1)
+                {
+                    fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
+                    p2pmsg::create_msg_from_filehashmap_response(
+                        fbuf_vec.back(), vpath, fs_mount->mount_id, block_hashes,
+                        file_length, file_mode, entry.hash);
+                }
+            }
+            else
+            {
+                std::vector<p2p::hpfs_fs_hash_entry> fs_entries;
+                if (get_fs_entry_hashes_with_hash_check(fs_entries, vpath, entry.hash) > 0)
+                {
+                    struct stat st;
+                    if (stat(vpath.data(), &st) == -1)
+                    {
+                        LOG_ERROR << errno << ": Error in getting dir metadata: " << vpath;
+                    }
+                    else
+                    {
+                        fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
+                        p2pmsg::create_msg_from_fsentry_response(
+                            fbuf_vec.back(), vpath, fs_mount->mount_id, st.st_mode, fs_entries, entry.hash);
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -394,7 +408,7 @@ namespace hpfs
     int hpfs_serve::get_data_block(std::vector<uint8_t> &block, const std::string_view vpath, const uint32_t block_id)
     {
         struct stat st;
-        const std::string file_path = fs_mount->rw_dir + vpath.data();
+        const std::string file_path = fs_mount->physical_path(HPFS_SESSION_NAME, vpath);
         const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
         const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
 
@@ -457,7 +471,7 @@ namespace hpfs
         else
         {
             // Get actual file metadata.
-            const std::string file_path = fs_mount->rw_dir + vpath.data();
+            const std::string file_path = fs_mount->physical_path(HPFS_SESSION_NAME, vpath);
             struct stat st;
             if (stat(file_path.c_str(), &st) == -1)
             {
