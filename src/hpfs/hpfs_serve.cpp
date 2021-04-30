@@ -136,7 +136,7 @@ namespace hpfs
             // Vector to hold the block bytes. Normally block size is constant BLOCK_SIZE (4MB), but the
             // last block of a file may have a smaller size.
             std::vector<uint8_t> block;
-            const int result = get_data_block(block, hr.parent_path, hr.block_id, hr.expected_hash);
+            const int result = get_data_block_with_hash_check(block, hr.parent_path, hr.block_id, hr.expected_hash);
 
             if (result == -1)
             {
@@ -163,7 +163,7 @@ namespace hpfs
                 std::vector<util::h32> block_hashes;
                 size_t file_length = 0;
                 mode_t file_mode = 0;
-                const int result = get_data_block_hashes(block_hashes, file_length, file_mode, hr.parent_path, hr.expected_hash);
+                const int result = get_data_block_hashes_with_hash_check(block_hashes, file_length, file_mode, hr.parent_path, hr.expected_hash);
 
                 if (result == -1)
                 {
@@ -183,7 +183,7 @@ namespace hpfs
                 // If the hpfs request is for a directory we need to reply with the
                 // file system entries and their hashes inside that dir.
                 std::vector<hpfs::child_hash_node> child_hash_nodes;
-                const int result = get_fs_entry_hashes(child_hash_nodes, hr.parent_path, hr.expected_hash);
+                const int result = get_fs_entry_hashes_with_hash_check(child_hash_nodes, hr.parent_path, hr.expected_hash);
 
                 if (result == -1)
                 {
@@ -263,8 +263,8 @@ namespace hpfs
      * Retrieves the specified data block from a hpfs file if expected hash matches.
      * @return 1 if block data was succefully fetched. 0 if vpath or block does not exist. -1 on error.
      */
-    int hpfs_serve::get_data_block(std::vector<uint8_t> &block, const std::string_view vpath,
-                                   const uint32_t block_id, const util::h32 expected_hash)
+    int hpfs_serve::get_data_block_with_hash_check(std::vector<uint8_t> &block, const std::string_view vpath,
+                                                   const uint32_t block_id, const util::h32 expected_hash)
     {
         // Check whether the existing block hash matches expected hash.
         std::vector<util::h32> block_hashes;
@@ -283,53 +283,10 @@ namespace hpfs
             }
             else // Get actual block data.
             {
-                struct stat st;
-                const std::string file_path = fs_mount->rw_dir + vpath.data();
-                const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
-                const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
-                if (fd == -1)
-                {
-                    LOG_ERROR << errno << ": Open failed " << file_path;
+                if (get_data_block(block, vpath, block_id) == -1)
                     result = -1;
-                }
                 else
-                {
-                    if (fstat(fd, &st) == -1)
-                    {
-                        LOG_ERROR << errno << ": Stat failed. " << file_path;
-                        result = -1;
-                    }
-                    else if (!S_ISREG(st.st_mode))
-                    {
-                        LOG_ERROR << "Not a file. " << file_path;
-                        result = -1;
-                    }
-                    else if (block_offset > st.st_size)
-                    {
-                        LOG_ERROR << "Block offset " << block_offset << " larger than file " << st.st_size << " - " << file_path;
-                        result = -1;
-                    }
-                    else
-                    {
-                        const size_t read_len = MIN(hpfs::BLOCK_SIZE, (st.st_size - block_offset));
-                        block.resize(read_len);
-
-                        lseek(fd, block_offset, SEEK_SET);
-                        const int res = read(fd, block.data(), read_len);
-                        if (res < read_len)
-                        {
-                            LOG_ERROR << errno << ": Read failed (result:" << res
-                                      << " off:" << block_offset << " len:" << read_len << "). " << file_path;
-                            result = -1;
-                        }
-                        else
-                        {
-                            result = 1; // Success.
-                        }
-                    }
-
-                    close(fd);
-                }
+                    result = 1; // Success.
             }
         }
 
@@ -338,10 +295,10 @@ namespace hpfs
 
     /**
      * Retrieves the specified file block hashes if expected hash matches.
-     * @return 1 if block hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
+     * @return 1 if block hashes were successfuly fetched. 0 if hash mismatch. -1 on error.
      */
-    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
-                                          const std::string_view vpath, const util::h32 expected_hash)
+    int hpfs_serve::get_data_block_hashes_with_hash_check(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
+                                                          const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing file hash matches expected hash.
         util::h32 file_hash = util::h32_empty;
@@ -353,24 +310,12 @@ namespace hpfs
                 LOG_DEBUG << "Expected hash mismatch.";
                 result = 0;
             }
-            // Get the block hashes.
-            else if (fs_mount->get_file_block_hashes(hashes, HPFS_SESSION_NAME, vpath) < 0)
-            {
-                result = -1;
-            }
             else
             {
-                // Get actual file metadata.
-                const std::string file_path = fs_mount->rw_dir + vpath.data();
-                struct stat st;
-                if (stat(file_path.c_str(), &st) == -1)
-                {
-                    LOG_ERROR << errno << ": Stat failed when getting file metadata. " << file_path;
+                if (get_data_block_hashes(hashes, file_length, file_mode, vpath) == -1)
                     result = -1;
-                }
-                file_length = st.st_size;
-                file_mode = st.st_mode;
-                result = 1; // Success.
+                else
+                    result = 1; // Success.
             }
         }
 
@@ -381,8 +326,8 @@ namespace hpfs
      * Retrieves the specified dir entry hashes if expected fir hash matches.
      * @return 1 if fs entry hashes were successfuly fetched. 0 if vpath does not exist. -1 on error.
      */
-    int hpfs_serve::get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes,
-                                        const std::string_view vpath, const util::h32 expected_hash)
+    int hpfs_serve::get_fs_entry_hashes_with_hash_check(std::vector<hpfs::child_hash_node> &hash_nodes,
+                                                        const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing dir hash matches expected hash.
         util::h32 dir_hash = util::h32_empty;
@@ -395,7 +340,7 @@ namespace hpfs
                 result = 0;
             }
             // Get the children hash nodes.
-            else if (fs_mount->get_dir_children_hashes(hash_nodes, HPFS_SESSION_NAME, vpath) < 0)
+            else if (get_fs_entry_hashes(hash_nodes, vpath) < 0)
             {
                 result = -1;
             }
@@ -406,6 +351,98 @@ namespace hpfs
         }
 
         return result;
+    }
+
+    /**
+     * Fetches the specified file data block.
+     * @return 0 on success. -1 on error.
+     */
+    int hpfs_serve::get_data_block(std::vector<uint8_t> &block, const std::string_view vpath, const uint32_t block_id)
+    {
+        struct stat st;
+        const std::string file_path = fs_mount->rw_dir + vpath.data();
+        const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
+        const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
+
+        if (fd == -1)
+        {
+            LOG_ERROR << errno << ": Open failed " << file_path;
+            return -1;
+        }
+
+        int result = 0;
+        if (fstat(fd, &st) == -1)
+        {
+            LOG_ERROR << errno << ": Stat failed. " << file_path;
+            result = -1;
+        }
+        else if (!S_ISREG(st.st_mode))
+        {
+            LOG_ERROR << "Not a file. " << file_path;
+            result = -1;
+        }
+        else if (block_offset > st.st_size)
+        {
+            LOG_ERROR << "Block offset " << block_offset << " larger than file " << st.st_size << " - " << file_path;
+            result = -1;
+        }
+        else
+        {
+            const size_t read_len = MIN(hpfs::BLOCK_SIZE, (st.st_size - block_offset));
+            block.resize(read_len);
+
+            lseek(fd, block_offset, SEEK_SET);
+            const int res = read(fd, block.data(), read_len);
+            if (res < read_len)
+            {
+                LOG_ERROR << errno << ": Read failed (result:" << res
+                          << " off:" << block_offset << " len:" << read_len << "). " << file_path;
+                result = -1;
+            }
+            else
+            {
+                result = 0; // Success.
+            }
+        }
+
+        close(fd);
+        return result;
+    }
+
+    /**
+     * Fetches the file data block hash list.
+     * @return 0 on success. -1 on error.
+     */
+    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode, const std::string_view vpath)
+    {
+        // Get the block hashes.
+        if (fs_mount->get_file_block_hashes(hashes, HPFS_SESSION_NAME, vpath) < 0)
+        {
+            return -1;
+        }
+        else
+        {
+            // Get actual file metadata.
+            const std::string file_path = fs_mount->rw_dir + vpath.data();
+            struct stat st;
+            if (stat(file_path.c_str(), &st) == -1)
+            {
+                LOG_ERROR << errno << ": Stat failed when getting file metadata. " << file_path;
+                return -1;
+            }
+            file_length = st.st_size;
+            file_mode = st.st_mode;
+            return 0;
+        }
+    }
+
+    /**
+     * Populates the list of dir entry hashes for the specified vpath.
+     * @return 1 on success. 0 if vpath not found. -1 on error.
+     */
+    int hpfs_serve::get_fs_entry_hashes(std::vector<hpfs::child_hash_node> &hash_nodes, const std::string_view vpath)
+    {
+        return fs_mount->get_dir_children_hashes(hash_nodes, HPFS_SESSION_NAME, vpath);
     }
 
 } // namespace hpfs
