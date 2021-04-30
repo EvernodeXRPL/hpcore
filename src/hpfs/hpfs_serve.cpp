@@ -17,7 +17,8 @@ namespace hpfs
 {
     constexpr uint16_t LOOP_WAIT = 20; // Milliseconds
     constexpr const char *HPFS_SESSION_NAME = "rw";
-    constexpr uint16_t MAX_HIN_RESPONSES_PER_REQUEST = 3;
+    constexpr uint16_t MAX_HASHMAP_RESPONSES_PER_REQUEST = 4;
+    constexpr uint16_t MAX_BLOCK_RESPONSES_PER_REQUEST = 1;
 
     /**
      * @param server_name The name of the serving instance. (For identification purpose)
@@ -91,8 +92,8 @@ namespace hpfs
                         break;
                     }
 
-                    std::vector<flatbuffers::FlatBufferBuilder> fbuf_vec;
-                    if (hpfs_serve::generate_sync_responses(fbuf_vec, hr) == 0 && !fbuf_vec.empty())
+                    std::list<flatbuffers::FlatBufferBuilder> fbufs;
+                    if (hpfs_serve::generate_sync_responses(fbufs, hr) == 0 && !fbufs.empty())
                     {
                         // Find the peer that we should send the sync responses to.
                         std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
@@ -102,7 +103,7 @@ namespace hpfs
                         {
                             comm::comm_session *session = peer_itr->second;
 
-                            for (const flatbuffers::FlatBufferBuilder &fbuf : fbuf_vec)
+                            for (const flatbuffers::FlatBufferBuilder &fbuf : fbufs)
                             {
                                 std::string_view msg = std::string_view(
                                     reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
@@ -111,7 +112,7 @@ namespace hpfs
                         }
                     }
 
-                    LOG_DEBUG << "Hpfs " << name << " serve: Sent " << fbuf_vec.size() << " replies to [" << util::to_hex(session_id).substr(2, 10) << "]";
+                    LOG_DEBUG << "Hpfs " << name << " serve: Sent " << fbufs.size() << " replies to [" << util::to_hex(session_id).substr(2, 10) << "]";
                 }
 
                 fs_mount->release_rw_session();
@@ -124,11 +125,11 @@ namespace hpfs
 
     /**
      * Creates reply messages for a given hpfs sync request.
-     * @param fbuf_vec List of flatbuffer builders containing the generated reply messages.
+     * @param fbufs List of flatbuffer builders containing the generated reply messages.
      * @param hr The hpfs request which should be replied to.
      * @return 0 on success. -1 on error.
      */
-    int hpfs_serve::generate_sync_responses(std::vector<flatbuffers::FlatBufferBuilder> &fbuf_vec, const p2p::hpfs_request &hr)
+    int hpfs_serve::generate_sync_responses(std::list<flatbuffers::FlatBufferBuilder> &fbufs, const p2p::hpfs_request &hr)
     {
         LOG_DEBUG << "Serving hpfs req. path:" << hr.parent_path << " block_id:" << hr.block_id;
 
@@ -147,8 +148,7 @@ namespace hpfs
             }
             else if (result == 1)
             {
-                fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
-                p2pmsg::create_msg_from_block_response(fbuf_vec.back(), hr.block_id, block, hr.expected_hash, hr.parent_path, fs_mount->mount_id);
+                p2pmsg::create_msg_from_block_response(fbufs.emplace_back(), hr.block_id, block, hr.expected_hash, hr.parent_path, fs_mount->mount_id);
             }
         }
         else
@@ -171,29 +171,25 @@ namespace hpfs
                     std::vector<uint32_t> responded_block_ids;
                     for (uint32_t block_id = 0; block_id < block_hashes.size(); block_id++)
                     {
-                        if (responded_block_ids.size() < MAX_HIN_RESPONSES_PER_REQUEST && hr.file_hashmap_hints[block_id] != block_hashes[block_id])
-                            responded_block_ids.push_back(block_id);
-
-                        if (responded_block_ids.size() == MAX_HIN_RESPONSES_PER_REQUEST)
-                            break;
-                    }
-
-                    // Generate parent reply.
-                    fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
-                    p2pmsg::create_msg_from_filehashmap_response(
-                        fbuf_vec.back(), hr.parent_path, fs_mount->mount_id, block_hashes,
-                        responded_block_ids, file_length, file_mode, hr.expected_hash);
-
-                    // Generate hint responses.
-                    for (const uint32_t block_id : responded_block_ids)
-                    {
-                        std::vector<uint8_t> block;
-                        if (get_data_block(block, hr.parent_path, block_id) != -1)
+                        if (responded_block_ids.size() < MAX_BLOCK_RESPONSES_PER_REQUEST &&
+                            (hr.file_hashmap_hints.size() <= block_id || hr.file_hashmap_hints[block_id] != block_hashes[block_id]))
                         {
-                            fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
-                            p2pmsg::create_msg_from_block_response(fbuf_vec.back(), block_id, block, block_hashes[block_id], hr.parent_path, fs_mount->mount_id);
+                            std::vector<uint8_t> block;
+                            if (get_data_block(block, hr.parent_path, block_id) != -1)
+                            {
+                                p2pmsg::create_msg_from_block_response(fbufs.emplace_back(), block_id, block, block_hashes[block_id], hr.parent_path, fs_mount->mount_id);
+                                responded_block_ids.push_back(block_id);
+
+                                if (responded_block_ids.size() == MAX_BLOCK_RESPONSES_PER_REQUEST)
+                                    break;
+                            }
                         }
                     }
+
+                    // Generate parent reply. We must insert it at the begning of replies.
+                    p2pmsg::create_msg_from_filehashmap_response(
+                        fbufs.emplace_front(), hr.parent_path, fs_mount->mount_id, block_hashes,
+                        responded_block_ids, file_length, file_mode, hr.expected_hash);
                 }
             }
             else
@@ -219,15 +215,11 @@ namespace hpfs
                         return -1;
                     }
 
-                    std::vector<p2p::hpfs_fs_hash_entry> respond_fs_entries;
-                    generate_reply_fs_entries(fs_entries, respond_fs_entries, hr.fs_entry_hints);
+                    generate_fs_entry_hint_responses(fbufs, fs_entries, hr.fs_entry_hints, hr.parent_path);
 
-                    // Generate parent reply.
-                    fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
+                    // Generate parent reply. We must insert it at the begning of replies.
                     p2pmsg::create_msg_from_fsentry_response(
-                        fbuf_vec.back(), hr.parent_path, fs_mount->mount_id, st.st_mode, fs_entries, hr.expected_hash);
-
-                    generate_hint_responses(fbuf_vec, hr.parent_path, respond_fs_entries);
+                        fbufs.emplace_front(), hr.parent_path, fs_mount->mount_id, st.st_mode, fs_entries, hr.expected_hash);
                 }
             }
         }
@@ -235,9 +227,12 @@ namespace hpfs
         return 0;
     }
 
-    void hpfs_serve::generate_reply_fs_entries(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, std::vector<p2p::hpfs_fs_hash_entry> &respond_fs_entries,
-                                               const std::vector<p2p::hpfs_fs_hash_entry> &fs_entry_hints)
+    void hpfs_serve::generate_fs_entry_hint_responses(std::list<flatbuffers::FlatBufferBuilder> &fbufs, std::vector<p2p::hpfs_fs_hash_entry> &fs_entries,
+                                                      const std::vector<p2p::hpfs_fs_hash_entry> &fs_entry_hints, std::string_view parent_path)
     {
+        size_t hashmap_responses = 0;
+        size_t block_responses = 0;
+
         // Prepare hint map to provide match comparisons based on hints.
         std::map<std::string, p2p::hpfs_fs_hash_entry> hint_fs_entry_map;
         for (const p2p::hpfs_fs_hash_entry &hint : fs_entry_hints)
@@ -247,54 +242,20 @@ namespace hpfs
         {
             // Check with provided hints to include match information.
             const auto itr = hint_fs_entry_map.find(entry.name);
-            if (itr != hint_fs_entry_map.end()) // fs entry exists on both sides.
-            {
-                const p2p::hpfs_fs_hash_entry &hint = itr->second;
-                if (hint.hash == entry.hash)
-                {
-                    entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MATCHED;
-                }
-                else // Hash not matching. Sync needed.
-                {
-                    if (respond_fs_entries.size() < MAX_HIN_RESPONSES_PER_REQUEST)
-                    {
-                        entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED;
-                        respond_fs_entries.push_back(entry);
-                    }
-                    else
-                    {
-                        entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED;
-                    }
-                }
+            // Whether fs entry exists on the requesting party.
+            const bool exists_on_requester = itr != hint_fs_entry_map.end();
 
-                // Remove the entry from the hint list so at the end, the hint map will only cotain children we don't possess on our side.
+            // Remove the entry from the hint list so at the end, the hint map will only contain children we don't possess on our side.
+            if (exists_on_requester)
                 hint_fs_entry_map.erase(entry.name);
-            }
-            else // fs entry only exists on our side.
-            {
-                if (respond_fs_entries.size() < MAX_HIN_RESPONSES_PER_REQUEST)
-                {
-                    entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED;
-                    respond_fs_entries.push_back(entry);
-                }
-                else
-                {
-                    entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED;
-                }
-            }
-        }
 
-        // Take the reamainig entries in the hint list and include them in the fs entry response as not exist.
-        // When the requester sees this, they will remove those entries from their side.
-        for (const auto &[name, hint] : hint_fs_entry_map)
-            fs_entries.push_back(p2p::hpfs_fs_hash_entry{name, hint.is_file, util::h32_empty, p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::NOT_AVAILABLE});
-    }
+            entry.response_type = (exists_on_requester && itr->second.hash == entry.hash) ? p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MATCHED : p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED;
 
-    void hpfs_serve::generate_hint_responses(std::vector<flatbuffers::FlatBufferBuilder> &fbuf_vec, std::string_view parent_path,
-                                             const std::vector<p2p::hpfs_fs_hash_entry> &fs_entries)
-    {
-        for (const p2p::hpfs_fs_hash_entry &entry : fs_entries)
-        {
+            // Send hashmap hint response if we haven't reached the limit.
+            const bool send_hashmap_response = (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED) && hashmap_responses < MAX_HASHMAP_RESPONSES_PER_REQUEST;
+            if (!send_hashmap_response)
+                continue;
+
             std::string child_vpath = std::string(parent_path)
                                           .append(parent_path.back() != '/' ? "/" : "")
                                           .append(entry.name);
@@ -305,10 +266,30 @@ namespace hpfs
                 mode_t file_mode = 0;
                 if (get_data_block_hashes(block_hashes, file_length, file_mode, child_vpath) != -1)
                 {
-                    fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
+                    std::vector<uint32_t> responded_block_ids;
+
+                    // Can additionally send block data hint response for block 0, if we know that the entire file does not exist on other side.
+                    const bool send_block_response = !exists_on_requester && block_responses < MAX_BLOCK_RESPONSES_PER_REQUEST;
+                    if (send_block_response)
+                    {
+                        std::vector<uint8_t> block;
+                        if (get_data_block(block, child_vpath, 0) != -1)
+                        {
+                            p2pmsg::create_msg_from_block_response(fbufs.emplace_back(), 0, block, block_hashes[0], child_vpath, fs_mount->mount_id);
+                            block_responses++;
+                            responded_block_ids.push_back(0);
+                        }
+                    }
+
+                    auto pos = fbufs.end();
+                    if (!responded_block_ids.empty()) // If block response already inserted, we must insert hashmap resposne before that.
+                        pos--;
                     p2pmsg::create_msg_from_filehashmap_response(
-                        fbuf_vec.back(), child_vpath, fs_mount->mount_id, block_hashes,
-                        std::vector<uint32_t>(), file_length, file_mode, entry.hash);
+                        *fbufs.emplace(pos), child_vpath, fs_mount->mount_id, block_hashes,
+                        responded_block_ids, file_length, file_mode, entry.hash);
+
+                    entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED;
+                    hashmap_responses++;
                 }
             }
             else
@@ -323,13 +304,20 @@ namespace hpfs
                     }
                     else
                     {
-                        fbuf_vec.push_back(flatbuffers::FlatBufferBuilder());
                         p2pmsg::create_msg_from_fsentry_response(
-                            fbuf_vec.back(), child_vpath, fs_mount->mount_id, st.st_mode, fs_entries, entry.hash);
+                            fbufs.emplace_back(), child_vpath, fs_mount->mount_id, st.st_mode, fs_entries, entry.hash);
+
+                        entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED;
+                        hashmap_responses++;
                     }
                 }
             }
         }
+
+        // Take the reamainig entries in the hint list and include them in the fs entry response as not exist.
+        // When the requester sees this, they will remove those entries from their side.
+        for (const auto &[name, hint] : hint_fs_entry_map)
+            fs_entries.push_back(p2p::hpfs_fs_hash_entry{name, hint.is_file, util::h32_empty, p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::NOT_AVAILABLE});
     }
 
     /**
