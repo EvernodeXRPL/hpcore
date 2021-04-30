@@ -410,13 +410,36 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr)
     {
+        if (!hr.is_file)
+        {
+            const auto hint = CreateHpfsFsEntryHint(
+                builder,
+                hpfsfshashentry_to_flatbuf_hpfsfshashentry(builder, hr.fs_entry_hints));
+
+            create_hpfs_request_msg(builder, hr, HpfsRequestHint_HpfsFsEntryHint, hint.Union());
+        }
+        else if (hr.is_file && hr.block_id == -1)
+        {
+            create_hpfs_request_msg(builder, hr);
+        }
+        else
+        {
+            create_hpfs_request_msg(builder, hr);
+        }
+    }
+
+    void create_hpfs_request_msg(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr,
+                                 msg::fbuf::p2pmsg::HpfsRequestHint hint_type, flatbuffers::Offset<void> hint)
+    {
         const auto msg = CreateHpfsRequestMsg(
             builder,
             hr.mount_id,
             sv_to_flatbuf_str(builder, hr.parent_path),
             hr.is_file,
             hr.block_id,
-            hash_to_flatbuf_bytes(builder, hr.expected_hash));
+            hash_to_flatbuf_bytes(builder, hr.expected_hash),
+            hint_type,
+            hint);
 
         create_p2p_msg(builder, P2PMsgContent_HpfsRequestMsg, msg.Union());
     }
@@ -562,9 +585,7 @@ namespace msg::fbuf::p2pmsg
     }
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>>>
-    hpfsfshashentry_to_flatbuf_hpfsfshashentry(
-        flatbuffers::FlatBufferBuilder &builder,
-        std::vector<hpfs::child_hash_node> &hash_nodes)
+    hpfsfshashentry_to_flatbuf_hpfsfshashentry(flatbuffers::FlatBufferBuilder &builder, const std::vector<hpfs::child_hash_node> &hash_nodes)
     {
         std::vector<flatbuffers::Offset<HpfsFSHashEntry>> fbvec;
         fbvec.reserve(hash_nodes.size());

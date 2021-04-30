@@ -5,6 +5,7 @@
 #include "../usr/user_input.hpp"
 #include "../util/h32.hpp"
 #include "../conf.hpp"
+#include "../hpfs/hpfs_mount.hpp"
 #include "../msg/fbuf/p2pmsg_generated.h"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
@@ -130,6 +131,7 @@ namespace p2p
         bool is_file = false;    // Whether the path is a file or dir.
         int32_t block_id = 0;    // Block id of the file if we are requesting for file block. Otherwise -1.
         util::h32 expected_hash; // The expected hash of the requested result.
+        std::vector<hpfs::child_hash_node> fs_entry_hints;
     };
 
     // Represents hpfs log sync request.

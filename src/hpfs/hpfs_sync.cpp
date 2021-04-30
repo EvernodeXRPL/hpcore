@@ -511,6 +511,11 @@ namespace hpfs
         hr.expected_hash = expected_hash;
         hr.mount_id = fs_mount->mount_id;
 
+        // Include appropriate hints in the request, so the peer can piggyback some data we need without having
+        // to submit additional requests.
+        if (!hr.is_file)
+            fs_mount->get_dir_children_hashes(hr.fs_entry_hints, hpfs::RW_SESSION_NAME, path);
+
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_hpfs_request(fbuf, hr);
         p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the expected hash to improve reliability of retrieving hpfs state.

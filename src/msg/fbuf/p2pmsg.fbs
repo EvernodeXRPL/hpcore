@@ -81,18 +81,35 @@ table NplMsg {
     // Make sure to update signature generation/verification whenever these fields are changed.
 }
 
+//--hpfs requests and responses--//
+
+table HpfsFSHashEntry{
+    name: string;
+    is_file: bool;
+    hash: [ubyte];
+}
+
+table HpfsFsEntryHint{
+    entries: [HpfsFSHashEntry];
+}
+
+union HpfsRequestHint {
+    HpfsFsEntryHint
+}
+
 table HpfsRequestMsg {
     mount_id: uint32;
     parent_path:string;
     is_file:bool;
     block_id:int32;
     expected_hash:[ubyte];
+    hint:HpfsRequestHint;
 }
 
 union HpfsResponse {
+    HpfsFsEntryResponse,
     HpfsFileHashMapResponse,
-    HpfsBlockResponse,
-    HpfsFsEntryResponse
+    HpfsBlockResponse
 }
 
 table HpfsResponseMsg{
@@ -116,12 +133,6 @@ table HpfsFileHashMapResponse{
 table HpfsBlockResponse{
     block_id:uint32;
     data: [ubyte];
-}
-
-table HpfsFSHashEntry{
-    name: string;
-    is_file: bool;
-    hash: [ubyte];
 }
 
 table HpfsLogRequest

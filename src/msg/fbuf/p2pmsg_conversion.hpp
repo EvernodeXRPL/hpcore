@@ -73,6 +73,9 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr);
 
+    void create_hpfs_request_msg(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr,
+                                 msg::fbuf::p2pmsg::HpfsRequestHint hint_type = HpfsRequestHint_NONE, flatbuffers::Offset<void> hint = 0);
+
     void create_msg_from_hpfs_log_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_request &hpfs_log_request);
 
     void create_msg_from_hpfs_log_response(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_log_response &hpfs_log_response);
@@ -99,9 +102,7 @@ namespace msg::fbuf::p2pmsg
     user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::list<usr::submitted_user_input>> &map);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>>>
-    hpfsfshashentry_to_flatbuf_hpfsfshashentry(
-        flatbuffers::FlatBufferBuilder &builder,
-        std::vector<hpfs::child_hash_node> &hash_nodes);
+    hpfsfshashentry_to_flatbuf_hpfsfshashentry(flatbuffers::FlatBufferBuilder &builder, const std::vector<hpfs::child_hash_node> &hash_nodes);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<PeerProperties>>>
     peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
