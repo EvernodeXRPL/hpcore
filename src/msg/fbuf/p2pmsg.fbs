@@ -83,10 +83,13 @@ table NplMsg {
 
 //--hpfs requests and responses--//
 
+enum HpfsFsEntryResponseType : byte { Available = 0, Matched = 1, Mismatched = 2, Responded = 3, NotAvailable = 4 }
+
 table HpfsFSHashEntry{
     name: string;
     is_file: bool;
     hash: [ubyte];
+    response_type: HpfsFsEntryResponseType;
 }
 
 table HpfsFsEntryHint{
@@ -99,11 +102,12 @@ union HpfsRequestHint {
 
 table HpfsRequestMsg {
     mount_id: uint32;
-    parent_path:string;
-    is_file:bool;
-    block_id:int32;
-    expected_hash:[ubyte];
-    hint:HpfsRequestHint;
+    parent_path: string;
+    is_file: bool;
+    block_id: int32;
+    expected_hash: [ubyte];
+    hint: HpfsRequestHint;
+    max_hint_responses: uint16;
 }
 
 union HpfsResponse {

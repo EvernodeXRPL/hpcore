@@ -28,6 +28,8 @@ namespace hpfs
     // No. of mulliseconds to wait before reacquiring hpfs rw session.
     constexpr uint16_t HPFS_REAQUIRE_WAIT = 10;
 
+    constexpr uint16_t MAX_HINT_RESPONSES = 3;
+
     constexpr int FILE_PERMS = 0644;
 
     /**
@@ -274,10 +276,10 @@ namespace hpfs
                 if (msg_type == p2pmsg::HpfsResponse_HpfsFsEntryResponse)
                 {
                     const p2pmsg::HpfsFsEntryResponse &fs_resp = *resp_msg.content_as_HpfsFsEntryResponse();
-
+                    
                     // Get fs entries we have received.
                     std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
-                    p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp.entries());
+                    p2pmsg::flatbuf_hpfsfshashentries_to_hpfsfshashentry_map(peer_fs_entry_map, fs_resp.entries());
 
                     // Validate received fs data against the hash.
                     if (!validate_fs_entry_hash(vpath, hash, fs_resp.dir_mode(), peer_fs_entry_map))
@@ -510,11 +512,18 @@ namespace hpfs
         hr.block_id = block_id;
         hr.expected_hash = expected_hash;
         hr.mount_id = fs_mount->mount_id;
+        hr.max_hint_responses = MAX_HINT_RESPONSES;
 
         // Include appropriate hints in the request, so the peer can piggyback some data we need without having
         // to submit additional requests.
         if (!hr.is_file)
-            fs_mount->get_dir_children_hashes(hr.fs_entry_hints, hpfs::RW_SESSION_NAME, path);
+        {
+            std::vector<hpfs::child_hash_node> child_hash_nodes;
+            fs_mount->get_dir_children_hashes(child_hash_nodes, hpfs::RW_SESSION_NAME, path);
+
+            for (const hpfs::child_hash_node &hn : child_hash_nodes)
+                hr.fs_entry_hints.push_back(p2p::hpfs_fs_hash_entry{hn.name, hn.is_file, hn.hash});
+        }
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_hpfs_request(fbuf, hr);

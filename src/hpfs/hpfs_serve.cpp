@@ -201,8 +201,55 @@ namespace hpfs
                         return -1;
                     }
 
+                    // Prepare hint map to provide match comparisons based on hints.
+                    std::map<std::string, p2p::hpfs_fs_hash_entry> hint_fs_entry_map;
+                    for (const p2p::hpfs_fs_hash_entry &fs_entry : hr.fs_entry_hints)
+                        hint_fs_entry_map.emplace(fs_entry.name, std::move(fs_entry));
+
+                    // List of fs entries to generate hint response
+                    std::vector<p2p::hpfs_fs_hash_entry> fs_entries_to_respond;
+
+                    std::vector<p2p::hpfs_fs_hash_entry> fs_entries;
+                    for (const hpfs::child_hash_node &hn : child_hash_nodes)
+                    {
+                        p2p::hpfs_fs_hash_entry entry{hn.name, hn.is_file, hn.hash};
+
+                        // Check with provided hints to include match information.
+                        const auto itr = hint_fs_entry_map.find(hn.name);
+                        if (itr != hint_fs_entry_map.end())
+                        {
+                            const p2p::hpfs_fs_hash_entry &hint = itr->second;
+                            if (hint.hash == entry.hash)
+                            {
+                                entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MATCHED;
+                            }
+                            else // Hash not matching. Sync needed.
+                            {
+                                // If we haven't reached max hint responses, generate a hint response.
+                                if (fs_entries_to_respond.size() < hr.max_hint_responses)
+                                {
+                                    entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED;
+                                    fs_entries_to_respond.push_back(entry);
+                                }
+                                else
+                                {
+                                    entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED;
+                                }
+                            }
+
+                            // Remove the entry from the hint list so we can see the requester hints that we don't possess on our side.
+                            hint_fs_entry_map.erase(hn.name);
+                        }
+                        else
+                        {
+                            entry.response_type = p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::AVAILABLE;
+                        }
+
+                        fs_entries.push_back(std::move(entry));
+                    }
+
                     p2pmsg::create_msg_from_fsentry_response(
-                        fbuf, hr.parent_path, fs_mount->mount_id, st.st_mode, child_hash_nodes, hr.expected_hash);
+                        fbuf, hr.parent_path, fs_mount->mount_id, st.st_mode, fs_entries, hr.expected_hash);
                     return 1; // Success.
                 }
             }

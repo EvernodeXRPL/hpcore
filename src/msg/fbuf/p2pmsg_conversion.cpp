@@ -206,6 +206,11 @@ namespace msg::fbuf::p2pmsg
         hr.is_file = msg.is_file();
         hr.parent_path = flatbuf_str_to_sv(msg.parent_path());
         hr.expected_hash = flatbuf_bytes_to_hash(msg.expected_hash());
+        hr.max_hint_responses = msg.max_hint_responses();
+
+        if (msg.hint_type() == HpfsRequestHint_HpfsFsEntryHint)
+            flatbuf_hpfsfshashentries_to_hpfsfshashentries(hr.fs_entry_hints, msg.hint_as_HpfsFsEntryHint()->entries());
+
         return hr;
     }
 
@@ -266,7 +271,7 @@ namespace msg::fbuf::p2pmsg
         return map;
     }
 
-    void flatbuf_hpfsfshashentry_to_hpfsfshashentry(std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes)
+    void flatbuf_hpfsfshashentries_to_hpfsfshashentry_map(std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes)
     {
         for (const HpfsFSHashEntry *f_hash : *fhashes)
         {
@@ -274,8 +279,23 @@ namespace msg::fbuf::p2pmsg
             entry.name = flatbuf_str_to_sv(f_hash->name());
             entry.is_file = f_hash->is_file();
             entry.hash = flatbuf_bytes_to_hash(f_hash->hash());
+            entry.response_type = (p2p::HPFS_FS_ENTRY_RESPONSE_TYPE)f_hash->response_type();
 
             fs_entries.emplace(entry.name, std::move(entry));
+        }
+    }
+
+    void flatbuf_hpfsfshashentries_to_hpfsfshashentries(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes)
+    {
+        for (const HpfsFSHashEntry *f_hash : *fhashes)
+        {
+            p2p::hpfs_fs_hash_entry entry;
+            entry.name = flatbuf_str_to_sv(f_hash->name());
+            entry.is_file = f_hash->is_file();
+            entry.hash = flatbuf_bytes_to_hash(f_hash->hash());
+            entry.response_type = (p2p::HPFS_FS_ENTRY_RESPONSE_TYPE)f_hash->response_type();
+
+            fs_entries.push_back(std::move(entry));
         }
     }
 
@@ -439,7 +459,8 @@ namespace msg::fbuf::p2pmsg
             hr.block_id,
             hash_to_flatbuf_bytes(builder, hr.expected_hash),
             hint_type,
-            hint);
+            hint,
+            hr.max_hint_responses);
 
         create_p2p_msg(builder, P2PMsgContent_HpfsRequestMsg, msg.Union());
     }
@@ -466,12 +487,12 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_fsentry_response(
         flatbuffers::FlatBufferBuilder &builder, const std::string_view path, const uint32_t mount_id, const mode_t dir_mode,
-        std::vector<hpfs::child_hash_node> &hash_nodes, const util::h32 &expected_hash)
+        std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, const util::h32 &expected_hash)
     {
         const auto child_msg = CreateHpfsFsEntryResponse(
             builder,
             dir_mode,
-            hpfsfshashentry_to_flatbuf_hpfsfshashentry(builder, hash_nodes));
+            hpfsfshashentry_to_flatbuf_hpfsfshashentry(builder, fs_entries));
 
         const auto msg = CreateHpfsResponseMsg(
             builder,
@@ -585,17 +606,18 @@ namespace msg::fbuf::p2pmsg
     }
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>>>
-    hpfsfshashentry_to_flatbuf_hpfsfshashentry(flatbuffers::FlatBufferBuilder &builder, const std::vector<hpfs::child_hash_node> &hash_nodes)
+    hpfsfshashentry_to_flatbuf_hpfsfshashentry(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::hpfs_fs_hash_entry> &fs_entries)
     {
         std::vector<flatbuffers::Offset<HpfsFSHashEntry>> fbvec;
-        fbvec.reserve(hash_nodes.size());
-        for (auto const &hash_node : hash_nodes)
+        fbvec.reserve(fs_entries.size());
+        for (auto const &fs_entry : fs_entries)
         {
             flatbuffers::Offset<HpfsFSHashEntry> hpfs_fs_entry = CreateHpfsFSHashEntry(
                 builder,
-                sv_to_flatbuf_str(builder, hash_node.name),
-                hash_node.is_file,
-                hash_to_flatbuf_bytes(builder, hash_node.hash));
+                sv_to_flatbuf_str(builder, fs_entry.name),
+                fs_entry.is_file,
+                hash_to_flatbuf_bytes(builder, fs_entry.hash),
+                (HpfsFsEntryResponseType)fs_entry.response_type);
 
             fbvec.push_back(hpfs_fs_entry);
         }
