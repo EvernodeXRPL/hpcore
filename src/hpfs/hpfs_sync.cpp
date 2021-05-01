@@ -390,7 +390,7 @@ namespace hpfs
                         return 0;
                     }
 
-                    // Re-submit request.
+                    // Reset the counter and re-submit request.
                     request.waiting_time = 0;
                     submit_request(request, false, true);
                 }
