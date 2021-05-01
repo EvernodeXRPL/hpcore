@@ -5,6 +5,7 @@
 #include "../usr/user_input.hpp"
 #include "../util/h32.hpp"
 #include "../conf.hpp"
+#include "../hpfs/hpfs_mount.hpp"
 #include "../msg/fbuf/p2pmsg_generated.h"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
@@ -122,16 +123,6 @@ namespace p2p
         std::string data;
     };
 
-    // Represents a hpfs request sent to a peer.
-    struct hpfs_request
-    {
-        uint32_t mount_id;       // Relavent file system id.
-        std::string parent_path; // The requested file or dir path.
-        bool is_file = false;    // Whether the path is a file or dir.
-        int32_t block_id = 0;    // Block id of the file if we are requesting for file block. Otherwise -1.
-        util::h32 expected_hash; // The expected hash of the requested result.
-    };
-
     // Represents hpfs log sync request.
     struct hpfs_log_request
     {
@@ -146,12 +137,24 @@ namespace p2p
         std::vector<uint8_t> log_record_bytes;
     };
 
+    enum HPFS_FS_ENTRY_RESPONSE_TYPE
+    {
+        MATCHED = 0,      // The entry matches between requester and responder. No sync needed.
+        MISMATCHED = 1,   // The entry does not match (either hash mismatch or new entry). Requester must request for this entry.
+        RESPONDED = 2,    // The entry does not match and the repsonder has dispatched the sync response.
+        NOT_AVAILABLE = 3 // The entry does not exist on responder side. Requester must delete this on his side.
+    };
+
     // Represents hpfs file system entry.
     struct hpfs_fs_hash_entry
     {
         std::string name;     // Name of the file/dir.
         bool is_file = false; // Whether this is a file or dir.
         util::h32 hash;       // Hash of the file or dir.
+
+        // Only relevant for hpfs responses. Indicates about the availabilty and status of this
+        // fs entry as reported by the responder.
+        HPFS_FS_ENTRY_RESPONSE_TYPE response_type = HPFS_FS_ENTRY_RESPONSE_TYPE::MATCHED;
     };
 
     // Represents a file block data resposne.
@@ -161,6 +164,18 @@ namespace p2p
         uint32_t block_id = 0; // Id of the block where the data belongs to.
         std::string_view data; // The block data.
         util::h32 hash;        // Hash of the bloc data.
+    };
+
+    // Represents a hpfs request sent to a peer.
+    struct hpfs_request
+    {
+        uint32_t mount_id = 0;                          // Relavent file system id.
+        std::string parent_path;                        // The requested file or dir path.
+        bool is_file = false;                           // Whether the path is a file or dir.
+        int32_t block_id = 0;                           // Block id of the file if we are requesting for file block. Otherwise -1.
+        util::h32 expected_hash;                        // The expected hash of the requested result.
+        std::vector<hpfs_fs_hash_entry> fs_entry_hints; // Included fs entry entry hints for the responder.
+        std::vector<util::h32> file_hashmap_hints;      // Included file hash map hints for the responder.
     };
 
     struct peer_message_info

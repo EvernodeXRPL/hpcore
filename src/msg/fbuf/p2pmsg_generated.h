@@ -34,6 +34,15 @@ struct ProposalMsgBuilder;
 struct NplMsg;
 struct NplMsgBuilder;
 
+struct HpfsFSHashEntry;
+struct HpfsFSHashEntryBuilder;
+
+struct HpfsFsEntryHint;
+struct HpfsFsEntryHintBuilder;
+
+struct HpfsFileHashMapHint;
+struct HpfsFileHashMapHintBuilder;
+
 struct HpfsRequestMsg;
 struct HpfsRequestMsgBuilder;
 
@@ -48,9 +57,6 @@ struct HpfsFileHashMapResponseBuilder;
 
 struct HpfsBlockResponse;
 struct HpfsBlockResponseBuilder;
-
-struct HpfsFSHashEntry;
-struct HpfsFSHashEntryBuilder;
 
 struct HpfsLogRequest;
 struct HpfsLogRequestBuilder;
@@ -204,21 +210,105 @@ template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::HpfsLogResponse> {
 bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMsgContent type);
 bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
+enum HpfsFsEntryResponseType {
+  HpfsFsEntryResponseType_Matched = 0,
+  HpfsFsEntryResponseType_Mismatched = 1,
+  HpfsFsEntryResponseType_Responded = 2,
+  HpfsFsEntryResponseType_NotAvailable = 3,
+  HpfsFsEntryResponseType_MIN = HpfsFsEntryResponseType_Matched,
+  HpfsFsEntryResponseType_MAX = HpfsFsEntryResponseType_NotAvailable
+};
+
+inline const HpfsFsEntryResponseType (&EnumValuesHpfsFsEntryResponseType())[4] {
+  static const HpfsFsEntryResponseType values[] = {
+    HpfsFsEntryResponseType_Matched,
+    HpfsFsEntryResponseType_Mismatched,
+    HpfsFsEntryResponseType_Responded,
+    HpfsFsEntryResponseType_NotAvailable
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesHpfsFsEntryResponseType() {
+  static const char * const names[5] = {
+    "Matched",
+    "Mismatched",
+    "Responded",
+    "NotAvailable",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameHpfsFsEntryResponseType(HpfsFsEntryResponseType e) {
+  if (flatbuffers::IsOutRange(e, HpfsFsEntryResponseType_Matched, HpfsFsEntryResponseType_NotAvailable)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesHpfsFsEntryResponseType()[index];
+}
+
+enum HpfsRequestHint {
+  HpfsRequestHint_NONE = 0,
+  HpfsRequestHint_HpfsFsEntryHint = 1,
+  HpfsRequestHint_HpfsFileHashMapHint = 2,
+  HpfsRequestHint_MIN = HpfsRequestHint_NONE,
+  HpfsRequestHint_MAX = HpfsRequestHint_HpfsFileHashMapHint
+};
+
+inline const HpfsRequestHint (&EnumValuesHpfsRequestHint())[3] {
+  static const HpfsRequestHint values[] = {
+    HpfsRequestHint_NONE,
+    HpfsRequestHint_HpfsFsEntryHint,
+    HpfsRequestHint_HpfsFileHashMapHint
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesHpfsRequestHint() {
+  static const char * const names[4] = {
+    "NONE",
+    "HpfsFsEntryHint",
+    "HpfsFileHashMapHint",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameHpfsRequestHint(HpfsRequestHint e) {
+  if (flatbuffers::IsOutRange(e, HpfsRequestHint_NONE, HpfsRequestHint_HpfsFileHashMapHint)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesHpfsRequestHint()[index];
+}
+
+template<typename T> struct HpfsRequestHintTraits {
+  static const HpfsRequestHint enum_value = HpfsRequestHint_NONE;
+};
+
+template<> struct HpfsRequestHintTraits<msg::fbuf::p2pmsg::HpfsFsEntryHint> {
+  static const HpfsRequestHint enum_value = HpfsRequestHint_HpfsFsEntryHint;
+};
+
+template<> struct HpfsRequestHintTraits<msg::fbuf::p2pmsg::HpfsFileHashMapHint> {
+  static const HpfsRequestHint enum_value = HpfsRequestHint_HpfsFileHashMapHint;
+};
+
+bool VerifyHpfsRequestHint(flatbuffers::Verifier &verifier, const void *obj, HpfsRequestHint type);
+bool VerifyHpfsRequestHintVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+
 enum HpfsResponse {
   HpfsResponse_NONE = 0,
-  HpfsResponse_HpfsFileHashMapResponse = 1,
-  HpfsResponse_HpfsBlockResponse = 2,
-  HpfsResponse_HpfsFsEntryResponse = 3,
+  HpfsResponse_HpfsFsEntryResponse = 1,
+  HpfsResponse_HpfsFileHashMapResponse = 2,
+  HpfsResponse_HpfsBlockResponse = 3,
   HpfsResponse_MIN = HpfsResponse_NONE,
-  HpfsResponse_MAX = HpfsResponse_HpfsFsEntryResponse
+  HpfsResponse_MAX = HpfsResponse_HpfsBlockResponse
 };
 
 inline const HpfsResponse (&EnumValuesHpfsResponse())[4] {
   static const HpfsResponse values[] = {
     HpfsResponse_NONE,
+    HpfsResponse_HpfsFsEntryResponse,
     HpfsResponse_HpfsFileHashMapResponse,
-    HpfsResponse_HpfsBlockResponse,
-    HpfsResponse_HpfsFsEntryResponse
+    HpfsResponse_HpfsBlockResponse
   };
   return values;
 }
@@ -226,16 +316,16 @@ inline const HpfsResponse (&EnumValuesHpfsResponse())[4] {
 inline const char * const *EnumNamesHpfsResponse() {
   static const char * const names[5] = {
     "NONE",
+    "HpfsFsEntryResponse",
     "HpfsFileHashMapResponse",
     "HpfsBlockResponse",
-    "HpfsFsEntryResponse",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameHpfsResponse(HpfsResponse e) {
-  if (flatbuffers::IsOutRange(e, HpfsResponse_NONE, HpfsResponse_HpfsFsEntryResponse)) return "";
+  if (flatbuffers::IsOutRange(e, HpfsResponse_NONE, HpfsResponse_HpfsBlockResponse)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesHpfsResponse()[index];
 }
@@ -244,16 +334,16 @@ template<typename T> struct HpfsResponseTraits {
   static const HpfsResponse enum_value = HpfsResponse_NONE;
 };
 
+template<> struct HpfsResponseTraits<msg::fbuf::p2pmsg::HpfsFsEntryResponse> {
+  static const HpfsResponse enum_value = HpfsResponse_HpfsFsEntryResponse;
+};
+
 template<> struct HpfsResponseTraits<msg::fbuf::p2pmsg::HpfsFileHashMapResponse> {
   static const HpfsResponse enum_value = HpfsResponse_HpfsFileHashMapResponse;
 };
 
 template<> struct HpfsResponseTraits<msg::fbuf::p2pmsg::HpfsBlockResponse> {
   static const HpfsResponse enum_value = HpfsResponse_HpfsBlockResponse;
-};
-
-template<> struct HpfsResponseTraits<msg::fbuf::p2pmsg::HpfsFsEntryResponse> {
-  static const HpfsResponse enum_value = HpfsResponse_HpfsFsEntryResponse;
 };
 
 bool VerifyHpfsResponse(flatbuffers::Verifier &verifier, const void *obj, HpfsResponse type);
@@ -1231,6 +1321,219 @@ inline flatbuffers::Offset<NplMsg> CreateNplMsgDirect(
       lcl_id);
 }
 
+struct HpfsFSHashEntry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HpfsFSHashEntryBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME = 4,
+    VT_IS_FILE = 6,
+    VT_HASH = 8,
+    VT_RESPONSE_TYPE = 10
+  };
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
+  flatbuffers::String *mutable_name() {
+    return GetPointer<flatbuffers::String *>(VT_NAME);
+  }
+  bool is_file() const {
+    return GetField<uint8_t>(VT_IS_FILE, 0) != 0;
+  }
+  bool mutate_is_file(bool _is_file) {
+    return SetField<uint8_t>(VT_IS_FILE, static_cast<uint8_t>(_is_file), 0);
+  }
+  const flatbuffers::Vector<uint8_t> *hash() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_hash() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_HASH);
+  }
+  msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type() const {
+    return static_cast<msg::fbuf::p2pmsg::HpfsFsEntryResponseType>(GetField<int8_t>(VT_RESPONSE_TYPE, 0));
+  }
+  bool mutate_response_type(msg::fbuf::p2pmsg::HpfsFsEntryResponseType _response_type) {
+    return SetField<int8_t>(VT_RESPONSE_TYPE, static_cast<int8_t>(_response_type), 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<uint8_t>(verifier, VT_IS_FILE) &&
+           VerifyOffset(verifier, VT_HASH) &&
+           verifier.VerifyVector(hash()) &&
+           VerifyField<int8_t>(verifier, VT_RESPONSE_TYPE) &&
+           verifier.EndTable();
+  }
+};
+
+struct HpfsFSHashEntryBuilder {
+  typedef HpfsFSHashEntry Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(HpfsFSHashEntry::VT_NAME, name);
+  }
+  void add_is_file(bool is_file) {
+    fbb_.AddElement<uint8_t>(HpfsFSHashEntry::VT_IS_FILE, static_cast<uint8_t>(is_file), 0);
+  }
+  void add_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash) {
+    fbb_.AddOffset(HpfsFSHashEntry::VT_HASH, hash);
+  }
+  void add_response_type(msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type) {
+    fbb_.AddElement<int8_t>(HpfsFSHashEntry::VT_RESPONSE_TYPE, static_cast<int8_t>(response_type), 0);
+  }
+  explicit HpfsFSHashEntryBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  HpfsFSHashEntryBuilder &operator=(const HpfsFSHashEntryBuilder &);
+  flatbuffers::Offset<HpfsFSHashEntry> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HpfsFSHashEntry>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntry(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> name = 0,
+    bool is_file = false,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash = 0,
+    msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type = msg::fbuf::p2pmsg::HpfsFsEntryResponseType_Matched) {
+  HpfsFSHashEntryBuilder builder_(_fbb);
+  builder_.add_hash(hash);
+  builder_.add_name(name);
+  builder_.add_response_type(response_type);
+  builder_.add_is_file(is_file);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntryDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name = nullptr,
+    bool is_file = false,
+    const std::vector<uint8_t> *hash = nullptr,
+    msg::fbuf::p2pmsg::HpfsFsEntryResponseType response_type = msg::fbuf::p2pmsg::HpfsFsEntryResponseType_Matched) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto hash__ = hash ? _fbb.CreateVector<uint8_t>(*hash) : 0;
+  return msg::fbuf::p2pmsg::CreateHpfsFSHashEntry(
+      _fbb,
+      name__,
+      is_file,
+      hash__,
+      response_type);
+}
+
+struct HpfsFsEntryHint FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HpfsFsEntryHintBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENTRIES = 4
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *entries() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *>(VT_ENTRIES);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *mutable_entries() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *>(VT_ENTRIES);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ENTRIES) &&
+           verifier.VerifyVector(entries()) &&
+           verifier.VerifyVectorOfTables(entries()) &&
+           verifier.EndTable();
+  }
+};
+
+struct HpfsFsEntryHintBuilder {
+  typedef HpfsFsEntryHint Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_entries(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>>> entries) {
+    fbb_.AddOffset(HpfsFsEntryHint::VT_ENTRIES, entries);
+  }
+  explicit HpfsFsEntryHintBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  HpfsFsEntryHintBuilder &operator=(const HpfsFsEntryHintBuilder &);
+  flatbuffers::Offset<HpfsFsEntryHint> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HpfsFsEntryHint>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HpfsFsEntryHint> CreateHpfsFsEntryHint(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>>> entries = 0) {
+  HpfsFsEntryHintBuilder builder_(_fbb);
+  builder_.add_entries(entries);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<HpfsFsEntryHint> CreateHpfsFsEntryHintDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>> *entries = nullptr) {
+  auto entries__ = entries ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::HpfsFSHashEntry>>(*entries) : 0;
+  return msg::fbuf::p2pmsg::CreateHpfsFsEntryHint(
+      _fbb,
+      entries__);
+}
+
+struct HpfsFileHashMapHint FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef HpfsFileHashMapHintBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HASH_MAP = 4
+  };
+  const flatbuffers::Vector<uint8_t> *hash_map() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_hash_map() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_HASH_MAP) &&
+           verifier.VerifyVector(hash_map()) &&
+           verifier.EndTable();
+  }
+};
+
+struct HpfsFileHashMapHintBuilder {
+  typedef HpfsFileHashMapHint Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_hash_map(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map) {
+    fbb_.AddOffset(HpfsFileHashMapHint::VT_HASH_MAP, hash_map);
+  }
+  explicit HpfsFileHashMapHintBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  HpfsFileHashMapHintBuilder &operator=(const HpfsFileHashMapHintBuilder &);
+  flatbuffers::Offset<HpfsFileHashMapHint> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HpfsFileHashMapHint>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HpfsFileHashMapHint> CreateHpfsFileHashMapHint(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0) {
+  HpfsFileHashMapHintBuilder builder_(_fbb);
+  builder_.add_hash_map(hash_map);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<HpfsFileHashMapHint> CreateHpfsFileHashMapHintDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *hash_map = nullptr) {
+  auto hash_map__ = hash_map ? _fbb.CreateVector<uint8_t>(*hash_map) : 0;
+  return msg::fbuf::p2pmsg::CreateHpfsFileHashMapHint(
+      _fbb,
+      hash_map__);
+}
+
 struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef HpfsRequestMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1238,7 +1541,9 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_PARENT_PATH = 6,
     VT_IS_FILE = 8,
     VT_BLOCK_ID = 10,
-    VT_EXPECTED_HASH = 12
+    VT_EXPECTED_HASH = 12,
+    VT_HINT_TYPE = 14,
+    VT_HINT = 16
   };
   uint32_t mount_id() const {
     return GetField<uint32_t>(VT_MOUNT_ID, 0);
@@ -1270,6 +1575,22 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_expected_hash() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_EXPECTED_HASH);
   }
+  msg::fbuf::p2pmsg::HpfsRequestHint hint_type() const {
+    return static_cast<msg::fbuf::p2pmsg::HpfsRequestHint>(GetField<uint8_t>(VT_HINT_TYPE, 0));
+  }
+  const void *hint() const {
+    return GetPointer<const void *>(VT_HINT);
+  }
+  template<typename T> const T *hint_as() const;
+  const msg::fbuf::p2pmsg::HpfsFsEntryHint *hint_as_HpfsFsEntryHint() const {
+    return hint_type() == msg::fbuf::p2pmsg::HpfsRequestHint_HpfsFsEntryHint ? static_cast<const msg::fbuf::p2pmsg::HpfsFsEntryHint *>(hint()) : nullptr;
+  }
+  const msg::fbuf::p2pmsg::HpfsFileHashMapHint *hint_as_HpfsFileHashMapHint() const {
+    return hint_type() == msg::fbuf::p2pmsg::HpfsRequestHint_HpfsFileHashMapHint ? static_cast<const msg::fbuf::p2pmsg::HpfsFileHashMapHint *>(hint()) : nullptr;
+  }
+  void *mutable_hint() {
+    return GetPointer<void *>(VT_HINT);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_MOUNT_ID) &&
@@ -1279,9 +1600,20 @@ struct HpfsRequestMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<int32_t>(verifier, VT_BLOCK_ID) &&
            VerifyOffset(verifier, VT_EXPECTED_HASH) &&
            verifier.VerifyVector(expected_hash()) &&
+           VerifyField<uint8_t>(verifier, VT_HINT_TYPE) &&
+           VerifyOffset(verifier, VT_HINT) &&
+           VerifyHpfsRequestHint(verifier, hint(), hint_type()) &&
            verifier.EndTable();
   }
 };
+
+template<> inline const msg::fbuf::p2pmsg::HpfsFsEntryHint *HpfsRequestMsg::hint_as<msg::fbuf::p2pmsg::HpfsFsEntryHint>() const {
+  return hint_as_HpfsFsEntryHint();
+}
+
+template<> inline const msg::fbuf::p2pmsg::HpfsFileHashMapHint *HpfsRequestMsg::hint_as<msg::fbuf::p2pmsg::HpfsFileHashMapHint>() const {
+  return hint_as_HpfsFileHashMapHint();
+}
 
 struct HpfsRequestMsgBuilder {
   typedef HpfsRequestMsg Table;
@@ -1302,6 +1634,12 @@ struct HpfsRequestMsgBuilder {
   void add_expected_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> expected_hash) {
     fbb_.AddOffset(HpfsRequestMsg::VT_EXPECTED_HASH, expected_hash);
   }
+  void add_hint_type(msg::fbuf::p2pmsg::HpfsRequestHint hint_type) {
+    fbb_.AddElement<uint8_t>(HpfsRequestMsg::VT_HINT_TYPE, static_cast<uint8_t>(hint_type), 0);
+  }
+  void add_hint(flatbuffers::Offset<void> hint) {
+    fbb_.AddOffset(HpfsRequestMsg::VT_HINT, hint);
+  }
   explicit HpfsRequestMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1320,12 +1658,16 @@ inline flatbuffers::Offset<HpfsRequestMsg> CreateHpfsRequestMsg(
     flatbuffers::Offset<flatbuffers::String> parent_path = 0,
     bool is_file = false,
     int32_t block_id = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> expected_hash = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> expected_hash = 0,
+    msg::fbuf::p2pmsg::HpfsRequestHint hint_type = msg::fbuf::p2pmsg::HpfsRequestHint_NONE,
+    flatbuffers::Offset<void> hint = 0) {
   HpfsRequestMsgBuilder builder_(_fbb);
+  builder_.add_hint(hint);
   builder_.add_expected_hash(expected_hash);
   builder_.add_block_id(block_id);
   builder_.add_parent_path(parent_path);
   builder_.add_mount_id(mount_id);
+  builder_.add_hint_type(hint_type);
   builder_.add_is_file(is_file);
   return builder_.Finish();
 }
@@ -1336,7 +1678,9 @@ inline flatbuffers::Offset<HpfsRequestMsg> CreateHpfsRequestMsgDirect(
     const char *parent_path = nullptr,
     bool is_file = false,
     int32_t block_id = 0,
-    const std::vector<uint8_t> *expected_hash = nullptr) {
+    const std::vector<uint8_t> *expected_hash = nullptr,
+    msg::fbuf::p2pmsg::HpfsRequestHint hint_type = msg::fbuf::p2pmsg::HpfsRequestHint_NONE,
+    flatbuffers::Offset<void> hint = 0) {
   auto parent_path__ = parent_path ? _fbb.CreateString(parent_path) : 0;
   auto expected_hash__ = expected_hash ? _fbb.CreateVector<uint8_t>(*expected_hash) : 0;
   return msg::fbuf::p2pmsg::CreateHpfsRequestMsg(
@@ -1345,7 +1689,9 @@ inline flatbuffers::Offset<HpfsRequestMsg> CreateHpfsRequestMsgDirect(
       parent_path__,
       is_file,
       block_id,
-      expected_hash__);
+      expected_hash__,
+      hint_type,
+      hint);
 }
 
 struct HpfsResponseMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -1382,14 +1728,14 @@ struct HpfsResponseMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetPointer<const void *>(VT_CONTENT);
   }
   template<typename T> const T *content_as() const;
+  const msg::fbuf::p2pmsg::HpfsFsEntryResponse *content_as_HpfsFsEntryResponse() const {
+    return content_type() == msg::fbuf::p2pmsg::HpfsResponse_HpfsFsEntryResponse ? static_cast<const msg::fbuf::p2pmsg::HpfsFsEntryResponse *>(content()) : nullptr;
+  }
   const msg::fbuf::p2pmsg::HpfsFileHashMapResponse *content_as_HpfsFileHashMapResponse() const {
     return content_type() == msg::fbuf::p2pmsg::HpfsResponse_HpfsFileHashMapResponse ? static_cast<const msg::fbuf::p2pmsg::HpfsFileHashMapResponse *>(content()) : nullptr;
   }
   const msg::fbuf::p2pmsg::HpfsBlockResponse *content_as_HpfsBlockResponse() const {
     return content_type() == msg::fbuf::p2pmsg::HpfsResponse_HpfsBlockResponse ? static_cast<const msg::fbuf::p2pmsg::HpfsBlockResponse *>(content()) : nullptr;
-  }
-  const msg::fbuf::p2pmsg::HpfsFsEntryResponse *content_as_HpfsFsEntryResponse() const {
-    return content_type() == msg::fbuf::p2pmsg::HpfsResponse_HpfsFsEntryResponse ? static_cast<const msg::fbuf::p2pmsg::HpfsFsEntryResponse *>(content()) : nullptr;
   }
   void *mutable_content() {
     return GetPointer<void *>(VT_CONTENT);
@@ -1408,16 +1754,16 @@ struct HpfsResponseMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
+template<> inline const msg::fbuf::p2pmsg::HpfsFsEntryResponse *HpfsResponseMsg::content_as<msg::fbuf::p2pmsg::HpfsFsEntryResponse>() const {
+  return content_as_HpfsFsEntryResponse();
+}
+
 template<> inline const msg::fbuf::p2pmsg::HpfsFileHashMapResponse *HpfsResponseMsg::content_as<msg::fbuf::p2pmsg::HpfsFileHashMapResponse>() const {
   return content_as_HpfsFileHashMapResponse();
 }
 
 template<> inline const msg::fbuf::p2pmsg::HpfsBlockResponse *HpfsResponseMsg::content_as<msg::fbuf::p2pmsg::HpfsBlockResponse>() const {
   return content_as_HpfsBlockResponse();
-}
-
-template<> inline const msg::fbuf::p2pmsg::HpfsFsEntryResponse *HpfsResponseMsg::content_as<msg::fbuf::p2pmsg::HpfsFsEntryResponse>() const {
-  return content_as_HpfsFsEntryResponse();
 }
 
 struct HpfsResponseMsgBuilder {
@@ -1561,7 +1907,8 @@ struct HpfsFileHashMapResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FILE_LENGTH = 4,
     VT_FILE_MODE = 6,
-    VT_HASH_MAP = 8
+    VT_HASH_MAP = 8,
+    VT_RESPONDED_BLOCK_IDS = 10
   };
   uint64_t file_length() const {
     return GetField<uint64_t>(VT_FILE_LENGTH, 0);
@@ -1581,12 +1928,20 @@ struct HpfsFileHashMapResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   flatbuffers::Vector<uint8_t> *mutable_hash_map() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_HASH_MAP);
   }
+  const flatbuffers::Vector<uint32_t> *responded_block_ids() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_RESPONDED_BLOCK_IDS);
+  }
+  flatbuffers::Vector<uint32_t> *mutable_responded_block_ids() {
+    return GetPointer<flatbuffers::Vector<uint32_t> *>(VT_RESPONDED_BLOCK_IDS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_FILE_LENGTH) &&
            VerifyField<uint32_t>(verifier, VT_FILE_MODE) &&
            VerifyOffset(verifier, VT_HASH_MAP) &&
            verifier.VerifyVector(hash_map()) &&
+           VerifyOffset(verifier, VT_RESPONDED_BLOCK_IDS) &&
+           verifier.VerifyVector(responded_block_ids()) &&
            verifier.EndTable();
   }
 };
@@ -1604,6 +1959,9 @@ struct HpfsFileHashMapResponseBuilder {
   void add_hash_map(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map) {
     fbb_.AddOffset(HpfsFileHashMapResponse::VT_HASH_MAP, hash_map);
   }
+  void add_responded_block_ids(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> responded_block_ids) {
+    fbb_.AddOffset(HpfsFileHashMapResponse::VT_RESPONDED_BLOCK_IDS, responded_block_ids);
+  }
   explicit HpfsFileHashMapResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1620,9 +1978,11 @@ inline flatbuffers::Offset<HpfsFileHashMapResponse> CreateHpfsFileHashMapRespons
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t file_length = 0,
     uint32_t file_mode = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash_map = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> responded_block_ids = 0) {
   HpfsFileHashMapResponseBuilder builder_(_fbb);
   builder_.add_file_length(file_length);
+  builder_.add_responded_block_ids(responded_block_ids);
   builder_.add_hash_map(hash_map);
   builder_.add_file_mode(file_mode);
   return builder_.Finish();
@@ -1632,13 +1992,16 @@ inline flatbuffers::Offset<HpfsFileHashMapResponse> CreateHpfsFileHashMapRespons
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t file_length = 0,
     uint32_t file_mode = 0,
-    const std::vector<uint8_t> *hash_map = nullptr) {
+    const std::vector<uint8_t> *hash_map = nullptr,
+    const std::vector<uint32_t> *responded_block_ids = nullptr) {
   auto hash_map__ = hash_map ? _fbb.CreateVector<uint8_t>(*hash_map) : 0;
+  auto responded_block_ids__ = responded_block_ids ? _fbb.CreateVector<uint32_t>(*responded_block_ids) : 0;
   return msg::fbuf::p2pmsg::CreateHpfsFileHashMapResponse(
       _fbb,
       file_length,
       file_mode,
-      hash_map__);
+      hash_map__,
+      responded_block_ids__);
 }
 
 struct HpfsBlockResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -1709,93 +2072,6 @@ inline flatbuffers::Offset<HpfsBlockResponse> CreateHpfsBlockResponseDirect(
       _fbb,
       block_id,
       data__);
-}
-
-struct HpfsFSHashEntry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef HpfsFSHashEntryBuilder Builder;
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_NAME = 4,
-    VT_IS_FILE = 6,
-    VT_HASH = 8
-  };
-  const flatbuffers::String *name() const {
-    return GetPointer<const flatbuffers::String *>(VT_NAME);
-  }
-  flatbuffers::String *mutable_name() {
-    return GetPointer<flatbuffers::String *>(VT_NAME);
-  }
-  bool is_file() const {
-    return GetField<uint8_t>(VT_IS_FILE, 0) != 0;
-  }
-  bool mutate_is_file(bool _is_file) {
-    return SetField<uint8_t>(VT_IS_FILE, static_cast<uint8_t>(_is_file), 0);
-  }
-  const flatbuffers::Vector<uint8_t> *hash() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_HASH);
-  }
-  flatbuffers::Vector<uint8_t> *mutable_hash() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_HASH);
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_NAME) &&
-           verifier.VerifyString(name()) &&
-           VerifyField<uint8_t>(verifier, VT_IS_FILE) &&
-           VerifyOffset(verifier, VT_HASH) &&
-           verifier.VerifyVector(hash()) &&
-           verifier.EndTable();
-  }
-};
-
-struct HpfsFSHashEntryBuilder {
-  typedef HpfsFSHashEntry Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
-    fbb_.AddOffset(HpfsFSHashEntry::VT_NAME, name);
-  }
-  void add_is_file(bool is_file) {
-    fbb_.AddElement<uint8_t>(HpfsFSHashEntry::VT_IS_FILE, static_cast<uint8_t>(is_file), 0);
-  }
-  void add_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash) {
-    fbb_.AddOffset(HpfsFSHashEntry::VT_HASH, hash);
-  }
-  explicit HpfsFSHashEntryBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  HpfsFSHashEntryBuilder &operator=(const HpfsFSHashEntryBuilder &);
-  flatbuffers::Offset<HpfsFSHashEntry> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<HpfsFSHashEntry>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntry(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> name = 0,
-    bool is_file = false,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> hash = 0) {
-  HpfsFSHashEntryBuilder builder_(_fbb);
-  builder_.add_hash(hash);
-  builder_.add_name(name);
-  builder_.add_is_file(is_file);
-  return builder_.Finish();
-}
-
-inline flatbuffers::Offset<HpfsFSHashEntry> CreateHpfsFSHashEntryDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const char *name = nullptr,
-    bool is_file = false,
-    const std::vector<uint8_t> *hash = nullptr) {
-  auto name__ = name ? _fbb.CreateString(name) : 0;
-  auto hash__ = hash ? _fbb.CreateVector<uint8_t>(*hash) : 0;
-  return msg::fbuf::p2pmsg::CreateHpfsFSHashEntry(
-      _fbb,
-      name__,
-      is_file,
-      hash__);
 }
 
 struct HpfsLogRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -2415,10 +2691,43 @@ inline bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const fla
   return true;
 }
 
+inline bool VerifyHpfsRequestHint(flatbuffers::Verifier &verifier, const void *obj, HpfsRequestHint type) {
+  switch (type) {
+    case HpfsRequestHint_NONE: {
+      return true;
+    }
+    case HpfsRequestHint_HpfsFsEntryHint: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsFsEntryHint *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case HpfsRequestHint_HpfsFileHashMapHint: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsFileHashMapHint *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifyHpfsRequestHintVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyHpfsRequestHint(
+        verifier,  values->Get(i), types->GetEnum<HpfsRequestHint>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 inline bool VerifyHpfsResponse(flatbuffers::Verifier &verifier, const void *obj, HpfsResponse type) {
   switch (type) {
     case HpfsResponse_NONE: {
       return true;
+    }
+    case HpfsResponse_HpfsFsEntryResponse: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsFsEntryResponse *>(obj);
+      return verifier.VerifyTable(ptr);
     }
     case HpfsResponse_HpfsFileHashMapResponse: {
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsFileHashMapResponse *>(obj);
@@ -2426,10 +2735,6 @@ inline bool VerifyHpfsResponse(flatbuffers::Verifier &verifier, const void *obj,
     }
     case HpfsResponse_HpfsBlockResponse: {
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsBlockResponse *>(obj);
-      return verifier.VerifyTable(ptr);
-    }
-    case HpfsResponse_HpfsFsEntryResponse: {
-      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsFsEntryResponse *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
