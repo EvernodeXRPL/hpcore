@@ -40,7 +40,6 @@ namespace ledger
             return;
         }
 
-        util::h32 prev_shard_hash_from_hpfs;
         const std::string shard_parent_dir = synced_target.vpath.substr(0, pos);
 
         if (shard_parent_dir == PRIMARY_DIR)
@@ -69,26 +68,18 @@ namespace ledger
 
                 // If existing max shard is older than the max we can keep. Then delete all the existing shards.
                 remove_old_shards(ctx.get_lcl_id().seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
-
-                // If node is in full history mode. Restarting the fs mount, So primary ledger shard sync changes would be reflected in the ro sessions.
-                // Which is used for hpfs log sync.
-                if (conf::cfg.node.history == conf::HISTORY::FULL)
-                {
-                    fs_mount->release_rw_session();
-                    if (fs_mount->acquire_rw_session() == -1)
-                    {
-                        LOG_ERROR << "Error acquring rw session after achieving primary shard.";
-                        return;
-                    }
-                }
             }
 
             if (conf::cfg.node.history == conf::HISTORY::FULL || // Sync all shards if this is a full history node.
                 last_primary_shard_seq_no - synced_shard_seq_no + 1 < conf::cfg.node.history_config.max_primary_shards)
             {
                 // Check whether the hash of the previous shard matches with the hash in the prev_shard.hash file.
-                const std::string prev_shard_vpath = std::string(PRIMARY_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
-                fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                util::h32 prev_shard_hash_from_hpfs = util::h32_empty;
+                if (synced_shard_seq_no > 0)
+                {
+                    const std::string prev_shard_vpath = std::string(PRIMARY_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
+                    fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                }
 
                 if (prev_shard_hash_from_file != util::h32_empty               // Hash in the prev_shard.hash of the 0th shard is h32 empty. Syncing should be stopped then.
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
@@ -135,8 +126,12 @@ namespace ledger
                 last_raw_shard_seq_no - synced_shard_seq_no + 1 < conf::cfg.node.history_config.max_raw_shards)
             {
                 // Check whether the hash of the previous raw shard matches with the hash in the prev_shard.hash file.
-                const std::string prev_shard_vpath = std::string(RAW_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
-                fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                util::h32 prev_shard_hash_from_hpfs = util::h32_empty;
+                if (synced_shard_seq_no > 0)
+                {
+                    const std::string prev_shard_vpath = std::string(RAW_DIR).append("/").append(std::to_string(--synced_shard_seq_no));
+                    fs_mount->get_hash(prev_shard_hash_from_hpfs, hpfs::RW_SESSION_NAME, prev_shard_vpath);
+                }
 
                 if (prev_shard_hash_from_file != util::h32_empty               // Hash in the prev_shard.hash of the 0th shard is h32 empty. Syncing should be stopped then.
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.

@@ -25,6 +25,9 @@ namespace hpfs
     // Max no. of repetitive reqeust resubmissions before abandoning the sync.
     constexpr uint16_t ABANDON_THRESHOLD = 20;
 
+    // No. of mulliseconds to wait before reacquiring hpfs rw session.
+    constexpr uint16_t HPFS_REAQUIRE_WAIT = 10;
+
     constexpr int FILE_PERMS = 0644;
 
     /**
@@ -171,6 +174,11 @@ namespace hpfs
                         if (new_state == current_target.hash)
                         {
                             LOG_INFO << "Hpfs " << name << " sync: Target " << current_target.name << " hash achieved: " << new_state;
+
+                            // After every sync target completion, release and reacquire hpfs rw session so hpfs gets some room
+                            // to update the last checkpoint. This helps any upcoming ro sessions to get updated file system state.
+                            reacquire_rw_session();
+
                             on_current_sync_state_acheived(current_target);
 
                             // Start syncing to next target.
@@ -243,8 +251,7 @@ namespace hpfs
                 if (should_stop_request_loop(current_target_hash))
                     return 0;
 
-                LOG_DEBUG << "Hpfs " << name << " sync: Processing hpfs response from [" << response.first.substr(2, 10) << "]";
-
+                const std::string from = response.first.substr(2, 10); // Sender pubkey.
                 const p2pmsg::P2PMsg &msg = *p2pmsg::GetP2PMsg(response.second.data());
                 const p2pmsg::HpfsResponseMsg &resp_msg = *msg.content_as_HpfsResponseMsg();
 
@@ -256,7 +263,8 @@ namespace hpfs
                 const auto pending_resp_itr = submitted_requests.find(key);
                 if (pending_resp_itr == submitted_requests.end())
                 {
-                    LOG_DEBUG << "Hpfs " << name << " sync: Skipping hpfs response due to hash mismatch.";
+                    LOG_DEBUG << "Hpfs " << name << " sync: Skipping response from [" << from << "] because we are not looking for hash:"
+                              << util::to_hex(hash).substr(0, 10) << " of " << vpath;
                     continue;
                 }
 
@@ -268,17 +276,18 @@ namespace hpfs
                     const p2pmsg::HpfsFsEntryResponse &fs_resp = *resp_msg.content_as_HpfsFsEntryResponse();
 
                     // Get fs entries we have received.
-                    std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> peer_fs_entry_map;
-                    p2pmsg::flatbuf_hpfsfshashentry_to_hpfsfshashentry(peer_fs_entry_map, fs_resp.entries());
+                    std::vector<p2p::hpfs_fs_hash_entry> peer_fs_entries;
+                    p2pmsg::flatbuf_hpfsfshashentries_to_hpfsfshashentries(peer_fs_entries, fs_resp.entries());
 
                     // Validate received fs data against the hash.
-                    if (!validate_fs_entry_hash(vpath, hash, fs_resp.dir_mode(), peer_fs_entry_map))
+                    if (!validate_fs_entry_hash(vpath, hash, fs_resp.dir_mode(), peer_fs_entries))
                     {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to fs entry hash mismatch.";
+                        LOG_INFO << "Hpfs " << name << " sync: Skipping response from [" << from << "] due to fs entry hash mismatch.";
                         continue;
                     }
 
-                    handle_fs_entry_response(vpath, fs_resp.dir_mode(), peer_fs_entry_map);
+                    LOG_DEBUG << "Hpfs " << name << " sync: Processing fs entries response from [" << from << "] for " << vpath;
+                    handle_fs_entry_response(vpath, fs_resp.dir_mode(), peer_fs_entries);
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsFileHashMapResponse)
                 {
@@ -291,11 +300,22 @@ namespace hpfs
                     // Validate received hashmap against the hash.
                     if (!validate_file_hashmap_hash(vpath, hash, file_resp.file_mode(), block_hashes, block_hash_count))
                     {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to file hashmap hash mismatch.";
+                        LOG_INFO << "Hpfs " << name << " sync: Skipping response from [" << from << "] due to file hashmap hash mismatch.";
                         continue;
                     }
 
-                    handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count, file_resp.file_length());
+                    std::set<uint32_t> responded_block_ids;
+                    {
+                        const flatbuffers::Vector<uint32_t> *fbvec = file_resp.responded_block_ids();
+                        const uint32_t *ptr = file_resp.responded_block_ids()->data();
+                        const size_t count = file_resp.responded_block_ids()->size();
+                        for (size_t i = 0; i < count; i++)
+                            responded_block_ids.emplace(ptr[i]);
+                    }
+
+                    LOG_DEBUG << "Hpfs " << name << " sync: Processing file block hashes response from [" << from << "] for " << vpath;
+                    handle_file_hashmap_response(vpath, file_resp.file_mode(), block_hashes, block_hash_count,
+                                                 responded_block_ids, file_resp.file_length());
                 }
                 else if (msg_type == p2pmsg::HpfsResponse_HpfsBlockResponse)
                 {
@@ -308,10 +328,12 @@ namespace hpfs
                     // Validate received block data against the hash.
                     if (!validate_file_block_hash(hash, block_id, buf))
                     {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping hpfs response due to file block hash mismatch.";
+                        LOG_INFO << "Hpfs " << name << " sync: Skipping response from [" << from << "] due to file block hash mismatch.";
                         continue;
                     }
 
+                    LOG_DEBUG << "Hpfs " << name << " sync: Processing block response from [" << from << "] for block_id:" << block_id
+                              << " (len:" << buf.length() << ") of " << vpath;
                     handle_file_block_response(vpath, block_id, buf);
                 }
 
@@ -329,7 +351,8 @@ namespace hpfs
                 // Update the central hpfs state tracker.
                 fs_mount->set_parent_hash(current_target.vpath, updated_state);
 
-                LOG_DEBUG << "Hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target_hash;
+                LOG_DEBUG << "Hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target_hash
+                          << " (" << current_target.vpath << ")";
                 if (updated_state == current_target_hash)
                     return 0;
             }
@@ -369,8 +392,7 @@ namespace hpfs
 
                     // Reset the counter and re-submit request.
                     request.waiting_time = 0;
-                    LOG_DEBUG << "Hpfs " << name << " sync: Resubmitting request...";
-                    submit_request(request);
+                    submit_request(request, false, true);
                 }
             }
 
@@ -383,8 +405,7 @@ namespace hpfs
                     if (should_stop_request_loop(current_target_hash))
                         return 0;
 
-                    const backlog_item &request = pending_requests.front();
-                    submit_request(request);
+                    submit_request(pending_requests.front());
                     pending_requests.pop_front();
                 }
             }
@@ -397,11 +418,11 @@ namespace hpfs
      * @param vpath Virtual path of the fs.
      * @param hash Received hash.
      * @param dir_mode Metadata 'mode' of the directory containing the fs entries.
-     * @param fs_entry_map Received fs entry map.
+     * @param peer_fs_entries Received peer fs entries.
      * @returns true if hash is valid, otherwise false.
     */
     bool hpfs_sync::validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
-                                           const std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
+                                           const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries)
     {
         util::h32 content_hash;
 
@@ -415,7 +436,7 @@ namespace hpfs
         content_hash ^= crypto::get_hash(mode_bytes, sizeof(mode_bytes));
 
         // Then XOR the file hashes to the initial hash.
-        for (const auto &[name, fs_entry] : fs_entry_map)
+        for (const p2p::hpfs_fs_hash_entry &fs_entry : peer_fs_entries)
         {
             content_hash ^= fs_entry.hash;
         }
@@ -503,6 +524,24 @@ namespace hpfs
         hr.expected_hash = expected_hash;
         hr.mount_id = fs_mount->mount_id;
 
+        // Include appropriate hints in the request, so the peer can send pre-emptive responses that are useful to us without having
+        // to submit additional requests.
+        if (!hr.is_file) // Dir fs entry request.
+        {
+            // Include fs entry information from our side in the request.
+            std::vector<hpfs::child_hash_node> child_hash_nodes;
+            fs_mount->get_dir_children_hashes(child_hash_nodes, hpfs::RW_SESSION_NAME, path);
+
+            for (const hpfs::child_hash_node &hn : child_hash_nodes)
+                hr.fs_entry_hints.push_back(p2p::hpfs_fs_hash_entry{hn.name, hn.is_file, hn.hash});
+        }
+        else if (hr.is_file && hr.block_id == -1) // File hash map request.
+        {
+            // Include file hash map information from our side in the request (file might not exist on our side).
+            if (fs_mount->get_file_block_hashes(hr.file_hashmap_hints, hpfs::RW_SESSION_NAME, hr.parent_path) == -1)
+                hr.file_hashmap_hints.clear();
+        }
+
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_hpfs_request(fbuf, hr);
         p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the expected hash to improve reliability of retrieving hpfs state.
@@ -510,101 +549,94 @@ namespace hpfs
 
     /**
      * Submits a pending hpfs request to the peer.
+     * @param request The request to submit and start watching for response.
+     * @param watch_only Whether to actually send the request or watch for corresponding response only.
+     *                   Used for hint response monitoring.
+     * @param is_resubmit Whether this is a request resubmission or not.
      */
-    void hpfs_sync::submit_request(const backlog_item &request)
+    void hpfs_sync::submit_request(const backlog_item &request, const bool watch_only, const bool is_resubmit)
     {
         const std::string key = std::string(request.path)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(util::h32));
         submitted_requests.try_emplace(key, request);
 
-        const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
-        std::string target_pubkey;
-        request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, target_pubkey);
-
-        if (!target_pubkey.empty())
-            LOG_DEBUG << "Hpfs " << name << " sync: Requesting from [" << target_pubkey.substr(2, 10) << "]. type:" << request.type
+        if (watch_only)
+        {
+            LOG_DEBUG << "Hpfs " << name << " sync: Watching response for request. type:" << request.type
                       << " path:" << request.path << " block_id:" << request.block_id
                       << " hash:" << request.expected_hash;
+        }
+        else
+        {
+            const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
+            std::string target_pubkey;
+            request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, target_pubkey);
+
+            LOG_DEBUG << "Hpfs " << name << " sync: " << (is_resubmit ? "Re-submitting" : "Submitting")
+                      << " request to [" << (target_pubkey.empty() ? "" : target_pubkey.substr(2, 10)) << "]. type:" << request.type
+                      << " path:" << request.path << " block_id:" << request.block_id
+                      << " hash:" << request.expected_hash;
+        }
     }
 
     /**
      * Process dir children response.
      * @param vpath Virtual path of the fs.
      * @param dir_mode Metadata 'mode' of dir.
-     * @param fs_entry_map Received fs entry map.
-     * @returns 0 on success, otherwise -1.
+     * @param peer_fs_entries Received peer fs entries.
+     * @returns 0 on success and no fs write peformed. 1 if write performed. -1 on failure.
      */
-    int hpfs_sync::handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, std::unordered_map<std::string, p2p::hpfs_fs_hash_entry> &fs_entry_map)
+    int hpfs_sync::handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries)
     {
-        // Get the parent path of the fs entries we have received.
-        LOG_DEBUG << "Hpfs " << name << " sync: Processing fs entries response for " << vpath;
+        bool write_performed = false;
 
         // Create physical directory on our side if not exist.
-        std::string parent_physical_path = fs_mount->rw_dir + vpath.data();
+        std::string parent_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
         if (util::create_dir_tree_recursive(parent_physical_path) == -1)
             return -1;
 
         // Apply physical dir mode if received mode is different from our side.
-        if (apply_metadata_mode(parent_physical_path, dir_mode, true) == -1)
+        const int metadata_res = apply_metadata_mode(parent_physical_path, dir_mode, true);
+        if (metadata_res == -1)
             return -1;
+        else if (metadata_res == 1)
+            write_performed = true;
 
-        // Get the children hash entries and compare with what we got from peer.
-        std::vector<hpfs::child_hash_node> existing_fs_entries;
-        if (fs_mount->get_dir_children_hashes(existing_fs_entries, hpfs::RW_SESSION_NAME, vpath) == -1)
-            return -1;
-
-        // Request more info on fs entries that exist on both sides but are different.
-        for (const auto &ex_entry : existing_fs_entries)
+        for (const p2p::hpfs_fs_hash_entry &entry : peer_fs_entries)
         {
             // Construct child vpath.
             std::string child_vpath = std::string(vpath)
                                           .append(vpath.back() != '/' ? "/" : "")
-                                          .append(ex_entry.name);
+                                          .append(entry.name);
 
-            const auto peer_itr = fs_entry_map.find(ex_entry.name);
-            if (peer_itr != fs_entry_map.end())
+            if (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED)
             {
-                // Request hpfs state if hash is different.
-                if (peer_itr->second.hash != ex_entry.hash)
-                {
-                    // Prioritize file hpfs requests over directories.
-                    if (ex_entry.is_file)
-                        pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, peer_itr->second.hash});
-                    else
-                        pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, peer_itr->second.hash});
-                }
-
-                fs_entry_map.erase(peer_itr);
+                // We must request for this entry. Prioritize file hpfs requests over directories.
+                if (entry.is_file)
+                    pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, entry.hash});
+                else
+                    pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, entry.hash});
             }
-            else
+            else if (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED)
             {
-                // If there was an entry that does not exist on other side, delete it.
-                std::string child_physical_path = fs_mount->rw_dir + child_vpath.data();
+                // The peer has already responded with a pre-emptive hint response. So we must start watching for it.
+                submit_request(backlog_item{entry.is_file ? BACKLOG_ITEM_TYPE::FILE : BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, entry.hash}, true);
+            }
+            else if (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::NOT_AVAILABLE)
+            {
+                // This entry is not available in peer. So we must delete it from our side.
+                std::string child_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, child_vpath);
 
-                if ((ex_entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
-                    !ex_entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
+                if ((entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
+                    !entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
                     return -1;
 
-                LOG_DEBUG << "Hpfs " << name << " sync: Deleted " << (ex_entry.is_file ? "file" : "dir") << " path " << child_vpath;
+                write_performed = true;
+                LOG_DEBUG << "Hpfs " << name << " sync: Deleted " << (entry.is_file ? "file" : "dir") << " path " << child_vpath;
             }
         }
 
-        // Queue the remaining peer fs entries (that our side does not have at all) to request.
-        for (const auto &[name, fs_entry] : fs_entry_map)
-        {
-            // Construct child vpath.
-            std::string child_vpath = std::string(vpath)
-                                          .append(vpath.back() != '/' ? "/" : "")
-                                          .append(name);
-
-            // Prioritize file hpfs requests over directories.
-            if (fs_entry.is_file)
-                pending_requests.push_front(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, fs_entry.hash});
-            else
-                pending_requests.push_back(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, fs_entry.hash});
-        }
-
-        return 0;
+        return write_performed ? 1 : 0;
     }
 
     /**
@@ -613,13 +645,14 @@ namespace hpfs
      * @param file_mode Received metadata mode of the file.
      * @param hashes Received block hashes.
      * @param hash_count No. of received block hashes.
+     * @param responded_block_ids List of block ids already responded by the peer.
      * @param file_length Size of the file.
-     * @returns 0 on success, otherwise -1.
+     * @returns 0 on success and no write operation performed. 1 if write opreation peformed. -1 on failure.
      */
-    int hpfs_sync::handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count, const uint64_t file_length)
+    int hpfs_sync::handle_file_hashmap_response(std::string_view vpath, const mode_t file_mode, const util::h32 *hashes, const size_t hash_count,
+                                                const std::set<uint32_t> &responded_block_ids, const uint64_t file_length)
     {
-        // Get the file path of the block hashes we have received.
-        LOG_DEBUG << "Hpfs " << name << " sync: Processing file block hashes response for " << vpath;
+        bool write_performed = false;
 
         // File block hashes on our side (file might not exist on our side).
         std::vector<util::h32> existing_hashes;
@@ -632,25 +665,37 @@ namespace hpfs
         const int32_t max_block_id = MAX(existing_hash_count, hash_count) - 1;
         for (int32_t block_id = 0; block_id <= max_block_id; block_id++)
         {
-            // Insert at front to give priority to block requests while preserving block order.
-            if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
+            if (responded_block_ids.count(block_id) == 1)
+            {
+                // The peer has already responded with a hint response. So we must start watching for it.
+                submit_request(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]}, true);
+            }
+            else if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
+            {
+                // Insert at front to give priority to block requests while preserving block order.
                 pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
+            }
         }
 
         if (existing_hashes.size() >= hash_count)
         {
             // If peer file might be smaller, truncate our file to match with peer file.
-            std::string file_physical_path = fs_mount->rw_dir + vpath.data();
+            std::string file_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
             if (truncate(file_physical_path.c_str(), file_length) == -1)
                 return -1;
+
+            write_performed = true;
         }
 
         // Apply physical file mode if received mode is different from our side.
-        const std::string physical_path = fs_mount->rw_dir + vpath.data();
-        if (apply_metadata_mode(physical_path, file_mode, false) == -1)
+        const std::string physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
+        const int metadata_res = apply_metadata_mode(physical_path, file_mode, false);
+        if (metadata_res == -1)
             return -1;
+        else if (metadata_res == 1)
+            write_performed = true;
 
-        return 0;
+        return write_performed ? 1 : 0;
     }
 
     /**
@@ -662,11 +707,7 @@ namespace hpfs
      */
     int hpfs_sync::handle_file_block_response(std::string_view vpath, const uint32_t block_id, std::string_view buf)
     {
-        LOG_DEBUG << "Hpfs " << name << " sync: Writing block_id " << block_id
-                  << " (len:" << buf.length()
-                  << ") of " << vpath;
-
-        std::string file_physical_path = fs_mount->rw_dir + vpath.data();
+        std::string file_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath);
         const int fd = open(file_physical_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, FILE_PERMS);
         if (fd == -1)
         {
@@ -689,7 +730,7 @@ namespace hpfs
     /**
      * Applies the specified to local file/dir if different. If it's a file, this will create the file
      * if not exist.
-     * @returns 0 on success, otherwise -1.
+     * @returns 0 if no change made. 1 if a change was made. -1 on failure.
      */
     int hpfs_sync::apply_metadata_mode(std::string_view physical_path, const mode_t mode, const bool is_dir)
     {
@@ -708,7 +749,7 @@ namespace hpfs
                 }
                 else
                 {
-                    return 0;
+                    return 1;
                 }
             }
 
@@ -724,9 +765,11 @@ namespace hpfs
                 LOG_ERROR << errno << ": Error in applying file/dir mode. " << physical_path;
                 return -1;
             }
+
+            return 1;
         }
 
-        return 0;
+        return 0; // No change made.
     }
 
     /**
@@ -770,6 +813,25 @@ namespace hpfs
             current_target = target_list.front();
             return 1;
         }
+    }
+
+    /**
+     * Releases and reacquires the rw session after a short delay.
+     * This is used to give hpfs some room to update the last checkpoint during long runinng sync operations.
+     * @return 0 on success. -1 on failure.
+     */
+    int hpfs_sync::reacquire_rw_session()
+    {
+        fs_mount->release_rw_session();
+        util::sleep(HPFS_REAQUIRE_WAIT);
+
+        if (fs_mount->acquire_rw_session() == -1)
+        {
+            LOG_ERROR << "Hpfs " << name << " sync: Error reacquring rw session.";
+            return -1;
+        }
+
+        return 0;
     }
 
 } // namespace hpfs
