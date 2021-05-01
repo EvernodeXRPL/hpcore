@@ -20,17 +20,17 @@ namespace hpfs
         int generate_sync_responses(std::list<flatbuffers::FlatBufferBuilder> &fbufs, const p2p::hpfs_request &hr);
 
         void generate_fs_entry_hint_responses(std::list<flatbuffers::FlatBufferBuilder> &fbufs, std::vector<p2p::hpfs_fs_hash_entry> &our_fs_entries,
-                                              const std::vector<p2p::hpfs_fs_hash_entry> &fs_entry_hints, std::string_view parent_path);
+                                              const std::vector<p2p::hpfs_fs_hash_entry> &fs_entry_hints, std::string_view parent_vpath);
 
         int get_data_block_with_hash_check(std::vector<uint8_t> &block, const std::string_view vpath,
                                            const uint32_t block_id, const util::h32 expected_hash);
-        int get_data_block_hashes_with_hash_check(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
+        int get_file_block_hashes_with_hash_check(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
                                                   const std::string_view vpath, const util::h32 expected_hash);
         int get_fs_entry_hashes_with_hash_check(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries,
                                                 const std::string_view vpath, const util::h32 expected_hash);
 
         int get_data_block(std::vector<uint8_t> &block, const std::string_view vpath, const uint32_t block_id);
-        int get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode, const std::string_view vpath);
+        int get_file_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode, const std::string_view vpath);
         int get_fs_entry_hashes(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, const std::string_view vpath);
 
     protected:

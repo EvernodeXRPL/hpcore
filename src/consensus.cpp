@@ -407,7 +407,7 @@ namespace consensus
                           << " state:" << cp.state_hash
                           << " patch:" << cp.patch_hash
                           << " lps:" << cp.last_primary_shard_id
-                          << " lbs:" << cp.last_raw_shard_id
+                          << " lrs:" << cp.last_raw_shard_id
                           << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
                           << "(" << (cp.recv_timestamp > cp.sent_timestamp ? (cp.recv_timestamp - cp.sent_timestamp) : 0) << "ms)";
 
@@ -642,8 +642,8 @@ namespace consensus
                   << " ts:" << p.time
                   << " state:" << p.state_hash
                   << " patch:" << p.patch_hash
-                  << " last_primary_shard_id:" << p.last_primary_shard_id
-                  << " last_raw_shard_id:" << p.last_raw_shard_id;
+                  << " lps:" << p.last_primary_shard_id
+                  << " lrs:" << p.last_raw_shard_id;
     }
 
     /**

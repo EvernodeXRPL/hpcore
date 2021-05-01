@@ -83,7 +83,7 @@ namespace hpfs
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                      const util::h32 expected_hash, std::string &target_pubkey);
 
-        void submit_request(const backlog_item &request, const bool watch_only = false);
+        void submit_request(const backlog_item &request, const bool watch_only = false, const bool is_resubmit = false);
 
         int handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
 

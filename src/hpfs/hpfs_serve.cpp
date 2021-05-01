@@ -11,7 +11,7 @@
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
 /**
- * Class for serving hpfs requests from other peers.
+ * Class for serving hpfs sync requests from other peers.
  */
 namespace hpfs
 {
@@ -159,7 +159,7 @@ namespace hpfs
                 std::vector<util::h32> block_hashes;
                 size_t file_length = 0;
                 mode_t file_mode = 0;
-                const int result = get_data_block_hashes_with_hash_check(block_hashes, file_length, file_mode, hr.parent_path, hr.expected_hash);
+                const int result = get_file_block_hashes_with_hash_check(block_hashes, file_length, file_mode, hr.parent_path, hr.expected_hash);
 
                 if (result == -1)
                 {
@@ -168,6 +168,8 @@ namespace hpfs
                 }
                 else if (result == 1)
                 {
+                    // By looking at the block hashmap hints the requester has provided, we also include pre-emptive data block responses
+                    // that the requester needs.
                     std::vector<uint32_t> responded_block_ids;
                     for (uint32_t block_id = 0; block_id < block_hashes.size(); block_id++)
                     {
@@ -187,6 +189,8 @@ namespace hpfs
                     }
 
                     // Generate parent reply. We must insert it at the begning of replies.
+                    // This is the reply the requester originally requested. But we also indicate in it any pre-emptive hint responses
+                    // we are sending along with it.
                     p2pmsg::create_msg_from_filehashmap_response(
                         fbufs.emplace_front(), hr.parent_path, fs_mount->mount_id, block_hashes,
                         responded_block_ids, file_length, file_mode, hr.expected_hash);
@@ -215,9 +219,14 @@ namespace hpfs
                         return -1;
                     }
 
+                    // By looking at the fs entry hints the requester has provided, we also include pre-emptive hashmap and data block
+                    // responses that the requester needs.
                     generate_fs_entry_hint_responses(fbufs, fs_entries, hr.fs_entry_hints, hr.parent_path);
 
                     // Generate parent reply. We must insert it at the begning of replies.
+                    // This is the reply the requester originally requested. But we also indicate in it any pre-emptive hint responses
+                    // we are sending along with it. In this case, the 'fs entries' we are replying with are already marked as having an
+                    // accompanying pre-emptive hint response.
                     p2pmsg::create_msg_from_fsentry_response(
                         fbufs.emplace_front(), hr.parent_path, fs_mount->mount_id, st.st_mode, fs_entries, hr.expected_hash);
                 }
@@ -227,17 +236,26 @@ namespace hpfs
         return 0;
     }
 
+    /**
+     * Generates flatbuffer messages for any pre-emptive hint responses that we should send according to the fs entry hints provided by the requester.
+     * @param fbufs The flatbuffer message list to populate with hint responses.
+     * @param fs_entries The fs entry collection that is going to be sent with the parent fs entry reply.
+     * @param fs_entry_hints The fs entry hints the requester has provided.
+     * @param parent_path The vpath of the parent directory which contains the fs entries.
+     */
     void hpfs_serve::generate_fs_entry_hint_responses(std::list<flatbuffers::FlatBufferBuilder> &fbufs, std::vector<p2p::hpfs_fs_hash_entry> &fs_entries,
-                                                      const std::vector<p2p::hpfs_fs_hash_entry> &fs_entry_hints, std::string_view parent_path)
+                                                      const std::vector<p2p::hpfs_fs_hash_entry> &fs_entry_hints, std::string_view parent_vpath)
     {
+        // Counters tracking how many pre-emptive hint responses of each type we have generated so far.
         size_t hashmap_responses = 0;
         size_t block_responses = 0;
 
-        // Prepare hint map to provide match comparisons based on hints.
+        // Prepare hint map to provide match comparisons based on hints provided by the requester.
         std::map<std::string, p2p::hpfs_fs_hash_entry> hint_fs_entry_map;
         for (const p2p::hpfs_fs_hash_entry &hint : fs_entry_hints)
             hint_fs_entry_map.emplace(hint.name, std::move(hint));
 
+        // For each fs entry we are replying with, look for the possibilty of generating hint responses.
         for (p2p::hpfs_fs_hash_entry &entry : fs_entries)
         {
             // Check with provided hints to include match information.
@@ -252,19 +270,21 @@ namespace hpfs
             entry.response_type = (exists_on_requester && itr->second.hash == entry.hash) ? p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MATCHED : p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED;
 
             // Send hashmap hint response if we haven't reached the limit.
-            const bool send_hashmap_response = (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED) && hashmap_responses < MAX_HASHMAP_RESPONSES_PER_REQUEST;
+            const bool send_hashmap_response = (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED) && (hashmap_responses < MAX_HASHMAP_RESPONSES_PER_REQUEST);
             if (!send_hashmap_response)
                 continue;
 
-            std::string child_vpath = std::string(parent_path)
-                                          .append(parent_path.back() != '/' ? "/" : "")
+            // Reaching this point means we have to generate the hashmap hint response along with the parent fs entry reply.
+
+            std::string child_vpath = std::string(parent_vpath)
+                                          .append(parent_vpath.back() != '/' ? "/" : "")
                                           .append(entry.name);
             if (entry.is_file)
             {
                 std::vector<util::h32> block_hashes;
                 size_t file_length = 0;
                 mode_t file_mode = 0;
-                if (get_data_block_hashes(block_hashes, file_length, file_mode, child_vpath) != -1)
+                if (get_file_block_hashes(block_hashes, file_length, file_mode, child_vpath) != -1)
                 {
                     std::vector<uint32_t> responded_block_ids;
 
@@ -281,8 +301,11 @@ namespace hpfs
                         }
                     }
 
+                    // If block response already inserted, we must insert hashmap response before that. This is because the hint resposnes must be
+                    // sent in the logical dependency order. In this case, the hashmap hint response will indicate to the requester of any pre-emptive
+                    // block data responses we are sending. Therefore, block data hint response must follow the hashmap hint response.
                     auto pos = fbufs.end();
-                    if (!responded_block_ids.empty()) // If block response already inserted, we must insert hashmap resposne before that.
+                    if (!responded_block_ids.empty())
                         pos--;
                     p2pmsg::create_msg_from_filehashmap_response(
                         *fbufs.emplace(pos), child_vpath, fs_mount->mount_id, block_hashes,
@@ -292,8 +315,9 @@ namespace hpfs
                     hashmap_responses++;
                 }
             }
-            else
+            else // Is dir.
             {
+                // This is a directory, generate an fs entry resposne for that directory.
                 std::vector<p2p::hpfs_fs_hash_entry> fs_entries;
                 if (get_fs_entry_hashes(fs_entries, child_vpath) > 0)
                 {
@@ -358,7 +382,7 @@ namespace hpfs
      * Retrieves the specified file block hashes if expected hash matches.
      * @return 1 if block hashes were successfuly fetched. 0 if hash mismatch. -1 on error.
      */
-    int hpfs_serve::get_data_block_hashes_with_hash_check(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
+    int hpfs_serve::get_file_block_hashes_with_hash_check(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode,
                                                           const std::string_view vpath, const util::h32 expected_hash)
     {
         // Check whether the existing file hash matches expected hash.
@@ -373,7 +397,7 @@ namespace hpfs
             }
             else
             {
-                if (get_data_block_hashes(hashes, file_length, file_mode, vpath) == -1)
+                if (get_file_block_hashes(hashes, file_length, file_mode, vpath) == -1)
                     result = -1;
                 else
                     result = 1; // Success.
@@ -474,7 +498,7 @@ namespace hpfs
      * Fetches the file data block hash list.
      * @return 0 on success. -1 on error.
      */
-    int hpfs_serve::get_data_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode, const std::string_view vpath)
+    int hpfs_serve::get_file_block_hashes(std::vector<util::h32> &hashes, size_t &file_length, mode_t &file_mode, const std::string_view vpath)
     {
         // Get the block hashes.
         if (fs_mount->get_file_block_hashes(hashes, HPFS_SESSION_NAME, vpath) < 0)
