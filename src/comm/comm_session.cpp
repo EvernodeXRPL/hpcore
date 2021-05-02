@@ -124,9 +124,9 @@ namespace comm
 
         int res = 0;
 
-        // Process high priority queue top.
+        // Process all messages in high priority queue.
         std::vector<char> msg;
-        if (in_msg_queue1.try_dequeue(msg))
+        while (in_msg_queue1.try_dequeue(msg))
         {
             std::string_view sv(msg.data(), msg.size());
 
@@ -156,19 +156,25 @@ namespace comm
         return res;
     }
 
-    int comm_session::send(const std::vector<uint8_t> &message)
+    /**
+     * Adds the given message to the outbound message queue.
+     * @param message Message to be added to the outbound queue.
+     * @param priority If 1 adds to high priority queue. Else adds to low priority queue.
+     * @return 0 on successful addition and -1 if the session is already closed.
+    */
+    int comm_session::send(const std::vector<uint8_t> &message, const uint16_t priority)
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
-        send(sv);
-        return 0;
+        return send(sv);
     }
 
     /**
      * Adds the given message to the outbound message queue.
      * @param message Message to be added to the outbound queue.
-     * @return 0 on successful addition and -1 if the session is already closed or there's no space in the queue.
+     * @param priority If 1 adds to high priority queue. Else adds to low priority queue.
+     * @return 0 on successful addition and -1 if the session is already closed.
     */
-    int comm_session::send(std::string_view message)
+    int comm_session::send(std::string_view message, const uint16_t priority)
     {
         if (state == SESSION_STATE::CLOSED)
             return -1;
@@ -176,8 +182,12 @@ namespace comm
         // Updating last activity timestamp since this session is sending a message.
         last_activity_timestamp = util::get_epoch_milliseconds();
 
-        // Passing the ownership of message to the queue.
-        out_msg_queue.enqueue(std::string(message));
+        // Passing the ownership of message to the queue based on specified priority.
+        if (priority == 1)
+            out_msg_queue1.enqueue(std::string(message));
+        else
+            out_msg_queue2.enqueue(std::string(message));
+
         return 0;
     }
 
@@ -211,18 +221,27 @@ namespace comm
         // Keep checking until the session is terminated.
         while (state != SESSION_STATE::CLOSED)
         {
+            bool messages_sent = false;
             std::string msg_to_send;
 
-            // If the queue is not empty, the first element will be processed,
-            // else wait 10ms until queue gets populated.
-            if (out_msg_queue.try_dequeue(msg_to_send))
+            // Send all messages in high priority queue.
+            while (out_msg_queue1.try_dequeue(msg_to_send))
             {
                 process_outbound_message(msg_to_send);
+                msg_to_send.clear();
+                messages_sent = true;
             }
-            else
+
+            // Send top message in low priority queue.
+            if (out_msg_queue2.try_dequeue(msg_to_send))
             {
-                util::sleep(10);
+                process_outbound_message(msg_to_send);
+                messages_sent = true;
             }
+
+            // Wait for small delay if there were no outbound messages.
+            if (!messages_sent)
+                util::sleep(10);
         }
     }
 

@@ -60,7 +60,7 @@ namespace p2p
         const auto p2p_msg = p2pmsg::GetP2PMsg(message.data());
         const msg::fbuf::p2pmsg::P2PMsgContent type = p2p_msg->content_type();
 
-        if (type == p2pmsg::P2PMsgContent_ProposalMsg || type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
+        if (type == p2pmsg::P2PMsgContent_ProposalMsg)
             return 1; // High priority
         else
             return 2; // Low priority

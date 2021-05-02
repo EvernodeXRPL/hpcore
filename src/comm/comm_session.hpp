@@ -37,7 +37,8 @@ namespace comm
         std::thread writer_thread;                                      // The thread responsible for writing messages to the write fd.
         moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue1; // Holds high priority incoming messages waiting to be processed.
         moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue2; // Holds low priority incoming messages waiting to be processed.
-        moodycamel::ConcurrentQueue<std::string> out_msg_queue;         // Holds outgoing messages waiting to be processed.
+        moodycamel::ConcurrentQueue<std::string> out_msg_queue1;        // Holds high priority outgoing messages waiting to be processed.
+        moodycamel::ConcurrentQueue<std::string> out_msg_queue2;        // Holds low priority outgoing messages waiting to be processed.
 
         void reader_loop();
 
@@ -62,8 +63,8 @@ namespace comm
             std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
         int init();
         int process_next_inbound_message();
-        int send(const std::vector<uint8_t> &message);
-        int send(std::string_view message);
+        int send(const std::vector<uint8_t> &message, const uint16_t priority = 2);
+        int send(std::string_view message, const uint16_t priority = 2);
         int process_outbound_message(std::string_view message);
         void process_outbound_msg_queue();
         void check_last_activity_rules();
