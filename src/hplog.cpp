@@ -61,11 +61,11 @@ namespace hplog
     {
         plog::Severity level;
 
-        if (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::DEBUG)
+        if (conf::cfg.log.log_level_type == conf::LOG_SEVERITY::DEBUG)
             level = plog::Severity::debug;
-        else if (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::INFO)
+        else if (conf::cfg.log.log_level_type == conf::LOG_SEVERITY::INFO)
             level = plog::Severity::info;
-        else if (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::WARN)
+        else if (conf::cfg.log.log_level_type == conf::LOG_SEVERITY::WARN)
             level = plog::Severity::warning;
         else
             level = plog::Severity::error;

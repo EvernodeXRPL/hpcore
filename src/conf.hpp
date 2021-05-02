@@ -59,24 +59,6 @@ namespace conf
         uint64_t max_raw_shards = 0;     // Maximum number of shards for raw data shards.
     };
 
-    // Log severity levels used in Hot Pocket.
-    enum LOG_SEVERITY
-    {
-        DEBUG,
-        INFO,
-        WARN,
-        ERROR
-    };
-
-    struct log_config
-    {
-        std::string loglevel;                    // Log severity level (debug, info, warn, error)
-        LOG_SEVERITY loglevel_type;              // Log severity level enum (debug, info, warn, error)
-        std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
-        size_t max_mbytes_per_file = 0;          // Max MB size of a single log file.
-        size_t max_file_count = 0;               // Max no. of log files to keep.
-    };
-
     struct node_config
     {
         // Config elements which are initialized in memory (these are not directly loaded from the config file)
@@ -167,9 +149,15 @@ namespace conf
         peer_discovery_config peer_discovery;     // Peer discovery configs.
     };
 
+    struct hpfs_log_config
+    {
+        std::string log_level; // Log severity level (dbg, inf, wrn, wrr)
+    };
+
     struct hpfs_config
     {
         bool external = false; // Whether to refrain from manageing built-in hpfs process or not.
+        hpfs_log_config log;
     };
 
     // Holds contextual information about the currently loaded contract.
@@ -196,6 +184,24 @@ namespace conf
 
         int config_fd = -1;       // Config file file descriptor.
         struct flock config_lock; // Config file lock.
+    };
+
+    // Log severity levels used in Hot Pocket.
+    enum LOG_SEVERITY
+    {
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR
+    };
+
+    struct log_config
+    {
+        std::string log_level;                    // Log severity level (dbg, inf, wrn, wrr)
+        LOG_SEVERITY log_level_type;              // Log severity level enum (debug, info, warn, error)
+        std::unordered_set<std::string> loggers; // List of enabled loggers (console, file)
+        size_t max_mbytes_per_file = 0;          // Max MB size of a single log file.
+        size_t max_file_count = 0;               // Max no. of log files to keep.
     };
 
     // Holds all the config values.
