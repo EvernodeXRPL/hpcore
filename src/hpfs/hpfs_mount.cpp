@@ -9,9 +9,6 @@
 
 namespace hpfs
 {
-    constexpr const char *TRACE_ARG_ERROR = "trace=error";
-    // Trace is set to error intentionally to prevent log pollution in debug mode. Change this in hpfs specific debugging.
-    constexpr const char *TRACE_ARG_DEBUG = "trace=error";
     constexpr const char *RW_SESSION = "/::hpfs.rw.hmap";
     constexpr const char *RO_SESSION = "/::hpfs.ro.";
     constexpr const char *RO_SESSION_HMAP = "/::hpfs.ro.hmap.";
@@ -134,7 +131,7 @@ namespace hpfs
             // hpfs process.
             util::fork_detach();
 
-            const char *active_hpfs_trace_arg = (conf::cfg.log.loglevel_type == conf::LOG_SEVERITY::DEBUG ? TRACE_ARG_DEBUG : TRACE_ARG_ERROR);
+            const std::string trace_arg = "trace=" + conf::cfg.hpfs.log.log_level;
 
             // Fill process args.
             char *execv_args[] = {
@@ -144,7 +141,7 @@ namespace hpfs
                 (char *)mount_dir.data(),
                 // In full history mode, we disable log merge of hpfs.
                 (char *)(is_full_history ? "merge=false" : "merge=true"),
-                (char *)active_hpfs_trace_arg,
+                (char *)trace_arg.data(),
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
