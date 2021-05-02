@@ -617,7 +617,7 @@ namespace consensus
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_nonunl_proposal(fbuf, nup);
-        p2p::broadcast_message(fbuf, true);
+        p2p::broadcast_message(fbuf, true, false, false, 1); // Use high priority send.
 
         LOG_DEBUG << "NUP sent."
                   << " users:" << nup.user_inputs.size();

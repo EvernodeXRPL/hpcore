@@ -11,6 +11,7 @@ namespace comm
     constexpr uint32_t INTERVALMS = 60000;
     constexpr uint32_t UNVERIFIED_INACTIVE_TIMEOUT = 5000; // Time threshold ms for unverified inactive connections.
     constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 64;         // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
+    constexpr uint16_t MAX_INBOUND_HIGH_PRIO_BTACH = 2;    // Maximum no. of incomning high priority messages to process at a time.
 
     comm_session::comm_session(
         std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
@@ -123,21 +124,25 @@ namespace comm
             return 0;
 
         int res = 0;
-
-        // Process all messages in high priority queue.
         std::vector<char> msg;
-        while (in_msg_queue1.try_dequeue(msg))
+
+        // Process messages in high priority queue.
         {
-            std::string_view sv(msg.data(), msg.size());
+            uint16_t high_prio_msgs_processed = 0;
+            while (high_prio_msgs_processed < MAX_INBOUND_HIGH_PRIO_BTACH && in_msg_queue1.try_dequeue(msg))
+            {
+                high_prio_msgs_processed++;
+                std::string_view sv(msg.data(), msg.size());
 
-            // If session handler returns -1 then that means the session must be closed.
-            // Otherwise it's considered message processing is successful.
-            if (handle_message(sv) == -1)
-                return -1;
-            else
-                res = 1;
+                // If session handler returns -1 then that means the session must be closed.
+                // Otherwise it's considered message processing is successful.
+                if (handle_message(sv) == -1)
+                    return -1;
+                else
+                    res = 1;
 
-            msg.clear();
+                msg.clear();
+            }
         }
 
         // Process low priority queue top.
