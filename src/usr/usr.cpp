@@ -79,7 +79,7 @@ namespace usr
     int start_listening()
     {
         ctx.server.emplace("User", conf::cfg.user.port, metric_thresholds, conf::cfg.user.max_bytes_per_msg,
-                           conf::cfg.user.max_connections, conf::cfg.user.max_in_connections_per_host);
+                           conf::cfg.user.max_connections, conf::cfg.user.max_in_connections_per_host, false);
         if (ctx.server->start() == -1)
             return -1;
 

@@ -62,7 +62,7 @@ namespace comm
         comm_session(
             std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
         int init();
-        int process_next_inbound_message();
+        int process_next_inbound_message(const uint16_t priority);
         int send(const std::vector<uint8_t> &message, const uint16_t priority = 2);
         int send(std::string_view message, const uint16_t priority = 2);
         int process_outbound_message(std::string_view message);

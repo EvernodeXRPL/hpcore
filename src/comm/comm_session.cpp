@@ -11,7 +11,6 @@ namespace comm
     constexpr uint32_t INTERVALMS = 60000;
     constexpr uint32_t UNVERIFIED_INACTIVE_TIMEOUT = 5000; // Time threshold ms for unverified inactive connections.
     constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 64;         // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
-    constexpr uint16_t MAX_INBOUND_HIGH_PRIO_BTACH = 2;    // Maximum no. of incomning high priority messages to process at a time.
 
     comm_session::comm_session(
         std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
@@ -116,37 +115,21 @@ namespace comm
 
     /**
      * Processes the next queued message (if any).
-     * @return 0 if no messages in queue. 1 if messages were processed. -1 means session must be closed.
+     * @param priority Which priority queue to process.
+     * @return 0 if no messages in queue. 1 if a message were processed. -1 means session must be closed.
      */
-    int comm_session::process_next_inbound_message()
+    int comm_session::process_next_inbound_message(const uint16_t priority)
     {
         if (state != SESSION_STATE::ACTIVE)
             return 0;
 
         int res = 0;
+
+        moodycamel::ReaderWriterQueue<std::vector<char>> &queue = (priority == 1 ? in_msg_queue1 : in_msg_queue2);
+
+        // Process queue top.
         std::vector<char> msg;
-
-        // Process messages in high priority queue.
-        {
-            uint16_t high_prio_msgs_processed = 0;
-            while (high_prio_msgs_processed < MAX_INBOUND_HIGH_PRIO_BTACH && in_msg_queue1.try_dequeue(msg))
-            {
-                high_prio_msgs_processed++;
-                std::string_view sv(msg.data(), msg.size());
-
-                // If session handler returns -1 then that means the session must be closed.
-                // Otherwise it's considered message processing is successful.
-                if (handle_message(sv) == -1)
-                    return -1;
-                else
-                    res = 1;
-
-                msg.clear();
-            }
-        }
-
-        // Process low priority queue top.
-        if (in_msg_queue2.try_dequeue(msg))
+        if (queue.try_dequeue(msg))
         {
             std::string_view sv(msg.data(), msg.size());
 
