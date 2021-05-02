@@ -177,9 +177,11 @@ namespace conf
             cfg.user.port = 8080;
             cfg.user.idle_timeout = 0;
 
+            cfg.hpfs.log.log_level = "err";
+
             cfg.log.max_file_count = 50;
             cfg.log.max_mbytes_per_file = 10;
-            cfg.log.loglevel = "inf";
+            cfg.log.log_level = "inf";
             cfg.log.loggers.emplace("console");
             cfg.log.loggers.emplace("file");
 
@@ -475,6 +477,9 @@ namespace conf
             {
                 const jsoncons::ojson &hpfs = d["hpfs"];
                 cfg.hpfs.external = hpfs["external"].as<bool>();
+
+                const jsoncons::ojson &hpfs_log = hpfs["log"];
+                cfg.hpfs.log.log_level = hpfs_log["log_level"].as<std::string>();
             }
             catch (const std::exception &e)
             {
@@ -490,8 +495,9 @@ namespace conf
             try
             {
                 const jsoncons::ojson &log = d["log"];
-                cfg.log.loglevel = log["loglevel"].as<std::string>();
-                cfg.log.loglevel_type = get_loglevel_type(cfg.log.loglevel);
+                cfg.log.log_level = log["log_level"].as<std::string>();
+                cfg.log.log_level_type = get_loglevel_type(cfg.log.log_level);
+
                 cfg.log.max_mbytes_per_file = log["max_mbytes_per_file"].as<size_t>();
                 cfg.log.max_file_count = log["max_file_count"].as<size_t>();
                 cfg.log.loggers.clear();
@@ -593,13 +599,18 @@ namespace conf
         {
             jsoncons::ojson hpfs_config;
             hpfs_config.insert_or_assign("external", cfg.hpfs.external);
+
+            jsoncons::ojson hpfs_log_config;
+            hpfs_log_config.insert_or_assign("log_level", cfg.hpfs.log.log_level);
+
+            hpfs_config.insert_or_assign("log", hpfs_log_config);
             d.insert_or_assign("hpfs", hpfs_config);
         }
 
         // Log configs.
         {
             jsoncons::ojson log_config;
-            log_config.insert_or_assign("loglevel", cfg.log.loglevel);
+            log_config.insert_or_assign("log_level", cfg.log.log_level);
             log_config.insert_or_assign("max_mbytes_per_file", cfg.log.max_mbytes_per_file);
             log_config.insert_or_assign("max_file_count", cfg.log.max_file_count);
 
@@ -638,7 +649,7 @@ namespace conf
         fields_invalid |= cfg.contract.id.empty() && std::cerr << "Invalid value for contract id.\n";
         fields_invalid |= cfg.mesh.port == 0 && std::cerr << "Invalid value for mesh port\n";
         fields_invalid |= cfg.user.port == 0 && std::cerr << "Invalid value for user port\n";
-        fields_invalid |= cfg.log.loglevel.empty() && std::cerr << "Invalid value for loglevel\n";
+        fields_invalid |= cfg.log.log_level.empty() && std::cerr << "Invalid value for loglevel\n";
         fields_invalid |= cfg.log.loggers.empty() && std::cerr << "Invalid value for loggers\n";
 
         if (fields_invalid)
@@ -656,9 +667,14 @@ namespace conf
 
         // Log settings
         const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err"});
-        if (valid_loglevels.count(cfg.log.loglevel) != 1)
+        if (valid_loglevels.count(cfg.log.log_level) != 1)
         {
             std::cerr << "Invalid loglevel configured. Valid values: dbg|inf|wrn|err\n";
+            return -1;
+        }
+        else if (valid_loglevels.count(cfg.hpfs.log.log_level) != 1)
+        {
+            std::cerr << "Invalid hpfs loglevel configured. Valid values: dbg|inf|wrn|err\n";
             return -1;
         }
 
