@@ -35,7 +35,7 @@ namespace sc
             return -1;
         }
 
-        if (contract_server.init("contract", &contract_fs) == -1)
+        if (contract_server.init("cont", &contract_fs) == -1)
         {
             LOG_ERROR << "Contract file system serve worker initialization failed.";
             return -1;
@@ -47,7 +47,7 @@ namespace sc
         }
         else
         {
-            if (contract_sync_worker.init("contract", &contract_fs) == -1)
+            if (contract_sync_worker.init("cont", &contract_fs) == -1)
             {
                 LOG_ERROR << "Contract file system sync worker initialization failed.";
                 return -1;

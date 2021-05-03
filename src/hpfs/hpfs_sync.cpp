@@ -169,7 +169,7 @@ namespace hpfs
                     util::h32 target_hash;
                     {
                         std::shared_lock lock(current_target_mutex);
-                        LOG_INFO << "Hpfs " << name << " sync: " << current_target.vpath << " Starting sync. target: " << current_target.hash;
+                        LOG_INFO << "Hpfs " << name << " sync: Starting target:" << current_target.hash << " " << current_target.vpath;
                         target_hash = current_target.hash;
                     }
 
@@ -193,23 +193,23 @@ namespace hpfs
 
                         if (result == 2)
                         {
-                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for " << current_target.vpath << " | new hash: " << current_target.hash;
+                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new hash:" << current_target.hash << " " << current_target.vpath;
                             continue;
                         }
                         else
                         {
                             if (result == -1)
                             {
-                                LOG_ERROR << "Hpfs " << name << " sync: " << current_target.vpath << " sync abandoned with error.";
+                                LOG_ERROR << "Hpfs " << name << " sync: Sync abandoned with error. " << current_target.vpath;
                             }
                             else if (result == 0)
                             {
-                                LOG_DEBUG << "Hpfs " << name << " sync: " << current_target.vpath << " sync abandoned.";
+                                LOG_DEBUG << "Hpfs " << name << " sync: Sync abandoned. " << current_target.vpath;
                                 on_sync_abandoned();
                             }
                             else if (result == 1)
                             {
-                                LOG_INFO << "Hpfs " << name << " sync: " << current_target.vpath << " target hash achived:" << current_target.hash;
+                                LOG_INFO << "Hpfs " << name << " sync: Achieved target:" << current_target.hash << " " << current_target.vpath;
                                 on_current_sync_state_acheived(current_target);
                             }
 
@@ -389,7 +389,7 @@ namespace hpfs
                 if (updated_state == current_target_hash)
                     return 1;
                 else
-                    LOG_DEBUG << "Hpfs " << name << " sync: " << current_target.vpath << " | current:" << updated_state << " | target:" << current_target_hash;
+                    LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_state << " | target:" << current_target_hash << " " << current_target.vpath;
             }
 
             candidate_hpfs_responses.clear();

@@ -66,13 +66,13 @@ namespace ledger
             return -1;
         }
 
-        if (ledger_server.init("ledger", &ledger_fs) == -1)
+        if (ledger_server.init("ldgr", &ledger_fs) == -1)
         {
             LOG_ERROR << "Ledger file system serve worker initialization failed.";
             return -1;
         }
 
-        if (ledger_sync_worker.init("ledger", &ledger_fs) == -1)
+        if (ledger_sync_worker.init("ldgr", &ledger_fs) == -1)
         {
             LOG_ERROR << "Ledger file system sync worker initialization failed.";
             return -1;
