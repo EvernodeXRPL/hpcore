@@ -395,10 +395,10 @@ namespace consensus
             while (itr != ctx.candidate_proposals.end())
             {
                 const p2p::proposal &cp = itr->second;
-                const int8_t stage_diff = ctx.stage - cp.stage;
 
-                // Only consider this round's proposals which are from previous stage.
-                const bool keep_candidate = (ctx.round_start_time == cp.time) && (stage_diff == 1);
+                // Only consider this round's proposals which are from current or previous stage.
+                const bool stage_valid = ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1;
+                const bool keep_candidate = (ctx.round_start_time == cp.time) && stage_valid;
                 LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                           << " [s" << std::to_string(cp.stage)
                           << "] u/i:" << cp.users.size()
