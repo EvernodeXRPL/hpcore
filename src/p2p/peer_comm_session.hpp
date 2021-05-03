@@ -16,6 +16,7 @@ namespace p2p
 
     private:
         int handle_connect();
+        int get_message_priority(std::string_view msg);
         int handle_message(std::string_view msg);
         void handle_close();
         void handle_on_verified();

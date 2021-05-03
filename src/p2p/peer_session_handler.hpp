@@ -7,6 +7,7 @@
 namespace p2p
 {
     int handle_peer_connect(p2p::peer_comm_session &session);
+    int get_message_priority(std::string_view message);
     int handle_peer_message(p2p::peer_comm_session &session, std::string_view message);
     int handle_self_message(std::string_view message);
     int handle_peer_close(const p2p::peer_comm_session &session);

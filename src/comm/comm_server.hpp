@@ -12,6 +12,7 @@ namespace comm
 {
     constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 5 * 1024 * 1024;
     constexpr uint64_t DEFAULT_MAX_CONNECTIONS = 99999;
+    constexpr uint16_t MAX_INBOUND_HIGH_PRIO_BTACH = 2; // Maximum no. of incomning high priority messages to process at a time.
 
     template <typename T>
     class comm_server
@@ -21,6 +22,7 @@ namespace comm
         const uint64_t max_msg_size;
         const uint64_t max_in_connections;
         const uint64_t max_in_connections_per_host;
+        bool use_priority_queues = false; // Whether to activate inbound message high vs low priority-based processing.
         bool is_shutting_down = false;
         std::list<T> sessions;
         std::list<T> new_sessions; // Sessions that haven't been initialized properly which are yet to be merge to "sessions" list.
@@ -168,11 +170,33 @@ namespace comm
                     messages_processed = true;
 
                 {
-                    // Process one message from each session in round-robin fashion.
                     std::scoped_lock<std::mutex> lock(sessions_mutex);
+
+                    if (use_priority_queues)
+                    {
+                        // Process high priority messages from each session in round-robin fashion.
+                        for (T &session : sessions)
+                        {
+                            // Process predefined no. of high priority messages from each session.
+
+                            uint16_t high_prio_msgs_processed = 0; // High priority messages so far processed from this session.
+                            int result = 0;
+                            while (high_prio_msgs_processed < MAX_INBOUND_HIGH_PRIO_BTACH && // Check if we have reached the batch limit.
+                                   (result = session.process_next_inbound_message(1)) != 0)
+                            {
+                                high_prio_msgs_processed++;
+                                messages_processed = true;
+
+                                if (result == -1)
+                                    session.mark_for_closure();
+                            }
+                        }
+                    }
+
+                    // Process one low priority message from each session in round-robin fashion.
                     for (T &session : sessions)
                     {
-                        const int result = session.process_next_inbound_message();
+                        const int result = session.process_next_inbound_message(2);
 
                         if (result != 0)
                             messages_processed = true;
@@ -217,13 +241,14 @@ namespace comm
 
     public:
         comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
-                    const uint64_t max_in_connections, const uint64_t max_in_connections_per_host)
+                    const uint64_t max_in_connections, const uint64_t max_in_connections_per_host, const bool use_priority_queues)
             : name(name),
               listen_port(port),
               metric_thresholds(metric_thresholds),
               max_msg_size(max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE),
               max_in_connections(max_in_connections > 0 ? max_in_connections : DEFAULT_MAX_CONNECTIONS),
-              max_in_connections_per_host(max_in_connections_per_host > 0 ? max_in_connections_per_host : DEFAULT_MAX_CONNECTIONS)
+              max_in_connections_per_host(max_in_connections_per_host > 0 ? max_in_connections_per_host : DEFAULT_MAX_CONNECTIONS),
+              use_priority_queues(use_priority_queues)
         {
         }
 

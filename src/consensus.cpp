@@ -395,10 +395,10 @@ namespace consensus
             while (itr != ctx.candidate_proposals.end())
             {
                 const p2p::proposal &cp = itr->second;
-                const int8_t stage_diff = ctx.stage - cp.stage;
 
-                // Only consider this round's proposals which are from previous stage.
-                const bool keep_candidate = (ctx.round_start_time == cp.time) && (stage_diff == 1);
+                // Only consider this round's proposals which are from current or previous stage.
+                const bool stage_valid = ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1;
+                const bool keep_candidate = (ctx.round_start_time == cp.time) && stage_valid;
                 LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                           << " [s" << std::to_string(cp.stage)
                           << "] u/i:" << cp.users.size()
@@ -617,7 +617,7 @@ namespace consensus
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_nonunl_proposal(fbuf, nup);
-        p2p::broadcast_message(fbuf, true);
+        p2p::broadcast_message(fbuf, true, false, false, 1); // Use high priority send.
 
         LOG_DEBUG << "NUP sent."
                   << " users:" << nup.user_inputs.size();
@@ -635,7 +635,7 @@ namespace consensus
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_proposal(fbuf, p);
-        p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public);
+        p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public, 1); // Use high priority send.
 
         LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i:" << p.users.size()
                   << "/" << p.input_ordered_hashes.size()

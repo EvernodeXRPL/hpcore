@@ -9,6 +9,11 @@ namespace p2p
         return p2p::handle_peer_connect(*this);
     }
 
+    int peer_comm_session::get_message_priority(std::string_view msg)
+    {
+        return p2p::get_message_priority(msg);
+    }
+
     int peer_comm_session::handle_message(std::string_view msg)
     {
         return p2p::handle_peer_message(*this, msg);
