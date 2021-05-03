@@ -660,7 +660,7 @@ namespace sc
         {
             flatbuffers::FlatBufferBuilder fbuf;
             msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl_id());
-            p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public);
+            p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public, 1); // Use high priority send.
         }
     }
 

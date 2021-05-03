@@ -18,7 +18,8 @@ namespace comm
           host_address(host_address),
           hpws_client(std::move(hpws_client)),
           is_inbound(is_inbound),
-          in_msg_queue(MAX_IN_MSG_QUEUE_SIZE)
+          in_msg_queue1(MAX_IN_MSG_QUEUE_SIZE),
+          in_msg_queue2(MAX_IN_MSG_QUEUE_SIZE)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -75,9 +76,23 @@ namespace comm
 
                 // Enqueue the message for processing.
                 std::string_view data = std::get<std::string_view>(read_result);
-                std::vector<char> msg(data.size());
-                memcpy(msg.data(), data.data(), data.size());
-                in_msg_queue.try_enqueue(std::move(msg));
+
+                // Detect message priority before adding to the message queue.
+                const int priority = get_message_priority(data);
+                if (priority == 0) // priority 0 means a bad message.
+                {
+                    increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+                }
+                else if (priority == 1 || priority == 2)
+                {
+                    std::vector<char> msg(data.size());
+                    memcpy(msg.data(), data.data(), data.size());
+
+                    if (priority == 1)
+                        in_msg_queue1.try_enqueue(std::move(msg));
+                    else if (priority == 2)
+                        in_msg_queue2.try_enqueue(std::move(msg));
+                }
 
                 // Signal the hpws client that we are ready for next message.
                 std::optional<hpws::error> error = hpws_client->ack(data);
@@ -100,40 +115,54 @@ namespace comm
 
     /**
      * Processes the next queued message (if any).
-     * @return 0 if no messages in queue. 1 if message was processed. -1 means session must be closed.
+     * @param priority Which priority queue to process.
+     * @return 0 if no messages in queue. 1 if a message were processed. -1 means session must be closed.
      */
-    int comm_session::process_next_inbound_message()
+    int comm_session::process_next_inbound_message(const uint16_t priority)
     {
         if (state != SESSION_STATE::ACTIVE)
             return 0;
 
+        int res = 0;
+
+        moodycamel::ReaderWriterQueue<std::vector<char>> &queue = (priority == 1 ? in_msg_queue1 : in_msg_queue2);
+
+        // Process queue top.
         std::vector<char> msg;
-        if (in_msg_queue.try_dequeue(msg))
+        if (queue.try_dequeue(msg))
         {
             std::string_view sv(msg.data(), msg.size());
-            const int sess_handler_result = handle_message(sv);
 
             // If session handler returns -1 then that means the session must be closed.
             // Otherwise it's considered message processing is successful.
-            return sess_handler_result == -1 ? -1 : 1;
+            if (handle_message(sv) == -1)
+                return -1;
+            else
+                res = 1;
         }
 
-        return 0;
-    }
-
-    int comm_session::send(const std::vector<uint8_t> &message)
-    {
-        std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
-        send(sv);
-        return 0;
+        return res;
     }
 
     /**
      * Adds the given message to the outbound message queue.
      * @param message Message to be added to the outbound queue.
-     * @return 0 on successful addition and -1 if the session is already closed or there's no space in the queue.
+     * @param priority If 1 adds to high priority queue. Else adds to low priority queue.
+     * @return 0 on successful addition and -1 if the session is already closed.
     */
-    int comm_session::send(std::string_view message)
+    int comm_session::send(const std::vector<uint8_t> &message, const uint16_t priority)
+    {
+        std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
+        return send(sv);
+    }
+
+    /**
+     * Adds the given message to the outbound message queue.
+     * @param message Message to be added to the outbound queue.
+     * @param priority If 1 adds to high priority queue. Else adds to low priority queue.
+     * @return 0 on successful addition and -1 if the session is already closed.
+    */
+    int comm_session::send(std::string_view message, const uint16_t priority)
     {
         if (state == SESSION_STATE::CLOSED)
             return -1;
@@ -141,8 +170,12 @@ namespace comm
         // Updating last activity timestamp since this session is sending a message.
         last_activity_timestamp = util::get_epoch_milliseconds();
 
-        // Passing the ownership of message to the queue.
-        out_msg_queue.enqueue(std::string(message));
+        // Passing the ownership of message to the queue based on specified priority.
+        if (priority == 1)
+            out_msg_queue1.enqueue(std::string(message));
+        else
+            out_msg_queue2.enqueue(std::string(message));
+
         return 0;
     }
 
@@ -176,18 +209,27 @@ namespace comm
         // Keep checking until the session is terminated.
         while (state != SESSION_STATE::CLOSED)
         {
+            bool messages_sent = false;
             std::string msg_to_send;
 
-            // If the queue is not empty, the first element will be processed,
-            // else wait 10ms until queue gets populated.
-            if (out_msg_queue.try_dequeue(msg_to_send))
+            // Send all messages in high priority queue.
+            while (out_msg_queue1.try_dequeue(msg_to_send))
             {
                 process_outbound_message(msg_to_send);
+                msg_to_send.clear();
+                messages_sent = true;
             }
-            else
+
+            // Send top message in low priority queue.
+            if (out_msg_queue2.try_dequeue(msg_to_send))
             {
-                util::sleep(10);
+                process_outbound_message(msg_to_send);
+                messages_sent = true;
             }
+
+            // Wait for small delay if there were no outbound messages.
+            if (!messages_sent)
+                util::sleep(10);
         }
     }
 
@@ -275,7 +317,7 @@ namespace comm
             // Reset counter timestamp.
             t.timestamp = time_now;
         }
-    
+
         // Check whether we have exceeded the threshold within the monitering interval.
         const uint64_t elapsed_time = time_now - t.timestamp;
         if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
@@ -325,6 +367,11 @@ namespace comm
     int comm_session::handle_connect()
     {
         return 0;
+    }
+
+    int comm_session::get_message_priority(std::string_view msg)
+    {
+        return 2; // Default is low priority.
     }
 
     int comm_session::handle_message(std::string_view msg)

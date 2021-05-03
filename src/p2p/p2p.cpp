@@ -200,8 +200,9 @@ namespace p2p
      * @param send_to_self Whether to also send the message to self (this node).
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
      * @param unl_only Whether this broadcast is only for the unl nodes.
+     * @param priority If 1, use high pririty send. Else, use low priority send.
      */
-    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only)
+    void broadcast_message(const flatbuffers::FlatBufferBuilder &fbuf, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only, const uint16_t priority)
     {
         broadcast_message(msg::fbuf::builder_to_string_view(fbuf), send_to_self, is_msg_forwarding, unl_only);
     }
@@ -212,8 +213,9 @@ namespace p2p
      * @param is_msg_forwarding Whether this broadcast is for message forwarding.
      * @param unl_only Whether this broadcast is only for the unl nodes.
      * @param skipping_session Session to be skipped in message forwarding(optional).
+     * @param priority If 1, use high pririty send. Else, use low priority send.
      */
-    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only, const peer_comm_session *skipping_session)
+    void broadcast_message(std::string_view message, const bool send_to_self, const bool is_msg_forwarding, const bool unl_only, const peer_comm_session *skipping_session, const uint16_t priority)
     {
         if (send_to_self)
             self::send(message);
@@ -230,7 +232,7 @@ namespace p2p
                 (unl_only && !session->is_unl))
                 continue;
 
-            session->send(message);
+            session->send(message, priority);
         }
     }
 
