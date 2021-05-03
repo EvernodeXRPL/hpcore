@@ -244,10 +244,9 @@ namespace consensus
 
                 // We first request the latest shard.
                 const std::string majority_shard_seq_no_str = std::to_string(majority_primary_shard_id.seq_no);
-                const std::string sync_name = "primary shard " + majority_shard_seq_no_str;
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(majority_shard_seq_no_str);
                 ledger::ledger_sync_worker.is_last_primary_shard_syncing = true;
-                ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{sync_name, majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
             // Check out raw shard hash with majority raw shard hash.
@@ -285,10 +284,10 @@ namespace consensus
                 {
                     // Patch file sync is prioritized, Therefore it is set in the front of the sync target list.
                     if (is_patch_desync)
-                        sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                        sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
 
                     if (is_state_desync)
-                        sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                        sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
             }
 
@@ -297,10 +296,9 @@ namespace consensus
             {
                 conf::change_role(conf::ROLE::OBSERVER);
                 const std::string majority_shard_seq_no_str = std::to_string(majority_raw_shard_id.seq_no);
-                const std::string sync_name = "raw shard " + majority_shard_seq_no_str;
                 const std::string shard_path = std::string(ledger::RAW_DIR).append("/").append(majority_shard_seq_no_str);
                 ledger::ledger_sync_worker.is_last_raw_shard_syncing = true;
-                ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{sync_name, majority_raw_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{majority_raw_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
             }
 
             // If shards aren't aligned with max shard count, do the relevant shard cleanups and requests.

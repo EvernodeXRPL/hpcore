@@ -31,7 +31,6 @@ namespace hpfs
 
     struct sync_target
     {
-        std::string name; // Used for logging.
         util::h32 hash = util::h32_empty;
         std::string vpath;
         BACKLOG_ITEM_TYPE item_type = BACKLOG_ITEM_TYPE::DIR;

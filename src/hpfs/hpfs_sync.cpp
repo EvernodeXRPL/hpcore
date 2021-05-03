@@ -122,7 +122,6 @@ namespace hpfs
                                       });
         if (itr != target_list.end())
         {
-            itr->name = target.name;
             itr->hash = target.hash;
             itr->item_type = target.item_type;
             return;
@@ -163,7 +162,7 @@ namespace hpfs
                     util::h32 target_hash;
                     {
                         std::shared_lock lock(current_target_mutex);
-                        LOG_INFO << "Hpfs " << name << " sync: Starting sync for target " << current_target.name << " hash: " << current_target.hash;
+                        LOG_INFO << "Hpfs " << name << " sync: Starting sync for " << current_target.vpath << " | hash: " << current_target.hash;
                         target_hash = current_target.hash;
                     }
 
@@ -189,7 +188,7 @@ namespace hpfs
 
                             if (result == 0) // Target achieved.
                             {
-                                LOG_INFO << "Hpfs " << name << " sync: Target " << current_target.name << " hash achieved: " << new_state;
+                                LOG_INFO << "Hpfs " << name << " sync: " << current_target.vpath << " hash achieved: " << new_state;
                                 on_current_sync_state_acheived(current_target);
                             }
 
@@ -202,7 +201,7 @@ namespace hpfs
                         }
                         else
                         {
-                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for new " << current_target.name << " hash: " << current_target.hash;
+                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for " << current_target.vpath << " | new hash: " << current_target.hash;
                             continue;
                         }
                     }

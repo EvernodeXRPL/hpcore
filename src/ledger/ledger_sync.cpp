@@ -52,14 +52,14 @@ namespace ledger
                 // Persist the lastest synced shard seq number to the max shard meta file.
                 if (persist_max_shard_seq_no(PRIMARY_DIR, synced_shard_seq_no) == -1)
                 {
-                    LOG_ERROR << "Error updating max shard meta file in primary shard sync.";
+                    LOG_ERROR << "Error updating max shard meta file in primary shard sync. " << synced_target.vpath;
                     return;
                 }
 
                 const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, synced_target.hash};
                 if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id) == -1)
                 {
-                    LOG_ERROR << "Error updating context from the synced shard " << synced_target.name;
+                    LOG_ERROR << "Error updating context from the synced shard " << synced_target.vpath;
                     return;
                 }
                 ctx.set_last_primary_shard_id(updated_primary_shard_id);
@@ -84,9 +84,8 @@ namespace ledger
                 if (prev_shard_hash_from_file != util::h32_empty               // Hash in the prev_shard.hash of the 0th shard is h32 empty. Syncing should be stopped then.
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
                 {
-                    const std::string sync_name = "primary shard " + std::to_string(synced_shard_seq_no);
                     const std::string shard_path = std::string(PRIMARY_DIR).append("/").append(std::to_string(synced_shard_seq_no));
-                    set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    set_target_push_back(hpfs::sync_target{prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
                 else
                 {
@@ -136,9 +135,8 @@ namespace ledger
                 if (prev_shard_hash_from_file != util::h32_empty               // Hash in the prev_shard.hash of the 0th shard is h32 empty. Syncing should be stopped then.
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
                 {
-                    const std::string sync_name = "raw shard " + std::to_string(synced_shard_seq_no);
                     const std::string shard_path = std::string(RAW_DIR).append("/").append(std::to_string(synced_shard_seq_no));
-                    set_target_push_back(hpfs::sync_target{sync_name, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    set_target_push_back(hpfs::sync_target{prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
                 else
                 {

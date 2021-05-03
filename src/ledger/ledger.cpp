@@ -630,7 +630,7 @@ namespace ledger
             }
 
             const std::string shard_path = std::string(shard_parent_dir).append("/").append(std::to_string(seq_no));
-            ledger_sync_worker.set_target_push_back(hpfs::sync_target{shard_path, prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+            ledger_sync_worker.set_target_push_back(hpfs::sync_target{prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
         }
     }
 
