@@ -51,10 +51,6 @@ namespace hpfs
         sync_target current_target = {};
         std::list<sync_target> target_list; // The current target hashes we are syncing towards.
 
-        // Store the originally submitted sync target list. This list is used to avoid submitting same list multiple times
-        // because target list is updated when the sync targets are acheived.
-        std::list<sync_target> original_target_list;
-
         std::list<backlog_item> pending_requests; // List of pending sync requests to be sent out.
 
         // List of submitted requests we are awaiting responses for, keyed by expected response path+hash.

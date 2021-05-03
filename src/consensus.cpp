@@ -283,12 +283,12 @@ namespace consensus
                 }
                 else
                 {
-                    if (is_state_desync)
-                        sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
-
                     // Patch file sync is prioritized, Therefore it is set in the front of the sync target list.
                     if (is_patch_desync)
                         sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{"patch", majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+
+                    if (is_state_desync)
+                        sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{"state", majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
                 }
             }
 
