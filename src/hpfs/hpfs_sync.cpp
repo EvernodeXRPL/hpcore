@@ -30,6 +30,13 @@ namespace hpfs
 
     constexpr int FILE_PERMS = 0644;
 
+#define REQUEST_LOOP_INTERRUPT                                             \
+    {                                                                      \
+        const int interrupt = request_loop_interrupt(current_target_hash); \
+        if (interrupt > 0)                                                 \
+            return interrupt == 1 ? 2 : 0;                                 \
+    }
+
     /**
      * This should be called to activate the hpfs sync.
      */
@@ -162,7 +169,7 @@ namespace hpfs
                     util::h32 target_hash;
                     {
                         std::shared_lock lock(current_target_mutex);
-                        LOG_INFO << "Hpfs " << name << " sync: Starting sync for " << current_target.vpath << " | hash: " << current_target.hash;
+                        LOG_INFO << "Hpfs " << name << " sync: " << current_target.vpath << " Starting sync. target: " << current_target.hash;
                         target_hash = current_target.hash;
                     }
 
@@ -176,33 +183,41 @@ namespace hpfs
                     if (is_shutting_down)
                         break;
 
+                    // After every sync target abandon or completion, release and reacquire hpfs rw session so hpfs gets some room
+                    // to update the last checkpoint. This helps any upcoming ro sessions to get updated file system state.
+                    if (result <= 1)
+                        reacquire_rw_session();
+
                     {
                         std::unique_lock lock(current_target_mutex);
 
-                        // Either the target sync got an error or the target got achieved.
-                        if (result == -1 || new_state == current_target.hash)
+                        if (result == 2)
                         {
-                            // After every sync target completion, release and reacquire hpfs rw session so hpfs gets some room
-                            // to update the last checkpoint. This helps any upcoming ro sessions to get updated file system state.
-                            reacquire_rw_session();
-
-                            if (result == 0) // Target achieved.
+                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for " << current_target.vpath << " | new hash: " << current_target.hash;
+                            continue;
+                        }
+                        else
+                        {
+                            if (result == -1)
                             {
-                                LOG_INFO << "Hpfs " << name << " sync: " << current_target.vpath << " hash achieved: " << new_state;
+                                LOG_ERROR << "Hpfs " << name << " sync: " << current_target.vpath << " sync abandoned with error.";
+                            }
+                            else if (result == 0)
+                            {
+                                LOG_DEBUG << "Hpfs " << name << " sync: " << current_target.vpath << " sync abandoned.";
+                                on_sync_abandoned();
+                            }
+                            else if (result == 1)
+                            {
+                                LOG_INFO << "Hpfs " << name << " sync: " << current_target.vpath << " target hash achived:" << current_target.hash;
                                 on_current_sync_state_acheived(current_target);
                             }
 
                             // Start syncing to next target.
-                            const int result = start_syncing_next_target();
-                            if (result == 0) // No more targets available.
+                            if (start_syncing_next_target() == 0) // No more targets available.
                                 break;
-                            else if (result == 1)
+                            else
                                 continue;
-                        }
-                        else
-                        {
-                            LOG_INFO << "Hpfs " << name << " sync: Continuing sync for " << current_target.vpath << " | new hash: " << current_target.hash;
-                            continue;
                         }
                     }
                 }
@@ -236,9 +251,10 @@ namespace hpfs
 
     /**
      * Reqest loop.
-     * @return -1 on error. 0 when current sync state acheived or sync is stopped due to target change.
-    */
-    int hpfs_sync::request_loop(const util::h32 current_target_hash, util::h32 &updated_state)
+     * @return 0 when sync is abandoned due to resubmission threshold or shutdown. 1 when target sync hash acheived.
+     *         2 when target state has changed. -1 on error.
+     */
+    int hpfs_sync::request_loop(const util::h32 &current_target_hash, util::h32 &updated_state)
     {
         // Send the initial root hpfs request of the current target.
         submit_request(backlog_item{current_target.item_type, current_target.vpath, -1, current_target_hash});
@@ -249,8 +265,10 @@ namespace hpfs
         // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
         uint16_t resubmissions_count = 0;
 
-        while (!should_stop_request_loop(current_target_hash))
+        while (true)
         {
+            REQUEST_LOOP_INTERRUPT
+
             // Wait a small delay if there were no responses processed during previous iteration.
             if (!prev_responses_processed)
                 util::sleep(REQUEST_LOOP_WAIT);
@@ -266,8 +284,7 @@ namespace hpfs
 
             for (auto &response : candidate_hpfs_responses)
             {
-                if (should_stop_request_loop(current_target_hash))
-                    return 0;
+                REQUEST_LOOP_INTERRUPT
 
                 const std::string from = response.first.substr(2, 10); // Sender pubkey.
                 const p2pmsg::P2PMsg &msg = *p2pmsg::GetP2PMsg(response.second.data());
@@ -369,10 +386,10 @@ namespace hpfs
                 // Update the central hpfs state tracker.
                 fs_mount->set_parent_hash(current_target.vpath, updated_state);
 
-                LOG_DEBUG << "Hpfs " << name << " sync: current:" << updated_state << " | target:" << current_target_hash
-                          << " (" << current_target.vpath << ")";
                 if (updated_state == current_target_hash)
-                    return 0;
+                    return 1;
+                else
+                    LOG_DEBUG << "Hpfs " << name << " sync: " << current_target.vpath << " | current:" << updated_state << " | target:" << current_target_hash;
             }
 
             candidate_hpfs_responses.clear();
@@ -383,8 +400,7 @@ namespace hpfs
             // Check for long-awaited responses and re-request them.
             for (auto &[hash, request] : submitted_requests)
             {
-                if (should_stop_request_loop(current_target_hash))
-                    return 0;
+                REQUEST_LOOP_INTERRUPT
 
                 if (request.waiting_time < request_resubmit_timeout)
                 {
@@ -396,15 +412,6 @@ namespace hpfs
                     if (++resubmissions_count > ABANDON_THRESHOLD)
                     {
                         LOG_INFO << "Hpfs " << name << " sync: Resubmission threshold exceeded. Abandoning sync.";
-
-                        std::unique_lock lock(current_target_mutex);
-                        const int result = start_syncing_next_target();
-                        if (result == 0)
-                        {
-                            current_target = {};
-                            on_sync_abandoned();
-                            return 1; // To stop syncing since we have sync all the targets.
-                        }
                         return 0;
                     }
 
@@ -420,8 +427,7 @@ namespace hpfs
                 const uint16_t available_slots = MAX_AWAITING_REQUESTS - submitted_requests.size();
                 for (int i = 0; i < available_slots && !pending_requests.empty(); i++)
                 {
-                    if (should_stop_request_loop(current_target_hash))
-                        return 0;
+                    REQUEST_LOOP_INTERRUPT
 
                     submit_request(pending_requests.front());
                     pending_requests.pop_front();
@@ -512,16 +518,17 @@ namespace hpfs
     }
 
     /**
-     * Indicates whether to break out of hpfs request processing loop.
+     * Indicates whether to break out of hpfs request processing loop and the reason.
+     * @return 0 if not interrupted. 1 if interrupted due to target hash change. 2 if due to shutdown.
      */
-    bool hpfs_sync::should_stop_request_loop(const util::h32 &current_target_hash)
+    int hpfs_sync::request_loop_interrupt(const util::h32 &current_target_hash)
     {
         if (is_shutting_down)
-            return true;
+            return 2;
 
         // Stop request loop if the target has changed.
         std::shared_lock lock(current_target_mutex);
-        return current_target_hash != current_target.hash;
+        return current_target_hash != current_target.hash ? 1 : 0;
     }
 
     /**
@@ -812,7 +819,7 @@ namespace hpfs
     */
     void hpfs_sync::on_sync_complete(const sync_target &last_sync_target)
     {
-        LOG_INFO << "Hpfs " << name << " sync: All parents synced.";
+        LOG_INFO << "Hpfs " << name << " sync: All targets synced.";
     }
 
     /**

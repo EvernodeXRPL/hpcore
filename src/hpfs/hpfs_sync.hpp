@@ -61,7 +61,7 @@ namespace hpfs
 
         void hpfs_syncer_loop();
 
-        int request_loop(const util::h32 current_target_hash, util::h32 &updated_state);
+        int request_loop(const util::h32 &current_target_hash, util::h32 &updated_state);
 
         int start_syncing_next_target();
 
@@ -73,7 +73,7 @@ namespace hpfs
 
         bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
 
-        bool should_stop_request_loop(const util::h32 &current_target_hash);
+        int request_loop_interrupt(const util::h32 &current_target_hash);
 
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                      const util::h32 expected_hash, std::string &target_pubkey);
