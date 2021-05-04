@@ -8,7 +8,7 @@
 namespace sc
 {
 
-    void contract_sync::on_current_sync_state_acheived(const hpfs::sync_target &synced_target)
+    void contract_sync::on_sync_target_acheived(const hpfs::sync_target &synced_target)
     {
         if (synced_target.vpath == PATCH_FILE_PATH)
         {

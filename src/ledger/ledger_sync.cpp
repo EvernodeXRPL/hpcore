@@ -7,7 +7,7 @@ namespace ledger
 {
     constexpr const char *HPFS_SESSION_NAME = "ro_shard_sync_status";
 
-    void ledger_sync::on_current_sync_state_acheived(const hpfs::sync_target &synced_target)
+    void ledger_sync::on_sync_target_acheived(const hpfs::sync_target &synced_target)
     {
         const std::string shard_hash_file_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, synced_target.vpath) + PREV_SHARD_HASH_FILENAME;
         const int fd = open(shard_hash_file_path.c_str(), O_RDONLY | O_CLOEXEC);
@@ -161,7 +161,7 @@ namespace ledger
             candidate_hpfs_responses.splice(candidate_hpfs_responses.end(), p2p::ctx.collected_msgs.ledger_hpfs_responses);
     }
 
-    void ledger_sync::on_sync_abandoned()
+    void ledger_sync::on_sync_target_abandoned()
     {
         // Reset these flags since we are abandoning the sync.
         is_last_primary_shard_syncing = false;

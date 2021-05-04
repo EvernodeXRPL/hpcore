@@ -61,7 +61,9 @@ namespace hpfs
 
         void hpfs_syncer_loop();
 
-        int request_loop(const util::h32 &current_target_hash, util::h32 &updated_state);
+        int request_loop(const hpfs::sync_target &target);
+
+        int sync_interrupt(const hpfs::sync_target &target);
 
         int start_syncing_next_target();
 
@@ -73,7 +75,6 @@ namespace hpfs
 
         bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
 
-        int request_loop_interrupt(const util::h32 &current_target_hash);
 
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                      const util::h32 expected_hash, std::string &target_pubkey);
@@ -95,9 +96,9 @@ namespace hpfs
 
         hpfs::hpfs_mount *fs_mount = NULL;
 
-        virtual void on_current_sync_state_acheived(const sync_target &synced_target);
+        virtual void on_sync_target_acheived(const sync_target &synced_target);
 
-        virtual void on_sync_abandoned();
+        virtual void on_sync_target_abandoned();
 
         virtual void on_sync_complete(const sync_target &last_sync_target);
 
@@ -112,8 +113,6 @@ namespace hpfs
         int init(std::string_view worker_name, hpfs::hpfs_mount *fs_mount_ptr);
 
         void deinit();
-
-        void set_target(const std::list<sync_target> &sync_target_list);
 
         void set_target_push_front(const sync_target &target);
 
