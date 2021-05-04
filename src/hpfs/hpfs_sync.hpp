@@ -47,7 +47,7 @@ namespace hpfs
         bool init_success = false;
         std::string name; // Name used for logging.
 
-        sync_target current_target = {};
+        std::shared_mutex target_mutex;
         std::list<sync_target> target_list; // The current target hashes we are syncing towards.
 
         std::list<backlog_item> pending_requests; // List of pending sync requests to be sent out.
@@ -56,7 +56,6 @@ namespace hpfs
         std::unordered_map<std::string, backlog_item> submitted_requests;
 
         std::thread hpfs_sync_thread;
-        std::shared_mutex current_target_mutex;
         std::atomic<bool> is_shutting_down = false;
 
         void hpfs_syncer_loop();
@@ -65,8 +64,6 @@ namespace hpfs
 
         int sync_interrupt(const hpfs::sync_target &target);
 
-        int start_syncing_next_target();
-
         bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
                                     const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
 
@@ -74,7 +71,6 @@ namespace hpfs
                                         const util::h32 *hashes, const size_t hash_count);
 
         bool validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf);
-
 
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                      const util::h32 expected_hash, std::string &target_pubkey);

@@ -77,9 +77,9 @@ namespace hpfs
     */
     void hpfs_sync::set_target_push_front(const sync_target &target)
     {
-        std::shared_lock lock(current_target_mutex);
+        std::unique_lock lock(target_mutex);
 
-        if (is_shutting_down || (is_syncing && current_target == target))
+        if (is_shutting_down || (is_syncing && target_list.front() == target))
             return;
 
         // Remove any previous sync targets for the same target vpath.
@@ -89,9 +89,6 @@ namespace hpfs
 
         target_list.push_front(target);
         is_syncing = true;
-
-        // Make the first element of the list the new target to sync.
-        current_target = target_list.front();
     }
 
     /**
@@ -100,9 +97,9 @@ namespace hpfs
     */
     void hpfs_sync::set_target_push_back(const sync_target &target)
     {
-        std::shared_lock lock(current_target_mutex);
+        std::unique_lock lock(target_mutex);
 
-        if (is_shutting_down || (is_syncing && current_target == target))
+        if (is_shutting_down)
             return;
 
         // Check whether the same vpath target is already in the sync target list. If so, update it's information.
@@ -118,12 +115,7 @@ namespace hpfs
         }
 
         target_list.push_back(target);
-        if (!is_syncing)
-        {
-            // Make the first element of the list the current target to sync.
-            current_target = target_list.front();
-            is_syncing = true;
-        }
+        is_syncing = true;
     }
 
     /**
@@ -152,14 +144,23 @@ namespace hpfs
 
             while (!is_shutting_down)
             {
-                hpfs::sync_target target_to_achieve;
+                hpfs::sync_target current_target = {};
                 {
-                    std::shared_lock lock(current_target_mutex);
-                    target_to_achieve = current_target;
+                    std::shared_lock lock(target_mutex);
+
+                    if (target_list.empty())
+                    {
+                        LOG_INFO << "Hpfs " << name << " sync: All targets complete.";
+                        is_syncing = false;
+                        break;
+                    }
+
+                    // Set the target to be top of the list.
+                    current_target = target_list.front();
                 }
 
                 // Start syncing towards specified target.
-                const int result = request_loop(target_to_achieve);
+                const int result = request_loop(current_target);
 
                 pending_requests.clear();
                 candidate_hpfs_responses.clear();
@@ -168,14 +169,14 @@ namespace hpfs
                 if (is_shutting_down)
                     break;
 
-                if (result == SYNC_HASH_CHANGED)
+                if (result != SYNC_HASH_CHANGED)
                 {
-                    // We are still on the same target but the hash has changed. So we need to rerun the request loop with the
-                    // updated target.
-                    continue;
-                }
-                else
-                {
+                    // The finished target can be removed from the list.
+                    {
+                        std::unique_lock lock(target_mutex);
+                        target_list.pop_front();
+                    }
+
                     // After every sync target abandon or completion, release and reacquire hpfs rw session so hpfs gets some room
                     // to update the last checkpoint. This helps any upcoming ro sessions to get updated file system state.
                     reacquire_rw_session();
@@ -183,16 +184,7 @@ namespace hpfs
                     if (result == SYNC_ABANDONED)
                         on_sync_target_abandoned();
                     else if (result == SYNC_ACHIEVED)
-                        on_sync_target_acheived(target_to_achieve);
-
-                    // Start syncing to next target.
-                    if (start_syncing_next_target() == 0) // No more targets available.
-                    {
-                        std::unique_lock lock(current_target_mutex);
-                        is_syncing = false;
-                        current_target = {};
-                        break;
-                    }
+                        on_sync_target_acheived(current_target);
                 }
             }
             fs_mount->release_rw_session();
@@ -410,18 +402,20 @@ namespace hpfs
         }
 
         // Stop request loop if the target has changed.
-        std::shared_lock lock(current_target_mutex);
+        std::shared_lock lock(target_mutex);
 
-        if (target.vpath != current_target.vpath)
+        const hpfs::sync_target &top_target = target_list.front();
+
+        if (target.vpath != top_target.vpath)
         {
             // A new high priority target has been set.
             LOG_INFO << "Hpfs " << name << " sync: Higher priority target found. Abandoned: " << target.vpath;
             return SYNC_PRIORITY_CHANGED;
         }
-        else if (target.hash != current_target.hash)
+        else if (target.hash != top_target.hash)
         {
             // Hash changed of current target.
-            LOG_INFO << "Hpfs " << name << " sync: Syncing to new hash:" << current_target.hash << " " << current_target.vpath;
+            LOG_INFO << "Hpfs " << name << " sync: Target updated. New hash:" << top_target.hash << " " << top_target.vpath;
             return SYNC_HASH_CHANGED;
         }
 
@@ -797,26 +791,6 @@ namespace hpfs
     void hpfs_sync::on_sync_complete(const sync_target &last_sync_target)
     {
         LOG_INFO << "Hpfs " << name << " sync: All targets synced.";
-    }
-
-    /**
-     * Starts syncing next target if available after current target finishes.
-     * @return returns 0 when the full sync is complete and 1 when more sync targets are available.
-    */
-    int hpfs_sync::start_syncing_next_target()
-    {
-        std::shared_lock lock(current_target_mutex);
-
-        target_list.pop_front(); // Remove the synced parent from the target list.
-        if (target_list.empty())
-        {
-            return 0;
-        }
-        else
-        {
-            current_target = target_list.front();
-            return 1;
-        }
     }
 
     /**
