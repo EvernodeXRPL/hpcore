@@ -35,7 +35,7 @@ namespace msg::fbuf::p2pmsg
         return VerifyP2PMsgBuffer(verifier);
     }
 
-    const p2p::peer_message_info get_peer_message_info(std::string_view message)
+    const p2p::peer_message_info get_peer_message_info(std::string_view message, const p2p::peer_comm_session *session)
     {
         const auto p2p_msg = p2pmsg::GetP2PMsg(message.data());
 
@@ -45,7 +45,7 @@ namespace msg::fbuf::p2pmsg
             const uint64_t time_now = util::get_epoch_milliseconds();
             if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
             {
-                LOG_DEBUG << "Peer message is too old. type:" << p2p_msg->content_type();
+                LOG_DEBUG << "Peer message is too old. type:" << p2p_msg->content_type() << " [" << (session ? session->uniqueid : "") << "]";
                 return p2p::peer_message_info{NULL, P2PMsgContent_NONE, 0};
             }
         }

@@ -75,14 +75,14 @@ namespace p2p
         // Adding message size to peer message characters(bytes) per minute counter.
         session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.size());
 
-        const peer_message_info mi = p2pmsg::get_peer_message_info(message);
+        const peer_message_info mi = p2pmsg::get_peer_message_info(message, &session);
         if (!mi.p2p_msg) // Message buffer will be null if peer message was too old.
             return 0;
 
         if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Duplicate peer message. type:" << mi.type << " " << session.display_name();
+            LOG_DEBUG << "Duplicate peer message. type:" << mi.type << " " << session.display_name() << " [" << session.uniqueid << "]";
             return 0;
         }
 

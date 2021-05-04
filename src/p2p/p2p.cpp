@@ -259,7 +259,7 @@ namespace p2p
             const uint64_t time_now = util::get_epoch_milliseconds();
             if (originated_on < (time_now - (conf::cfg.contract.roundtime * 3)))
             {
-                LOG_DEBUG << "Peer message is too old for forwarding. type:" << msg_type;
+                LOG_DEBUG << "Peer message is too old for forwarding. type:" << msg_type << " [" << session.uniqueid << "]";
                 return false;
             }
 
