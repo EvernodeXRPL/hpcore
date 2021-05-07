@@ -116,7 +116,7 @@ do
                 }, null, 2)")
 
     log_json=$(node -p "JSON.stringify({...require('./tmp.json').log, \
-                    loglevel: '$loglevel', \
+                    log_level: '$loglevel', \
                     loggers:['console', 'file'] \
                 }, null, 2)")
 
