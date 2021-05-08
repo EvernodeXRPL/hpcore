@@ -64,7 +64,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    popd > /dev/null 2>&1
 
    # Create getpid script (gets process ids belonging to this contract dir)
-   echo "ps -fp \$(pidof \$*) | grep $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
+   echo "pids=\$(pidof \$*) && [ ! -z \$pids ] && ps -fp \$pids | grep -w $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
    sudo chmod +x $contdir/getpid.sh
 
    # Create start.sh script
@@ -72,20 +72,20 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/start.sh
    
    # Create stop.sh script (sending SIGINT to hpcore)
-   echo "kill -2 \$($contdir/getpid.sh hpcore)" > $contdir/stop.sh
+   echo "pids=\$($contdir/getpid.sh hpcore) && [ ! -z \$pids ] && kill -2 \$pids" > $contdir/stop.sh
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "echo hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  hpws pid:\$($contdir/getpid.sh hpws)" > $contdir/check.sh
+   echo "echo hpcore_pid:\$($contdir/getpid.sh hpcore)  hpfs_pid:\$($contdir/getpid.sh hpfs)  hpws_pid:\$($contdir/getpid.sh hpws)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
-   echo "sudo kill \$($contdir/getpid.sh hpcore hpfs hpws)" > $contdir/kill.sh
+   echo "pids=\$($contdir/getpid.sh hpcore hpfs hpws) && [ ! -z \$pids ] && sudo kill \$pids" > $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
 
    # Create lcl.sh script
    echo "max_shard_no=\$(ls -v $contdir/ledger_fs/seed/primary/ | tail -2 | head -1)" > $contdir/lcl.sh
-   echo "echo \"select seq_no || '-' || lower(hex(ledger_hash)) from ledger order by seq_no DESC limit 1;\" | sqlite3 file:$contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite?mode=ro" >> $contdir/lcl.sh
+   echo "[ ! -z \$max_shard_no ] && echo \"select seq_no || '-' || lower(hex(ledger_hash)) from ledger order by seq_no DESC limit 1;\" | sqlite3 file:$contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite?mode=ro" >> $contdir/lcl.sh
    sudo chmod +x $contdir/lcl.sh
 
    # Create ssl.sh script
