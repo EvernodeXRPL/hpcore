@@ -298,8 +298,7 @@ if [ $nodeid = -1 ]; then
     wait
 else
     vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr $command
-    # Setup vm. (This will download hp.cfg in 'new' or 'reconfig' modes)
+    # Setup vm. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
     /bin/bash ./setup-vm.sh $mode $nodeid $vmuser $vmpass $vmaddr $basedir $contdir
 fi
 
@@ -404,18 +403,17 @@ elif [ $mode = "updateconfig" ]; then
 fi
 
 # Upload local hp.cfg files back to specified node or entire cluster.
+echo "Uploading configured hp.cfg..."
 if [ $nodeid = -1 ]; then
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
         let nodeid=$i+1
 
-        echo "Uploading configured hp.cfg to node $nodeid..."
         sshpass -p $vmpass scp ./cfg/node$nodeid-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
     done
     wait
 else
-    echo "Uploading configured hp.cfg to node $nodeid..."
     sshpass -p $vmpass scp ./cfg/node$nodeid-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg
 fi
 
