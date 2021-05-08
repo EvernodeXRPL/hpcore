@@ -97,7 +97,6 @@ if [ $mode = "start" ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
             vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
             sshpass -p $vmpass ssh $vmuser@$vmaddr $command &
         done
         wait
@@ -114,7 +113,6 @@ if [ $mode = "stop" ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
             vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
             sshpass -p $vmpass ssh $vmuser@$vmaddr $command &
         done
         wait
@@ -131,8 +129,8 @@ if [ $mode = "check" ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
             vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
-            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            let n=$i+1
+            echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
         done
         wait
     else
@@ -158,8 +156,8 @@ if [ $mode = "kill" ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
             vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
-            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            let n=$i+1
+            echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
         done
         wait
     else
@@ -188,8 +186,8 @@ if [ $mode = "ssh" ]; then
             for (( i=0; i<$vmcount; i++ ))
             do
                 vmaddr=${vmaddrs[i]}
-                let nodeid=$i+1
-                echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+                let n=$i+1
+                echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
             done
             wait
             exit 0
@@ -212,8 +210,8 @@ if [ $mode = "ssl" ]; then
             for (( i=0; i<$vmcount; i++ ))
             do
                 vmaddr=${vmaddrs[i]}
-                let nodeid=$i+1
-                echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+                let n=$i+1
+                echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
             done
             wait
         else
@@ -239,8 +237,8 @@ if [ $mode = "lcl" ]; then
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
-        let nodeid=$i+1
-        echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+        let n=$i+1
+        echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
     done
     wait
     exit 0
@@ -252,8 +250,8 @@ if [ $mode = "pubkey" ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
             vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
-            echo "node"$nodeid":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            let n=$i+1
+            echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
         done
         wait
     else
@@ -291,15 +289,16 @@ if [ $nodeid = -1 ]; then
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
-        let nodeid=$i+1
+        let n=$i+1
         # Setup vm. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-        /bin/bash ./setup-vm.sh $mode $nodeid $vmuser $vmpass $vmaddr $basedir $contdir &
+        /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir &
     done
     wait
 else
     vmaddr=${vmaddrs[$nodeid]}
+    let n=$nodeid+1
     # Setup vm. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-    /bin/bash ./setup-vm.sh $mode $nodeid $vmuser $vmpass $vmaddr $basedir $contdir
+    /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir
 fi
 
 rm -r hpfiles > /dev/null 2>&1
@@ -386,18 +385,19 @@ elif [ $mode = "updateconfig" ]; then
         for (( i=0; i<$vmcount; i++ ))
         do
             vmaddr=${vmaddrs[i]}
-            let nodeid=$i+1
+            let n=$i+1
 
             # Merge json contents to produce final config.
             echo "$(cat ./cfg/node$nodeid.cfg)" \
                 $contconfig \
-                | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$nodeid-merged.cfg
+                | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
         done
     else
         # Merge json contents to produce final config.
+        let n=$nodeid+1
         echo "$(cat ./cfg/node$nodeid.cfg)" \
             $contconfig \
-            | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$nodeid-merged.cfg
+            | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
     fi
 
 fi
@@ -408,13 +408,14 @@ if [ $nodeid = -1 ]; then
     for (( i=0; i<$vmcount; i++ ))
     do
         vmaddr=${vmaddrs[i]}
-        let nodeid=$i+1
+        let n=$i+1
 
-        sshpass -p $vmpass scp ./cfg/node$nodeid-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
+        sshpass -p $vmpass scp ./cfg/node$n-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
     done
     wait
 else
-    sshpass -p $vmpass scp ./cfg/node$nodeid-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg
+    let n=$nodeid+1
+    sshpass -p $vmpass scp ./cfg/node$n-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg
 fi
 
 rm -r ./cfg
