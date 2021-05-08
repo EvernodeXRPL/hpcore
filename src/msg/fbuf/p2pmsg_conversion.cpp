@@ -45,7 +45,7 @@ namespace msg::fbuf::p2pmsg
             const uint64_t time_now = util::get_epoch_milliseconds();
             if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
             {
-                LOG_DEBUG << "Peer message is too old. type:" << p2p_msg->content_type() << " " << (session ? session->uniqueid : "");
+                LOG_DEBUG << "Peer message is too old. type:" << p2p_msg->content_type() << " from:" << (session ? session->display_name() : "");
                 return p2p::peer_message_info{NULL, P2PMsgContent_NONE, 0};
             }
         }
