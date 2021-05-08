@@ -388,14 +388,14 @@ elif [ $mode = "updateconfig" ]; then
             let n=$i+1
 
             # Merge json contents to produce final config.
-            echo "$(cat ./cfg/node$nodeid.cfg)" \
+            echo "$(cat ./cfg/node$n.cfg)" \
                 $contconfig \
                 | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
         done
     else
         # Merge json contents to produce final config.
         let n=$nodeid+1
-        echo "$(cat ./cfg/node$nodeid.cfg)" \
+        echo "$(cat ./cfg/node$n.cfg)" \
             $contconfig \
             | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
     fi
