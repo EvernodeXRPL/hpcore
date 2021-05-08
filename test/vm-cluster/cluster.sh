@@ -3,7 +3,7 @@
 
 # Usage examples:
 # ./cluster.sh new
-# ./cluster.sh update
+# ./cluster.sh updatebin
 # ./cluster.sh start 1
 # ./cluster.sh start
 
@@ -56,12 +56,12 @@ else
     let nodeid=$2-1
 fi
 
-if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "update" ] || [ "$mode" = "reconfig" ] || \
+if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "updatebin" ] || [ "$mode" = "updateconfig" ] || [ "$mode" = "reconfig" ] || \
    [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
    [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
     echo "mode: $mode ($contdir)"
 else
-    echo "Invalid command. [ info | new | update | reconfig" \
+    echo "Invalid command. [ info | new | updatebin <N> | updateconfig | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
         " | ssl <email>or<N> <email> | lcl | pubkey <N> ] expected."
     exit 1
@@ -70,8 +70,9 @@ fi
 # Command modes:
 # info - Displays information about current cluster configuration status.
 # new - Install hot pocket dependencies and hot pocket with example contracts to each vm.
-# update - Deploy updated hot pocket and example binaries into each vm.
-# reconfig - Reconfigures the entire cluster using already uploaded HP binaries.
+# updatebin - Deploy updated hot pocket and example binaries into specified vm node or entire cluster.
+# updateconfig - Updates the config files of each node in the cluster.
+# reconfig - Cleans and reconfigures the entire cluster using already uploaded HP binaries.
 # start - Run hot pocket on specified vm node or entire cluster.
 # stop - Gracefully stop hot pocket (if running) on specified vm node or entire cluster.
 # check - Get hot pocket running process ids on specified vm node or entire cluster.
@@ -262,16 +263,16 @@ if [ $mode = "pubkey" ]; then
     exit 0
 fi
 
-# All code below this will only execute in 'new', 'update' or 'reconfig' mode.
+# All code below this will only execute in 'new', 'updatebin' or 'reconfig' mode.
 # Run setup/configuration of entire cluster.
 
 # Copy required files to remote node hpfiles dir.
 
-if [ $mode = "new" ] || [ $mode = "update" ]; then
+if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     mkdir -p hpfiles/{bin,ssl,nodejs_contract}
     strip $hpcore/build/hpcore
     strip $hpcore/build/appbill
-    cp $hpcore/build/hpcore hpfiles/bin/
+    cp $hpcore/build/{hpcore,hpfs,hpws} hpfiles/bin/
     cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} \
         hpfiles/nodejs_contract/
 fi
@@ -285,7 +286,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
     mkdir ./cfg > /dev/null 2>&1
 fi
 
-# Run vm setup for all nodes.
+# Run vm setup for all nodes or specific node id.
 for (( i=0; i<$vmcount; i++ ))
 do
     vmaddr=${vmaddrs[i]}
@@ -295,10 +296,26 @@ do
     /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir &
 done
 
-wait
+# Running vm setup script on specified node or entire cluster.
+if [ $nodeid = -1 ]; then
+    for (( i=0; i<$vmcount; i++ ))
+    do
+        vmaddr=${vmaddrs[i]}
+        let nodeid=$i+1
+        # Setup vm. (This will download hp.cfg in 'new' or 'reconfig' modes)
+        /bin/bash ./setup-vm.sh $mode $nodeid $vmuser $vmpass $vmaddr $basedir $contdir &
+    done
+    wait
+else
+    vmaddr=${vmaddrs[$nodeid]}
+    sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+    # Setup vm. (This will download hp.cfg in 'new' or 'reconfig' modes)
+    /bin/bash ./setup-vm.sh $mode $nodeid $vmuser $vmpass $vmaddr $basedir $contdir
+fi
+
 rm -r hpfiles > /dev/null 2>&1
 
-if [ $mode = "update" ]; then
+if [ $mode = "updatebin" ]; then
     exit 0
 fi
 

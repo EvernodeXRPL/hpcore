@@ -10,7 +10,7 @@ contdir=$7 # Contract directory
 
 echo $nodeid. $vmaddr
 
-if [ $mode = "new" ] || [ $mode = "update" ]; then
+if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     echo "Uploading hp files to $basedir..."
     sshpass -p $vmpass scp -rp hpfiles $vmuser@$vmaddr:$basedir/
     echo "Upload finished."
