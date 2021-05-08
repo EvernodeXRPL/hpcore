@@ -16,9 +16,12 @@ if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     echo "Upload finished."
 fi
 
+# Run hp setup script on the VM and download the generated hp.cfg
 if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
-    # Run hp setup script on the VM and download the generated hp.cfg
     echo "Configuring HP..."
     sshpass -p $vmpass ssh $vmuser@$vmaddr $basedir/hpfiles/setup-hp.sh $mode $basedir $contdir $vmaddr
+fi
+
+if [ $mode = "new" ] || [ $mode = "reconfig" ] || [ $mode = "updateconfig" ]; then
     sshpass -p $vmpass scp $vmuser@$vmaddr:$contdir/cfg/hp.cfg ./cfg/node$nodeid.cfg
 fi

@@ -61,7 +61,7 @@ if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "updatebin" ] || [
    [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
     echo "mode: $mode ($contdir)"
 else
-    echo "Invalid command. [ info | new | updatebin <N> | updateconfig | reconfig" \
+    echo "Invalid command. [ info | new | updatebin <N> | updateconfig <N> | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
         " | ssl <email>or<N> <email> | lcl | pubkey <N> ] expected."
     exit 1
@@ -71,7 +71,7 @@ fi
 # info - Displays information about current cluster configuration status.
 # new - Install hot pocket dependencies and hot pocket with example contracts to each vm.
 # updatebin - Deploy updated hot pocket and example binaries into specified vm node or entire cluster.
-# updateconfig - Updates the config files of each node in the cluster.
+# updateconfig - Updates the config file of specified vm node or entire cluster.
 # reconfig - Cleans and reconfigures the entire cluster using already uploaded HP binaries.
 # start - Run hot pocket on specified vm node or entire cluster.
 # stop - Gracefully stop hot pocket (if running) on specified vm node or entire cluster.
@@ -282,19 +282,9 @@ if [ $mode = "new" ]; then
     cp ./setup-hp.sh hpfiles/
 fi
 
-if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
+if [ $mode = "new" ] || [ $mode = "reconfig" ] || [ $mode = "updateconfig" ]; then
     mkdir ./cfg > /dev/null 2>&1
 fi
-
-# Run vm setup for all nodes or specific node id.
-for (( i=0; i<$vmcount; i++ ))
-do
-    vmaddr=${vmaddrs[i]}
-    let n=$i+1
-
-    # Setup vm. (This will download hp.cfg in 'new' or 'reconfig' modes)
-    /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir &
-done
 
 # Running vm setup script on specified node or entire cluster.
 if [ $nodeid = -1 ]; then
@@ -302,7 +292,7 @@ if [ $nodeid = -1 ]; then
     do
         vmaddr=${vmaddrs[i]}
         let nodeid=$i+1
-        # Setup vm. (This will download hp.cfg in 'new' or 'reconfig' modes)
+        # Setup vm. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
         /bin/bash ./setup-vm.sh $mode $nodeid $vmuser $vmpass $vmaddr $basedir $contdir &
     done
     wait
@@ -319,82 +309,115 @@ if [ $mode = "updatebin" ]; then
     exit 0
 fi
 
-# All code below this will only execute in 'new' or 'reconfig' mode.
-# Update downloaded hp.cfg files from all nodes to be part of the same UNL cluster.
+# All code below this will only execute in 'new', 'reconfig' or 'updateconfig' mode.
 
-# Locally update values of download hp.cfg files.
-peerport=$(echo $contconfig | jq -r ".mesh.port")
-for (( i=0; i<$vmcount; i++ ))
-do
-    vmaddr=${vmaddrs[i]}
-    let n=$i+1
+# In 'new' and 'reconfig' modes, update downloaded hp.cfg files from all nodes to be part of the same UNL cluster.
+# In 'updateconfig' mode, simply update the config of specified node or entire cluster.
 
-    # Collect each node's pub key and peer address.
-    pubkeys[i]=$(jq -r ".node.public_key" ./cfg/node$n.cfg)
-    peers[i]="$vmaddr:$peerport"
-done
+if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
-# Function to generate JSON array string while skiping a given index.
-function joinarr {
-    arrname=$1[@]
-    arr=("${!arrname}")
-    skip=$2
-
-    let prevlast=$vmcount-2
-    # Resetting prevlast if nothing is given to skip.
-    if [ $skip -lt 0 ]
-    then
-        let prevlast=prevlast+1
-    fi
-
-    j=0
-    str="["
+    # Locally update values of download hp.cfg files.
+    peerport=$(echo $contconfig | jq -r ".mesh.port")
     for (( i=0; i<$vmcount; i++ ))
     do
-        if [ "$i" != "$skip" ]
-        then
-            str="$str\"${arr[i]}\""
-            
-            if [ $j -lt $prevlast ]
-            then
-                str="$str,"
-            fi
-            let j=j+1
-        fi
+        vmaddr=${vmaddrs[i]}
+        let n=$i+1
+
+        # Collect each node's pub key and peer address.
+        pubkeys[i]=$(jq -r ".node.public_key" ./cfg/node$n.cfg)
+        peers[i]="$vmaddr:$peerport"
     done
-    str="$str]"
 
-    echo $str # This returns the result.
-}
+    # Function to generate JSON array string while skiping a given index.
+    function joinarr {
+        arrname=$1[@]
+        arr=("${!arrname}")
+        skip=$2
 
-# Loop through all nodes hp.cfg.
-for (( j=0; j<$vmcount; j++ ))
-do
-    let n=$j+1
+        let prevlast=$vmcount-2
+        # Resetting prevlast if nothing is given to skip.
+        if [ $skip -lt 0 ]
+        then
+            let prevlast=prevlast+1
+        fi
 
-    # Prepare peer and unl lists (skip self node for peers).
-    mypeers=$(joinarr peers $j)
-    # Skip param is passed as -1 to stop skipping self pubkey.
-    myunl=$(joinarr pubkeys -1)
+        j=0
+        str="["
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            if [ "$i" != "$skip" ]
+            then
+                str="$str\"${arr[i]}\""
+                
+                if [ $j -lt $prevlast ]
+                then
+                    str="$str,"
+                fi
+                let j=j+1
+            fi
+        done
+        str="$str]"
 
-    # Merge json contents to produce final config.
-    echo "$(cat ./cfg/node$n.cfg)" \
-        '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/hpfiles/nodejs_contract/echo_contract.js", "unl": '${myunl}'}}'\
-        '{"mesh": {"known_peers": '${mypeers}'}}'\
-        $contconfig \
-        | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
-done
+        echo $str # This returns the result.
+    }
 
-for (( j=0; j<$vmcount; j++ ))
-do
-    # Upload local hp.cfg file back to remote vm.
-    let n=$j+1
-    vmaddr=${vmaddrs[j]}
+    # Loop through all nodes hp.cfg.
+    echo "Generating merged hp.cfg files..."
+    for (( j=0; j<$vmcount; j++ ))
+    do
+        let n=$j+1
 
-    echo "Uploading configured hp.cfg..."
-    sshpass -p $vmpass scp ./cfg/node$n-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
-done
-wait
+        # Prepare peer and unl lists (skip self node for peers).
+        mypeers=$(joinarr peers $j)
+        # Skip param is passed as -1 to stop skipping self pubkey.
+        myunl=$(joinarr pubkeys -1)
+
+        # Merge json contents to produce final config.
+        echo "$(cat ./cfg/node$n.cfg)" \
+            '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/hpfiles/nodejs_contract/echo_contract.js", "unl": '${myunl}'}}'\
+            '{"mesh": {"known_peers": '${mypeers}'}}'\
+            $contconfig \
+            | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
+    done
+    
+elif [ $mode = "updateconfig" ]; then
+
+    echo "Generating merged hp.cfg files..."
+    if [ $nodeid = -1 ]; then
+        for (( i=0; i<$vmcount; i++ ))
+        do
+            vmaddr=${vmaddrs[i]}
+            let nodeid=$i+1
+
+            # Merge json contents to produce final config.
+            echo "$(cat ./cfg/node$nodeid.cfg)" \
+                $contconfig \
+                | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$nodeid-merged.cfg
+        done
+    else
+        # Merge json contents to produce final config.
+        echo "$(cat ./cfg/node$nodeid.cfg)" \
+            $contconfig \
+            | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$nodeid-merged.cfg
+    fi
+
+fi
+
+# Upload local hp.cfg files back to specified node or entire cluster.
+if [ $nodeid = -1 ]; then
+    for (( i=0; i<$vmcount; i++ ))
+    do
+        vmaddr=${vmaddrs[i]}
+        let nodeid=$i+1
+
+        echo "Uploading configured hp.cfg to node $nodeid..."
+        sshpass -p $vmpass scp ./cfg/node$nodeid-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
+    done
+    wait
+else
+    echo "Uploading configured hp.cfg to node $nodeid..."
+    sshpass -p $vmpass scp ./cfg/node$nodeid-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg
+fi
 
 rm -r ./cfg
 echo "Done."
