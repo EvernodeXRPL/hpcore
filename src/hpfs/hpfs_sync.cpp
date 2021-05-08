@@ -263,7 +263,7 @@ namespace hpfs
                     // Validate received fs data against the hash.
                     if (!validate_fs_entry_hash(vpath, hash, fs_resp.dir_mode(), peer_fs_entries))
                     {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping response from [" << from << "] due to fs entry hash mismatch.";
+                        LOG_INFO << "Hpfs " << name << " sync: Skipping mismatched fs entries response from [" << from << "] for " << vpath;
                         continue;
                     }
 
@@ -281,7 +281,7 @@ namespace hpfs
                     // Validate received hashmap against the hash.
                     if (!validate_file_hashmap_hash(vpath, hash, file_resp.file_mode(), block_hashes, block_hash_count))
                     {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping response from [" << from << "] due to file hashmap hash mismatch.";
+                        LOG_INFO << "Hpfs " << name << " sync: Skipping mismatched hashmap response from [" << from << "] for " << vpath;
                         continue;
                     }
 
@@ -309,7 +309,8 @@ namespace hpfs
                     // Validate received block data against the hash.
                     if (!validate_file_block_hash(hash, block_id, buf))
                     {
-                        LOG_INFO << "Hpfs " << name << " sync: Skipping response from [" << from << "] due to file block hash mismatch.";
+                        LOG_INFO << "Hpfs " << name << " sync: Skipping mismatched block response from [" << from << "] for block_id:" << block_id
+                                 << " (len:" << buf.length() << ") of " << vpath;
                         continue;
                     }
 

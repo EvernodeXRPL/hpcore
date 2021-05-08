@@ -82,7 +82,7 @@ namespace p2p
         if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
-            LOG_DEBUG << "Duplicate peer message. type:" << mi.type << " " << session.display_name() << " [" << session.uniqueid << "]";
+            LOG_DEBUG << "Duplicate peer message. type:" << mi.type << " from:" << session.display_name();
             return 0;
         }
 
