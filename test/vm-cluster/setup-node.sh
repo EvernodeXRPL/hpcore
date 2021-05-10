@@ -16,7 +16,7 @@ if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     echo "Upload finished."
 fi
 
-# Run hp setup script on the VM and download the generated hp.cfg
+# Run hp setup script on the node and download the generated hp.cfg
 if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
     echo "Configuring HP..."
     sshpass -p $sshpass ssh $sshuser@$hostaddr $basedir/hpfiles/setup-hp.sh $mode $basedir $contdir $hostaddr

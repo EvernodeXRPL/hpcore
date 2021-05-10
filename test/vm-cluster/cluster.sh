@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hot Pocket VM cluster management script.
+# Hot Pocket cluster management script.
 
 # Usage examples:
 # ./cluster.sh new
@@ -10,41 +10,45 @@
 # jq command is used for json manipulation.
 if ! command -v jq &> /dev/null
 then
-    echo "jq command not found. Install with 'sudo apt-get install -y jq'"
-    exit 1
+    sudo apt-get install -y jq
 fi
 
-conf=hostconfig.json
-if [ ! -f $conf ]; then
+configfile=config.json
+if [ ! -f $configfile ]; then
     # Create default config file.
-    echo '{"sshuser":"root","sshpass":"","hosts":[],"contracts":[{"name":"contract","config":{}}]}' | jq . > $conf
+    echo '{"contracts":[{"name":"contract","sshuser":"root","sshpass":"","hosts":[],"config":{}}]}' | jq . > $configfile
 fi
 
-sshuser=$(jq -r '.sshuser' $conf)
-
-if [ "$sshuser" = "" ]; then
-    echo "sshuser not specified."
-    exit 1
-elif [ "$CONTRACT" = "" ]; then
+if [ "$CONTRACT" = "" ]; then
     CONTRACT=contract # Default contract name (can be set with 'export CONTRACT=<name>'').
 fi
 
-if [ "$sshuser" = "root" ]; then
+continfo=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\")" $configfile)
+
+# Read ssh user and password and set contract directory based on username.
+sshuser=$(echo $continfo | jq -r '.sshuser')
+sshpass=$(echo $continfo | jq -r '.sshpass')
+if [ "$sshuser" = "" ]; then
+    echo "sshuser not specified."
+    exit 1
+elif [ "$sshuser" = "root" ]; then
     basedir=/$sshuser
 else
     basedir=/home/$sshuser
 fi
+contdir=$basedir/$CONTRACT
 
-contconfig=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\") | .config" $conf)
+# Read the hosts list.
+readarray -t hostaddrs <<< $(echo $continfo | jq -r '.hosts[]')
+hostcount=${#hostaddrs[@]}
+
+# Read the contract config which should be applied to hp.cfg.
+contconfig=$(echo $continfo | jq -r '.config')
 if [ "$contconfig" = "" ] || [ "$contconfig" = "{}" ]; then
     # Apply default config.
     contconfig="{\"user\": {\"port\": 8080}, \"mesh\":{ \"port\": 22860}, \"contract\": {\"roundtime\": 2000 }, \"log\":{\"loglevel\": \"inf\", \"loggers\":[\"console\",\"file\"]}}"
 fi
 
-sshpass=$(jq -r '.sshpass' $conf)
-readarray -t hostaddrs <<< $(jq -r '.hosts[]' $conf)
-contdir=$basedir/$CONTRACT
-hostcount=${#hostaddrs[@]}
 mode=$1
 hpcore=$(realpath ../..)
 
