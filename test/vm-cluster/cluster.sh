@@ -61,9 +61,11 @@ if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "updatebin" ] || [
    [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
     echo "mode: $mode ($contdir)"
 else
-    echo "Invalid command. [ info | new | updatebin <N> | updateconfig <N> | reconfig" \
+    echo "Invalid command."
+    echo " Expected: info | new | updatebin <N> | updateconfig [N] | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
-        " | ssl <email>or<N> <email> | lcl | pubkey <N> ] expected."
+        " | ssl <email>or<N> <email> | lcl | pubkey [N]"
+    echo " <N>: Required node no.   [N]: Optional node no."
     exit 1
 fi
 
