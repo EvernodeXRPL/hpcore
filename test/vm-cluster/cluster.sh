@@ -14,25 +14,25 @@ then
     exit 1
 fi
 
-conf=vmconfig.json
+conf=hostconfig.json
 if [ ! -f $conf ]; then
     # Create default config file.
-    echo '{"vmuser":"root","vmpass":"","vms":[],"contracts":[{"name":"contract","config":{}}]}' | jq . > $conf
+    echo '{"sshuser":"root","sshpass":"","hosts":[],"contracts":[{"name":"contract","config":{}}]}' | jq . > $conf
 fi
 
-vmuser=$(jq -r '.vmuser' $conf)
+sshuser=$(jq -r '.sshuser' $conf)
 
-if [ "$vmuser" = "" ]; then
-    echo "vmuser not specified."
+if [ "$sshuser" = "" ]; then
+    echo "sshuser not specified."
     exit 1
 elif [ "$CONTRACT" = "" ]; then
     CONTRACT=contract # Default contract name (can be set with 'export CONTRACT=<name>'').
 fi
 
-if [ "$vmuser" = "root" ]; then
-    basedir=/$vmuser
+if [ "$sshuser" = "root" ]; then
+    basedir=/$sshuser
 else
-    basedir=/home/$vmuser
+    basedir=/home/$sshuser
 fi
 
 contconfig=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\") | .config" $conf)
@@ -41,10 +41,10 @@ if [ "$contconfig" = "" ] || [ "$contconfig" = "{}" ]; then
     contconfig="{\"user\": {\"port\": 8080}, \"mesh\":{ \"port\": 22860}, \"contract\": {\"roundtime\": 2000 }, \"log\":{\"loglevel\": \"inf\", \"loggers\":[\"console\",\"file\"]}}"
 fi
 
-vmpass=$(jq -r '.vmpass' $conf)
-readarray -t vmaddrs <<< $(jq -r '.vms[]' $conf)
+sshpass=$(jq -r '.sshpass' $conf)
+readarray -t hostaddrs <<< $(jq -r '.hosts[]' $conf)
 contdir=$basedir/$CONTRACT
-vmcount=${#vmaddrs[@]}
+hostcount=${#hostaddrs[@]}
 mode=$1
 hpcore=$(realpath ../..)
 
@@ -71,23 +71,28 @@ fi
 
 # Command modes:
 # info - Displays information about current cluster configuration status.
-# new - Install hot pocket dependencies and hot pocket with example contracts to each vm.
-# updatebin - Deploy updated hot pocket and example binaries into specified vm node or entire cluster.
-# updateconfig - Updates the config file of specified vm node or entire cluster.
+# new - Install hot pocket dependencies and hot pocket with example contracts to each node.
+# updatebin - Deploy updated hot pocket and example binaries into specified node or entire cluster.
+# updateconfig - Updates the config file of specified node or entire cluster.
 # reconfig - Cleans and reconfigures the entire cluster using already uploaded HP binaries.
-# start - Run hot pocket on specified vm node or entire cluster.
-# stop - Gracefully stop hot pocket (if running) on specified vm node or entire cluster.
-# check - Get hot pocket running process ids on specified vm node or entire cluster.
-# log - Stream hot pocket console output log (if running) on specified vm node.
-# kill - Force kill hot pocket (if running) on specified vm node or entire cluster.
-# reboot - Reboot specified vm node.
-# ssh - Open up an ssh terminal for the specified vm node.
-# ssl - Creates LetsEncrypt ssl certs matching with the vm domain name.
+# start - Run hot pocket on specified node or entire cluster.
+# stop - Gracefully stop hot pocket (if running) on specified node or entire cluster.
+# check - Get hot pocket running process ids on specified node or entire cluster.
+# log - Stream hot pocket console output log (if running) on specified node.
+# kill - Force kill hot pocket (if running) on specified node or entire cluster.
+# reboot - Reboot specified node.
+# ssh - Open up an ssh terminal for the specified node.
+# ssl - Creates LetsEncrypt ssl certs matching with the domain name.
 # lcl - Displays the lcls of all nodes.
-# pubkey - Displays the pubkey on specified vm node or entire cluster.
+# pubkey - Displays the pubkey on specified node or entire cluster.
 
 if [ $mode = "info" ]; then
-    echo "${vmaddrs[*]}" | tr ' ' '\n'
+    for (( i=0; i<$hostcount; i++ ))
+    do
+        let n=$i+1
+        hostaddr=${hostaddrs[i]}
+        echo "node"$n": "$hostaddr
+    done
     echo $contconfig
     exit 0
 fi
@@ -96,15 +101,15 @@ if [ $mode = "start" ]; then
     # Use the screen command so that the execution does not stop when ssh session ends.
     command="mkdir -p $contdir/screen && screen -c $contdir/hp.screenrc -m -d bash $contdir/start.sh"
     if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
+        for (( i=0; i<$hostcount; i++ ))
         do
-            vmaddr=${vmaddrs[i]}
-            sshpass -p $vmpass ssh $vmuser@$vmaddr $command &
+            hostaddr=${hostaddrs[i]}
+            sshpass -p $sshpass ssh $sshuser@$hostaddr $command &
         done
         wait
     else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+        hostaddr=${hostaddrs[$nodeid]}
+        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -112,15 +117,15 @@ fi
 if [ $mode = "stop" ]; then
     command="$contdir/stop.sh"
     if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
+        for (( i=0; i<$hostcount; i++ ))
         do
-            vmaddr=${vmaddrs[i]}
-            sshpass -p $vmpass ssh $vmuser@$vmaddr $command &
+            hostaddr=${hostaddrs[i]}
+            sshpass -p $sshpass ssh $sshuser@$hostaddr $command &
         done
         wait
     else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+        hostaddr=${hostaddrs[$nodeid]}
+        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -128,16 +133,16 @@ fi
 if [ $mode = "check" ]; then
     command="$contdir/check.sh"
     if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
+        for (( i=0; i<$hostcount; i++ ))
         do
-            vmaddr=${vmaddrs[i]}
+            hostaddr=${hostaddrs[i]}
             let n=$i+1
-            echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
         done
         wait
     else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+        hostaddr=${hostaddrs[$nodeid]}
+        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -147,24 +152,24 @@ if [ $mode = "log" ]; then
         echo "Please specify node no.."
         exit 1
     fi
-    vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh -t $vmuser@$vmaddr screen -r -S hp_$(basename $contdir)
+    hostaddr=${hostaddrs[$nodeid]}
+    sshpass -p $sshpass ssh -t $sshuser@$hostaddr screen -r -S hp_$(basename $contdir)
     exit 0
 fi
 
 if [ $mode = "kill" ]; then
     command="$contdir/kill.sh"
     if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
+        for (( i=0; i<$hostcount; i++ ))
         do
-            vmaddr=${vmaddrs[i]}
+            hostaddr=${hostaddrs[i]}
             let n=$i+1
-            echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
         done
         wait
     else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+        hostaddr=${hostaddrs[$nodeid]}
+        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -174,8 +179,8 @@ if [ $mode = "reboot" ]; then
         echo "Please specify node no."
         exit 1
     fi
-    vmaddr=${vmaddrs[$nodeid]}
-    sshpass -p $vmpass ssh $vmuser@$vmaddr 'sudo reboot'
+    hostaddr=${hostaddrs[$nodeid]}
+    sshpass -p $sshpass ssh $sshuser@$hostaddr 'sudo reboot'
     exit 0
 fi
 
@@ -185,11 +190,11 @@ if [ $mode = "ssh" ]; then
             # Interpret second arg as a command to execute on all nodes.
             command=${*:2}
             echo "Executing '$command' on all nodes..."
-            for (( i=0; i<$vmcount; i++ ))
+            for (( i=0; i<$hostcount; i++ ))
             do
-                vmaddr=${vmaddrs[i]}
+                hostaddr=${hostaddrs[i]}
                 let n=$i+1
-                echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+                echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
             done
             wait
             exit 0
@@ -198,8 +203,8 @@ if [ $mode = "ssh" ]; then
             exit 1
         fi
     else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh -t $vmuser@$vmaddr "cd $contdir ; bash"
+        hostaddr=${hostaddrs[$nodeid]}
+        sshpass -p $sshpass ssh -t $sshuser@$hostaddr "cd $contdir ; bash"
         exit 0
     fi
 fi
@@ -209,11 +214,11 @@ if [ $mode = "ssl" ]; then
         if [ -n "$2" ]; then
             # If nodeid is not specified, interpret second arg as the ssl account notification email.
             command="$contdir/ssl.sh $2"
-            for (( i=0; i<$vmcount; i++ ))
+            for (( i=0; i<$hostcount; i++ ))
             do
-                vmaddr=${vmaddrs[i]}
+                hostaddr=${hostaddrs[i]}
                 let n=$i+1
-                echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+                echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
             done
             wait
         else
@@ -224,8 +229,8 @@ if [ $mode = "ssl" ]; then
         # if nodeid is specified, interpret third arg as the ssl account notification email.
         if [ -n "$3" ]; then
             command="$contdir/ssl.sh $3"
-            vmaddr=${vmaddrs[$nodeid]}
-            sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+            hostaddr=${hostaddrs[$nodeid]}
+            sshpass -p $sshpass ssh $sshuser@$hostaddr $command
         else
             echo "Please specify ssl account notification email."
             exit 1
@@ -236,11 +241,11 @@ fi
 
 if [ $mode = "lcl" ]; then
     command="$contdir/lcl.sh"
-    for (( i=0; i<$vmcount; i++ ))
+    for (( i=0; i<$hostcount; i++ ))
     do
-        vmaddr=${vmaddrs[i]}
+        hostaddr=${hostaddrs[i]}
         let n=$i+1
-        echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+        echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
     done
     wait
     exit 0
@@ -249,16 +254,16 @@ fi
 if [ $mode = "pubkey" ]; then
     command="cat $contdir/cfg/hp.cfg | grep public_key | cut -d '\"' -f4"
     if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
+        for (( i=0; i<$hostcount; i++ ))
         do
-            vmaddr=${vmaddrs[i]}
+            hostaddr=${hostaddrs[i]}
             let n=$i+1
-            echo "node"$n":" $(sshpass -p $vmpass ssh $vmuser@$vmaddr $command) &
+            echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
         done
         wait
     else
-        vmaddr=${vmaddrs[$nodeid]}
-        sshpass -p $vmpass ssh $vmuser@$vmaddr $command
+        hostaddr=${hostaddrs[$nodeid]}
+        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -286,21 +291,21 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ] || [ $mode = "updateconfig" ]; th
     mkdir ./cfg > /dev/null 2>&1
 fi
 
-# Running vm setup script on specified node or entire cluster.
+# Running node setup script on specified node or entire cluster.
 if [ $nodeid = -1 ]; then
-    for (( i=0; i<$vmcount; i++ ))
+    for (( i=0; i<$hostcount; i++ ))
     do
-        vmaddr=${vmaddrs[i]}
+        hostaddr=${hostaddrs[i]}
         let n=$i+1
-        # Setup vm. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-        /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir &
+        # Setup node. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
+        /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir &
     done
     wait
 else
-    vmaddr=${vmaddrs[$nodeid]}
+    hostaddr=${hostaddrs[$nodeid]}
     let n=$nodeid+1
-    # Setup vm. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-    /bin/bash ./setup-vm.sh $mode $n $vmuser $vmpass $vmaddr $basedir $contdir
+    # Setup node. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
+    /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir
 fi
 
 rm -r hpfiles > /dev/null 2>&1
@@ -318,14 +323,14 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
     # Locally update values of download hp.cfg files.
     peerport=$(echo $contconfig | jq -r ".mesh.port")
-    for (( i=0; i<$vmcount; i++ ))
+    for (( i=0; i<$hostcount; i++ ))
     do
-        vmaddr=${vmaddrs[i]}
+        hostaddr=${hostaddrs[i]}
         let n=$i+1
 
         # Collect each node's pub key and peer address.
         pubkeys[i]=$(jq -r ".node.public_key" ./cfg/node$n.cfg)
-        peers[i]="$vmaddr:$peerport"
+        peers[i]="$hostaddr:$peerport"
     done
 
     # Function to generate JSON array string while skiping a given index.
@@ -334,7 +339,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
         arr=("${!arrname}")
         skip=$2
 
-        let prevlast=$vmcount-2
+        let prevlast=$hostcount-2
         # Resetting prevlast if nothing is given to skip.
         if [ $skip -lt 0 ]
         then
@@ -343,7 +348,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
         j=0
         str="["
-        for (( i=0; i<$vmcount; i++ ))
+        for (( i=0; i<$hostcount; i++ ))
         do
             if [ "$i" != "$skip" ]
             then
@@ -363,7 +368,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
     # Loop through all nodes hp.cfg.
     echo "Generating merged hp.cfg files..."
-    for (( j=0; j<$vmcount; j++ ))
+    for (( j=0; j<$hostcount; j++ ))
     do
         let n=$j+1
 
@@ -384,9 +389,9 @@ elif [ $mode = "updateconfig" ]; then
 
     echo "Generating merged hp.cfg files..."
     if [ $nodeid = -1 ]; then
-        for (( i=0; i<$vmcount; i++ ))
+        for (( i=0; i<$hostcount; i++ ))
         do
-            vmaddr=${vmaddrs[i]}
+            hostaddr=${hostaddrs[i]}
             let n=$i+1
 
             # Merge json contents to produce final config.
@@ -407,17 +412,17 @@ fi
 # Upload local hp.cfg files back to specified node or entire cluster.
 echo "Uploading configured hp.cfg..."
 if [ $nodeid = -1 ]; then
-    for (( i=0; i<$vmcount; i++ ))
+    for (( i=0; i<$hostcount; i++ ))
     do
-        vmaddr=${vmaddrs[i]}
+        hostaddr=${hostaddrs[i]}
         let n=$i+1
 
-        sshpass -p $vmpass scp ./cfg/node$n-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg &
+        sshpass -p $sshpass scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg &
     done
     wait
 else
     let n=$nodeid+1
-    sshpass -p $vmpass scp ./cfg/node$n-merged.cfg $vmuser@$vmaddr:$contdir/cfg/hp.cfg
+    sshpass -p $sshpass scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg
 fi
 
 rm -r ./cfg
