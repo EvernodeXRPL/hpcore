@@ -169,7 +169,7 @@ namespace hpfs
                 if (is_shutting_down)
                     break;
 
-                if (result != SYNC_HASH_CHANGED)
+                if (result != SYNC_HASH_CHANGED && result != SYNC_PRIORITY_CHANGED)
                 {
                     // The finished target can be removed from the list.
                     {
