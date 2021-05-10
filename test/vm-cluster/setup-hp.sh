@@ -64,7 +64,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    popd > /dev/null 2>&1
 
    # Create getpid script (gets process ids belonging to this contract dir)
-   echo "pids=\$(pidof \$*) && [ ! -z \$pids ] && ps -fp \$pids | grep -w $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
+   echo "pids=\$(pidof \$*) && [ ! -z \"\$pids\" ] && ps -fp \$pids | grep -w $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
    sudo chmod +x $contdir/getpid.sh
 
    # Create start.sh script
@@ -76,7 +76,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "echo hpcore_pid:\$($contdir/getpid.sh hpcore)  hpfs_pid:\$($contdir/getpid.sh hpfs)  hpws_pid:\$($contdir/getpid.sh hpws)" > $contdir/check.sh
+   echo "echo hpcore: \$($contdir/getpid.sh hpcore)  hpfs: \$($contdir/getpid.sh hpfs)  hpws: \$($contdir/getpid.sh hpws)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
