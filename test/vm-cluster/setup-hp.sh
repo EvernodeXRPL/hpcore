@@ -76,7 +76,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "echo hpcore: \$($contdir/getpid.sh hpcore)  hpfs: \$($contdir/getpid.sh hpfs)  hpws: \$($contdir/getpid.sh hpws)" > $contdir/check.sh
+   echo "echo hpcore: \$($contdir/getpid.sh hpcore) | hpfs: \$($contdir/getpid.sh hpfs) | hpws: \$($contdir/getpid.sh hpws)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
