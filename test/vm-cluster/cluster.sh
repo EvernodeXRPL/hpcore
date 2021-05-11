@@ -7,74 +7,9 @@
 # ./cluster.sh start 1
 # ./cluster.sh start
 
-# jq command is used for json manipulation.
-if ! command -v jq &> /dev/null
-then
-    sudo apt-get install -y jq
-fi
-
-configfile=config.json
-if [ ! -f $configfile ]; then
-    # Create default config file.
-    echo '{"contracts":[{"name":"contract","sshuser":"root","sshpass":"","hosts":[],"config":{}}]}' | jq . > $configfile
-fi
-
-if [ "$CONTRACT" = "" ]; then
-    CONTRACT=contract # Default contract name (can be set with 'export CONTRACT=<name>'').
-fi
-
-continfo=$(jq -r ".contracts[] | select(.name == \"${CONTRACT}\")" $configfile)
-
-# Read ssh user and password and set contract directory based on username.
-sshuser=$(echo $continfo | jq -r '.sshuser')
-sshpass=$(echo $continfo | jq -r '.sshpass')
-if [ "$sshuser" = "" ]; then
-    echo "sshuser not specified."
-    exit 1
-elif [ "$sshuser" = "root" ]; then
-    basedir=/$sshuser
-else
-    basedir=/home/$sshuser
-fi
-contdir=$basedir/$CONTRACT
-
-# Read the hosts list.
-readarray -t hostaddrs <<< $(echo $continfo | jq -r '.hosts[]')
-hostcount=${#hostaddrs[@]}
-
-# Read the contract config which should be applied to hp.cfg.
-contconfig=$(echo $continfo | jq -r '.config')
-if [ "$contconfig" = "" ] || [ "$contconfig" = "{}" ]; then
-    # Apply default config.
-    contconfig="{\"user\": {\"port\": 8080}, \"mesh\":{ \"port\": 22860}, \"contract\": {\"roundtime\": 2000 }, \"log\":{\"loglevel\": \"inf\", \"loggers\":[\"console\",\"file\"]}}"
-fi
-
-mode=$1
-hpcore=$(realpath ../..)
-
-# Check if second arg (nodeid) is a number or not.
-# If it's a number then reduce 1 from it to get zero-based node index.
-if ! [[ $2 =~ ^[0-9]+$ ]] ; then
-    let nodeid=-1
-else
-    let nodeid=$2-1
-fi
-
-if [ "$mode" = "info" ] || [ "$mode" = "new" ] || [ "$mode" = "updatebin" ] || [ "$mode" = "updateconfig" ] || [ "$mode" = "reconfig" ] || \
-   [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
-   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
-    echo "mode: $mode ($contdir)"
-else
-    echo "Invalid command."
-    echo " Expected: info | new | updatebin <N> | updateconfig [N] | reconfig" \
-        " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
-        " | ssl <email>or<N> <email> | lcl | pubkey [N]"
-    echo " <N>: Required node no.   [N]: Optional node no."
-    exit 1
-fi
-
 # Command modes:
 # info - Displays information about current cluster configuration status.
+# select - Sets the currently active contract from the list of contracts defined in cluster config file.
 # new - Install hot pocket dependencies and hot pocket with example contracts to each node.
 # updatebin - Deploy updated hot pocket and example binaries into specified node or entire cluster.
 # updateconfig - Updates the config file of specified node or entire cluster.
@@ -89,6 +24,95 @@ fi
 # ssl - Creates LetsEncrypt ssl certs matching with the domain name.
 # lcl - Displays the lcls of all nodes.
 # pubkey - Displays the pubkey on specified node or entire cluster.
+
+mode=$1
+hpcore=$(realpath ../..)
+
+if [ "$mode" = "info" ] || [ "$mode" = "select" ] ||
+   [ "$mode" = "new" ] || [ "$mode" = "updatebin" ] || [ "$mode" = "updateconfig" ] || [ "$mode" = "reconfig" ] || \
+   [ "$mode" = "start" ] || [ "$mode" = "stop" ] || [ "$mode" = "check" ] || [ "$mode" = "log" ] || [ "$mode" = "kill" ] || \
+   [ "$mode" = "ssh" ] || [ "$mode" = "reboot" ] || [ "$mode" = "ssl" ] || [ "$mode" = "lcl" ] || [ "$mode" = "pubkey" ]; then
+    echo "mode: $mode"
+else
+    echo "Invalid command."
+    echo " Expected: info | select | new | updatebin <N> | updateconfig [N] | reconfig" \
+        " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
+        " | ssl <email>or<N> <email> | lcl | pubkey [N]"
+    echo " <N>: Required node no.   [N]: Optional node no."
+    exit 1
+fi
+
+# jq command is used for json manipulation.
+if ! command -v jq &> /dev/null
+then
+    sudo apt-get install -y jq
+fi
+
+configfile=config.json
+if [ ! -f $configfile ]; then
+    # Create default config file.
+    echo '{"selected":"contract","contracts":[{"name":"contract","sshuser":"root","sshpass":"","hosts":[],"config":{}}]}' | jq . > $configfile
+fi
+
+if [ $mode = "select" ]; then
+    selectedcont=$2
+    continfo=$(jq -r ".contracts[] | select(.name == \"$selectedcont\")" $configfile)
+    if [ "$continfo" = "" ]; then
+        echo "No configuration found for selected contract '"$selectedcont"'"
+        exit 1
+    fi
+
+    # Set the 'selected' field value on cluster config file.
+    jq ".selected = \"$selectedcont\"" $configfile > $configfile.tmp && mv $configfile.tmp $configfile
+    echo "Selected '"$selectedcont"'"
+    exit 0
+fi
+
+selectedcont=$(jq -r '.selected' $configfile)
+if [ "$selectedcont" = "" ]; then
+    echo "No contract selected."
+    exit 1
+fi
+
+continfo=$(jq -r ".contracts[] | select(.name == \"$selectedcont\")" $configfile)
+if [ "$continfo" = "" ]; then
+    echo "No configuration found for selected contract '"$selectedcont"'"
+    exit 1
+fi
+
+# Read ssh user and password and set contract directory based on username.
+sshuser=$(echo $continfo | jq -r '.sshuser')
+sshpass=$(echo $continfo | jq -r '.sshpass')
+if [ "$sshuser" = "" ]; then
+    echo "sshuser not specified."
+    exit 1
+elif [ "$sshuser" = "root" ]; then
+    basedir=/$sshuser
+else
+    basedir=/home/$sshuser
+fi
+contdir=$basedir/$selectedcont
+
+# Read the hosts list.
+readarray -t hostaddrs <<< $(echo $continfo | jq -r '.hosts[]')
+hostcount=${#hostaddrs[@]}
+
+# Read the contract config which should be applied to hp.cfg.
+contconfig=$(echo $continfo | jq -r '.config')
+if [ "$contconfig" = "" ] || [ "$contconfig" = "{}" ]; then
+    # Apply default config.
+    contconfig="{\"user\": {\"port\": 8080}, \"mesh\":{ \"port\": 22860}, \"contract\": {\"roundtime\": 2000 }, \"log\":{\"loglevel\": \"inf\", \"loggers\":[\"console\",\"file\"]}}"
+fi
+
+# Check if second arg (nodeid) is a number or not.
+# If it's a number then reduce 1 from it to get zero-based node index.
+if ! [[ $2 =~ ^[0-9]+$ ]] ; then
+    let nodeid=-1
+else
+    let nodeid=$2-1
+fi
+
+echo " dir: "$contdir
 
 if [ $mode = "info" ]; then
     for (( i=0; i<$hostcount; i++ ))
