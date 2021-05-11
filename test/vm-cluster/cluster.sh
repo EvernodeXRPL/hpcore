@@ -56,6 +56,10 @@ fi
 
 if [ $mode = "select" ]; then
     selectedcont=$2
+    if [ "$selectedcont" = "" ]; then
+        echo "Please specify contract name to select."
+        exit 1
+    fi
     continfo=$(jq -r ".contracts[] | select(.name == \"$selectedcont\")" $configfile)
     if [ "$continfo" = "" ]; then
         echo "No configuration found for selected contract '"$selectedcont"'"
