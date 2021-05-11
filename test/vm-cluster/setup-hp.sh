@@ -3,7 +3,7 @@
 mode=$1
 basedir=$2
 contdir=$3 # Contract directory
-vmaddr=$4
+hostaddr=$4
 
 if [[ ! -f /swapfile ]]
 then
@@ -64,7 +64,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    popd > /dev/null 2>&1
 
    # Create getpid script (gets process ids belonging to this contract dir)
-   echo "ps -fp \$(pidof \$*) | grep $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
+   echo "pids=\$(pidof \$*) && [ ! -z \"\$pids\" ] && ps -fp \$pids | grep -w $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
    sudo chmod +x $contdir/getpid.sh
 
    # Create start.sh script
@@ -72,28 +72,28 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/start.sh
    
    # Create stop.sh script (sending SIGINT to hpcore)
-   echo "kill -2 \$($contdir/getpid.sh hpcore)" > $contdir/stop.sh
+   echo "pids=\$($contdir/getpid.sh hpcore) && [ ! -z \$pids ] && kill -2 \$pids" > $contdir/stop.sh
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
-   echo "echo hpcore pid:\$($contdir/getpid.sh hpcore)  hpfs pid:\$($contdir/getpid.sh hpfs)  hpws pid:\$($contdir/getpid.sh hpws)" > $contdir/check.sh
+   echo "echo hpcore: \$($contdir/getpid.sh hpcore) , hpfs: \$($contdir/getpid.sh hpfs) , hpws: \$($contdir/getpid.sh hpws)" > $contdir/check.sh
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
-   echo "sudo kill \$($contdir/getpid.sh hpcore hpfs hpws)" > $contdir/kill.sh
+   echo "pids=\$($contdir/getpid.sh hpcore hpfs hpws) && [ ! -z \$pids ] && sudo kill \$pids" > $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
 
    # Create lcl.sh script
    echo "max_shard_no=\$(ls -v $contdir/ledger_fs/seed/primary/ | tail -2 | head -1)" > $contdir/lcl.sh
-   echo "echo \"select seq_no || '-' || lower(hex(ledger_hash)) from ledger order by seq_no DESC limit 1;\" | sqlite3 file:$contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite?mode=ro" >> $contdir/lcl.sh
+   echo "[ ! -z \$max_shard_no ] && echo \"select seq_no || '-' || lower(hex(ledger_hash)) from ledger order by seq_no DESC limit 1;\" | sqlite3 file:$contdir/ledger_fs/seed/primary/\$max_shard_no/ledger.sqlite?mode=ro" >> $contdir/lcl.sh
    sudo chmod +x $contdir/lcl.sh
 
    # Create ssl.sh script
-   # This installs LetsEncrypt certbot and generates the SSL certs matching with vm domain name.
+   # This installs LetsEncrypt certbot and generates the SSL certs matching with the host's domain name.
    echo "snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot > /dev/null 2>&1" > $contdir/ssl.sh
-   echo "certbot certonly --standalone -n -m \$1 --agree-tos -d $vmaddr" >> $contdir/ssl.sh
-   echo "cp /etc/letsencrypt/live/$vmaddr/fullchain.pem $basedir/hpfiles/ssl/tlscert.pem" >> $contdir/ssl.sh
-   echo "cp /etc/letsencrypt/live/$vmaddr/privkey.pem $basedir/hpfiles/ssl/tlskey.pem" >> $contdir/ssl.sh
+   echo "certbot certonly --standalone -n -m \$1 --agree-tos -d $hostaddr" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$hostaddr/fullchain.pem $basedir/hpfiles/ssl/tlscert.pem" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$hostaddr/privkey.pem $basedir/hpfiles/ssl/tlskey.pem" >> $contdir/ssl.sh
    echo "cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/" >> $contdir/ssl.sh
    sudo chmod +x $contdir/ssl.sh
 
