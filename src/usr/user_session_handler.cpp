@@ -20,7 +20,6 @@ namespace usr
         // Allow connection only if the maximum capacity is not reached. 0 means allowing unlimited connections.
         if ((conf::cfg.user.max_connections == 0) || (usr::ctx.users.size() < conf::cfg.user.max_connections))
         {
-            corebill::add_to_whitelist(session.host_address);
             LOG_DEBUG << "User client connected " << session.display_name();
 
             // As soon as a user connects, we issue them a challenge message. We remember the
