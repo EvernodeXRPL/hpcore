@@ -3,7 +3,8 @@
 mode=$1
 basedir=$2
 contdir=$3 # Contract directory
-hostaddr=$4
+hpfiles=$4
+hostaddr=$5
 
 if [[ ! -f /swapfile ]]
 then
@@ -33,9 +34,9 @@ if [ -x "$(command -v fusermount3)" ]; then
 else
    echo "Installing FUSE and other shared libraries..."
    sudo apt-get -y install libgomp1 libssl-dev
-   sudo cp $basedir/hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
+   sudo cp $basedir/$hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
    sudo ldconfig
-   sudo cp $basedir/hpfiles/bin/fusermount3 /usr/local/bin/
+   sudo cp $basedir/$hpfiles/bin/fusermount3 /usr/local/bin/
 fi
 
 if [ -x "$(command -v sqlite3)" ]; then
@@ -50,16 +51,16 @@ fi
 sudo rm -r $contdir > /dev/null 2>&1
 
 echo "Creating new contract directory..."
-$basedir/hpfiles/bin/hpcore new $contdir
+$basedir/$hpfiles/bin/hpcore new $contdir
 
-if [ -f $basedir/hpfiles/ssl/tlscert.pem ]; then
+if [ -f $basedir/$hpfiles/ssl/tlscert.pem ]; then
    echo "Copying ssl certs to contract directory..."
-   cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/
+   cp -rf $basedir/$hpfiles/ssl/* $contdir/cfg/
 fi
 
 if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    # npm install to support nodejs contract
-   pushd $basedir/hpfiles/nodejs_contract > /dev/null 2>&1
+   pushd $basedir/$hpfiles/nodejs_contract > /dev/null 2>&1
    npm install
    popd > /dev/null 2>&1
 
@@ -68,7 +69,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/getpid.sh
 
    # Create start.sh script
-   echo "$basedir/hpfiles/bin/hpcore run $contdir" > $contdir/start.sh
+   echo "$basedir/$hpfiles/bin/hpcore run $contdir" > $contdir/start.sh
    sudo chmod +x $contdir/start.sh
    
    # Create stop.sh script (sending SIGINT to hpcore)
@@ -92,9 +93,9 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    # This installs LetsEncrypt certbot and generates the SSL certs matching with the host's domain name.
    echo "snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot > /dev/null 2>&1" > $contdir/ssl.sh
    echo "certbot certonly --standalone -n -m \$1 --agree-tos -d $hostaddr" >> $contdir/ssl.sh
-   echo "cp /etc/letsencrypt/live/$hostaddr/fullchain.pem $basedir/hpfiles/ssl/tlscert.pem" >> $contdir/ssl.sh
-   echo "cp /etc/letsencrypt/live/$hostaddr/privkey.pem $basedir/hpfiles/ssl/tlskey.pem" >> $contdir/ssl.sh
-   echo "cp -rf $basedir/hpfiles/ssl/* $contdir/cfg/" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$hostaddr/fullchain.pem $basedir/$hpfiles/ssl/tlscert.pem" >> $contdir/ssl.sh
+   echo "cp /etc/letsencrypt/live/$hostaddr/privkey.pem $basedir/$hpfiles/ssl/tlskey.pem" >> $contdir/ssl.sh
+   echo "cp -rf $basedir/$hpfiles/ssl/* $contdir/cfg/" >> $contdir/ssl.sh
    sudo chmod +x $contdir/ssl.sh
 
    # Configure .screenrc
