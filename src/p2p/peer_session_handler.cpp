@@ -18,6 +18,9 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
+    // Max size of messages which are subjected to duplicate message check.
+    constexpr size_t MAX_SIZE_FOR_DUP_CHECK = 1 * 1024 * 1024; // 1 MB
+
     // The set of recent peer message hashes used for duplicate detection.
     util::rollover_hashset recent_peermsg_hashes(200);
 
@@ -72,14 +75,17 @@ namespace p2p
      */
     int handle_peer_message(p2p::peer_comm_session &session, std::string_view message)
     {
+        const size_t message_size = message.size();
         // Adding message size to peer message characters(bytes) per minute counter.
-        session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message.size());
+        session.increment_metric(comm::SESSION_THRESHOLDS::MAX_RAWBYTES_PER_MINUTE, message_size);
 
         const peer_message_info mi = p2pmsg::get_peer_message_info(message, &session);
         if (!mi.p2p_msg) // Message buffer will be null if peer message was too old.
             return 0;
 
-        if (!recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
+        // Messages larger than the duplicate message threshold is ignored from the duplicate message check
+        // due to the overhead in hash generation for larger messages.
+        if (message_size <= MAX_SIZE_FOR_DUP_CHECK && !recent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
         {
             session.increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
             LOG_DEBUG << "Duplicate peer message. type:" << mi.type << " from:" << session.display_name();
