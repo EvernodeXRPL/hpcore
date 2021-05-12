@@ -684,7 +684,7 @@
             catch (e) {
                 liblog(1, e);
                 liblog(0, "Exception deserializing: ");
-                liblog(0, (data && (isTextMode ? data.toString() : data) || rcvd));
+                liblog(0, data || rcvd);
 
                 // If we get invalid message during handshake, close the socket.
                 if (connectionStatus < 2)
@@ -1112,9 +1112,8 @@
             throw "WebSocket reference not found.";
     }
 
-    let blake3Resolver = null;
-    let blake3awaiter = null;
     // Set blake3 reference.
+    let blake3awaiter = null;
     async function initBlake3() {
         if (blake3) { // If already set, do nothing.
             return;
@@ -1122,10 +1121,40 @@
         else if (isBrowser && window.blake3) {// browser (if blake3 already loaded)
             blake3 = window.blake3;
         }
-        else if (isBrowser && !window.blake3) { // If blake3 not yet loaded in browser, wait for it.
-            if (!blake3awaiter)
-                blake3awaiter = new Promise(resolve => blake3Resolver = resolve);
-            blake3 = await blake3awaiter;
+        else if (isBrowser && !window.blake3) { // If blake3 not yet loaded in browser, load it.
+
+            if (!blake3awaiter) {
+                blake3awaiter = new Promise(resolve => {
+
+                    // The Blake3 library we are using (https://github.com/connor4312/blake3) causes issue on Mac/iOS (Safari) due
+                    // to Safari's lack of support for BigInt/BigUint64Array data types as of 25 Apr 2021. Here, we are adding empty
+                    // definitions to avoid complete initialization failure of Blake3 library on Mac/iOS.
+
+                    if (typeof (BigUint64Array) === "undefined")
+                        BigUint64Array = function (v) { }
+
+                    if (typeof (BigInt) === "undefined")
+                        BigInt = function (v) { }
+
+                    import('https://cdn.jsdelivr.net/npm/blake3@2.1.4/browser-async.js').then(module => {
+                        module.default()
+                            .then(blake3ref => {
+                                blake3 = blake3ref;
+                                resolve();
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                resolve();
+                            });
+                    }).catch(err => {
+                        console.error(err);
+                        resolve();
+                    });
+                });
+            }
+
+            await blake3awaiter;
+            return;
         }
         else if (!isBrowser) { // nodejs
             blake3 = require('blake3');
@@ -1133,16 +1162,6 @@
 
         if (!blake3)
             throw "Blake3 reference not found.";
-    }
-
-    function setBlake3(blake3ref) {
-        if (blake3Resolver) {
-            blake3Resolver(blake3ref)
-            blake3Resolver = null;
-        }
-        else {
-            blake3 = blake3ref;
-        }
     }
 
     function setLogLevel(level) {
@@ -1160,7 +1179,6 @@
             createClient,
             events,
             protocols,
-            setBlake3,
             setLogLevel
         };
     }

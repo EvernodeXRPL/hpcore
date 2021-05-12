@@ -10,12 +10,6 @@
         integrity="sha512-oRfU7aik4u7f0dPAKgOyA4+bb/YRGfAaD5RA4Z3Mb2ycPcGDs+k8qAnDNd7ouruoqlIHSuGVaTTlEs91Gvd37A=="
         crossorigin="anonymous"></script>
 
-    <!--Hot Pocket client library requires blake3 for hashing operations.-->
-    <script type="module">
-        import init from 'https://cdn.jsdelivr.net/npm/blake3@2.1.4/browser-async.js';
-        init().then(blake3 => HotPocket.setBlake3(blake3)).catch(console.error);
-    </script>
-
     <script>
         async function testFunc() {
 
