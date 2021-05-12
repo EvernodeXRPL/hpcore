@@ -96,6 +96,7 @@ else
     basedir=/home/$sshuser
 fi
 contdir=$basedir/$selectedcont
+hpfiles="hpfiles/"$selectedcont
 
 # Read the hosts list.
 readarray -t hostaddrs <<< $(echo $continfo | jq -r '.hosts[]')
@@ -306,17 +307,18 @@ fi
 # Copy required files to remote node hpfiles dir.
 
 if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
-    mkdir -p hpfiles/{bin,ssl,nodejs_contract}
+    rm -r hpfiles > /dev/null 2>&1
+    mkdir -p $hpfiles/{bin,ssl,nodejs_contract}
     strip $hpcore/build/hpcore
     strip $hpcore/build/appbill
-    cp $hpcore/build/{hpcore,hpfs,hpws} hpfiles/bin/
+    cp $hpcore/build/{hpcore,hpfs,hpws} $hpfiles/bin/
     cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} \
-        hpfiles/nodejs_contract/
+        $hpfiles/nodejs_contract/
 fi
 
 if [ $mode = "new" ]; then
-    cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,hpws,hpfs} hpfiles/bin/
-    cp ./setup-hp.sh hpfiles/
+    cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,hpws,hpfs} $hpfiles/bin/
+    cp ./setup-hp.sh $hpfiles/
 fi
 
 if [ $mode = "new" ] || [ $mode = "reconfig" ] || [ $mode = "updateconfig" ]; then
@@ -330,14 +332,14 @@ if [ $nodeid = -1 ]; then
         hostaddr=${hostaddrs[i]}
         let n=$i+1
         # Setup node. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-        /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir &
+        /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir $hpfiles &
     done
     wait
 else
     hostaddr=${hostaddrs[$nodeid]}
     let n=$nodeid+1
     # Setup node. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-    /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir
+    /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir $hpfiles
 fi
 
 rm -r hpfiles > /dev/null 2>&1
@@ -411,7 +413,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
         # Merge json contents to produce final config.
         echo "$(cat ./cfg/node$n.cfg)" \
-            '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/hpfiles/nodejs_contract/echo_contract.js", "unl": '${myunl}'}}'\
+            '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/'$hpfiles'/nodejs_contract/echo_contract.js", "unl": '${myunl}'}}'\
             '{"mesh": {"known_peers": '${mypeers}'}}'\
             $contconfig \
             | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg
