@@ -96,7 +96,7 @@ else
     basedir=/home/$sshuser
 fi
 contdir=$basedir/$selectedcont
-hpfiles=hpfiles-$selectedcont
+hpfiles="hpfiles/"$selectedcont
 
 # Read the hosts list.
 readarray -t hostaddrs <<< $(echo $continfo | jq -r '.hosts[]')
@@ -307,6 +307,7 @@ fi
 # Copy required files to remote node hpfiles dir.
 
 if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
+    rm -r hpfiles > /dev/null 2>&1
     mkdir -p $hpfiles/{bin,ssl,nodejs_contract}
     strip $hpcore/build/hpcore
     strip $hpcore/build/appbill
@@ -341,7 +342,7 @@ else
     /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir $hpfiles
 fi
 
-rm -r $hpfiles > /dev/null 2>&1
+rm -r hpfiles > /dev/null 2>&1
 
 if [ $mode = "updatebin" ]; then
     exit 0

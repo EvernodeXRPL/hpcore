@@ -13,7 +13,7 @@ echo $nodeid. $hostaddr
 
 if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     echo "Uploading hp files to $basedir..."
-    sshpass -p $sshpass scp -rp $hpfiles $sshuser@$hostaddr:$basedir/
+    sshpass -p $sshpass scp -rp hpfiles $sshuser@$hostaddr:$basedir/
     echo "Upload finished."
 fi
 
