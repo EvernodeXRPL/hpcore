@@ -1078,7 +1078,7 @@
         }
         else { // nodejs
             if (!sodium)
-                sodium = require('libsodium-wrappers');
+                sodium = require("libsodium-wrappers");
             await sodium.ready;
         }
 
@@ -1093,7 +1093,7 @@
         else if (isBrowser && window.BSON) // browser
             bson = window.BSON;
         else if (!isBrowser) // nodejs
-            bson = require('bson');
+            bson = require("bson");
 
         if (!bson)
             throw "BSON reference not found.";
@@ -1136,7 +1136,9 @@
                     if (typeof (BigInt) === "undefined")
                         BigInt = function (v) { }
 
-                    import('https://cdn.jsdelivr.net/npm/blake3@2.1.4/browser-async.js').then(module => {
+                    // Import the blake3 browser module at runtime.
+                    const url = "https://cdn.jsdelivr.net/npm/blake3@2.1.4/browser-async.js";
+                    import(url).then(module => {
                         module.default()
                             .then(blake3ref => {
                                 blake3 = blake3ref;
@@ -1157,7 +1159,7 @@
             return;
         }
         else if (!isBrowser) { // nodejs
-            blake3 = require('blake3');
+            blake3 = require("blake3");
         }
 
         if (!blake3)
