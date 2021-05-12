@@ -1088,12 +1088,17 @@
 
     // Set bson reference.
     function initBson() {
-        if (bson) // If already set, do nothing.
+        if (bson) { // If already set, do nothing.
             return;
-        else if (isBrowser && window.BSON) // browser
+        }
+        else if (isBrowser) { // Browser
+            // We asume our custom version of bson js lib is already loaded.
             bson = window.BSON;
-        else if (!isBrowser) // nodejs
+            window.Buffer = window.BSON.BufferPolyfill; // Buffer polyfill exposed in our modified BSON lib.
+        }
+        else if (!isBrowser) { // nodejs
             bson = require("bson");
+        }
 
         if (!bson)
             throw "BSON reference not found.";
@@ -1106,7 +1111,7 @@
         else if (isBrowser && window.WebSocket) // browser
             WebSocket = window.WebSocket;
         else if (!isBrowser) // nodejs
-            WebSocket = require('ws');
+            WebSocket = require("ws");
 
         if (!WebSocket)
             throw "WebSocket reference not found.";

@@ -1,6 +1,8 @@
 {
     "scripts": {
-        "build-browser": "mkdir -p dist && minify hp-client-lib.js > dist/hp-client-lib.js"
+        "merge-browser": "mkdir -p dist && cp bson-browser.js dist/hp-client-lib.js && cat hp-client-lib.js >> dist/hp-client-lib.js",
+        "minify-browser": "minify dist/hp-client-lib.js > dist/hp-client-lib.min.js && rm dist/hp-client-lib.js",
+        "build-browser": "npm run merge-browser && npm run minify-browser"
     },
     "dependencies": {
         "libsodium-wrappers": "0.7.6",
