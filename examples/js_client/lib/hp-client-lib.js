@@ -1,3 +1,9 @@
+/**
+ * Hot Pocket javascript client library (for NodeJs and Browser)
+ * NodeJs: const HotPocket = require("./hp-client-lib")
+ * Browser: window.HotPocket
+ */
+
 (() => {
 
     // Whether we are in Browser or NodeJs.
@@ -26,7 +32,7 @@
     /*--- Included in public interface. ---*/
     const protocols = {
         json: "json",
-        bson: "bson" // (Requires nodejs or browserified hp client library on Browser)
+        bson: "bson"
     }
     Object.freeze(protocols);
 
@@ -108,7 +114,7 @@
         await initBlake3();
         initWebSocket();
         if (opt.protocol == protocols.bson)
-            initBson();
+            await initBson();
 
         // Load servers and serverKeys to object keys to avoid duplicates.
 
@@ -559,6 +565,7 @@
         const contractMessageHandler = (m) => {
 
             if (m.type == "contract_read_response") {
+                console.log(m);
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeValue(m.content));
             }
             else if (m.type == "contract_input_status") {
@@ -1087,14 +1094,24 @@
     }
 
     // Set bson reference.
-    function initBson() {
+    let bsonAwaiter = null;
+    async function initBson() {
         if (bson) { // If already set, do nothing.
             return;
         }
         else if (isBrowser) { // Browser
-            // We asume our custom version of bson js lib is already loaded.
-            bson = window.BSON;
-            window.Buffer = window.BSON.BufferPolyfill; // Buffer polyfill exposed in our modified BSON lib.
+            if (!bsonAwaiter) {
+                bsonAwaiter = new Promise(resolve => {
+                    // Trigger a event loop cycle to let the bson lib load.
+                    setTimeout(() => {
+                        // We assume our custom version of bson-browser.js lib is now loaded.
+                        bson = window.BSON;
+                        window.Buffer = window.BSON.BufferPolyfill; // Buffer polyfill exposed in our modified BSON lib.
+                        resolve();
+                    }, 0);
+                });
+            }
+            await bsonAwaiter;
         }
         else if (!isBrowser) { // nodejs
             bson = require("bson");
