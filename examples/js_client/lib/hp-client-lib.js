@@ -13,6 +13,14 @@
     if (isBrowser && window.HotPocket)
         return;
 
+    // Common data type initialization.
+    if (!isBrowser) {
+        // In browser, these are available in the global scopre. It's just in NodeJs they are in 'util' scope.
+        const util = require("util");
+        TextEncoder = util.TextEncoder;
+        TextDecoder = util.TextDecoder;
+    }
+
     const supportedHpVersion = "1.0.0";
     const serverChallengeSize = 16;
     const outputValidationPassThreshold = 0.8;
@@ -565,7 +573,6 @@
         const contractMessageHandler = (m) => {
 
             if (m.type == "contract_read_response") {
-                console.log(m);
                 emitter && emitter.emit(events.contractReadResponse, msgHelper.deserializeValue(m.content));
             }
             else if (m.type == "contract_input_status") {
