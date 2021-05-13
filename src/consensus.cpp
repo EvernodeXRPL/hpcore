@@ -278,7 +278,7 @@ namespace consensus
                     // When requesting the next seq_no, serving peer will give all the hpfs logs upto it's latest.
                     // So hash mismatch won't happen in the next round.
                     if (!ledger::ledger_sync_worker.is_last_primary_shard_syncing)
-                        sc::hpfs_log_sync::set_sync_target(lcl_id.seq_no + 1);
+                        sc::hpfs_log_sync::set_sync_target(lcl_id.seq_no + 1, hpfs::get_root_hash(majority_patch_hash, majority_state_hash));
                 }
                 else
                 {

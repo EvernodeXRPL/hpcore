@@ -47,7 +47,7 @@ namespace sc::hpfs_log_sync
         }
     }
 
-    void set_sync_target(const uint64_t target)
+    void set_sync_target(const uint64_t target, const util::h32 &target_root_hash)
     {
         {
             std::scoped_lock lock(sync_ctx.target_log_seq_no_mutex);
@@ -55,9 +55,11 @@ namespace sc::hpfs_log_sync
                 return;
 
             sync_ctx.target_log_seq_no = target;
+            sync_ctx.target_root_hash = target_root_hash;
 
+            const int res = get_verified_min_record();
             // Finding the minimum seq_no to request hpfs logs.
-            if (get_verified_min_record() == -1)
+            if (res == -1 || res == 1)
                 return;
         }
 
@@ -97,27 +99,6 @@ namespace sc::hpfs_log_sync
                 {
                     LOG_INFO << "Hpfs log sync: sync target archived: " << sync_ctx.target_log_seq_no;
                     sync_ctx.clear_target();
-
-                    // After archiving the target, update latest state and patch hash in the in memory map.
-                    util::h32 state_hash, patch_hash;
-                    const std::string session_name = "ro_hpfs_log_sync";
-
-                    if (sc::contract_fs.start_ro_session(session_name, true) != -1)
-                    {
-                        if (sc::contract_fs.get_hash(state_hash, session_name, sc::STATE_DIR_PATH) != -1)
-                            sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
-                        else
-                            LOG_ERROR << "Hpfs log sync: error getting the updated state hash";
-
-                        if (sc::contract_fs.get_hash(patch_hash, session_name, sc::PATCH_FILE_PATH) != -1)
-                            sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
-                        else
-                            LOG_ERROR << "Hpfs log sync: error getting the updated patch hash";
-
-                        sc::contract_fs.stop_ro_session(session_name);
-                    }
-                    else
-                        LOG_ERROR << "Hpfs log sync: error starting the hpfs ro session";
                 }
             }
 
@@ -310,9 +291,43 @@ namespace sc::hpfs_log_sync
             return -1;
         }
 
-        // In sync. No need to sync.
         if (last_from_index == last_from_ledger)
-            return 1;
+        {
+            // After archiving the target, update latest state and patch hash in the in memory map.
+            const std::string session_name = "ro_hpfs_log_sync";
+
+            util::h32 state_hash, patch_hash;
+            if (sc::contract_fs.start_ro_session(session_name, true) != -1)
+            {
+                if (sc::contract_fs.get_hash(state_hash, session_name, sc::STATE_DIR_PATH) != -1)
+                    sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
+                else
+                    LOG_ERROR << "Hpfs log sync: error getting the updated state hash";
+
+                if (sc::contract_fs.get_hash(patch_hash, session_name, sc::PATCH_FILE_PATH) != -1)
+                    sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
+                else
+                    LOG_ERROR << "Hpfs log sync: error getting the updated patch hash";
+
+                sc::contract_fs.stop_ro_session(session_name);
+            }
+            else
+                LOG_ERROR << "Hpfs log sync: error starting the hpfs ro session";
+
+            if (hpfs::get_root_hash(patch_hash, state_hash) == sync_ctx.target_root_hash)
+                return 1;
+            else
+            {
+                // Truncate from the last ledger seq_no. There might be some additional log records after the last index update.
+                if (sc::contract_fs.truncate_log_file(last_from_ledger.seq_no) == -1)
+                {
+                    LOG_ERROR << "Error truncating hpfs log file and index file from : " << last_from_ledger.seq_no;
+                    return -1;
+                }
+                sync_ctx.min_log_record = last_from_ledger;
+                return 0;
+            }
+        }
 
         if (last_from_index.seq_no == last_from_ledger.seq_no)
         {
