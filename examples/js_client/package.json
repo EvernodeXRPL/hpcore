@@ -1,7 +1,9 @@
 {
     "scripts": {
-        "build-node": "browserify --node -p tinyify hp-client-lib.js -o dist/hp-node-client-lib.js",
-        "build-browser": "browserify -p tinyify hp-client-lib.js -o dist/hp-browser-client-lib.js"
+        "merge-browser": "rm -r dist ; mkdir -p dist && cp lib/bson-browser.js dist/hp-client-lib.js && cat lib/hp-client-lib.js >> dist/hp-client-lib.js",
+        "minify-browser": "terser --compress --mangle reserved=['Binary','Buffer'] -- dist/hp-client-lib.js > dist/hp-client-lib.min.js && rm dist/hp-client-lib.js",
+        "build-browser": "npm run merge-browser && npm run minify-browser",
+        "build-nodejs": "ncc build lib/hp-client-lib.js -o dist/hp-client"
     },
     "dependencies": {
         "libsodium-wrappers": "0.7.6",
@@ -10,9 +12,6 @@
         "bson": "4.0.4"
     },
     "devDependencies": {
-        "tinyify": "3.0.0",
-        "browserify": "16.5.2",
-        "utf-8-validate": "5.0.2",
-        "bufferutil": "4.0.1"
+        "terser": "5.7.0"
     }
 }
