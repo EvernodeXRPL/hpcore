@@ -57,7 +57,7 @@ namespace ledger
                 }
 
                 const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, synced_target.hash};
-                if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id) == -1)
+                if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id, false) == -1)
                 {
                     LOG_ERROR << "Error updating context from the synced shard " << synced_target.vpath;
                     return;

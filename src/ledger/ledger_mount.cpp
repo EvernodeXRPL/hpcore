@@ -19,8 +19,11 @@ namespace ledger
             return -1;
         }
 
+        // For the get last ledger, we pass genesis_fallback=true because in case the ledger db is found to be corrupted during startup,
+        // the node can start with genesis ledger and (hopefuly) the ledger syncing will auto correct the currupted ledger db.
+
         if (get_last_shard_info(hpfs::RW_SESSION_NAME, last_primary_shard_id, PRIMARY_DIR) == -1 ||
-            get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, last_primary_shard_id) == -1 ||
+            get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, last_primary_shard_id, true) == -1 ||
             get_last_shard_info(hpfs::RW_SESSION_NAME, last_raw_shard_id, RAW_DIR) == -1)
         {
             LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
