@@ -34,7 +34,7 @@ namespace consensus
 
     int init()
     {
-        refresh_roundtime(false);
+        refresh_time_config(false);
 
         // Starting consensus processing thread.
         ctx.consensus_thread = std::thread(run_consensus);
@@ -149,7 +149,7 @@ namespace consensus
                 ctx.unreliable_votes_attempts++;
                 if (ctx.unreliable_votes_attempts >= MAX_UNRELIABLE_VOTES_ATTEMPTS)
                 {
-                    refresh_roundtime(true);
+                    refresh_time_config(true);
                     ctx.unreliable_votes_attempts = 0;
                 }
             }
@@ -579,7 +579,7 @@ namespace consensus
             }
             else
             {
-                LOG_DEBUG << "Waiting " << std::to_string(to_wait) << "ms for stage " << std::to_string(ctx.stage);
+                LOG_DEBUG << "Waiting " << to_wait << "ms for stage " << std::to_string(ctx.stage);
                 util::sleep(to_wait);
                 return true;
             }
@@ -1261,7 +1261,7 @@ namespace consensus
                 {
                     unl::update_unl_changes_from_patch();
                     // Refresh values in consensus context to match newly synced roundtime from patch file.
-                    refresh_roundtime(false);
+                    refresh_time_config(false);
                     is_patch_update_pending = false;
                 }
             }
@@ -1273,22 +1273,22 @@ namespace consensus
     }
 
     /**
-     * Updates roundtime-based calculations with the latest roundtime value.
-     * @param perform_detection Whether or not to detect roundtime from latest network information.
+     * Updates roundtime-based calculations with the latest time config value.
+     * @param perform_detection Whether or not to detect time config from latest network information.
      */
-    void refresh_roundtime(const bool perform_detection)
+    void refresh_time_config(const bool perform_detection)
     {
         if (perform_detection)
         {
             LOG_DEBUG << "Detecting roundtime...";
-            const uint32_t majority_roundtime = unl::get_majority_roundtime();
+            const uint32_t majority_time_config = unl::get_majority_time_config();
 
-            if (majority_roundtime == 0 || conf::cfg.contract.roundtime == majority_roundtime)
+            if (majority_time_config == 0 || conf::cfg.contract.roundtime == majority_time_config)
                 return;
 
-            LOG_INFO << "New roundtime detected:" << majority_roundtime << " previous:" << conf::cfg.contract.roundtime;
+            LOG_INFO << "New time config detected:" << majority_time_config << " previous:" << conf::cfg.contract.roundtime;
 
-            conf::cfg.contract.roundtime = majority_roundtime;
+            conf::cfg.contract.roundtime = majority_time_config;
         }
 
         // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).

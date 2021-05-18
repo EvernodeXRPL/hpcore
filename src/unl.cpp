@@ -96,48 +96,48 @@ namespace unl
     }
 
     /**
-     * Returns the majority roundtime reported among the unl.
+     * Returns the majority time config reported among the unl.
      */
-    uint32_t get_majority_roundtime()
+    uint32_t get_majority_time_config()
     {
         std::unique_lock lock(unl_mutex);
 
-        // Vote and find majority roundtime within the unl.
-        // Fill any 0 roundtimes with information from peer connections.
-        std::map<uint32_t, uint32_t> roundtime_votes;
+        // Vote and find majority time config within the unl.
+        // Fill any 0 time configs with information from peer connections.
+        std::map<uint32_t, uint32_t> time_config_votes;
 
         {
             std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
             for (auto itr = list.begin(); itr != list.end(); itr++)
             {
-                // If roundtime is 0, attempt to get from peer connection (if available).
+                // If time config is 0, attempt to get from peer connection (if available).
                 if (itr->second == 0)
                 {
                     const auto peer_itr = p2p::ctx.peer_connections.find(itr->first);
                     if (peer_itr != p2p::ctx.peer_connections.end())
-                        itr->second = peer_itr->second->reported_roundtime;
+                        itr->second = peer_itr->second->reported_time_config;
                 }
 
-                const uint32_t roundtime = itr->second;
-                if (roundtime > 0)
-                    roundtime_votes[roundtime]++;
+                const uint32_t time_config = itr->second;
+                if (time_config > 0)
+                    time_config_votes[time_config]++;
             }
         }
 
         // Find the majority vote.
         uint32_t highest_votes = 0;
-        uint32_t majority_roundtime = 0;
-        for (const auto [roundtime, num_votes] : roundtime_votes)
+        uint32_t majority_time_config = 0;
+        for (const auto [roundtime, num_votes] : time_config_votes)
         {
             if (num_votes > highest_votes)
             {
                 highest_votes = num_votes;
-                majority_roundtime = roundtime;
+                majority_time_config = roundtime;
             }
         }
 
-        return majority_roundtime;
+        return majority_time_config;
     }
 
     /**

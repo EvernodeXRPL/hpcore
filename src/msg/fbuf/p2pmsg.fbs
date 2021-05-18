@@ -27,7 +27,7 @@ table P2PMsg {
 
 table PeerChallengeMsg {
     contract_id:string;
-    roundtime:uint32;
+    time_config:uint32; // Contains unified value derived from (roundtime*100 + stage_slice)
     is_full_history:bool;
     challenge:[ubyte];
 }

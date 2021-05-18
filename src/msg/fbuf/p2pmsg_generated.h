@@ -543,7 +543,7 @@ struct PeerChallengeMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PeerChallengeMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CONTRACT_ID = 4,
-    VT_ROUNDTIME = 6,
+    VT_TIME_CONFIG = 6,
     VT_IS_FULL_HISTORY = 8,
     VT_CHALLENGE = 10
   };
@@ -553,11 +553,11 @@ struct PeerChallengeMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::String *mutable_contract_id() {
     return GetPointer<flatbuffers::String *>(VT_CONTRACT_ID);
   }
-  uint32_t roundtime() const {
-    return GetField<uint32_t>(VT_ROUNDTIME, 0);
+  uint32_t time_config() const {
+    return GetField<uint32_t>(VT_TIME_CONFIG, 0);
   }
-  bool mutate_roundtime(uint32_t _roundtime) {
-    return SetField<uint32_t>(VT_ROUNDTIME, _roundtime, 0);
+  bool mutate_time_config(uint32_t _time_config) {
+    return SetField<uint32_t>(VT_TIME_CONFIG, _time_config, 0);
   }
   bool is_full_history() const {
     return GetField<uint8_t>(VT_IS_FULL_HISTORY, 0) != 0;
@@ -575,7 +575,7 @@ struct PeerChallengeMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_CONTRACT_ID) &&
            verifier.VerifyString(contract_id()) &&
-           VerifyField<uint32_t>(verifier, VT_ROUNDTIME) &&
+           VerifyField<uint32_t>(verifier, VT_TIME_CONFIG) &&
            VerifyField<uint8_t>(verifier, VT_IS_FULL_HISTORY) &&
            VerifyOffset(verifier, VT_CHALLENGE) &&
            verifier.VerifyVector(challenge()) &&
@@ -590,8 +590,8 @@ struct PeerChallengeMsgBuilder {
   void add_contract_id(flatbuffers::Offset<flatbuffers::String> contract_id) {
     fbb_.AddOffset(PeerChallengeMsg::VT_CONTRACT_ID, contract_id);
   }
-  void add_roundtime(uint32_t roundtime) {
-    fbb_.AddElement<uint32_t>(PeerChallengeMsg::VT_ROUNDTIME, roundtime, 0);
+  void add_time_config(uint32_t time_config) {
+    fbb_.AddElement<uint32_t>(PeerChallengeMsg::VT_TIME_CONFIG, time_config, 0);
   }
   void add_is_full_history(bool is_full_history) {
     fbb_.AddElement<uint8_t>(PeerChallengeMsg::VT_IS_FULL_HISTORY, static_cast<uint8_t>(is_full_history), 0);
@@ -614,12 +614,12 @@ struct PeerChallengeMsgBuilder {
 inline flatbuffers::Offset<PeerChallengeMsg> CreatePeerChallengeMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> contract_id = 0,
-    uint32_t roundtime = 0,
+    uint32_t time_config = 0,
     bool is_full_history = false,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> challenge = 0) {
   PeerChallengeMsgBuilder builder_(_fbb);
   builder_.add_challenge(challenge);
-  builder_.add_roundtime(roundtime);
+  builder_.add_time_config(time_config);
   builder_.add_contract_id(contract_id);
   builder_.add_is_full_history(is_full_history);
   return builder_.Finish();
@@ -628,7 +628,7 @@ inline flatbuffers::Offset<PeerChallengeMsg> CreatePeerChallengeMsg(
 inline flatbuffers::Offset<PeerChallengeMsg> CreatePeerChallengeMsgDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *contract_id = nullptr,
-    uint32_t roundtime = 0,
+    uint32_t time_config = 0,
     bool is_full_history = false,
     const std::vector<uint8_t> *challenge = nullptr) {
   auto contract_id__ = contract_id ? _fbb.CreateString(contract_id) : 0;
@@ -636,7 +636,7 @@ inline flatbuffers::Offset<PeerChallengeMsg> CreatePeerChallengeMsgDirect(
   return msg::fbuf::p2pmsg::CreatePeerChallengeMsg(
       _fbb,
       contract_id__,
-      roundtime,
+      time_config,
       is_full_history,
       challenge__);
 }

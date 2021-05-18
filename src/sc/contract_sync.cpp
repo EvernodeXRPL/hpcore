@@ -20,7 +20,7 @@ namespace sc
             else
             {
                 unl::update_unl_changes_from_patch();
-                consensus::refresh_roundtime(false);
+                consensus::refresh_time_config(false);
 
                 // Update global hash tracker with the new patch file hash.
                 fs_mount->set_parent_hash(synced_target.vpath, synced_target.hash);

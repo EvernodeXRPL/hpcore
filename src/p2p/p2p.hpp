@@ -92,7 +92,7 @@ namespace p2p
     struct peer_challenge
     {
         std::string contract_id;
-        uint32_t roundtime = 0;
+        uint32_t time_config = 0; // Contains unified value derived from (roundtime*100 + stage_slice)
         bool is_full_history = false;
         std::string challenge;
     };

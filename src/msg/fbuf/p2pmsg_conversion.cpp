@@ -110,7 +110,7 @@ namespace msg::fbuf::p2pmsg
         const auto &msg = *mi.p2p_msg->content_as_PeerChallengeMsg();
         return {
             std::string(flatbuf_str_to_sv(msg.contract_id())),
-            msg.roundtime(),
+            msg.time_config(),
             msg.is_full_history(),
             std::string(flatbuf_bytes_to_sv(msg.challenge()))};
     }
