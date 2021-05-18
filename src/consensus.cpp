@@ -571,10 +571,10 @@ namespace consensus
 
             // If a node doesn't have enough time (eg. due to network delay) to recieve/send reliable stage proposals for next stage,
             // it will join in next round. Otherwise it will continue particapating in this round.
-            if (to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
+            if (stage_start < now || to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
             {
                 LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0.";
-                ctx.stage = 1;
+                ctx.stage = 0;
                 return false;
             }
             else
@@ -1288,11 +1288,13 @@ namespace consensus
 
             LOG_INFO << "New time config detected:" << majority_time_config << " previous:" << conf::cfg.contract.roundtime;
 
-            conf::cfg.contract.roundtime = majority_time_config;
+            // Time config is a single value derived from roundtime*100 + stage_slice. Here we derive back the original components.
+            conf::cfg.contract.roundtime = (majority_time_config / 100);
+            conf::cfg.contract.stage_slice = majority_time_config - (conf::cfg.contract.roundtime * 100);
         }
 
-        // We allocate 1/4 of roundtime for each stage (0, 1, 2, 3).
-        ctx.stage_time = conf::cfg.contract.roundtime / 4;
+        // We allocate configured stage slice for stages 0, 1, 2. Stage 3 gets the entire remaining time from the round window.
+        ctx.stage_time = conf::cfg.contract.roundtime * conf::cfg.contract.stage_slice / 100;
         ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
 
         // We use a time window boundry offset based on contract id to vary the window boundries between
