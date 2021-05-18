@@ -1253,7 +1253,7 @@ namespace consensus
                 // Appling new patch file changes to hpcore runtime.
                 if (conf::apply_patch_config(HPFS_SESSION_NAME) == -1)
                 {
-                    LOG_ERROR << "Appling patch file changes after consensus failed.";
+                    LOG_ERROR << "Applying patch file changes after consensus failed.";
                     sc::contract_fs.stop_ro_session(HPFS_SESSION_NAME);
                     return -1;
                 }
@@ -1280,10 +1280,10 @@ namespace consensus
     {
         if (perform_detection)
         {
-            LOG_DEBUG << "Detecting roundtime...";
+            LOG_DEBUG << "Detecting time config...";
             const uint32_t majority_time_config = unl::get_majority_time_config();
 
-            if (majority_time_config == 0 || conf::cfg.contract.roundtime == majority_time_config)
+            if (majority_time_config == 0 || CURRENT_TIME_CONFIG == majority_time_config)
                 return;
 
             LOG_INFO << "New time config detected:" << majority_time_config << " previous:" << conf::cfg.contract.roundtime;

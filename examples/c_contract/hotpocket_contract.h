@@ -155,6 +155,7 @@ struct hp_config
     char *bin_path;
     char *bin_args;
     uint32_t roundtime;
+    uint32_t stage_slice;
     char *consensus;
     char *npl;
     uint16_t max_input_ledger_offset;
@@ -504,9 +505,12 @@ int hp_update_config(const struct hp_config *config)
     if (!config->bin_path || strlen(config->bin_path) == 0)
         __HP_UPDATE_CONFIG_ERROR("Binary path cannot be empty.");
 
-    if (config->roundtime <= 0)
-        __HP_UPDATE_CONFIG_ERROR("Round time must be higher than 0.");
-    
+    if (config->roundtime <= 0 || config->roundtime > 3600000)
+        __HP_UPDATE_CONFIG_ERROR("Round time must be between 1 and 3600000ms inclusive.");
+
+    if (config->stage_slice <= 0 || config->stage_slice > 25)
+        __HP_UPDATE_CONFIG_ERROR("Stage slice must be between 1 and 25 percent inclusive");
+
     if (config->max_input_ledger_offset < 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid max input ledger offset.");
 
@@ -646,18 +650,23 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     // Top-level field values.
 
-    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n"
+    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n    \"stage_silce\": %s,\n"
                               "    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n    \"max_input_ledger_offset\": %s,\n";
 
     char roundtime_str[16];
     sprintf(roundtime_str, "%d", config->roundtime);
 
+    char stage_slice_str[16];
+    sprintf(stage_slice_str, "%d", config->stage_slice);
+
     char max_input_ledger_offset_str[16];
     sprintf(max_input_ledger_offset_str, "%d", config->max_input_ledger_offset);
 
-    const size_t json_string_len = 128 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(roundtime_str) + strlen(config->consensus) + strlen(config->npl) + strlen(max_input_ledger_offset_str);
+    const size_t json_string_len = 149 + strlen(config->bin_path) + strlen(config->bin_args) +
+                                   strlen(roundtime_str) + strlen(stage_slice_str) +
+                                   strlen(config->consensus) + strlen(config->npl) + strlen(max_input_ledger_offset_str);
     char json_buf[json_string_len];
-    sprintf(json_buf, json_string, config->bin_path, config->bin_args, roundtime_str, config->consensus, config->npl, max_input_ledger_offset_str);
+    sprintf(json_buf, json_string, config->bin_path, config->bin_args, roundtime_str, stage_slice_str, config->consensus, config->npl, max_input_ledger_offset_str);
     iov_vec[2].iov_base = json_buf;
     iov_vec[2].iov_len = json_string_len;
 
@@ -752,6 +761,11 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
         {
             const struct json_number_s *value = (struct json_number_s *)elem->value->payload;
             config->roundtime = strtol(value->number, NULL, 0);
+        }
+        else if (strcmp(k->string, "stage_slice") == 0)
+        {
+            const struct json_number_s *value = (struct json_number_s *)elem->value->payload;
+            config->stage_slice = strtol(value->number, NULL, 0);
         }
         else if (strcmp(k->string, "max_input_ledger_offset") == 0)
         {

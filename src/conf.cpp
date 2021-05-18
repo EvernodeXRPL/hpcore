@@ -1021,26 +1021,16 @@ namespace conf
             contract.bin_args = jdoc["bin_args"].as<std::string>();
 
             contract.roundtime = jdoc["roundtime"].as<uint32_t>();
-            if (contract.roundtime == 0)
+            if (contract.roundtime < 1 || contract.roundtime > MAX_ROUND_TIME)
             {
-                std::cerr << "Round time cannot be zero.\n";
-                return -1;
-            }
-            else if (contract.roundtime > MAX_ROUND_TIME)
-            {
-                std::cerr << "Round time cannot exceed " << MAX_ROUND_TIME << "ms.\n";
+                std::cerr << "Round time must be between 1 and " << MAX_ROUND_TIME << "ms inclusive.\n";
                 return -1;
             }
 
             contract.stage_slice = jdoc["stage_slice"].as<uint32_t>();
-            if (contract.stage_slice == 0)
+            if (contract.stage_slice < 1 || contract.stage_slice > MAX_STAGE_SLICE)
             {
-                std::cerr << "Stage slice cannot be zero.\n";
-                return -1;
-            }
-            else if (contract.stage_slice > MAX_STAGE_SLICE)
-            {
-                std::cerr << "Stage slice cannot exceed " << MAX_STAGE_SLICE << " percent.\n";
+                std::cerr << "Stage slice must be between 1 and 25 percent inclusive.\n";
                 return -1;
             }
 

@@ -147,8 +147,10 @@ class PatchConfig {
         }
         if (!config.bin_path || !config.bin_path.length)
             throw "Binary path cannot be empty.";
-        if (config.roundtime <= 0)
-            throw "Round time must be higher than zero."
+        if (config.roundtime < 1 && config.roundtime > 3600000)
+            throw "Round time must be between 1 and 3600000ms inclusive.";
+        if (config.stage_slice < 1 || config.stage_slice > 25)
+            throw "Stage slice must be between 1 and 25 percent inclusive.";
         if (config.consensus != "public" && config.consensus != "private")
             throw "Invalid consensus flag configured in patch file. Valid values: public|private";
         if (config.npl != "public" && config.npl != "private")

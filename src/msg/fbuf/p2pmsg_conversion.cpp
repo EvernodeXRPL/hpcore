@@ -361,7 +361,7 @@ namespace msg::fbuf::p2pmsg
         const auto msg = CreatePeerChallengeMsg(
             builder,
             sv_to_flatbuf_str(builder, conf::cfg.contract.id),
-            (conf::cfg.contract.roundtime * 100) + conf::cfg.contract.stage_slice,
+            CURRENT_TIME_CONFIG,
             conf::cfg.node.history == conf::HISTORY::FULL,
             sv_to_flatbuf_bytes(builder, challenge));
         create_p2p_msg(builder, P2PMsgContent_PeerChallengeMsg, msg.Union());

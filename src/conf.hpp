@@ -11,6 +11,8 @@ namespace conf
 {
     constexpr size_t CONCURRENT_READ_REQUEST_MAX_LIMIT = 32;
 
+    #define CURRENT_TIME_CONFIG ((conf::cfg.contract.roundtime * 100) + conf::cfg.contract.stage_slice)
+
     // Struct to represent ip and port of the peer.
     struct peer_ip_port
     {
