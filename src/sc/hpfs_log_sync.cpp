@@ -306,12 +306,14 @@ namespace sc::hpfs_log_sync
             if (sc::contract_fs.get_hash(state_hash, session_name, sc::STATE_DIR_PATH) == -1)
             {
                 LOG_ERROR << "Hpfs log sync: error getting the updated state hash";
+                sc::contract_fs.stop_ro_session(session_name);
                 return -1;
             }
 
             if (sc::contract_fs.get_hash(patch_hash, session_name, sc::PATCH_FILE_PATH) == -1)
             {
                 LOG_ERROR << "Hpfs log sync: error getting the updated patch hash";
+                sc::contract_fs.stop_ro_session(session_name);
                 return -1;
             }
             sc::contract_fs.stop_ro_session(session_name);
