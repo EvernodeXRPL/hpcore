@@ -7,6 +7,7 @@ sshpass=$4
 hostaddr=$5
 basedir=$6
 contdir=$7 # Contract directory
+hpfiles=$8 # HP files dir
 
 echo $nodeid. $hostaddr
 
@@ -19,7 +20,7 @@ fi
 # Run hp setup script on the node and download the generated hp.cfg
 if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
     echo "Configuring HP..."
-    sshpass -p $sshpass ssh $sshuser@$hostaddr $basedir/hpfiles/setup-hp.sh $mode $basedir $contdir $hostaddr
+    sshpass -p $sshpass ssh $sshuser@$hostaddr $basedir/$hpfiles/setup-hp.sh $mode $basedir $contdir $hpfiles $hostaddr
 fi
 
 if [ $mode = "new" ] || [ $mode = "reconfig" ] || [ $mode = "updateconfig" ]; then

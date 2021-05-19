@@ -1,3 +1,9 @@
+/**
+ * Hot Pocket javascript client library (for NodeJs and Browser)
+ * NodeJs: const HotPocket = require("./hp-client-lib")
+ * Browser: window.HotPocket
+ */
+
 (() => {
 
     // Whether we are in Browser or NodeJs.
@@ -6,6 +12,14 @@
     // In browser, avoid duplicate initializations.
     if (isBrowser && window.HotPocket)
         return;
+
+    // Common data type initialization.
+    if (!isBrowser) {
+        // In browser, these are available in the global scopre. It's just in NodeJs they are in 'util' scope.
+        const util = require("util");
+        TextEncoder = util.TextEncoder;
+        TextDecoder = util.TextDecoder;
+    }
 
     const supportedHpVersion = "1.0.0";
     const serverChallengeSize = 16;
@@ -26,7 +40,7 @@
     /*--- Included in public interface. ---*/
     const protocols = {
         json: "json",
-        bson: "bson" // (Requires nodejs or browserified hp client library on Browser)
+        bson: "bson"
     }
     Object.freeze(protocols);
 
@@ -108,7 +122,7 @@
         await initBlake3();
         initWebSocket();
         if (opt.protocol == protocols.bson)
-            initBson();
+            await initBson();
 
         // Load servers and serverKeys to object keys to avoid duplicates.
 
@@ -684,7 +698,7 @@
             catch (e) {
                 liblog(1, e);
                 liblog(0, "Exception deserializing: ");
-                liblog(0, (data && (isTextMode ? data.toString() : data) || rcvd));
+                liblog(0, data || rcvd);
 
                 // If we get invalid message during handshake, close the socket.
                 if (connectionStatus < 2)
@@ -1078,7 +1092,7 @@
         }
         else { // nodejs
             if (!sodium)
-                sodium = require('libsodium-wrappers');
+                sodium = require("libsodium-wrappers");
             await sodium.ready;
         }
 
@@ -1087,13 +1101,28 @@
     }
 
     // Set bson reference.
-    function initBson() {
-        if (bson) // If already set, do nothing.
+    let bsonAwaiter = null;
+    async function initBson() {
+        if (bson) { // If already set, do nothing.
             return;
-        else if (isBrowser && window.BSON) // browser
-            bson = window.BSON;
-        else if (!isBrowser) // nodejs
-            bson = require('bson');
+        }
+        else if (isBrowser) { // Browser
+            if (!bsonAwaiter) {
+                bsonAwaiter = new Promise(resolve => {
+                    // Trigger a event loop cycle to let the bson lib load.
+                    setTimeout(() => {
+                        // We assume our custom version of bson-browser.js lib is now loaded.
+                        bson = window.BSON;
+                        window.Buffer = window.BSON.BufferPolyfill; // Buffer polyfill exposed in our modified BSON lib.
+                        resolve();
+                    }, 0);
+                });
+            }
+            await bsonAwaiter;
+        }
+        else if (!isBrowser) { // nodejs
+            bson = require("bson");
+        }
 
         if (!bson)
             throw "BSON reference not found.";
@@ -1106,15 +1135,14 @@
         else if (isBrowser && window.WebSocket) // browser
             WebSocket = window.WebSocket;
         else if (!isBrowser) // nodejs
-            WebSocket = require('ws');
+            WebSocket = require("ws");
 
         if (!WebSocket)
             throw "WebSocket reference not found.";
     }
 
-    let blake3Resolver = null;
-    let blake3awaiter = null;
     // Set blake3 reference.
+    let blake3awaiter = null;
     async function initBlake3() {
         if (blake3) { // If already set, do nothing.
             return;
@@ -1122,27 +1150,49 @@
         else if (isBrowser && window.blake3) {// browser (if blake3 already loaded)
             blake3 = window.blake3;
         }
-        else if (isBrowser && !window.blake3) { // If blake3 not yet loaded in browser, wait for it.
-            if (!blake3awaiter)
-                blake3awaiter = new Promise(resolve => blake3Resolver = resolve);
-            blake3 = await blake3awaiter;
+        else if (isBrowser && !window.blake3) { // If blake3 not yet loaded in browser, load it.
+
+            if (!blake3awaiter) {
+                blake3awaiter = new Promise(resolve => {
+
+                    // The Blake3 library we are using (https://github.com/connor4312/blake3) causes issue on Mac/iOS (Safari) due
+                    // to Safari's lack of support for BigInt/BigUint64Array data types as of 25 Apr 2021. Here, we are adding empty
+                    // definitions to avoid complete initialization failure of Blake3 library on Mac/iOS.
+
+                    if (typeof (BigUint64Array) === "undefined")
+                        BigUint64Array = function (v) { }
+
+                    if (typeof (BigInt) === "undefined")
+                        BigInt = function (v) { }
+
+                    // Import the blake3 browser module at runtime.
+                    const url = "https://cdn.jsdelivr.net/npm/blake3@2.1.4/browser-async.js";
+                    import(url).then(module => {
+                        module.default()
+                            .then(blake3ref => {
+                                blake3 = blake3ref;
+                                resolve();
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                resolve();
+                            });
+                    }).catch(err => {
+                        console.error(err);
+                        resolve();
+                    });
+                });
+            }
+
+            await blake3awaiter;
+            return;
         }
         else if (!isBrowser) { // nodejs
-            blake3 = require('blake3');
+            blake3 = require("blake3");
         }
 
         if (!blake3)
             throw "Blake3 reference not found.";
-    }
-
-    function setBlake3(blake3ref) {
-        if (blake3Resolver) {
-            blake3Resolver(blake3ref)
-            blake3Resolver = null;
-        }
-        else {
-            blake3 = blake3ref;
-        }
     }
 
     function setLogLevel(level) {
@@ -1160,7 +1210,6 @@
             createClient,
             events,
             protocols,
-            setBlake3,
             setLogLevel
         };
     }

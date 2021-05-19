@@ -638,9 +638,10 @@ namespace ledger
      * Get last ledger and update the context.
      * @param session_name Hpfs session name.
      * @param last_primary_shard_id Last primary shard id.
+     * @param genesis_fallback Whether to automaticaly fallback to genesis ledger on ledger db read error.
      * @return Returns 0 on success -1 on error.
      */
-    int get_last_ledger_and_update_context(std::string_view session_name, const p2p::sequence_hash &last_primary_shard_id)
+    int get_last_ledger_and_update_context(std::string_view session_name, const p2p::sequence_hash &last_primary_shard_id, const bool genesis_fallback)
     {
         sqlite3 *db = NULL;
         const std::string shard_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(last_primary_shard_id.seq_no);
@@ -661,8 +662,16 @@ namespace ledger
         ledger_record last_ledger;
         if (sqlite::get_last_ledger(db, last_ledger) == -1)
         {
-            sqlite::close_db(&db);
-            return -1;
+            if (genesis_fallback)
+            {
+                LOG_WARNING << "Defaulting to genesis ledger because an error occured querying the ledger db.";
+                last_ledger = genesis;
+            }
+            else
+            {
+                sqlite::close_db(&db);
+                return -1;
+            }
         }
 
         sqlite::close_db(&db);
