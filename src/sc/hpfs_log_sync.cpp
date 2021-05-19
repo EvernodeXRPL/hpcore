@@ -293,7 +293,7 @@ namespace sc::hpfs_log_sync
 
         if (last_from_index == last_from_ledger)
         {
-            // After archiving the target, update latest state and patch hash in the in memory map.
+            // If the last hashes of the ledger and the index are equal, check whether target root hash is equal to the updated root hash in the fs.
             const std::string session_name = "ro_hpfs_log_sync";
 
             util::h32 state_hash, patch_hash;
@@ -314,6 +314,7 @@ namespace sc::hpfs_log_sync
             else
                 LOG_ERROR << "Hpfs log sync: error starting the hpfs ro session";
 
+            // If target is equal to the root hash, return 1 so the node in sync, otherwise request hpfs logs from the last ledger seq number. 
             if (hpfs::get_root_hash(patch_hash, state_hash) == sync_ctx.target_root_hash)
                 return 1;
             else
