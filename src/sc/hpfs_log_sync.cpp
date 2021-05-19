@@ -297,26 +297,33 @@ namespace sc::hpfs_log_sync
             const std::string session_name = "ro_hpfs_log_sync";
 
             util::h32 state_hash, patch_hash;
-            if (sc::contract_fs.start_ro_session(session_name, true) != -1)
+            if (sc::contract_fs.start_ro_session(session_name, true) == -1)
             {
-                if (sc::contract_fs.get_hash(state_hash, session_name, sc::STATE_DIR_PATH) != -1)
-                    sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
-                else
-                    LOG_ERROR << "Hpfs log sync: error getting the updated state hash";
-
-                if (sc::contract_fs.get_hash(patch_hash, session_name, sc::PATCH_FILE_PATH) != -1)
-                    sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
-                else
-                    LOG_ERROR << "Hpfs log sync: error getting the updated patch hash";
-
-                sc::contract_fs.stop_ro_session(session_name);
-            }
-            else
                 LOG_ERROR << "Hpfs log sync: error starting the hpfs ro session";
+                return -1;
+            }
 
-            // If target is equal to the root hash, return 1 so the node in sync, otherwise request hpfs logs from the last ledger seq number. 
+            if (sc::contract_fs.get_hash(state_hash, session_name, sc::STATE_DIR_PATH) == -1)
+            {
+                LOG_ERROR << "Hpfs log sync: error getting the updated state hash";
+                return -1;
+            }
+
+            if (sc::contract_fs.get_hash(patch_hash, session_name, sc::PATCH_FILE_PATH) == -1)
+            {
+                LOG_ERROR << "Hpfs log sync: error getting the updated patch hash";
+                return -1;
+            }
+            sc::contract_fs.stop_ro_session(session_name);
+
+            // If target is equal to the root hash, return 1 so the node in sync, otherwise request hpfs logs from the last ledger seq number.
             if (hpfs::get_root_hash(patch_hash, state_hash) == sync_ctx.target_root_hash)
+            {
+                // After archiving the target, update the in-memory hash tree.
+                sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
+                sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, state_hash);
                 return 1;
+            }
             else
             {
                 // Truncate from the last ledger seq_no. There might be some additional log records after the last index update.
