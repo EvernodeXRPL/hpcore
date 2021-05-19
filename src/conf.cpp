@@ -21,7 +21,7 @@ namespace conf
 
     constexpr int FILE_PERMS = 0644;
     constexpr uint32_t MAX_ROUND_TIME = 3600000;
-    constexpr uint32_t MAX_STAGE_SLICE = 25;
+    constexpr uint32_t MAX_STAGE_SLICE = 33;
 
     constexpr const char *ROLE_OBSERVER = "observer";
     constexpr const char *ROLE_VALIDATOR = "validator";
@@ -1030,7 +1030,7 @@ namespace conf
             contract.stage_slice = jdoc["stage_slice"].as<uint32_t>();
             if (contract.stage_slice < 1 || contract.stage_slice > MAX_STAGE_SLICE)
             {
-                std::cerr << "Stage slice must be between 1 and 25 percent inclusive.\n";
+                std::cerr << "Stage slice must be between 1 and " << MAX_STAGE_SLICE << " percent inclusive.\n";
                 return -1;
             }
 

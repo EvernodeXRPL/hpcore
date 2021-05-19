@@ -508,8 +508,8 @@ int hp_update_config(const struct hp_config *config)
     if (config->roundtime <= 0 || config->roundtime > 3600000)
         __HP_UPDATE_CONFIG_ERROR("Round time must be between 1 and 3600000ms inclusive.");
 
-    if (config->stage_slice <= 0 || config->stage_slice > 25)
-        __HP_UPDATE_CONFIG_ERROR("Stage slice must be between 1 and 25 percent inclusive");
+    if (config->stage_slice <= 0 || config->stage_slice > 33)
+        __HP_UPDATE_CONFIG_ERROR("Stage slice must be between 1 and 33 percent inclusive");
 
     if (config->max_input_ledger_offset < 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid max input ledger offset.");

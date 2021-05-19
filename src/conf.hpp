@@ -11,7 +11,7 @@ namespace conf
 {
     constexpr size_t CONCURRENT_READ_REQUEST_MAX_LIMIT = 32;
 
-    #define CURRENT_TIME_CONFIG ((conf::cfg.contract.roundtime * 100) + conf::cfg.contract.stage_slice)
+#define CURRENT_TIME_CONFIG ((conf::cfg.contract.roundtime * 100) + conf::cfg.contract.stage_slice)
 
     // Struct to represent ip and port of the peer.
     struct peer_ip_port
@@ -100,11 +100,11 @@ namespace conf
         bool execute = false;                  // Whether or not to execute the contract on the node.
         bool log_output = false;               // Whether to log stdout/err of the contract process.
         std::string version;                   // Contract version string.
-        std::set<std::string> unl;             // Unique node list (list of binary public keys)
-        std::string bin_path;                  // Full path to the contract binary
-        std::string bin_args;                  // CLI arguments to pass to the contract binary
-        std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000)
-        std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that each of the 4 stages get (max: 25)
+        std::set<std::string> unl;             // Unique node list (list of binary public keys).
+        std::string bin_path;                  // Full path to the contract binary.
+        std::string bin_args;                  // CLI arguments to pass to the contract binary.
+        std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000).
+        std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that stages 0,1,2 get (max: 33).
         bool is_consensus_public = false;      // If true, consensus are broadcasted to non-unl nodes as well.
         bool is_npl_public = false;            // If true, npl messages are broadcasted to non-unl nodes as well.
         uint16_t max_input_ledger_offset;      // Maximum ledger sequence number offset that can be specified in the input.
