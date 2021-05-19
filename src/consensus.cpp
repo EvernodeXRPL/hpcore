@@ -378,7 +378,7 @@ namespace consensus
         }
 
         // Provide latest roundtime information to unl statistics.
-        unl::update_roundtime_stats(collected_proposals);
+        unl::update_time_config_stats(collected_proposals);
 
         // Move collected propsals to candidate set of proposals.
         for (const auto &p : collected_proposals)
@@ -773,6 +773,7 @@ namespace consensus
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_raw_shard_id = last_raw_shard_id;
+        p.time_config = CURRENT_TIME_CONFIG;
         crypto::random_bytes(p.nonce, ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
@@ -802,6 +803,7 @@ namespace consensus
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_raw_shard_id = last_raw_shard_id;
+        p.time_config = CURRENT_TIME_CONFIG;
         p.output_hash.resize(BLAKE3_OUT_LEN); // Default empty hash.
 
         const uint64_t time_now = util::get_epoch_milliseconds();
@@ -1286,7 +1288,7 @@ namespace consensus
             if (majority_time_config == 0 || CURRENT_TIME_CONFIG == majority_time_config)
                 return;
 
-            LOG_INFO << "New time config detected:" << majority_time_config << " previous:" << conf::cfg.contract.roundtime;
+            LOG_INFO << "New time config detected:" << majority_time_config << " previous:" << CURRENT_TIME_CONFIG;
 
             // Time config is a single value derived from roundtime*100 + stage_slice. Here we derive back the original components.
             conf::cfg.contract.roundtime = (majority_time_config / 100);

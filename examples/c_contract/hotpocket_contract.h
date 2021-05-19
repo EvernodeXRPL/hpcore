@@ -650,7 +650,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     // Top-level field values.
 
-    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n    \"stage_silce\": %s,\n"
+    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n    \"stage_slice\": %s,\n"
                               "    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n    \"max_input_ledger_offset\": %s,\n";
 
     char roundtime_str[16];

@@ -58,7 +58,7 @@ table ProposalMsg {
     sig:[ubyte]; // Signature of the field data.
     stage:uint8;
     time:uint64;
-    roundtime:uint32;
+    time_config:uint32; // Contains unified value derived from (roundtime*100 + stage_slice)
     nonce: [ubyte];
     users:[ByteArray];
     input_hashes:[ByteArray];

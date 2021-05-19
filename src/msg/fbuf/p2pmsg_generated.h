@@ -953,7 +953,7 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SIG = 6,
     VT_STAGE = 8,
     VT_TIME = 10,
-    VT_ROUNDTIME = 12,
+    VT_TIME_CONFIG = 12,
     VT_NONCE = 14,
     VT_USERS = 16,
     VT_INPUT_HASHES = 18,
@@ -988,11 +988,11 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool mutate_time(uint64_t _time) {
     return SetField<uint64_t>(VT_TIME, _time, 0);
   }
-  uint32_t roundtime() const {
-    return GetField<uint32_t>(VT_ROUNDTIME, 0);
+  uint32_t time_config() const {
+    return GetField<uint32_t>(VT_TIME_CONFIG, 0);
   }
-  bool mutate_roundtime(uint32_t _roundtime) {
-    return SetField<uint32_t>(VT_ROUNDTIME, _roundtime, 0);
+  bool mutate_time_config(uint32_t _time_config) {
+    return SetField<uint32_t>(VT_TIME_CONFIG, _time_config, 0);
   }
   const flatbuffers::Vector<uint8_t> *nonce() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_NONCE);
@@ -1056,7 +1056,7 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(sig()) &&
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
            VerifyField<uint64_t>(verifier, VT_TIME) &&
-           VerifyField<uint32_t>(verifier, VT_ROUNDTIME) &&
+           VerifyField<uint32_t>(verifier, VT_TIME_CONFIG) &&
            VerifyOffset(verifier, VT_NONCE) &&
            verifier.VerifyVector(nonce()) &&
            VerifyOffset(verifier, VT_USERS) &&
@@ -1097,8 +1097,8 @@ struct ProposalMsgBuilder {
   void add_time(uint64_t time) {
     fbb_.AddElement<uint64_t>(ProposalMsg::VT_TIME, time, 0);
   }
-  void add_roundtime(uint32_t roundtime) {
-    fbb_.AddElement<uint32_t>(ProposalMsg::VT_ROUNDTIME, roundtime, 0);
+  void add_time_config(uint32_t time_config) {
+    fbb_.AddElement<uint32_t>(ProposalMsg::VT_TIME_CONFIG, time_config, 0);
   }
   void add_nonce(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce) {
     fbb_.AddOffset(ProposalMsg::VT_NONCE, nonce);
@@ -1145,7 +1145,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> sig = 0,
     uint8_t stage = 0,
     uint64_t time = 0,
-    uint32_t roundtime = 0,
+    uint32_t time_config = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>>> input_hashes = 0,
@@ -1166,7 +1166,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
   builder_.add_input_hashes(input_hashes);
   builder_.add_users(users);
   builder_.add_nonce(nonce);
-  builder_.add_roundtime(roundtime);
+  builder_.add_time_config(time_config);
   builder_.add_sig(sig);
   builder_.add_pubkey(pubkey);
   builder_.add_stage(stage);
@@ -1179,7 +1179,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     const std::vector<uint8_t> *sig = nullptr,
     uint8_t stage = 0,
     uint64_t time = 0,
-    uint32_t roundtime = 0,
+    uint32_t time_config = 0,
     const std::vector<uint8_t> *nonce = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>> *input_hashes = nullptr,
@@ -1204,7 +1204,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
       sig__,
       stage,
       time,
-      roundtime,
+      time_config,
       nonce__,
       users__,
       input_hashes__,

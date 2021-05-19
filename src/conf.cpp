@@ -781,10 +781,13 @@ namespace conf
     /**
      * Prints the config json parsing field missing error.
      */
-    void print_missing_field_error(std::string_view jpath, const std::exception &e)
+    void print_missing_field_error(std::string_view jpath, const std::exception &e, const bool is_patch_config)
     {
         // Extract field name from jsoncons exception message.
-        std::cerr << "Config validation error: " << e.what() << " in '" << jpath << "' section at " << ctx.config_file << std::endl;
+        if (is_patch_config)
+            LOG_ERROR << "Config validation error: " << e.what() << " in '" << jpath << "' section in patch config";
+        else
+            std::cerr << "Config validation error: " << e.what() << " in '" << jpath << "' section at " << ctx.config_file << std::endl;
     }
 
     /**
@@ -1063,7 +1066,7 @@ namespace conf
         }
         catch (const std::exception &e)
         {
-            print_missing_field_error(jpath, e);
+            print_missing_field_error(jpath, e, is_patch_config);
             return -1;
         }
 

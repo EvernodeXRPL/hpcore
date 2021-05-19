@@ -250,7 +250,7 @@ namespace conf
 
     LOG_SEVERITY get_loglevel_type(std::string_view severity);
 
-    void print_missing_field_error(std::string_view jpath, const std::exception &e);
+    void print_missing_field_error(std::string_view jpath, const std::exception &e, const bool is_patch_config = false);
 
     int populate_patch_config();
 
