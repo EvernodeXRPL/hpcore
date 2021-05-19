@@ -20,6 +20,8 @@ namespace conf
     ROLE startup_role;
 
     constexpr int FILE_PERMS = 0644;
+    constexpr uint32_t MAX_ROUND_TIME = 3600000;
+    constexpr uint32_t MAX_STAGE_SLICE = 33;
 
     constexpr const char *ROLE_OBSERVER = "observer";
     constexpr const char *ROLE_VALIDATOR = "validator";
@@ -164,6 +166,7 @@ namespace conf
             cfg.contract.unl.emplace(cfg.node.public_key);
             cfg.contract.bin_path = "<your contract binary here>";
             cfg.contract.roundtime = 1000;
+            cfg.contract.stage_slice = 25;
             cfg.contract.is_consensus_public = false;
             cfg.contract.is_npl_public = false;
             cfg.contract.max_input_ledger_offset = 10;
@@ -644,13 +647,14 @@ namespace conf
         // Other required fields.
 
         bool fields_invalid = false;
-        fields_invalid |= cfg.contract.roundtime == 0 && std::cerr << "Invalid value for roundtime\n";
+        fields_invalid |= cfg.contract.roundtime == 0 && std::cerr << "Invalid value for roundtime.\n";
+        fields_invalid |= cfg.contract.stage_slice == 0 && std::cerr << "Invalid value for stage slice.\n";
         fields_invalid |= cfg.contract.unl.empty() && std::cerr << "Invalid value for unl. Unl list cannot be empty.\n";
         fields_invalid |= cfg.contract.id.empty() && std::cerr << "Invalid value for contract id.\n";
-        fields_invalid |= cfg.mesh.port == 0 && std::cerr << "Invalid value for mesh port\n";
-        fields_invalid |= cfg.user.port == 0 && std::cerr << "Invalid value for user port\n";
-        fields_invalid |= cfg.log.log_level.empty() && std::cerr << "Invalid value for loglevel\n";
-        fields_invalid |= cfg.log.loggers.empty() && std::cerr << "Invalid value for loggers\n";
+        fields_invalid |= cfg.mesh.port == 0 && std::cerr << "Invalid value for mesh port.\n";
+        fields_invalid |= cfg.user.port == 0 && std::cerr << "Invalid value for user port.\n";
+        fields_invalid |= cfg.log.log_level.empty() && std::cerr << "Invalid value for loglevel.\n";
+        fields_invalid |= cfg.log.loggers.empty() && std::cerr << "Invalid value for loggers.\n";
 
         if (fields_invalid)
         {
@@ -777,10 +781,13 @@ namespace conf
     /**
      * Prints the config json parsing field missing error.
      */
-    void print_missing_field_error(std::string_view jpath, const std::exception &e)
+    void print_missing_field_error(std::string_view jpath, const std::exception &e, const bool is_patch_config)
     {
         // Extract field name from jsoncons exception message.
-        std::cerr << "Config validation error: " << e.what() << " in '" << jpath << "' section at " << ctx.config_file << std::endl;
+        if (is_patch_config)
+            LOG_ERROR << "Config validation error: " << e.what() << " in '" << jpath << "' section in patch config";
+        else
+            std::cerr << "Config validation error: " << e.what() << " in '" << jpath << "' section at " << ctx.config_file << std::endl;
     }
 
     /**
@@ -942,6 +949,7 @@ namespace conf
         jdoc.insert_or_assign("bin_path", contract.bin_path);
         jdoc.insert_or_assign("bin_args", contract.bin_args);
         jdoc.insert_or_assign("roundtime", contract.roundtime.load());
+        jdoc.insert_or_assign("stage_slice", contract.stage_slice.load());
         jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
@@ -1016,9 +1024,16 @@ namespace conf
             contract.bin_args = jdoc["bin_args"].as<std::string>();
 
             contract.roundtime = jdoc["roundtime"].as<uint32_t>();
-            if (contract.roundtime == 0)
+            if (contract.roundtime < 1 || contract.roundtime > MAX_ROUND_TIME)
             {
-                std::cerr << "Round time cannot be zero.\n";
+                std::cerr << "Round time must be between 1 and " << MAX_ROUND_TIME << "ms inclusive.\n";
+                return -1;
+            }
+
+            contract.stage_slice = jdoc["stage_slice"].as<uint32_t>();
+            if (contract.stage_slice < 1 || contract.stage_slice > MAX_STAGE_SLICE)
+            {
+                std::cerr << "Stage slice must be between 1 and " << MAX_STAGE_SLICE << " percent inclusive.\n";
                 return -1;
             }
 
@@ -1051,7 +1066,7 @@ namespace conf
         }
         catch (const std::exception &e)
         {
-            print_missing_field_error(jpath, e);
+            print_missing_field_error(jpath, e, is_patch_config);
             return -1;
         }
 

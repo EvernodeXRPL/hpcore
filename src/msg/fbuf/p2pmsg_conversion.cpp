@@ -70,7 +70,7 @@ namespace msg::fbuf::p2pmsg
         flatbuf_hasher hasher;
         hasher.add(msg.stage());
         hasher.add(msg.time());
-        hasher.add(msg.roundtime());
+        hasher.add(msg.time_config());
         hasher.add(msg.nonce());
         hasher.add(msg.users());
         hasher.add(msg.input_hashes());
@@ -110,7 +110,7 @@ namespace msg::fbuf::p2pmsg
         const auto &msg = *mi.p2p_msg->content_as_PeerChallengeMsg();
         return {
             std::string(flatbuf_str_to_sv(msg.contract_id())),
-            msg.roundtime(),
+            msg.time_config(),
             msg.is_full_history(),
             std::string(flatbuf_bytes_to_sv(msg.challenge()))};
     }
@@ -133,7 +133,7 @@ namespace msg::fbuf::p2pmsg
         p.sent_timestamp = mi.originated_on;
         p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
-        p.roundtime = msg.roundtime();
+        p.time_config = msg.time_config();
         p.nonce = flatbuf_bytes_to_sv(msg.nonce());
         p.stage = msg.stage();
         p.state_hash = flatbuf_bytes_to_sv(msg.state_hash());
@@ -319,7 +319,7 @@ namespace msg::fbuf::p2pmsg
         flatbuf_hasher hasher;
         hasher.add(p.stage);
         hasher.add(p.time);
-        hasher.add(p.roundtime);
+        hasher.add(p.time_config);
         hasher.add(p.nonce);
         hasher.add(p.users);
         hasher.add(p.input_ordered_hashes);
@@ -361,7 +361,7 @@ namespace msg::fbuf::p2pmsg
         const auto msg = CreatePeerChallengeMsg(
             builder,
             sv_to_flatbuf_str(builder, conf::cfg.contract.id),
-            conf::cfg.contract.roundtime,
+            CURRENT_TIME_CONFIG,
             conf::cfg.node.history == conf::HISTORY::FULL,
             sv_to_flatbuf_bytes(builder, challenge));
         create_p2p_msg(builder, P2PMsgContent_PeerChallengeMsg, msg.Union());
@@ -396,7 +396,7 @@ namespace msg::fbuf::p2pmsg
             sv_to_flatbuf_bytes(builder, generate_proposal_signature(p)),
             p.stage,
             p.time,
-            p.roundtime,
+            p.time_config,
             sv_to_flatbuf_bytes(builder, p.nonce),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.input_ordered_hashes),

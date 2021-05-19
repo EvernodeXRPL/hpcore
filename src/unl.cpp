@@ -9,7 +9,7 @@
  */
 namespace unl
 {
-    std::map<std::string, uint32_t> list; // List of binary pubkeys of UNL and their latest reported roundtime.
+    std::map<std::string, uint32_t> list; // List of binary pubkeys of UNL and their latest reported time configs.
     std::string json_list;                // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
 
@@ -38,7 +38,7 @@ namespace unl
     {
         std::shared_lock lock(unl_mutex);
         std::set<std::string> ret;
-        for (auto [pubkey, roundtime] : list)
+        for (auto [pubkey, time_config] : list)
             ret.emplace(std::move(pubkey));
         return ret;
     }
@@ -81,9 +81,9 @@ namespace unl
     }
 
     /**
-     * Updates unl pubkey-roundtime information using the specified list of proposals.
+     * Updates unl pubkey-->time config information using the specified list of proposals.
      */
-    void update_roundtime_stats(const std::list<p2p::proposal> &proposals)
+    void update_time_config_stats(const std::list<p2p::proposal> &proposals)
     {
         std::unique_lock lock(unl_mutex);
 
@@ -91,53 +91,53 @@ namespace unl
         {
             const auto itr = list.find(p.pubkey);
             if (itr != list.end())
-                itr->second = p.roundtime;
+                itr->second = p.time_config;
         }
     }
 
     /**
-     * Returns the majority roundtime reported among the unl.
+     * Returns the majority time config reported among the unl.
      */
-    uint32_t get_majority_roundtime()
+    uint32_t get_majority_time_config()
     {
         std::unique_lock lock(unl_mutex);
 
-        // Vote and find majority roundtime within the unl.
-        // Fill any 0 roundtimes with information from peer connections.
-        std::map<uint32_t, uint32_t> roundtime_votes;
+        // Vote and find majority time config within the unl using values extracted from incoming proposals.
+        // Fill any 0 time configs with information from peer connections.
+        std::map<uint32_t, uint32_t> time_config_votes;
 
         {
             std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
 
             for (auto itr = list.begin(); itr != list.end(); itr++)
             {
-                // If roundtime is 0, attempt to get from peer connection (if available).
+                // If time config is 0, attempt to get from peer connection (if available).
                 if (itr->second == 0)
                 {
                     const auto peer_itr = p2p::ctx.peer_connections.find(itr->first);
                     if (peer_itr != p2p::ctx.peer_connections.end())
-                        itr->second = peer_itr->second->reported_roundtime;
+                        itr->second = peer_itr->second->reported_time_config;
                 }
 
-                const uint32_t roundtime = itr->second;
-                if (roundtime > 0)
-                    roundtime_votes[roundtime]++;
+                const uint32_t time_config = itr->second;
+                if (time_config > 0)
+                    time_config_votes[time_config]++;
             }
         }
 
         // Find the majority vote.
         uint32_t highest_votes = 0;
-        uint32_t majority_roundtime = 0;
-        for (const auto [roundtime, num_votes] : roundtime_votes)
+        uint32_t majority_time_config = 0;
+        for (const auto [time_config, num_votes] : time_config_votes)
         {
             if (num_votes > highest_votes)
             {
                 highest_votes = num_votes;
-                majority_roundtime = roundtime;
+                majority_time_config = time_config;
             }
         }
 
-        return majority_roundtime;
+        return majority_time_config;
     }
 
     /**

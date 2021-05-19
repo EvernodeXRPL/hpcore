@@ -214,7 +214,7 @@ namespace consensus
 
     int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash);
 
-    void refresh_roundtime(const bool perform_detection);
+    void refresh_time_config(const bool perform_detection);
 
 } // namespace consensus
 

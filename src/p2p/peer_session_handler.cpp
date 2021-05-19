@@ -122,8 +122,8 @@ namespace p2p
                 return -1;
             }
 
-            // Remember the roundtime reported by this peer.
-            session.reported_roundtime = chall.roundtime;
+            // Remember the time config reported by this peer.
+            session.reported_time_config = chall.time_config;
 
             // Whether this node is a full history node or not.
             session.is_full_history = chall.is_full_history;
