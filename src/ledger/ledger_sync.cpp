@@ -9,7 +9,7 @@ namespace ledger
 
     void ledger_sync::on_sync_target_acheived(const std::string &vpath, const util::h32 &hash)
     {
-        const std::string shard_hash_file_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, synced_target.vpath) + PREV_SHARD_HASH_FILENAME;
+        const std::string shard_hash_file_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, vpath) + PREV_SHARD_HASH_FILENAME;
         const int fd = open(shard_hash_file_path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1)
         {
@@ -26,13 +26,13 @@ namespace ledger
             LOG_ERROR << errno << ": Error reading hash file. " << shard_hash_file_path;
             return;
         }
-        const size_t pos = synced_target.vpath.find_last_of("/");
+        const size_t pos = vpath.find_last_of("/");
         if (pos == std::string::npos)
         {
-            LOG_ERROR << "Error retreiving shard no from " << synced_target.vpath;
+            LOG_ERROR << "Error retreiving shard no from " << vpath;
             return;
         }
-        const std::string synced_shard_seq_no_str = synced_target.vpath.substr(pos + 1);
+        const std::string synced_shard_seq_no_str = vpath.substr(pos + 1);
         uint64_t synced_shard_seq_no;
         if (util::stoull(synced_shard_seq_no_str, synced_shard_seq_no) == -1)
         {
@@ -40,7 +40,7 @@ namespace ledger
             return;
         }
 
-        const std::string shard_parent_dir = synced_target.vpath.substr(0, pos);
+        const std::string shard_parent_dir = vpath.substr(0, pos);
 
         if (shard_parent_dir == PRIMARY_DIR)
         {
@@ -52,14 +52,14 @@ namespace ledger
                 // Persist the lastest synced shard seq number to the max shard meta file.
                 if (persist_max_shard_seq_no(PRIMARY_DIR, synced_shard_seq_no) == -1)
                 {
-                    LOG_ERROR << "Error updating max shard meta file in primary shard sync. " << synced_target.vpath;
+                    LOG_ERROR << "Error updating max shard meta file in primary shard sync. " << vpath;
                     return;
                 }
 
-                const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, synced_target.hash};
+                const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, hash};
                 if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id, false) == -1)
                 {
-                    LOG_ERROR << "Error updating context from the synced shard " << synced_target.vpath;
+                    LOG_ERROR << "Error updating context from the synced shard " << vpath;
                     return;
                 }
                 ctx.set_last_primary_shard_id(updated_primary_shard_id);
@@ -85,7 +85,7 @@ namespace ledger
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
                 {
                     const std::string shard_path = std::string(PRIMARY_DIR).append("/").append(std::to_string(synced_shard_seq_no));
-                    set_target_push_back(hpfs::sync_target{prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    set_target(true, shard_path, prev_shard_hash_from_file);
                 }
                 else
                 {
@@ -114,7 +114,7 @@ namespace ledger
                 }
 
                 last_raw_shard_seq_no = synced_shard_seq_no;
-                ctx.set_last_raw_shard_id(p2p::sequence_hash{synced_shard_seq_no, synced_target.hash});
+                ctx.set_last_raw_shard_id(p2p::sequence_hash{synced_shard_seq_no, hash});
                 is_last_raw_shard_syncing = false;
 
                 // If existing max shard is older than the max we can keep. Then delete all the existing shards.
@@ -136,7 +136,7 @@ namespace ledger
                     && prev_shard_hash_from_file != prev_shard_hash_from_hpfs) // Continue to sync backwards if the hash from prev_shard.hash is not matching with the shard hash from hpfs.
                 {
                     const std::string shard_path = std::string(RAW_DIR).append("/").append(std::to_string(synced_shard_seq_no));
-                    set_target_push_back(hpfs::sync_target{prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                    set_target(true, shard_path, prev_shard_hash_from_file);
                 }
                 else
                 {

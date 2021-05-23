@@ -64,127 +64,13 @@ namespace hpfs
         }
     }
 
-    /**
-     * This sets a prioritized sync target. This target will replace current sync target.
-     * This target will immediately starting to sync and the interupted sync will resume
-     * once this sync target is acheived.
-    */
-    void hpfs_sync::set_target_push_front(const sync_target &target)
+    void hpfs_sync::set_target(const bool is_dir, const std::string &vpath,
+                               const util::h32 &hash, const bool high_priority)
     {
-        std::unique_lock lock(target_mutex);
-
-        if (is_shutting_down || (is_syncing && target_list.front() == target))
-            return;
-
-        // Remove any previous sync targets for the same target vpath.
-        target_list.remove_if([&target](const hpfs::sync_target &element) {
-            return element.vpath == target.vpath;
-        });
-
-        target_list.push_front(target);
+        std::unique_lock lock(incoming_targets_mutex);
+        incoming_targets.emplace(backlog_item{
+            (is_dir ? BACKLOG_ITEM_TYPE::DIR : BACKLOG_ITEM_TYPE::FILE), vpath, -1, hash, high_priority});
         is_syncing = true;
-    }
-
-    /**
-     * Adds a new target to the syncing list. If the list was previously empty, current target
-     * will be updated and syncing will start.
-    */
-    void hpfs_sync::set_target_push_back(const sync_target &target)
-    {
-        std::unique_lock lock(target_mutex);
-
-        if (is_shutting_down)
-            return;
-
-        // Check whether the same vpath target is already in the sync target list. If so, update it's information.
-        const auto itr = std::find_if(target_list.begin(), target_list.end(),
-                                      [&target](const hpfs::sync_target &element) {
-                                          return element.vpath == target.vpath;
-                                      });
-        if (itr != target_list.end())
-        {
-            itr->hash = target.hash;
-            itr->item_type = target.item_type;
-            return;
-        }
-
-        target_list.push_back(target);
-        is_syncing = true;
-    }
-
-    /**
-     * Runs the hpfs sync worker loop.
-     */
-    void hpfs_sync::hpfs_syncer_loop()
-    {
-        util::mask_signal();
-
-        LOG_INFO << "Hpfs " << name << " sync: Worker started.";
-
-        while (!is_shutting_down)
-        {
-            util::sleep(IDLE_WAIT);
-
-            // Keep idling if we are not doing any sync activity.
-
-            if (!is_syncing)
-                continue;
-
-            if (fs_mount->acquire_rw_session() == -1)
-            {
-                LOG_ERROR << "Hpfs " << name << " sync: Failed to start hpfs rw session";
-                continue;
-            }
-
-            while (!is_shutting_down)
-            {
-                hpfs::sync_target current_target = {};
-                {
-                    std::shared_lock lock(target_mutex);
-
-                    if (target_list.empty())
-                    {
-                        LOG_INFO << "Hpfs " << name << " sync: All targets complete.";
-                        is_syncing = false;
-                        break;
-                    }
-
-                    // Set the target to be top of the list.
-                    current_target = target_list.front();
-                }
-
-                // Start syncing towards specified target.
-                const int result = request_loop(current_target);
-
-                pending_requests.clear();
-                candidate_hpfs_responses.clear();
-                submitted_requests.clear();
-
-                if (is_shutting_down)
-                    break;
-
-                if (result != SYNC_HASH_CHANGED && result != SYNC_PRIORITY_CHANGED)
-                {
-                    // The finished target can be removed from the list.
-                    {
-                        std::unique_lock lock(target_mutex);
-                        target_list.pop_front();
-                    }
-
-                    // After every sync target abandon or completion, release and reacquire hpfs rw session so hpfs gets some room
-                    // to update the last checkpoint. This helps any upcoming ro sessions to get updated file system state.
-                    reacquire_rw_session();
-
-                    if (result == SYNC_ABANDONED)
-                        on_sync_abandoned();
-                    else if (result == SYNC_ACHIEVED)
-                        on_sync_target_acheived(current_target);
-                }
-            }
-            fs_mount->release_rw_session();
-        }
-
-        LOG_INFO << "Hpfs " << name << " sync: Worker stopped.";
     }
 
     /**
@@ -217,6 +103,15 @@ namespace hpfs
             // Reset resubmissions counter whenever we have a resposne.
             if (!candidate_hpfs_responses.empty())
                 resubmissions_count = 0;
+
+            // If for some reason, our rw session has been released, we acquire again here.
+            // (It could have released due to a target achievment or abandonment)
+            if (!ongoing_targets.empty() && !rw_acquired && fs_mount->acquire_rw_session() == -1)
+            {
+                LOG_ERROR << "Hpfs " << name << " sync: Failed to start hpfs rw session";
+                continue;
+            }
+            rw_acquired = true;
 
             process_candidate_responses();
 
@@ -276,6 +171,8 @@ namespace hpfs
                 LOG_INFO << "Hpfs " << name << " sync: Target updated. New hash:" << target.expected_hash << " " << target.path;
             }
         }
+
+        incoming_targets.clear();
     }
 
     void hpfs_sync::perform_request_submissions()
@@ -297,10 +194,14 @@ namespace hpfs
             {
                 if (++resubmissions_count > ABANDON_THRESHOLD)
                 {
-                    LOG_INFO << "Hpfs " << name << " sync: Sync abandoned due to resubmission threshold.";
                     pending_requests.clear();
                     submitted_requests.clear();
                     ongoing_targets.clear();
+                    update_sync_status();
+                    LOG_INFO << "Hpfs " << name << " sync: Sync abandoned due to resubmission threshold.";
+
+                    fs_mount->release_rw_session();
+                    rw_acquired = false;
                     on_sync_abandoned();
                 }
                 else
@@ -323,6 +224,12 @@ namespace hpfs
                 pending_requests.erase(pending_requests.begin());
             }
         }
+    }
+
+    void hpfs_sync::update_sync_status()
+    {
+        std::unique_lock lock(incoming_targets_mutex);
+        is_syncing = (!incoming_targets.empty() || !ongoing_targets.empty());
     }
 
     void hpfs_sync::process_candidate_responses()
@@ -445,7 +352,12 @@ namespace hpfs
                 // End the loop if sync is complete.
                 if (updated_hash == target_hash)
                 {
+                    ongoing_targets.erase(target_itr);
+                    update_sync_status();
                     LOG_INFO << "Hpfs " << name << " sync: Achieved target:" << target_hash << " " << target_vpath;
+
+                    fs_mount->release_rw_session();
+                    rw_acquired = false;
                     on_sync_target_acheived(target_vpath, target_hash);
                 }
 
@@ -821,25 +733,6 @@ namespace hpfs
     */
     void hpfs_sync::on_sync_abandoned()
     {
-    }
-
-    /**
-     * Releases and reacquires the rw session after a short delay.
-     * This is used to give hpfs some room to update the last checkpoint during long runinng sync operations.
-     * @return 0 on success. -1 on failure.
-     */
-    int hpfs_sync::reacquire_rw_session()
-    {
-        fs_mount->release_rw_session();
-        util::sleep(HPFS_REAQUIRE_WAIT);
-
-        if (fs_mount->acquire_rw_session() == -1)
-        {
-            LOG_ERROR << "Hpfs " << name << " sync: Error reacquring rw session.";
-            return -1;
-        }
-
-        return 0;
     }
 
 } // namespace hpfs

@@ -65,7 +65,7 @@ namespace hpfs
         std::string name; // Name used for logging.
 
         std::shared_mutex incoming_targets_mutex;
-        std::vector<backlog_item> incoming_targets; // The targets that we need to sync towards but have not looked at yet.
+        std::set<backlog_item> incoming_targets; // The targets that we need to sync towards but have not looked at yet.
 
         std::vector<backlog_item> ongoing_targets; // The targets that we have taken into processing.
         std::set<backlog_item> pending_requests;   // List of pending sync requests to be sent out.
@@ -75,6 +75,9 @@ namespace hpfs
         // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
         uint16_t resubmissions_count = 0;
 
+        // Indicates whether we currently have acquired an hpfs rw session.
+        bool rw_acquired = false;
+
         std::thread hpfs_sync_thread;
         std::atomic<bool> is_shutting_down = false;
 
@@ -83,6 +86,8 @@ namespace hpfs
         void check_incoming_targets();
 
         void perform_request_submissions();
+
+        void update_sync_status();
 
         void process_candidate_responses();
 
@@ -130,9 +135,8 @@ namespace hpfs
 
         void deinit();
 
-        void set_target_push_front(const sync_target &target);
-
-        void set_target_push_back(const sync_target &target);
+        void set_target(const bool is_dir, const std::string &vpath,
+                        const util::h32 &hash, const bool high_priority = false);
     };
 
 } // namespace hpfs
