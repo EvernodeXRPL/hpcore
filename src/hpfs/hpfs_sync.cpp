@@ -68,8 +68,8 @@ namespace hpfs
                                const util::h32 &hash, const bool high_priority)
     {
         std::unique_lock lock(incoming_targets_mutex);
-        incoming_targets.emplace(backlog_item{
-            (is_dir ? BACKLOG_ITEM_TYPE::DIR : BACKLOG_ITEM_TYPE::FILE), vpath, -1, hash, high_priority});
+        incoming_targets.emplace(sync_item{
+            (is_dir ? SYNC_ITEM_TYPE::DIR : SYNC_ITEM_TYPE::FILE), vpath, -1, hash, high_priority});
         is_syncing = true;
     }
 
@@ -124,18 +124,18 @@ namespace hpfs
     void hpfs_sync::check_incoming_targets()
     {
         std::unique_lock lock(incoming_targets_mutex);
-        for (const backlog_item &target : incoming_targets)
+        for (const sync_item &target : incoming_targets)
         {
             // Check whether we have an ongoing target with the same vpath but having a different hash.
             // If so, we need to destroy that target and insert the updated one.
             const auto ex_target = std::find_if(ongoing_targets.begin(), ongoing_targets.end(),
-                                                [&](backlog_item &t) { return t.path == target.path; });
+                                                [&](sync_item &t) { return t.vpath == target.vpath; });
             if (ex_target == ongoing_targets.end())
             {
                 ongoing_targets.push_back(target);
                 pending_requests.emplace(target); // Places the root request for this target according to priority sorting.
 
-                LOG_INFO << "Hpfs " << name << " sync: Target added. Hash:" << target.expected_hash << " " << target.path;
+                LOG_INFO << "Hpfs " << name << " sync: Target added. Hash:" << target.expected_hash << " " << target.vpath;
             }
             else if (ex_target->expected_hash != target.expected_hash)
             {
@@ -145,7 +145,7 @@ namespace hpfs
                     auto itr = pending_requests.begin();
                     while (itr != pending_requests.end())
                     {
-                        if (itr->path.rfind(ex_target->path, 0) == 0) // If the request is a sub path of the target's vpath.
+                        if (itr->vpath.rfind(ex_target->vpath, 0) == 0) // If the request is a sub path of the target's vpath.
                             pending_requests.erase(itr++);
                         else
                             ++itr;
@@ -156,7 +156,7 @@ namespace hpfs
                     auto itr = submitted_requests.begin();
                     while (itr != submitted_requests.end())
                     {
-                        if (itr->second.path.rfind(ex_target->path, 0) == 0) // If the request is a sub path of the target's vpath.
+                        if (itr->second.vpath.rfind(ex_target->vpath, 0) == 0) // If the request is a sub path of the target's vpath.
                             submitted_requests.erase(itr++);
                         else
                             ++itr;
@@ -168,7 +168,7 @@ namespace hpfs
                 ongoing_targets.push_back(target);
                 pending_requests.emplace(target); // Places the root request for this target according to priority sorting.
 
-                LOG_INFO << "Hpfs " << name << " sync: Target updated. New hash:" << target.expected_hash << " " << target.path;
+                LOG_INFO << "Hpfs " << name << " sync: Target updated. New hash:" << target.expected_hash << " " << target.vpath;
             }
         }
 
@@ -332,11 +332,11 @@ namespace hpfs
 
             // Find the ongoing target that this response belongs to.
             const auto target_itr = std::find_if(ongoing_targets.begin(), ongoing_targets.end(),
-                                                 [&](backlog_item &t) { return vpath.rfind(t.path, 0) == 0; });
+                                                 [&](sync_item &t) { return vpath.rfind(t.vpath, 0) == 0; });
 
             if (target_itr != ongoing_targets.end())
             {
-                const std::string target_vpath = target_itr->path;
+                const std::string target_vpath = target_itr->vpath;
                 const util::h32 target_hash = target_itr->expected_hash;
 
                 // get_hash returns 0 incase target parent is not existing in our side.
@@ -501,27 +501,27 @@ namespace hpfs
      *                   Used for hint response monitoring.
      * @param is_resubmit Whether this is a request resubmission or not.
      */
-    void hpfs_sync::submit_request(const backlog_item &request, const bool watch_only, const bool is_resubmit)
+    void hpfs_sync::submit_request(const sync_item &request, const bool watch_only, const bool is_resubmit)
     {
-        const std::string key = std::string(request.path)
+        const std::string key = std::string(request.vpath)
                                     .append(reinterpret_cast<const char *>(&request.expected_hash), sizeof(util::h32));
         submitted_requests.try_emplace(key, request);
 
         if (watch_only)
         {
             LOG_DEBUG << "Hpfs " << name << " sync: Watching response for request. type:" << request.type
-                      << " path:" << request.path << " block_id:" << request.block_id
+                      << " path:" << request.vpath << " block_id:" << request.block_id
                       << " hash:" << request.expected_hash;
         }
         else
         {
-            const bool is_file = request.type != BACKLOG_ITEM_TYPE::DIR;
+            const bool is_file = request.type != SYNC_ITEM_TYPE::DIR;
             std::string target_pubkey;
-            request_state_from_peer(request.path, is_file, request.block_id, request.expected_hash, target_pubkey);
+            request_state_from_peer(request.vpath, is_file, request.block_id, request.expected_hash, target_pubkey);
 
             LOG_DEBUG << "Hpfs " << name << " sync: " << (is_resubmit ? "Re-submitting" : "Submitting")
                       << " request to [" << (target_pubkey.empty() ? "" : target_pubkey.substr(2, 10)) << "]. type:" << request.type
-                      << " path:" << request.path << " block_id:" << request.block_id
+                      << " path:" << request.vpath << " block_id:" << request.block_id
                       << " hash:" << request.expected_hash;
         }
     }
@@ -560,14 +560,14 @@ namespace hpfs
             {
                 // We must request for this entry.
                 if (entry.is_file)
-                    pending_requests.emplace(backlog_item{BACKLOG_ITEM_TYPE::FILE, child_vpath, -1, entry.hash});
+                    pending_requests.emplace(sync_item{SYNC_ITEM_TYPE::FILE, child_vpath, -1, entry.hash});
                 else
-                    pending_requests.emplace(backlog_item{BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, entry.hash});
+                    pending_requests.emplace(sync_item{SYNC_ITEM_TYPE::DIR, child_vpath, -1, entry.hash});
             }
             else if (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED)
             {
                 // The peer has already responded with a pre-emptive hint response. So we must start watching for it.
-                submit_request(backlog_item{entry.is_file ? BACKLOG_ITEM_TYPE::FILE : BACKLOG_ITEM_TYPE::DIR, child_vpath, -1, entry.hash}, true);
+                submit_request(sync_item{entry.is_file ? SYNC_ITEM_TYPE::FILE : SYNC_ITEM_TYPE::DIR, child_vpath, -1, entry.hash}, true);
             }
             else if (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::NOT_AVAILABLE)
             {
@@ -615,12 +615,12 @@ namespace hpfs
             if (responded_block_ids.count(block_id) == 1)
             {
                 // The peer has already responded with a hint response. So we must start watching for it.
-                submit_request(backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]}, true);
+                submit_request(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]}, true);
             }
             else if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
             {
                 // Insert at front to give priority to block requests while preserving block order.
-                pending_requests.insert(insert_itr, backlog_item{BACKLOG_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
+                pending_requests.insert(insert_itr, sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
             }
         }
 

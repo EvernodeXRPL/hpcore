@@ -9,7 +9,7 @@
 namespace hpfs
 {
 
-    enum BACKLOG_ITEM_TYPE
+    enum SYNC_ITEM_TYPE
     {
         DIR = 0,
         FILE = 1,
@@ -17,10 +17,10 @@ namespace hpfs
     };
 
     // Represents a queued up state sync operation which needs to be performed.
-    struct backlog_item
+    struct sync_item
     {
-        BACKLOG_ITEM_TYPE type = BACKLOG_ITEM_TYPE::DIR;
-        std::string path;
+        SYNC_ITEM_TYPE type = SYNC_ITEM_TYPE::DIR;
+        std::string vpath;
         int32_t block_id = -1; // Only relevant if type=BLOCK
         util::h32 expected_hash;
         bool high_priority = false;
@@ -32,24 +32,24 @@ namespace hpfs
         uint32_t priority() const
         {
             // Lesser value means higher priority.
-            return ((high_priority ? 1 : 2) * 10) + (type == BACKLOG_ITEM_TYPE::FILE ? 1 : 2);
+            return ((high_priority ? 1 : 2) * 10) + (type == SYNC_ITEM_TYPE::FILE ? 1 : 2);
         }
 
-        bool operator==(const backlog_item &other) const
+        bool operator==(const sync_item &other) const
         {
-            return type == other.type && path == other.path && block_id == other.block_id && expected_hash == other.expected_hash;
+            return type == other.type && vpath == other.vpath && block_id == other.block_id && expected_hash == other.expected_hash;
         }
 
-        bool operator<(const backlog_item &other) const
+        bool operator<(const sync_item &other) const
         {
             const uint32_t prio = priority();
             const uint32_t other_prio = other.priority();
             if (prio == other_prio)
             {
-                if (path == other.path)
+                if (vpath == other.vpath)
                     return block_id < other.block_id;
                 else
-                    return path < other.path;
+                    return vpath < other.vpath;
             }
             else
             {
@@ -65,12 +65,12 @@ namespace hpfs
         std::string name; // Name used for logging.
 
         std::shared_mutex incoming_targets_mutex;
-        std::set<backlog_item> incoming_targets; // The targets that we need to sync towards but have not looked at yet.
+        std::set<sync_item> incoming_targets; // The targets that we need to sync towards but have not looked at yet.
 
-        std::vector<backlog_item> ongoing_targets; // The targets that we have taken into processing.
-        std::set<backlog_item> pending_requests;   // List of pending sync requests to be sent out.
+        std::vector<sync_item> ongoing_targets; // The targets that we have taken into processing.
+        std::set<sync_item> pending_requests;   // List of pending sync requests to be sent out.
         // List of submitted requests we are awaiting responses for, keyed by expected response path+hash.
-        std::unordered_map<std::string, backlog_item> submitted_requests;
+        std::unordered_map<std::string, sync_item> submitted_requests;
 
         // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
         uint16_t resubmissions_count = 0;
@@ -102,7 +102,7 @@ namespace hpfs
         void request_state_from_peer(const std::string &path, const bool is_file, const int32_t block_id,
                                      const util::h32 expected_hash, std::string &target_pubkey);
 
-        void submit_request(const backlog_item &request, const bool watch_only = false, const bool is_resubmit = false);
+        void submit_request(const sync_item &request, const bool watch_only = false, const bool is_resubmit = false);
 
         int handle_fs_entry_response(std::string_view vpath, const mode_t dir_mode, const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
 
