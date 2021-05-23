@@ -23,21 +23,38 @@ namespace hpfs
         std::string path;
         int32_t block_id = -1; // Only relevant if type=BLOCK
         util::h32 expected_hash;
+        bool high_priority = false;
 
         // No. of millisconds that this item has been waiting in pending state.
         // Used by pending_responses list to increase waiting time and resubmit request.
         uint32_t waiting_time = 0;
-    };
 
-    struct sync_target
-    {
-        util::h32 hash = util::h32_empty;
-        std::string vpath;
-        BACKLOG_ITEM_TYPE item_type = BACKLOG_ITEM_TYPE::DIR;
-
-        bool operator==(const sync_target &target) const
+        uint32_t priority() const
         {
-            return this->vpath == target.vpath && this->hash == target.hash;
+            // Lesser value means higher priority.
+            return ((high_priority ? 1 : 2) * 10) + (type == BACKLOG_ITEM_TYPE::FILE ? 1 : 2);
+        }
+
+        bool operator==(const backlog_item &other) const
+        {
+            return type == other.type && path == other.path && block_id == other.block_id && expected_hash == other.expected_hash;
+        }
+
+        bool operator<(const backlog_item &other) const
+        {
+            const uint32_t prio = priority();
+            const uint32_t other_prio = other.priority();
+            if (prio == other_prio)
+            {
+                if (path == other.path)
+                    return block_id < other.block_id;
+                else
+                    return path < other.path;
+            }
+            else
+            {
+                return prio < other_prio;
+            }
         }
     };
 
@@ -47,22 +64,27 @@ namespace hpfs
         bool init_success = false;
         std::string name; // Name used for logging.
 
-        std::shared_mutex target_mutex;
-        std::list<sync_target> target_list; // The current target hashes we are syncing towards.
+        std::shared_mutex incoming_targets_mutex;
+        std::vector<backlog_item> incoming_targets; // The targets that we need to sync towards but have not looked at yet.
 
-        std::list<backlog_item> pending_requests; // List of pending sync requests to be sent out.
-
+        std::vector<backlog_item> ongoing_targets; // The targets that we have taken into processing.
+        std::set<backlog_item> pending_requests;   // List of pending sync requests to be sent out.
         // List of submitted requests we are awaiting responses for, keyed by expected response path+hash.
         std::unordered_map<std::string, backlog_item> submitted_requests;
+
+        // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
+        uint16_t resubmissions_count = 0;
 
         std::thread hpfs_sync_thread;
         std::atomic<bool> is_shutting_down = false;
 
         void hpfs_syncer_loop();
 
-        int request_loop(const hpfs::sync_target &target);
+        void check_incoming_targets();
 
-        int sync_interrupt(const hpfs::sync_target &target);
+        void perform_request_submissions();
+
+        void process_candidate_responses();
 
         bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
                                     const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
@@ -92,11 +114,9 @@ namespace hpfs
 
         hpfs::hpfs_mount *fs_mount = NULL;
 
-        virtual void on_sync_target_acheived(const sync_target &synced_target);
+        virtual void on_sync_target_acheived(const std::string &vpath, const util::h32 &hash);
 
-        virtual void on_sync_target_abandoned();
-
-        virtual void on_sync_complete(const sync_target &last_sync_target);
+        virtual void on_sync_abandoned();
 
         // Move the collected responses from hpfs responses to a local response list.
         virtual void swap_collected_responses() = 0; // Must override in child classes.

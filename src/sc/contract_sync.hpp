@@ -11,7 +11,7 @@ namespace sc
     class contract_sync : public hpfs::hpfs_sync
     {
     private:
-        void on_sync_target_acheived(const hpfs::sync_target &synced_target);
+        void on_sync_target_acheived(const std::string &vpath, const util::h32 &hash);
         void swap_collected_responses();
     };
 } // namespace sc
