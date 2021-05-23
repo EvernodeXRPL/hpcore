@@ -1,13 +1,20 @@
 const HotPocket = require("./hp-contract-lib");
 const fs = require('fs');
 
+const exectsFile = "exects.txt";
+
 // HP smart contract is defined as a function which takes HP ExecutionContext as an argument.
 // HP considers execution as complete, when this function completes and all the NPL message callbacks are complete.
 const echoContract = async (ctx) => {
 
     // We just save execution timestamp as an example state file change.
-    if (!ctx.readonly)
-        fs.appendFileSync("exects.txt", "ts:" + ctx.timestamp + "\n");
+    if (!ctx.readonly) {
+        fs.appendFileSync(exectsFile, "ts:" + ctx.timestamp + "\n");
+
+        const stats = fs.statSync(exectsFile);
+        if (stats.size > 100 * 1024 * 1024) // If more than 100 MB, empty the file.
+            fs.truncateSync(exectsFile);
+    }
 
     // Collection of per-user promises to wait for. Each promise completes when inputs for that user is processed.
     const userHandlers = [];
@@ -31,7 +38,7 @@ const echoContract = async (ctx) => {
 
             }
 
-            // The promise gets complete when all inputs for this user are processed.
+            // The promise gets completed when all inputs for this user are processed.
             resolve();
         }));
     }
