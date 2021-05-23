@@ -36,6 +36,8 @@ namespace hpfs
         }                                                           \
     }
 
+#define TARGET_OF_REQUEST(reqpath) std::find_if(ongoing_targets.begin(), ongoing_targets.end(), [&](sync_item &t) { return reqpath.rfind(t.vpath, 0) == 0; })
+
     /**
      * This should be called to activate the hpfs sync.
      */
@@ -331,8 +333,7 @@ namespace hpfs
             // After handling each response, check whether we have reached target hpfs hash.
 
             // Find the ongoing target that this response belongs to.
-            const auto target_itr = std::find_if(ongoing_targets.begin(), ongoing_targets.end(),
-                                                 [&](sync_item &t) { return vpath.rfind(t.vpath, 0) == 0; });
+            const auto target_itr = TARGET_OF_REQUEST(vpath);
 
             if (target_itr != ongoing_targets.end())
             {
@@ -366,7 +367,7 @@ namespace hpfs
             else
             {
                 // We should never hit this error.
-                LOG_ERROR << "Hpfs " << name << " sync: Failed to locate target matching " << vpath;
+                LOG_ERROR << "Hpfs " << name << " sync: Process response: Failed to locate target matching " << vpath;
             }
         }
 
@@ -558,11 +559,14 @@ namespace hpfs
 
             if (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::MISMATCHED)
             {
-                // We must request for this entry.
-                if (entry.is_file)
-                    pending_requests.emplace(sync_item{SYNC_ITEM_TYPE::FILE, child_vpath, -1, entry.hash});
+                // We must request for this entry using the same priority level of the root target.
+                const auto target_itr = TARGET_OF_REQUEST(child_vpath);
+                if (target_itr != ongoing_targets.end())
+                    pending_requests.emplace(sync_item{
+                        (entry.is_file ? SYNC_ITEM_TYPE::FILE : SYNC_ITEM_TYPE::DIR), child_vpath, -1, entry.hash, target_itr->high_priority});
                 else
-                    pending_requests.emplace(sync_item{SYNC_ITEM_TYPE::DIR, child_vpath, -1, entry.hash});
+                    // We should never hit this error.
+                    LOG_ERROR << "Hpfs " << name << " sync: Handle fs entry response: Failed to locate target matching " << vpath;
             }
             else if (entry.response_type == p2p::HPFS_FS_ENTRY_RESPONSE_TYPE::RESPONDED)
             {
