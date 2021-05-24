@@ -234,8 +234,6 @@ namespace consensus
             // Last primary shard hash sync is commenced if we are out-of-sync with majority last primary shard hash.
             if (is_last_primary_shard_desync)
             {
-                conf::change_role(conf::ROLE::OBSERVER);
-
                 // We first request the latest shard.
                 const std::string majority_shard_seq_no_str = std::to_string(majority_primary_shard_id.seq_no);
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(majority_shard_seq_no_str);
@@ -264,8 +262,6 @@ namespace consensus
             // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
             if (is_state_desync || is_patch_desync)
             {
-                conf::change_role(conf::ROLE::OBSERVER);
-
                 if (conf::cfg.node.history == conf::HISTORY::FULL)
                 {
                     // If state or patch is desync set target for the hpfs log sync with the next lcl seq_no.
@@ -288,7 +284,6 @@ namespace consensus
             // If ledger raw shard is desync, We first request the latest raw shard.
             if (is_last_raw_shard_desync)
             {
-                conf::change_role(conf::ROLE::OBSERVER);
                 const std::string majority_shard_seq_no_str = std::to_string(majority_raw_shard_id.seq_no);
                 const std::string shard_path = std::string(ledger::RAW_DIR).append("/").append(majority_shard_seq_no_str);
                 ledger::ledger_sync_worker.is_last_raw_shard_syncing = true;
@@ -311,7 +306,6 @@ namespace consensus
             // Proceed further only if last primary shard, last raw shard, state and patch hashes are in sync with majority.
             if (!is_last_primary_shard_desync && !is_last_raw_shard_desync && !is_state_desync && !is_patch_desync)
             {
-                conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
@@ -862,7 +856,7 @@ namespace consensus
             }
         }
 
-        // time is voted on a simple sorted (highest to lowest) and majority basis.
+        // time is voted on majority basis.
         uint32_t highest_time_vote = 0;
         for (const auto &[time, numvotes] : votes.time)
         {
