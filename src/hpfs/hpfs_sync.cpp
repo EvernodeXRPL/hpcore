@@ -403,7 +403,9 @@ namespace hpfs
                         // When target achieved, release and reacquire the hpfs rw session. This helps any upcoming
                         // ro sessions to get updated file system state.
                         fs_mount->release_rw_session();
+                        util::sleep(HPFS_REAQUIRE_WAIT);
                         fs_mount->acquire_rw_session();
+                        
                         on_sync_target_acheived(target_vpath, target_hash);
 
                         // Release the rw session if there are no more ongoing targets.
