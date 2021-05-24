@@ -27,16 +27,8 @@ namespace hpfs
 
     constexpr int FILE_PERMS = 0644;
 
-#define SHUTDOWN_CHECK                                              \
-    {                                                               \
-        if (is_shutting_down)                                       \
-        {                                                           \
-            LOG_INFO << "Hpfs " << name << " sync: Sync abandoned"; \
-            return;                                                 \
-        }                                                           \
-    }
-
-#define TARGET_OF_REQUEST(reqpath) std::find_if(ongoing_targets.begin(), ongoing_targets.end(), [&](sync_item &t) { return reqpath.rfind(t.vpath, 0) == 0; })
+// Locates the ongoing target for the provided request vpath. (Matched if target vpath is an ancestor path of the request vpath)
+#define TARGET_OF_REQUEST(req_vpath) std::find_if(ongoing_targets.begin(), ongoing_targets.end(), [&](sync_item &t) { return req_vpath.rfind(t.vpath, 0) == 0; })
 
     /**
      * This should be called to activate the hpfs sync.
@@ -66,6 +58,13 @@ namespace hpfs
         }
     }
 
+    /**
+     * Add or update a sync target.
+     * @param is_dir whether the sync target is a dir or file.
+     * @param vpath The vpath of to sync.
+     * @param hash Target hash to achieve.
+     * @param high_priority Whether this target should be given higher priority over other ongoing targets.
+     */
     void hpfs_sync::set_target(const bool is_dir, const std::string &vpath,
                                const util::h32 &hash, const bool high_priority)
     {
@@ -86,50 +85,53 @@ namespace hpfs
         // Indicates whether any responses were processed in the previous loop iteration.
         bool prev_responses_processed = false;
 
-        while (true)
+        while (!is_shutting_down)
         {
-            SHUTDOWN_CHECK;
-
             // Wait a small delay if there were no responses processed during previous iteration.
             if (!prev_responses_processed)
                 util::sleep(IDLE_WAIT);
 
             // Check whether we have any new/changed targets.
-            check_incoming_targets();
+            if (check_incoming_targets() == -1)
+                break;
 
             // Move the received hpfs responses to the local response list.
             swap_collected_responses();
 
-            prev_responses_processed = !candidate_hpfs_responses.empty();
-
-            // Reset resubmissions counter whenever we have a resposne.
-            if (!candidate_hpfs_responses.empty())
-                resubmissions_count = 0;
-
-            // If for some reason, our rw session has been released, we acquire again here.
-            // (It could have released due to a target achievment or abandonment)
-            if (!ongoing_targets.empty() && !rw_acquired && fs_mount->acquire_rw_session() == -1)
+            if (ongoing_targets.empty())
             {
-                LOG_ERROR << "Hpfs " << name << " sync: Failed to start hpfs rw session";
+                candidate_hpfs_responses.clear();
                 continue;
             }
-            rw_acquired = true;
 
-            process_candidate_responses();
+            // Process any sync responses we have received.
+            prev_responses_processed = process_candidate_responses();
 
+            if (is_shutting_down)
+                break;
+
+            // Submit any pending requests to peers.
             perform_request_submissions();
         }
 
         LOG_INFO << "Hpfs " << name << " sync: Worker stopped.";
     }
 
-    void hpfs_sync::check_incoming_targets()
+    /**
+     * Checks for any new/updated targets that we have received and safely incorporates them into ongoing sync activity.
+     * @return o on success. -1 on error.
+     */
+    int hpfs_sync::check_incoming_targets()
     {
+        // Keep track of whether we already had any ongoing targets.
+        const size_t already_had_targets = ongoing_targets.empty();
+
         std::unique_lock lock(incoming_targets_mutex);
         for (const sync_item &target : incoming_targets)
         {
-            // Check whether we have an ongoing target with the same vpath but having a different hash.
-            // If so, we need to destroy that target and insert the updated one.
+            // If we have an ongoing target with the same vpath but having a different hash, we need to destroy
+            // that target and insert the updated one.
+
             const auto ex_target = std::find_if(ongoing_targets.begin(), ongoing_targets.end(),
                                                 [&](sync_item &t) { return t.vpath == target.vpath; });
             if (ex_target == ongoing_targets.end())
@@ -141,8 +143,9 @@ namespace hpfs
             }
             else if (ex_target->expected_hash != target.expected_hash)
             {
-                // Clear all ongoing activity for the existing matching target if expected hash is different.
+                // Existing target's expected hash is obsolete now. Therefore clear all ongoing activity for the obsolete target.
 
+                // Clear pending requests under the obsolete target.
                 {
                     auto itr = pending_requests.begin();
                     while (itr != pending_requests.end())
@@ -154,6 +157,7 @@ namespace hpfs
                     }
                 }
 
+                // Clear submitted requests under the obsolete target.
                 {
                     auto itr = submitted_requests.begin();
                     while (itr != submitted_requests.end())
@@ -165,18 +169,32 @@ namespace hpfs
                     }
                 }
 
-                ongoing_targets.erase(ex_target);
+                ongoing_targets.erase(ex_target); // Clear the obsolete target.
 
-                ongoing_targets.push_back(target);
-                pending_requests.emplace(target); // Places the root request for this target according to priority sorting.
+                ongoing_targets.push_back(target); // Insert the new one to replace the obsolete target.
+                pending_requests.emplace(target);  // Places the root request for this target according to 'sync_item' priority sorting.
 
                 LOG_INFO << "Hpfs " << name << " sync: Target updated. New hash:" << target.expected_hash << " " << target.vpath;
             }
         }
 
         incoming_targets.clear();
+
+        // Acquire hpfs rw session if we are just having some targets from being an idle state.
+        // We should be careful to maintain only one acquisitiong at a time and release it only once.
+        // It will be released when all targets are compelte or getting abandoned.
+        if (!already_had_targets && !ongoing_targets.empty() && fs_mount->acquire_rw_session() == -1)
+        {
+            LOG_ERROR << "Hpfs " << name << " sync: Failed to start hpfs rw session";
+            return -1;
+        }
+
+        return 0;
     }
 
+    /**
+     * Submits requests from pending collection to peers, based on request throughput availabilty.
+     */
     void hpfs_sync::perform_request_submissions()
     {
         // No. of milliseconds to wait before resubmitting a request.
@@ -185,7 +203,8 @@ namespace hpfs
         // Check for long-awaited responses and re-request them.
         for (auto &[hash, request] : submitted_requests)
         {
-            SHUTDOWN_CHECK
+            if (is_shutting_down)
+                return;
 
             if (request.waiting_time < request_resubmit_timeout)
             {
@@ -194,16 +213,16 @@ namespace hpfs
             }
             else
             {
+                // If we have exceeded continous resubmission threshold, clear everything (all targets) and go back to idle state.
                 if (++resubmissions_count > ABANDON_THRESHOLD)
                 {
                     pending_requests.clear();
                     submitted_requests.clear();
                     ongoing_targets.clear();
                     update_sync_status();
-                    LOG_INFO << "Hpfs " << name << " sync: Sync abandoned due to resubmission threshold.";
+                    LOG_INFO << "Hpfs " << name << " sync: All targets abandoned due to resubmission threshold.";
 
-                    fs_mount->release_rw_session();
-                    rw_acquired = false;
+                    fs_mount->release_rw_session(); // Release hpfs rw session because all targets are abandoned.
                     on_sync_abandoned();
                 }
                 else
@@ -219,26 +238,42 @@ namespace hpfs
         if (!pending_requests.empty() && submitted_requests.size() < MAX_AWAITING_REQUESTS)
         {
             const uint16_t available_slots = MAX_AWAITING_REQUESTS - submitted_requests.size();
-            for (int i = 0; i < available_slots; i++)
+            for (int i = 0; i < available_slots && !pending_requests.empty(); i++)
             {
-                SHUTDOWN_CHECK
+                if (is_shutting_down)
+                    return;
+
                 submit_request(*pending_requests.begin());
                 pending_requests.erase(pending_requests.begin());
             }
         }
     }
 
+    /**
+     * Safely updates the global sync status flag based on ongoing and incoming targets.
+     */
     void hpfs_sync::update_sync_status()
     {
         std::unique_lock lock(incoming_targets_mutex);
         is_syncing = (!incoming_targets.empty() || !ongoing_targets.empty());
     }
 
-    void hpfs_sync::process_candidate_responses()
+    /**
+     * Processes any sync responses we have received and updates the local file system state.
+     * @return Whether any responses were processed or not.
+     */
+    bool hpfs_sync::process_candidate_responses()
     {
+        // Reset resubmissions counter whenever we have a resposne.
+        if (!candidate_hpfs_responses.empty())
+            resubmissions_count = 0;
+
+        const bool responses_processed = !candidate_hpfs_responses.empty();
+
         for (auto &response : candidate_hpfs_responses)
         {
-            SHUTDOWN_CHECK
+            if (is_shutting_down)
+                return false;
 
             const std::string from = response.first.substr(2, 10); // Sender pubkey.
             const p2pmsg::P2PMsg &msg = *p2pmsg::GetP2PMsg(response.second.data());
@@ -327,51 +362,58 @@ namespace hpfs
                 handle_file_block_response(vpath, block_id, buf);
             }
 
-            // Now that we have received matching hash and handled it, remove it from the waiting list.
+            // Now that we have received matching hash and handled it successfully, remove it from the waiting list.
             submitted_requests.erase(pending_resp_itr);
 
-            // After handling each response, check whether we have reached target hpfs hash.
-
-            // Find the ongoing target that this response belongs to.
-            const auto target_itr = TARGET_OF_REQUEST(vpath);
-
-            if (target_itr != ongoing_targets.end())
+            // After handling each response, check whether we have achieved the target hash.
             {
-                const std::string target_vpath = target_itr->vpath;
-                const util::h32 target_hash = target_itr->expected_hash;
+                // Find the ongoing target that this response belongs to.
+                const auto target_itr = TARGET_OF_REQUEST(vpath);
 
-                // get_hash returns 0 incase target parent is not existing in our side.
-                util::h32 updated_hash = util::h32_empty;
-                if (fs_mount->get_hash(updated_hash, hpfs::RW_SESSION_NAME, target_vpath) == -1)
+                if (target_itr != ongoing_targets.end())
                 {
-                    LOG_ERROR << "Hpfs " << name << " sync: Hash check error. " << target_vpath;
+                    const std::string target_vpath = target_itr->vpath;
+                    const util::h32 target_hash = target_itr->expected_hash;
+
+                    // get_hash returns 0 incase target parent is not existing in our side.
+                    util::h32 updated_hash = util::h32_empty;
+                    if (fs_mount->get_hash(updated_hash, hpfs::RW_SESSION_NAME, target_vpath) == -1)
+                    {
+                        LOG_ERROR << "Hpfs " << name << " sync: Hash check error. " << target_vpath;
+                    }
+
+                    // Update the central hpfs state tracker.
+                    fs_mount->set_parent_hash(target_vpath, updated_hash);
+
+                    // This target's sync is complete.
+                    if (updated_hash == target_hash)
+                    {
+                        ongoing_targets.erase(target_itr); // Remove the completed target from the ongoing targets list.
+                        update_sync_status();
+                        LOG_INFO << "Hpfs " << name << " sync: Achieved target:" << target_hash << " " << target_vpath;
+
+                        // When target achieved, release the hpfs rw session. This helps any upcoming ro sessions to get updated file system state.
+                        fs_mount->release_rw_session();
+                        on_sync_target_acheived(target_vpath, target_hash);
+
+                        // Reacquire the rw session if there are more ongoing targets.
+                        if (!ongoing_targets.empty())
+                            fs_mount->acquire_rw_session();
+                    }
+
+                    LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
                 }
-
-                // Update the central hpfs state tracker.
-                fs_mount->set_parent_hash(target_vpath, updated_hash);
-
-                // End the loop if sync is complete.
-                if (updated_hash == target_hash)
+                else
                 {
-                    ongoing_targets.erase(target_itr);
-                    update_sync_status();
-                    LOG_INFO << "Hpfs " << name << " sync: Achieved target:" << target_hash << " " << target_vpath;
-
-                    fs_mount->release_rw_session();
-                    rw_acquired = false;
-                    on_sync_target_acheived(target_vpath, target_hash);
+                    // We should never hit this error.
+                    LOG_ERROR << "Hpfs " << name << " sync: Process response: Failed to locate target matching " << vpath;
                 }
-
-                LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
-            }
-            else
-            {
-                // We should never hit this error.
-                LOG_ERROR << "Hpfs " << name << " sync: Process response: Failed to locate target matching " << vpath;
             }
         }
 
         candidate_hpfs_responses.clear();
+
+        return responses_processed;
     }
 
     /**
@@ -623,8 +665,7 @@ namespace hpfs
             }
             else if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
             {
-                // Insert at front to give priority to block requests while preserving block order.
-                pending_requests.insert(insert_itr, sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
+                pending_requests.emplace(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
             }
         }
 

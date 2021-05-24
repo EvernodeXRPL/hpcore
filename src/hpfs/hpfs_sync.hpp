@@ -32,7 +32,17 @@ namespace hpfs
         uint32_t priority() const
         {
             // Lesser value means higher priority.
-            return ((high_priority ? 1 : 2) * 10) + (type == SYNC_ITEM_TYPE::FILE ? 1 : 2);
+            /**
+             * Priority order:
+             * High prio file block
+             * High prio file hashmap
+             * High prio dir children
+             * Low prio file block
+             * Low prio file hashmap
+             * Low prio dir children
+             */
+
+            return ((high_priority ? 1 : 2) * 10) + (type == SYNC_ITEM_TYPE::BLOCK ? 1 : (type == SYNC_ITEM_TYPE::FILE ? 2 : 3));
         }
 
         bool operator==(const sync_item &other) const
@@ -75,21 +85,18 @@ namespace hpfs
         // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
         uint16_t resubmissions_count = 0;
 
-        // Indicates whether we currently have acquired an hpfs rw session.
-        bool rw_acquired = false;
-
         std::thread hpfs_sync_thread;
         std::atomic<bool> is_shutting_down = false;
 
         void hpfs_syncer_loop();
 
-        void check_incoming_targets();
+        int check_incoming_targets();
 
         void perform_request_submissions();
 
         void update_sync_status();
 
-        void process_candidate_responses();
+        bool process_candidate_responses();
 
         bool validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
                                     const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries);
