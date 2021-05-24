@@ -85,6 +85,9 @@ namespace hpfs
         // No. of repetitive resubmissions so far. (This is reset whenever we receive a hpfs response)
         uint16_t resubmissions_count = 0;
 
+        // Whether the hpfs rw session is running or not.
+        bool rw_session_active = false;
+
         std::thread hpfs_sync_thread;
         std::atomic<bool> is_shutting_down = false;
 

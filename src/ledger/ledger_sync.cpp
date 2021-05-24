@@ -13,7 +13,7 @@ namespace ledger
         const int fd = open(shard_hash_file_path.c_str(), O_RDONLY | O_CLOEXEC);
         if (fd == -1)
         {
-            LOG_DEBUG << errno << ": Error at target achived. Cannot read " << shard_hash_file_path;
+            LOG_ERROR << errno << ": Error at target achived. Cannot read " << shard_hash_file_path;
             return;
         }
 

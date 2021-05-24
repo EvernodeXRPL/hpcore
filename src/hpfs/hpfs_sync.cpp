@@ -114,6 +114,9 @@ namespace hpfs
             perform_request_submissions();
         }
 
+        if (rw_session_active)
+            fs_mount->release_rw_session();
+
         LOG_INFO << "Hpfs " << name << " sync: Worker stopped.";
     }
 
@@ -123,45 +126,55 @@ namespace hpfs
      */
     int hpfs_sync::check_incoming_targets()
     {
-        // Keep track of whether we already had any ongoing targets.
-        const bool already_had_targets = !ongoing_targets.empty();
-
-        std::unique_lock lock(incoming_targets_mutex);
-        for (const sync_item &target : incoming_targets)
         {
-            // If we have an ongoing target with the same vpath but having a different hash, we need to destroy
-            // that target and insert the updated one.
-
-            const auto ex_target = std::find_if(ongoing_targets.begin(), ongoing_targets.end(),
-                                                [&](sync_item &t) { return t.vpath == target.vpath; });
-            if (ex_target == ongoing_targets.end())
+            std::unique_lock lock(incoming_targets_mutex);
+            for (const sync_item &target : incoming_targets)
             {
-                ongoing_targets.push_back(target);
-                pending_requests.emplace(target); // Places the root request for this target according to priority sorting.
+                // If we have an ongoing target with the same vpath but having a different hash, we need to destroy
+                // that target and insert the updated one.
 
-                LOG_INFO << "Hpfs " << name << " sync: Target added. Hash:" << target.expected_hash << " " << target.vpath;
+                const auto ex_target = std::find_if(ongoing_targets.begin(), ongoing_targets.end(),
+                                                    [&](sync_item &t) { return t.vpath == target.vpath; });
+                if (ex_target == ongoing_targets.end())
+                {
+                    ongoing_targets.push_back(target);
+                    pending_requests.emplace(target); // Places the root request for this target according to priority sorting.
+
+                    LOG_INFO << "Hpfs " << name << " sync: Target added. Hash:" << target.expected_hash << " " << target.vpath;
+                }
+                else if (ex_target->expected_hash != target.expected_hash)
+                {
+                    // Existing target's expected hash is obsolete now. Therefore clear all ongoing activity for the obsolete target.
+                    clear_target(ex_target);
+
+                    ongoing_targets.push_back(target); // Insert the new one to replace the obsolete target.
+                    pending_requests.emplace(target);  // Places the root request for this target according to 'sync_item' priority sorting.
+
+                    LOG_INFO << "Hpfs " << name << " sync: Target updated. New hash:" << target.expected_hash << " " << target.vpath;
+                }
             }
-            else if (ex_target->expected_hash != target.expected_hash)
-            {
-                // Existing target's expected hash is obsolete now. Therefore clear all ongoing activity for the obsolete target.
-                clear_target(ex_target);
 
-                ongoing_targets.push_back(target); // Insert the new one to replace the obsolete target.
-                pending_requests.emplace(target);  // Places the root request for this target according to 'sync_item' priority sorting.
-
-                LOG_INFO << "Hpfs " << name << " sync: Target updated. New hash:" << target.expected_hash << " " << target.vpath;
-            }
+            incoming_targets.clear();
         }
 
-        incoming_targets.clear();
-
-        // Acquire hpfs rw session if we are just having some targets from being an idle state.
-        // We should be careful to maintain only one acquisitiong at a time and release it only once.
-        // It will be released when all targets are compelte or getting abandoned.
-        if (!already_had_targets && !ongoing_targets.empty() && fs_mount->acquire_rw_session() == -1)
+        // Acquire/release hpfs rw session as needed.
+        if (!rw_session_active && !ongoing_targets.empty())
         {
-            LOG_ERROR << "Hpfs " << name << " sync: Failed to start hpfs rw session";
-            return -1;
+            if (fs_mount->acquire_rw_session() == -1)
+            {
+                LOG_ERROR << "Hpfs " << name << " sync: Failed to start hpfs rw session";
+                return -1;
+            }
+            rw_session_active = true;
+        }
+        else if (rw_session_active && ongoing_targets.empty())
+        {
+            if (fs_mount->release_rw_session() == -1)
+            {
+                LOG_ERROR << "Hpfs " << name << " sync: Failed to release hpfs rw session";
+                return -1;
+            }
+            rw_session_active = false;
         }
 
         return 0;
@@ -230,7 +243,6 @@ namespace hpfs
                     update_sync_status();
                     LOG_INFO << "Hpfs " << name << " sync: All targets abandoned due to resubmission threshold.";
 
-                    fs_mount->release_rw_session(); // Release hpfs rw session because all targets are abandoned.
                     on_sync_abandoned();
                 }
                 else
@@ -405,12 +417,8 @@ namespace hpfs
                         fs_mount->release_rw_session();
                         util::sleep(HPFS_REAQUIRE_WAIT);
                         fs_mount->acquire_rw_session();
-                        
-                        on_sync_target_acheived(target_vpath, target_hash);
 
-                        // Release the rw session if there are no more ongoing targets.
-                        if (ongoing_targets.empty())
-                            fs_mount->release_rw_session();
+                        on_sync_target_acheived(target_vpath, target_hash);
                     }
 
                     LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
