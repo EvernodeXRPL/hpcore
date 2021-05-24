@@ -400,13 +400,15 @@ namespace hpfs
                         update_sync_status();
                         LOG_INFO << "Hpfs " << name << " sync: Achieved target:" << target_hash << " " << target_vpath;
 
-                        // When target achieved, release the hpfs rw session. This helps any upcoming ro sessions to get updated file system state.
+                        // When target achieved, release and reacquire the hpfs rw session. This helps any upcoming
+                        // ro sessions to get updated file system state.
                         fs_mount->release_rw_session();
+                        fs_mount->acquire_rw_session();
                         on_sync_target_acheived(target_vpath, target_hash);
 
-                        // Reacquire the rw session if there are more ongoing targets.
-                        if (!ongoing_targets.empty())
-                            fs_mount->acquire_rw_session();
+                        // Release the rw session if there are no more ongoing targets.
+                        if (ongoing_targets.empty())
+                            fs_mount->release_rw_session();
                     }
 
                     LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
