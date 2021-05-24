@@ -124,7 +124,7 @@ namespace hpfs
     int hpfs_sync::check_incoming_targets()
     {
         // Keep track of whether we already had any ongoing targets.
-        const size_t already_had_targets = ongoing_targets.empty();
+        const bool already_had_targets = !ongoing_targets.empty();
 
         std::unique_lock lock(incoming_targets_mutex);
         for (const sync_item &target : incoming_targets)
