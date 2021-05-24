@@ -144,32 +144,7 @@ namespace hpfs
             else if (ex_target->expected_hash != target.expected_hash)
             {
                 // Existing target's expected hash is obsolete now. Therefore clear all ongoing activity for the obsolete target.
-
-                // Clear pending requests under the obsolete target.
-                {
-                    auto itr = pending_requests.begin();
-                    while (itr != pending_requests.end())
-                    {
-                        if (itr->vpath.rfind(ex_target->vpath, 0) == 0) // If the request is a sub path of the target's vpath.
-                            pending_requests.erase(itr++);
-                        else
-                            ++itr;
-                    }
-                }
-
-                // Clear submitted requests under the obsolete target.
-                {
-                    auto itr = submitted_requests.begin();
-                    while (itr != submitted_requests.end())
-                    {
-                        if (itr->second.vpath.rfind(ex_target->vpath, 0) == 0) // If the request is a sub path of the target's vpath.
-                            submitted_requests.erase(itr++);
-                        else
-                            ++itr;
-                    }
-                }
-
-                ongoing_targets.erase(ex_target); // Clear the obsolete target.
+                clear_target(ex_target);
 
                 ongoing_targets.push_back(target); // Insert the new one to replace the obsolete target.
                 pending_requests.emplace(target);  // Places the root request for this target according to 'sync_item' priority sorting.
@@ -190,6 +165,39 @@ namespace hpfs
         }
 
         return 0;
+    }
+
+    /**
+     * Clears the specified ongoing target and its associated requests.
+     * @param target_itr Iterator in the ongoing targets to be erased.
+     */
+    void hpfs_sync::clear_target(const std::vector<hpfs::sync_item>::iterator &target_itr)
+    {
+        // Clear pending requests under the obsolete target.
+        {
+            auto itr = pending_requests.begin();
+            while (itr != pending_requests.end())
+            {
+                if (itr->vpath.rfind(target_itr->vpath, 0) == 0) // If the request is a sub path of the target's vpath.
+                    pending_requests.erase(itr++);
+                else
+                    ++itr;
+            }
+        }
+
+        // Clear submitted requests under the obsolete target.
+        {
+            auto itr = submitted_requests.begin();
+            while (itr != submitted_requests.end())
+            {
+                if (itr->second.vpath.rfind(target_itr->vpath, 0) == 0) // If the request is a sub path of the target's vpath.
+                    submitted_requests.erase(itr++);
+                else
+                    ++itr;
+            }
+        }
+
+        ongoing_targets.erase(target_itr); // Clear the obsolete target.
     }
 
     /**
@@ -388,7 +396,7 @@ namespace hpfs
                     // This target's sync is complete.
                     if (updated_hash == target_hash)
                     {
-                        ongoing_targets.erase(target_itr); // Remove the completed target from the ongoing targets list.
+                        clear_target(target_itr); // Clear the completed target.
                         update_sync_status();
                         LOG_INFO << "Hpfs " << name << " sync: Achieved target:" << target_hash << " " << target_vpath;
 

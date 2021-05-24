@@ -92,6 +92,8 @@ namespace hpfs
 
         int check_incoming_targets();
 
+        void clear_target(const std::vector<hpfs::sync_item>::iterator &ex_target);
+
         void perform_request_submissions();
 
         void update_sync_status();
