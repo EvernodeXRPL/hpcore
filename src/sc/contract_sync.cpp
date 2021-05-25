@@ -8,9 +8,9 @@
 namespace sc
 {
 
-    void contract_sync::on_sync_target_acheived(const hpfs::sync_target &synced_target)
+    void contract_sync::on_sync_target_acheived(const std::string &vpath, const util::h32 &hash)
     {
-        if (synced_target.vpath == PATCH_FILE_PATH)
+        if (vpath == PATCH_FILE_PATH)
         {
             // Appling new patch file changes to hpcore runtime.
             if (conf::apply_patch_config(hpfs::RW_SESSION_NAME) == -1)
@@ -23,7 +23,7 @@ namespace sc
                 consensus::refresh_time_config(false);
 
                 // Update global hash tracker with the new patch file hash.
-                fs_mount->set_parent_hash(synced_target.vpath, synced_target.hash);
+                fs_mount->set_parent_hash(vpath, hash);
             }
         }
     }

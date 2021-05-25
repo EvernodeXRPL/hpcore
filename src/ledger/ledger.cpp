@@ -615,7 +615,7 @@ namespace ledger
             const int fd = open(prev_shard_hash_file_path.c_str(), O_RDONLY | O_CLOEXEC);
             if (fd == -1)
             {
-                LOG_DEBUG << "Cannot read " << prev_shard_hash_file_path;
+                LOG_ERROR << errno << ": Error reading prev.shard file " << prev_shard_hash_file_path;
                 return;
             }
 
@@ -630,7 +630,7 @@ namespace ledger
             }
 
             const std::string shard_path = std::string(shard_parent_dir).append("/").append(std::to_string(seq_no));
-            ledger_sync_worker.set_target_push_back(hpfs::sync_target{prev_shard_hash_from_file, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+            ledger_sync_worker.set_target(true, shard_path, prev_shard_hash_from_file);
         }
     }
 

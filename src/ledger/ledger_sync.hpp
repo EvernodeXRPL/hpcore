@@ -12,8 +12,8 @@ namespace ledger
     {
     private:
         void swap_collected_responses();
-        void on_sync_target_acheived(const hpfs::sync_target &synced_target);
-        void on_sync_target_abandoned();
+        void on_sync_target_acheived(const std::string &vpath, const util::h32 &hash);
+        void on_sync_abandoned();
 
     public:
         std::atomic<bool> is_last_primary_shard_syncing = false;

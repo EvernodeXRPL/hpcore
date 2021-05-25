@@ -106,9 +106,6 @@ namespace consensus
         // arived ones and expired ones.
         revise_candidate_proposals();
 
-        // If possible, switch back to validator mode before stage processing. (if we were syncing before)
-        check_sync_completion();
-
         // Get current lcl, state, patch, primary shard and raw shard info.
         p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
@@ -142,9 +139,9 @@ namespace consensus
 
             const size_t unl_count = unl::count();
             vote_counter votes;
-            const int sync_status = check_sync_status(unl_count, votes, lcl_id);
+            ctx.sync_status = check_sync_status(unl_count, votes, lcl_id);
 
-            if (sync_status == -2) // Unreliable votes.
+            if (ctx.sync_status == -2) // Unreliable votes.
             {
                 ctx.unreliable_votes_attempts++;
                 if (ctx.unreliable_votes_attempts >= MAX_UNRELIABLE_VOTES_ATTEMPTS)
@@ -158,7 +155,7 @@ namespace consensus
                 ctx.unreliable_votes_attempts = 0;
             }
 
-            if (sync_status == 0)
+            if (ctx.sync_status == 0)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
                 const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
@@ -180,12 +177,9 @@ namespace consensus
                 }
             }
 
-            // We have finished a consensus stage. Transition or reset stage based on sync status.
-
-            if (sync_status == -2)
-                ctx.stage = 0; // Majority last primary shard unreliable. Reset to stage 0.
-            else
-                ctx.stage = (ctx.stage + 1) % 4; // Transition to next stage. (if at stage 3 go to next round stage 0)
+            // We have finished a consensus stage.
+            // Transition to next stage. (if at stage 3 go to next round stage 0)
+            ctx.stage = (ctx.stage + 1) % 4;
         }
 
         return 0;
@@ -228,7 +222,7 @@ namespace consensus
 
     /**
      * Checks whether we are in sync with the received votes.
-     * @return 0 if we are in sync. -1 on ledger or hpfs desync. -2 if majority last ledger primary shard hash unreliable.
+     * @return 0 if we are in sync. -1 on ledger or contract state desync. -2 if majority last ledger primary shard hash unreliable.
      */
     int check_sync_status(const size_t unl_count, vote_counter &votes, const p2p::sequence_hash &lcl_id)
     {
@@ -240,13 +234,11 @@ namespace consensus
             // Last primary shard hash sync is commenced if we are out-of-sync with majority last primary shard hash.
             if (is_last_primary_shard_desync)
             {
-                conf::change_role(conf::ROLE::OBSERVER);
-
                 // We first request the latest shard.
                 const std::string majority_shard_seq_no_str = std::to_string(majority_primary_shard_id.seq_no);
                 const std::string shard_path = std::string(ledger::PRIMARY_DIR).append("/").append(majority_shard_seq_no_str);
                 ledger::ledger_sync_worker.is_last_primary_shard_syncing = true;
-                ledger::ledger_sync_worker.set_target_push_front(hpfs::sync_target{majority_primary_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                ledger::ledger_sync_worker.set_target(true, shard_path, majority_primary_shard_id.hash, true);
             }
 
             // Check out raw shard hash with majority raw shard hash.
@@ -270,8 +262,6 @@ namespace consensus
             // Start hpfs sync if we are out-of-sync with majority hpfs patch hash or state hash.
             if (is_state_desync || is_patch_desync)
             {
-                conf::change_role(conf::ROLE::OBSERVER);
-
                 if (conf::cfg.node.history == conf::HISTORY::FULL)
                 {
                     // If state or patch is desync set target for the hpfs log sync with the next lcl seq_no.
@@ -284,21 +274,20 @@ namespace consensus
                 {
                     // Patch file sync is prioritized, Therefore it is set in the front of the sync target list.
                     if (is_patch_desync)
-                        sc::contract_sync_worker.set_target_push_front(hpfs::sync_target{majority_patch_hash, sc::PATCH_FILE_PATH, hpfs::BACKLOG_ITEM_TYPE::FILE});
+                        sc::contract_sync_worker.set_target(false, sc::PATCH_FILE_PATH, majority_patch_hash, true);
 
                     if (is_state_desync)
-                        sc::contract_sync_worker.set_target_push_back(hpfs::sync_target{majority_state_hash, sc::STATE_DIR_PATH, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                        sc::contract_sync_worker.set_target(true, sc::STATE_DIR_PATH, majority_state_hash);
                 }
             }
 
             // If ledger raw shard is desync, We first request the latest raw shard.
             if (is_last_raw_shard_desync)
             {
-                conf::change_role(conf::ROLE::OBSERVER);
                 const std::string majority_shard_seq_no_str = std::to_string(majority_raw_shard_id.seq_no);
                 const std::string shard_path = std::string(ledger::RAW_DIR).append("/").append(majority_shard_seq_no_str);
                 ledger::ledger_sync_worker.is_last_raw_shard_syncing = true;
-                ledger::ledger_sync_worker.set_target_push_back(hpfs::sync_target{majority_raw_shard_id.hash, shard_path, hpfs::BACKLOG_ITEM_TYPE::DIR});
+                ledger::ledger_sync_worker.set_target(true, shard_path, majority_raw_shard_id.hash);
             }
 
             // If shards aren't aligned with max shard count, do the relevant shard cleanups and requests.
@@ -317,7 +306,6 @@ namespace consensus
             // Proceed further only if last primary shard, last raw shard, state and patch hashes are in sync with majority.
             if (!is_last_primary_shard_desync && !is_last_raw_shard_desync && !is_state_desync && !is_patch_desync)
             {
-                conf::change_role(conf::ROLE::VALIDATOR);
                 return 0;
             }
 
@@ -327,19 +315,6 @@ namespace consensus
 
         // Majority last primary shard hash couldn't be detected reliably.
         return -2;
-    }
-
-    /**
-     * Checks whether we can switch back from currently ongoing observer-mode sync operation
-     * that has been completed.
-     */
-    void check_sync_completion()
-    {
-        const bool is_contract_syncing = (conf::cfg.node.history == conf::HISTORY::FULL) ? sc::hpfs_log_sync::sync_ctx.is_syncing : sc::contract_sync_worker.is_syncing;
-        // In ledger sync we only concern about last shard sync status to proceed with consensus.
-        const bool is_ledger_syncing = ledger::ledger_sync_worker.is_last_primary_shard_syncing || ledger::ledger_sync_worker.is_last_raw_shard_syncing;
-        if (conf::cfg.node.role == conf::ROLE::OBSERVER && !is_contract_syncing && !is_ledger_syncing)
-            conf::change_role(conf::ROLE::VALIDATOR);
     }
 
     /**
@@ -394,8 +369,9 @@ namespace consensus
             {
                 const p2p::proposal &cp = itr->second;
 
-                // Only consider this round's proposals which are from current or previous stage.
-                const bool stage_valid = ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1;
+                // If we are in sync, only consider this round's proposals which are from current or previous stage.
+                // Otherwise consider all proposals as long as they are from the same round.
+                const bool stage_valid = ctx.sync_status == 0 ? (ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1) : true;
                 const bool keep_candidate = (ctx.round_start_time == cp.time) && stage_valid;
                 LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                           << " [s" << std::to_string(cp.stage)
@@ -880,7 +856,7 @@ namespace consensus
             }
         }
 
-        // time is voted on a simple sorted (highest to lowest) and majority basis.
+        // time is voted on majority basis.
         uint32_t highest_time_vote = 0;
         for (const auto &[time, numvotes] : votes.time)
         {

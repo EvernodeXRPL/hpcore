@@ -162,7 +162,10 @@ namespace util
 
             // Create this dir.
             if (!error_thrown && mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
+            {
+                LOG_ERROR << errno << ": Error in recursive dir creation. " << path;
                 error_thrown = true;
+            }
 
             if (error_thrown)
                 return -1;

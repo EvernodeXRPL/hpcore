@@ -111,6 +111,7 @@ namespace consensus
         uint32_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
         uint64_t round_boundry_offset = 0;       // Time window boundry offset based on contract id.
         uint16_t unreliable_votes_attempts = 0;  // No. of times we failed to get reliable votes continously.
+        int sync_status = 0;                     // Current sync status.
 
         std::optional<sc::execution_context> contract_ctx;
         std::mutex contract_ctx_mutex;
@@ -152,8 +153,6 @@ namespace consensus
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash);
 
     int check_sync_status(const size_t unl_count, vote_counter &votes, const p2p::sequence_hash &lcl_id);
-
-    void check_sync_completion();
 
     void revise_candidate_proposals();
 
