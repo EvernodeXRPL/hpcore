@@ -39,8 +39,8 @@ function apicall() {
     fi
     
     local _parts
-    readarray -t _parts <<<"$_result"
-    if [ "${_parts[1]}" == "200" ]; then
+    readarray -t _parts <<<"$_result" # break parts by new line.
+    if [[ ${_parts[1]} == 2* ]]; then # Check for 2xx status code.
         echo ${_parts[0]}
     else
         >&2 echo "Error on $1 $url code:${_parts[1]} body:${_parts[0]}"
@@ -54,8 +54,14 @@ function apiget() {
         apicall GET "$1/$2"
     fi
 }
+function apigetquery() {
+    apicall GET $1?$2
+}
 function apipost() {
     apicall POST $1 "$2"
+}
+function apidelete() {
+    apicall DELETE "$1/$2"
 }
 
 # Vultr specific api calls.
@@ -91,6 +97,31 @@ function createvm() {
     done
     echo $_vmip
 }
+function deletevm() {
+    echo "Deleting vm "$1
+    apidelete "instances" $1
+}
+function getgroupids() {
+    [ -z "$1" ] && >&2 echo "getgroupids: Group name not specified." && exit 1
+    local _list=$(apigetquery "instances" "tag=$1")
+    [ -z "$_list" ] && exit 1
+    local _ids=$(echo $_list | jq -r ".instances | .[] | .id")
+    echo $_ids
+}
+function deletegroup() {
+    echo "Deleting all vms in group '"$1"'..."
+    local _ids=$(getgroupids "$1")
+    [ -z "$_ids" ] && exit 1
+    local _arr
+    readarray -d " " -t _arr <<<"$_ids" # break parts by space character.
+    echo ${#_arr[@]}" vms found to delete..."
+    for id in "${_arr[@]}"
+    do
+        deletevm $id &
+    done
+    wait
+    echo "Delete complete."
+}
 
-vmip=$(createvm "test" "testvm1" "atl")
-#echo $vmip
+# vmip=$(createvm "test" "testvm2" "atl")
+# deletegroup "test"
