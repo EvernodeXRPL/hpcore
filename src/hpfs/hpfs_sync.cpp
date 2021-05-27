@@ -765,7 +765,7 @@ namespace hpfs
                 }
             }
 
-            LOG_ERROR << errno << "," << ENOENT << ": Error in stat when applying file/dir mode. " << physical_path;
+            LOG_ERROR << errno << ": Error in stat when applying file/dir mode. " << physical_path;
             return -1;
         }
 
