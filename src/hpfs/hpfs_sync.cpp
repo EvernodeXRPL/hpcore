@@ -91,9 +91,14 @@ namespace hpfs
             if (!prev_responses_processed)
                 util::sleep(IDLE_WAIT);
 
+            prev_responses_processed = false;
+
             // Check whether we have any new/changed targets.
             if (check_incoming_targets() == -1)
+            {
+                LOG_INFO << "Hpfs " << name << " sync: Sopping worker due to error in target check.";
                 break;
+            }
 
             // Move the received hpfs responses to the local response list.
             swap_collected_responses();
